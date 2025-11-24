@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 /// @title SoothZKVerifierStub - placeholder zk proof verifier for Sooth
+/// @notice This is a stub for architecture/testing. Integrate a real zk verifier before production.
 contract SoothZKVerifierStub {
     event ProofVerified(address indexed market, bytes proofData, bool valid);
 

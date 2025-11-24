@@ -7,7 +7,7 @@ interface ISoothMarket {
     function resolve(uint8 winningOutcome, uint256 eventTimestamp) external;
 }
 
-/// @title SoothAdjudicatorManager - manages adjudicator configs and resolution calls
+/// @title SoothAdjudicatorManager - manages adjudicator configs and resolution routing
 contract SoothAdjudicatorManager is OwnableUpgradeable {
     struct AdjudicatorInfo {
         address adjudicatorContract;
@@ -22,7 +22,7 @@ contract SoothAdjudicatorManager is OwnableUpgradeable {
     event GuardianSet(address indexed guardian);
 
     modifier onlyGuardianOrOwner() {
-        require(msg.sender == guardian || msg.sender == owner(), "SoothAdj: not auth");
+        require(msg.sender == guardian || msg.sender == owner(), "not auth");
         _;
     }
 
@@ -41,13 +41,11 @@ contract SoothAdjudicatorManager is OwnableUpgradeable {
         external
         onlyGuardianOrOwner
     {
-        adjudicators[id] = AdjudicatorInfo({
-            adjudicatorContract: contractAddr,
-            isActive: true
-        });
+        adjudicators[id] = AdjudicatorInfo({adjudicatorContract: contractAddr, isActive: true});
         emit AdjudicatorRegistered(id, contractAddr);
     }
 
+    /// @notice Called by adjudicator contract or guardian to finalize a market
     function finalizeMarket(
         bytes32 adjudicatorId,
         address market,
@@ -55,15 +53,16 @@ contract SoothAdjudicatorManager is OwnableUpgradeable {
         uint256 eventTimestamp
     ) external {
         AdjudicatorInfo memory info = adjudicators[adjudicatorId];
-        require(info.isActive, "SoothAdj: inactive");
+        require(info.isActive, "inactive");
         require(
             msg.sender == info.adjudicatorContract || msg.sender == guardian,
-            "SoothAdj: unauthorized"
+            "unauthorized"
         );
         ISoothMarket(market).resolve(winningOutcome, eventTimestamp);
         emit MarketResolved(market, winningOutcome, eventTimestamp);
     }
 
+    /// @notice Guardian-only override
     function guardianResolve(
         address market,
         uint8 winningOutcome,

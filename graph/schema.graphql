@@ -1,0 +1,8 @@
+type Market @entity {
+  id: ID!
+  adjudicatorId: Bytes!
+  eventId: Bytes!
+  isResolved: Boolean!
+  winningOutcome: Int
+  resolutionTime: BigInt
+}

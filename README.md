@@ -1,15 +1,33 @@
-# Sooth Protocol (Upgradeable, Balanced Skeleton)
+# Sooth Protocol - Fullstack Skeleton v2 (Upgradeable + Foundry + Hardhat)
 
-This repo contains an upgradeable skeleton of the Sooth protocol contracts:
+This repo includes:
 
-- `SoothVault` — singleton collateral & LP vault (upgradeable).
-- `SoothMarket` — binary prediction market using a simplified LMSR-like vAMM.
-- `SoothLMSR` — **placeholder** LMSR math (approximate, not production ready).
-- `SoothAdjudicatorManager` — adjudicator registry and resolution routing.
-- `SoothSettlementMerkle` + `SoothZKVerifierStub` — Merkle-based ZK settlement stub.
-- `SoothMarketFactory` — market deployment factory.
+- Upgradeable core contracts:
+  - `SoothVault` — singleton collateral & LP vault with per-adjudicator pools.
+  - `SoothMarket` — binary prediction market with a simplified LMSR-like vAMM.
+  - `SoothAdjudicatorManager` — adjudicator registry and resolution routing (guardian + adapters).
+  - `SoothMarketFactory` — deploys and wires markets into the vault & adjudicator manager.
 
-> **Important:** The LMSR math and ZK verification are intentionally simplified for testing and architecture exploration.  
-> Replace these parts with production-grade implementations and run full audits before deploying to mainnet.
+- Settlement layer:
+  - `SoothSettlementMerkle` + `SoothZKVerifierStub` — Merkle-based settlement with a stubbed zk verifier.
 
-This layout is compatible with both **Hardhat** and **Foundry**.
+- Math:
+  - `SoothLMSR` — **simplified, non-production** LMSR-like pricing.
+    - This is suitable for architecture & testnet experiments.
+    - Replace it with a real fixed-point LMSR (e.g. using PRBMath) before mainnet.
+
+- Tooling:
+  - Hardhat config (`hardhat.config.ts`).
+  - Foundry config (`foundry.toml`) and a basic test (`test/SoothMarket.t.sol`).
+  - Minimal Next.js frontend stub (`frontend/`).
+  - Basic subgraph schema (`graph/schema.graphql`).
+
+## Warning
+
+This is **not** a production-ready protocol:
+
+- LMSR math is approximate.
+- The zk verifier is a stub.
+- No slashing, governance, or full oracle integrations are wired here.
+
+Use this as a starting point to iterate toward the full Sooth design we discussed.

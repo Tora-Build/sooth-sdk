@@ -8,12 +8,14 @@ import "../core/SoothVault.sol";
 /// @title SoothMarketFactory - deploys SoothMarket instances
 contract SoothMarketFactory is OwnableUpgradeable {
     SoothVault public vault;
+    address public adjudicatorManager;
 
     event MarketCreated(address indexed market, bytes32 indexed adjudicatorId, bytes32 indexed eventId, uint256 b);
 
-    function initialize(address _vault) external initializer {
+    function initialize(address _vault, address _adjMgr) external initializer {
         __Ownable_init();
         vault = SoothVault(_vault);
+        adjudicatorManager = _adjMgr;
     }
 
     function createMarket(
@@ -22,7 +24,7 @@ contract SoothMarketFactory is OwnableUpgradeable {
         uint256 b
     ) external onlyOwner returns (address) {
         SoothMarket m = new SoothMarket();
-        m.initialize(address(vault), adjudicatorId, eventId, b);
+        m.initialize(address(vault), adjudicatorManager, adjudicatorId, eventId, b);
         vault.setAuthorized(address(m), true);
         emit MarketCreated(address(m), adjudicatorId, eventId, b);
         return address(m);
