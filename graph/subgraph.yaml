@@ -1,0 +1,28 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: SoothMarketFactory
+    network: mainnet
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: SoothMarketFactory
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Market
+      abis:
+        - name: SoothMarketFactory
+          file: ./abis/SoothMarketFactory.json
+        - name: SoothMarket
+          file: ./abis/SoothMarket.json
+      eventHandlers:
+        - event: MarketCreated(address,bytes32,bytes32,uint256)
+          handler: handleMarketCreated
+        - event: Resolved(uint8,uint256)
+          handler: handleResolved
+      file: ./src/mapping.ts

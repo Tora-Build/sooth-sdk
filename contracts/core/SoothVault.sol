@@ -92,7 +92,6 @@ contract SoothVault is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function withdrawUser(uint256 amount) external nonReentrant {
         require(amount > 0, "SoothVault: zero amount");
         require(userBalances[msg.sender] >= amount, "SoothVault: balance too low");
-        // cooldown hook could be enforced here
         userBalances[msg.sender] -= amount;
         require(collateral.transfer(msg.sender, amount), "SoothVault: transfer failed");
         emit UserWithdrew(msg.sender, amount);

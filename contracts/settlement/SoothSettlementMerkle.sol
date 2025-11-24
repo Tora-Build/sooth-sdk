@@ -33,6 +33,7 @@ contract SoothSettlementMerkle is Initializable {
         bytes32 pnlRoot,
         bytes calldata proofData
     ) external {
+        adjudicatorId; // reserved for future per-class logic
         SettlementInfo storage info = settlements[market];
         require(!info.proven, "SoothSettle: already proven");
         bool ok = verifier.verifySettlement(market, proofData);
@@ -50,6 +51,7 @@ contract SoothSettlementMerkle is Initializable {
         int256 pnl,
         bytes32[] calldata merkleProof
     ) external {
+        adjudicatorId; // reserved
         SettlementInfo memory info = settlements[market];
         require(info.proven, "SoothSettle: not settled");
         require(!claimed[market][msg.sender], "SoothSettle: claimed");
@@ -60,9 +62,9 @@ contract SoothSettlementMerkle is Initializable {
         require(MerkleProof.verify(merkleProof, info.pnlRoot, leaf), "SoothSettle: bad proof");
 
         if (pnl > 0) {
-            vault.lpToUser(msg.sender, adjudicatorId, uint256(pnl));
+            vault.lpToUser(msg.sender, 0x0, uint256(pnl));
         } else if (pnl < 0) {
-            vault.userToLP(msg.sender, adjudicatorId, uint256(-pnl));
+            vault.userToLP(msg.sender, 0x0, uint256(-pnl));
         }
 
         emit Claimed(market, msg.sender, pnl);
