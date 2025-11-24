@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../stubs/OwnableUpgradeable.sol";
 
 interface ISoothMarket {
     function resolve(uint8 winningOutcome, uint256 eventTimestamp) external;
 }
 
-/// @title SoothAdjudicatorManager - manages adjudicator configs and resolution routing
 contract SoothAdjudicatorManager is OwnableUpgradeable {
     struct AdjudicatorInfo {
         address adjudicatorContract;
@@ -45,7 +44,6 @@ contract SoothAdjudicatorManager is OwnableUpgradeable {
         emit AdjudicatorRegistered(id, contractAddr);
     }
 
-    /// @notice Called by adjudicator contract or guardian to finalize a market
     function finalizeMarket(
         bytes32 adjudicatorId,
         address market,
@@ -62,7 +60,6 @@ contract SoothAdjudicatorManager is OwnableUpgradeable {
         emit MarketResolved(market, winningOutcome, eventTimestamp);
     }
 
-    /// @notice Guardian-only override
     function guardianResolve(
         address market,
         uint8 winningOutcome,

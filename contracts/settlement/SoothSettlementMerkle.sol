@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "../stubs/Initializable.sol";
+import "../stubs/MerkleProof.sol";
 import "../core/SoothVault.sol";
 import "./SoothZKVerifierStub.sol";
 
-/// @title SoothSettlementMerkle - Merkle-based settlement for Sooth
 contract SoothSettlementMerkle is Initializable {
+    using MerkleProof for bytes32[];
+
     SoothVault public vault;
     SoothZKVerifierStub public verifier;
 
@@ -33,7 +34,7 @@ contract SoothSettlementMerkle is Initializable {
         bytes32 pnlRoot,
         bytes calldata proofData
     ) external {
-        adjudicatorId; // reserved for future per-class logic
+        adjudicatorId; // reserved
         SettlementInfo storage info = settlements[market];
         require(!info.proven, "SoothSettle: already proven");
         bool ok = verifier.verifySettlement(market, proofData);

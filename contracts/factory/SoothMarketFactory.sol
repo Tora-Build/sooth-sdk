@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../stubs/OwnableUpgradeable.sol";
 import "../core/SoothMarket.sol";
 import "../core/SoothVault.sol";
 
-/// @title SoothMarketFactory - deploys SoothMarket instances
 contract SoothMarketFactory is OwnableUpgradeable {
     SoothVault public vault;
     address public adjudicatorManager;

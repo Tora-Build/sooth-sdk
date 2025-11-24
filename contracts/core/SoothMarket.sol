@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../stubs/Initializable.sol";
 import "./SoothVault.sol";
 import "./SoothLMSR.sol";
 
-/// @title SoothMarket - upgradeable binary prediction market using simplified vAMM
 contract SoothMarket is Initializable {
     using SoothLMSR for SoothLMSR.State;
 
@@ -114,7 +113,6 @@ contract SoothMarket is Initializable {
         emit Trade(msg.sender, outcomeIndex, shares, payout, false);
     }
 
-    /// @notice Called only by adjudicator manager to finalize the market
     function resolve(uint8 _winningOutcome, uint256 _eventTimestamp) external onlyAdjManager {
         require(!isResolved, "SoothMarket: already resolved");
         require(_winningOutcome < 2, "SoothMarket: bad outcome");
@@ -124,7 +122,6 @@ contract SoothMarket is Initializable {
         emit Resolved(_winningOutcome, _eventTimestamp);
     }
 
-    /// @notice Current price of an outcome (0 or 1), 1e18 scale
     function price(uint8 outcomeIndex) external view returns (uint256) {
         require(outcomeIndex < 2, "SoothMarket: bad outcome");
         (uint256 p0, uint256 p1) = ammState.prices();

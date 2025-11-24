@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "../core/SoothAdjudicatorManager.sol";
 
-/// @title SoothAdjudicatorAttestation - attestation-based adjudicator
 contract SoothAdjudicatorAttestation {
     SoothAdjudicatorManager public manager;
     bytes32 public adjudicatorId;

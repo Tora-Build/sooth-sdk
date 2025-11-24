@@ -1,49 +1,28 @@
-# Sooth Protocol - Fullstack Skeleton v3 (Upgradeable + Tests + Frontend + Subgraph)
+# Sooth Protocol - Fullstack Skeleton v5 (No OpenZeppelin Dependency)
 
-This repo includes:
+This version removes all OpenZeppelin imports for Foundry by providing local stubs:
 
-- **Upgradeable core contracts**
-  - `SoothVault` — singleton collateral & LP vault with per-adjudicator pools and LP balances.
-  - `SoothMarket` — binary prediction market with simplified LMSR-like vAMM.
-  - `SoothAdjudicatorManager` — adjudicator registry and resolution routing (guardian + adapters).
-  - `SoothMarketFactory` — deploys and wires markets into the vault & adjudicator manager.
-  - `SoothSmartAccount` — optional per-user smart account wrapper with cooldown helper.
+- `contracts/stubs/Initializable.sol`
+- `contracts/stubs/OwnableUpgradeable.sol`
+- `contracts/stubs/ReentrancyGuardUpgradeable.sol`
+- `contracts/stubs/IERC20Upgradeable.sol`
+- `contracts/stubs/MerkleProof.sol`
 
-- **Adjudicator adapters (stubs)**
-  - `SoothAdjudicatorUMA` — UMA-style adapter.
-  - `SoothAdjudicatorRealityETH` — Reality.eth-style adapter.
-  - `SoothAdjudicatorChainlink` — Chainlink + off-chain rule adapter.
-  - `SoothAdjudicatorAttestation` — attestation-based adjudicator.
+Core contracts:
 
-- **Settlement layer**
-  - `SoothSettlementMerkle` + `SoothZKVerifierStub` — Merkle-based settlement with a stubbed zk verifier.
+- `SoothVault` (singleton vault)
+- `SoothMarket` (binary vAMM market using simplified LMSR)
+- `SoothAdjudicatorManager` + adjudicator adapters (UMA, Reality, Chainlink, Attestation)
+- `SoothMarketFactory`
+- `SoothSmartAccount`
+- Settlement: `SoothSettlementMerkle` + `SoothZKVerifierStub`
 
-- **Math**
-  - `SoothLMSR` — **simplified, non-production** LMSR-like pricing used by `SoothMarket` for now.
-  - `SoothLMSRReal` — interface skeleton for a PRBMath-based, production-grade LMSR (not implemented yet).
+Testing:
 
-- **Tooling**
-  - Hardhat config (`hardhat.config.ts`) + deployment script (`scripts/deploy-sooth.ts`).
-  - Foundry config (`foundry.toml`) and tests:
-    - `test/SoothMarket.t.sol` — basic buy/sell lifecycle test.
-    - `test/SoothSettlement.t.sol` — basic settlement/claim flow test.
+```bash
+forge install foundry-rs/forge-std --no-commit
+forge clean
+forge test
+```
 
-- **Frontend**
-  - Minimal Next.js app under `frontend/` with:
-    - A simple page that connects a wallet and reads `price(0)` from a configured `SoothMarket`.
-
-- **Subgraph**
-  - Basic schema and mappings under `graph/` for:
-    - `MarketCreated` events from `SoothMarketFactory`.
-    - `Resolved` events from `SoothMarket`.
-
-## Important Warnings
-
-This is **not** a production-ready protocol:
-
-- LMSR math is simplified and approximate.
-- The `SoothLMSRReal` module is just a shell. You must integrate a real fixed-point LMSR (e.g. via PRBMathUD60x18).
-- The zk verifier is a stub.
-- Adjudicator adapters are minimal and require real oracle / UMA / Reality integration.
-
-Use this as a starting point to iterate toward the full Sooth design and then harden, test, and audit before mainnet.
+Hardhat is configured via `hardhat.config.ts` and `scripts/deploy-sooth.ts`, but uses the same contracts.

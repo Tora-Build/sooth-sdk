@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../contracts/core/SoothVault.sol";
 import "../contracts/core/SoothMarket.sol";
 
+// Minimal mock ERC20 used as collateral for the vault
 contract MockERC20 {
     string public name = "MockUSD";
     string public symbol = "mUSD";
@@ -34,6 +35,7 @@ contract MockERC20 {
         require(balanceOf[from] >= amount, "bal");
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
+        totalSupply = totalSupply; // no-op to silence warnings
     }
 
     function mint(address to, uint256 amount) external {
@@ -49,7 +51,7 @@ contract SoothMarketTest is Test {
 
     bytes32 adjId = keccak256("UMA_CLASS");
     bytes32 eventId = keccak256("EXAMPLE");
-    address adjMgr = address(0xADJEC8);
+    address adjMgr = address(0xABCD);
 
     address lp = address(0xAAA1);
     address trader = address(0xBBB2);
@@ -65,14 +67,15 @@ contract SoothMarketTest is Test {
 
         vault.setAuthorized(address(market), true);
 
+        // Seed LP
         collateral.mint(lp, 1_000_000 ether);
-        collateral.mint(trader, 10_000 ether);
-
         vm.startPrank(lp);
         collateral.approve(address(vault), type(uint256).max);
         vault.depositLP(adjId, 500_000 ether);
         vm.stopPrank();
 
+        // Fund trader
+        collateral.mint(trader, 10_000 ether);
         vm.startPrank(trader);
         collateral.approve(address(vault), type(uint256).max);
         vault.depositUser(10_000 ether);

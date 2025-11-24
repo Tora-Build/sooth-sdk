@@ -16,7 +16,6 @@ interface IAggregatorV3 {
         );
 }
 
-/// @title SoothAdjudicatorChainlink - stub Chainlink + off-chain rule adjudicator
 contract SoothAdjudicatorChainlink {
     SoothAdjudicatorManager public manager;
     bytes32 public adjudicatorId;
@@ -28,7 +27,6 @@ contract SoothAdjudicatorChainlink {
         feed = IAggregatorV3(_feed);
     }
 
-    /// @notice Example: finalize when price crosses a threshold (off-chain decides outcome).
     function finalizeFromOracle(
         address market,
         uint8 winningOutcome,
