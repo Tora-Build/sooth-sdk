@@ -13,7 +13,7 @@ contract SoothMarket is Initializable {
     bytes32 public adjudicatorId;
     bytes32 public eventId;
 
-    SoothLinearAMM.State public ammState;
+    SoothLMSR.State public ammState;
 
     bool public isResolved;
     uint8 public winningOutcome;
