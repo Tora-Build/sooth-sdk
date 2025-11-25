@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-library SoothLMSR {
+/// @title SoothLinearAMM
+/// @notice Simple 2-outcome linear quote AMM used by SoothMarket.
+///         This is a heuristic bonding curve and NOT a true LMSR implementation.
+library SoothLinearAMM {
     struct State {
         int256 q0;
         int256 q1;

@@ -6,14 +6,14 @@ import "./SoothVault.sol";
 import "./SoothLMSR.sol";
 
 contract SoothMarket is Initializable {
-    using SoothLMSR for SoothLMSR.State;
+    using SoothLinearAMM for SoothLinearAMM.State;
 
     SoothVault public vault;
     address public adjudicatorManager;
     bytes32 public adjudicatorId;
     bytes32 public eventId;
 
-    SoothLMSR.State public ammState;
+    SoothLinearAMM.State public ammState;
 
     bool public isResolved;
     uint8 public winningOutcome;

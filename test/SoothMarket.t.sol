@@ -35,7 +35,6 @@ contract MockERC20 {
         require(balanceOf[from] >= amount, "bal");
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
-        totalSupply = totalSupply; // no-op to silence warnings
     }
 
     function mint(address to, uint256 amount) external {
