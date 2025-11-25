@@ -44,12 +44,23 @@ contract MockERC20B {
     }
 }
 
+contract MockResolvedMarket {
+    bytes32 public adjudicatorId;
+    bool public isResolved = true;
+
+    constructor(bytes32 _adj) {
+        adjudicatorId = _adj;
+    }
+}
+
 contract SoothSettlementTest is Test {
     SoothVault vault;
     SoothSettlementMerkle settlement;
     SoothZKVerifierStub verifier;
     MockERC20B collateral;
+    MockResolvedMarket mockMarket;
 
+    bytes32 adjudicatorId = bytes32(uint256(1));
     address lp = address(0xAAA1);
     address user = address(0xBEEF);
 
@@ -64,6 +75,8 @@ contract SoothSettlementTest is Test {
         settlement = new SoothSettlementMerkle();
         settlement.initialize(address(vault), address(verifier));
         vault.setAuthorized(address(settlement), true);
+        settlement.setProver(address(this), true);
+        mockMarket = new MockResolvedMarket(adjudicatorId);
 
         // Mint collateral for LP and user
         collateral.mint(lp, 1_000_000 ether);
@@ -73,16 +86,16 @@ contract SoothSettlementTest is Test {
     function _storeSettlement(address market, address account, int256 pnl) internal {
         bytes32 pnlRoot = keccak256(abi.encode(account, pnl));
         bytes memory proofData = hex"01"; // any non-empty data passes stub verifier
-        settlement.storeSettlement(market, 0x0, pnlRoot, proofData);
+        settlement.storeSettlement(market, adjudicatorId, pnlRoot, proofData);
     }
 
     function testZeroPnlClaimDoesNotTouchVaultBalances() public {
-        address market = address(0xABCD);
+        address market = address(mockMarket);
         int256 pnl = int256(0);
 
         // Pre-conditions: user has no vault balance, pool is empty
         assertEq(vault.userBalances(user), 0);
-        (uint256 totalLPBefore, uint256 lockedBefore) = vault.pools(bytes32(0));
+        (uint256 totalLPBefore, uint256 lockedBefore) = vault.pools(adjudicatorId);
         assertEq(totalLPBefore, 0);
         assertEq(lockedBefore, 0);
 
@@ -93,27 +106,27 @@ contract SoothSettlementTest is Test {
         bytes32[] memory proof = new bytes32[](0);
 
         vm.startPrank(user);
-        settlement.claim(market, 0x0, pnl, proof);
+        settlement.claim(market, adjudicatorId, pnl, proof);
         vm.stopPrank();
 
         // Vault balances should remain unchanged for zero PnL
         assertEq(vault.userBalances(user), 0);
-        (uint256 totalLPAfter, uint256 lockedAfter) = vault.pools(bytes32(0));
+        (uint256 totalLPAfter, uint256 lockedAfter) = vault.pools(adjudicatorId);
         assertEq(totalLPAfter, totalLPBefore);
         assertEq(lockedAfter, lockedBefore);
     }
 
     function testPositivePnlMovesFundsFromLPToUser() public {
-        address market = address(0xABCD);
+        address market = address(mockMarket);
         int256 pnl = int256(100 ether);
 
         // Seed LP pool for adjudicatorId = 0x0
         vm.startPrank(lp);
         collateral.approve(address(vault), type(uint256).max);
-        vault.depositLP(bytes32(0), 500_000 ether);
+        vault.depositLP(adjudicatorId, 500_000 ether);
         vm.stopPrank();
 
-        (uint256 totalLPBefore, ) = vault.pools(bytes32(0));
+        (uint256 totalLPBefore, ) = vault.pools(adjudicatorId);
         assertEq(totalLPBefore, 500_000 ether);
         assertEq(vault.userBalances(user), 0);
 
@@ -122,10 +135,10 @@ contract SoothSettlementTest is Test {
         bytes32[] memory proof = new bytes32[](0);
 
         vm.startPrank(user);
-        settlement.claim(market, 0x0, pnl, proof);
+        settlement.claim(market, adjudicatorId, pnl, proof);
         vm.stopPrank();
 
-        (uint256 totalLPAfter, ) = vault.pools(bytes32(0));
+        (uint256 totalLPAfter, ) = vault.pools(adjudicatorId);
         uint256 userBalAfter = vault.userBalances(user);
 
         // PnL is paid from LP pool to user
@@ -134,7 +147,7 @@ contract SoothSettlementTest is Test {
     }
 
     function testNegativePnlMovesFundsFromUserToLP() public {
-        address market = address(0xABCD);
+        address market = address(mockMarket);
         int256 pnl = -int256(100 ether);
 
         // User deposits into vault
@@ -144,7 +157,7 @@ contract SoothSettlementTest is Test {
         vm.stopPrank();
 
         uint256 userBalBefore = vault.userBalances(user);
-        (uint256 totalLPBefore, ) = vault.pools(bytes32(0));
+        (uint256 totalLPBefore, ) = vault.pools(adjudicatorId);
         assertEq(userBalBefore, 500_000 ether);
         assertEq(totalLPBefore, 0);
 
@@ -153,11 +166,11 @@ contract SoothSettlementTest is Test {
         bytes32[] memory proof = new bytes32[](0);
 
         vm.startPrank(user);
-        settlement.claim(market, 0x0, pnl, proof);
+        settlement.claim(market, adjudicatorId, pnl, proof);
         vm.stopPrank();
 
         uint256 userBalAfter = vault.userBalances(user);
-        (uint256 totalLPAfter, ) = vault.pools(bytes32(0));
+        (uint256 totalLPAfter, ) = vault.pools(adjudicatorId);
 
         // Negative PnL is taken from user and added to LP pool
         uint256 loss = uint256(-pnl);
@@ -166,13 +179,13 @@ contract SoothSettlementTest is Test {
     }
 
     function testDoubleClaimReverts() public {
-        address market = address(0xABCD);
+        address market = address(mockMarket);
         int256 pnl = int256(50 ether);
 
         // Seed LP pool
         vm.startPrank(lp);
         collateral.approve(address(vault), type(uint256).max);
-        vault.depositLP(bytes32(0), 100_000 ether);
+        vault.depositLP(adjudicatorId, 100_000 ether);
         vm.stopPrank();
 
         _storeSettlement(market, user, pnl);
@@ -180,16 +193,16 @@ contract SoothSettlementTest is Test {
         bytes32[] memory proof = new bytes32[](0);
 
         vm.startPrank(user);
-        settlement.claim(market, 0x0, pnl, proof);
+        settlement.claim(market, adjudicatorId, pnl, proof);
 
         // Second claim should revert
         vm.expectRevert(bytes("SoothSettle: claimed"));
-        settlement.claim(market, 0x0, pnl, proof);
+        settlement.claim(market, adjudicatorId, pnl, proof);
         vm.stopPrank();
     }
 
     function testBadProofReverts() public {
-        address market = address(0xABCD);
+        address market = address(mockMarket);
         int256 correctPnl = int256(10 ether);
         int256 wrongPnl = int256(20 ether);
 
@@ -200,7 +213,7 @@ contract SoothSettlementTest is Test {
 
         vm.startPrank(user);
         vm.expectRevert(bytes("SoothSettle: bad proof"));
-        settlement.claim(market, 0x0, wrongPnl, proof);
+        settlement.claim(market, adjudicatorId, wrongPnl, proof);
         vm.stopPrank();
     }
 }

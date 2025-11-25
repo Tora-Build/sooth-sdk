@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../stubs/Initializable.sol";
+import "../stubs/OwnableUpgradeable.sol";
 import "../stubs/MerkleProof.sol";
 import "../core/SoothVault.sol";
+import "./SoothZKVerifierStub.sol";
 
 /// @title SoothSettlementMerkle
-/// @notice Merkle-based PnL settlement with per-market adjudicator routing and basic auth.
-///         In production, the adjudicator / market layer should ensure that only valid
-///         finalized markets call into this contract and that the posted pnlRoot is
-///         derived from a correct PnL computation (e.g. via Brevis/Succinct).
-contract SoothSettlementMerkle is Initializable {
+/// @notice Merkle-based PnL settlement with per-market adjudicator routing and restricted provers.
+contract SoothSettlementMerkle is OwnableUpgradeable {
     using MerkleProof for bytes32[];
 
     SoothVault public vault;
-    address public verifier; // reserved for future ZK/off-chain proof systems
-    address public owner;
+    SoothZKVerifierStub public verifier; // reserved for future ZK/off-chain proof systems
 
     struct SettlementInfo {
         bytes32 pnlRoot;
@@ -29,29 +26,24 @@ contract SoothSettlementMerkle is Initializable {
     // market -> user -> claimed
     mapping(address => mapping(address => bool)) public claimed;
 
+    // authorized provers who can post settlement roots
+    mapping(address => bool) public isProver;
+
     event SettlementStored(address indexed market, bytes32 indexed adjudicatorId, bytes32 pnlRoot);
-    event Claimed(address indexed market, address indexed user, int256 pnl);
-
-    modifier onlyInitialized() {
-        require(owner != address(0), "SoothSettle: not init");
-        _;
-    }
-
-    modifier onlyOwnerOrMarket(address market) {
-        require(
-            msg.sender == owner || msg.sender == market,
-            "SoothSettle: not authorized"
-        );
-        _;
-    }
+    event Claimed(address indexed market, address indexed user, bytes32 adjudicatorId, int256 pnl);
+    event ProverSet(address indexed prover, bool allowed);
 
     /// @notice One-time initializer.
-    /// @dev Follows the local Initializable pattern used in this repo.
     function initialize(address _vault, address _verifier) external initializer {
         require(_vault != address(0), "SoothSettle: bad vault");
+        __Ownable_init();
         vault = SoothVault(_vault);
-        verifier = _verifier;
-        owner = msg.sender;
+        verifier = SoothZKVerifierStub(_verifier);
+    }
+
+    function setProver(address prover, bool allowed) external onlyOwner {
+        isProver[prover] = allowed;
+        emit ProverSet(prover, allowed);
     }
 
     /// @notice Store the settlement Merkle root for a given market and adjudicator.
@@ -64,13 +56,21 @@ contract SoothSettlementMerkle is Initializable {
         bytes32 adjudicatorId,
         bytes32 pnlRoot,
         bytes calldata proofData
-    ) external onlyInitialized onlyOwnerOrMarket(market) {
+    ) external {
+        require(isProver[msg.sender], "SoothSettle: not prover");
         require(market != address(0), "SoothSettle: bad market");
+        require(adjudicatorId != bytes32(0), "SoothSettle: bad adj");
         require(pnlRoot != bytes32(0), "SoothSettle: bad root");
         require(proofData.length > 0, "SoothSettle: invalid proof");
 
         SettlementInfo storage info = settlements[market];
         require(!info.settled, "SoothSettle: already settled");
+
+        require(_marketResolved(market), "SoothSettle: not resolved");
+        require(_marketAdjudicator(market) == adjudicatorId, "SoothSettle: adj mismatch");
+
+        bool ok = verifier.verifySettlement(market, proofData);
+        require(ok, "SoothSettle: bad proof");
 
         info.pnlRoot = pnlRoot;
         info.adjudicatorId = adjudicatorId;
@@ -89,7 +89,7 @@ contract SoothSettlementMerkle is Initializable {
         bytes32 adjudicatorIdHint,
         int256 pnl,
         bytes32[] calldata merkleProof
-    ) external onlyInitialized {
+    ) external {
         SettlementInfo memory info = settlements[market];
         require(info.settled, "SoothSettle: not settled");
         require(info.adjudicatorId == adjudicatorIdHint, "SoothSettle: adj mismatch");
@@ -106,6 +106,20 @@ contract SoothSettlementMerkle is Initializable {
             vault.userToLP(msg.sender, info.adjudicatorId, uint256(-pnl));
         }
 
-        emit Claimed(market, msg.sender, pnl);
+        emit Claimed(market, msg.sender, info.adjudicatorId, pnl);
+    }
+
+    function _marketResolved(address market) internal view returns (bool resolved) {
+        (bool ok, bytes memory data) = market.staticcall(abi.encodeWithSignature("isResolved()"));
+        if (ok && data.length == 32) {
+            resolved = abi.decode(data, (bool));
+        }
+    }
+
+    function _marketAdjudicator(address market) internal view returns (bytes32 adj) {
+        (bool ok, bytes memory data) = market.staticcall(abi.encodeWithSignature("adjudicatorId()"));
+        if (ok && data.length == 32) {
+            adj = abi.decode(data, (bytes32));
+        }
     }
 }

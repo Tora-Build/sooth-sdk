@@ -6,7 +6,7 @@ import "./SoothVault.sol";
 import "./SoothLMSR.sol";
 
 contract SoothMarket is Initializable {
-    using SoothLinearAMM for SoothLinearAMM.State;
+    using SoothLMSR for SoothLMSR.State;
 
     SoothVault public vault;
     address public adjudicatorManager;
@@ -119,6 +119,8 @@ contract SoothMarket is Initializable {
         isResolved = true;
         winningOutcome = _winningOutcome;
         resolutionTime = _eventTimestamp;
+        // Release any locked LP exposure once the market is finalized.
+        vault.decreaseExposure(adjudicatorId, type(uint256).max);
         emit Resolved(_winningOutcome, _eventTimestamp);
     }
 
