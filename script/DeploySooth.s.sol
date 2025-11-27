@@ -5,8 +5,10 @@ import "forge-std/Script.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/core/SoothVault.sol";
 import "../contracts/core/SoothBalancedAMM.sol";
+import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothRiskManager.sol";
 import "../contracts/core/SoothAdjudicatorRegistry.sol";
+import "../contracts/core/SoothMarketFactory.sol";
 import "../contracts/settlement/SoothSettlement.sol";
 
 contract MockERC20 is IERC20 {
@@ -61,8 +63,9 @@ contract DeploySooth is Script {
         // 3. Risk manager
         SoothRiskManager riskManager = new SoothRiskManager(vault);
 
-        // 4. AMM implementation (Balanced)
-        SoothBalancedAMM amm = new SoothBalancedAMM();
+        // 4. AMM implementation (Balanced by default; LMSRReal is also available)
+        SoothBalancedAMM balancedAmm = new SoothBalancedAMM();
+        SoothLMSRReal lmsrReal = new SoothLMSRReal();
 
         // 5. Adjudicator registry
         SoothAdjudicatorRegistry adjRegistry = new SoothAdjudicatorRegistry();
@@ -70,7 +73,7 @@ contract DeploySooth is Script {
         // Register a dummy adjudicator for testing
         SoothAdjudicatorRegistry.AdjudicatorConfig memory cfg =
             SoothAdjudicatorRegistry.AdjudicatorConfig({
-                classId: 1,
+                classId: 1, // e.g. UMA / optimistic
                 externalContract: address(0),
                 params: "",
                 enabled: true
@@ -84,14 +87,27 @@ contract DeploySooth is Script {
         // 7. Authorize settlement as vault spender for PnL application
         vault.setAuthorized(address(settlement), true);
 
+        // 8. Market factory (using Balanced AMM by default)
+        SoothMarketFactory factory = new SoothMarketFactory(vault, riskManager, balancedAmm);
+
+        // Authorize factory on vault for exposure allocation
+        vault.setAuthorized(address(factory), true);
+
+        // 9. Create an example market
+        SoothMarket exampleMarket =
+            factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
+
         vm.stopBroadcast();
 
         console2.log("Mock collateral:", address(collateral));
         console2.log("SoothVault:", address(vault));
         console2.log("SoothRiskManager:", address(riskManager));
-        console2.log("SoothBalancedAMM:", address(amm));
+        console2.log("SoothBalancedAMM:", address(balancedAmm));
+        console2.log("SoothLMSRReal:", address(lmsrReal));
         console2.log("SoothAdjudicatorRegistry:", address(adjRegistry));
         console2.log("SoothSettlement:", address(settlement));
+        console2.log("SoothMarketFactory:", address(factory));
+        console2.log("Example SoothMarket:", address(exampleMarket));
         console2.logBytes32(dummyAdjId);
     }
 }

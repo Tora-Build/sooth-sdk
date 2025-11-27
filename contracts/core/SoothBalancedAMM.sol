@@ -8,15 +8,9 @@ import "./SoothInterfaces.sol";
 ///      It approximates price as:
 ///          pYes ≈ 0.5 + (qYes - qNo) / (2 * b)
 ///      and integrates cost as average(price_before, price_after) * delta.
-///      For production, swap this for a true LMSR implementation.
+///      For production, swap this for a true LMSR implementation (see SoothLMSRReal).
 contract SoothBalancedAMM is ISoothAMM {
     uint256 internal constant ONE = 1e18;
-
-    function _clamp(uint256 x, uint256 lo, uint256 hi) internal pure returns (uint256) {
-        if (x < lo) return lo;
-        if (x > hi) return hi;
-        return x;
-    }
 
     function _priceYes(State memory s, uint256 b) internal pure returns (uint256) {
         // pY = 0.5 + (qYes - qNo) / (2 * b)

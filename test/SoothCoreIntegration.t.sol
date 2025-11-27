@@ -8,6 +8,7 @@ import "../contracts/core/SoothVault.sol";
 import "../contracts/core/SoothBalancedAMM.sol";
 import "../contracts/core/SoothRiskManager.sol";
 import "../contracts/core/SoothAdjudicatorRegistry.sol";
+import "../contracts/core/SoothMarketFactory.sol";
 import "../contracts/core/SoothMarket.sol";
 import "../contracts/settlement/SoothSettlement.sol";
 import "./MockERC20.sol";
@@ -19,12 +20,13 @@ contract SoothCoreIntegrationTest is Test {
     SoothBalancedAMM amm;
     SoothAdjudicatorRegistry adjRegistry;
     SoothSettlement settlement;
+    SoothMarketFactory factory;
     SoothMarket market;
 
     address lp = address(0xBEEF);
     address trader = address(0xCAFE);
 
-    uint256 constant MARKET_ID = 1;
+    uint256 constant MARKET_ID_IGNORED = 0; // factory controls ids
     bytes32 constant ADJ_ID = keccak256("DUMMY_ADJ");
 
     function setUp() public {
@@ -67,13 +69,12 @@ contract SoothCoreIntegrationTest is Test {
         vault.depositFor(lp, 500_000 ether);
         vm.stopPrank();
 
-        // Risk manager config
-        riskManager.setMarketRiskClass(MARKET_ID, SoothRiskManager.RiskClass.MEDIUM);
-        riskManager.updateGlobalB();
+        // Factory
+        factory = new SoothMarketFactory(vault, riskManager, amm);
+        vault.setAuthorized(address(factory), true);
 
-        // Market
-        market = new SoothMarket();
-        market.initialize(MARKET_ID, vault, riskManager, amm, ADJ_ID);
+        // Create a market via the factory
+        market = factory.createMarket(ADJ_ID, SoothRiskManager.RiskClass.MEDIUM);
     }
 
     function testFullFlowTradeAndSettlement() public {
@@ -91,17 +92,17 @@ contract SoothCoreIntegrationTest is Test {
         uint64 truthTime = uint64(block.timestamp - 1 hours);
 
         // Store result
-        settlement.storeResult(MARKET_ID, ADJ_ID, winningOutcome, truthTime);
+        settlement.storeResult(1, ADJ_ID, winningOutcome, truthTime);
 
-        // Build a trivial merkle root with one leaf: (MARKET_ID, trader, +100)
+        // Build a trivial merkle root with one leaf: (marketId, trader, +100)
         int256 pnlDelta = int256(100 ether);
-        bytes32 leaf = keccak256(abi.encodePacked(MARKET_ID, trader, pnlDelta));
+        bytes32 leaf = keccak256(abi.encodePacked(uint256(1), trader, pnlDelta));
         bytes32 root = leaf;
         bytes32 batchId = keccak256("BATCH-1");
 
         // Allow this test contract as prover
         settlement.setProver(address(this), true);
-        settlement.storeSettlementRoot(MARKET_ID, batchId, root, "");
+        settlement.storeSettlementRoot(1, batchId, root, "");
 
         // Trader balance before
         uint256 balBefore = collateral.balanceOf(trader);
@@ -109,7 +110,7 @@ contract SoothCoreIntegrationTest is Test {
         // Trader claims with empty proof (single-leaf tree)
         vm.prank(trader);
         bytes32[] memory proof = new bytes32[](0);
-        settlement.claimSettlement(MARKET_ID, batchId, pnlDelta, proof);
+        settlement.claimSettlement(1, batchId, pnlDelta, proof);
 
         uint256 balAfter = collateral.balanceOf(trader);
         assertEq(balAfter, balBefore + uint256(pnlDelta), "PnL not applied");
