@@ -26,8 +26,8 @@ contract SoothRiskManagerTest is Test {
 
     function testUpdateGlobalBAndGetBForMarket() public {
         // initial global b should be zero
-        SoothRiskManager.GlobalRiskParams memory g0 = riskManager.globalRisk();
-        assertEq(g0.bGlobal, 0);
+        (uint256 b0, ) = riskManager.globalRisk();
+        assertEq(b0, 0);
 
         // configure risk class for market
         uint256 marketId = 1;
@@ -35,8 +35,8 @@ contract SoothRiskManagerTest is Test {
 
         // update global b
         riskManager.updateGlobalB();
-        SoothRiskManager.GlobalRiskParams memory g = riskManager.globalRisk();
-        assertGt(g.bGlobal, 0);
+        (uint256 bAfter, ) = riskManager.globalRisk();
+        assertGt(bAfter, 0);
 
         uint256 bMarket = riskManager.getBForMarket(marketId);
         assertGt(bMarket, 0);

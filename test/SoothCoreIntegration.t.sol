@@ -72,15 +72,16 @@ contract SoothCoreIntegrationTest is Test {
         // Factory
         factory = new SoothMarketFactory(vault, riskManager, amm);
         vault.setAuthorized(address(factory), true);
+        riskManager.transferOwnership(address(factory));
 
         // Create a market via the factory
         market = factory.createMarket(ADJ_ID, SoothRiskManager.RiskClass.MEDIUM);
     }
 
     function testFullFlowTradeAndSettlement() public {
-        // Trader approves vault to pull funds (market.transferFrom -> vault)
+        // Trader approves market to pull funds into the vault
         vm.startPrank(trader);
-        collateral.approve(address(vault), type(uint256).max);
+        collateral.approve(address(market), type(uint256).max);
 
         // Trader buys YES = 10 shares
         market.trade(0, int256(10 ether));
@@ -89,6 +90,7 @@ contract SoothCoreIntegrationTest is Test {
 
         // Fake adjudication result
         uint8 winningOutcome = 0; // YES
+        vm.warp(2 hours);
         uint64 truthTime = uint64(block.timestamp - 1 hours);
 
         // Store result

@@ -47,7 +47,7 @@ contract SoothMarketTest is Test {
 
     function testTradeBuyYes() public {
         vm.startPrank(trader);
-        collateral.approve(address(vault), type(uint256).max);
+        collateral.approve(address(market), type(uint256).max);
         uint256 balBefore = collateral.balanceOf(trader);
 
         market.trade(0, int256(10 ether)); // buy 10 YES

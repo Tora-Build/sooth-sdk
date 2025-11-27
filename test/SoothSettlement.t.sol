@@ -49,6 +49,8 @@ contract SoothSettlementTest is Test {
     }
 
     function testStoreResultAndClaim() public {
+        vm.warp(2 hours);
+
         // store result
         uint8 winningOutcome = 0;
         uint64 truthTime = uint64(block.timestamp - 1 hours);
