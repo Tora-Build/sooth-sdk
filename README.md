@@ -1,28 +1,97 @@
-# Sooth Protocol - Fullstack Skeleton v5 (No OpenZeppelin Dependency)
+# Sooth Protocol – Dynamic-b LMSR Reference Implementation
 
-This version removes all OpenZeppelin imports for Foundry by providing local stubs:
+This repo contains a reference implementation of the Sooth core contracts:
 
-- `contracts/stubs/Initializable.sol`
-- `contracts/stubs/OwnableUpgradeable.sol`
-- `contracts/stubs/ReentrancyGuardUpgradeable.sol`
-- `contracts/stubs/IERC20Upgradeable.sol`
-- `contracts/stubs/MerkleProof.sol`
+- `SoothVault` – singleton, per-market exposure tracking
+- `SoothRiskManager` – dynamic global `b` and per-market `b_market`
+- `SoothBalancedAMM` – LMSR-like linear AMM (dev only)
+- `SoothLMSRReal` – stub for a true LMSR implementation
+- `SoothMarket` – infinite-end YES/NO vAMM markets
+- `SoothAdjudicatorRegistry` – adjudicator configuration (A–D classes)
+- `SoothSettlement` – stores `(outcome, T*)` and applies PnL via Merkle
+- `SoothSmartAccount` – minimal AA-style wrapper over the vault
 
-Core contracts:
+This matches the unified Sooth architecture:
 
-- `SoothVault` (singleton vault)
-- `SoothMarket` (binary vAMM market using simplified LMSR)
-- `SoothAdjudicatorManager` + adjudicator adapters (UMA, Reality, Chainlink, Attestation)
-- `SoothMarketFactory`
-- `SoothSmartAccount`
-- Settlement: `SoothSettlementMerkle` + `SoothZKVerifierStub`
+- Infinite-end markets (terminate on truth time `T*`, not expiry)
+- Singleton vault per adjudicator class
+- Dynamic-b LMSR–style pricing, bounded LP loss
+- Retroactive settlement (PnL replay around `T*`)
+- Smart account–based UX and accounting
 
-Testing:
+## Layout
+
+```text
+contracts/
+  core/
+    SoothInterfaces.sol
+    SoothVault.sol
+    SoothBalancedAMM.sol
+    SoothLMSRReal.sol
+    SoothRiskManager.sol
+    SoothAdjudicatorRegistry.sol
+    SoothMarket.sol
+    SoothSmartAccount.sol
+  settlement/
+    SoothSettlement.sol
+
+script/
+  DeploySooth.s.sol
+
+test/
+  SoothVault.t.sol
+  SoothRiskManager.t.sol
+  SoothMarket.t.sol
+  SoothSettlement.t.sol
+  SoothCoreIntegration.t.sol
+```
+
+## Prereqs
+
+- Foundry installed (`forge`, `cast`).
+- Node & Hardhat optional.
+
+Install `forge-std` (if not already):
 
 ```bash
 forge install foundry-rs/forge-std --no-commit
-forge clean
-forge test
 ```
 
-Hardhat is configured via `hardhat.config.ts` and `scripts/deploy-sooth.ts`, but uses the same contracts.
+## Build
+
+```bash
+forge build
+```
+
+## Test
+
+```bash
+forge test -vv
+```
+
+## Deployment (Foundry script)
+
+The `DeploySooth.s.sol` script deploys the minimal Sooth stack:
+
+- Mock ERC20 as collateral (dev only)
+- SoothVault
+- SoothRiskManager
+- SoothBalancedAMM
+- SoothAdjudicatorRegistry
+- SoothSettlement
+
+Run:
+
+```bash
+forge script script/DeploySooth.s.sol \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast
+```
+
+Edit the script to:
+
+- Point at a real ERC20 collateral token on your network
+- Configure risk classes & K
+- Register real adjudicators (UMA / Reality / oracle+ZK / attestation)
+- Create markets and wire them into your off-chain PnL engine

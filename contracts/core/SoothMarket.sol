@@ -1,132 +1,118 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../stubs/Initializable.sol";
-import "./SoothVault.sol";
-import "./SoothLMSR.sol";
+import "./SoothInterfaces.sol";
 
-contract SoothMarket is Initializable {
-    using SoothLMSR for SoothLMSR.State;
+/// @notice Infinite-end YES/NO market using a pluggable AMM and dynamic b.
+/// @dev For MVP this can use SoothBalancedAMM; later you can point new markets
+///      at SoothLMSRReal without changing this contract.
+contract SoothMarket is Ownable {
+    ISoothVault public vault;
+    IRiskManager public riskManager;
+    ISoothAMM public amm;
 
-    SoothVault public vault;
-    address public adjudicatorManager;
+    uint256 public marketId;
     bytes32 public adjudicatorId;
-    bytes32 public eventId;
 
-    SoothLMSR.State public ammState;
+    bool public isLive;
+    bool public isSettled;
 
-    bool public isResolved;
     uint8 public winningOutcome;
-    uint256 public resolutionTime;
+    uint64 public truthTime; // T*
 
-    mapping(address => int256) public userOutcome0;
-    mapping(address => int256) public userOutcome1;
+    ISoothAMM.State public ammState; // qYes, qNo
 
-    event Trade(address indexed user, uint8 outcomeIndex, uint256 shares, uint256 costOrPayout, bool isBuy);
-    event Resolved(uint8 outcomeIndex, uint256 eventTimestamp);
+    mapping(address => uint256) public yesBalance;
+    mapping(address => uint256) public noBalance;
 
-    modifier onlyActive() {
-        require(!isResolved, "SoothMarket: resolved");
-        _;
-    }
+    event Initialized(
+        uint256 indexed marketId,
+        address vault,
+        address riskManager,
+        address amm,
+        bytes32 adjudicatorId
+    );
+    event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost);
+    event Settled(uint8 winningOutcome, uint64 truthTime);
 
-    modifier onlyAdjManager() {
-        require(msg.sender == adjudicatorManager, "SoothMarket: not adj mgr");
-        _;
-    }
+    constructor() {}
 
     function initialize(
-        address _vault,
-        address _adjudicatorManager,
-        bytes32 _adjudicatorId,
-        bytes32 _eventId,
-        uint256 _b
-    ) external initializer {
-        require(_vault != address(0), "SoothMarket: zero vault");
-        require(_adjudicatorManager != address(0), "SoothMarket: zero adj mgr");
-        vault = SoothVault(_vault);
-        adjudicatorManager = _adjudicatorManager;
+        uint256 _marketId,
+        ISoothVault _vault,
+        IRiskManager _riskManager,
+        ISoothAMM _amm,
+        bytes32 _adjudicatorId
+    ) external onlyOwner {
+        require(address(vault) == address(0), "Market: already init");
+        vault = _vault;
+        riskManager = _riskManager;
+        amm = _amm;
         adjudicatorId = _adjudicatorId;
-        eventId = _eventId;
-        ammState.b = _b;
+        marketId = _marketId;
+        isLive = true;
+
+        emit Initialized(_marketId, address(_vault), address(_riskManager), address(_amm), _adjudicatorId);
     }
 
-    function buy(uint8 outcomeIndex, uint256 shares)
-        external
-        onlyActive
-        returns (uint256 cost)
-    {
-        require(shares > 0, "SoothMarket: zero shares");
-        require(outcomeIndex < 2, "SoothMarket: bad outcome");
-
-        int256 delta = int256(shares);
-        int256 rawCost = ammState.calcCost(delta, outcomeIndex);
-        require(rawCost >= 0, "SoothMarket: cost<0");
-        cost = uint256(rawCost);
-
-        vault.userToLP(msg.sender, adjudicatorId, cost);
-
-        if (outcomeIndex == 0) {
-            ammState.q0 += delta;
-            userOutcome0[msg.sender] += delta;
-        } else {
-            ammState.q1 += delta;
-            userOutcome1[msg.sender] += delta;
-        }
-
-        vault.increaseExposure(adjudicatorId, shares);
-
-        emit Trade(msg.sender, outcomeIndex, shares, cost, true);
+    modifier onlyLive() {
+        require(isLive && !isSettled, "Market: not live");
+        _;
     }
 
-    function sell(uint8 outcomeIndex, uint256 shares)
-        external
-        onlyActive
-        returns (uint256 payout)
-    {
-        require(shares > 0, "SoothMarket: zero shares");
-        require(outcomeIndex < 2, "SoothMarket: bad outcome");
+    /// @notice outcomeIndex: 0 = YES, 1 = NO
+    /// @param deltaShares > 0 to buy, < 0 to sell.
+    function trade(uint8 outcomeIndex, int256 deltaShares) external onlyLive {
+        require(deltaShares != 0, "Market: zero trade");
 
-        if (outcomeIndex == 0) {
-            require(userOutcome0[msg.sender] >= int256(shares), "SoothMarket: pos<sell");
-        } else {
-            require(userOutcome1[msg.sender] >= int256(shares), "SoothMarket: pos<sell");
+        // spot-style restriction: no synthetic shorts – must own before selling
+        if (deltaShares < 0) {
+            uint256 shares = uint256(-deltaShares);
+            if (outcomeIndex == 0) {
+                require(yesBalance[msg.sender] >= shares, "Market: not enough YES");
+                yesBalance[msg.sender] -= shares;
+            } else {
+                require(noBalance[msg.sender] >= shares, "Market: not enough NO");
+                noBalance[msg.sender] -= shares;
+            }
         }
 
-        int256 delta = -int256(shares);
-        int256 rawCost = ammState.calcCost(delta, outcomeIndex);
-        require(rawCost <= 0, "SoothMarket: payout<0");
-        payout = uint256(-rawCost);
+        uint256 b = riskManager.getBForMarket(marketId);
 
-        vault.lpToUser(msg.sender, adjudicatorId, payout);
+        (int256 cost, ISoothAMM.State memory newState) =
+            amm.costDelta(ammState, outcomeIndex, deltaShares, b);
 
-        if (outcomeIndex == 0) {
-            ammState.q0 += delta;
-            userOutcome0[msg.sender] += delta;
-        } else {
-            ammState.q1 += delta;
-            userOutcome1[msg.sender] += delta;
+        // Positive cost: trader pays vault; negative cost: vault pays trader.
+        IERC20 collateral = vault.asset();
+        if (cost > 0) {
+            uint256 pay = uint256(cost);
+            collateral.transferFrom(msg.sender, address(vault), pay);
+        } else if (cost < 0) {
+            uint256 payout = uint256(-cost);
+            collateral.transfer(msg.sender, payout);
         }
 
-        vault.decreaseExposure(adjudicatorId, shares);
+        ammState = newState;
 
-        emit Trade(msg.sender, outcomeIndex, shares, payout, false);
+        if (deltaShares > 0) {
+            uint256 shares = uint256(deltaShares);
+            if (outcomeIndex == 0) {
+                yesBalance[msg.sender] += shares;
+            } else {
+                noBalance[msg.sender] += shares;
+            }
+        }
+
+        emit Trade(msg.sender, outcomeIndex, deltaShares, cost);
     }
 
-    function resolve(uint8 _winningOutcome, uint256 _eventTimestamp) external onlyAdjManager {
-        require(!isResolved, "SoothMarket: already resolved");
-        require(_winningOutcome < 2, "SoothMarket: bad outcome");
-        isResolved = true;
+    /// @notice Internal hook for settlement to mark the market as settled.
+    function markSettled(uint8 _winningOutcome, uint64 _truthTime) external onlyOwner {
+        require(!isSettled, "Market: already settled");
+        isSettled = true;
+        isLive = false;
         winningOutcome = _winningOutcome;
-        resolutionTime = _eventTimestamp;
-        // Release any locked LP exposure once the market is finalized.
-        vault.decreaseExposure(adjudicatorId, type(uint256).max);
-        emit Resolved(_winningOutcome, _eventTimestamp);
-    }
-
-    function price(uint8 outcomeIndex) external view returns (uint256) {
-        require(outcomeIndex < 2, "SoothMarket: bad outcome");
-        (uint256 p0, uint256 p1) = ammState.prices();
-        return outcomeIndex == 0 ? p0 : p1;
+        truthTime = _truthTime;
+        emit Settled(_winningOutcome, _truthTime);
     }
 }

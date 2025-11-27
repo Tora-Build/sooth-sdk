@@ -1,121 +1,123 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../stubs/IERC20Upgradeable.sol";
-import "../stubs/OwnableUpgradeable.sol";
-import "../stubs/ReentrancyGuardUpgradeable.sol";
+import "./SoothInterfaces.sol";
 
-/// @title SoothVault - singleton vault for Sooth
-contract SoothVault is OwnableUpgradeable, ReentrancyGuardUpgradeable {
-    IERC20Upgradeable public collateral;
+/// @notice Singleton vault per (chain, adjudicatorClass).
+/// @dev Tracks LP deposits and per-market locked exposure.
+///      This is a simplified, non-ERC4626 implementation for dev/testing.
+contract SoothVault is ISoothVault, Ownable {
+    IERC20 public immutable override asset;
 
-    struct AdjudicatorPool {
-        uint256 totalLP;
-        uint256 lockedAmount;
+    /// @notice LP share balances (1:1 with underlying asset in this reference).
+    mapping(address => uint256) public balanceOfLP;
+
+    /// @notice Total underlying assets held by the vault.
+    uint256 public override totalAssets;
+
+    /// @notice Reserved exposure per marketId.
+    mapping(uint256 => uint256) public lockedExposure;
+
+    /// @notice Sum of all lockedExposure across markets.
+    uint256 public totalLockedExposure;
+
+    /// @notice Authorized spenders (markets + settlement).
+    mapping(address => bool) public authorizedSpender;
+
+    event Deposit(address indexed lp, uint256 assets);
+    event Withdraw(address indexed lp, uint256 assets, address indexed receiver);
+    event ExposureAllocated(uint256 indexed marketId, uint256 amount);
+    event ExposureReleased(uint256 indexed marketId, uint256 amount);
+    event SettlementDeltaApplied(address indexed account, int256 pnlDelta);
+    event AuthorizedSpenderSet(address indexed who, bool allowed);
+
+    constructor(IERC20 _asset) {
+        asset = _asset;
     }
 
-    mapping(bytes32 => AdjudicatorPool) public pools;
-    mapping(bytes32 => mapping(address => uint256)) public lpBalances;
-    mapping(address => uint256) public userBalances;
-    mapping(address => bool) public isAuthorized;
-
-    event LPDeposited(bytes32 indexed adjudicatorId, address indexed lp, uint256 amount);
-    event LPWithdrawn(bytes32 indexed adjudicatorId, address indexed lp, uint256 amount);
-    event UserDeposited(address indexed user, uint256 amount);
-    event UserWithdrew(address indexed user, uint256 amount);
-    event FundsMoved(address indexed from, address indexed to, uint256 amount);
-    event ExposureIncreased(bytes32 indexed adjudicatorId, uint256 amount, uint256 newLocked);
-    event ExposureDecreased(bytes32 indexed adjudicatorId, uint256 amount, uint256 newLocked);
-    event AuthorizedSetter(address indexed target, bool allowed);
-
     modifier onlyAuthorized() {
-        require(isAuthorized[msg.sender], "SoothVault: not authorized");
+        require(authorizedSpender[msg.sender], "Vault: not authorized");
         _;
     }
 
-    function initialize(address _collateral) external initializer {
-        require(_collateral != address(0), "SoothVault: zero collateral");
-        __Ownable_init();
-        __ReentrancyGuard_init();
-        collateral = IERC20Upgradeable(_collateral);
+    function setAuthorized(address who, bool allowed) external onlyOwner {
+        authorizedSpender[who] = allowed;
+        emit AuthorizedSpenderSet(who, allowed);
     }
 
-    function setAuthorized(address target, bool allowed) external onlyOwner {
-        isAuthorized[target] = allowed;
-        emit AuthorizedSetter(target, allowed);
+    // --- LP flows ---
+
+    function depositFor(address lp, uint256 assets) external override returns (uint256) {
+        require(assets > 0, "Vault: zero deposit");
+        asset.transferFrom(msg.sender, address(this), assets);
+        balanceOfLP[lp] += assets;
+        totalAssets += assets;
+        emit Deposit(lp, assets);
+        return assets;
     }
 
-    // LP functions
+    function withdrawFor(address lp, uint256 assets, address receiver)
+        external
+        override
+        returns (uint256)
+    {
+        require(receiver != address(0), "Vault: zero receiver");
+        require(balanceOfLP[lp] >= assets, "Vault: insufficient shares");
+        require(totalAssets >= totalLockedExposure + assets, "Vault: locked");
 
-    function depositLP(bytes32 adjudicatorId, uint256 amount) external nonReentrant {
-        require(amount > 0, "SoothVault: zero amount");
-        require(collateral.transferFrom(msg.sender, address(this), amount), "SoothVault: transferFrom failed");
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        pool.totalLP += amount;
-        lpBalances[adjudicatorId][msg.sender] += amount;
-        emit LPDeposited(adjudicatorId, msg.sender, amount);
+        balanceOfLP[lp] -= assets;
+        totalAssets -= assets;
+        asset.transfer(receiver, assets);
+        emit Withdraw(lp, assets, receiver);
+        return assets;
     }
 
-    function withdrawLP(bytes32 adjudicatorId, uint256 amount) external nonReentrant {
-        require(amount > 0, "SoothVault: zero amount");
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        require(lpBalances[adjudicatorId][msg.sender] >= amount, "SoothVault: lp too low");
-        require(pool.totalLP >= amount, "SoothVault: pool short");
-        require(pool.totalLP - amount >= pool.lockedAmount, "SoothVault: locked exposure");
-        pool.totalLP -= amount;
-        lpBalances[adjudicatorId][msg.sender] -= amount;
-        require(collateral.transfer(msg.sender, amount), "SoothVault: transfer failed");
-        emit LPWithdrawn(adjudicatorId, msg.sender, amount);
+    // --- Read helpers for RiskManager ---
+
+    function getTreasuryBalance() external view override returns (uint256) {
+        return totalAssets;
     }
 
-    // User functions
-
-    function depositUser(uint256 amount) external nonReentrant {
-        require(amount > 0, "SoothVault: zero amount");
-        require(collateral.transferFrom(msg.sender, address(this), amount), "SoothVault: transferFrom failed");
-        userBalances[msg.sender] += amount;
-        emit UserDeposited(msg.sender, amount);
+    function getLiquidBufferBalance() external view override returns (uint256) {
+        return totalAssets - totalLockedExposure;
     }
 
-    function withdrawUser(uint256 amount) external nonReentrant {
-        require(amount > 0, "SoothVault: zero amount");
-        require(userBalances[msg.sender] >= amount, "SoothVault: balance too low");
-        userBalances[msg.sender] -= amount;
-        require(collateral.transfer(msg.sender, amount), "SoothVault: transfer failed");
-        emit UserWithdrew(msg.sender, amount);
+    // --- Exposure management ---
+
+    function allocateExposure(uint256 marketId, uint256 amount) external override onlyAuthorized {
+        lockedExposure[marketId] += amount;
+        totalLockedExposure += amount;
+        require(totalLockedExposure <= totalAssets, "Vault: overexposed");
+        emit ExposureAllocated(marketId, amount);
     }
 
-    // Internal accounting
-
-    function userToLP(address user, bytes32 adjudicatorId, uint256 amount) external onlyAuthorized {
-        require(userBalances[user] >= amount, "SoothVault: user balance low");
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        userBalances[user] -= amount;
-        pool.totalLP += amount;
-        emit FundsMoved(user, address(this), amount);
-    }
-
-    function lpToUser(address user, bytes32 adjudicatorId, uint256 amount) external onlyAuthorized {
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        require(pool.totalLP >= amount, "SoothVault: pool short");
-        pool.totalLP -= amount;
-        userBalances[user] += amount;
-        emit FundsMoved(address(this), user, amount);
-    }
-
-    function increaseExposure(bytes32 adjudicatorId, uint256 amount) external onlyAuthorized {
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        pool.lockedAmount += amount;
-        require(pool.lockedAmount <= pool.totalLP, "SoothVault: exposure > LP");
-        emit ExposureIncreased(adjudicatorId, amount, pool.lockedAmount);
-    }
-
-    function decreaseExposure(bytes32 adjudicatorId, uint256 amount) external onlyAuthorized {
-        AdjudicatorPool storage pool = pools[adjudicatorId];
-        if (amount > pool.lockedAmount) {
-            amount = pool.lockedAmount;
+    function releaseExposure(uint256 marketId, uint256 amount) external override onlyAuthorized {
+        uint256 locked = lockedExposure[marketId];
+        if (amount > locked) {
+            amount = locked;
         }
-        pool.lockedAmount -= amount;
-        emit ExposureDecreased(adjudicatorId, amount, pool.lockedAmount);
+        lockedExposure[marketId] = locked - amount;
+        totalLockedExposure -= amount;
+        emit ExposureReleased(marketId, amount);
+    }
+
+    // --- Settlement PnL application ---
+
+    function applySettlementDelta(address account, int256 pnlDelta)
+        external
+        override
+        onlyAuthorized
+    {
+        if (pnlDelta > 0) {
+            uint256 amount = uint256(pnlDelta);
+            require(totalAssets >= amount, "Vault: insufficient assets");
+            totalAssets -= amount;
+            asset.transfer(account, amount);
+        } else if (pnlDelta < 0) {
+            uint256 amount = uint256(-pnlDelta);
+            asset.transferFrom(account, address(this), amount);
+            totalAssets += amount;
+        }
+        emit SettlementDeltaApplied(account, pnlDelta);
     }
 }

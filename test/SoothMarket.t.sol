@@ -2,99 +2,66 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/core/SoothVault.sol";
 import "../contracts/core/SoothMarket.sol";
-
-// Minimal mock ERC20 used as collateral for the vault
-contract MockERC20 {
-    string public name = "MockUSD";
-    string public symbol = "mUSD";
-    uint8 public decimals = 18;
-    uint256 public totalSupply;
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        _transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        require(allowance[from][msg.sender] >= amount, "allow");
-        allowance[from][msg.sender] -= amount;
-        _transfer(from, to, amount);
-        return true;
-    }
-
-    function _transfer(address from, address to, uint256 amount) internal {
-        require(balanceOf[from] >= amount, "bal");
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-    }
-
-    function mint(address to, uint256 amount) external {
-        balanceOf[to] += amount;
-        totalSupply += amount;
-    }
-}
+import "../contracts/core/SoothVault.sol";
+import "../contracts/core/SoothBalancedAMM.sol";
+import "../contracts/core/SoothRiskManager.sol";
+import "./MockERC20.sol";
 
 contract SoothMarketTest is Test {
-    SoothVault vault;
-    SoothMarket market;
     MockERC20 collateral;
+    SoothVault vault;
+    SoothRiskManager riskManager;
+    SoothBalancedAMM amm;
+    SoothMarket market;
 
-    bytes32 adjId = keccak256("UMA_CLASS");
-    bytes32 eventId = keccak256("EXAMPLE");
-    address adjMgr = address(0xABCD);
+    address lp = address(0xBEEF);
+    address trader = address(0xCAFE);
 
-    address lp = address(0xAAA1);
-    address trader = address(0xBBB2);
+    uint256 constant MARKET_ID = 1;
+    bytes32 constant ADJ_ID = keccak256("DUMMY_ADJ");
 
     function setUp() public {
         collateral = new MockERC20();
+        vault = new SoothVault(collateral);
+        riskManager = new SoothRiskManager(vault);
+        amm = new SoothBalancedAMM();
 
-        vault = new SoothVault();
-        vault.initialize(address(collateral));
+        collateral._mint(lp, 1_000_000 ether);
+        collateral._mint(trader, 1_000 ether);
 
-        market = new SoothMarket();
-        market.initialize(address(vault), adjMgr, adjId, eventId, 1e18);
-
-        vault.setAuthorized(address(market), true);
-
-        // Seed LP
-        collateral.mint(lp, 1_000_000 ether);
+        // LP deposit
         vm.startPrank(lp);
         collateral.approve(address(vault), type(uint256).max);
-        vault.depositLP(adjId, 500_000 ether);
+        vault.depositFor(lp, 500_000 ether);
         vm.stopPrank();
 
-        // Fund trader
-        collateral.mint(trader, 10_000 ether);
+        // Risk config
+        riskManager.setMarketRiskClass(MARKET_ID, SoothRiskManager.RiskClass.MEDIUM);
+        riskManager.updateGlobalB();
+
+        // Market
+        market = new SoothMarket();
+        market.initialize(MARKET_ID, vault, riskManager, amm, ADJ_ID);
+    }
+
+    function testTradeBuyYes() public {
         vm.startPrank(trader);
         collateral.approve(address(vault), type(uint256).max);
-        vault.depositUser(10_000 ether);
+        uint256 balBefore = collateral.balanceOf(trader);
+
+        market.trade(0, int256(10 ether)); // buy 10 YES
+
+        uint256 balAfter = collateral.balanceOf(trader);
+        assertLt(balAfter, balBefore, "should pay to buy YES");
+        assertEq(market.yesBalance(trader), 10 ether);
         vm.stopPrank();
     }
 
-    function testBuySellLifecycle() public {
+    function testCannotShortWithoutBalance() public {
         vm.startPrank(trader);
-
-        uint256 priceBefore = market.price(0);
-
-        uint256 cost = market.buy(0, 100 ether);
-        assertGt(cost, 0);
-
-        uint256 priceAfter = market.price(0);
-        assertGt(priceAfter, priceBefore);
-
-        uint256 payout = market.sell(0, 50 ether);
-        assertGt(payout, 0);
-
+        vm.expectRevert();
+        market.trade(0, -int256(1 ether)); // try to sell YES without holding
         vm.stopPrank();
     }
 }
