@@ -5,7 +5,9 @@ This folder contains all documentation and resources for integrating frontend ap
 ## Files
 
 ### 📘 [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md)
+
 **Comprehensive contract interface documentation**
+
 - Complete ABIs for SoothMarket, SoothVault, SoothSettlement
 - All function signatures with parameters and return types
 - Role-based access control (owner, prover, public)
@@ -15,20 +17,26 @@ This folder contains all documentation and resources for integrating frontend ap
 - Error handling and common revert reasons
 
 ### 📋 [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)
+
 **Quick reference summary**
+
 - Essential functions at a glance
 - Key parameters for settlement functions
 - Merkle proof format
 - Quick start guide
 
 ### 🔗 [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
+
 **Original integration guide**
+
 - How to use deployments.json
 - ABI export locations
 - Basic setup instructions
 
 ### 🔧 [deployments.json](./deployments.json)
+
 **Current deployment addresses**
+
 ```json
 {
   "MockERC20": "0x...",
@@ -39,34 +47,50 @@ This folder contains all documentation and resources for integrating frontend ap
   "SoothAdjudicatorRegistry": "0x...",
   "SoothSettlement": "0x...",
   "SoothMarketFactory": "0x...",
-  "ExampleMarket": "0x..."
+  "ExampleMarket": "0x...",
+  "SecondMarket": "0x..."
 }
 ```
+
+> **Note**: Two markets are currently deployed, both in the MEDIUM risk class, sharing the same liquidity vault.
 
 ## Quick Start
 
 ### 1. Load Contract Addresses
-```typescript
-import deployments from './docs/frontend-integration/deployments.json';
 
-const marketAddress = deployments.ExampleMarket;
+```typescript
+import deployments from "./docs/frontend-integration/deployments.json";
+
+// Access individual markets
+const market1Address = deployments.ExampleMarket; // Market ID: 1
+const market2Address = deployments.SecondMarket; // Market ID: 2
+
+// Shared infrastructure
 const vaultAddress = deployments.SoothVault;
 const settlementAddress = deployments.SoothSettlement;
+const riskManagerAddress = deployments.SoothRiskManager;
+
+// Both markets share the same vault and risk manager
 ```
 
 ### 2. Use Contract ABIs
+
 See `CONTRACT_INTERFACES.md` section 7 for simplified ABIs, or use full ABIs from:
+
 - `out/SoothMarket.sol/SoothMarket.json`
 - `out/SoothVault.sol/SoothVault.json`
 - `out/SoothSettlement.sol/SoothSettlement.json`
 
 ### 3. Follow Integration Patterns
+
 - **Trading**: CONTRACT_INTERFACES.md → Section 8, Pattern 1
 - **LP Operations**: CONTRACT_INTERFACES.md → Section 8, Pattern 2
 - **Settlement Claims**: CONTRACT_INTERFACES.md → Section 8, Pattern 3
 
 ### 4. Monitor Events
+
 See CONTRACT_INTERFACES.md → Section 9 for key events:
+
 - `Trade` - price updates
 - `Deposit`/`Withdraw` - LP activity
 - `ResultStored` - market outcomes
@@ -74,13 +98,13 @@ See CONTRACT_INTERFACES.md → Section 9 for key events:
 
 ## Key Contracts
 
-| Contract | Purpose | Key Functions |
-|----------|---------|---------------|
-| **SoothMarket** | Prediction market trading | `trade()`, `isLive()`, `ammState()` |
-| **SoothVault** | Liquidity pool | `depositFor()`, `withdrawFor()`, `balanceOfLP()` |
-| **SoothSettlement** | Settlement & claims | `storeResult()`, `claimSettlement()`, `results()` |
-| **SoothMarketFactory** | Market creation | `createMarket()` |
-| **SoothRiskManager** | Risk parameters | `getBForMarket()`, `updateGlobalB()` |
+| Contract               | Purpose                   | Key Functions                                     |
+| ---------------------- | ------------------------- | ------------------------------------------------- |
+| **SoothMarket**        | Prediction market trading | `trade()`, `isLive()`, `ammState()`               |
+| **SoothVault**         | Liquidity pool            | `depositFor()`, `withdrawFor()`, `balanceOfLP()`  |
+| **SoothSettlement**    | Settlement & claims       | `storeResult()`, `claimSettlement()`, `results()` |
+| **SoothMarketFactory** | Market creation           | `createMarket()`                                  |
+| **SoothRiskManager**   | Risk parameters           | `getBForMarket()`, `updateGlobalB()`              |
 
 ## Documentation Index
 

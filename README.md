@@ -104,3 +104,36 @@ Edit the script to:
 - Configure risk classes & K
 - Register real adjudicators (UMA / Reality / oracle+ZK / attestation)
 - Create markets and wire them into your off-chain PnL engine
+
+## Documentation
+
+### Frontend Integration
+
+- **[Frontend Integration Guide](./docs/frontend-integration/README.md)** - Complete guide for integrating with Sooth Protocol
+- **[Contract Interfaces](./docs/frontend-integration/CONTRACT_INTERFACES.md)** - Detailed ABI documentation
+- **[Quick Reference](./docs/frontend-integration/QUICK_REFERENCE.md)** - Essential functions at a glance
+
+### Requirements & Architecture
+
+- **[Requirements](./docs/requirements/README.md)** - Future phase requirements and architectural improvements
+- **[Vault Architecture](./docs/requirements/VAULT_ARCHITECTURE.md)** - Multi-vault design for next phase
+
+### Deployment Info
+
+- **[deployments.json](./deployments.json)** - Current contract addresses on Base Sepolia
+- **[Second Market Deployment](./SECOND_MARKET_DEPLOYMENT.md)** - Details of the second market deployment
+
+## Current Deployment (Base Sepolia)
+
+Two markets are currently deployed:
+
+- **Market 1** (ExampleMarket): Market ID 1, MEDIUM risk class
+- **Market 2** (SecondMarket): Market ID 2, MEDIUM risk class
+
+Both markets share:
+
+- Same `SoothVault` for liquidity
+- Same `SoothRiskManager` for pricing parameters
+- Same adjudicator (DUMMY_ADJ, classId: 1)
+
+See `deployments.json` for contract addresses.
