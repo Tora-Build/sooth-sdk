@@ -93,6 +93,9 @@ contract DeploySooth is Script {
         // Authorize factory on vault for exposure allocation
         vault.setAuthorized(address(factory), true);
 
+        // Authorize factory on riskManager for setting market risk class
+        riskManager.setAuthorized(address(factory), true);
+
         // 9. Create an example market
         SoothMarket exampleMarket =
             factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
@@ -109,5 +112,20 @@ contract DeploySooth is Script {
         console2.log("SoothMarketFactory:", address(factory));
         console2.log("Example SoothMarket:", address(exampleMarket));
         console2.logBytes32(dummyAdjId);
+
+        string memory json = "{";
+        json = string.concat(json, "\"MockERC20\": \"", vm.toString(address(collateral)), "\",");
+        json = string.concat(json, "\"SoothVault\": \"", vm.toString(address(vault)), "\",");
+        json = string.concat(json, "\"SoothRiskManager\": \"", vm.toString(address(riskManager)), "\",");
+        json = string.concat(json, "\"SoothBalancedAMM\": \"", vm.toString(address(balancedAmm)), "\",");
+        json = string.concat(json, "\"SoothLMSRReal\": \"", vm.toString(address(lmsrReal)), "\",");
+        json = string.concat(json, "\"SoothAdjudicatorRegistry\": \"", vm.toString(address(adjRegistry)), "\",");
+        json = string.concat(json, "\"SoothSettlement\": \"", vm.toString(address(settlement)), "\",");
+        json = string.concat(json, "\"SoothMarketFactory\": \"", vm.toString(address(factory)), "\",");
+        json = string.concat(json, "\"ExampleMarket\": \"", vm.toString(address(exampleMarket)), "\"");
+        json = string.concat(json, "}");
+
+        vm.writeFile("deployments.json", json);
+        console2.log("Wrote deployments to deployments.json");
     }
 }

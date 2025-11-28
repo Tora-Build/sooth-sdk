@@ -6,6 +6,15 @@
 **/.vscode
 **/.idea
 
+# Security - Private Keys & Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+.secret
+secrets/
+private/
+
 # Foundry
 out/
 cache/

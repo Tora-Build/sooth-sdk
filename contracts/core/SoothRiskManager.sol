@@ -27,11 +27,13 @@ contract SoothRiskManager is IRiskManager, Ownable {
     GlobalRiskParams public globalRisk;
     mapping(RiskClass => RiskClassConfig) public riskClassConfigs;
     mapping(uint256 => RiskClass) public marketRiskClass;
+    mapping(address => bool) public authorized;
 
     event GlobalBUpdated(uint256 bGlobal, uint256 Lmax, uint256 T, uint256 B);
     event MarketRiskClassSet(uint256 indexed marketId, RiskClass cls);
     event RiskClassConfigSet(RiskClass cls, uint256 multiplierBps);
     event VaultSet(address vault);
+    event AuthorizedSet(address indexed who, bool allowed);
 
     constructor(ISoothVault _vault) {
         vault = _vault;
@@ -43,6 +45,16 @@ contract SoothRiskManager is IRiskManager, Ownable {
         riskClassConfigs[RiskClass.CRITICAL] = RiskClassConfig({multiplierBps: 18000});
 
         globalRisk.maxConcurrentWorstCase = 10;
+    }
+
+    modifier onlyAuthorized() {
+        require(msg.sender == owner || authorized[msg.sender], "RiskManager: not authorized");
+        _;
+    }
+
+    function setAuthorized(address who, bool allowed) external onlyOwner {
+        authorized[who] = allowed;
+        emit AuthorizedSet(who, allowed);
     }
 
     function setVault(ISoothVault _vault) external onlyOwner {
@@ -59,7 +71,7 @@ contract SoothRiskManager is IRiskManager, Ownable {
         emit RiskClassConfigSet(cls, multiplierBps);
     }
 
-    function setMarketRiskClass(uint256 marketId, RiskClass cls) external onlyOwner {
+    function setMarketRiskClass(uint256 marketId, RiskClass cls) external onlyAuthorized {
         marketRiskClass[marketId] = cls;
         emit MarketRiskClassSet(marketId, cls);
     }
