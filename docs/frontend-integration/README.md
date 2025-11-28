@@ -25,6 +25,16 @@ This folder contains all documentation and resources for integrating frontend ap
 - Merkle proof format
 - Quick start guide
 
+### 🎯 [SETTLEMENT_GUIDE.md](./SETTLEMENT_GUIDE.md)
+
+**Frontend settlement integration guide**
+
+- React hooks for settlement
+- UI components and examples
+- Complete claim flow
+- Event monitoring
+- User-facing settlement process
+
 ### 🔗 [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
 
 **Original integration guide**
