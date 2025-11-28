@@ -4,8 +4,7 @@ This repo contains a reference implementation of the Sooth core contracts:
 
 - `SoothVault` – singleton, per-market exposure tracking
 - `SoothRiskManager` – dynamic global `b` and per-market `b_market`
-- `SoothBalancedAMM` – LMSR-like linear AMM (dev only)
-- `SoothLMSRReal` – experimental true LMSR implementation (approximate exp/log, not gas-optimized)
+- `SoothLMSRReal` – true LMSR implementation with fixed-point approximations
 - `SoothMarket` – infinite-end YES/NO vAMM markets
 - `SoothMarketFactory` – helper to spin up new markets with risk classes and exposure
 - `SoothAdjudicatorRegistry` – adjudicator configuration (A–D classes)
@@ -16,13 +15,13 @@ This matches the unified Sooth architecture:
 
 - Infinite-end markets (terminate on truth time `T*`, not expiry)
 - Singleton vault per adjudicator class
-- Dynamic-b LMSR–style pricing, bounded LP loss
+- Dynamic-b LMSR pricing, bounded LP loss
 - Retroactive settlement (PnL replay around `T*`)
 - Smart account–based UX and accounting
+- Single AMM for all markets (shared liquidity requires consistent pricing)
 
-> NOTE: `SoothBalancedAMM` is still the recommended curve for early dev and testing.
-> `SoothLMSRReal` implements the LMSR cost function with simple fixed-point approximations
-> for `exp` and `log-sum-exp` and is **not** gas-optimized or production-ready.
+> NOTE: All markets share the same `SoothLMSRReal` AMM due to the shared liquidity vault.
+> This ensures consistent pricing across all markets and prevents arbitrage opportunities.
 
 ## Layout
 

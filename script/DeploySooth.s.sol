@@ -63,9 +63,8 @@ contract DeploySooth is Script {
         // 3. Risk manager
         SoothRiskManager riskManager = new SoothRiskManager(vault);
 
-        // 4. AMM implementation (Balanced by default; LMSRReal is also available)
-        SoothBalancedAMM balancedAmm = new SoothBalancedAMM();
-        SoothLMSRReal lmsrReal = new SoothLMSRReal();
+        // 4. AMM implementation (single AMM for all markets due to shared liquidity)
+        SoothLMSRReal amm = new SoothLMSRReal();
 
         // 5. Adjudicator registry
         SoothAdjudicatorRegistry adjRegistry = new SoothAdjudicatorRegistry();
@@ -87,8 +86,8 @@ contract DeploySooth is Script {
         // 7. Authorize settlement as vault spender for PnL application
         vault.setAuthorized(address(settlement), true);
 
-        // 8. Market factory (using Balanced AMM by default)
-        SoothMarketFactory factory = new SoothMarketFactory(vault, riskManager, balancedAmm);
+        // 8. Market factory (all markets use the same AMM)
+        SoothMarketFactory factory = new SoothMarketFactory(vault, riskManager, amm);
 
         // Authorize factory on vault for exposure allocation
         vault.setAuthorized(address(factory), true);
@@ -105,8 +104,7 @@ contract DeploySooth is Script {
         console2.log("Mock collateral:", address(collateral));
         console2.log("SoothVault:", address(vault));
         console2.log("SoothRiskManager:", address(riskManager));
-        console2.log("SoothBalancedAMM:", address(balancedAmm));
-        console2.log("SoothLMSRReal:", address(lmsrReal));
+        console2.log("SoothLMSRReal (AMM):", address(amm));
         console2.log("SoothAdjudicatorRegistry:", address(adjRegistry));
         console2.log("SoothSettlement:", address(settlement));
         console2.log("SoothMarketFactory:", address(factory));
@@ -117,8 +115,7 @@ contract DeploySooth is Script {
         json = string.concat(json, "\"MockERC20\": \"", vm.toString(address(collateral)), "\",");
         json = string.concat(json, "\"SoothVault\": \"", vm.toString(address(vault)), "\",");
         json = string.concat(json, "\"SoothRiskManager\": \"", vm.toString(address(riskManager)), "\",");
-        json = string.concat(json, "\"SoothBalancedAMM\": \"", vm.toString(address(balancedAmm)), "\",");
-        json = string.concat(json, "\"SoothLMSRReal\": \"", vm.toString(address(lmsrReal)), "\",");
+        json = string.concat(json, "\"SoothLMSRReal\": \"", vm.toString(address(amm)), "\",");
         json = string.concat(json, "\"SoothAdjudicatorRegistry\": \"", vm.toString(address(adjRegistry)), "\",");
         json = string.concat(json, "\"SoothSettlement\": \"", vm.toString(address(settlement)), "\",");
         json = string.concat(json, "\"SoothMarketFactory\": \"", vm.toString(address(factory)), "\",");

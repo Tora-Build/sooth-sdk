@@ -48,7 +48,6 @@ contract CreateSecondMarket is Script {
         address mockERC20 = vm.parseJsonAddress(json, ".MockERC20");
         address vault = vm.parseJsonAddress(json, ".SoothVault");
         address riskManager = vm.parseJsonAddress(json, ".SoothRiskManager");
-        address balancedAMM = vm.parseJsonAddress(json, ".SoothBalancedAMM");
         address lmsrReal = vm.parseJsonAddress(json, ".SoothLMSRReal");
         address adjRegistry = vm.parseJsonAddress(json, ".SoothAdjudicatorRegistry");
         address settlement = vm.parseJsonAddress(json, ".SoothSettlement");
@@ -59,7 +58,6 @@ contract CreateSecondMarket is Script {
         newJson = string.concat(newJson, "\"MockERC20\": \"", vm.toString(mockERC20), "\",");
         newJson = string.concat(newJson, "\"SoothVault\": \"", vm.toString(vault), "\",");
         newJson = string.concat(newJson, "\"SoothRiskManager\": \"", vm.toString(riskManager), "\",");
-        newJson = string.concat(newJson, "\"SoothBalancedAMM\": \"", vm.toString(balancedAMM), "\",");
         newJson = string.concat(newJson, "\"SoothLMSRReal\": \"", vm.toString(lmsrReal), "\",");
         newJson = string.concat(newJson, "\"SoothAdjudicatorRegistry\": \"", vm.toString(adjRegistry), "\",");
         newJson = string.concat(newJson, "\"SoothSettlement\": \"", vm.toString(settlement), "\",");

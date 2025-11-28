@@ -1,4 +1,4 @@
-# LMSR Slippage & Price Impact Research
+# LMSR Slippage & Price Impact
 
 ## 1. Overview
 
@@ -15,34 +15,22 @@ The parameter `b` controls the market depth.
 
 In Sooth, `b` is dynamic and scales with the vault's total liquidity (`bGlobal`).
 
-## 3. Formulas
+## 3. LMSR Pricing Formula
 
-### A. SoothBalancedAMM (Linear Approximation - Default)
-
-This is the default AMM used in the current alpha.
-
-- **Spot Price**: $p = 0.5 + \frac{q_{yes} - q_{no}}{2b}$
-- **Price Impact**: For a trade size of $\delta$:
-  $$ \Delta p = \frac{\delta}{2b} $$
-- **Execution Price** (Average Price):
-  $$ p*{avg} = p*{start} + \frac{\delta}{4b} $$
-- **Slippage**:
-  $$ Slippage = \frac{\delta}{4b} $$
-
-**Example**:
-
-- $b = 1000$
-- Buy $\delta = 100$ shares
-- Price moves by $100 / 2000 = 0.05$ (5%)
-- Average price paid is $2.5\%$ higher than start price.
-
-### B. SoothLMSRReal (True LMSR)
+All markets use **SoothLMSRReal** (true LMSR) due to the shared liquidity vault.
 
 - **Spot Price**: $p_i = \frac{e^{q_i/b}}{\sum e^{q_j/b}}$
 - **Cost Function**: $C(\vec{q}) = b \ln(\sum e^{q_j/b})$
 - **Slippage**: Non-linear.
-  - For small trades ($\delta \ll b$), it approximates the linear model.
+  - For small trades ($\delta \ll b$), slippage is minimal
   - For large trades, price impact accelerates exponentially.
+
+**Why Single AMM?**
+Since all markets share the same liquidity vault, they must use the same AMM to ensure:
+
+- Consistent pricing across markets
+- No arbitrage opportunities
+- Proper risk accounting
 
 ## 4. Frontend Implementation Guide
 

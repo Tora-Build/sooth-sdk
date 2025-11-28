@@ -10,17 +10,17 @@ A second market has been successfully created on **Base Sepolia** testnet.
 
 ### Market 1 (ExampleMarket)
 
-- **Address**: `0x49b81D81B371F2a87D5af443B0E9ed6EBe0A2660`
+- **Address**: `0xa6e17775Ab48DB1912CEc4BD4671D95A64527D76`
 - **Market ID**: `1`
 - **Risk Class**: `MEDIUM` (1)
 - **Locked Exposure**: `0` (no exposure allocated yet)
 
 ### Market 2 (SecondMarket) - NEW ✨
 
-- **Address**: `0x7AF0976e2103AF9FFA1BC0EA4A5ABC134175722E`
+- **Address**: `0x4F60778d600A9329FeFef294A81812e75EdB4f17`
 - **Market ID**: `2`
 - **Risk Class**: `MEDIUM` (1)
-- **Locked Exposure**: `200200688004` wei (~200.2 gwei)
+- **Locked Exposure**: `0` (no exposure allocated yet)
 - **Initial AMM State**: `qYes = 0, qNo = 0`
 
 ---
@@ -31,12 +31,12 @@ Both markets share the same infrastructure:
 
 | Component              | Address                                      | Purpose                            |
 | ---------------------- | -------------------------------------------- | ---------------------------------- |
-| **SoothVault**         | `0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38` | Shared liquidity vault             |
-| **SoothRiskManager**   | `0x1aF3cB8B270Db3e71fC979543c32B87709EA191f` | Risk parameters (bGlobal, bMarket) |
-| **SoothBalancedAMM**   | `0x8629b9ca457F4088ec8346FAED61DA858FDB498d` | AMM pricing algorithm              |
-| **SoothSettlement**    | `0xaa3Ffae62A8Af00d08Ac395e9551776b0A01E492` | Settlement & claims                |
-| **SoothMarketFactory** | `0x42CBCAF89C380a55Ef1B2ADe6a32eE9590dD63e1` | Market creation factory            |
-| **MockERC20**          | `0x58F35BE6A5e3D2be4C3575853043322B02FEeD84` | Collateral token (mUSDC)           |
+| **SoothVault**         | `0x98169FFFDf249b1196e4e8095f673379f3D06694` | Shared liquidity vault             |
+| **SoothRiskManager**   | `0xae2aea85f34c6daB95403163bc2E457e82744196` | Risk parameters (bGlobal, bMarket) |
+| **SoothLMSRReal**      | `0xE73E78C4F93C79593c4E09b6d096D668BA45852F` | AMM pricing algorithm              |
+| **SoothSettlement**    | `0xb7069f379138cFf592EA372f2EAeF80a4f484F21` | Settlement & claims                |
+| **SoothMarketFactory** | `0x3014DB85baA8906Ab0f0562014f947995EaA0f15` | Market creation factory            |
+| **MockERC20**          | `0x7894EB3C85e03B6009E74a1331e08dC6E0199652` | Collateral token (mUSDC)           |
 
 ---
 
@@ -57,8 +57,8 @@ The **SoothVault** now manages liquidity for **2 markets**:
 
 ```
 Market 1 Locked Exposure: 0 wei
-Market 2 Locked Exposure: 200,200,688,004 wei (~0.0002 ETH)
-Total Locked Exposure: 200,200,688,004 wei
+Market 2 Locked Exposure: 0 wei
+Total Locked Exposure: 0 wei
 ```
 
 ---
@@ -69,13 +69,13 @@ Total Locked Exposure: 200,200,688,004 wei
 
 ```bash
 # Get market ID
-cast call 0x7AF0976e2103AF9FFA1BC0EA4A5ABC134175722E "marketId()(uint256)" --rpc-url https://sepolia.base.org
+cast call 0x4F60778d600A9329FeFef294A81812e75EdB4f17 "marketId()(uint256)" --rpc-url https://sepolia.base.org
 
 # Get AMM state
-cast call 0x7AF0976e2103AF9FFA1BC0EA4A5ABC134175722E "ammState()(int256,int256)" --rpc-url https://sepolia.base.org
+cast call 0x4F60778d600A9329FeFef294A81812e75EdB4f17 "ammState()(int256,int256)" --rpc-url https://sepolia.base.org
 
 # Get b parameter for this market
-cast call 0x1aF3cB8B270Db3e71fC979543c32B87709EA191f "getBForMarket(uint256)(uint256)" 2 --rpc-url https://sepolia.base.org
+cast call 0xae2aea85f34c6daB95403163bc2E457e82744196 "getBForMarket(uint256)(uint256)" 2 --rpc-url https://sepolia.base.org
 ```
 
 ### Using TypeScript/ethers.js
@@ -103,7 +103,7 @@ const riskManager = new ethers.Contract(
 const bMarket = await riskManager.getBForMarket(marketId);
 
 // Calculate price
-const amm = new ethers.Contract(deployments.SoothBalancedAMM, ammABI, provider);
+const amm = new ethers.Contract(deployments.SoothLMSRReal, ammABI, provider);
 const price = await amm.price({ qYes, qNo }, 0, bMarket);
 ```
 
@@ -115,16 +115,15 @@ The `deployments.json` file has been updated to include the second market:
 
 ```json
 {
-  "MockERC20": "0x58F35BE6A5e3D2be4C3575853043322B02FEeD84",
-  "SoothVault": "0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38",
-  "SoothRiskManager": "0x1aF3cB8B270Db3e71fC979543c32B87709EA191f",
-  "SoothBalancedAMM": "0x8629b9ca457F4088ec8346FAED61DA858FDB498d",
-  "SoothLMSRReal": "0x50293aD4e42593A8b081960c991c198729E81192",
-  "SoothAdjudicatorRegistry": "0x12A38bc9E3bD2359265cE70451777eDe2fd875A3",
-  "SoothSettlement": "0xaa3Ffae62A8Af00d08Ac395e9551776b0A01E492",
-  "SoothMarketFactory": "0x42CBCAF89C380a55Ef1B2ADe6a32eE9590dD63e1",
-  "ExampleMarket": "0x49b81D81B371F2a87D5af443B0E9ed6EBe0A2660",
-  "SecondMarket": "0x7AF0976e2103AF9FFA1BC0EA4A5ABC134175722E"
+  "MockERC20": "0x7894EB3C85e03B6009E74a1331e08dC6E0199652",
+  "SoothVault": "0x98169FFFDf249b1196e4e8095f673379f3D06694",
+  "SoothRiskManager": "0xae2aea85f34c6daB95403163bc2E457e82744196",
+  "SoothLMSRReal": "0xE73E78C4F93C79593c4E09b6d096D668BA45852F",
+  "SoothAdjudicatorRegistry": "0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d",
+  "SoothSettlement": "0xb7069f379138cFf592EA372f2EAeF80a4f484F21",
+  "SoothMarketFactory": "0x3014DB85baA8906Ab0f0562014f947995EaA0f15",
+  "ExampleMarket": "0xa6e17775Ab48DB1912CEc4BD4671D95A64527D76",
+  "SecondMarket": "0x4F60778d600A9329FeFef294A81812e75EdB4f17"
 }
 ```
 
