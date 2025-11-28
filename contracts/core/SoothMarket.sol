@@ -62,7 +62,10 @@ contract SoothMarket is Ownable {
 
     /// @notice outcomeIndex: 0 = YES, 1 = NO
     /// @param deltaShares > 0 to buy, < 0 to sell.
-    function trade(uint8 outcomeIndex, int256 deltaShares) external onlyLive {
+    /// @param maxCost Maximum cost willing to pay (buy) or minimum proceeds to receive (sell).
+    ///                For buys: positive value representing max tokens to spend.
+    ///                For sells: negative value representing min tokens to receive.
+    function trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost) external onlyLive {
         require(deltaShares != 0, "Market: zero trade");
 
         // spot-style restriction: no synthetic shorts – must own before selling
@@ -81,6 +84,15 @@ contract SoothMarket is Ownable {
 
         (int256 cost, ISoothAMM.State memory newState) =
             amm.costDelta(ammState, outcomeIndex, deltaShares, b);
+
+        // Slippage protection
+        if (deltaShares > 0) {
+            // Buying: cost should not exceed maxCost
+            require(cost <= maxCost, "Market: slippage exceeded");
+        } else {
+            // Selling: proceeds (negative cost) should not be less than maxCost (negative)
+            require(cost >= maxCost, "Market: slippage exceeded");
+        }
 
         // Positive cost: trader pays vault; negative cost: vault pays trader.
         IERC20 collateral = vault.asset();

@@ -84,7 +84,7 @@ contract SoothCoreIntegrationTest is Test {
         collateral.approve(address(market), type(uint256).max);
 
         // Trader buys YES = 10 shares
-        market.trade(0, int256(10 ether));
+        market.trade(0, int256(10 ether), type(int256).max);
 
         vm.stopPrank();
 

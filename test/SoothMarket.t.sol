@@ -54,7 +54,7 @@ contract SoothMarketTest is Test {
         collateral.approve(address(market), type(uint256).max);
         uint256 balBefore = collateral.balanceOf(trader);
 
-        market.trade(0, int256(10 ether)); // buy 10 YES
+        market.trade(0, int256(10 ether), type(int256).max); // buy 10 YES
 
         uint256 balAfter = collateral.balanceOf(trader);
         assertLt(balAfter, balBefore, "should pay to buy YES");
@@ -67,11 +67,11 @@ contract SoothMarketTest is Test {
         collateral.approve(address(market), type(uint256).max);
         
         // Buy first
-        market.trade(0, int256(10 ether));
+        market.trade(0, int256(10 ether), type(int256).max);
         uint256 balAfterBuy = collateral.balanceOf(trader);
 
         // Sell half
-        market.trade(0, -int256(5 ether));
+        market.trade(0, -int256(5 ether), type(int256).min);
         
         uint256 balAfterSell = collateral.balanceOf(trader);
         assertGt(balAfterSell, balAfterBuy, "should receive funds when selling");
@@ -82,7 +82,95 @@ contract SoothMarketTest is Test {
     function testCannotShortWithoutBalance() public {
         vm.startPrank(trader);
         vm.expectRevert();
-        market.trade(0, -int256(1 ether)); // try to sell YES without holding
+        market.trade(0, -int256(1 ether), type(int256).min); // try to sell YES without holding
+        vm.stopPrank();
+    }
+
+    function testSlippageProtectionBuy() public {
+        vm.startPrank(trader);
+        collateral.approve(address(market), type(uint256).max);
+        
+        // Calculate expected cost for 10 YES shares
+        uint256 b = riskManager.getBForMarket(MARKET_ID);
+        (int256 qYes, int256 qNo) = market.ammState();
+        (int256 expectedCost,) = amm.costDelta(
+            ISoothAMM.State({qYes: qYes, qNo: qNo}),
+            0,
+            int256(10 ether),
+            b
+        );
+        
+        // Set maxCost too low - should revert
+        vm.expectRevert("Market: slippage exceeded");
+        market.trade(0, int256(10 ether), expectedCost - 1);
+        
+        // Set maxCost at exact amount - should succeed
+        market.trade(0, int256(10 ether), expectedCost);
+        assertEq(market.yesBalance(trader), 10 ether);
+        
+        vm.stopPrank();
+    }
+
+    function testSlippageProtectionSell() public {
+        vm.startPrank(trader);
+        collateral.approve(address(market), type(uint256).max);
+        
+        // Buy first
+        market.trade(0, int256(10 ether), type(int256).max);
+        
+        // Calculate expected proceeds for selling 5 YES shares
+        uint256 b = riskManager.getBForMarket(MARKET_ID);
+        (int256 qYes, int256 qNo) = market.ammState();
+        (int256 expectedProceeds,) = amm.costDelta(
+            ISoothAMM.State({qYes: qYes, qNo: qNo}),
+            0,
+            -int256(5 ether),
+            b
+        );
+        
+        // Set maxCost (min proceeds) too high - should revert
+        vm.expectRevert("Market: slippage exceeded");
+        market.trade(0, -int256(5 ether), expectedProceeds + 1);
+        
+        // Set maxCost at exact amount - should succeed
+        market.trade(0, -int256(5 ether), expectedProceeds);
+        assertEq(market.yesBalance(trader), 5 ether);
+        
+        vm.stopPrank();
+    }
+
+    function testSlippageProtectionWithPriceMovement() public {
+        vm.startPrank(trader);
+        collateral.approve(address(market), type(uint256).max);
+        
+        // Get cost for 10 YES at current state
+        uint256 b = riskManager.getBForMarket(MARKET_ID);
+        (int256 qYes1, int256 qNo1) = market.ammState();
+        (int256 cost1,) = amm.costDelta(
+            ISoothAMM.State({qYes: qYes1, qNo: qNo1}),
+            0,
+            int256(10 ether),
+            b
+        );
+        
+        // Execute a large trade to move the price
+        market.trade(0, int256(100 ether), type(int256).max);
+        
+        // Now the cost for 10 YES should be higher
+        (int256 qYes2, int256 qNo2) = market.ammState();
+        (int256 cost2,) = amm.costDelta(
+            ISoothAMM.State({qYes: qYes2, qNo: qNo2}),
+            0,
+            int256(10 ether),
+            b
+        );
+        
+        assertGt(cost2, cost1, "Price should have moved up");
+        
+        // Try to buy with old (lower) maxCost - should revert
+        vm.expectRevert("Market: slippage exceeded");
+        market.trade(0, int256(10 ether), cost1);
+        
         vm.stopPrank();
     }
 }

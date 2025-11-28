@@ -38,7 +38,7 @@ contract SoothSmartAccount {
 
     /// @notice Execute a trade in a SoothMarket using this account as msg.sender.
     /// @dev For simplicity this forwards the call; more advanced AA would use signatures.
-    function trade(SoothMarket market, uint8 outcomeIndex, int256 deltaShares) external onlyOwner {
-        market.trade(outcomeIndex, deltaShares);
+    function trade(SoothMarket market, uint8 outcomeIndex, int256 deltaShares, int256 maxCost) external onlyOwner {
+        market.trade(outcomeIndex, deltaShares, maxCost);
     }
 }

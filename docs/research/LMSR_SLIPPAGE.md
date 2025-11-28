@@ -87,16 +87,62 @@ function calculateSlippage(
 2.  **Warn on High Slippage**: If impact > 2-5%, show a warning color (orange/red).
 3.  **Reject Extreme Slippage**: Disable the trade button if impact > 20% (or user configured tolerance) to prevent accidental losses.
 
-## 5. Future Improvements
+## 5. On-Chain Slippage Protection
 
-For production, the `SoothMarket` contract should be updated to support:
+✅ **Implemented**: The `SoothMarket.trade()` function now supports slippage protection via the `maxCost` parameter.
+
+### Usage
 
 ```solidity
 function trade(
     uint8 outcomeIndex,
     int256 deltaShares,
-    uint256 maxCost // Slippage limit
+    int256 maxCost // Slippage limit
 ) external;
 ```
 
-This would allow the transaction to revert if the cost exceeds the user's limit.
+### Frontend Integration
+
+```typescript
+// 1. Get current AMM state and b parameter
+const [qYes, qNo] = await market.ammState();
+const b = await riskManager.getBForMarket(marketId);
+
+// 2. Calculate expected cost
+const [expectedCost] = await amm.costDelta(
+  { qYes, qNo },
+  outcomeIndex,
+  deltaShares,
+  b
+);
+
+// 3. Add slippage tolerance (e.g., 2%)
+const slippageTolerance = 2; // 2%
+const maxCost =
+  deltaShares > 0
+    ? (expectedCost * (100n + BigInt(slippageTolerance))) / 100n // Buy: allow higher cost
+    : (expectedCost * (100n - BigInt(slippageTolerance))) / 100n; // Sell: allow lower proceeds
+
+// 4. Execute trade with protection
+await market.trade(outcomeIndex, deltaShares, maxCost);
+```
+
+### Best Practices
+
+1. **Always set maxCost**: Never use `type(int256).max` in production
+2. **Reasonable tolerance**: 1-5% is typical for most markets
+3. **Show to user**: Display the slippage tolerance in the UI
+4. **Handle reverts**: Catch "Market: slippage exceeded" and suggest increasing tolerance
+
+### Error Handling
+
+```typescript
+try {
+  await market.trade(outcomeIndex, deltaShares, maxCost);
+} catch (error) {
+  if (error.message.includes("slippage exceeded")) {
+    // Show user: "Price moved unfavorably. Try increasing slippage tolerance."
+    // Offer to retry with higher tolerance
+  }
+}
+```
