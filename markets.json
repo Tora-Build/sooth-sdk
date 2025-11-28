@@ -1,0 +1,14 @@
+[
+  {
+    "question": "Will ETH be above $4000 by end of 2025?",
+    "outcomes": ["Yes", "No"],
+    "riskClass": "MEDIUM",
+    "adjudicatorId": "0x6b9d62db6d44203a3d58b228287e14c062024513222d43f07661262142251e60"
+  },
+  {
+    "question": "Will BTC be above $100k by end of 2025?",
+    "outcomes": ["Yes", "No"],
+    "riskClass": "HIGH",
+    "adjudicatorId": "0x6b9d62db6d44203a3d58b228287e14c062024513222d43f07661262142251e60"
+  }
+]
