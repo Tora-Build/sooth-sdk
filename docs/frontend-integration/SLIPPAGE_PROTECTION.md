@@ -46,13 +46,6 @@ This is the default AMM used in the current alpha.
 
 ## 4. Frontend Implementation Guide
 
-### ⚠️ Important: No On-Chain Slippage Protection
-
-The current `SoothMarket.trade()` function **does not** accept a `maxCost` limit.
-
-- **Risk**: If a large trade happens before yours, your execution price could be much worse than expected.
-- **Mitigation**: The frontend **must** estimate slippage and warn users.
-
 ### Calculating Price Impact (Frontend)
 
 ```typescript
