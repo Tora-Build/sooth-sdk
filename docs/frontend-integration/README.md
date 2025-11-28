@@ -44,6 +44,15 @@ This folder contains all documentation and resources for integrating frontend ap
 - Automatic vs manual flows
 - Frontend implications
 
+### 🔬 [LMSR_SLIPPAGE.md](../research/LMSR_SLIPPAGE.md)
+
+**Slippage & Price Impact Research**
+
+- Math behind LMSR pricing
+- Calculating price impact
+- Frontend mitigation strategies
+- Role of liquidity parameter `b`
+
 ### 🔗 [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
 
 **Original integration guide**
