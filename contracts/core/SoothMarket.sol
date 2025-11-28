@@ -88,8 +88,9 @@ contract SoothMarket is Ownable {
             uint256 pay = uint256(cost);
             collateral.transferFrom(msg.sender, address(vault), pay);
         } else if (cost < 0) {
-            uint256 payout = uint256(-cost);
-            collateral.transfer(msg.sender, payout);
+            // Vault pays trader (pnlDelta = -cost > 0)
+            // We use applySettlementDelta which handles transfers from vault to user
+            vault.applySettlementDelta(msg.sender, -cost);
         }
 
         ammState = newState;

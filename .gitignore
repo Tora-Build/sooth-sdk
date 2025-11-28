@@ -1,4 +1,36 @@
-
+# General
 .DS_Store
+.env
+.env.local
+.env.*.local
+**/.vscode
+**/.idea
+
+# Foundry
+out/
+cache/
+broadcast/
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
+
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# Node / Frontend
+node_modules/
+.next/
+build/
+dist/
+.npm
+*.log
+
+# Graph
+generated/
+
+
+# Graph Build
+graph-data/

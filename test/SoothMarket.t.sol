@@ -43,6 +43,10 @@ contract SoothMarketTest is Test {
         // Market
         market = new SoothMarket();
         market.initialize(MARKET_ID, vault, riskManager, amm, ADJ_ID);
+
+        // Authorize market on vault
+        vm.prank(address(this)); // vault owner is test contract (since it deployed it)
+        vault.setAuthorized(address(market), true);
     }
 
     function testTradeBuyYes() public {
@@ -55,6 +59,23 @@ contract SoothMarketTest is Test {
         uint256 balAfter = collateral.balanceOf(trader);
         assertLt(balAfter, balBefore, "should pay to buy YES");
         assertEq(market.yesBalance(trader), 10 ether);
+        vm.stopPrank();
+    }
+
+    function testTradeSellYes() public {
+        vm.startPrank(trader);
+        collateral.approve(address(market), type(uint256).max);
+        
+        // Buy first
+        market.trade(0, int256(10 ether));
+        uint256 balAfterBuy = collateral.balanceOf(trader);
+
+        // Sell half
+        market.trade(0, -int256(5 ether));
+        
+        uint256 balAfterSell = collateral.balanceOf(trader);
+        assertGt(balAfterSell, balAfterBuy, "should receive funds when selling");
+        assertEq(market.yesBalance(trader), 5 ether);
         vm.stopPrank();
     }
 
