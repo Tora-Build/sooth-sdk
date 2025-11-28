@@ -35,6 +35,15 @@ This folder contains all documentation and resources for integrating frontend ap
 - Event monitoring
 - User-facing settlement process
 
+### 💧 [LIQUIDITY_MECHANISM.md](./LIQUIDITY_MECHANISM.md)
+
+**Liquidity & Exposure Guide**
+
+- Shared vault model explanation
+- Virtual allocation mechanism
+- Automatic vs manual flows
+- Frontend implications
+
 ### 🔗 [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
 
 **Original integration guide**
