@@ -10,10 +10,18 @@ interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+/// @notice ERC20 metadata interface for reading token decimals.
+interface IERC20Metadata is IERC20 {
+    function decimals() external view returns (uint8);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
+
 /// @notice Singleton vault interface used by markets, risk manager, settlement and smart accounts.
 interface ISoothVault {
     function asset() external view returns (IERC20);
     function totalAssets() external view returns (uint256);
+    function decimalsScale() external view returns (uint256);
     function getTreasuryBalance() external view returns (uint256);
     function getLiquidBufferBalance() external view returns (uint256);
 

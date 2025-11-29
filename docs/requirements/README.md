@@ -4,7 +4,7 @@ This folder contains requirement documents for future phases and architectural i
 
 ## 📋 Active Requirements
 
-### [VAULT_ARCHITECTURE.md](./VAULT_ARCHITECTURE.md)
+### [MULTI_VAULT_ARCHITECTURE.md](./MULTI_VAULT_ARCHITECTURE.md)
 
 **Status**: Planned for Next Phase  
 **Priority**: High  
@@ -25,7 +25,7 @@ This folder contains requirement documents for future phases and architectural i
 
 ### Architecture & Design
 
-- [x] VAULT_ARCHITECTURE.md - Multi-vault system design
+- [x] MULTI_VAULT_ARCHITECTURE.md - Multi-vault system design
 
 ### Security & Risk
 
@@ -143,7 +143,7 @@ Requirements are prioritized based on:
 
 ### Phase 2 (Planned)
 
-- 📋 Multi-vault architecture (VAULT_ARCHITECTURE.md)
+- 📋 Multi-vault architecture (MULTI_VAULT_ARCHITECTURE.md)
 - 📋 Additional adjudicator integrations
 - 📋 Enhanced risk management
 - 📋 LP migration tools
@@ -180,6 +180,6 @@ To propose a new requirement:
 
 ## 📅 Last Updated
 
-- **Date**: 2025-11-28
+- **Date**: 2025-11-29
 - **Phase**: Phase 1 (Alpha/Testing)
 - **Active Requirements**: 1

@@ -86,13 +86,10 @@ contract SoothMarket is Ownable {
             amm.costDelta(ammState, outcomeIndex, deltaShares, b);
 
         // Slippage protection
-        if (deltaShares > 0) {
-            // Buying: cost should not exceed maxCost
-            require(cost <= maxCost, "Market: slippage exceeded");
-        } else {
-            // Selling: proceeds (negative cost) should not be less than maxCost (negative)
-            require(cost >= maxCost, "Market: slippage exceeded");
-        }
+        // Algebraic check works for both:
+        // - Buys (cost > 0): cost <= maxCost (don't pay more than max)
+        // - Sells (cost < 0): cost <= maxCost (e.g. -100 <= -98, means receive at least 98)
+        require(cost <= maxCost, "Market: slippage exceeded");
 
         // Positive cost: trader pays vault; negative cost: vault pays trader.
         IERC20 collateral = vault.asset();

@@ -77,11 +77,19 @@ contract SoothRiskManager is IRiskManager, Ownable {
     }
 
     /// @notice Recompute global b based on treasury, buffer, and K.
+    /// @dev Treasury and buffer are normalized to 18 decimals for pricing calculations.
     function updateGlobalB() external {
-        uint256 T = vault.getTreasuryBalance();
-        uint256 B = vault.getLiquidBufferBalance();
+        uint256 T_raw = vault.getTreasuryBalance();
+        uint256 B_raw = vault.getLiquidBufferBalance();
+        uint256 scale = vault.decimalsScale();
         uint256 K = globalRisk.maxConcurrentWorstCase;
         if (K == 0) return;
+
+        // Normalize to 18 decimals for pricing calculations
+        // For 18-decimal tokens: scale = 1 (no change)
+        // For 6-decimal tokens: scale = 10^12 (multiply by 1 trillion)
+        uint256 T = T_raw * scale;
+        uint256 B = B_raw * scale;
 
         uint256 Lmax = (T + B) / K;
 

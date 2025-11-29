@@ -11,14 +11,26 @@ import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/SoothMarketFactory.sol";
 import "../contracts/settlement/SoothSettlement.sol";
 
-contract MockERC20 is IERC20 {
-    string public name = "Mock USDC";
-    string public symbol = "mUSDC";
-    uint8 public decimals = 18;
+contract MockERC20 is IERC20Metadata {
+    string private _name = "Mock USDC";
+    string private _symbol = "mUSDC";
+    uint8 private _decimals = 18;
 
     uint256 public override totalSupply;
     mapping(address => uint256) public override balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
+
+    function name() external view override returns (string memory) {
+        return _name;
+    }
+
+    function symbol() external view override returns (string memory) {
+        return _symbol;
+    }
+
+    function decimals() external view override returns (uint8) {
+        return _decimals;
+    }
 
     function _mint(address to, uint256 amount) external {
         totalSupply += amount;
@@ -51,14 +63,22 @@ contract MockERC20 is IERC20 {
 contract DeploySooth is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerKey);
         vm.startBroadcast(deployerKey);
 
         // 1. Collateral token (for dev: deploy mock token)
         MockERC20 collateral = new MockERC20();
-        collateral._mint(msg.sender, 1_000_000 ether);
+        collateral._mint(deployer, 1_000_000 ether);
 
         // 2. Vault
         SoothVault vault = new SoothVault(collateral);
+        
+        // Verify decimals normalization
+        uint8 collateralDecimals = collateral.decimals();
+        uint256 decimalsScale = vault.decimalsScale();
+        console2.log("Collateral decimals:", collateralDecimals);
+        console2.log("Decimals scale factor:", decimalsScale);
+        console2.log("Expected scale: 10^(18-decimals) =", 10 ** (18 - collateralDecimals));
 
         // 3. Risk manager
         SoothRiskManager riskManager = new SoothRiskManager(vault);
@@ -95,7 +115,19 @@ contract DeploySooth is Script {
         // Authorize factory on riskManager for setting market risk class
         riskManager.setAuthorized(address(factory), true);
 
-        // 9. Create an example market
+        // 9. Deposit initial liquidity into vault
+        // This ensures bGlobal will be non-zero when markets are created
+        uint256 initialLiquidity = 100_000 ether; // 100k tokens
+        collateral.approve(address(vault), initialLiquidity);
+        vault.depositFor(msg.sender, initialLiquidity);
+        console2.log("Initial liquidity deposited:", initialLiquidity);
+        
+        // Verify vault state after deposit
+        console2.log("Vault totalAssets:", vault.totalAssets());
+        console2.log("Vault LP balance:", vault.balanceOfLP(msg.sender));
+
+        // 10. Create an example market
+        // The factory will call updateGlobalB() internally, which now has liquidity to work with
         SoothMarket exampleMarket =
             factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
 

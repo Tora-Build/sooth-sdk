@@ -9,6 +9,10 @@ import "./SoothInterfaces.sol";
 contract SoothVault is ISoothVault, Ownable {
     IERC20 public immutable override asset;
 
+    /// @notice Decimals scaling factor: 10^(18 - assetDecimals).
+    /// @dev Used by RiskManager to normalize all collateral amounts to 18 decimals for pricing.
+    uint256 public immutable decimalsScale;
+
     /// @notice LP share balances (1:1 with underlying asset in this reference).
     mapping(address => uint256) public balanceOfLP;
 
@@ -33,6 +37,16 @@ contract SoothVault is ISoothVault, Ownable {
 
     constructor(IERC20 _asset) {
         asset = _asset;
+        
+        // Read decimals and compute scaling factor
+        // This prevents price attacks when using tokens with < 18 decimals
+        uint8 assetDecimals = IERC20Metadata(address(_asset)).decimals();
+        require(assetDecimals <= 18, "Vault: decimals > 18 not supported");
+        
+        // decimalsScale = 10^(18 - assetDecimals)
+        // For 18-decimal tokens: scale = 1 (no scaling)
+        // For 6-decimal tokens (USDC): scale = 10^12
+        decimalsScale = 10 ** (18 - assetDecimals);
     }
 
     modifier onlyAuthorized() {

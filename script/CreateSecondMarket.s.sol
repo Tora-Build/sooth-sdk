@@ -27,6 +27,10 @@ contract CreateSecondMarket is Script {
 
         SoothMarket newMarket = factory.createMarket(adjudicatorId, riskClass);
         
+        // The factory calls updateGlobalB() internally, but we'll verify it worked
+        address riskManagerAddr = vm.parseJsonAddress(deploymentsJson, ".SoothRiskManager");
+        SoothRiskManager riskMgr = SoothRiskManager(riskManagerAddr);
+        
         console2.log("=== Second Market Created ===");
         console2.log("Market Address:", address(newMarket));
         console2.log("Market ID:", newMarket.marketId());
@@ -38,6 +42,14 @@ contract CreateSecondMarket is Script {
         (int256 qYes, int256 qNo) = newMarket.ammState();
         console2.log("Initial qYes:", uint256(qYes));
         console2.log("Initial qNo:", uint256(qNo));
+        
+        // Verify b parameter is non-zero
+        uint256 bMarket = riskMgr.getBForMarket(newMarket.marketId());
+        console2.log("b parameter for new market:", bMarket);
+        if (bMarket == 0) {
+            console2.log("WARNING: b parameter is 0! Market will not be tradeable.");
+            console2.log("Make sure vault has liquidity deposited.");
+        }
 
         vm.stopBroadcast();
 
