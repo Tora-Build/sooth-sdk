@@ -13,7 +13,7 @@ Load from `deployments.json`:
   "MockERC20": "0x...",
   "SoothVault": "0x...",
   "SoothRiskManager": "0x...",
-  "SoothBalancedAMM": "0x...",
+  "SoothLMSRReal": "0x...",
   "SoothAdjudicatorRegistry": "0x...",
   "SoothSettlement": "0x...",
   "SoothMarketFactory": "0x...",
@@ -378,7 +378,7 @@ await settlement.claimSettlement(
 To get current prices, you need to call the AMM contract directly:
 
 ```solidity
-// SoothBalancedAMM
+// SoothLMSRReal (LMSR AMM)
 function price(
     State memory s,      // ammState from market
     uint8 outcomeIndex,  // 0 = YES, 1 = NO

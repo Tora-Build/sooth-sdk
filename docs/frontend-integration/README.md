@@ -19,6 +19,19 @@ The Hybrid Liquidity Model has been deployed to **Base Sepolia**!
 
 ---
 
+## 🟣 MONAD TESTNET DEPLOYMENT (Nov 30, 2025)
+
+The protocol is now live on **Monad Testnet** (Chain ID: 10143) with 5 active markets!
+
+**Documentation:**
+
+- **[MONAD_DEPLOYMENT_GUIDE.md](./MONAD_DEPLOYMENT_GUIDE.md)** - Full integration guide
+- **[MONAD_DEPLOYMENT_SUMMARY.md](./MONAD_DEPLOYMENT_SUMMARY.md)** - Deployment report
+- **[deployments-monad.json](./deployments-monad.json)** - Contract addresses
+- **[markets-monad.json](./markets-monad.json)** - Market configurations
+
+---
+
 ## 📖 Documentation Index
 
 ### 🚀 Start Here
@@ -57,7 +70,7 @@ The Hybrid Liquidity Model has been deployed to **Base Sepolia**!
 
 1. **Approval Flow**: Users must approve `SoothVault` (not market contracts)
 2. **Dynamic `b`**: Each market has its own liquidity depth
-3. **AMM Switch**: Linear AMM (`SoothBalancedAMM`) instead of LMSR
+3. **AMM Switch**: LMSR AMM (`SoothLMSRReal`, fixed) instead of the linear fallback
 4. **New Functions**: `recordMarketFlow()`, `getMarketReserve()`
 
 ### New Features
@@ -88,7 +101,7 @@ See [deployments.json](./deployments.json) for current addresses.
 
 - `SoothVault` - Holds all collateral, issues LP tokens
 - `SoothRiskManager` - Calculates `b` parameters
-- `SoothBalancedAMM` - Linear AMM for pricing
+- `SoothLMSRReal` - LMSR AMM for pricing
 - `SoothMarket` - Individual prediction markets
 - `SoothSettlement` - Handles adjudication and payouts
 
@@ -129,7 +142,7 @@ See [deployments.json](./deployments.json) for current addresses.
 
 - `/contracts/core/SoothVault.sol`
 - `/contracts/core/SoothRiskManager.sol`
-- `/contracts/core/SoothBalancedAMM.sol`
+- `/contracts/core/SoothLMSRReal.sol`
 - `/contracts/core/SoothMarket.sol`
 
 ---

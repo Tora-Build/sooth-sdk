@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-In the Sooth Protocol, market pricing is determined by the **Logarithmic Market Scoring Rule (LMSR)** or its linear approximation (`SoothBalancedAMM`).
+In the Sooth Protocol, market pricing is determined by the **Logarithmic Market Scoring Rule (LMSR)** via `SoothLMSRReal` (the old linear fallback `SoothBalancedAMM` is deprecated).
 
 **Slippage** in this context refers to the difference between the **spot price** (price of the _next_ infinitesimal share) and the **execution price** (average price paid for a batch of shares).
 

@@ -354,20 +354,25 @@ contract SoothVault is ISoothVault, Ownable {
 
     // --- Market Flow Tracking ---
 
+    /// @notice Records market flow (trading P&L) without affecting totalAssets.
+    /// @dev Market reserves represent UNREALIZED P&L and should not affect LP share value
+    ///      until settlement. Only settlement realizes P&L and updates totalAssets.
     function recordMarketFlow(uint256 marketId, int256 amount, address user) external override onlyAuthorized {
         if (amount > 0) {
-            // User pays Vault
+            // User pays Vault (unrealized profit for vault)
             uint256 pay = uint256(amount);
             asset.transferFrom(user, address(this), pay);
-            totalAssets += pay;
+            // NOTE: totalAssets NOT modified - this is unrealized P&L
         } else if (amount < 0) {
-            // Vault pays User
+            // Vault pays User (unrealized loss for vault)
             uint256 pay = uint256(-amount);
-            require(totalAssets >= pay, "Vault: insufficient assets");
-            totalAssets -= pay;
+            // Check we have enough physical tokens (including unrealized reserves)
+            require(asset.balanceOf(address(this)) >= pay, "Vault: insufficient balance");
             asset.transfer(user, pay);
+            // NOTE: totalAssets NOT modified - this is unrealized P&L
         }
         
+        // Track unrealized P&L separately from totalAssets
         marketReserves[marketId] += amount;
         emit MarketFlow(marketId, amount, marketReserves[marketId]);
     }

@@ -125,35 +125,16 @@ bMarket = 14,427e18 * 10000 / 10000 = 14,427e18
 
 ## 4. How `bMarket` Affects Pricing
 
-### With `SoothBalancedAMM`
+### With `SoothLMSRReal`
+
+Pricing comes from the LMSR cost function:
 
 ```solidity
-// From SoothBalancedAMM.sol
-price_yes = 0.5 + (qYes - qNo) / (2 * bMarket)
+// price = e^{q_yes/b} / (e^{q_yes/b} + e^{q_no/b})
+uint256 priceYes = amm.price(state, 0, bMarket);
 ```
 
-**Example:**
-
-```
-bMarket = 14,427e18
-qYes = 1,100e18
-qNo = 1,000e18
-
-price_yes = 0.5 + (100e18) / (2 * 14,427e18)
-          = 0.5 + 100 / 28,854
-          = 0.5 + 0.00346
-          ≈ 0.50346 (50.346%)
-```
-
-**Buying 10 shares:**
-
-```
-price_before ≈ 0.50346
-price_after = 0.5 + (110) / 28,854 ≈ 0.50381
-
-avg_price = (0.50346 + 0.50381) / 2 ≈ 0.50364
-cost = 10 * 0.50364 ≈ 5.036 USDC
-```
+Use `amm.price` and `amm.costDelta` for exact values; higher `bMarket` still means flatter curves (less price impact), lower `bMarket` means steeper curves.
 
 ### Key Insight
 

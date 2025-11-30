@@ -1,62 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./SoothInterfaces.sol";
+import {ISoothAMM} from "./SoothInterfaces.sol";
+import {wrap} from "prb-math/src/sd59x18/Casting.sol";
+import {exp, ln} from "prb-math/src/sd59x18/Math.sol";
+import {uEXP_MAX_INPUT, uUNIT} from "prb-math/src/sd59x18/Constants.sol";
 
-/// @notice Experimental true LMSR implementation.
-/// @dev Uses the LMSR cost function
-///         C(q) = b * ln( exp(q_yes / b) + exp(q_no / b) )
-///      with simple fixed-point approximations for exp and ln(1+u).
-///      
-///      ⚠️ KNOWN ISSUE: The ln(1+u) approximation breaks down at balanced
-///      market states (e.g., qYes=qNo), causing incorrect pricing (~8x off).
-///      See docs/research/FIX_LMSR_IMPLEMENTATION.md for details.
-///      
-///      This is intended for experimentation and is NOT gas-optimized
-///      or production-ready. For production, use SoothBalancedAMM.
+/// @notice LMSR implementation using stable log-sum-exp backed by PRBMath.
+/// @dev Prices and costs are calculated with 59.18 fixed-point math. This implementation
+///      avoids the broken Taylor approximation used previously and works for balanced
+///      and imbalanced states as long as q/b stays within PRBMath's supported exp range.
 contract SoothLMSRReal is ISoothAMM {
     int256 internal constant ONE = 1e18;
 
-    /// @dev Approximate exp(x) for x in [-1, 1] (WAD) using 6-term Taylor series.
-    function _expWad(int256 x) internal pure returns (int256) {
-        require(x >= -ONE && x <= ONE, "LMSR: |x| too large");
-
-        int256 term = ONE;
-        int256 sum = ONE;
-
-        // k = 1..6
-        for (uint256 k = 1; k <= 6; k++) {
-            term = (term * x) / ONE;
-            term = term / int256(k);
-            sum += term;
-        }
-
-        return sum;
-    }
-
-    /// @dev ln( exp(a) + exp(b) ), where a,b are WAD and reasonably small.
-    ///      Uses log-sum-exp trick and ln(1+u) ≈ u - u^2/2 + u^3/3.
+    /// @dev ln(exp(a) + exp(b)) using the log-sum-exp trick.
     function _logSumExp2(int256 a, int256 b) internal pure returns (int256) {
-        // Require |a|,|b| to be in a range where exp approx is reasonable.
-        int256 bound = ONE / 2; // +/-0.5
-        require(a >= -bound && a <= bound, "LMSR: a out of range");
-        require(b >= -bound && b <= bound, "LMSR: b out of range");
-
         int256 m = a > b ? a : b;
-        int256 ea = _expWad(a - m);
-        int256 eb = _expWad(b - m);
+        // exp() will revert if input > uEXP_MAX_INPUT, enforce bounds explicitly
+        int256 aShifted = a - m;
+        int256 bShifted = b - m;
+        require(aShifted <= uEXP_MAX_INPUT && bShifted <= uEXP_MAX_INPUT, "LMSR: exp overflow");
 
-        int256 t = ea + eb; // in [1, 2] * 1e18 approximately
-        // t = 1 + u
-        int256 u = t - ONE; // u in [0, 1] * 1e18
+        int256 eA = exp(wrap(aShifted)).unwrap();
+        int256 eB = exp(wrap(bShifted)).unwrap();
 
-        // ln(1 + u) ≈ u - u^2/2 + u^3/3
-        int256 u2 = (u * u) / ONE;
-        int256 u3 = (u2 * u) / ONE;
-
-        int256 ln1pu = u - (u2 / 2) + (u3 / 3);
-
-        return m + ln1pu;
+        // Sum is in 59.18 form because both operands are.
+        int256 sum = eA + eB;
+        require(sum > 0, "LMSR: exp underflow");
+        return ln(wrap(sum)).unwrap() + m;
     }
 
     /// @dev LMSR cost function C(q) = b * ln( exp(qY/b) + exp(qN/b) ).
@@ -64,12 +35,10 @@ contract SoothLMSRReal is ISoothAMM {
         require(b > 0, "LMSR: b = 0");
         int256 bWad = int256(b);
 
-        // scale q / b to WAD
         int256 a = (qYes * ONE) / bWad;
         int256 c = (qNo * ONE) / bWad;
 
         int256 lse = _logSumExp2(a, c); // WAD
-        // C = b * lse / 1e18
         return (bWad * lse) / ONE;
     }
 
@@ -111,22 +80,20 @@ contract SoothLMSRReal is ISoothAMM {
         int256 a = (s.qYes * ONE) / bWad;
         int256 c = (s.qNo * ONE) / bWad;
 
-        int256 bound = ONE / 2;
-        require(a >= -bound && a <= bound, "LMSR: a out of range");
-        require(c >= -bound && c <= bound, "LMSR: c out of range");
+        require(a <= uEXP_MAX_INPUT && c <= uEXP_MAX_INPUT, "LMSR: exp overflow");
 
-        int256 eY = _expWad(a);
-        int256 eN = _expWad(c);
+        int256 eY = exp(wrap(a)).unwrap();
+        int256 eN = exp(wrap(c)).unwrap();
 
         int256 denom = eY + eN;
         require(denom > 0, "LMSR: denom");
 
-        int256 pYes = (eY * ONE) / denom;
+        int256 pYes = (eY * uUNIT) / denom;
 
         if (outcomeIndex == 0) {
             return uint256(pYes);
         } else {
-            return uint256(ONE - pYes);
+            return uint256(uUNIT - pYes);
         }
     }
 }

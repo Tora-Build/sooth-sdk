@@ -13,7 +13,7 @@
 ## 🚨 Executive Summary for Frontend
 
 1.  **Hybrid Liquidity is Live**: Markets now grow their own liquidity depth (`b`) based on their accumulated fees/PnL.
-2.  **AMM is Linear**: We are using `SoothBalancedAMM` (Linear) instead of LMSR.
+2.  **AMM is LMSR**: `SoothLMSRReal` (PRBMath-backed) replaces the temporary linear fallback.
 3.  **Action Required**:
     - Update `SoothRiskManager` and `SoothVault` ABIs.
     - Understand that `b` is dynamic per market (not just global).
@@ -69,60 +69,22 @@ Result: Market 2 has 20% deeper liquidity!
 
 ---
 
-## 2. AMM & Pricing Logic (SoothBalancedAMM)
+## 2. AMM & Pricing Logic (SoothLMSRReal)
 
-We have moved to a **Linear AMM** (`SoothBalancedAMM`) to ensure stability and predictable pricing.
-
-### Price Formula
-
-The price of YES (`pYes`) is linear based on the imbalance:
+We reverted to **true LMSR** with a fixed implementation (`SoothLMSRReal`) using PRBMath for `exp/ln`. Use on-chain helpers:
 
 ```javascript
-// p = 0.5 + (qYes - qNo) / (2 * b)
-
-function calculatePrice(qYes, qNo, b) {
-  const imbalance = qYes - qNo;
-  const pYes = 0.5 + imbalance / (2 * b);
-
-  // Floor at 0.01, cap at 0.99
-  const pYesClamped = Math.max(0.01, Math.min(0.99, pYes));
-  const pNo = 1.0 - pYesClamped;
-
-  return { pYes: pYesClamped, pNo };
-}
+const price = await amm.price({ qYes, qNo }, outcomeIndex, b); // 18-decimal price
+const [cost, newState] = await amm.costDelta(
+  { qYes, qNo },
+  outcomeIndex,
+  deltaShares,
+  b
+);
 ```
 
-- **Balanced**: If `qYes == qNo`, Price = 0.50.
-- **Imbalanced**: If `qYes` > `qNo`, Price > 0.50 (YES is more expensive).
-- **Liquidity (`b`)**: The larger `b` is, the less the price moves for the same quantity difference.
-
-### Cost Calculation (for Trades)
-
-The cost is the integral of the price function. For this linear AMM, it's the average price during the trade:
-
-```javascript
-function estimateCost(qYes, qNo, b, outcomeIndex, deltaShares) {
-  // Get price before trade
-  const { pYes: pBefore } = calculatePrice(qYes, qNo, b);
-
-  // Simulate state after trade
-  const qYesAfter = outcomeIndex === 0 ? qYes + deltaShares : qYes;
-  const qNoAfter = outcomeIndex === 1 ? qNo + deltaShares : qNo;
-
-  // Get price after trade
-  const { pYes: pAfter } = calculatePrice(qYesAfter, qNoAfter, b);
-
-  // Average price method
-  const price = outcomeIndex === 0 ? pBefore : 1 - pBefore;
-  const priceAfter = outcomeIndex === 0 ? pAfter : 1 - pAfter;
-  const avgPrice = (price + priceAfter) / 2;
-
-  const cost = avgPrice * deltaShares;
-  return cost;
-}
-```
-
-> **Note**: The contract handles this exactly. Always use `amm.costDelta()` or `amm.price()` for precision.
+- LMSR bound: worst-case loss ≈ `b * ln(2)`.
+- Pricing remains path-independent; rely on contract outputs instead of hand-rolled formulas.
 
 ---
 
@@ -206,7 +168,7 @@ function getBForMarket(uint256 marketId) external view returns (uint256);
 uint256 public reserveMultiplierBps;  // Default: 10000 (1x)
 ```
 
-### 4.3 SoothBalancedAMM (Reference)
+### 4.3 SoothLMSRReal (Reference)
 
 ```solidity
 struct State {
@@ -214,18 +176,12 @@ struct State {
     int256 qNo;
 }
 
-function price(
-    State memory s,
-    uint8 outcomeIndex,  // 0 = YES, 1 = NO
-    uint256 b
-) external pure returns (uint256 priceWad);
+    function price(State memory s, uint8 outcomeIndex, uint256 b) external pure returns (uint256 priceWad);
 
-function costDelta(
-    State memory s,
-    uint8 outcomeIndex,
-    int256 deltaShares,  // Positive = buy, Negative = sell
-    uint256 b
-) external pure returns (int256 cost, State memory newState);
+    function costDelta(State memory s, uint8 outcomeIndex, int256 deltaShares, uint256 b)
+        external
+        pure
+        returns (int256 cost, State memory newState);
 ```
 
 ---
@@ -404,7 +360,7 @@ const maxCost = expectedProceeds * (1 - slippageTolerance);
 | ----------------- | --------------------------------- | ------------------------------------------- |
 | **Liquidity**     | Pure global vault share           | Hybrid: Global + Market-specific reserves   |
 | **`b` Parameter** | Static per risk class             | Dynamic per market (grows with volume)      |
-| **AMM**           | SoothLMSRReal (broken)            | SoothBalancedAMM (linear, stable)           |
+| **AMM**           | SoothLMSRReal (broken)            | SoothLMSRReal (fixed, LMSR)                 |
 | **Approval**      | Market contract                   | **Vault contract**                          |
 | **Settlement**    | `applySettlementDelta(user, pnl)` | `applySettlementDelta(marketId, user, pnl)` |
 | **Market Flow**   | Not tracked                       | Tracked via `recordMarketFlow()`            |
@@ -418,7 +374,7 @@ const maxCost = expectedProceeds * (1 - slippageTolerance);
 ```javascript
 const VAULT_ADDRESS = "0x..."; // SoothVault
 const RISK_MANAGER_ADDRESS = "0x..."; // SoothRiskManager
-const AMM_ADDRESS = "0x..."; // SoothBalancedAMM
+const AMM_ADDRESS = "0x..."; // SoothLMSRReal
 ```
 
 ### Key Functions

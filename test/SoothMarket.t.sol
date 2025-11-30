@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../contracts/core/SoothMarket.sol";
 import "../contracts/core/SoothVault.sol";
-import "../contracts/core/SoothBalancedAMM.sol";
+import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothRiskManager.sol";
 import "./MockERC20.sol";
 
@@ -12,7 +12,7 @@ contract SoothMarketTest is Test {
     MockERC20 collateral;
     SoothVault vault;
     SoothRiskManager riskManager;
-    SoothBalancedAMM amm;
+    SoothLMSRReal amm;
     SoothMarket market;
 
     address lp = address(0xBEEF);
@@ -25,7 +25,7 @@ contract SoothMarketTest is Test {
         collateral = new MockERC20();
         vault = new SoothVault(collateral);
         riskManager = new SoothRiskManager(vault);
-        amm = new SoothBalancedAMM();
+        amm = new SoothLMSRReal();
 
         collateral._mint(lp, 1_000_000 ether);
         collateral._mint(trader, 1_000 ether);

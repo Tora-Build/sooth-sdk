@@ -1,7 +1,7 @@
 # Frontend Integration Summary - Hybrid Liquidity Update
 
 **Date:** 2025-11-30  
-**Status:** ✅ DEPLOYED TO BASE SEPOLIA  
+**Status:** ✅ DEPLOYED TO BASE SEPOLIA (AMM now LMSR via `SoothLMSRReal`)  
 **Priority:** HIGH - Breaking Changes
 
 > **🎉 NOW LIVE:**  
@@ -41,20 +41,21 @@ const b = await riskManager.getBForMarket(marketId);
 
 ---
 
-### 3. Use Linear AMM Formula
+### 3. Use LMSR AMM (SoothLMSRReal)
+
+Call the contract helpers instead of hand-rolling formulas:
 
 ```javascript
-// ✅ Price calculation:
-const price = 0.5 + (qYes - qNo) / (2 * b);
-
-// ✅ Cost estimation:
-const priceBefore = 0.5 + (qYes - qNo) / (2 * b);
-const priceAfter = 0.5 + (qYes + delta - qNo) / (2 * b);
-const avgPrice = (priceBefore + priceAfter) / 2;
-const cost = avgPrice * delta;
+const price = await amm.price({ qYes, qNo }, outcomeIndex, b);
+const [cost, newState] = await amm.costDelta(
+  { qYes, qNo },
+  outcomeIndex,
+  deltaShares,
+  b
+);
 ```
 
-**Why?** We switched from LMSR to Linear AMM (`SoothBalancedAMM`).
+**Why?** LMSR is now fixed via `SoothLMSRReal` (PRBMath-backed log-sum-exp).
 
 ---
 

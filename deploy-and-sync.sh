@@ -60,7 +60,6 @@ cp out/SoothMarketFactory.sol/SoothMarketFactory.json "$FRONTEND_PATH/src/config
 cp out/SoothRiskManager.sol/SoothRiskManager.json "$FRONTEND_PATH/src/config/abis/"
 cp out/SoothSettlement.sol/SoothSettlement.json "$FRONTEND_PATH/src/config/abis/"
 cp out/SoothAdjudicatorRegistry.sol/SoothAdjudicatorRegistry.json "$FRONTEND_PATH/src/config/abis/"
-cp out/SoothBalancedAMM.sol/SoothBalancedAMM.json "$FRONTEND_PATH/src/config/abis/"
 cp out/SoothLMSRReal.sol/SoothLMSRReal.json "$FRONTEND_PATH/src/config/abis/"
 
 # Copy MockERC20 (useful for dev/testing)

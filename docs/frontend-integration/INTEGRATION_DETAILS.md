@@ -510,7 +510,7 @@ All contract addresses are in `deployments.json`:
   "MockERC20": "0x...", // Collateral token
   "SoothVault": "0x...", // LP vault
   "SoothRiskManager": "0x...", // Risk parameters (getBForMarket)
-  "SoothBalancedAMM": "0x...", // AMM for pricing
+  "SoothLMSRReal": "0x...", // AMM for pricing (LMSR)
   "SoothAdjudicatorRegistry": "0x...",
   "SoothSettlement": "0x...", // Settlement & claims
   "SoothMarketFactory": "0x...", // Market creation

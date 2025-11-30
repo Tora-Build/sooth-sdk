@@ -82,7 +82,7 @@ The `DeploySooth.s.sol` script deploys the minimal Sooth stack:
 - Mock ERC20 as collateral (dev only)
 - SoothVault
 - SoothRiskManager
-- SoothBalancedAMM
+- SoothLMSRReal (LMSR AMM)
 - SoothAdjudicatorRegistry
 - SoothSettlement
 - SoothMarketFactory
@@ -136,3 +136,15 @@ Both markets share:
 - Same adjudicator (DUMMY_ADJ, classId: 1)
 
 See `deployments.json` for contract addresses.
+
+## Current Deployment (Monad Testnet)
+
+Five markets are deployed demonstrating different risk classes:
+
+1. **BTC Price Market** (LOW Risk, UMA Oracle)
+2. **ETH Gas Market** (LOW Risk, Chainlink)
+3. **Monad Launch Market** (MEDIUM Risk, Tellor)
+4. **Sooth TVL Market** (HIGH Risk, Multisig)
+5. **Monad Top 10 Market** (CRITICAL Risk, Governance)
+
+See `deployments-monad.json` for addresses and `docs/MONAD_DEPLOYMENT_SUMMARY.md` for details.

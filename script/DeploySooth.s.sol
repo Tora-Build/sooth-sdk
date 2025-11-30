@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/core/SoothVault.sol";
-import "../contracts/core/SoothBalancedAMM.sol";
+import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothRiskManager.sol";
 import "../contracts/core/SoothAdjudicatorRegistry.sol";
@@ -84,8 +84,8 @@ contract DeploySooth is Script {
         SoothRiskManager riskManager = new SoothRiskManager(vault);
 
         // 4. AMM implementation (single AMM for all markets due to shared liquidity)
-        // Use SoothBalancedAMM for stable pricing logic (SoothLMSRReal has math issues at (0,0))
-        SoothBalancedAMM amm = new SoothBalancedAMM();
+        // Use SoothLMSRReal (fixed LMSR with PRBMath)
+        SoothLMSRReal amm = new SoothLMSRReal();
 
         // 5. Adjudicator registry
         SoothAdjudicatorRegistry adjRegistry = new SoothAdjudicatorRegistry();
@@ -127,38 +127,67 @@ contract DeploySooth is Script {
         console2.log("Vault totalAssets:", vault.totalAssets());
         console2.log("Vault LP balance:", vault.balanceOfLP(msg.sender));
 
-        // 10. Create an example market
+        // 10. Create first example market
         // The factory will call updateGlobalB() internally, which now has liquidity to work with
         SoothMarket exampleMarket =
             factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
         
         // Authorize market on vault (needed for recordMarketFlow)
         vault.setAuthorized(address(exampleMarket), true);
+        
+        console2.log("\n=== First Market Created ===");
+        console2.log("ExampleMarket Address:", address(exampleMarket));
+        console2.log("Market ID:", exampleMarket.marketId());
+        (int256 qYes1, int256 qNo1) = exampleMarket.ammState();
+        console2.log("Initial qYes:", uint256(qYes1));
+        console2.log("Initial qNo:", uint256(qNo1));
+        uint256 bMarket1 = riskManager.getBForMarket(exampleMarket.marketId());
+        console2.log("b parameter:", bMarket1);
+
+        // 11. Create second market (same adjudicator, same risk class)
+        SoothMarket secondMarket =
+            factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
+        
+        // Authorize second market on vault
+        vault.setAuthorized(address(secondMarket), true);
+        
+        console2.log("\n=== Second Market Created ===");
+        console2.log("SecondMarket Address:", address(secondMarket));
+        console2.log("Market ID:", secondMarket.marketId());
+        (int256 qYes2, int256 qNo2) = secondMarket.ammState();
+        console2.log("Initial qYes:", uint256(qYes2));
+        console2.log("Initial qNo:", uint256(qNo2));
+        uint256 bMarket2 = riskManager.getBForMarket(secondMarket.marketId());
+        console2.log("b parameter:", bMarket2);
 
         vm.stopBroadcast();
 
+        console2.log("\n=== Deployment Summary ===");
         console2.log("Mock collateral:", address(collateral));
         console2.log("SoothVault:", address(vault));
         console2.log("SoothRiskManager:", address(riskManager));
-        console2.log("SoothBalancedAMM:", address(amm));
+        console2.log("SoothLMSRReal:", address(amm));
         console2.log("SoothAdjudicatorRegistry:", address(adjRegistry));
         console2.log("SoothSettlement:", address(settlement));
         console2.log("SoothMarketFactory:", address(factory));
-        console2.log("Example SoothMarket:", address(exampleMarket));
+        console2.log("ExampleMarket:", address(exampleMarket));
+        console2.log("SecondMarket:", address(secondMarket));
+        console2.log("Adjudicator ID:");
         console2.logBytes32(dummyAdjId);
 
         string memory json = "{";
         json = string.concat(json, "\"MockERC20\": \"", vm.toString(address(collateral)), "\",");
         json = string.concat(json, "\"SoothVault\": \"", vm.toString(address(vault)), "\",");
         json = string.concat(json, "\"SoothRiskManager\": \"", vm.toString(address(riskManager)), "\",");
-        json = string.concat(json, "\"SoothBalancedAMM\": \"", vm.toString(address(amm)), "\",");
+        json = string.concat(json, "\"SoothLMSRReal\": \"", vm.toString(address(amm)), "\",");
         json = string.concat(json, "\"SoothAdjudicatorRegistry\": \"", vm.toString(address(adjRegistry)), "\",");
         json = string.concat(json, "\"SoothSettlement\": \"", vm.toString(address(settlement)), "\",");
         json = string.concat(json, "\"SoothMarketFactory\": \"", vm.toString(address(factory)), "\",");
-        json = string.concat(json, "\"ExampleMarket\": \"", vm.toString(address(exampleMarket)), "\"");
+        json = string.concat(json, "\"ExampleMarket\": \"", vm.toString(address(exampleMarket)), "\",");
+        json = string.concat(json, "\"SecondMarket\": \"", vm.toString(address(secondMarket)), "\"");
         json = string.concat(json, "}");
 
         vm.writeFile("deployments.json", json);
-        console2.log("Wrote deployments to deployments.json");
+        console2.log("\nWrote deployments to deployments.json");
     }
 }

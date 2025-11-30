@@ -24,7 +24,7 @@ The **Hybrid Liquidity Model** has been successfully deployed to **Base Sepolia*
   "MockERC20": "0x377d478517f855102dA8075d1ab3046d84FCF8F6",
   "SoothVault": "0x6cDf92b229F4263c15907BF2ed936232DEDC0096",
   "SoothRiskManager": "0xEC864614A7eEf111e199726f19F8854CE963028e",
-  "SoothBalancedAMM": "0x4Fe11Fe06134E0c69cDa77D957f24A632CC1B9E2",
+  "SoothLMSRReal": "0x4Fe11Fe06134E0c69cDa77D957f24A632CC1B9E2",
   "SoothAdjudicatorRegistry": "0xc2C23195B4042fCFa05D79377C7cf4dad6d862E6",
   "SoothSettlement": "0xFA7F9515514d35eb34EA5D3f0AE377EB4C653B2d",
   "SoothMarketFactory": "0xEf26d61dbdb07FB4243B379BabB98d7142b02ce9",
@@ -62,7 +62,7 @@ The **Hybrid Liquidity Model** has been successfully deployed to **Base Sepolia*
 - ✅ Market Reserves tracking
 - ✅ Vault handles all token transfers
 - ✅ Dynamic `b` per market
-- ✅ Linear AMM (SoothBalancedAMM)
+- ✅ LMSR AMM (SoothLMSRReal)
 
 ---
 

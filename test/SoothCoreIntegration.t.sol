@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/core/SoothVault.sol";
-import "../contracts/core/SoothBalancedAMM.sol";
+import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothRiskManager.sol";
 import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/SoothMarketFactory.sol";
@@ -17,7 +17,7 @@ contract SoothCoreIntegrationTest is Test {
     MockERC20 collateral;
     SoothVault vault;
     SoothRiskManager riskManager;
-    SoothBalancedAMM amm;
+    SoothLMSRReal amm;
     SoothAdjudicatorRegistry adjRegistry;
     SoothSettlement settlement;
     SoothMarketFactory factory;
@@ -44,7 +44,7 @@ contract SoothCoreIntegrationTest is Test {
         riskManager = new SoothRiskManager(vault);
 
         // AMM
-        amm = new SoothBalancedAMM();
+        amm = new SoothLMSRReal();
 
         // Adjudicator registry
         adjRegistry = new SoothAdjudicatorRegistry();
@@ -123,8 +123,11 @@ contract SoothCoreIntegrationTest is Test {
         uint256 balAfter = collateral.balanceOf(trader);
         assertEq(balAfter, balBefore + uint256(pnlDelta), "PnL not applied");
 
-        // Ensure vault lost the payout but gained the premium (cost)
-        assertEq(vault.totalAssets(), 500_000 ether + cost - uint256(pnlDelta));
+        // With the accounting fix:
+        // - Trading cost is unrealized P&L (doesn't affect totalAssets)
+        // - Settlement payout reduces totalAssets
+        // - Final totalAssets = initial - payout (cost is unrealized)
+        assertEq(vault.totalAssets(), 500_000 ether - uint256(pnlDelta), "Vault totalAssets should only reflect settlement payout");
     }
     
     function testMarketCreatedWithBalancedState() public {

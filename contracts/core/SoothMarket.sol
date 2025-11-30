@@ -4,8 +4,8 @@ pragma solidity ^0.8.20;
 import "./SoothInterfaces.sol";
 
 /// @notice Infinite-end YES/NO market using a pluggable AMM and dynamic b.
-/// @dev For MVP this can use SoothBalancedAMM; later you can point new markets
-///      at SoothLMSRReal without changing this contract.
+/// @dev AMM is pluggable; default is SoothLMSRReal. You can swap in alternatives
+///      without changing this contract.
 contract SoothMarket is Ownable {
     ISoothVault public vault;
     IRiskManager public riskManager;
