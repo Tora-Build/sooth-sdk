@@ -1,31 +1,17 @@
 # Frontend Sync Update - Nov 29, 2025
 
-## 🚨 CRITICAL: Vault Redeployment Required
+## ✅ Redeployment Complete
 
-**Action Required**: Contracts will be redeployed with critical security fixes.
+**Status**: LIVE and TRADEABLE
+**Action Required**: Update `deployments.json` in your frontend.
 
-### What's Changing
+### What Changed
 
-1. **Vault Initialization Fix**: Previous vault had initialization issues blocking deposits
-2. **Decimals Normalization**: Security fix to prevent price attacks with non-18-decimal tokens
-3. **New Contract Addresses**: All core contracts will have new addresses after redeployment
+1. **Vault Fixed**: Initialization issues resolved.
+2. **Security Patch**: Decimals normalization implemented.
+3. **New Addresses**: All contracts have been redeployed.
 
-### Frontend Impact
-
-✅ **No code changes required** - All existing integrations remain compatible  
-⚠️ **Must update** `deployments.json` with new contract addresses after redeployment
-
-**See**: `docs/VAULT_REDEPLOYMENT_2025_11_29.md` for complete details.
-
----
-
-## 🚨 Previous Status Update
-
-**Markets are now LIVE and TRADEABLE.**
-
-Previously, you may have encountered errors or `b=0` (causing zero prices). This has been resolved.
-
-### Current State (Will Change After Redeployment)
+### Current State
 
 - **Vault Liquidity**: 100,000 mUSDC (MockERC20)
 - **Market 1 (ExampleMarket)**: `b ≈ 28,854`
@@ -38,12 +24,12 @@ Previously, you may have encountered errors or `b=0` (causing zero prices). This
 
 ### 1. Update Contract Addresses
 
-Ensure you are using the latest `deployments.json`. It now includes `SecondMarket`.
+Ensure you are using the latest `deployments.json`.
 
 ```json
 {
-  "ExampleMarket": "0x3fa51a5160BCF4deD1F310476b07AcF36186B400",
-  "SecondMarket": "0xad042fd79F6B122C3D83a4fa03dDa390ecFf81Cd"
+  "ExampleMarket": "0xBF72a0aCf1791bA3eA69A8F8aCDD8b6f1547508f",
+  "SecondMarket": "0x2652E5c1Dc21b288CAE8C1981b65350AeaB11F2d"
 }
 ```
 
