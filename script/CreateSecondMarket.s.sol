@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/core/SoothMarketFactory.sol";
 import "../contracts/core/SoothRiskManager.sol";
+import "../contracts/core/SoothVault.sol";
 
 /// @notice Simple script to create a second market in the same risk class
 /// @dev Run with: forge script script/CreateSecondMarket.s.sol:CreateSecondMarket --rpc-url <RPC_URL> --broadcast
@@ -26,6 +27,11 @@ contract CreateSecondMarket is Script {
         vm.startBroadcast(deployerKey);
 
         SoothMarket newMarket = factory.createMarket(adjudicatorId, riskClass);
+        
+        // Authorize market on vault
+        address vaultAddr = vm.parseJsonAddress(deploymentsJson, ".SoothVault");
+        SoothVault vaultContract = SoothVault(vaultAddr);
+        vaultContract.setAuthorized(address(newMarket), true);
         
         // The factory calls updateGlobalB() internally, but we'll verify it worked
         address riskManagerAddr = vm.parseJsonAddress(deploymentsJson, ".SoothRiskManager");
@@ -60,7 +66,7 @@ contract CreateSecondMarket is Script {
         address mockERC20 = vm.parseJsonAddress(json, ".MockERC20");
         address vault = vm.parseJsonAddress(json, ".SoothVault");
         address riskManager = vm.parseJsonAddress(json, ".SoothRiskManager");
-        address lmsrReal = vm.parseJsonAddress(json, ".SoothLMSRReal");
+        address balancedAMM = vm.parseJsonAddress(json, ".SoothBalancedAMM");
         address adjRegistry = vm.parseJsonAddress(json, ".SoothAdjudicatorRegistry");
         address settlement = vm.parseJsonAddress(json, ".SoothSettlement");
         address exampleMarket = vm.parseJsonAddress(json, ".ExampleMarket");
@@ -70,7 +76,7 @@ contract CreateSecondMarket is Script {
         newJson = string.concat(newJson, "\"MockERC20\": \"", vm.toString(mockERC20), "\",");
         newJson = string.concat(newJson, "\"SoothVault\": \"", vm.toString(vault), "\",");
         newJson = string.concat(newJson, "\"SoothRiskManager\": \"", vm.toString(riskManager), "\",");
-        newJson = string.concat(newJson, "\"SoothLMSRReal\": \"", vm.toString(lmsrReal), "\",");
+        newJson = string.concat(newJson, "\"SoothBalancedAMM\": \"", vm.toString(balancedAMM), "\",");
         newJson = string.concat(newJson, "\"SoothAdjudicatorRegistry\": \"", vm.toString(adjRegistry), "\",");
         newJson = string.concat(newJson, "\"SoothSettlement\": \"", vm.toString(settlement), "\",");
         newJson = string.concat(newJson, "\"SoothMarketFactory\": \"", vm.toString(factoryAddress), "\",");

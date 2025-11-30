@@ -1,147 +1,138 @@
 # Frontend Integration Documentation
 
-This folder contains all documentation and resources for integrating frontend applications with the Sooth Protocol smart contracts.
+This directory contains all documentation needed for frontend integration with the Sooth Protocol smart contracts.
 
-## Files
+---
 
-### 📘 [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md)
+## 🎉 DEPLOYMENT COMPLETE!
 
-**Comprehensive contract interface documentation**
+**[DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md)** - ✅ **HYBRID LIQUIDITY NOW LIVE**
 
-- Complete ABIs for SoothMarket, SoothVault, SoothSettlement
-- All function signatures with parameters and return types
-- Role-based access control (owner, prover, public)
-- UI button gating logic
-- Integration patterns with code examples
-- Event monitoring guide
-- Error handling and common revert reasons
+The Hybrid Liquidity Model has been deployed to **Base Sepolia**!
 
-### 📋 [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)
+**Critical Changes Required:**
 
-**Quick reference summary**
+- ✅ Update contract addresses (see deployment doc)
+- ✅ **Approve Vault** (not Market) - **MOST IMPORTANT!**
+- ✅ Update ABIs for SoothVault and SoothRiskManager
+- ✅ Follow [DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md) for full integration steps
 
-- Essential functions at a glance
-- Key parameters for settlement functions
-- Merkle proof format
-- Quick start guide
+---
 
-### 🎯 [SETTLEMENT_GUIDE.md](./SETTLEMENT_GUIDE.md)
+## 📖 Documentation Index
 
-**Frontend settlement integration guide**
+### 🚀 Start Here
 
-- React hooks for settlement
-- UI components and examples
-- Complete claim flow
-- Event monitoring
-- User-facing settlement process
+1. **[QUICK_START_HYBRID_LIQUIDITY.md](./QUICK_START_HYBRID_LIQUIDITY.md)**
 
-### 💧 [LIQUIDITY_MECHANISM.md](./LIQUIDITY_MECHANISM.md)
+   - **Start with this if you're integrating now**
+   - Critical breaking changes
+   - Quick code examples
+   - Common issues and solutions
 
-**Liquidity & Exposure Guide**
+2. **[LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)**
+   - **Comprehensive technical guide**
+   - Hybrid Liquidity Model explained
+   - Complete ABI specifications
+   - Detailed code examples
+   - Integration patterns
 
-- Shared vault model explanation
-- Virtual allocation mechanism
-- Automatic vs manual flows
-- Frontend implications
+### 📋 Reference Documents
 
-### 🔬 [SLIPPAGE_PROTECTION.md](./SLIPPAGE_PROTECTION.md)
+3. **[FRONTEND_SYNC_2025_11_29.md](./FRONTEND_SYNC_2025_11_29.md)**
 
-**Slippage & Price Impact Guide**
+   - Previous deployment information
+   - Now superseded by the Nov 30 update
+   - Kept for historical reference
 
-- Math behind LMSR pricing
-- Calculating price impact
-- On-chain slippage protection (maxCost)
-- Frontend implementation examples
-- Best practices for tolerance settings
+4. **[deployments.json](./deployments.json)**
+   - Current contract addresses
+   - Update this after each deployment
 
-### 🔗 [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md)
+---
 
-**Original integration guide**
+## 🎯 What Changed? (Nov 30, 2025)
 
-- How to use deployments.json
-- ABI export locations
-- Basic setup instructions
+### Critical Breaking Changes
 
-### 🔧 [deployments.json](./deployments.json)
+1. **Approval Flow**: Users must approve `SoothVault` (not market contracts)
+2. **Dynamic `b`**: Each market has its own liquidity depth
+3. **AMM Switch**: Linear AMM (`SoothBalancedAMM`) instead of LMSR
+4. **New Functions**: `recordMarketFlow()`, `getMarketReserve()`
 
-**Current deployment addresses**
+### New Features
 
-```json
-{
-  "MockERC20": "0x...",
-  "SoothVault": "0x...",
-  "SoothRiskManager": "0x...",
-  "SoothBalancedAMM": "0x...",
-  "SoothLMSRReal": "0x...",
-  "SoothAdjudicatorRegistry": "0x...",
-  "SoothSettlement": "0x...",
-  "SoothMarketFactory": "0x...",
-  "ExampleMarket": "0x...",
-  "SecondMarket": "0x..."
-}
-```
+- **Hybrid Liquidity Model**: Markets grow their own liquidity from trading
+- **Market Reserves**: Track per-market accumulated profits
+- **Liquidity Boost**: Popular markets get deeper liquidity automatically
 
-> **Note**: Two markets are currently deployed, both in the MEDIUM risk class, sharing the same liquidity vault.
+---
 
-## Quick Start
+## 🔧 Quick Integration Checklist
 
-### 1. Load Contract Addresses
+- [ ] Read [QUICK_START_HYBRID_LIQUIDITY.md](./QUICK_START_HYBRID_LIQUIDITY.md)
+- [ ] Update contract ABIs (Vault, RiskManager)
+- [ ] Change approval target to Vault
+- [ ] Update `b` fetching to be per-market
+- [ ] Switch to Linear AMM formula
+- [ ] Test trading flow end-to-end
+- [ ] (Optional) Display market reserves
 
-```typescript
-import deployments from "./docs/frontend-integration/deployments.json";
+---
 
-// Access individual markets
-const market1Address = deployments.ExampleMarket; // Market ID: 1
-const market2Address = deployments.SecondMarket; // Market ID: 2
+## 📦 Contract Addresses
 
-// Shared infrastructure
-const vaultAddress = deployments.SoothVault;
-const settlementAddress = deployments.SoothSettlement;
-const riskManagerAddress = deployments.SoothRiskManager;
+See [deployments.json](./deployments.json) for current addresses.
 
-// Both markets share the same vault and risk manager
-```
+**Key Contracts:**
 
-### 2. Use Contract ABIs
+- `SoothVault` - Holds all collateral, issues LP tokens
+- `SoothRiskManager` - Calculates `b` parameters
+- `SoothBalancedAMM` - Linear AMM for pricing
+- `SoothMarket` - Individual prediction markets
+- `SoothSettlement` - Handles adjudication and payouts
 
-See `CONTRACT_INTERFACES.md` section 7 for simplified ABIs, or use full ABIs from:
+---
 
-- `out/SoothMarket.sol/SoothMarket.json`
-- `out/SoothVault.sol/SoothVault.json`
-- `out/SoothSettlement.sol/SoothSettlement.json`
+## 🆘 Support
 
-### 3. Follow Integration Patterns
+**Common Issues:**
 
-- **Trading**: CONTRACT_INTERFACES.md → Section 8, Pattern 1
-- **LP Operations**: CONTRACT_INTERFACES.md → Section 8, Pattern 2
-- **Settlement Claims**: CONTRACT_INTERFACES.md → Section 8, Pattern 3
+1. **Transaction fails with "ERC20: allowance"**
 
-### 4. Monitor Events
+   - Fix: Approve `SoothVault`, not the market
 
-See CONTRACT_INTERFACES.md → Section 9 for key events:
+2. **"Market: slippage exceeded"**
 
-- `Trade` - price updates
-- `Deposit`/`Withdraw` - LP activity
-- `ResultStored` - market outcomes
-- `Claimed` - settlement claims
+   - Fix: Increase slippage tolerance or fetch fresh `b`
 
-## Key Contracts
+3. **Price calculations seem wrong**
+   - Fix: Use Linear formula: `p = 0.5 + (qYes - qNo) / (2 * b)`
 
-| Contract               | Purpose                   | Key Functions                                     |
-| ---------------------- | ------------------------- | ------------------------------------------------- |
-| **SoothMarket**        | Prediction market trading | `trade()`, `isLive()`, `ammState()`               |
-| **SoothVault**         | Liquidity pool            | `depositFor()`, `withdrawFor()`, `balanceOfLP()`  |
-| **SoothSettlement**    | Settlement & claims       | `storeResult()`, `claimSettlement()`, `results()` |
-| **SoothMarketFactory** | Market creation           | `createMarket()`                                  |
-| **SoothRiskManager**   | Risk parameters           | `getBForMarket()`, `updateGlobalB()`              |
+**Need more help?**
 
-## Documentation Index
+- Check the comprehensive guide: [LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)
+- Review contract source code in `/contracts/core/`
+- Ask the dev team
 
-1. **Start here**: [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) - Get oriented
-2. **Deep dive**: [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md) - Complete reference
-3. **Setup**: [FRONTEND_INTEGRATION.md](./FRONTEND_INTEGRATION.md) - Deployment guide
-4. **Addresses**: [deployments.json](./deployments.json) - Contract addresses
+---
 
-## Support
+## 📚 Additional Resources
 
-For detailed information on any function, parameter, or integration pattern, refer to `CONTRACT_INTERFACES.md`.
+### Protocol Documentation
+
+- [HYBRID_LIQUIDITY_MODEL.md](../requirements/HYBRID_LIQUIDITY_MODEL.md) - Requirement specification
+- [BMARKET_LIQUIDITY_RELATIONSHIPS.md](../BMARKET_LIQUIDITY_RELATIONSHIPS.md) - Liquidity concepts
+- [BGLOBAL_CALCULATION_FLOW.md](../BGLOBAL_CALCULATION_FLOW.md) - Global b calculation
+
+### Contract Source
+
+- `/contracts/core/SoothVault.sol`
+- `/contracts/core/SoothRiskManager.sol`
+- `/contracts/core/SoothBalancedAMM.sol`
+- `/contracts/core/SoothMarket.sol`
+
+---
+
+**Last Updated:** 2025-11-30  
+**Version:** V2 Alpha

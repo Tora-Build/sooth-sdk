@@ -7,8 +7,13 @@ import "./SoothInterfaces.sol";
 /// @dev Uses the LMSR cost function
 ///         C(q) = b * ln( exp(q_yes / b) + exp(q_no / b) )
 ///      with simple fixed-point approximations for exp and ln(1+u).
+///      
+///      ⚠️ KNOWN ISSUE: The ln(1+u) approximation breaks down at balanced
+///      market states (e.g., qYes=qNo), causing incorrect pricing (~8x off).
+///      See docs/research/FIX_LMSR_IMPLEMENTATION.md for details.
+///      
 ///      This is intended for experimentation and is NOT gas-optimized
-///      or production-ready. For most dev flows, use SoothBalancedAMM.
+///      or production-ready. For production, use SoothBalancedAMM.
 contract SoothLMSRReal is ISoothAMM {
     int256 internal constant ONE = 1e18;
 

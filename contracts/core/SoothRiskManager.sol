@@ -24,6 +24,8 @@ contract SoothRiskManager is IRiskManager, Ownable {
         uint256 multiplierBps;
     }
 
+    uint256 public reserveMultiplierBps = 10000; // 1x boost by default
+
     GlobalRiskParams public globalRisk;
     mapping(RiskClass => RiskClassConfig) public riskClassConfigs;
     mapping(uint256 => RiskClass) public marketRiskClass;
@@ -71,6 +73,10 @@ contract SoothRiskManager is IRiskManager, Ownable {
         emit RiskClassConfigSet(cls, multiplierBps);
     }
 
+    function setReserveMultiplier(uint256 bps) external onlyOwner {
+        reserveMultiplierBps = bps;
+    }
+
     function setMarketRiskClass(uint256 marketId, RiskClass cls) external onlyAuthorized {
         marketRiskClass[marketId] = cls;
         emit MarketRiskClassSet(marketId, cls);
@@ -91,7 +97,19 @@ contract SoothRiskManager is IRiskManager, Ownable {
         uint256 T = T_raw * scale;
         uint256 B = B_raw * scale;
 
-        uint256 Lmax = (T + B) / K;
+        // Soft Cap Model: Lmax = min(T/K, B)
+        // 1. T/K: The "Fair Share" based on total capital and max concurrent markets
+        // 2. B: The actual available capital (Buffer)
+        //
+        // Behavior:
+        // - Markets 1 to K get full T/K size (consistent)
+        // - Market K+1 gets whatever is left in B (instead of reverting)
+        // - Prevents the "early failure" of the previous (T+B)/K model
+        
+        uint256 fairShare = T / K;
+        uint256 available = B;
+        
+        uint256 Lmax = fairShare < available ? fairShare : available;
 
         // bGlobal ≈ Lmax / ln(2). Approximate 1/ln(2) ≈ 1.4427.
         uint256 LN2_INV_BPS = 14427;
@@ -104,6 +122,16 @@ contract SoothRiskManager is IRiskManager, Ownable {
     function getBForMarket(uint256 marketId) external view override returns (uint256) {
         RiskClass cls = marketRiskClass[marketId];
         RiskClassConfig storage cfg = riskClassConfigs[cls];
-        return (globalRisk.bGlobal * cfg.multiplierBps) / 1e4;
+        
+        uint256 baseB = (globalRisk.bGlobal * cfg.multiplierBps) / 1e4;
+        
+        // Hybrid Liquidity Boost
+        int256 reserve = vault.getMarketReserve(marketId);
+        if (reserve > 0) {
+            uint256 boost = (uint256(reserve) * reserveMultiplierBps) / 1e4;
+            return baseB + boost;
+        }
+        
+        return baseB;
     }
 }

@@ -84,7 +84,8 @@ contract DeploySooth is Script {
         SoothRiskManager riskManager = new SoothRiskManager(vault);
 
         // 4. AMM implementation (single AMM for all markets due to shared liquidity)
-        SoothLMSRReal amm = new SoothLMSRReal();
+        // Use SoothBalancedAMM for stable pricing logic (SoothLMSRReal has math issues at (0,0))
+        SoothBalancedAMM amm = new SoothBalancedAMM();
 
         // 5. Adjudicator registry
         SoothAdjudicatorRegistry adjRegistry = new SoothAdjudicatorRegistry();
@@ -130,13 +131,16 @@ contract DeploySooth is Script {
         // The factory will call updateGlobalB() internally, which now has liquidity to work with
         SoothMarket exampleMarket =
             factory.createMarket(dummyAdjId, SoothRiskManager.RiskClass.MEDIUM);
+        
+        // Authorize market on vault (needed for recordMarketFlow)
+        vault.setAuthorized(address(exampleMarket), true);
 
         vm.stopBroadcast();
 
         console2.log("Mock collateral:", address(collateral));
         console2.log("SoothVault:", address(vault));
         console2.log("SoothRiskManager:", address(riskManager));
-        console2.log("SoothLMSRReal (AMM):", address(amm));
+        console2.log("SoothBalancedAMM:", address(amm));
         console2.log("SoothAdjudicatorRegistry:", address(adjRegistry));
         console2.log("SoothSettlement:", address(settlement));
         console2.log("SoothMarketFactory:", address(factory));
@@ -147,7 +151,7 @@ contract DeploySooth is Script {
         json = string.concat(json, "\"MockERC20\": \"", vm.toString(address(collateral)), "\",");
         json = string.concat(json, "\"SoothVault\": \"", vm.toString(address(vault)), "\",");
         json = string.concat(json, "\"SoothRiskManager\": \"", vm.toString(address(riskManager)), "\",");
-        json = string.concat(json, "\"SoothLMSRReal\": \"", vm.toString(address(amm)), "\",");
+        json = string.concat(json, "\"SoothBalancedAMM\": \"", vm.toString(address(amm)), "\",");
         json = string.concat(json, "\"SoothAdjudicatorRegistry\": \"", vm.toString(address(adjRegistry)), "\",");
         json = string.concat(json, "\"SoothSettlement\": \"", vm.toString(address(settlement)), "\",");
         json = string.concat(json, "\"SoothMarketFactory\": \"", vm.toString(address(factory)), "\",");

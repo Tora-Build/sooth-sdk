@@ -31,7 +31,10 @@ interface ISoothVault {
     function allocateExposure(uint256 marketId, uint256 amount) external;
     function releaseExposure(uint256 marketId, uint256 amount) external;
 
-    function applySettlementDelta(address account, int256 pnlDelta) external;
+    function applySettlementDelta(uint256 marketId, address account, int256 pnlDelta) external;
+
+    function recordMarketFlow(uint256 marketId, int256 amount, address user) external;
+    function getMarketReserve(uint256 marketId) external view returns (int256);
 }
 
 /// @notice AMM interface. Concrete curves (Balanced CFMM, LMSR) implement this.

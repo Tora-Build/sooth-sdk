@@ -76,15 +76,21 @@ contract SoothCoreIntegrationTest is Test {
 
         // Create a market via the factory
         market = factory.createMarket(ADJ_ID, SoothRiskManager.RiskClass.MEDIUM);
+        
+        // Authorize market on vault (needed for recordMarketFlow)
+        vault.setAuthorized(address(market), true);
     }
 
     function testFullFlowTradeAndSettlement() public {
-        // Trader approves market to pull funds into the vault
+        // Trader approves vault to pull funds
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
 
         // Trader buys YES = 10 shares
+        uint256 balBeforeTrade = collateral.balanceOf(trader);
         market.trade(0, int256(10 ether), type(int256).max);
+        uint256 balAfterTrade = collateral.balanceOf(trader);
+        uint256 cost = balBeforeTrade - balAfterTrade;
 
         vm.stopPrank();
 
@@ -117,7 +123,13 @@ contract SoothCoreIntegrationTest is Test {
         uint256 balAfter = collateral.balanceOf(trader);
         assertEq(balAfter, balBefore + uint256(pnlDelta), "PnL not applied");
 
-        // Ensure vault lost the same amount
-        assertEq(vault.totalAssets(), 500_000 ether - uint256(pnlDelta));
+        // Ensure vault lost the payout but gained the premium (cost)
+        assertEq(vault.totalAssets(), 500_000 ether + cost - uint256(pnlDelta));
+    }
+    
+    function testMarketCreatedWithBalancedState() public {
+        (int256 qYes, int256 qNo) = market.ammState();
+        assertEq(qYes, 1000 ether, "Factory should initialize qYes to 1000");
+        assertEq(qNo, 1000 ether, "Factory should initialize qNo to 1000");
     }
 }

@@ -42,7 +42,7 @@ contract SoothMarketTest is Test {
 
         // Market
         market = new SoothMarket();
-        market.initialize(MARKET_ID, vault, riskManager, amm, ADJ_ID);
+        market.initialize(MARKET_ID, vault, riskManager, amm, ADJ_ID, 1000 ether);
 
         // Authorize market on vault
         vm.prank(address(this)); // vault owner is test contract (since it deployed it)
@@ -51,7 +51,7 @@ contract SoothMarketTest is Test {
 
     function testTradeBuyYes() public {
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
         uint256 balBefore = collateral.balanceOf(trader);
 
         market.trade(0, int256(10 ether), type(int256).max); // buy 10 YES
@@ -64,14 +64,14 @@ contract SoothMarketTest is Test {
 
     function testTradeSellYes() public {
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
         
         // Buy first
         market.trade(0, int256(10 ether), type(int256).max);
         uint256 balAfterBuy = collateral.balanceOf(trader);
 
-        // Sell half
-        market.trade(0, -int256(5 ether), type(int256).min);
+        // Sell half (use type(int256).max to accept any proceeds)
+        market.trade(0, -int256(5 ether), type(int256).max);
         
         uint256 balAfterSell = collateral.balanceOf(trader);
         assertGt(balAfterSell, balAfterBuy, "should receive funds when selling");
@@ -82,13 +82,13 @@ contract SoothMarketTest is Test {
     function testCannotShortWithoutBalance() public {
         vm.startPrank(trader);
         vm.expectRevert();
-        market.trade(0, -int256(1 ether), type(int256).min); // try to sell YES without holding
+        market.trade(0, -int256(1 ether), type(int256).max); // try to sell YES without holding
         vm.stopPrank();
     }
 
     function testSlippageProtectionBuy() public {
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
         
         // Calculate expected cost for 10 YES shares
         uint256 b = riskManager.getBForMarket(MARKET_ID);
@@ -113,7 +113,7 @@ contract SoothMarketTest is Test {
 
     function testSlippageProtectionSell() public {
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
         
         // Buy first
         market.trade(0, int256(10 ether), type(int256).max);
@@ -128,9 +128,11 @@ contract SoothMarketTest is Test {
             b
         );
         
-        // Set maxCost (min proceeds) too high - should revert
+        // expectedProceeds is negative (e.g., -2.5 means receive 2.5)
+        // For algebraic check: cost <= maxCost
+        // expectedProceeds - 1 (e.g., -3.5) means willing to accept less (worse for us) - should revert
         vm.expectRevert("Market: slippage exceeded");
-        market.trade(0, -int256(5 ether), expectedProceeds + 1);
+        market.trade(0, -int256(5 ether), expectedProceeds - 1);
         
         // Set maxCost at exact amount - should succeed
         market.trade(0, -int256(5 ether), expectedProceeds);
@@ -141,7 +143,7 @@ contract SoothMarketTest is Test {
 
     function testSlippageProtectionWithPriceMovement() public {
         vm.startPrank(trader);
-        collateral.approve(address(market), type(uint256).max);
+        collateral.approve(address(vault), type(uint256).max);
         
         // Get cost for 10 YES at current state
         uint256 b = riskManager.getBForMarket(MARKET_ID);
@@ -170,6 +172,32 @@ contract SoothMarketTest is Test {
         // Try to buy with old (lower) maxCost - should revert
         vm.expectRevert("Market: slippage exceeded");
         market.trade(0, int256(10 ether), cost1);
+        
+        vm.stopPrank();
+    }
+    
+    function testMarketInitializesWithBalancedQuantities() public {
+        (int256 qYes, int256 qNo) = market.ammState();
+        assertEq(qYes, 1000 ether, "qYes should be 1000");
+        assertEq(qNo, 1000 ether, "qNo should be 1000");
+    }
+
+    function testFirstTradePricing() public {
+        vm.startPrank(trader);
+        collateral.approve(address(vault), type(uint256).max);
+        
+        uint256 balBefore = collateral.balanceOf(trader);
+        
+        // Buy 1 share - should cost approximately 0.5 USDC for 50/50 market
+        market.trade(0, int256(1 ether), type(int256).max);
+        
+        uint256 balAfter = collateral.balanceOf(trader);
+        uint256 cost = balBefore - balAfter;
+        
+        // Cost should be reasonable (between 0.4 and 0.6 USDC)
+        // NOT 0.00385 USDC like the bug showed
+        assertGt(cost, 0.4 ether, "Cost too low - pricing broken");
+        assertLt(cost, 0.6 ether, "Cost too high - pricing broken");
         
         vm.stopPrank();
     }

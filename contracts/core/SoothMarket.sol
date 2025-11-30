@@ -42,15 +42,25 @@ contract SoothMarket is Ownable {
         ISoothVault _vault,
         IRiskManager _riskManager,
         ISoothAMM _amm,
-        bytes32 _adjudicatorId
+        bytes32 _adjudicatorId,
+        int256 _initialQuantity
     ) external onlyOwner {
         require(address(vault) == address(0), "Market: already init");
+        require(_initialQuantity > 0, "Market: invalid initial quantity");
+        
         vault = _vault;
         riskManager = _riskManager;
         amm = _amm;
         adjudicatorId = _adjudicatorId;
         marketId = _marketId;
         isLive = true;
+        
+        // Initialize with balanced quantities for 50/50 starting price
+        // This prevents LMSR pricing breakdown at (0,0)
+        ammState = ISoothAMM.State({
+            qYes: _initialQuantity,
+            qNo: _initialQuantity
+        });
 
         emit Initialized(_marketId, address(_vault), address(_riskManager), address(_amm), _adjudicatorId);
     }
@@ -92,15 +102,9 @@ contract SoothMarket is Ownable {
         require(cost <= maxCost, "Market: slippage exceeded");
 
         // Positive cost: trader pays vault; negative cost: vault pays trader.
-        IERC20 collateral = vault.asset();
-        if (cost > 0) {
-            uint256 pay = uint256(cost);
-            collateral.transferFrom(msg.sender, address(vault), pay);
-        } else if (cost < 0) {
-            // Vault pays trader (pnlDelta = -cost > 0)
-            // We use applySettlementDelta which handles transfers from vault to user
-            vault.applySettlementDelta(msg.sender, -cost);
-        }
+        // Positive cost: trader pays vault; negative cost: vault pays trader.
+        // This also updates the market's specific reserve in the vault.
+        vault.recordMarketFlow(marketId, cost, msg.sender);
 
         ammState = newState;
 

@@ -1,22 +1,44 @@
 # Frontend Sync Update - Nov 29, 2025
 
-## ✅ Redeployment Complete
+> **⚠️ IMPORTANT UPDATE (Nov 30, 2025):**  
+> **This document is now superseded by the comprehensive guide:**  
+> **[LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)**
+>
+> The new guide includes:
+>
+> - Hybrid Liquidity Model implementation details
+> - Updated ABI specifications
+> - Complete code examples and integration patterns
+> - Critical approval flow changes (approve Vault, not Market!)
+>
+> **Please read the new guide before integrating.**
 
-**Status**: LIVE and TRADEABLE
-**Action Required**: Update `deployments.json` in your frontend.
+---
+
+## ✅ Final Deployment Complete - ERC4626-Compliant
+
+**Status**: LIVE and TRADEABLE  
+**Vault**: Fully ERC4626-compliant  
+**Action Required**: Update `deployments.json` in your frontend
 
 ### What Changed
 
-1. **Vault Fixed**: Initialization issues resolved.
-2. **Security Patch**: Decimals normalization implemented.
-3. **New Addresses**: All contracts have been redeployed.
+1. **Vault Now ERC4626-Compliant**: Full standard implementation with ERC20 share tokens
+2. **AMM Switched to `SoothBalancedAMM`**:
+   - Replaced `SoothLMSRReal` (which had math issues)
+   - New Pricing Formula: `p = 0.5 + (qYes - qNo) / 2b`
+   - **Action**: Ensure frontend uses this linear formula for price impact estimates.
+3. **Security Patch**: Decimals normalization implemented
+4. **All Issues Resolved**: Vault functions (`totalSupply`, `maxDeposit`, etc.) all working
 
 ### Current State
 
 - **Vault Liquidity**: 100,000 mUSDC (MockERC20)
+- **Vault Shares**: "Sooth Vault Shares" (svToken)
 - **Market 1 (ExampleMarket)**: `b ≈ 28,854`
 - **Market 2 (SecondMarket)**: `b ≈ 28,854`
 - **Trading**: Fully functional
+- **LP Operations**: Fully functional
 
 ---
 
@@ -24,12 +46,15 @@
 
 ### 1. Update Contract Addresses
 
-Ensure you are using the latest `deployments.json`.
+**IMPORTANT**: Use these NEW addresses (ERC4626-compliant vault):
 
 ```json
 {
-  "ExampleMarket": "0xBF72a0aCf1791bA3eA69A8F8aCDD8b6f1547508f",
-  "SecondMarket": "0x2652E5c1Dc21b288CAE8C1981b65350AeaB11F2d"
+  "MockERC20": "0x677b261597bFc4aCC149302e3c7b57ac957D2B28",
+  "SoothVault": "0x574d7225e5f4BaDEF135A065FfC40Bf2E90E34aC",
+  "SoothRiskManager": "0x6B1186ba40eF1C33B3Dac2b6bAb25F9C66D51d67",
+  "ExampleMarket": "0xC3E585Be9c52C06f2aFa2913e3EA663fB9243E02",
+  "SecondMarket": "0x3922e30455Fa960aC548651D54581ED46260D47f"
 }
 ```
 

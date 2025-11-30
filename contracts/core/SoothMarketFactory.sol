@@ -49,7 +49,11 @@ contract SoothMarketFactory is Ownable {
         riskManager.updateGlobalB();
 
         SoothMarket m = new SoothMarket();
-        m.initialize(marketId, vault, riskManager, amm, adjudicatorId);
+        
+        // Initialize with balanced quantities (1000 shares per side)
+        // This creates a 50/50 starting price and prevents LMSR pricing breakdown at (0,0)
+        int256 initialQuantity = 1000 * 1e18;
+        m.initialize(marketId, vault, riskManager, amm, adjudicatorId, initialQuantity);
 
         // Approximate Lmax ≈ b * ln(2) ~ 0.693...
         uint256 bMarket = riskManager.getBForMarket(marketId);

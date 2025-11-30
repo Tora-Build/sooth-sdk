@@ -123,7 +123,7 @@ contract SoothSettlement is Ownable {
         bytes32 leaf = keccak256(abi.encodePacked(marketId, msg.sender, pnlDelta));
         require(merkleProof.verify(root, leaf), "Settlement: bad proof");
 
-        vault.applySettlementDelta(msg.sender, pnlDelta);
+        vault.applySettlementDelta(marketId, msg.sender, pnlDelta);
         emit Claimed(marketId, batchId, msg.sender, pnlDelta);
     }
 }
