@@ -27,8 +27,8 @@ The protocol is now live on **Monad Testnet** (Chain ID: 10143) with 5 active ma
 
 - **[MONAD_DEPLOYMENT_GUIDE.md](./MONAD_DEPLOYMENT_GUIDE.md)** - Full integration guide
 - **[MONAD_DEPLOYMENT_SUMMARY.md](./MONAD_DEPLOYMENT_SUMMARY.md)** - Deployment report
-- **[deployments-monad.json](./deployments-monad.json)** - Contract addresses
-- **[markets-monad.json](./markets-monad.json)** - Market configurations
+- **[deployments.json](./deployments.json)** - Unified contract addresses for all chains
+- **[markets.json](./markets.json)** - Unified market configurations for all chains
 
 ---
 
