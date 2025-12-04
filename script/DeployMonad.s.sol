@@ -263,7 +263,7 @@ contract DeployMonad is Script {
         uint256[] memory bMarkets = new uint256[](5);
 
         for (uint256 i = 0; i < 5; i++) {
-            console2.log("\n--- Market", i + 1, "---");
+            console2.log("\n--- Market ID:", i + 1);
             console2.log("Name:", configs[i].name);
             console2.log("Adjudicator:", adjudicatorNames[i]);
             console2.log("Risk Class:", uint8(configs[i].riskClass));
@@ -289,10 +289,8 @@ contract DeployMonad is Script {
             console2.log("Initial qNo:", uint256(qNo) / 1e18);
         }
 
-        vm.stopBroadcast();
-
         // ============================================
-        // STEP 6: Generate Deployment Artifacts
+        // STEP 6: Generate Deployment Artifacts (BEFORE stopBroadcast)
         // ============================================
         console2.log("\n=== GENERATING DEPLOYMENT ARTIFACTS ===");
 
@@ -331,6 +329,8 @@ contract DeployMonad is Script {
         vm.writeFile("markets-monad.json", marketsJson);
         console2.log("Written: markets-monad.json");
 
+        vm.stopBroadcast();
+
         // ============================================
         // FINAL SUMMARY
         // ============================================
@@ -348,7 +348,7 @@ contract DeployMonad is Script {
         
         console2.log("\nMarkets Created:");
         for (uint256 i = 0; i < 5; i++) {
-            console2.log("  ", i + 1, ".", configs[i].name);
+            console2.log("  Market", i + 1);
             console2.log("     Address:", marketAddresses[i]);
             console2.log("     ID:", marketIds[i]);
             console2.log("     Risk:", uint8(configs[i].riskClass));

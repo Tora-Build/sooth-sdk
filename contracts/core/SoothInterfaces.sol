@@ -73,6 +73,21 @@ interface ISoothAdjudicatorRegistry {
         returns (uint8 cls, address externalContract, bytes memory params, bool enabled);
 }
 
+/// @notice Order struct for the on-chain orderbook.
+struct Order {
+    uint256 id;
+    address maker;
+    uint8 outcome; // 0 = YES, 1 = NO
+    uint256 price; // 1e18 fixed point
+    uint256 amount; // Remaining size
+    uint256 timestamp;
+}
+
+interface ISoothMarket {
+    function placeOrder(uint8 outcome, uint256 price, uint256 amount) external returns (uint256 orderId);
+    function cancelOrder(uint256 orderId) external;
+}
+
 /// @notice Simple Ownable base used by most Sooth contracts in this reference.
 abstract contract Ownable {
     address public owner;

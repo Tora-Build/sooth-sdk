@@ -17,7 +17,21 @@ The Hybrid Liquidity Model has been deployed to **Base Sepolia**!
 - ✅ Update ABIs for SoothVault and SoothRiskManager
 - ✅ Follow [DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md) for full integration steps
 
+- ✅ Follow [DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md) for full integration steps
+
 ---
+
+## 🟢 ORDERBOOK & UNIFIED LADDER (Dec 3, 2025)
+
+**[ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md)** - ✅ **NEW FEATURE**
+
+The protocol now supports **Limit Orders** and **Unified Execution**!
+
+**Key Updates:**
+
+- ✅ `placeOrder` / `cancelOrder` functions
+- ✅ `trade` now routes through Orderbook first
+- ✅ New `Order` struct and events
 
 ## 🟣 MONAD TESTNET DEPLOYMENT (Nov 30, 2025)
 
@@ -44,11 +58,19 @@ The protocol is now live on **Monad Testnet** (Chain ID: 10143) with 5 active ma
    - Common issues and solutions
 
 2. **[LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)**
+
    - **Comprehensive technical guide**
    - Hybrid Liquidity Model explained
    - Complete ABI specifications
    - Detailed code examples
    - Integration patterns
+   - Integration patterns
+
+3. **[ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md)**
+   - **New Feature Guide**
+   - How to place/cancel Limit Orders
+   - Visualizing the Orderbook
+   - Unified Ladder execution logic
 
 ### 📋 Reference Documents
 
