@@ -1,21 +1,21 @@
 {
   "version": "1.1",
-  "lastUpdated": "2025-12-04",
+  "lastUpdated": "2025-12-05",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "status": "✅ Live & Verified",
       "contracts": {
-        "TraderVault": "0xDF2028D406af0a5062208e41FcE15128C0f7d474",
-        "Market": "0xF7C160f9a929d702995AA5AfC5656a0aF6D3569E",
-        "GovernorVault": "0xC27b547d60cfCdD9283e41fA69B47BA9dD2dc390",
-        "FeeController": "0x9dE9eda39A43502653026cCC44c1De8F8b8dcae8",
-        "AMM": "0x0d6b999E9dFed7d00B46B2619eB4AF66Ac320335",
-        "MockUSDC": "0x9363d199C2Ba74553E452a6645637806De099381"
+        "TraderVault": "0x0e69806cba6c74b88ff9679fb0b4ad6c8807dcb7",
+        "Market": "0x726b737a4d97fa54691e0114d07a1d3e21fe6849",
+        "GovernorVault": "0xb07560eadd716510b3505f29dc5d2f525fc03eff",
+        "FeeController": "0xf7c160f9a929d702995aa5afc5656a0af6d3569e",
+        "AMM": "0xdf2028d406af0a5062208e41fce15128c0f7d474",
+        "MockUSDC": "0x9fbb795617466093cff3803ee572b2be66250355"
       },
       "notes": {
         "usdc": "MockUSDC deployed by us for consistency across networks",
-        "update": "TraderVault updated with Lazy View & Auto-Claim"
+        "update": "TraderVault updated with Lazy View & Auto-Claim. Scripts renamed."
       },
       "marketInfo": {
         "marketId": 1,

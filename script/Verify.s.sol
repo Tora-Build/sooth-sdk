@@ -6,7 +6,7 @@ import "../contracts/core/SoothMarket.sol";
 import "../contracts/core/SoothTraderVault.sol";
 
 /// @notice Script to verify v3 deployment status on Base Sepolia
-contract VerifyV3 is Script {
+contract Verify is Script {
     address constant MARKET = 0x222948d53B75ED5ef06844ABc8B01dEe557E4945;
     address constant TRADER_VAULT = 0x8B8c1F0711e5A78F1Fe7ba174eB47eb58880293b;
     

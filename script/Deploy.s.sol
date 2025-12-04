@@ -38,7 +38,7 @@ contract MockUSDC is IERC20 {
     }
 }
 
-contract DeployV3 is Script {
+contract Deploy is Script {
     // Addresses
     address constant BASE_SEPOLIA_USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
     
@@ -114,11 +114,11 @@ contract DeployV3 is Script {
 
         vm.stopBroadcast();
 
-        // Output deployment info to file
-        string memory json = "deployment_v3.json";
-        vm.writeJson(vm.toString(address(traderVault)), json, ".traderVault");
-        vm.writeJson(vm.toString(address(market)), json, ".market");
-        vm.writeJson(vm.toString(address(amm)), json, ".amm");
-        vm.writeJson(vm.toString(address(governorVault)), json, ".governorVault");
+        // Output deployment info to console instead of file to avoid permission errors
+        console.log("--- Deployment Summary ---");
+        console.log("TraderVault:", address(traderVault));
+        console.log("Market:", address(market));
+        console.log("AMM:", address(amm));
+        console.log("GovernorVault:", address(governorVault));
     }
 }
