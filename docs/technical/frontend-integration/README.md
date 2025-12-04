@@ -1,173 +1,96 @@
 # Frontend Integration Documentation
 
-This directory contains all documentation needed for frontend integration with the Sooth Protocol smart contracts.
+**Version:** v1.1 (Current Architecture)
+**Updated:** 2025-12-04
+
+> [!IMPORTANT] > **Architecture Note:** `SoothTraderVault` is the **SINGLE** entry point for all user actions (Deposit, Withdraw, Trade, Claim). Do not interact with Market contracts directly for trading.
 
 ---
 
-## 🎉 DEPLOYMENT COMPLETE!
+## 🚀 Quick Start
 
-**[DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md)** - ✅ **HYBRID LIQUIDITY NOW LIVE**
+```javascript
+// 1. Approve TraderVault (once)
+await usdc.approve(traderVaultAddress, amount);
 
-The Hybrid Liquidity Model has been deployed to **Base Sepolia**!
+// 2. Deposit USDC
+// Auto-claims any unlocked funds from previous sells!
+await traderVault.deposit(amount);
 
-**Critical Changes Required:**
-
-- ✅ Update contract addresses (see deployment doc)
-- ✅ **Approve Vault** (not Market) - **MOST IMPORTANT!**
-- ✅ Update ABIs for SoothVault and SoothRiskManager
-- ✅ Follow [DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md) for full integration steps
-
-- ✅ Follow [DEPLOYMENT_2025_11_30.md](./DEPLOYMENT_2025_11_30.md) for full integration steps
-
----
-
-## 🟢 ORDERBOOK & UNIFIED LADDER (Dec 3, 2025)
-
-**[ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md)** - ✅ **NEW FEATURE**
-
-The protocol now supports **Limit Orders** and **Unified Execution**!
-
-**Key Updates:**
-
-- ✅ `placeOrder` / `cancelOrder` functions
-- ✅ `trade` now routes through Orderbook first
-- ✅ New `Order` struct and events
-
-## 🟣 MONAD TESTNET DEPLOYMENT (Nov 30, 2025)
-
-The protocol is now live on **Monad Testnet** (Chain ID: 10143) with 5 active markets!
-
-**Documentation:**
-
-- **[MONAD_DEPLOYMENT_GUIDE.md](./MONAD_DEPLOYMENT_GUIDE.md)** - Full integration guide
-- **[MONAD_DEPLOYMENT_SUMMARY.md](./MONAD_DEPLOYMENT_SUMMARY.md)** - Deployment report
-- **[deployments.json](./deployments.json)** - Unified contract addresses for all chains
-- **[markets.json](./markets.json)** - Unified market configurations for all chains
-
----
-
-## 📖 Documentation Index
-
-### 🚀 Start Here
-
-1. **[QUICK_START_HYBRID_LIQUIDITY.md](./QUICK_START_HYBRID_LIQUIDITY.md)**
-
-   - **Start with this if you're integrating now**
-   - Critical breaking changes
-   - Quick code examples
-   - Common issues and solutions
-
-2. **[LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)**
-
-   - **Comprehensive technical guide**
-   - Hybrid Liquidity Model explained
-   - Complete ABI specifications
-   - Detailed code examples
-   - Integration patterns
-   - Integration patterns
-
-3. **[ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md)**
-   - **New Feature Guide**
-   - How to place/cancel Limit Orders
-   - Visualizing the Orderbook
-   - Unified Ladder execution logic
-
-### 📋 Reference Documents
-
-3. **[FRONTEND_SYNC_2025_11_29.md](./FRONTEND_SYNC_2025_11_29.md)**
-
-   - Previous deployment information
-   - Now superseded by the Nov 30 update
-   - Kept for historical reference
-
-4. **[deployments.json](./deployments.json)**
-   - Current contract addresses
-   - Update this after each deployment
-
----
-
-## 🎯 What Changed? (Nov 30, 2025)
-
-### Critical Breaking Changes
-
-1. **Approval Flow**: Users must approve `SoothVault` (not market contracts)
-2. **Dynamic `b`**: Each market has its own liquidity depth
-3. **AMM Switch**: LMSR AMM (`SoothLMSRReal`, fixed) instead of the linear fallback
-4. **New Functions**: `recordMarketFlow()`, `getMarketReserve()`
-
-### New Features
-
-- **Hybrid Liquidity Model**: Markets grow their own liquidity from trading
-- **Market Reserves**: Track per-market accumulated profits
-- **Liquidity Boost**: Popular markets get deeper liquidity automatically
-
----
-
-## 🔧 Quick Integration Checklist
-
-- [ ] Read [QUICK_START_HYBRID_LIQUIDITY.md](./QUICK_START_HYBRID_LIQUIDITY.md)
-- [ ] Update contract ABIs (Vault, RiskManager)
-- [ ] Change approval target to Vault
-- [ ] Update `b` fetching to be per-market
-- [ ] Switch to Linear AMM formula
-- [ ] Test trading flow end-to-end
-- [ ] (Optional) Display market reserves
+// 3. Trade (Buy/Sell)
+// Note: Call tradeAMM on TraderVault, NOT on the Market contract
+await traderVault.tradeAMM(marketAddress, outcomeIndex, deltaShares, maxCost);
+```
 
 ---
 
 ## 📦 Contract Addresses
 
-See [deployments.json](./deployments.json) for current addresses.
+| Network               | File                                   | Status    |
+| --------------------- | -------------------------------------- | --------- |
+| Base Sepolia (84532)  | [deployments.json](./deployments.json) | ✅ Live   |
+| Monad Testnet (10143) | _Coming Soon_                          | ⏸️ Paused |
 
-**Key Contracts:**
+### Key Contracts
 
-- `SoothVault` - Holds all collateral, issues LP tokens
-- `SoothRiskManager` - Calculates `b` parameters
-- `SoothLMSRReal` - LMSR AMM for pricing
-- `SoothMarket` - Individual prediction markets
-- `SoothSettlement` - Handles adjudication and payouts
-
----
-
-## 🆘 Support
-
-**Common Issues:**
-
-1. **Transaction fails with "ERC20: allowance"**
-
-   - Fix: Approve `SoothVault`, not the market
-
-2. **"Market: slippage exceeded"**
-
-   - Fix: Increase slippage tolerance or fetch fresh `b`
-
-3. **Price calculations seem wrong**
-   - Fix: Use Linear formula: `p = 0.5 + (qYes - qNo) / (2 * b)`
-
-**Need more help?**
-
-- Check the comprehensive guide: [LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md](./LIQUIDITY_AND_AMM_UPDATE_2025_11_30.md)
-- Review contract source code in `/contracts/core/`
-- Ask the dev team
+| Contract             | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `SoothTraderVault`   | **Main Entry Point** (Deposit, Trade, Claim) |
+| `SoothMarket`        | Market logic (read-only for FE)              |
+| `SoothGovernorVault` | LP Liquidity Management                      |
+| `MockUSDC`           | Testnet Stablecoin                           |
 
 ---
 
-## 📚 Additional Resources
+## 🧩 Key Features (v1.1)
 
-### Protocol Documentation
+### 1. Lazy View & Auto-Claim
 
-- [HYBRID_LIQUIDITY_MODEL.md](../requirements/HYBRID_LIQUIDITY_MODEL.md) - Requirement specification
-- [BMARKET_LIQUIDITY_RELATIONSHIPS.md](../BMARKET_LIQUIDITY_RELATIONSHIPS.md) - Liquidity concepts
-- [BGLOBAL_CALCULATION_FLOW.md](../BGLOBAL_CALCULATION_FLOW.md) - Global b calculation
+User funds from selling shares are time-locked for 48h.
 
-### Contract Source
+- **Display:** `availableBalance(user)` _includes_ funds that are unlocked but not yet claimed.
+- **Action:** Any `deposit`, `withdraw`, or `trade` automatically claims unlocked funds.
+- **Manual:** `claimUnlocked()` is optional.
 
-- `/contracts/core/SoothVault.sol`
-- `/contracts/core/SoothRiskManager.sol`
-- `/contracts/core/SoothLMSRReal.sol`
-- `/contracts/core/SoothMarket.sol`
+### 2. Unified Orderbook
+
+- **Sell YES** matches **Buy NO**.
+- Single liquidity pool for AMM and Orderbook.
+
+### 3. Settlement Redemption
+
+- Winners redeem shares via `traderVault.redeem(marketAddress)`.
+- 1 Winning Share = 1 USDC.
 
 ---
 
-**Last Updated:** 2025-11-30  
-**Version:** V2 Alpha
+## 📖 Documentation Index
+
+### Integration Guides
+
+| Document                                               | Description                                        |
+| ------------------------------------------------------ | -------------------------------------------------- |
+| [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)         | **Start Here:** Full migration & integration guide |
+| [SETTLEMENT_GUIDE.md](./SETTLEMENT_GUIDE.md)           | How to handle locks, claims, and redemption        |
+| [ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md) | Limit orders & unified book logic                  |
+| [ABI_GUIDE.md](./ABI_GUIDE.md)                         | Working with contract ABIs                         |
+| [UX_RECOMMENDATIONS.md](./UX_RECOMMENDATIONS.md)       | Best practices for UI/UX                           |
+
+### Reference
+
+| Document                                       | Description             |
+| ---------------------------------------------- | ----------------------- |
+| [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) | Current deployment info |
+| [DOCS_SUMMARY.md](./DOCS_SUMMARY.md)           | Overview of all docs    |
+
+---
+
+## 🆘 Common Issues
+
+| Error                     | Fix                                                                 |
+| ------------------------- | ------------------------------------------------------------------- |
+| `insufficient allowance`  | Approve `SoothTraderVault` (not Market)                             |
+| `insufficient balance`    | Call `traderVault.deposit()`                                        |
+| `slippage exceeded`       | Increase `maxCost` (include fees)                                   |
+| `transfer failed`         | Check MockUSDC balance or allowance                                 |
+| `TraderVault: not market` | You are trying to call restricted function (use `tradeAMM` instead) |

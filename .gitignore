@@ -43,3 +43,5 @@ generated/
 
 # Graph Build
 graph-data/
+contracts/archive/**
+script/archive/**

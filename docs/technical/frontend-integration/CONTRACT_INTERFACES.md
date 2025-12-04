@@ -1,258 +1,207 @@
-# Sooth Protocol - Contract Interface Documentation for Frontend Integration
+# Sooth Protocol - Contract Interface Documentation
 
-## Overview
+**Version:** 2.0 (Singleton Trader Vault)  
+**Updated:** 2025-12-04
 
-This document provides comprehensive contract interfaces, ABIs, function signatures, and usage examples for integrating with the Sooth Protocol smart contracts.
+> [!WARNING]
+> This doc was updated for the v2 architecture. Key changes:
+>
+> - Users deposit to `SoothTraderVault` (not market)
+> - LPs deposit to `SoothGovernorVault` (renamed from SoothVault)
+> - `SoothRiskManager` removed - Governor sets `b` directly
+> - New `SoothFeeController` for orderbook fees
+
+---
 
 ## Contract Addresses
 
-Load from `deployments.json`:
+Load from `deployments.json` or `deployments-monad.json`:
 
 ```json
 {
   "MockERC20": "0x...",
-  "SoothVault": "0x...",
-  "SoothRiskManager": "0x...",
+  "SoothTraderVault": "0x...",
+  "SoothGovernorVault": "0x...",
+  "SoothFeeController": "0x...",
   "SoothLMSRReal": "0x...",
   "SoothAdjudicatorRegistry": "0x...",
   "SoothSettlement": "0x...",
-  "SoothMarketFactory": "0x...",
-  "ExampleMarket": "0x..."
+  "SoothMarketFactory": "0x..."
 }
 ```
 
 ---
 
-## 1. SoothMarket - Prediction Market Contract
+## 1. SoothTraderVault - User Fund Management (NEW)
 
-### Key View Functions
-
-#### `isLive() → bool`
-
-Check if market is active for trading.
+### View Functions
 
 ```solidity
-function isLive() external view returns (bool)
+function freeBalance(address user) external view returns (uint256);
+function lockedBalance(address user) external view returns (uint256);
+function asset() external view returns (IERC20);
 ```
 
-#### `isSettled() → bool`
+### Write Functions
 
-Check if market has been settled.
+#### `deposit(uint256 amount)`
 
-```solidity
-function isSettled() external view returns (bool)
+Deposit collateral to trade.
+
+```typescript
+// Approve first
+await usdc.approve(traderVaultAddress, amount);
+// Deposit
+await traderVault.deposit(parseUnits("100", 6));
 ```
 
-#### `ammState() → (int256 qYes, int256 qNo)`
+#### `withdraw(uint256 amount)`
 
-Get current AMM state (quantity of YES and NO shares).
+Withdraw available (unlocked) funds.
 
-```solidity
-function ammState() external view returns (int256 qYes, int256 qNo)
+```typescript
+await traderVault.withdraw(parseUnits("50", 6));
 ```
 
-#### `yesBalance(address) → uint256`
+---
 
-Get user's YES share balance.
+## 2. SoothGovernorVault - LP Liquidity (Renamed)
+
+### View Functions
 
 ```solidity
-function yesBalance(address user) external view returns (uint256)
+function totalAssets() external view returns (uint256);
+function balanceOf(address lp) external view returns (uint256);  // LP shares
+function totalSupply() external view returns (uint256);  // Total LP shares
+function getMarketReserve(uint256 marketId) external view returns (int256);
 ```
 
-#### `noBalance(address) → uint256`
+### Write Functions
 
-Get user's NO share balance.
+#### `depositFor(address lp, uint256 assets)`
 
-```solidity
-function noBalance(address user) external view returns (uint256)
+LP deposits collateral, receives svTokens.
+
+```typescript
+await usdc.approve(governorVaultAddress, amount);
+await governorVault.depositFor(lpAddress, amount);
 ```
 
-#### `winningOutcome() → uint8`
+#### `withdrawFor(address lp, uint256 assets, address receiver)`
 
-Get winning outcome after settlement (0 = NO, 1 = YES).
+LP withdraws liquidity.
 
-```solidity
-function winningOutcome() external view returns (uint8)
+```typescript
+await governorVault.withdrawFor(lpAddress, amount, lpAddress);
 ```
 
-#### `truthTime() → uint64`
+---
 
-Get truth time (T\*) when market was settled.
+## 3. SoothMarket - Trading
+
+### View Functions
 
 ```solidity
-function truthTime() external view returns (uint64)
+function isLive() external view returns (bool);
+function isSettled() external view returns (bool);
+function ammState() external view returns (int256 qYes, int256 qNo);
+function yesBalance(address) external view returns (uint256);
+function noBalance(address) external view returns (uint256);
+function winningOutcome() external view returns (uint8);
+function truthTime() external view returns (uint64);
+function b() external view returns (uint256);         // Liquidity parameter
+function feeLMSR() external view returns (uint256);   // AMM fee (bps)
+function governor() external view returns (address);  // Governor address
 ```
 
 ### Write Functions
 
 #### `trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost)`
 
-Execute a trade (buy or sell shares) with slippage protection.
+Execute trade with fee and slippage protection.
 
 **Parameters:**
 
 - `outcomeIndex`: 0 = YES, 1 = NO
-- `deltaShares`: Positive to buy, negative to sell (in wei, 1e18 = 1 share)
-- `maxCost`: Maximum cost willing to pay (for buys) or minimum proceeds to receive (for sells)
-  - For buys: Set to maximum tokens you're willing to spend (positive value)
-  - For sells: Set to minimum tokens you want to receive (negative value)
-  - Use `type(int256).max` to disable slippage protection (not recommended)
+- `deltaShares`: Positive = buy, Negative = sell
+- `maxCost`: Max cost including fees (slippage protection)
 
-**Requirements:**
-
-- Market must be live (`isLive == true && isSettled == false`)
-- For sells: user must own sufficient shares
-- User must approve collateral token spending for buys
-- Actual cost must not exceed `maxCost` (slippage protection)
-
-**Reverts:**
-
-- `"Market: slippage exceeded"` if actual cost exceeds maxCost
-
-**Events:**
-
-```solidity
-event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost)
-```
-
-**Example Usage:**
+**Example:**
 
 ```typescript
-// Calculate expected cost
+// Get price info
+const b = await market.b();
+const feeLMSR = await market.feeLMSR();
 const [qYes, qNo] = await market.ammState();
-const b = await riskManager.getBForMarket(marketId);
-const [expectedCost] = await amm.costDelta(
-  { qYes, qNo },
-  0,
-  ethers.parseEther("10"),
-  b
-);
 
-// Add 5% slippage tolerance
-const maxCost = (expectedCost * 105n) / 100n;
+// Calculate cost
+const [cost] = await amm.costDelta({ qYes, qNo }, 0, parseEther("10"), b);
 
-// Buy 10 YES shares with slippage protection
-await market.trade(0, ethers.parseEther("10"), maxCost);
+// Add fee + slippage
+const fee = (cost * BigInt(feeLMSR)) / 10000n;
+const maxCost = ((cost + fee) * 105n) / 100n; // 5% slippage buffer
 
-// For sells, use negative values
-const [expectedProceeds] = await amm.costDelta(
-  { qYes, qNo },
-  0,
-  ethers.parseEther("-5"),
-  b
-);
-const minProceeds = (expectedProceeds * 95n) / 100n; // Accept 5% worse proceeds
-await market.trade(0, ethers.parseEther("-5"), minProceeds);
+// Execute
+await market.trade(0, parseEther("10"), maxCost);
 ```
-
----
-
-## 2. SoothVault - Liquidity Pool Contract
-
-### Key View Functions
-
-#### `totalAssets() → uint256`
-
-Total assets held by the vault.
-
-```solidity
-function totalAssets() external view returns (uint256)
-```
-
-#### `balanceOfLP(address) → uint256`
-
-Get LP's share balance.
-
-```solidity
-function balanceOfLP(address lp) external view returns (uint256)
-```
-
-#### `getTreasuryBalance() → uint256`
-
-Get total treasury balance (same as totalAssets).
-
-```solidity
-function getTreasuryBalance() external view returns (uint256)
-```
-
-#### `getLiquidBufferBalance() → uint256`
-
-Get available liquidity (totalAssets - totalLockedExposure).
-
-```solidity
-function getLiquidBufferBalance() external view returns (uint256)
-```
-
-#### `lockedExposure(uint256 marketId) → uint256`
-
-Get locked exposure for a specific market.
-
-```solidity
-function lockedExposure(uint256 marketId) external view returns (uint256)
-```
-
-### Write Functions
-
-#### `depositFor(address lp, uint256 assets) → uint256`
-
-Deposit collateral to provide liquidity.
-
-**Parameters:**
-
-- `lp`: Address to credit LP shares to
-- `assets`: Amount of collateral to deposit (in wei)
-
-**Requirements:**
-
-- User must approve collateral token spending
-- `assets > 0`
 
 **Events:**
 
 ```solidity
-event Deposit(address indexed lp, uint256 assets)
+event Trade(
+    address indexed trader,
+    uint8 outcomeIndex,
+    int256 deltaShares,
+    int256 cost,
+    uint256 orderbookFee,  // Fee from orderbook fills
+    uint256 ammFee         // Fee from AMM fills
+);
 ```
 
-**Example Usage:**
+#### `placeOrder(uint8 outcome, uint256 price, uint256 amount)`
+
+Place limit order.
 
 ```typescript
-// Approve collateral
-await collateral.approve(vaultAddress, ethers.parseEther("1000"));
-
-// Deposit 1000 tokens
-await vault.depositFor(userAddress, ethers.parseEther("1000"));
+await market.placeOrder(0, parseEther("0.6"), parseEther("100"));
 ```
 
-#### `withdrawFor(address lp, uint256 assets, address receiver) → uint256`
+#### `cancelOrder(uint256 orderId)`
 
-Withdraw liquidity.
+Cancel limit order.
 
-**Parameters:**
-
-- `lp`: Address to debit LP shares from
-- `assets`: Amount to withdraw
-- `receiver`: Address to receive the collateral
-
-**Requirements:**
-
-- LP must have sufficient balance
-- Vault must have sufficient unlocked liquidity
-
-**Events:**
-
-```solidity
-event Withdraw(address indexed lp, uint256 assets, address indexed receiver)
+```typescript
+await market.cancelOrder(orderId);
 ```
 
 ---
 
-## 3. SoothSettlement - Settlement & Claims Contract
+## 4. SoothFeeController - Fee Settings (NEW)
 
-### Key View Functions
+### View Functions
 
-#### `results(uint256 marketId) → (bool exists, bool settled, bytes32 adjudicatorId, uint64 truthTime, uint8 winningOutcome)`
+```solidity
+function orderbookFee() external view returns (uint256);  // Basis points
+function lpSplitBps() external view returns (uint256);    // LP share of fees
+function treasury() external view returns (address);
+```
 
-Get settlement result for a market.
+### Usage
+
+```typescript
+// Display fees
+const orderbookFee = await feeController.orderbookFee();
+const feeLMSR = await market.feeLMSR();
+
+console.log(`Orderbook Fee: ${orderbookFee / 100}%`);
+console.log(`AMM Fee: ${feeLMSR / 100}%`);
+```
+
+---
+
+## 5. SoothSettlement - Claims
+
+### View Functions
 
 ```solidity
 function results(uint256 marketId) external view returns (
@@ -261,209 +210,91 @@ function results(uint256 marketId) external view returns (
     bytes32 adjudicatorId,
     uint64 truthTime,
     uint8 winningOutcome
-)
-```
-
-#### `settlementRoots(bytes32 batchId) → bytes32`
-
-Get Merkle root for a settlement batch.
-
-```solidity
-function settlementRoots(bytes32 batchId) external view returns (bytes32)
-```
-
-#### `claimed(bytes32 batchId, address account) → bool`
-
-Check if account has claimed from a batch.
-
-```solidity
-function claimed(bytes32 batchId, address account) external view returns (bool)
-```
-
-### Write Functions (Owner/Prover Only)
-
-#### `storeResult(uint256 marketId, bytes32 adjudicatorId, uint8 winningOutcome, uint64 truthTime)`
-
-Store the adjudicated result for a market.
-
-**Role:** Owner only
-**Parameters:**
-
-- `marketId`: Market identifier
-- `adjudicatorId`: Adjudicator that resolved the market
-- `winningOutcome`: 0 = NO, 1 = YES
-- `truthTime`: Timestamp when truth was determined (T\*)
-
-**Requirements:**
-
-- Adjudicator must be enabled
-- Market must not already be settled
-
-**Events:**
-
-```solidity
-event ResultStored(uint256 indexed marketId, bytes32 adjudicatorId, uint8 winningOutcome, uint64 truthTime)
-```
-
-#### `storeSettlementRoot(uint256 marketId, bytes32 batchId, bytes32 root, bytes proofMeta)`
-
-Upload Merkle root for PnL settlement.
-
-**Role:** Prover only (set via `setProver()`)
-**Parameters:**
-
-- `marketId`: Market identifier
-- `batchId`: Unique batch identifier
-- `root`: Merkle root of (marketId, account, pnlDelta) tuples
-- `proofMeta`: Optional metadata (currently unused)
-
-**Requirements:**
-
-- Caller must be authorized prover
-- Market must be settled
-
-**Events:**
-
-```solidity
-event SettlementRootStored(uint256 indexed marketId, bytes32 batchId, bytes32 root)
-```
-
-### Write Functions (Public)
-
-#### `claimSettlement(uint256 marketId, bytes32 batchId, int256 pnlDelta, bytes32[] merkleProof)`
-
-Claim PnL for a settled market.
-
-**Parameters:**
-
-- `marketId`: Market identifier
-- `batchId`: Settlement batch ID
-- `pnlDelta`: User's PnL delta (positive = profit, negative = loss)
-- `merkleProof`: Merkle proof for inclusion
-
-**Requirements:**
-
-- Settlement root must exist for batchId
-- User must not have already claimed
-- Merkle proof must be valid
-
-**Merkle Leaf Format:**
-
-```solidity
-bytes32 leaf = keccak256(abi.encodePacked(marketId, msg.sender, pnlDelta));
-```
-
-**Events:**
-
-```solidity
-event Claimed(uint256 indexed marketId, bytes32 batchId, address indexed account, int256 pnlDelta)
-```
-
-**Example Usage:**
-
-```typescript
-// Claim settlement with proof
-await settlement.claimSettlement(
-  marketId,
-  batchId,
-  pnlDelta, // e.g., ethers.parseEther("50") for +50 profit
-  merkleProof // array of bytes32
 );
+function settlementRoots(bytes32 batchId) external view returns (bytes32);
+function claimed(bytes32 batchId, address account) external view returns (bool);
 ```
 
----
-
-## 4. Price Calculation (Off-chain Helper)
-
-To get current prices, you need to call the AMM contract directly:
+### Write Functions
 
 ```solidity
-// SoothLMSRReal (LMSR AMM)
-function price(
-    State memory s,      // ammState from market
-    uint8 outcomeIndex,  // 0 = YES, 1 = NO
-    uint256 b            // from riskManager.getBForMarket(marketId)
-) external pure returns (uint256 priceWad)
-```
-
-**Example Integration:**
-
-```typescript
-// Get market state
-const [qYes, qNo] = await market.ammState();
-const b = await riskManager.getBForMarket(marketId);
-
-// Get price for YES (outcomeIndex = 0)
-const ammState = { qYes, qNo };
-const yesPrice = await amm.price(ammState, 0, b);
-
-// Get price for NO (outcomeIndex = 1)
-const noPrice = await amm.price(ammState, 1, b);
+function claimSettlement(
+    uint256 marketId,
+    bytes32 batchId,
+    int256 pnlDelta,
+    bytes32[] merkleProof
+) external;
 ```
 
 ---
 
-## 5. UI Button Gating Logic
-
-### Trading Interface
+## 6. Price Calculation
 
 ```typescript
-// Enable trade button if:
-const canTrade = market.isLive && !market.isSettled;
+// Get market params
+const [qYes, qNo] = await market.ammState();
+const b = await market.b();
 
-// For sell orders, check balance:
+// Get prices from AMM
+const yesPrice = await amm.price({ qYes, qNo }, 0, b);
+const noPrice = await amm.price({ qYes, qNo }, 1, b);
+
+// Calculate expected cost
+const [cost] = await amm.costDelta({ qYes, qNo }, 0, parseEther("10"), b);
+```
+
+---
+
+## 7. Button Gating Logic
+
+### Trading
+
+```typescript
+const canTrade = market.isLive && !market.isSettled;
+const hasFunds = traderVault.freeBalance(user) >= estimatedCost;
 const canSellYes = yesBalance >= sellAmount;
-const canSellNo = noBalance >= sellAmount;
 ```
 
 ### LP Dashboard
 
 ```typescript
-// Enable deposit if vault is active
-const canDeposit = true; // No specific gate
-
-// Enable withdraw if:
-const canWithdraw =
-  lpBalance >= withdrawAmount &&
-  vault.getLiquidBufferBalance() >= withdrawAmount;
+const canDeposit = usdc.balanceOf(user) >= amount;
+const canWithdraw = governorVault.balanceOf(user) >= lpShares;
 ```
 
-### Settlement/Claims
+### Claims
 
 ```typescript
-// Show settlement upload if:
-const canUploadSettlement = isProver && marketResult.settled;
-
-// Show claim button if:
-const canClaim =
-  settlementRoots[batchId] !== 0 && !claimed[batchId][userAddress];
+const canClaim = settlementRoots[batchId] !== 0 && !claimed[batchId][user];
 ```
 
 ---
 
-## 6. Role-Based Access Control
+## 8. Essential ABIs
 
-### Owner-Only Functions
+### SoothTraderVault
 
-- `SoothMarket.markSettled()`
-- `SoothSettlement.storeResult()`
-- `SoothVault.setAuthorized()`
-- `SoothMarketFactory.createMarket()`
+```json
+[
+  "function deposit(uint256 amount) returns (uint256)",
+  "function withdraw(uint256 amount) returns (uint256)",
+  "function freeBalance(address) view returns (uint256)",
+  "function lockedBalance(address) view returns (uint256)"
+]
+```
 
-### Prover-Only Functions
+### SoothGovernorVault
 
-- `SoothSettlement.storeSettlementRoot()` - requires `provers[msg.sender] == true`
+```json
+[
+  "function totalAssets() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function depositFor(address lp, uint256 assets) returns (uint256)",
+  "function withdrawFor(address lp, uint256 assets, address receiver) returns (uint256)"
+]
+```
 
-### Authorized-Only Functions
-
-- `SoothVault.allocateExposure()` - requires `authorizedSpender[msg.sender] == true`
-- `SoothVault.applySettlementDelta()` - requires `authorizedSpender[msg.sender] == true`
-
----
-
-## 7. Complete ABIs
-
-### SoothMarket ABI (Essential Functions)
+### SoothMarket
 
 ```json
 [
@@ -472,141 +303,40 @@ const canClaim =
   "function ammState() view returns (int256 qYes, int256 qNo)",
   "function yesBalance(address) view returns (uint256)",
   "function noBalance(address) view returns (uint256)",
-  "function winningOutcome() view returns (uint8)",
-  "function truthTime() view returns (uint64)",
-  "function trade(uint8 outcomeIndex, int256 deltaShares)",
-  "event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost)"
+  "function b() view returns (uint256)",
+  "function feeLMSR() view returns (uint256)",
+  "function trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost)",
+  "function placeOrder(uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
+  "function cancelOrder(uint256 orderId)",
+  "event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost, uint256 orderbookFee, uint256 ammFee)"
 ]
 ```
 
-### SoothVault ABI (Essential Functions)
+### SoothFeeController
 
 ```json
 [
-  "function totalAssets() view returns (uint256)",
-  "function balanceOfLP(address) view returns (uint256)",
-  "function getTreasuryBalance() view returns (uint256)",
-  "function getLiquidBufferBalance() view returns (uint256)",
-  "function depositFor(address lp, uint256 assets) returns (uint256)",
-  "function withdrawFor(address lp, uint256 assets, address receiver) returns (uint256)",
-  "event Deposit(address indexed lp, uint256 assets)",
-  "event Withdraw(address indexed lp, uint256 assets, address indexed receiver)"
-]
-```
-
-### SoothSettlement ABI (Essential Functions)
-
-```json
-[
-  "function results(uint256) view returns (bool exists, bool settled, bytes32 adjudicatorId, uint64 truthTime, uint8 winningOutcome)",
-  "function settlementRoots(bytes32) view returns (bytes32)",
-  "function claimed(bytes32, address) view returns (bool)",
-  "function storeResult(uint256 marketId, bytes32 adjudicatorId, uint8 winningOutcome, uint64 truthTime)",
-  "function storeSettlementRoot(uint256 marketId, bytes32 batchId, bytes32 root, bytes proofMeta)",
-  "function claimSettlement(uint256 marketId, bytes32 batchId, int256 pnlDelta, bytes32[] merkleProof)",
-  "event ResultStored(uint256 indexed marketId, bytes32 adjudicatorId, uint8 winningOutcome, uint64 truthTime)",
-  "event SettlementRootStored(uint256 indexed marketId, bytes32 batchId, bytes32 root)",
-  "event Claimed(uint256 indexed marketId, bytes32 batchId, address indexed account, int256 pnlDelta)"
+  "function orderbookFee() view returns (uint256)",
+  "function lpSplitBps() view returns (uint256)",
+  "function treasury() view returns (address)"
 ]
 ```
 
 ---
 
-## 8. Common Integration Patterns
+## 9. Error Handling
 
-### Pattern 1: Execute a Trade
+**SoothTraderVault:**
 
-```typescript
-// 1. Get current price
-const [qYes, qNo] = await market.ammState();
-const b = await riskManager.getBForMarket(marketId);
-const price = await amm.price({ qYes, qNo }, outcomeIndex, b);
-
-// 2. Approve collateral (for buys)
-if (deltaShares > 0) {
-  const cost = estimateCost(price, deltaShares); // Calculate off-chain
-  await collateral.approve(vaultAddress, cost);
-}
-
-// 3. Execute trade
-await market.trade(outcomeIndex, deltaShares);
-```
-
-### Pattern 2: Provide Liquidity
-
-```typescript
-// 1. Approve collateral
-await collateral.approve(vaultAddress, depositAmount);
-
-// 2. Deposit
-await vault.depositFor(userAddress, depositAmount);
-
-// 3. Check new balance
-const lpBalance = await vault.balanceOfLP(userAddress);
-```
-
-### Pattern 3: Claim Settlement
-
-```typescript
-// 1. Check if market is settled
-const result = await settlement.results(marketId);
-if (!result.settled) return;
-
-// 2. Check if user has claimed
-const hasClaimed = await settlement.claimed(batchId, userAddress);
-if (hasClaimed) return;
-
-// 3. Get proof from off-chain service
-const { pnlDelta, merkleProof } = await fetchSettlementProof(
-  marketId,
-  userAddress
-);
-
-// 4. Claim
-await settlement.claimSettlement(marketId, batchId, pnlDelta, merkleProof);
-```
-
----
-
-## 9. Event Monitoring
-
-### Key Events to Monitor
-
-**Trading Activity:**
-
-- `SoothMarket.Trade` - Track all trades for price updates
-
-**LP Activity:**
-
-- `SoothVault.Deposit` - Track liquidity additions
-- `SoothVault.Withdraw` - Track liquidity removals
-
-**Settlement:**
-
-- `SoothSettlement.ResultStored` - Market outcome determined
-- `SoothSettlement.SettlementRootStored` - PnL batch ready for claims
-- `SoothSettlement.Claimed` - User claimed settlement
-
----
-
-## 10. Error Handling
-
-Common revert reasons:
+- `"TraderVault: insufficient free balance"` - Deposit more funds
+- `"TraderVault: not a market"` - Only markets can call restricted functions
 
 **SoothMarket:**
 
-- `"Market: not live"` - Market is not active or already settled
-- `"Market: zero trade"` - deltaShares is 0
-- `"Market: not enough YES/NO"` - Insufficient shares for sell
+- `"Market: not live"` - Market settled or paused
+- `"Market: slippage exceeded"` - Increase maxCost
+- `"Market: not enough YES/NO"` - Insufficient shares to sell
 
-**SoothVault:**
+**SoothGovernorVault:**
 
-- `"Vault: zero deposit"` - Deposit amount is 0
-- `"Vault: insufficient shares"` - LP doesn't have enough shares
-- `"Vault: locked"` - Not enough liquid balance for withdrawal
-
-**SoothSettlement:**
-
-- `"Settlement: no root"` - Settlement root not uploaded yet
-- `"Settlement: already claimed"` - User already claimed this batch
-- `"Settlement: bad proof"` - Invalid Merkle proof
+- `"GovernorVault: insufficient shares"` - LP doesn't have enough tokens

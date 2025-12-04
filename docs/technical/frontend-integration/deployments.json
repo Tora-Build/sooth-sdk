@@ -1,1 +1,44 @@
-{"MockERC20": "0xcA42AaCf5f84eC1a5ce1b15EAE48056391483F69","SoothVault": "0x87330c74bD5220f16C12FaEBcfF9426CAbB62629","SoothRiskManager": "0xd7379Ee2DCB0e0FB547BF0a6DA2dE6a8Add5DbEc","SoothLMSRReal": "0x3bbDCa86Ed15726254eA8d8bBF9687c407b15Ad8","SoothAdjudicatorRegistry": "0x43Ef3caBeA2219AF4e2450E5B5cc212Abb1B7ce2","SoothSettlement": "0xfBBf90f4F36c18b2BAae752bAfB44C3CB98239A7","SoothMarketFactory": "0x90d250665E49504325a0d370E566be8dC4801CcE","ExampleMarket": "0x52c144F5A844846D8D9a4Fdc8761d5E2502b546e","SecondMarket": "0xCdBB33544C1a93BBdF6B146dC5eA5276Da8F2dd8"}
+{
+  "version": "1.1",
+  "lastUpdated": "2025-12-04",
+  "networks": {
+    "baseSepolia": {
+      "chainId": 84532,
+      "status": "✅ Live & Verified",
+      "contracts": {
+        "TraderVault": "0xDF2028D406af0a5062208e41FcE15128C0f7d474",
+        "Market": "0xF7C160f9a929d702995AA5AfC5656a0aF6D3569E",
+        "GovernorVault": "0xC27b547d60cfCdD9283e41fA69B47BA9dD2dc390",
+        "FeeController": "0x9dE9eda39A43502653026cCC44c1De8F8b8dcae8",
+        "AMM": "0x0d6b999E9dFed7d00B46B2619eB4AF66Ac320335",
+        "MockUSDC": "0x9363d199C2Ba74553E452a6645637806De099381"
+      },
+      "notes": {
+        "usdc": "MockUSDC deployed by us for consistency across networks",
+        "update": "TraderVault updated with Lazy View & Auto-Claim"
+      },
+      "marketInfo": {
+        "marketId": 1,
+        "isLive": true,
+        "bParam": "10000000000000000000000",
+        "description": "Example Market"
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "status": "⏸️ Paused - Awaiting Funds",
+      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "contracts": {}
+    }
+  },
+  "architecture": {
+    "entryPoint": "TraderVault - Single entry point for all trading",
+    "features": [
+      "Unified orderbook (Sell YES = Buy NO)",
+      "Time-lock (48h on sell proceeds)",
+      "Auto-claim on user actions",
+      "Settlement redemption",
+      "No collateral locking"
+    ]
+  }
+}

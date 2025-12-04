@@ -1,55 +1,72 @@
 # Sooth Protocol Documentation
 
-Welcome to the Sooth Protocol documentation. This folder is organized to help you navigate from high-level concepts to deep technical specifications.
+Welcome to the Sooth Protocol documentation.
 
-## 📚 Documentation Structure
-
-### **1. Core Concepts (`/core`)**
-
-Fundamental architecture and economic mechanics.
-
-- **[Protocol Economics](./core/PROTOCOL_ECONOMICS.md)**: How the ecosystem works.
-- **[Liquidity Calculation](./core/BGLOBAL_CALCULATION_FLOW.md)**: Deep dive into `bGlobal` and `Lmax`.
-- **[Market Liquidity](./core/BMARKET_LIQUIDITY_RELATIONSHIPS.md)**: How individual markets interact with the vault.
-- **[ERC4626 Compliance](./core/ERC4626_COMPLIANCE_SUMMARY.md)**: Vault standards implementation.
-
-### **2. Research & Proposals (`/research`)**
-
-Forward-looking designs and strategic analysis.
-
-- **[Roadmap Review](./research/ROADMAP_REVIEW.md)**: Strategic plan for mainnet.
-- **[Fee Design](./research/FEE_DESIGN.md)**: Proposed revenue model.
-- **[Staking Design](./research/STAKING_DESIGN.md)**: Guardian and LP staking.
-- **[Access & Config](./research/ACCESS_AND_CONFIG.md)**: Roles and parameters reference.
-- **[Liquidity Dynamics](./research/LIQUIDITY_DYNAMICS.md)**: Update lag and keeper opportunities.
-
-### **3. Technical Implementation (`/technical`)**
-
-Detailed specifications and integration guides.
-
-- **[Frontend Integration](./technical/frontend-integration/README.md)**: Guide for UI developers.
-- **[Requirements](./technical/requirements/README.md)**: Product specs.
-  - **[Implemented](./technical/requirements/implemented/)**: Completed specs (e.g., Hybrid Liquidity).
-  - **[Inbox](./technical/requirements/)**: Active requirements (e.g., Multi-Vault).
-- **[Change Logs](./technical/changes/)**: Historical records of code changes and reviews.
-
-### **4. Issue Tracking (`/issues`)**
-
-Post-mortems and resolution logs for specific bugs.
-
-- **[Inbox](./issues/)**: Active issues and status reports.
-- **[Solved Issues](./issues/solved/)**: Resolved bugs and post-mortems.
-  - **[Vault Issues](./issues/solved/VAULT_ISSUES_RESOLVED.md)**
-  - **[Pricing Bug](./issues/solved/PRICING_BUG_RESOLVED.md)**
-
-### **5. Archive (`/archive`)**
-
-Dated status reports and superseded documents.
+> [!IMPORTANT] > **Architecture Update (2025-12-04):** The protocol now uses the **Singleton Trader Vault** architecture. Old docs referencing `SoothVault`, `SoothRiskManager`, or dynamic `bGlobal` are archived.
 
 ---
 
-## 🚀 Quick Links for Developers
+## 📚 Current Documentation
 
-- **[Contract Addresses](./technical/frontend-integration/DEPLOYMENT_2025_11_30.md)**
-- **[Integration Guide](./technical/frontend-integration/FRONTEND_INTEGRATION.md)**
-- **[Quick Start](./technical/frontend-integration/QUICK_START_HYBRID_LIQUIDITY.md)**
+### **1. Core Architecture (`/core`)**
+
+| Document                                      | Description                         |
+| --------------------------------------------- | ----------------------------------- |
+| **[ARCHITECTURE.md](./core/ARCHITECTURE.md)** | Complete system architecture (v2.0) |
+
+### **2. Research & Design (`/research`)**
+
+| Document                                                | Description                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------- |
+| **[FEE_DESIGN.md](./research/FEE_DESIGN.md)**           | Fee mechanism: LMSR fees (Governor) + Orderbook fees (Guardian) |
+| [STAKING_DESIGN.md](./research/STAKING_DESIGN.md)       | Future: Guardian and LP staking                                 |
+| [ACCESS_AND_CONFIG.md](./research/ACCESS_AND_CONFIG.md) | Roles and parameters reference                                  |
+| [ROADMAP_REVIEW.md](./research/ROADMAP_REVIEW.md)       | Strategic plan for mainnet                                      |
+
+### **3. Frontend Integration (`/technical/frontend-integration`)**
+
+| Document                                                                              | Description                 |
+| ------------------------------------------------------------------------------------- | --------------------------- |
+| [README.md](./technical/frontend-integration/README.md)                               | Integration guide index     |
+| [CONTRACT_INTERFACES.md](./technical/frontend-integration/CONTRACT_INTERFACES.md)     | ABI and function signatures |
+| [SETTLEMENT_GUIDE.md](./technical/frontend-integration/SETTLEMENT_GUIDE.md)           | Settlement flow             |
+| [ORDERBOOK_INTEGRATION.md](./technical/frontend-integration/ORDERBOOK_INTEGRATION.md) | Orderbook trading           |
+
+---
+
+## 🗂️ Archived (Outdated)
+
+| Folder                         | Contains                                        |
+| ------------------------------ | ----------------------------------------------- |
+| `/archive/v1-old-architecture` | Old `bGlobal`, `RiskManager`, shared vault docs |
+
+---
+
+## 🚀 Quick Reference
+
+### Contract Addresses
+
+See `docs/technical/frontend-integration/deployments-monad.json` for latest deployment.
+
+### Key Contracts (v2.0)
+
+| Contract             | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `SoothTraderVault`   | User fund management (deposits, withdrawals) |
+| `SoothGovernorVault` | LP liquidity (ERC4626 shares)                |
+| `SoothMarket`        | Per-market trading                           |
+| `SoothFeeController` | Guardian fee settings                        |
+| `SoothMarketFactory` | Market creation                              |
+| `SoothSettlement`    | PnL distribution                             |
+
+### Architecture Summary
+
+```
+Users → SoothTraderVault → (via Markets) → SoothGovernorVault ← LPs
+```
+
+- **Users** deposit to `SoothTraderVault`
+- **LPs** deposit to `SoothGovernorVault`
+- **Markets** orchestrate fund flows between vaults
+- **Governor** sets per-market `b` and `feeLMSR`
+- **Guardian** sets global `orderbookFee`

@@ -1,422 +1,156 @@
-# Settlement & Claims - Frontend Quick Guide
+# Settlement & Claims Guide
 
-> **For detailed adjudication process**: See [ADJUDICATION_AND_SETTLEMENT.md](../ADJUDICATION_AND_SETTLEMENT.md)
+**Date:** 2025-12-04
+**Status:** ✅ Time-Lock Claims Live | ✅ Settlement Redemption Live
 
-## Overview for Frontend Developers
+> [!IMPORTANT] > **Two Types of Claims:**
+>
+> 1. **Time-Lock Claim:** Unlocking proceeds from selling shares (Live).
+> 2. **Settlement Claim:** Redeeming winning shares after market resolution (Live).
 
-The settlement process has **two user-facing flows**:
+## 1. Time-Lock Claims (Live)
 
-1. **Guardian/Admin Flow**: Store market results (owner-only)
-2. **Trader Flow**: Claim PnL after settlement (anyone)
+When a user **sells** shares (e.g., Sell YES), the proceeds are NOT immediately available for withdrawal. They are moved to a `pendingBalance`.
 
----
+- **Lock Duration:** 48 hours (default).
+- **Goal:** Prevent manipulation and ensure solvency.
+- **Claiming:** **Automatic** on deposit/withdraw/trade. Manual `claimUnlocked()` is optional.
 
-## 🎯 What Frontend Needs to Implement
+### User Flow
 
-### 1. Check if Market is Settled
+1. **User Sells:** `tradeAMM` (sell side) → Proceeds go to `pendingBalance`.
+2. **Wait:** User waits for lock duration (each sell tracked individually).
+3. **Unlock:**
+   - **Option A (Auto):** User does any action (deposit/withdraw/trade) → Unlocked funds move to `availableBalance`.
+   - **Option B (Manual):** User calls `claimUnlocked()` → Unlocked funds move to `availableBalance`.
+4. **Result:** Funds are available for use.
 
-```typescript
-const settlement = new ethers.Contract(
-  deployments.SoothSettlement,
-  settlementABI,
+### Frontend Integration
+
+#### Read User Balances
+
+```javascript
+// Contract: TraderVault
+const traderVault = new ethers.Contract(
+  TRADER_VAULT_ADDRESS,
+  TRADER_VAULT_ABI,
   provider
 );
 
-const result = await settlement.results(marketId);
+// Read balances
+const available = await traderVault.availableBalance(userAddress); // Liquid
+const pending = await traderVault.pendingBalance(userAddress); // Locked
+const total = await traderVault.totalBalance(userAddress); // Total
 
-if (result.settled) {
+// Display
+console.log(`Available: ${ethers.formatUnits(available, 18)} USDC`);
+console.log(`Locked:    ${ethers.formatUnits(pending, 18)} USDC`);
+console.log(`Total:     ${ethers.formatUnits(total, 18)} USDC`);
+```
+
+#### Read Detailed Unlock Schedule
+
+```javascript
+// Get TimeLock contract address from TraderVault
+const timeLockAddress = await traderVault.timeLock();
+const timeLock = new ethers.Contract(timeLockAddress, TIME_LOCK_ABI, provider);
+
+// Get array of pending unlocks with timestamps
+const pendingItems = await timeLock.getPendingUnlocks(userAddress);
+
+// pendingItems = [
+//   { amount: 100e18, unlockTime: 1733500000 },
+//   { amount: 50e18,  unlockTime: 1733510000 },
+// ]
+
+// Calculate what's claimable NOW
+const now = Math.floor(Date.now() / 1000);
+let claimableNow = 0n;
+let stillLocked = 0n;
+let nextUnlockTime = null;
+
+for (const item of pendingItems) {
+  if (item.unlockTime <= now) {
+    claimableNow += item.amount;
+  } else {
+    stillLocked += item.amount;
+    if (!nextUnlockTime || item.unlockTime < nextUnlockTime) {
+      nextUnlockTime = item.unlockTime;
+    }
+  }
+}
+
+// Display countdown
+if (nextUnlockTime) {
+  const timeRemaining = nextUnlockTime - now;
   console.log(
-    `Market settled: ${result.winningOutcome === 1 ? "YES" : "NO"} won`
-  );
-  console.log(`Truth time: ${result.truthTime}`);
-}
-```
-
-**UI Display**:
-
-```tsx
-{
-  result.settled && (
-    <div className="settlement-banner">
-      <span>Market Settled</span>
-      <span>{result.winningOutcome === 1 ? "YES" : "NO"} Won</span>
-      <span>
-        Truth Time: {new Date(result.truthTime * 1000).toLocaleString()}
-      </span>
-    </div>
+    `Next unlock in: ${Math.floor(timeRemaining / 3600)}h ${Math.floor(
+      (timeRemaining % 3600) / 60
+    )}m`
   );
 }
 ```
 
----
+#### Claim Button
 
-### 2. Check if User Can Claim
-
-```typescript
-// Check if settlement root exists
-const batchId = ethers.keccak256(ethers.toUtf8Bytes(`batch_${marketId}_1`));
-const root = await settlement.settlementRoots(batchId);
-const hasRoot = root !== ethers.ZeroHash;
-
-// Check if user already claimed
-const hasClaimed = await settlement.claimed(batchId, userAddress);
-
-// User can claim if: root exists AND not claimed yet
-const canClaim = hasRoot && !hasClaimed;
-```
-
-**UI Button Gating**:
-
-```tsx
-<button disabled={!canClaim} onClick={handleClaim}>
-  {hasClaimed ? "Already Claimed" : "Claim Settlement"}
-</button>
-```
-
----
-
-### 3. Fetch User's PnL and Proof (Off-chain API)
-
-```typescript
-// Call your backend API to get claim data
-const claimData = await fetch(
-  `/api/settlement/${marketId}/${userAddress}`
-).then((res) => res.json());
-
-// Response format:
-// {
-//   pnlDelta: "50000000000000000000",  // 50 tokens in wei
-//   merkleProof: ["0xabc...", "0xdef...", "0x123..."],
-//   batchId: "0x456..."
-// }
-```
-
-**Backend Requirements**:
-
-- Compute PnL for all traders
-- Build Merkle tree
-- Store proofs for each user
-- Provide API endpoint for users to fetch their proof
-
----
-
-### 4. Execute Claim Transaction
-
-```typescript
-async function claimSettlement(marketId: number, userAddress: string) {
-  // 1. Fetch claim data from API
-  const { pnlDelta, merkleProof, batchId } = await fetchClaimData(
-    marketId,
-    userAddress
-  );
-
-  // 2. Execute claim
-  const settlement = new ethers.Contract(
-    deployments.SoothSettlement,
-    settlementABI,
-    signer
-  );
-
-  const tx = await settlement.claimSettlement(
-    marketId,
-    batchId,
-    pnlDelta,
-    merkleProof
-  );
-
+```javascript
+// Check if anything is claimable
+if (claimableNow > 0n) {
+  // Show "Claim X USDC" button
+  const tx = await traderVault.claimUnlocked();
   await tx.wait();
-
-  // 3. Show success message
-  const amount = ethers.formatEther(pnlDelta);
-  toast.success(`Claimed ${amount} tokens!`);
+  console.log("Claimed successfully!");
+} else if (stillLocked > 0n) {
+  // Show locked state with countdown
+  console.log(`${ethers.formatUnits(stillLocked, 18)} USDC locked`);
 }
 ```
 
----
+### Summary Table
 
-## 📋 Complete Claim Flow (User Perspective)
+| Function                  | Contract    | Returns                       |
+| ------------------------- | ----------- | ----------------------------- |
+| `availableBalance(user)`  | TraderVault | Liquid funds (uint256)        |
+| `pendingBalance(user)`    | TraderVault | Locked funds (uint256)        |
+| `totalBalance(user)`      | TraderVault | Total funds (uint256)         |
+| `getPendingUnlocks(user)` | TimeLock    | Array of {amount, unlockTime} |
+| `claimUnlocked()`         | TraderVault | Claims all unlocked (batched) |
 
-```
-┌────────────────────────────────────────────────────┐
-│ 1. User checks if market is settled                │
-│    → settlement.results(marketId)                  │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 2. Check if settlement root is available           │
-│    → settlement.settlementRoots(batchId)           │
-│    → If root === 0x00, show "Processing..."        │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 3. Check if user already claimed                   │
-│    → settlement.claimed(batchId, userAddress)      │
-│    → If true, show "Already Claimed"               │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 4. Fetch user's PnL and proof from API             │
-│    → GET /api/settlement/{marketId}/{userAddress}  │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 5. Display claim amount to user                    │
-│    → "You can claim: +50 tokens" or "-20 tokens"   │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 6. User clicks "Claim Settlement"                  │
-│    → settlement.claimSettlement(...)               │
-└────────────────┬───────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────┐
-│ 7. Transaction confirmed                           │
-│    → Funds transferred to/from user                │
-│    → Show success message                          │
-└────────────────────────────────────────────────────┘
-```
+## 2. Settlement Redemption (✅ Live)
 
----
+After a market is settled, users holding winning shares can redeem them for 1 USDC per share.
 
-## 🎨 UI Components Needed
+**Flow:**
 
-### Settlement Status Badge
+1. Market is settled via `markSettled(winningOutcome)`.
+2. Users holding winning shares call `traderVault.redeem(marketAddress)`.
+3. Contract burns shares and credits 1 USDC per share to `availableBalance`.
 
-```tsx
-function SettlementStatus({ marketId }: { marketId: number }) {
-  const { data: result } = useSettlementResult(marketId);
+### Frontend Integration
 
-  if (!result?.settled) {
-    return <Badge variant="active">Trading</Badge>;
-  }
+```javascript
+// Check if market is settled
+const isSettled = await market.isSettled();
+const winningOutcome = await market.winningOutcome(); // 0 = YES, 1 = NO
 
-  return (
-    <Badge variant="settled">
-      Settled: {result.winningOutcome === 1 ? "YES" : "NO"} Won
-    </Badge>
-  );
+// Check user's winning shares
+const yesShares = await market.yesBalance(userAddress);
+const noShares = await market.noBalance(userAddress);
+const winningShares = winningOutcome === 0 ? yesShares : noShares;
+
+// Redeem if user has winning shares
+if (winningShares > 0) {
+  await traderVault.redeem(marketAddress);
 }
 ```
 
-### Claim Button
+## 3. Admin Settlement
 
-```tsx
-function ClaimButton({ marketId, userAddress }: Props) {
-  const { data: result } = useSettlementResult(marketId);
-  const { data: claimStatus } = useClaimStatus(marketId, userAddress);
-  const { mutate: claim, isPending } = useClaimSettlement();
+Guardians can settle markets using the `SoothMarketV3` contract.
 
-  if (!result?.settled) return null;
-  if (!claimStatus?.hasRoot) return <span>Processing settlement...</span>;
-  if (claimStatus?.hasClaimed) return <span>✓ Claimed</span>;
-
-  return (
-    <button
-      onClick={() => claim({ marketId, userAddress })}
-      disabled={isPending}
-    >
-      {isPending ? "Claiming..." : `Claim ${claimStatus.pnlDelta} tokens`}
-    </button>
-  );
-}
+```solidity
+function markSettled(uint8 winningOutcome) external onlyOwner;
 ```
 
----
-
-## 🔗 React Hooks Examples
-
-### useSettlementResult
-
-```typescript
-function useSettlementResult(marketId: number) {
-  const settlement = useContract(deployments.SoothSettlement, settlementABI);
-
-  return useQuery({
-    queryKey: ["settlement", "result", marketId],
-    queryFn: async () => {
-      const result = await settlement.results(marketId);
-      return {
-        exists: result.exists,
-        settled: result.settled,
-        adjudicatorId: result.adjudicatorId,
-        truthTime: Number(result.truthTime),
-        winningOutcome: result.winningOutcome,
-      };
-    },
-  });
-}
-```
-
-### useClaimStatus
-
-```typescript
-function useClaimStatus(marketId: number, userAddress: string) {
-  const settlement = useContract(deployments.SoothSettlement, settlementABI);
-
-  return useQuery({
-    queryKey: ["settlement", "claim-status", marketId, userAddress],
-    queryFn: async () => {
-      const batchId = ethers.keccak256(
-        ethers.toUtf8Bytes(`batch_${marketId}_1`)
-      );
-      const root = await settlement.settlementRoots(batchId);
-      const hasClaimed = await settlement.claimed(batchId, userAddress);
-
-      // Fetch PnL from API if not claimed
-      let pnlDelta = null;
-      if (root !== ethers.ZeroHash && !hasClaimed) {
-        const data = await fetch(
-          `/api/settlement/${marketId}/${userAddress}`
-        ).then((res) => res.json());
-        pnlDelta = data.pnlDelta;
-      }
-
-      return {
-        hasRoot: root !== ethers.ZeroHash,
-        hasClaimed,
-        pnlDelta: pnlDelta ? ethers.formatEther(pnlDelta) : null,
-      };
-    },
-    enabled: !!userAddress,
-  });
-}
-```
-
-### useClaimSettlement
-
-```typescript
-function useClaimSettlement() {
-  const settlement = useContract(
-    deployments.SoothSettlement,
-    settlementABI,
-    true
-  );
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      marketId,
-      userAddress,
-    }: {
-      marketId: number;
-      userAddress: string;
-    }) => {
-      // Fetch claim data
-      const { pnlDelta, merkleProof, batchId } = await fetch(
-        `/api/settlement/${marketId}/${userAddress}`
-      ).then((res) => res.json());
-
-      // Execute claim
-      const tx = await settlement.claimSettlement(
-        marketId,
-        batchId,
-        pnlDelta,
-        merkleProof
-      );
-
-      return tx.wait();
-    },
-    onSuccess: (_, { marketId, userAddress }) => {
-      // Invalidate queries
-      queryClient.invalidateQueries({
-        queryKey: ["settlement", "claim-status", marketId, userAddress],
-      });
-    },
-  });
-}
-```
-
----
-
-## 📊 Event Monitoring
-
-### Listen for Settlement Events
-
-```typescript
-// Listen for market settlements
-settlement.on(
-  "ResultStored",
-  (marketId, adjudicatorId, winningOutcome, truthTime) => {
-    console.log(
-      `Market ${marketId} settled: ${winningOutcome === 1 ? "YES" : "NO"} won`
-    );
-    // Refresh UI
-    queryClient.invalidateQueries({
-      queryKey: ["settlement", "result", marketId],
-    });
-  }
-);
-
-// Listen for settlement roots
-settlement.on("SettlementRootStored", (marketId, batchId, root) => {
-  console.log(`Settlement root available for market ${marketId}`);
-  // Enable claim buttons
-  queryClient.invalidateQueries({
-    queryKey: ["settlement", "claim-status", marketId],
-  });
-});
-
-// Listen for claims
-settlement.on("Claimed", (marketId, batchId, account, pnlDelta) => {
-  if (account === userAddress) {
-    toast.success(`Claimed ${ethers.formatEther(pnlDelta)} tokens!`);
-  }
-});
-```
-
----
-
-## ⚠️ Important Notes for Frontend
-
-1. **Batch IDs**: The batchId format is determined by your backend. Common pattern:
-
-   ```typescript
-   const batchId = ethers.keccak256(ethers.toUtf8Bytes(`batch_${marketId}_1`));
-   ```
-
-2. **Negative PnL**: Users can have negative PnL (losses). Handle this in UI:
-
-   ```tsx
-   const pnlClass = pnlDelta >= 0 ? "profit" : "loss";
-   const pnlSign = pnlDelta >= 0 ? "+" : "";
-   <span className={pnlClass}>
-     {pnlSign}
-     {ethers.formatEther(pnlDelta)}
-   </span>;
-   ```
-
-3. **Gas Costs**: Claiming requires a transaction. Inform users about gas costs.
-
-4. **Proof Availability**: Settlement roots are uploaded by provers (off-chain). There may be a delay between market settlement and proof availability.
-
-5. **Multiple Batches**: A market can have multiple settlement batches. Your UI should handle this if your system uses batch processing.
-
----
-
-## 🔗 Related Documentation
-
-- **Detailed Process**: [../ADJUDICATION_AND_SETTLEMENT.md](../ADJUDICATION_AND_SETTLEMENT.md)
-- **Contract Interfaces**: [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md#3-soothsettlement---settlement--claims-contract)
-- **ABIs**: See `CONTRACT_INTERFACES.md` Section 7
-
----
-
-## 📝 Checklist for Frontend Integration
-
-- [ ] Implement `useSettlementResult` hook
-- [ ] Implement `useClaimStatus` hook
-- [ ] Implement `useClaimSettlement` mutation
-- [ ] Create Settlement Status Badge component
-- [ ] Create Claim Button component
-- [ ] Set up event listeners for settlement events
-- [ ] Build API endpoint to fetch user's PnL and proof
-- [ ] Handle negative PnL display
-- [ ] Add loading states for claim processing
-- [ ] Add error handling for failed claims
-- [ ] Test with both positive and negative PnL scenarios
+- **0:** YES Wins
+- **1:** NO Wins

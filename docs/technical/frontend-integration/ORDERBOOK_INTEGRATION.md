@@ -1,275 +1,144 @@
-# Orderbook & Unified Ladder Integration Guide
+# Unified Orderbook Integration Guide
 
 **Date:** 2025-12-04
-**Version:** 2.0
+**Status:** ✅ Live on Base Sepolia
+
+> [!IMPORTANT] > **Architecture:** All interactions go through `SoothTraderVault`. You do NOT interact with `SoothMarket` directly.
 
 ## Overview
 
-The Sooth Protocol implements a **hybrid liquidity model** combining:
+The v3 Unified Orderbook simplifies trading by merging the "Buy" and "Sell" sides into a single liquidity pool.
 
-1. **LMSR AMM** - Instant execution with algorithmic pricing
-2. **Orderbook** - Limit orders with maker-provided liquidity
-3. **Unified Ladder** - Smart routing that automatically finds the best price
+- **Sell YES** orders are automatically converted to **Buy NO** orders.
+- **Sell NO** orders are automatically converted to **Buy YES** orders.
+- There is no concept of "locking collateral" anymore. Users simply pay USDC to buy shares.
 
 ## Architecture
 
-```
-User calls trade()
-       ↓
-Unified Ladder (Smart Routing)
-       ↓
-   ┌───┴───┐
-   ▼       ▼
-Orderbook  AMM
-(Limit)  (Market)
+```mermaid
+graph TD
+    User[User] -->|1. tradeAMM / placeOrder| Vault[SoothTraderVaultV3]
+    Vault -->|2. Execute| Market[SoothMarketV3]
+    Market -->|3. Match| Orderbook[Unified Orderbook]
+    Market -->|4. Fallback| AMM[LMSR AMM]
 ```
 
-### Key Concepts
+## Key Changes from v2
 
-**Unified Ladder** = Execution strategy (NOT a separate component)
-
-- Automatically routes trades to get the best price
-- Tries orderbook first, then falls back to AMM
-- Transparent to users - happens in a single transaction
-
-**Token Accounting** = Shared between both systems
-
-- Same `yesBalance` / `noBalance` mappings
-- Users receive identical YES/NO tokens regardless of fill source
-- No distinction between "orderbook tokens" and "AMM tokens"
-
-## User-Facing Terminology
-
-### Recommended Labels:
-
-| Backend Term   | UI Label                     | User Benefit          |
-| :------------- | :--------------------------- | :-------------------- |
-| LMSR AMM       | **Market Order**             | Instant execution     |
-| Orderbook      | **Limit Order**              | Set your price        |
-| Unified Ladder | **Smart Routing** (optional) | Best price guaranteed |
-
-**Don't expose:** "Unified Ladder", "LMSR", "Synthetic" - these are implementation details.
+| Feature         | v2 (Legacy)                    | v3 (Current)                              |
+| :-------------- | :----------------------------- | :---------------------------------------- |
+| **Entry Point** | `SoothMarket`                  | `SoothTraderVaultV3`                      |
+| **Selling**     | Requires locking collateral    | Just another "Buy" order (Buy Opposite)   |
+| **Orderbook**   | Separate Bids/Asks per outcome | Single "Best Ask" / "Best Bid" per market |
+| **Settlement**  | Claim collateral + winnings    | Claim winnings only                       |
 
 ## Contract Interfaces
 
-### SoothMarket.sol
+### 1. Placing a Limit Order
 
-#### `placeOrder` - Create Limit Order
+Call `placeOrder` on `SoothTraderVaultV3`.
 
 ```solidity
 function placeOrder(
+    address market,
     uint8 outcome,   // 0 = YES, 1 = NO
-    uint256 price,   // Price per share (1e18), e.g., 0.6 ether
+    uint256 price,   // Price per share (1e18), e.g., 0.60 USDC
     uint256 amount   // Number of shares (1e18)
 ) external returns (uint256 orderId);
 ```
 
-- **Action:** Places a limit order to SELL an outcome
-- **Collateral:** Locks `(1 - price) * amount` in Vault
-- **Returns:** Unique `orderId`
+- **Cost:** You pay `price * amount` in USDC immediately.
+- **Logic:**
+  - If you buy **YES** at 0.60, it enters the orderbook as a **Bid** for YES.
+  - If you buy **NO** at 0.40, it enters the orderbook as an **Ask** for YES at 0.60 (1 - 0.40).
 
-#### `cancelOrder` - Cancel Limit Order
+### 2. Market Order (AMM + Orderbook)
 
-```solidity
-function cancelOrder(uint256 orderId) external;
-```
-
-- **Action:** Cancels order and refunds locked collateral
-- **Requires:** Caller must be the order maker
-
-#### `trade` - Execute Trade (Market or Smart Routed)
+Call `tradeAMM` on `SoothTraderVaultV3`.
 
 ```solidity
-function trade(
-    uint8 outcomeIndex,
-    int256 deltaShares,
-    int256 maxCost
-) external;
+function tradeAMM(
+    address market,
+    uint8 outcome,       // 0 = YES, 1 = NO
+    int256 deltaShares,  // Positive = Buy, Negative = Sell
+    int256 maxCost       // Slippage protection
+) external returns (int256 cost, uint256 fee);
 ```
 
-- **Behavior:** Automatically routes through orderbook first, then AMM
-- **User Experience:** Single transaction, best price execution
-- **No Change:** Same function signature as before
+- **Routing:** The contract automatically checks the orderbook first. If it can fill your order at a better price than the AMM, it does so.
+- **Slippage:** `maxCost` is the maximum USDC you are willing to spend (for buys) or minimum you want to receive (for sells).
 
-### Reading the Orderbook
+### 3. Cancelling an Order
+
+Call `cancelOrder` on `SoothTraderVaultV3`.
 
 ```solidity
-struct Order {
-    uint256 id;
-    address maker;
-    uint8 outcome;      // 0 = YES, 1 = NO
-    uint256 price;      // 1e18 fixed point
-    uint256 amount;     // Remaining size
-    uint256 timestamp;
-}
-
-mapping(uint256 => Order) public orders;
-mapping(uint8 => uint256) public bestOrder;  // Head of linked list
-mapping(uint256 => uint256) public nextOrder; // Next order in list
+function cancelOrder(
+    address market,
+    uint256 orderId
+) external returns (uint256 refund);
 ```
 
-#### Fetching Orderbook (Frontend)
+## Frontend Integration
+
+### Fetching the Orderbook
+
+The orderbook is stored as a linked list in `SoothMarketV3`.
 
 ```javascript
-// Get all asks for YES outcome
-async function fetchOrderbook(marketAddress, outcome) {
-  const market = new ethers.Contract(marketAddress, ABI, provider);
-  const orders = [];
-  let currentId = await market.bestOrder(outcome);
+// Fetch top 50 orders
+async function fetchOrderbook(marketAddress) {
+  const market = new ethers.Contract(marketAddress, MARKET_ABI, provider);
 
-  while (currentId !== 0 && orders.length < 50) {
-    const order = await market.orders(currentId);
-    orders.push({
+  // Best Ask (Lowest price to Buy YES)
+  let currentAskId = await market.bestAsk();
+  const asks = [];
+  while (currentAskId != 0 && asks.length < 50) {
+    const order = await market.orders(currentAskId);
+    asks.push({
       id: order.id,
-      maker: order.maker,
-      price: ethers.formatEther(order.price),
+      price: ethers.formatEther(order.yesPrice), // Price of YES
       amount: ethers.formatEther(order.amount),
     });
-    currentId = await market.nextOrder(currentId);
+    currentAskId = await market.nextOrder(currentAskId);
   }
-  return orders;
+
+  // Best Bid (Highest price to Sell YES)
+  let currentBidId = await market.bestBid();
+  const bids = [];
+  while (currentBidId != 0 && bids.length < 50) {
+    const order = await market.orders(currentBidId);
+    bids.push({
+      id: order.id,
+      price: ethers.formatEther(order.yesPrice), // Price of YES
+      amount: ethers.formatEther(order.amount),
+    });
+    currentBidId = await market.nextOrder(currentBidId);
+  }
+
+  return { asks, bids };
 }
 ```
 
-## User Flows
+### Displaying "Buy NO" Orders
 
-### 1. Placing a Limit Order (Maker)
+Since the orderbook is unified around **YES Price**, you need to convert for UI if the user is looking at "NO".
 
-```
-User Input:
-- Outcome: YES
-- Price: 0.60
-- Amount: 100 shares
+- **If user wants to Buy NO:**
+  - Show them **Bids for YES** (because selling YES = buying NO).
+  - Display Price = `1 - yesPrice`.
 
-Frontend Calculates:
-- Collateral = (1 - 0.60) × 100 = 40 USDC
-
-Steps:
-1. Check/request approval: collateral.approve(vault, 40 USDC)
-2. Call: market.placeOrder(0, 0.6e18, 100e18)
-3. Display: "Order placed! Locked 40 USDC"
-```
-
-### 2. Market Order (Taker) - Smart Routed
-
-```
-User Input:
-- Action: Buy YES
-- Amount: 100 shares
-
-What Happens (Automatic):
-1. Contract checks orderbook for best prices
-2. Fills 60 shares @ 0.58 from limit orders
-3. Fills 40 shares @ 0.62 from AMM
-4. User gets 100 shares @ 0.60 average
-
-Frontend Display:
-"Bought 100 YES @ 0.60 avg"
-(Optional: Show breakdown)
-```
-
-### 3. Visualizing Execution Breakdown (Optional)
-
-```javascript
-// Listen to events during transaction
-const receipt = await tx.wait();
-const orderFills = receipt.logs
-  .filter((log) => log.topics[0] === OrderFilledEventSignature)
-  .map((log) => parseOrderFilled(log));
-
-// Display:
-if (orderFills.length > 0) {
-  console.log("Filled via:");
-  orderFills.forEach((fill) => console.log(`  ${fill.amount} @ limit orders`));
-  console.log(`  ${remaining} @ market price`);
-}
-```
-
-## Important Notes
-
-### Collateral Accounting
-
-- **Maker collateral** is locked in `SoothVault`
-- Currently tracked in `marketReserves[marketId]` (mixed with AMM PnL)
-- **Future improvement:** Separate `lockedMakerCollateral` mapping
-
-### Token Fungibility
-
-- YES/NO tokens are **identical** regardless of source
-- A YES token from orderbook = YES token from AMM
-- Users can sell tokens acquired from either source
+| Orderbook Data     | UI (Buy YES)    | UI (Buy NO)    |
+| :----------------- | :-------------- | :------------- |
+| **Best Ask:** 0.60 | Buy YES @ 0.60  | Sell NO @ 0.40 |
+| **Best Bid:** 0.58 | Sell YES @ 0.58 | Buy NO @ 0.42  |
 
 ## Events
 
+Listen to these events on `SoothMarketV3` to update UI in real-time.
+
 ```solidity
-event OrderPlaced(uint256 indexed orderId, address indexed maker,
-                  uint8 outcome, uint256 price, uint256 amount);
+event OrderCreated(uint256 indexed orderId, address indexed maker, uint8 outcome, uint256 price, uint256 amount);
+event OrderMatched(uint256 indexed buyOrderId, uint256 indexed sellOrderId, uint256 amount, uint256 price);
 event OrderCancelled(uint256 indexed orderId);
-event OrderFilled(uint256 indexed orderId, uint256 amount);
-event Trade(address indexed trader, uint8 outcomeIndex,
-            int256 deltaShares, int256 cost);
 ```
-
-## Testing
-
-See `test/SoothOrderbook.t.sol` for comprehensive test coverage:
-
-- ✅ Order placement and cancellation
-- ✅ Orderbook-only fills
-- ✅ Unified execution (orderbook + AMM)
-- ✅ Price priority (skips expensive orders)
-
-```
-
-```
-
-## UI Execution Breakdown (Recommended)
-
-### Current Limitation
-The `trade()` function performs smart routing automatically but only emits:
-```solidity
-emit Trade(msg.sender, outcomeIndex, deltaShares, totalCost);
-```
-
-**Missing:** Breakdown showing how the trade was filled (orderbook vs AMM).
-
-### Recommended Enhancement
-```
-Bought 100 YES @ 0.60 avg
-├─ 60 shares @ 0.58 (Limit Orders)
-└─ 40 shares @ 0.62 (Market Price)
-```
-
-### Implementation
-
-**Step 1: Listen to OrderFilled Events**
-```javascript
-async function executeWithBreakdown(market, outcome, shares, maxCost) {
-    const tx = await market.trade(outcome, shares, maxCost);
-    const receipt = await tx.wait();
-    
-    const orderFills = receipt.logs
-        .filter(log => {
-            try {
-                return market.interface.parseLog(log).name === 'OrderFilled';
-            } catch { return false; }
-        })
-        .map(log => market.interface.parseLog(log).args);
-    
-    return { receipt, orderFills };
-}
-```
-
-**Step 2: Calculate Split**
-```javascript
-const orderbookShares = orderFills.reduce((sum, fill) => sum + fill.amount, 0n);
-const ammShares = totalShares - orderbookShares;
-```
-
-**Step 3: Display**
-```jsx
-{orderbookShares > 0 && <div>├─ {orderbookShares} (Limit)</div>}
-{ammShares > 0 && <div>└─ {ammShares} (Market)</div>}
-```
-
-**Alternative:** Simple badge: `[Smart Routed ✓]`

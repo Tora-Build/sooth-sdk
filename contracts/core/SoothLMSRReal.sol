@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {ISoothAMM} from "./SoothInterfaces.sol";
-import {wrap} from "prb-math/src/sd59x18/Casting.sol";
-import {exp, ln} from "prb-math/src/sd59x18/Math.sol";
-import {uEXP_MAX_INPUT, uUNIT} from "prb-math/src/sd59x18/Constants.sol";
+import {wrap} from "prb-math/sd59x18/Casting.sol";
+import {exp, ln} from "prb-math/sd59x18/Math.sol";
+import {uEXP_MAX_INPUT, uUNIT} from "prb-math/sd59x18/Constants.sol";
 
 /// @notice LMSR implementation using stable log-sum-exp backed by PRBMath.
 /// @dev Prices and costs are calculated with 59.18 fixed-point math. This implementation

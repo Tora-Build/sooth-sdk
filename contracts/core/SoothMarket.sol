@@ -1,78 +1,99 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./SoothInterfaces.sol";
+import "../core/SoothInterfaces.sol";
+import "../interfaces/ISoothMarket.sol";
 
-/// @notice Infinite-end YES/NO market using a pluggable AMM and dynamic b.
-/// @dev AMM is pluggable; default is SoothLMSRReal. You can swap in alternatives
-///      without changing this contract.
-contract SoothMarket is Ownable {
-    ISoothVault public vault;
-    IRiskManager public riskManager;
+/// @title SoothMarket
+/// @notice Market with unified orderbook (Sell YES = Buy NO)
+/// @dev Uses complete set creation model - no collateral locking
+contract SoothMarket is ISoothMarket, Ownable {
+    // ============ State ============
+
+    ISoothGovernorVault public governorVault;
+    address public override traderVault;
     ISoothAMM public amm;
+    ISoothFeeController public feeController;
 
     uint256 public marketId;
     bytes32 public adjudicatorId;
+    uint256 public b; // Liquidity parameter
 
-    bool public isLive;
-    bool public isSettled;
+    address public governor;
+    uint256 public feeLMSR;
+    uint256 public constant MAX_BPS = 10000;
 
+    bool public override isLive;
+    bool public override isSettled;
     uint8 public winningOutcome;
-    uint64 public truthTime; // T*
 
-    ISoothAMM.State public ammState; // qYes, qNo
+    ISoothAMM.State public ammState;
 
-    mapping(address => uint256) public yesBalance;
-    mapping(address => uint256) public noBalance;
+    // Token balances
+    mapping(address => uint256) public override yesBalance;
+    mapping(address => uint256) public override noBalance;
 
-    // --- Orderbook State ---
-    mapping(uint256 => Order) public orders;
-    mapping(uint256 => uint256) public nextOrder; // Linked list: orderId -> nextOrderId
-    mapping(uint8 => uint256) public bestOrder;   // Linked list head: outcome -> orderId
+    // ============ Unified Orderbook ============
+
+    mapping(uint256 => OrderV3) private _orders;
+    mapping(uint256 => uint256) public nextOrder; // Linked list
+    
+    // Single orderbook with two access points
+    uint256 public override bestAsk;  // Lowest yesPrice (best for YES buyers)
+    uint256 public override bestBid;  // Highest yesPrice (best for NO buyers)
+    
     uint256 public nextOrderId = 1;
 
-    event OrderPlaced(uint256 indexed orderId, address indexed maker, uint8 outcome, uint256 price, uint256 amount);
-    event OrderCancelled(uint256 indexed orderId);
-    event OrderFilled(uint256 indexed orderId, uint256 amount);
+    // ============ Events ============
 
-    event Initialized(
-        uint256 indexed marketId,
-        address vault,
-        address riskManager,
-        address amm,
-        bytes32 adjudicatorId
-    );
-    event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost);
-    event Settled(uint8 winningOutcome, uint64 truthTime);
+    event Initialized(uint256 indexed marketId, address traderVault, address amm, uint256 b);
+    event Settled(uint8 winningOutcome);
+
+    // ============ Constructor ============
 
     constructor() {}
 
+    // ============ Initialization ============
+
     function initialize(
         uint256 _marketId,
-        ISoothVault _vault,
-        IRiskManager _riskManager,
+        ISoothGovernorVault _governorVault,
+        address _traderVault,
         ISoothAMM _amm,
+        ISoothFeeController _feeController,
         bytes32 _adjudicatorId,
+        uint256 _b,
+        uint256 _feeLMSR,
+        address _governor,
         int256 _initialQuantity
     ) external onlyOwner {
-        require(address(vault) == address(0), "Market: already init");
-        require(_initialQuantity > 0, "Market: invalid initial quantity");
-        
-        vault = _vault;
-        riskManager = _riskManager;
+        require(traderVault == address(0), "Market: already init");
+        require(_initialQuantity > 0, "Market: invalid initial qty");
+
+        governorVault = _governorVault;
+        traderVault = _traderVault;
         amm = _amm;
+        feeController = _feeController;
         adjudicatorId = _adjudicatorId;
         marketId = _marketId;
+        b = _b;
+        feeLMSR = _feeLMSR;
+        governor = _governor;
         isLive = true;
-        
-        // Initialize with balanced quantities for 50/50 starting price
-        // This prevents LMSR pricing breakdown at (0,0)
+
         ammState = ISoothAMM.State({
             qYes: _initialQuantity,
             qNo: _initialQuantity
         });
 
-        emit Initialized(_marketId, address(_vault), address(_riskManager), address(_amm), _adjudicatorId);
+        emit Initialized(_marketId, _traderVault, address(_amm), _b);
+    }
+
+    // ============ Modifiers ============
+
+    modifier onlyTraderVault() {
+        require(msg.sender == traderVault, "Market: not TraderVault");
+        _;
     }
 
     modifier onlyLive() {
@@ -80,227 +101,283 @@ contract SoothMarket is Ownable {
         _;
     }
 
-    /// @notice outcomeIndex: 0 = YES, 1 = NO
-    /// @param deltaShares > 0 to buy, < 0 to sell.
-    /// @param maxCost Maximum cost willing to pay (buy) or minimum proceeds to receive (sell).
-    ///                For buys: positive value representing max tokens to spend.
-    ///                For sells: negative value representing min tokens to receive.
-    function trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost) external onlyLive {
-        require(deltaShares != 0, "Market: zero trade");
-
-        // spot-style restriction: no synthetic shorts – must own before selling
-        if (deltaShares < 0) {
-            uint256 shares = uint256(-deltaShares);
-            if (outcomeIndex == 0) {
-                require(yesBalance[msg.sender] >= shares, "Market: not enough YES");
-                yesBalance[msg.sender] -= shares;
-            } else {
-                require(noBalance[msg.sender] >= shares, "Market: not enough NO");
-                noBalance[msg.sender] -= shares;
-            }
-        }
-
-        uint256 b = riskManager.getBForMarket(marketId);
-        int256 totalCost = 0;
-        int256 remainingShares = deltaShares;
-
-        // --- Unified Ladder Execution ---
-        
-        // Determine which orderbook side to match against
-        // If Buying X (delta > 0): Match against Short X (outcomeIndex)
-        // If Selling X (delta < 0): Match against Short Y (1 - outcomeIndex)
-        uint8 matchOutcome = (deltaShares > 0) ? outcomeIndex : (1 - outcomeIndex);
-        
-        // Match against Orderbook
-        // We match if Order Price is better than AMM Price.
-        // For simplicity in this iteration: We greedily fill Orderbook if Price <= AMM Price.
-        // Note: AMM price moves, so strictly we should interleave. 
-        // Here we check spot price.
-        
-        while (remainingShares != 0) {
-            uint256 bestId = bestOrder[matchOutcome];
-            
-            // If no orders, break to AMM
-            if (bestId == 0) break;
-
-            Order storage o = orders[bestId];
-            uint256 ammPrice = amm.price(ammState, matchOutcome, b);
-            
-            // Check if Order is better or equal to AMM
-            // Order Price is for Shorting `matchOutcome`.
-            // If we are Buying `matchOutcome` (delta > 0), we pay `o.price`. Lower is better.
-            // If we are Selling `matchOutcome` (delta < 0), we are effectively Buying `1-matchOutcome`.
-            // Wait, logic check:
-            // If delta > 0 (Buy YES): Match Short YES. Pay `o.price`. Compare `o.price` vs `ammPrice`.
-            // If `o.price <= ammPrice`, take Order.
-            
-            // If delta < 0 (Sell YES): Match Short NO.
-            // We are effectively Buying NO? No, we are Selling YES.
-            // Selling YES is economically equivalent to Buying NO (ignoring fees/slippage).
-            // But here we match against Short NO.
-            // Short NO price is `P_no`.
-            // Implied YES price is `1 - P_no`.
-            // We receive `1 - P_no`.
-            // AMM YES Price is `P_yes_amm`.
-            // We want to sell at Highest Price.
-            // `1 - P_no >= P_yes_amm`  =>  `1 - P_yes_amm >= P_no`  =>  `P_no_amm >= P_no`.
-            // So if `o.price (P_no) <= ammPrice (P_no_amm)`, take Order.
-            // Logic holds: Always check `o.price <= amm.price(matchOutcome)`.
-            
-            if (o.price > ammPrice) {
-                break; // AMM is better
-            }
-
-            // Fill Order
-            uint256 amount = (deltaShares > 0) ? uint256(remainingShares) : uint256(-remainingShares);
-            uint256 fill = (amount < o.amount) ? amount : o.amount;
-            
-            // Calculate Cost/Proceeds
-            // If Buy (delta > 0): Cost = fill * price
-            // If Sell (delta < 0): Proceeds = fill * (1 - price) => Cost = -Proceeds
-            int256 stepCost;
-            if (deltaShares > 0) {
-                stepCost = int256(fill * o.price / 1e18);
-            } else {
-                // Selling YES matches Short NO (price P_no).
-                // Receive (1 - P_no).
-                stepCost = -int256(fill * (1e18 - o.price) / 1e18);
-            }
-            
-            totalCost += stepCost;
-            
-            // Update Order
-            o.amount -= fill;
-            if (o.amount == 0) {
-                _removeOrder(matchOutcome, bestId);
-                delete orders[bestId];
-                emit OrderFilled(bestId, fill);
-            } else {
-                emit OrderFilled(bestId, fill);
-            }
-            
-            // Update Remaining
-            if (deltaShares > 0) {
-                remainingShares -= int256(fill);
-            } else {
-                remainingShares += int256(fill);
-            }
-        }
-
-        // Fill remainder with AMM
-        if (remainingShares != 0) {
-            (int256 ammCost, ISoothAMM.State memory newState) =
-                amm.costDelta(ammState, outcomeIndex, remainingShares, b);
-            
-            totalCost += ammCost;
-            ammState = newState;
-        }
-
-        // Slippage protection
-        require(totalCost <= maxCost, "Market: slippage exceeded");
-
-        // Record Flow
-        vault.recordMarketFlow(marketId, totalCost, msg.sender);
-
-        if (deltaShares > 0) {
-            uint256 shares = uint256(deltaShares);
-            if (outcomeIndex == 0) {
-                yesBalance[msg.sender] += shares;
-            } else {
-                noBalance[msg.sender] += shares;
-            }
-        }
-
-        emit Trade(msg.sender, outcomeIndex, deltaShares, totalCost);
+    modifier onlyGovernor() {
+        require(msg.sender == governor, "Market: not governor");
+        _;
     }
 
-    function markSettled(uint8 _winningOutcome, uint64 _truthTime) external onlyOwner {
-        require(!isSettled, "Market: already settled");
-        isSettled = true;
-        isLive = false;
-        winningOutcome = _winningOutcome;
-        truthTime = _truthTime;
-        emit Settled(_winningOutcome, _truthTime);
+    // ============ View Functions ============
+
+    function orders(uint256 orderId) external view override returns (OrderV3 memory) {
+        return _orders[orderId];
     }
 
-    // --- Orderbook Functions ---
+    function getPrice(uint8 outcome) external view override returns (uint256) {
+        return amm.price(ammState, outcome, b);
+    }
 
-    /// @notice Place a limit order to SELL an outcome (Short position).
-    /// @param outcome 0 for YES, 1 for NO.
-    /// @param price Price per share (1e18).
-    /// @param amount Number of shares.
-    function placeOrder(uint8 outcome, uint256 price, uint256 amount) external onlyLive returns (uint256) {
+    // ============ TraderVault Callbacks ============
+
+    function createOrder(
+        address maker,
+        uint8 outcome,
+        uint256 price,
+        uint256 amount
+    ) external override onlyTraderVault onlyLive returns (uint256 orderId) {
         require(price > 0 && price < 1e18, "Market: invalid price");
         require(amount > 0, "Market: invalid amount");
 
-        // Lock collateral: (1 - price) * amount
-        // Maker pays this to the Vault.
-        uint256 collateral = (1e18 - price) * amount / 1e18;
-        vault.recordMarketFlow(marketId, int256(collateral), msg.sender);
+        orderId = nextOrderId++;
 
-        uint256 id = nextOrderId++;
-        orders[id] = Order({
-            id: id,
-            maker: msg.sender,
-            outcome: outcome,
-            price: price,
+        // Normalize to yesPrice
+        uint256 yesPrice;
+        bool isBuySide;
+        if (outcome == 0) {
+            // Buying YES at `price`
+            yesPrice = price;
+            isBuySide = true;
+        } else {
+            // Buying NO at `price` = Selling YES at (1 - price)
+            yesPrice = 1e18 - price;
+            isBuySide = false;
+        }
+
+        _orders[orderId] = OrderV3({
+            id: orderId,
+            maker: maker,
+            yesPrice: yesPrice,
             amount: amount,
-            timestamp: block.timestamp
+            timestamp: block.timestamp,
+            isBuySide: isBuySide
         });
 
-        _insertOrder(outcome, id, price);
-        emit OrderPlaced(id, msg.sender, outcome, price, amount);
-        return id;
+        // Insert into appropriate side of orderbook
+        if (isBuySide) {
+            _insertBid(orderId, yesPrice);
+        } else {
+            _insertAsk(orderId, yesPrice);
+        }
+
+        emit OrderCreated(orderId, maker, outcome, price, amount);
+
+        // Try to match immediately
+        _tryMatch(orderId);
     }
 
-    function cancelOrder(uint256 orderId) external onlyLive {
-        Order storage o = orders[orderId];
-        require(o.maker == msg.sender, "Market: not maker");
-        require(o.amount > 0, "Market: already filled/cancelled");
+    function cancelOrder(
+        uint256 orderId,
+        address maker
+    ) external override onlyTraderVault returns (uint256 refund) {
+        OrderV3 storage o = _orders[orderId];
+        require(o.maker == maker, "Market: not maker");
+        require(o.amount > 0, "Market: already filled");
 
-        // Refund collateral
-        uint256 collateral = (1e18 - o.price) * o.amount / 1e18;
-        vault.recordMarketFlow(marketId, -int256(collateral), msg.sender);
+        // Calculate refund (price * remaining amount)
+        uint256 price = o.isBuySide ? o.yesPrice : (1e18 - o.yesPrice);
+        refund = price * o.amount / 1e18;
 
-        _removeOrder(o.outcome, orderId);
-        delete orders[orderId];
+        // Remove from orderbook
+        if (o.isBuySide) {
+            _removeBid(orderId);
+        } else {
+            _removeAsk(orderId);
+        }
+
+        delete _orders[orderId];
         emit OrderCancelled(orderId);
     }
 
-    // --- Internal Linked List Helpers ---
+    function executeAMMTrade(
+        address trader,
+        uint8 outcome,
+        int256 deltaShares
+    ) external override onlyTraderVault onlyLive returns (int256 cost, uint256 fee) {
+        require(deltaShares != 0, "Market: zero trade");
 
-    function _insertOrder(uint8 outcome, uint256 id, uint256 price) internal {
-        uint256 prev = 0;
-        uint256 curr = bestOrder[outcome];
-
-        // Sort by Price ASC (Cheapest first).
-        // If equal price, FIFO (older timestamp is better, but here we just append to end of price tier? 
-        // Simple logic: if price < curr.price, insert before.
-        while (curr != 0) {
-            if (price < orders[curr].price) {
-                break;
+        // If selling, must own tokens
+        if (deltaShares < 0) {
+            uint256 shares = uint256(-deltaShares);
+            if (outcome == 0) {
+                require(yesBalance[trader] >= shares, "Market: not enough YES");
+                yesBalance[trader] -= shares;
+            } else {
+                require(noBalance[trader] >= shares, "Market: not enough NO");
+                noBalance[trader] -= shares;
             }
+        }
+
+        // Calculate AMM cost
+        ISoothAMM.State memory newState;
+        (cost, newState) = amm.costDelta(ammState, outcome, deltaShares, b);
+
+        // Calculate fee
+        uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
+        fee = (absCost * feeLMSR) / MAX_BPS;
+
+        // Update state
+        ammState = newState;
+
+        // If buying, credit tokens
+        if (deltaShares > 0) {
+            uint256 shares = uint256(deltaShares);
+            if (outcome == 0) {
+                yesBalance[trader] += shares;
+            } else {
+                noBalance[trader] += shares;
+            }
+        }
+
+        emit TradeAMM(trader, outcome, deltaShares, cost, fee);
+    }
+
+    // ============ Orderbook Matching ============
+
+    function _tryMatch(uint256 newOrderId) internal {
+        OrderV3 storage newOrder = _orders[newOrderId];
+        if (newOrder.amount == 0) return;
+
+        if (newOrder.isBuySide) {
+            // New order wants YES - match against asks (sellers of YES = buyers of NO)
+            _matchBuyOrder(newOrderId);
+        } else {
+            // New order wants NO - match against bids (buyers of YES)
+            _matchSellOrder(newOrderId);
+        }
+    }
+
+    function _matchBuyOrder(uint256 buyOrderId) internal {
+        OrderV3 storage buyOrder = _orders[buyOrderId];
+        
+        while (buyOrder.amount > 0 && bestAsk != 0) {
+            OrderV3 storage askOrder = _orders[bestAsk];
+            
+            // Check if prices cross (buyer willing to pay >= seller asking)
+            if (buyOrder.yesPrice < askOrder.yesPrice) {
+                break; // No match
+            }
+
+            // Match at ask price (price improvement to buyer)
+            uint256 matchPrice = askOrder.yesPrice;
+            uint256 matchAmount = _min(buyOrder.amount, askOrder.amount);
+
+            // Execute match
+            _executeMatch(buyOrder.maker, askOrder.maker, matchPrice, matchAmount);
+
+            // Update amounts
+            buyOrder.amount -= matchAmount;
+            askOrder.amount -= matchAmount;
+
+            emit OrderMatched(buyOrderId, bestAsk, matchAmount, matchPrice);
+
+            // Remove filled ask
+            if (askOrder.amount == 0) {
+                uint256 filledAsk = bestAsk;
+                bestAsk = nextOrder[bestAsk];
+                delete _orders[filledAsk];
+            }
+        }
+    }
+
+    function _matchSellOrder(uint256 sellOrderId) internal {
+        OrderV3 storage sellOrder = _orders[sellOrderId];
+        
+        while (sellOrder.amount > 0 && bestBid != 0) {
+            OrderV3 storage bidOrder = _orders[bestBid];
+            
+            // Check if prices cross (seller asking <= buyer bidding)
+            if (sellOrder.yesPrice > bidOrder.yesPrice) {
+                break; // No match
+            }
+
+            // Match at bid price (price improvement to seller)
+            uint256 matchPrice = bidOrder.yesPrice;
+            uint256 matchAmount = _min(sellOrder.amount, bidOrder.amount);
+
+            // Execute match (bidOrder wants YES, sellOrder wants NO)
+            _executeMatch(bidOrder.maker, sellOrder.maker, matchPrice, matchAmount);
+
+            // Update amounts
+            sellOrder.amount -= matchAmount;
+            bidOrder.amount -= matchAmount;
+
+            emit OrderMatched(bestBid, sellOrderId, matchAmount, matchPrice);
+
+            // Remove filled bid
+            if (bidOrder.amount == 0) {
+                uint256 filledBid = bestBid;
+                bestBid = nextOrder[bestBid];
+                delete _orders[filledBid];
+            }
+        }
+    }
+
+    function _executeMatch(
+        address yesBuyer,
+        address noBuyer,
+        uint256 yesPrice,
+        uint256 amount
+    ) internal {
+        // Complete set creation: mint YES to buyer, NO to seller
+        yesBalance[yesBuyer] += amount;
+        noBalance[noBuyer] += amount;
+
+        // Funds handling:
+        // - yesBuyer already paid yesPrice * amount when placing order
+        // - noBuyer already paid (1 - yesPrice) * amount when placing order
+        // - Total = 1 * amount = exactly what's needed for settlement
+        
+        // No additional fund movement needed here - TraderVault handles it
+        // via onOrderMatched callback if needed
+    }
+
+    // ============ Orderbook Helpers ============
+
+    function _insertAsk(uint256 id, uint256 yesPrice) internal {
+        // Asks sorted by yesPrice ASCENDING (lowest first = best ask)
+        uint256 prev = 0;
+        uint256 curr = bestAsk;
+
+        while (curr != 0 && _orders[curr].yesPrice <= yesPrice) {
             prev = curr;
             curr = nextOrder[curr];
         }
 
         if (prev == 0) {
-            nextOrder[id] = bestOrder[outcome];
-            bestOrder[outcome] = id;
+            nextOrder[id] = bestAsk;
+            bestAsk = id;
         } else {
             nextOrder[id] = nextOrder[prev];
             nextOrder[prev] = id;
         }
     }
 
-    function _removeOrder(uint8 outcome, uint256 id) internal {
+    function _insertBid(uint256 id, uint256 yesPrice) internal {
+        // Bids sorted by yesPrice DESCENDING (highest first = best bid)
         uint256 prev = 0;
-        uint256 curr = bestOrder[outcome];
+        uint256 curr = bestBid;
+
+        while (curr != 0 && _orders[curr].yesPrice >= yesPrice) {
+            prev = curr;
+            curr = nextOrder[curr];
+        }
+
+        if (prev == 0) {
+            nextOrder[id] = bestBid;
+            bestBid = id;
+        } else {
+            nextOrder[id] = nextOrder[prev];
+            nextOrder[prev] = id;
+        }
+    }
+
+    function _removeAsk(uint256 id) internal {
+        uint256 prev = 0;
+        uint256 curr = bestAsk;
 
         while (curr != 0) {
             if (curr == id) {
                 if (prev == 0) {
-                    bestOrder[outcome] = nextOrder[curr];
+                    bestAsk = nextOrder[curr];
                 } else {
                     nextOrder[prev] = nextOrder[curr];
                 }
@@ -310,5 +387,50 @@ contract SoothMarket is Ownable {
             prev = curr;
             curr = nextOrder[curr];
         }
+    }
+
+    function _removeBid(uint256 id) internal {
+        uint256 prev = 0;
+        uint256 curr = bestBid;
+
+        while (curr != 0) {
+            if (curr == id) {
+                if (prev == 0) {
+                    bestBid = nextOrder[curr];
+                } else {
+                    nextOrder[prev] = nextOrder[curr];
+                }
+                nextOrder[curr] = 0;
+                return;
+            }
+            prev = curr;
+            curr = nextOrder[curr];
+        }
+    }
+
+    function _min(uint256 a, uint256 b_) internal pure returns (uint256) {
+        return a < b_ ? a : b_;
+    }
+
+    // ============ Settlement ============
+
+    function markSettled(uint8 _winningOutcome) external onlyOwner {
+        require(!isSettled, "Market: already settled");
+        isSettled = true;
+        isLive = false;
+        winningOutcome = _winningOutcome;
+        emit Settled(_winningOutcome);
+    }
+
+    // ============ Governor Functions ============
+
+    function increaseB(uint256 amount) external onlyGovernor {
+        require(amount > 0, "Market: zero amount");
+        b += amount;
+    }
+
+    function setFeeLMSR(uint256 _feeBps) external onlyGovernor {
+        require(_feeBps <= 1000, "Market: fee too high");
+        feeLMSR = _feeBps;
     }
 }

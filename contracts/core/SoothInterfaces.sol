@@ -17,23 +17,26 @@ interface IERC20Metadata is IERC20 {
     function symbol() external view returns (string memory);
 }
 
-/// @notice Singleton vault interface used by markets, risk manager, settlement and smart accounts.
-interface ISoothVault {
+/// @notice Governor Vault interface for LP liquidity management.
+interface ISoothGovernorVault {
     function asset() external view returns (IERC20);
     function totalAssets() external view returns (uint256);
     function decimalsScale() external view returns (uint256);
-    function getTreasuryBalance() external view returns (uint256);
-    function getLiquidBufferBalance() external view returns (uint256);
 
+    // LP Actions
     function depositFor(address lp, uint256 assets) external returns (uint256);
     function withdrawFor(address lp, uint256 assets, address receiver) external returns (uint256);
 
+    // Market Actions
     function allocateExposure(uint256 marketId, uint256 amount) external;
     function releaseExposure(uint256 marketId, uint256 amount) external;
 
-    function applySettlementDelta(uint256 marketId, address account, int256 pnlDelta) external;
+    /// @notice Called by Market when it (or TraderVault) sends funds to Governor.
+    function receiveFunds(uint256 marketId, uint256 amount) external;
 
-    function recordMarketFlow(uint256 marketId, int256 amount, address user) external;
+    /// @notice Called by Market to request payment from Governor to recipient.
+    function sendFunds(uint256 marketId, address recipient, uint256 amount) external;
+
     function getMarketReserve(uint256 marketId) external view returns (int256);
 }
 
@@ -60,9 +63,12 @@ interface ISoothAMM {
     ) external pure returns (uint256 priceWad);
 }
 
-/// @notice Risk manager interface – markets query dynamic b_market from this.
-interface IRiskManager {
-    function getBForMarket(uint256 marketId) external view returns (uint256);
+/// @notice Fee controller interface - Guardian-controlled global fees.
+interface ISoothFeeController {
+    function orderbookFee() external view returns (uint256);
+    function lpSplitBps() external view returns (uint256);
+    function treasury() external view returns (address);
+    function calculateOrderbookFees(uint256 volume) external view returns (uint256 lpFee, uint256 treasuryFee);
 }
 
 /// @notice Adjudicator registry interface – settlement queries config for adjudication.
@@ -81,11 +87,6 @@ struct Order {
     uint256 price; // 1e18 fixed point
     uint256 amount; // Remaining size
     uint256 timestamp;
-}
-
-interface ISoothMarket {
-    function placeOrder(uint8 outcome, uint256 price, uint256 amount) external returns (uint256 orderId);
-    function cancelOrder(uint256 orderId) external;
 }
 
 /// @notice Simple Ownable base used by most Sooth contracts in this reference.

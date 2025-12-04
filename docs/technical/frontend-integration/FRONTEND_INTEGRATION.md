@@ -1,91 +1,141 @@
-# Connecting Sooth Contracts to Frontend
+# Frontend Integration Guide
 
-This guide explains how to connect your external frontend (Next.js, React, etc.) to the Sooth Protocol smart contracts.
+**Version:** 2.0 (Legacy) -> **Migrating to v3**
 
-## 1. Deploy Contracts
+> [!WARNING] > **v3 is LIVE on Base Sepolia.**
+> Please refer to the **[V3 Migration Guide](./V3_MIGRATION_GUIDE.md)** for the latest integration instructions.
+> This document describes the v2 architecture and is kept for reference only.
 
-Run the deployment script to deploy the contracts to your target network (or local Anvil node).
+## Overview
 
-```bash
-# For local Anvil
-forge script script/DeploySooth.s.sol --rpc-url http://127.0.0.1:8545 --private-key $PRIVATE_KEY --broadcast
+**Updated:** 2025-12-04
 
-# For Testnet/Mainnet
-forge script script/DeploySooth.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-```
+---
 
-## 2. Locate Artifacts
+## 1. Get Deployment Artifacts
 
-After deployment, the script will generate a `deployments.json` file in the root directory.
+Contract addresses are in `deployments.json` (Base Sepolia) or `deployments-monad.json` (Monad).
 
-**`deployments.json`** contains the addresses of all deployed contracts:
 ```json
 {
-  "MockERC20": "0x...",
-  "SoothVault": "0x...",
-  "SoothRiskManager": "0x...",
-  ...
+  "SoothTraderVault": "0x...",
+  "SoothGovernorVault": "0x...",
+  "SoothFeeController": "0x...",
+  "SoothMarketFactory": "0x...",
+  "MockERC20": "0x..."
 }
 ```
 
-**ABIs** are located in the `out/` directory. For example:
-- `out/SoothVault.sol/SoothVault.json`
+ABIs are in `out/` directory:
+
+- `out/SoothTraderVault.sol/SoothTraderVault.json`
+- `out/SoothGovernorVault.sol/SoothGovernorVault.json`
 - `out/SoothMarket.sol/SoothMarket.json`
 
-## 3. Copy to Frontend
+---
 
-Copy `deployments.json` and the necessary ABIs to your frontend repository.
+## 2. Recommended Frontend Structure
 
-**Recommended Structure:**
 ```
 frontend/
   src/
     config/
       deployments.json
       abis/
-        SoothVault.json
+        SoothTraderVault.json
+        SoothGovernorVault.json
         SoothMarket.json
-        ...
+        SoothFeeController.json
 ```
 
-## 4. Example Usage (wagmi / viem)
+---
+
+## 3. Usage with wagmi/viem
 
 ```typescript
-import { useContractRead, useContractWrite } from 'wagmi';
-import deployments from '../config/deployments.json';
-import SoothVaultABI from '../config/abis/SoothVault.json';
+import { useContractRead, useContractWrite } from "wagmi";
+import deployments from "../config/deployments.json";
+import TraderVaultABI from "../config/abis/SoothTraderVault.json";
+import MarketABI from "../config/abis/SoothMarket.json";
 
-// Read from Vault
-const { data: totalAssets } = useContractRead({
-  address: deployments.SoothVault,
-  abi: SoothVaultABI.abi,
-  functionName: 'totalAssets',
+// Read user balance from TraderVault
+const { data: balance } = useContractRead({
+  address: deployments.SoothTraderVault,
+  abi: TraderVaultABI.abi,
+  functionName: "freeBalance",
+  args: [userAddress],
 });
 
-// Write to Vault (Deposit)
+// Deposit to TraderVault
 const { write: deposit } = useContractWrite({
-  address: deployments.SoothVault,
-  abi: SoothVaultABI.abi,
-  functionName: 'depositFor',
+  address: deployments.SoothTraderVault,
+  abi: TraderVaultABI.abi,
+  functionName: "deposit",
+});
+
+// Trade on Market
+const { write: trade } = useContractWrite({
+  address: marketAddress,
+  abi: MarketABI.abi,
+  functionName: "trade",
 });
 ```
 
-## 5. Example Usage (ethers.js)
+---
+
+## 4. Usage with ethers.js
 
 ```typescript
-import { ethers } from 'ethers';
-import deployments from '../config/deployments.json';
-import SoothVaultABI from '../config/abis/SoothVault.json';
+import { ethers } from "ethers";
+import deployments from "../config/deployments.json";
+import TraderVaultABI from "../config/abis/SoothTraderVault.json";
 
-const provider = new ethers.providers.Web3Provider(window.ethereum);
-const signer = provider.getSigner();
+const provider = new ethers.BrowserProvider(window.ethereum);
+const signer = await provider.getSigner();
 
-const vault = new ethers.Contract(
-  deployments.SoothVault,
-  SoothVaultABI.abi,
+// TraderVault contract
+const traderVault = new ethers.Contract(
+  deployments.SoothTraderVault,
+  TraderVaultABI.abi,
   signer
 );
 
-// Call function
-await vault.depositFor(userAddress, amount);
+// Approve + Deposit
+await usdc.approve(deployments.SoothTraderVault, amount);
+await traderVault.deposit(amount);
+
+// Trade
+await market.trade(outcomeIndex, deltaShares, maxCost);
 ```
+
+---
+
+## 5. Key Integration Points
+
+### User Flow
+
+1. **Approve** → `usdc.approve(TraderVault, amount)`
+2. **Deposit** → `traderVault.deposit(amount)`
+3. **Trade** → `market.trade(outcome, shares, maxCost)`
+4. **Withdraw** → `traderVault.withdraw(amount)`
+
+### LP Flow
+
+1. **Approve** → `usdc.approve(GovernorVault, amount)`
+2. **Deposit** → `governorVault.depositFor(lp, amount)`
+3. **Withdraw** → `governorVault.withdrawFor(lp, amount, receiver)`
+
+### Fee Display
+
+```typescript
+const orderbookFee = await feeController.orderbookFee(); // Global
+const ammFee = await market.feeLMSR(); // Per market
+```
+
+---
+
+## 6. See Also
+
+- [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md) - Full ABIs
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System design
+- [FEE_DESIGN.md](./FEE_DESIGN.md) - Fee mechanism
