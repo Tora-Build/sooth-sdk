@@ -4,15 +4,15 @@
 
 ## Available ABIs
 
-All v3 contract ABIs are available in this folder:
-
-- `SoothMarketV3.abi.json` - Market contract (orderbook + AMM)
-- `SoothTraderVaultV3.abi.json` - Single entry point for all trading
-- `SoothGovernorVault.abi.json` - LP liquidity vault
+| #               | Contract                                                       | ABI File                                     | Description |
+| --------------- | -------------------------------------------------------------- | -------------------------------------------- | ----------- |
+| **TraderVault** | [`SoothTraderVault.abi.json`](./SoothTraderVault.abi.json)     | **Main Entry Point** (Deposit, Trade, Claim) |
+| **Market**      | [`SoothMarket.abi.json`](./SoothMarket.abi.json)               | Read-only market state (prices, outcome)     |
+| **Governor**    | [`SoothGovernorVault.abi.json`](./SoothGovernorVault.abi.json) | LP management (if building LP UI)            |
 
 ## Key Functions for Frontend
 
-### SoothMarketV3
+### SoothMarket
 
 **Read Functions:**
 
