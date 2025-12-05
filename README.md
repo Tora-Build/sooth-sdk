@@ -1,150 +1,122 @@
-# Sooth Protocol – Dynamic-b LMSR Reference Implementation
+# Sooth Protocol Monorepo
 
-This repo contains a reference implementation of the Sooth core contracts:
+A unified prediction market protocol supporting **EVM** (Ethereum, Base, Monad) and **Solana** (planned).
 
-- `SoothVault` – singleton, per-market exposure tracking
-- `SoothRiskManager` – dynamic global `b` and per-market `b_market`
-- `SoothLMSRReal` – true LMSR implementation with fixed-point approximations
-- `SoothMarket` – infinite-end YES/NO vAMM markets
-- `SoothMarketFactory` – helper to spin up new markets with risk classes and exposure
-- `SoothAdjudicatorRegistry` – adjudicator configuration (A–D classes)
-- `SoothSettlement` – stores `(outcome, T*)` and applies PnL via Merkle
-- `SoothSmartAccount` – minimal AA-style wrapper over the vault
+## Structure
 
-This matches the unified Sooth architecture:
-
-- Infinite-end markets (terminate on truth time `T*`, not expiry)
-- Singleton vault per adjudicator class
-- Dynamic-b LMSR pricing, bounded LP loss
-- Retroactive settlement (PnL replay around `T*`)
-- Smart account–based UX and accounting
-- Single AMM for all markets (shared liquidity requires consistent pricing)
-
-> NOTE: All markets share the same `SoothLMSRReal` AMM due to the shared liquidity vault.
-> This ensures consistent pricing across all markets and prevents arbitrage opportunities.
-
-## Layout
-
-```text
-contracts/
-  core/
-    SoothInterfaces.sol
-    SoothVault.sol
-    SoothBalancedAMM.sol
-    SoothLMSRReal.sol
-    SoothRiskManager.sol
-    SoothAdjudicatorRegistry.sol
-    SoothMarket.sol
-    SoothMarketFactory.sol
-    SoothSmartAccount.sol
-  settlement/
-    SoothSettlement.sol
-
-script/
-  DeploySooth.s.sol
-
-test/
-  MockERC20.sol
-  SoothVault.t.sol
-  SoothRiskManager.t.sol
-  SoothMarket.t.sol
-  SoothSettlement.t.sol
-  SoothCoreIntegration.t.sol
+```
+sooth-alpha/
+├── apps/
+│   └── web/                      # Frontend dApp (Vite + React 18)
+├── packages/
+│   ├── contracts-evm/            # Solidity smart contracts (Foundry)
+│   ├── contracts-solana/         # Rust programs (Anchor) [Planned]
+│   └── sdk/                      # Shared types, ABIs, and config
+├── .github/
+│   └── CODEOWNERS                # Role-based PR review enforcement
+├── package.json                  # pnpm workspace root
+├── pnpm-workspace.yaml
+└── turbo.json                    # Build pipeline
 ```
 
-## Prereqs
+## Quick Start
 
-- Foundry installed (`forge`, `cast`).
-- Node & Hardhat optional.
+### Prerequisites
 
-Install `forge-std` (if not already):
+- **Node.js** 18+
+- **pnpm** 9+ (`npm install -g pnpm`)
+- **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`)
+
+### Setup
 
 ```bash
-forge install foundry-rs/forge-std --no-commit
+# Install all dependencies
+pnpm install
+
+# Build everything
+pnpm build
 ```
 
-## Build
+### Development
+
+**Frontend:**
 
 ```bash
+pnpm --filter web dev
+# Opens at http://localhost:5173
+```
+
+**Contracts:**
+
+```bash
+cd packages/contracts-evm
 forge build
+forge test
 ```
 
-## Test
+## Packages
 
-```bash
-forge test -vv
-```
+### `apps/web`
 
-## Deployment (Foundry script)
+Vite + React 18 dApp with:
 
-The `DeploySooth.s.sol` script deploys the minimal Sooth stack:
+- Wagmi v2 for Web3 connectivity
+- Zustand for state management
+- Tailwind CSS for styling
 
-- Mock ERC20 as collateral (dev only)
-- SoothVault
-- SoothRiskManager
-- SoothLMSRReal (LMSR AMM)
-- SoothAdjudicatorRegistry
-- SoothSettlement
-- SoothMarketFactory
-- Example market
+### `packages/contracts-evm`
 
-Run:
+Foundry project containing:
 
-```bash
-forge script script/DeploySooth.s.sol \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast
-```
+- `SoothTraderVault` — User fund management
+- `SoothGovernorVault` — LP liquidity pool
+- `SoothMarket` — AMM + Orderbook trading
+- `SoothLMSRReal` — LMSR pricing math
 
-Edit the script to:
+### `packages/sdk`
 
-- Point at a real ERC20 collateral token on your network
-- Configure risk classes & K
-- Register real adjudicators (UMA / Reality / oracle+ZK / attestation)
-- Create markets and wire them into your off-chain PnL engine
+Shared TypeScript package:
+
+- ABIs exported from contracts
+- Type definitions
+- Deployment configurations
+
+### `packages/contracts-solana` (Planned)
+
+Anchor project for Solana deployment.
+
+## Agent Workflows
+
+This repo supports **scoped agent contexts** for different developer roles:
+
+| Role         | Workspace                | Command         |
+| ------------ | ------------------------ | --------------- |
+| Protocol Dev | `packages/contracts-evm` | `/protocol-dev` |
+| Frontend Dev | `apps/web`               | `/frontend-dev` |
+
+## Scripts
+
+| Script                  | Description                    |
+| ----------------------- | ------------------------------ |
+| `./sync-fe-docs.sh`     | Sync contract docs to frontend |
+| `./sync-deployments.sh` | Sync deployment addresses      |
+
+## Deployments
+
+### Base Sepolia
+
+See `packages/contracts-evm/deployments.json`
+
+### Monad Testnet
+
+See `packages/contracts-evm/deployments/monad/`
 
 ## Documentation
 
-### Frontend Integration
+- [Architecture](./packages/contracts-evm/docs/core/ARCHITECTURE.md)
+- [Frontend Integration](./packages/contracts-evm/docs/technical/frontend-integration/README.md)
+- [Fee Design](./packages/contracts-evm/docs/research/FEE_DESIGN.md)
 
-- **[Frontend Integration Guide](./docs/frontend-integration/README.md)** - Complete guide for integrating with Sooth Protocol
-- **[Contract Interfaces](./docs/frontend-integration/CONTRACT_INTERFACES.md)** - Detailed ABI documentation
-- **[Quick Reference](./docs/frontend-integration/QUICK_REFERENCE.md)** - Essential functions at a glance
+## License
 
-### Requirements & Architecture
-
-- **[Requirements](./docs/requirements/README.md)** - Future phase requirements and architectural improvements
-- **[Vault Architecture](./docs/requirements/VAULT_ARCHITECTURE.md)** - Multi-vault design for next phase
-
-### Deployment Info
-
-- **[deployments.json](./deployments.json)** - Current contract addresses on Base Sepolia
-- **[Second Market Deployment](./SECOND_MARKET_DEPLOYMENT.md)** - Details of the second market deployment
-
-## Current Deployment (Base Sepolia)
-
-Two markets are currently deployed:
-
-- **Market 1** (ExampleMarket): Market ID 1, MEDIUM risk class
-- **Market 2** (SecondMarket): Market ID 2, MEDIUM risk class
-
-Both markets share:
-
-- Same `SoothVault` for liquidity
-- Same `SoothRiskManager` for pricing parameters
-- Same adjudicator (DUMMY_ADJ, classId: 1)
-
-See `deployments.json` for contract addresses.
-
-## Current Deployment (Monad Testnet)
-
-Five markets are deployed demonstrating different risk classes:
-
-1. **BTC Price Market** (LOW Risk, UMA Oracle)
-2. **ETH Gas Market** (LOW Risk, Chainlink)
-3. **Monad Launch Market** (MEDIUM Risk, Tellor)
-4. **Sooth TVL Market** (HIGH Risk, Multisig)
-5. **Monad Top 10 Market** (CRITICAL Risk, Governance)
-
-See `deployments-monad.json` for addresses and `docs/MONAD_DEPLOYMENT_SUMMARY.md` for details.
+MIT

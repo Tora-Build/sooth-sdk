@@ -15,16 +15,16 @@
 secrets/
 private/
 
-# Foundry
+# Foundry (packages/contracts-evm)
 out/
 cache/
 broadcast/
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
+lib/prb-math
 
 # Hardhat
 artifacts/
-cache/
 typechain-types/
 coverage/
 coverage.json
@@ -36,12 +36,17 @@ build/
 dist/
 .npm
 *.log
+apps/web/deploy/
+
+# pnpm
+pnpm-lock.yaml
+
+# Turbo
+.turbo/
 
 # Graph
 generated/
-
-
-# Graph Build
 graph-data/
-contracts/archive/**
-script/archive/**
+
+# Archive folders
+**/archive/**

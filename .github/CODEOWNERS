@@ -1,0 +1,15 @@
+# Sooth Protocol CODEOWNERS
+# These owners will be requested for review when someone opens a PR that modifies matching files.
+
+# Default owner for everything
+* @danieltang
+
+# Protocol Team owns smart contracts
+packages/contracts-evm/    @danieltang
+packages/contracts-solana/ @danieltang
+
+# Frontend Team owns the dApp
+apps/web/                  @danieltang
+
+# Shared SDK requires review from both teams
+packages/sdk/              @danieltang

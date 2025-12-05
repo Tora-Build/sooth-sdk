@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Sync frontend integration docs to sooth-dapp
+# Sync frontend integration docs to apps/web
 # One-way sync: empties destination and copies all files
 
 set -e
 
-SOURCE_DIR="$(dirname "$0")/docs/technical/frontend-integration"
-DEST_DIR="$(dirname "$0")/../sooth-dapp/docs/contract-integration"
+SOURCE_DIR="$(dirname "$0")/packages/contracts-evm/docs/technical/frontend-integration"
+DEST_DIR="$(dirname "$0")/apps/web/docs/contract-integration"
 
 echo "🔄 Syncing frontend integration docs..."
 echo "   Source: $SOURCE_DIR"

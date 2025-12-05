@@ -1,0 +1,12 @@
+{
+  "84532": {
+    "MockERC20": "0x78c86f19779a641c5583011be8e4a9063a56ad91",
+    "TraderVaultV3": "0x00d56c0112f4afc96cb82c09fd8738858a4888c9",
+    "MarketV3": "0x7c9ff053ba75cf0f23de748146764cded4359d26",
+    "GovernorVault": "0x8af07c1e83e57f2d4e2e55840f4c8505a163f99d",
+    "SoothGovernorVault": "0x8af07c1e83e57f2d4e2e55840f4c8505a163f99d",
+    "FeeController": "0xc6c528287ca003e7bcd683851148e9569c153f9f",
+    "AMM": "0xb2f1d1ebae053cc645055448150c2a11214884e5"
+  }
+}
+

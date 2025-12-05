@@ -1,20 +1,24 @@
 #!/bin/bash
 
-# Sync deployment files between locations
+# Sync deployment files between locations (Monorepo version)
 # Run this after updating deployments.json
 
 set -e
 
-CANONICAL="/Users/danieltang/Desktop/Coding/GitHub/sooth-alpha/docs/technical/frontend-integration/deployments.json"
-ROOT="/Users/danieltang/Desktop/Coding/GitHub/sooth-alpha/deployments.json"
-DAPP="/Users/danieltang/Desktop/Coding/GitHub/sooth-dapp/docs/contract-integration/deployments.json"
+REPO_ROOT="$(dirname "$0")"
+CANONICAL="$REPO_ROOT/packages/contracts-evm/docs/technical/frontend-integration/deployments.json"
+CONTRACTS="$REPO_ROOT/packages/contracts-evm/deployments.json"
+WEB="$REPO_ROOT/apps/web/docs/contract-integration/deployments.json"
 
 echo "📦 Syncing deployment files..."
 
+# Ensure destination dirs exist
+mkdir -p "$(dirname "$WEB")"
+
 # Copy from canonical source to all locations
-cp "$CANONICAL" "$ROOT"
-cp "$CANONICAL" "$DAPP"
+cp "$CANONICAL" "$CONTRACTS"
+cp "$CANONICAL" "$WEB"
 
 echo "✅ Synced to:"
-echo "  - Root: deployments.json"
-echo "  - DApp: ../sooth-dapp/docs/contract-integration/deployments.json"
+echo "  - Contracts: packages/contracts-evm/deployments.json"
+echo "  - Web: apps/web/docs/contract-integration/deployments.json"
