@@ -262,6 +262,171 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         return _isMarket[market];
     }
 
+    // ============ ERC4626 Implementation ============
+
+    function totalAssets() external view override returns (uint256) {
+        return _asset.balanceOf(address(this));
+    }
+
+    function totalSupply() external view override returns (uint256) {
+        return _asset.balanceOf(address(this)); // 1:1 ratio, includes pending
+    }
+
+    function balanceOf(address account) external view override returns (uint256) {
+        return accounts[account].available + _getUnlockable(account);
+    }
+
+    function convertToShares(uint256 assets) external pure override returns (uint256) {
+        return assets;
+    }
+
+    function convertToAssets(uint256 shares) external pure override returns (uint256) {
+        return shares;
+    }
+
+    function maxDeposit(address) external view override returns (uint256) {
+        return type(uint256).max;
+    }
+
+    function maxMint(address) external view override returns (uint256) {
+        return type(uint256).max;
+    }
+
+    function maxWithdraw(address owner) external view override returns (uint256) {
+        return accounts[owner].available + _getUnlockable(owner);
+    }
+
+    function maxRedeem(address owner) external view override returns (uint256) {
+        return accounts[owner].available + _getUnlockable(owner);
+    }
+
+    function previewDeposit(uint256 assets) external pure override returns (uint256) {
+        return assets;
+    }
+
+    function previewMint(uint256 shares) external pure override returns (uint256) {
+        return shares;
+    }
+
+    function previewWithdraw(uint256 assets) external pure override returns (uint256) {
+        return assets;
+    }
+
+    function previewRedeem(uint256 shares) external pure override returns (uint256) {
+        return shares;
+    }
+
+    function deposit(uint256 assets, address receiver) external override returns (uint256) {
+        require(assets > 0, "TraderVault: zero amount");
+        
+        _processUnlocks(receiver); // Cleanup for receiver
+        
+        require(_asset.transferFrom(msg.sender, address(this), assets), "TraderVault: transfer failed");
+        
+        accounts[receiver].available += assets;
+        emit Deposit(msg.sender, receiver, assets, assets);
+        emit Deposit(receiver, assets); // Legacy event
+        
+        _rebalanceYield();
+        return assets;
+    }
+
+    function mint(uint256 shares, address receiver) external override returns (uint256) {
+        return this.deposit(shares, receiver);
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner) external override returns (uint256) {
+        require(assets > 0, "TraderVault: zero amount");
+        
+        if (msg.sender != owner) {
+            _spendAllowance(owner, msg.sender, assets);
+        }
+
+        _processUnlocks(owner);
+        
+        require(accounts[owner].available >= assets, "TraderVault: insufficient available");
+        accounts[owner].available -= assets;
+        
+        _ensureLiquidity(assets);
+        require(_asset.transfer(receiver, assets), "TraderVault: transfer failed");
+        
+        emit Withdraw(msg.sender, receiver, owner, assets, assets);
+        emit Withdraw(owner, assets); // Legacy event
+        
+        return assets;
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) external override returns (uint256) {
+        return this.withdraw(shares, receiver, owner);
+    }
+
+    // ============ ERC20 Implementation ============
+
+    function name() external view override returns (string memory) {
+        return string.concat("Sooth Vault ", IERC20Metadata(address(_asset)).name());
+    }
+
+    function symbol() external view override returns (string memory) {
+        return string.concat("sv", IERC20Metadata(address(_asset)).symbol());
+    }
+
+    function decimals() external view override returns (uint8) {
+        return IERC20Metadata(address(_asset)).decimals();
+    }
+
+    function transfer(address to, uint256 amount) external override returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) external view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external override returns (bool) {
+        _spendAllowance(from, msg.sender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    function _spendAllowance(address owner, address spender, uint256 amount) internal {
+        uint256 currentAllowance = _allowances[owner][spender];
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            _approve(owner, spender, currentAllowance - amount);
+        }
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        _processUnlocks(from);
+        
+        uint256 fromBalance = accounts[from].available;
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        
+        accounts[from].available = fromBalance - amount;
+        accounts[to].available += amount;
+
+        emit Transfer(from, to, amount);
+    }
+
     /// @notice Get amount that is unlockable (unlock time passed) but not yet claimed
     function _getUnlockable(address user) internal view returns (uint256 unlockable) {
         if (address(timeLock) == address(0)) {

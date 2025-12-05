@@ -75,6 +75,7 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     }
 
     function withdrawFor(address lp, uint256 assets, address receiver) external override returns (uint256) {
+        require(msg.sender == lp, "GovernorVault: not authorized");
         require(assets > 0, "Zero withdraw");
         
         uint256 shares;

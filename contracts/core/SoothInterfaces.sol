@@ -1,21 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @notice Minimal ERC20 interface for Sooth core contracts.
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address who) external view returns (uint256);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-}
-
-/// @notice ERC20 metadata interface for reading token decimals.
-interface IERC20Metadata is IERC20 {
-    function decimals() external view returns (uint8);
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-}
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /// @notice Governor Vault interface for LP liquidity management.
 interface ISoothGovernorVault {

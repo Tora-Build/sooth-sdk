@@ -3,11 +3,12 @@ pragma solidity ^0.8.20;
 
 import "./IYieldStrategy.sol";
 import "./ITimeLock.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 /// @title ISoothTraderVault
 /// @notice Single entry point for all Sooth trading - deposit, withdraw, trade AMM, trade orderbook
 /// @dev Integrates with yield strategy for idle funds and time-lock for retroactive settlement
-interface ISoothTraderVault {
+interface ISoothTraderVault is IERC4626 {
     // ============ Events ============
 
     event Deposit(address indexed user, uint256 amount);
@@ -98,8 +99,7 @@ interface ISoothTraderVault {
     /// @notice Get user's total balance (available + pending)
     function totalBalance(address user) external view returns (uint256);
 
-    /// @notice Get the underlying asset (USDC)
-    function asset() external view returns (address);
+    // asset() is inherited from IERC4626
 
     /// @notice Check if a market is whitelisted
     function isMarket(address market) external view returns (bool);

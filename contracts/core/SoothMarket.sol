@@ -112,6 +112,11 @@ contract SoothMarket is ISoothMarket, Ownable {
         return _orders[orderId];
     }
 
+    /// @notice Frontend compatibility helper - returns bestAsk
+    function bestOrder() external view returns (uint256) {
+        return bestAsk;
+    }
+
     function getPrice(uint8 outcome) external view override returns (uint256) {
         return amm.price(ammState, outcome, b);
     }

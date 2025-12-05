@@ -1,21 +1,21 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "lastUpdated": "2025-12-05",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "status": "✅ Live & Verified",
       "contracts": {
-        "TraderVault": "0x0e69806cba6c74b88ff9679fb0b4ad6c8807dcb7",
-        "Market": "0x726b737a4d97fa54691e0114d07a1d3e21fe6849",
-        "GovernorVault": "0xb07560eadd716510b3505f29dc5d2f525fc03eff",
-        "FeeController": "0xf7c160f9a929d702995aa5afc5656a0af6d3569e",
-        "AMM": "0xdf2028d406af0a5062208e41fce15128c0f7d474",
-        "MockUSDC": "0x9fbb795617466093cff3803ee572b2be66250355"
+        "TraderVault": "0x74434d5784f9134cd52e30acbec9b1f7f3917b45",
+        "Market": "0x6d32a179b7619d87031ff4380164990d32e2ef59",
+        "GovernorVault": "0xf7f5649af5a58f072981fc86068f85ca6017d290",
+        "FeeController": "0x6d67795ca6c33f117e555f4323e9301450d9185a",
+        "AMM": "0x31bfc07ebfee037fe5f0d76fbc8bfd17bd796ef5",
+        "MockUSDC": "0xde9f835dbb29c9fcf9d71ddfee8d649588e9ec22"
       },
       "notes": {
         "usdc": "MockUSDC deployed by us for consistency across networks",
-        "update": "TraderVault updated with Lazy View & Auto-Claim. Scripts renamed."
+        "update": "TraderVault is now ERC4626 compliant (1:1 ratio). Scripts renamed."
       },
       "marketInfo": {
         "marketId": 1,
@@ -38,7 +38,7 @@
       "Time-lock (48h on sell proceeds)",
       "Auto-claim on user actions",
       "Settlement redemption",
-      "No collateral locking"
+      "ERC4626 Compliance (TraderVault)"
     ]
   }
 }

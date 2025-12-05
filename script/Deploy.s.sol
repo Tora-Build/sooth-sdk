@@ -101,7 +101,6 @@ contract Deploy is Script {
         );
         console.log("Market initialized");
 
-        /*
         // 5. Configure TraderVault
         traderVault.setMarket(address(market), true);
         traderVault.setGovernorVault(ISoothGovernorVault(address(governorVault)));
@@ -110,7 +109,6 @@ contract Deploy is Script {
         governorVault.setAuthorized(address(traderVault), true);
         governorVault.setAuthorized(deployer, true);
         console.log("TraderVault authorized in GovernorVault");
-        */
 
         vm.stopBroadcast();
 
