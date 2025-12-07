@@ -6,7 +6,8 @@
     "validate-config": "node scripts/validate-config.js",
     "dev": "npm run validate-config && vite",
     "build": "npm run validate-config && vite build",
-    "preview": "npm run validate-config && vite preview"
+    "preview": "npm run validate-config && vite preview",
+    "export": "npm run build && bash scripts/export-static.sh"
   },
   "dependencies": {
     "@reown/appkit": "^1.8.14",
