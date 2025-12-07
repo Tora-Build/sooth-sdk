@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
 import { cn } from '../../lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface TabsProps {
   value: string;
@@ -7,48 +8,6 @@ interface TabsProps {
   children: React.ReactNode;
   className?: string;
 }
-
-export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => {
-  return (
-    <div className={cn('w-full', className)} data-value={value}>
-      {React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child as React.ReactElement<any>, { value, onValueChange });
-        }
-        return child;
-      })}
-    </div>
-  );
-};
-
-export const TabsList: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
-  <div className={cn('inline-flex h-10 items-center justify-center rounded-lg bg-slate-900/50 p-1 text-slate-400', className)}>
-    {children}
-  </div>
-);
-
-export const TabsTrigger: React.FC<{ value: string; children: React.ReactNode; className?: string; onValueChange?: (val: string) => void; activeValue?: string }> = ({ value, children, className, onValueChange, activeValue }) => {
-  // Note: activeValue and onValueChange are injected by parent Tabs/TabsList if we used Context, 
-  // but for simplicity in this quick implementation we'll assume direct usage or simple composition.
-  // To make it robust without context, we might need a different pattern or Context.
-  // Let's use a simple Context for Tabs.
-  return (
-    <button
-      className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
-        'data-[state=active]:bg-slate-800 data-[state=active]:text-white data-[state=active]:shadow-sm',
-        className
-      )}
-      onClick={() => onValueChange?.(value)}
-      data-state={activeValue === value ? 'active' : 'inactive'}
-    >
-      {children}
-    </button>
-  );
-};
-
-// Re-implementing Tabs with Context for cleaner usage
-import { createContext, useContext } from 'react';
 
 const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
 
@@ -59,7 +18,7 @@ export const TabsRoot: React.FC<TabsProps> = ({ value, onValueChange, children, 
 );
 
 export const TabsListImpl: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
-  <div className={cn('inline-flex h-10 sm:h-12 items-center justify-center rounded-xl bg-slate-950/50 p-1 text-slate-400 border border-slate-800', className)}>
+  <div className={cn('relative flex h-10 sm:h-12 items-center rounded-xl bg-slate-950/50 p-1 border border-slate-800', className)}>
     {children}
   </div>
 );
@@ -73,13 +32,20 @@ export const TabsTriggerImpl: React.FC<{ value: string; children: React.ReactNod
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium transition-all',
-        isActive ? 'bg-slate-800 text-white shadow-sm' : 'hover:text-slate-200 hover:bg-slate-900/50',
+        'relative z-10 flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium transition-colors duration-200',
+        isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200',
         className
       )}
       onClick={() => context.onValueChange(value)}
     >
-      {children}
+      {isActive && (
+        <motion.div
+          layoutId="activeTab"
+          className="absolute inset-0 bg-slate-800 rounded-lg shadow-sm"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        />
+      )}
+      <span className="relative z-20">{children}</span>
     </button>
   );
 };

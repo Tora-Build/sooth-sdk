@@ -118,7 +118,13 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         ISoothMarket mkt = ISoothMarket(market);
 
         // Execute trade on market
-        (int256 cost, uint256 fee) = mkt.executeAMMTrade(msg.sender, outcome, deltaShares);
+        (int256 rawCost, uint256 rawFee) = mkt.executeAMMTrade(msg.sender, outcome, deltaShares);
+
+        // Scale down from AMM (18 decimals) to Asset (e.g. 6 decimals)
+        // Note: GovernorVault defines the scale (10^(18-decimals))
+        uint256 scale = governorVault.decimalsScale();
+        int256 cost = rawCost / int256(scale);
+        uint256 fee = rawFee / scale;
 
         // Handle fund movement
         if (cost > 0) {
@@ -137,7 +143,10 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
             // User is SELLING - credit proceeds (potentially locked)
             uint256 grossProceeds = uint256(-cost);
             uint256 netProceeds = grossProceeds > fee ? grossProceeds - fee : 0;
-            require(-int256(netProceeds) >= maxCost, "TraderVault: slippage exceeded");
+            // netProceeds is positive (money received). maxCost is negative (min money expected, e.g. -95).
+            // We want received >= expected.
+            // In negative terms: -received <= -expected.
+            require(-int256(netProceeds) <= maxCost, "TraderVault: slippage exceeded");
 
             // Receive from governor vault
             governorVault.sendFunds(mkt.marketId(), address(this), grossProceeds);
@@ -160,7 +169,12 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         require(amount > 0, "TraderVault: invalid amount");
 
         // Calculate cost: user pays price * amount upfront
-        uint256 cost = price * amount / 1e18;
+        // CAUTION: price and amount are 1e18. Result is 1e18. 
+        // We must scale down to asset decimals.
+        uint256 rawCost = price * amount / 1e18;
+        uint256 scale = governorVault.decimalsScale();
+        uint256 cost = rawCost / scale;
+
         require(accounts[msg.sender].available >= cost, "TraderVault: insufficient balance");
 
         // Debit user
@@ -176,7 +190,11 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         require(_isMarket[market], "TraderVault: invalid market");
 
         // Cancel on market, get refund amount
-        uint256 refund = ISoothMarket(market).cancelOrder(orderId, msg.sender);
+        // Cancel on market, get refund amount
+        uint256 rawRefund = ISoothMarket(market).cancelOrder(orderId, msg.sender);
+        
+        uint256 scale = governorVault.decimalsScale();
+        uint256 refund = rawRefund / scale;
 
         // Credit user immediately (not locked - this wasn't trading profit)
         accounts[msg.sender].available += refund;
@@ -374,6 +392,22 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         return IERC20Metadata(address(_asset)).decimals();
     }
 
+    // ============ Transfers ============
+
+    function transferShares(
+        address market,
+        address to,
+        uint8 outcome,
+        uint256 amount
+    ) external override {
+        require(_isMarket[market], "TraderVault: invalid market");
+        
+        // User must own the shares (Market checks balance)
+        ISoothMarket(market).transferShares(msg.sender, to, outcome, amount);
+
+        emit ShareTransfer(market, msg.sender, to, outcome, amount);
+    }
+
     function transfer(address to, uint256 amount) external override returns (bool) {
         _transfer(msg.sender, to, amount);
         return true;
@@ -475,6 +509,12 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         
         // Delegate to TimeLock to claim and cleanup records
         uint256 claimed = timeLock.claimUnlockedFor(user);
+        
+        // Safety check: Ensure we don't underflow if TimeLock and Vault are out of sync
+        if (claimed > accounts[user].pending) {
+            claimed = accounts[user].pending;
+        }
+
         if (claimed > 0) {
             accounts[user].pending -= claimed;
             accounts[user].available += claimed;

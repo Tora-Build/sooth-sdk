@@ -111,4 +111,18 @@ interface ISoothMarket {
 
     /// @notice Get the TraderVault address
     function traderVault() external view returns (address);
+
+    // ============ Transfer Logic ============
+
+    /// @notice Transfer shares between users (called by TraderVault only)
+    /// @param from Sender address
+    /// @param to Recipient address
+    /// @param outcome 0 = YES, 1 = NO
+    /// @param amount Amount of shares to transfer
+    function transferShares(
+        address from,
+        address to,
+        uint8 outcome,
+        uint256 amount
+    ) external;
 }

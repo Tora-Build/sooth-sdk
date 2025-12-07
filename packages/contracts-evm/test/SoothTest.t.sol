@@ -106,7 +106,6 @@ contract SoothTest is Test {
             ISoothFeeController(address(feeController)),
             bytes32(0), // adjudicatorId
             B_PARAM,
-            50, // 0.5% LMSR fee
             governor,
             INITIAL_Q
         );

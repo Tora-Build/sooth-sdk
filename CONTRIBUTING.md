@@ -4,11 +4,14 @@
 
 ### 1. Choose Your Context
 
-| Role         | Open Folder              | Workflow                   |
-| ------------ | ------------------------ | -------------------------- |
-| Protocol Dev | `packages/contracts-evm` | `/protocol-dev`            |
-| Frontend Dev | `apps/web`               | `/frontend-dev`            |
-| Full Stack   | Root folder              | Use separate chat sessions |
+| Role             | Open Folder                 | Workflow         | Focus                      |
+| ---------------- | --------------------------- | ---------------- | -------------------------- |
+| **EVM Dev**      | `packages/contracts-evm`    | `/evm-dev`       | Solidity contracts         |
+| **Solana Dev**   | `packages/contracts-solana` | `/solana-dev`    | Anchor programs            |
+| **Frontend Dev** | `apps/web`                  | `/frontend-dev`  | React dApp                 |
+| **Full-Stack**   | Root folder                 | `/fullstack-dev` | Cross-package features     |
+| **Researcher**   | Root folder                 | `/researcher`    | DeFi economics, algorithms |
+| **Designer**     | Root folder                 | `/designer`      | UX/UI design               |
 
 ### 2. Branch Naming
 

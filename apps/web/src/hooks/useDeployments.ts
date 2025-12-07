@@ -4,7 +4,7 @@ import { DEFAULT_CHAIN_ID } from '../lib/chains';
 
 // Define the shape of deployments for a single chain
 export interface ChainDeployments {
-  MockERC20: string;
+  MockUSDC: string;
   // v2: New contracts
   SoothTraderVault?: string;
   SoothGovernorVault?: string;
@@ -22,22 +22,35 @@ export interface ChainDeployments {
 
 // Define the shape of the deployments.json file
 interface DeploymentsConfig {
-  [chainId: string]: ChainDeployments;
+  version: string;
+  networks: {
+    [networkName: string]: {
+      chainId: number;
+      contracts: ChainDeployments;
+    }
+  }
 }
 
-const deployments = deploymentsData as DeploymentsConfig;
+const deploymentsConfig = deploymentsData as unknown as DeploymentsConfig;
+
+// Map chainId to network name
+const CHAIN_ID_MAP: Record<number, string> = {
+  84532: 'baseSepolia',
+  10143: 'monadTestnet',
+  6343: 'megaethTestnet'
+};
 
 export function useDeployments() {
   const chainId = useChainId();
   
   // Fallback to default chain if current chain is not supported
-  const activeChainId = deployments[chainId] ? chainId : DEFAULT_CHAIN_ID;
-  const chainDeployments = deployments[activeChainId];
+  const activeChainId = CHAIN_ID_MAP[chainId] ? chainId : DEFAULT_CHAIN_ID;
+  const networkName = CHAIN_ID_MAP[activeChainId];
+  const chainDeployments = deploymentsConfig.networks[networkName]?.contracts;
+
 
   if (!chainDeployments) {
     console.error(`[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`);
-    // Return an empty object cast as ChainDeployments to prevent immediate crash, 
-    // though downstream components might still fail if they expect specific keys.
     return {} as ChainDeployments;
   }
   
@@ -46,5 +59,6 @@ export function useDeployments() {
 
 // Helper to get deployments for a specific chain ID (useful outside of hooks)
 export function getDeployments(chainId: number) {
-  return deployments[chainId] || deployments[DEFAULT_CHAIN_ID];
+    const networkName = CHAIN_ID_MAP[chainId] || 'baseSepolia';
+    return deploymentsConfig.networks[networkName]?.contracts;
 }

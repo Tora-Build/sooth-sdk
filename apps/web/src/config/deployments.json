@@ -1,12 +1,58 @@
 {
-  "84532": {
-    "MockERC20": "0x78c86f19779a641c5583011be8e4a9063a56ad91",
-    "TraderVaultV3": "0x00d56c0112f4afc96cb82c09fd8738858a4888c9",
-    "MarketV3": "0x7c9ff053ba75cf0f23de748146764cded4359d26",
-    "GovernorVault": "0x8af07c1e83e57f2d4e2e55840f4c8505a163f99d",
-    "SoothGovernorVault": "0x8af07c1e83e57f2d4e2e55840f4c8505a163f99d",
-    "FeeController": "0xc6c528287ca003e7bcd683851148e9569c153f9f",
-    "AMM": "0xb2f1d1ebae053cc645055448150c2a11214884e5"
+  "version": "1.2",
+  "lastUpdated": "2025-12-06",
+  "networks": {
+    "baseSepolia": {
+      "chainId": 84532,
+      "status": "✅ Live & Verified",
+      "contracts": {
+        "MockUSDC": "0x4b5dd5bb3284de785bf71363c486a23a2c2002ab",
+        "SoothTraderVault": "0x3d04fc908b6f05d189db096ee19feb30deea45cc",
+        "SoothMarket": "0x1a335b967ab35613c35f705ddeae0d996cc99536",
+        "SoothGovernorVault": "0x99c7eceb94fcd27cba148ddb947fc8be7e879b8d",
+        "SoothFeeController": "0x83a52223b7fdf26644786eac946d120e467046b7",
+        "SoothLMSRReal": "0x2cb104e930ab56ca74a2e6933c137d356872e6b7",
+        "SoothRouter": "0x587c4ee0d031fdcbb2645a7bbbb6c8fded6d8b94"
+      },
+      "notes": {
+        "usdc": "MockUSDC deployed by us for consistency across networks",
+        "update": "TraderVault is now ERC4626 compliant (1:1 ratio). Scripts renamed.",
+        "v1.3": "Security Fixes (GovernorVault Access Control + Market bestOrder)"
+      },
+      "marketInfo": {
+        "marketId": 1,
+        "isLive": true,
+        "bParam": "10000000000000000000000",
+        "description": "Example Market"
+      }
+    },
+
+    "megaethTestnet": {
+      "chainId": 6343,
+      "status": "✅ Live",
+      "rpc": "https://timothy.megaeth.com/rpc",
+      "contracts": {
+        "MockUSDC": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50",
+        "SoothTraderVault": "0xd9dfdec3046ead9891714f9fb465dbe89da48689",
+        "SoothGovernorVault": "0xa852857a15a10692a5cf22cb2b5b707c8dd64cf8",
+        "SoothFeeController": "0x42cbcaf89c380a55ef1b2ade6a32ee9590dd63e1",
+        "SoothLMSRReal": "0x27927f8a675fdd263efc1eaf163eeb106529ebbd",
+        "SoothRouter": "0x493da6e5c9de67ab50b2fb08d14865614189b5c2"
+      },
+      "notes": {
+        "deployment": "Deployed 2025-12-06 with 50x gas multiplier due to MegaETH testnet quirks",
+        "markets": "5 markets deployed - see markets-megaeth.json"
+      }
+    }
+  },
+  "architecture": {
+    "entryPoint": "TraderVault - Single entry point for all trading",
+    "features": [
+      "Unified orderbook (Sell YES = Buy NO)",
+      "Time-lock (48h on sell proceeds)",
+      "Auto-claim on user actions",
+      "Settlement redemption",
+      "ERC4626 Compliance (TraderVault)"
+    ]
   }
 }
-

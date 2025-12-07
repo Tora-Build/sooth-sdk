@@ -114,4 +114,26 @@ interface ISoothTraderVault is IERC4626 {
 
     /// @notice Set the time-lock module
     function setTimeLock(ITimeLock timeLock) external;
+
+    // ============ Transfers ============
+
+    /// @notice Transfer shares in a specific market
+    /// @param market The market address
+    /// @param to The recipient address
+    /// @param outcome 0 = YES, 1 = NO
+    /// @param amount Amount of shares to transfer
+    function transferShares(
+        address market,
+        address to,
+        uint8 outcome,
+        uint256 amount
+    ) external;
+
+    event ShareTransfer(
+        address indexed market,
+        address indexed from,
+        address indexed to,
+        uint8 outcome,
+        uint256 amount
+    );
 }

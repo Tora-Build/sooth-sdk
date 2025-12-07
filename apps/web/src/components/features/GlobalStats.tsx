@@ -2,9 +2,11 @@ import React from 'react';
 import { Card } from '../ui/Card';
 import { useProtocolStats } from '../../hooks/useProtocolStats';
 import { useMarketStore } from '../../store/useMarketStore';
+import { useContent } from '../../hooks/useContent';
 import { Activity, Database, Lock, Layers } from 'lucide-react';
 
 export const GlobalStats: React.FC = () => {
+  const { t } = useContent();
   const { mode } = useMarketStore();
   const { totalTVL, lockedLiquidity, marketCount, poolCount, isLoading } = useProtocolStats();
 
@@ -13,33 +15,33 @@ export const GlobalStats: React.FC = () => {
 
   const stats = [
     {
-      label: 'Markets',
+      label: t('stats.markets'),
       value: marketCount,
-      subtext: 'Active markets',
+      subtext: t('stats.activeMarkets'),
       icon: Layers,
       color: 'text-blue-400',
       bg: 'bg-blue-400/10'
     },
     {
-      label: poolCount === 1 ? 'Vault' : 'Vaults',
+      label: poolCount === 1 ? t('stats.vaults').slice(0, -1) : t('stats.vaults'), // simplistic plural handling for now, or just use "Vaults" generically
       value: poolCount,
-      subtext: 'Unique adjudicator types',
+      subtext: t('stats.vaultsSub'),
       icon: Database,
       color: 'text-purple-400',
       bg: 'bg-purple-400/10'
     },
     {
-      label: 'Total TVL',
+      label: t('stats.totalTvl'),
       value: (isLoading && !totalTVL) ? '...' : formatCurrency(totalTVL || 0),
-      subtext: 'Across all vaults',
+      subtext: t('stats.acrossVaults'),
       icon: Activity,
       color: 'text-emerald-400',
       bg: 'bg-emerald-400/10'
     },
     {
-      label: 'Locked Liquidity',
+      label: t('stats.lockedLiquidity'),
       value: (isLoading && !lockedLiquidity) ? '...' : formatCurrency(lockedLiquidity || 0),
-      subtext: 'Reserved for positions',
+      subtext: t('stats.reservedPositions'),
       icon: Lock,
       color: 'text-amber-400',
       bg: 'bg-amber-400/10'

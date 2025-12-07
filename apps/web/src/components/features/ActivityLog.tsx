@@ -1,16 +1,14 @@
 import React from 'react';
 import { Card } from '../ui/Card';
 import { Activity, ArrowUpRight, ArrowDownLeft, Shield, CheckCircle } from 'lucide-react';
-
 import { useMarketStore } from '../../store/useMarketStore';
 import { useActivityStore, ActivityItem } from '../../store/useActivityStore';
-
-
-
 import { useChainStore } from '../../store/useChainStore';
 import { getChainById } from '../../lib/chains';
+import { useContent } from '../../hooks/useContent';
 
 export const ActivityLog: React.FC = () => {
+  const { t } = useContent();
   const { mode } = useMarketStore();
   const { activities } = useActivityStore();
   const { selectedChainId } = useChainStore();
@@ -47,20 +45,20 @@ export const ActivityLog: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Activity size={18} className="text-indigo-400" />
-          <h3 className="font-heading font-semibold text-white">Activity Log</h3>
+          <h3 className="font-heading font-semibold text-white">{t('activity.title')}</h3>
         </div>
         <div className="flex gap-1">
-          <FilterButton label="All" value="all" />
-          <FilterButton label="Trade" value="trade" />
-          <FilterButton label="LP" value="liquidity" />
-          <FilterButton label="Settle" value="settle" />
+          <FilterButton label={t('activity.filterAll')} value="all" />
+          <FilterButton label={t('activity.filterTrade')} value="trade" />
+          <FilterButton label={t('activity.filterLP')} value="liquidity" />
+          <FilterButton label={t('activity.filterSettle')} value="settle" />
         </div>
       </div>
 
       <div className="space-y-4 flex-1 overflow-y-auto pr-1 custom-scrollbar">
         {displayActivities.length === 0 ? (
           <div className="text-sm text-slate-500 text-center py-4">
-            {filter === 'all' ? 'No recent activity since app opened.' : 'No activity found for this filter.'}
+            {filter === 'all' ? t('activity.noActivity') : t('activity.noActivityFilter')}
           </div>
         ) : (
           displayActivities.map((item) => (
@@ -84,7 +82,7 @@ export const ActivityLog: React.FC = () => {
                     rel="noopener noreferrer"
                     className="text-[10px] text-indigo-400/60 hover:text-indigo-400 transition-colors"
                   >
-                    View TX
+                    {t('activity.viewTx')}
                   </a>
                 )}
               </div>

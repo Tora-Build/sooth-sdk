@@ -25,6 +25,11 @@ interface ISoothGovernorVault {
     function sendFunds(uint256 marketId, address recipient, uint256 amount) external;
 
     function getMarketReserve(uint256 marketId) external view returns (int256);
+
+    // Vault Configuration
+    function defaultBBase() external view returns (uint256);
+    function defaultFeeBps() external view returns (uint256);
+    function reserveFactorBps() external view returns (uint256);
 }
 
 /// @notice AMM interface. Concrete curves (Balanced CFMM, LMSR) implement this.

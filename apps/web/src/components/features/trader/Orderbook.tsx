@@ -14,7 +14,7 @@ interface OrderbookProps {
 export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome: propOutcome = 0 }) => {
   const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(propOutcome);
   const [viewMode, setViewMode] = useState<'book' | 'my-orders'>('book');
-  const { orders, isLoading, refetch, isSupported } = useOrderbook(marketId);
+  const { bids, asks, getOrdersForOutcome, isLoading, refetch, isSupported } = useOrderbook(marketId);
   const { cancelOrder, isPending: isCancelling } = useLimitOrder(marketId);
   const { address } = useAccount();
 
@@ -34,25 +34,53 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
     );
   }
 
-  // Filter My Orders
+  // Get orders for selected outcome view
+  const outcomeOrders = getOrdersForOutcome(selectedOutcome);
+
+  // Filter My Orders (from the raw bids/asks)
   const myOrders = [
-    ...orders.yes.map(o => ({ ...o, outcomeLabel: 'YES' })),
-    ...orders.no.map(o => ({ ...o, outcomeLabel: 'NO' }))
+    ...bids.map(o => ({ ...o, outcomeLabel: 'YES' as const, priceDisplay: o.displayPrice })),
+    ...asks.map(o => ({ ...o, outcomeLabel: 'NO' as const, priceDisplay: o.displayPrice }))
   ].filter(o => o.maker.toLowerCase() === address?.toLowerCase());
 
-  // Derived Bids/Asks based on selected outcome
-  const asks = selectedOutcome === 0 ? orders.yes : orders.no;
-  const bids = (selectedOutcome === 0 ? orders.no : orders.yes).map(order => ({
-    ...order,
-    price: (1 - parseFloat(order.price)).toFixed(2), // Invert price
-    type: 'bid'
-  }));
+  // Derived Bids/Asks for display based on selected outcome
+  const displayAsks = outcomeOrders.asks;
+  const displayBids = outcomeOrders.bids;
+
+  // Helper: Aggregate orders by price level
+  const aggregateOrders = (orders: any[]) => {
+    const map = new Map<string, any>();
+    
+    orders.forEach(o => {
+      const priceKey = Number(o.displayPrice).toFixed(2);
+      if (!map.has(priceKey)) {
+        map.set(priceKey, {
+          ...o,
+          displayPrice: priceKey, // Normalize ID/Key
+          amount: parseFloat(o.amount),
+          count: 1
+        });
+      } else {
+        const existing = map.get(priceKey);
+        existing.amount += parseFloat(o.amount);
+        existing.count += 1;
+      }
+    });
+
+    return Array.from(map.values()).map(o => ({
+      ...o,
+      amount: o.amount.toString(), // Convert back to string for consistent rendering
+      id: `agg-${o.displayPrice}` // aggregated ID
+    }));
+  };
 
   // Sort Asks: Lowest Price First (Best Ask)
-  const sortedAsks = [...asks].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+  const rawAsks = [...displayAsks].sort((a, b) => parseFloat(a.displayPrice) - parseFloat(b.displayPrice));
+  const sortedAsks = aggregateOrders(rawAsks);
   
   // Sort Bids: Highest Price First (Best Bid)
-  const sortedBids = [...bids].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+  const rawBids = [...displayBids].sort((a, b) => parseFloat(b.displayPrice) - parseFloat(a.displayPrice));
+  const sortedBids = aggregateOrders(rawBids);
 
   const OrderList = ({ items, type, colorClass, label }: { items: any[], type: string, colorClass: string, label: string }) => (
     <div className="flex-1 space-y-2">
@@ -78,7 +106,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               )}
             >
               <span className={cn("font-mono font-medium", colorClass)}>
-                {Number(order.price).toFixed(2)}
+                {Number(order.displayPrice).toFixed(2)}
               </span>
               <span className="text-right font-mono text-slate-300">
                 {Number(order.amount).toFixed(2)}
@@ -115,7 +143,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               SELL {order.outcomeLabel}
             </span>
             <span className="font-mono text-slate-300">
-              {Number(order.price).toFixed(2)}
+              {Number(order.priceDisplay).toFixed(2)}
             </span>
             <span className="text-right font-mono text-slate-300">
               {Number(order.amount).toFixed(2)}
@@ -139,7 +167,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
     </div>
   );
 
-  if (isLoading && orders.yes.length === 0 && orders.no.length === 0) {
+  if (isLoading && bids.length === 0 && asks.length === 0) {
     return (
       <Card className="p-4 animate-pulse">
         <div className="h-4 w-24 bg-slate-800 rounded mb-4"></div>

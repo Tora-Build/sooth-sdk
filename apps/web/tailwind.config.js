@@ -41,6 +41,7 @@ export default {
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-up': 'slideUp 0.5s ease-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn: {
@@ -51,6 +52,12 @@ export default {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+      },
+      boxShadow: {
+        'glow-indigo': '0 0 20px -5px rgba(99, 102, 241, 0.4)',
+        'glow-emerald': '0 0 20px -5px rgba(16, 185, 129, 0.4)',
+        'glow-rose': '0 0 20px -5px rgba(244, 63, 94, 0.4)',
+        'glow-violet': '0 0 20px -5px rgba(139, 92, 246, 0.4)',
       },
     },
   },

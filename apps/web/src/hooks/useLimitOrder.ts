@@ -21,7 +21,7 @@ export function useLimitOrder(marketId: string) {
   const [isPending, setIsPending] = useState(false);
 
   // v3: Use TraderVaultV3 as single entry point
-  const traderVaultAddress = deployments.TraderVaultV3 as `0x${string}`;
+  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // v3: Check available balance in TraderVault (not USDC allowance)
   const { data: availableBalance, refetch: refetchBalance } = useReadContract({
@@ -31,6 +31,7 @@ export function useLimitOrder(marketId: string) {
     args: [address || '0x0'],
     query: { 
       enabled: !!address,
+      refetchInterval: 30000, // Increased to prevent RPC rate limiting
     },
   });
 
@@ -70,7 +71,16 @@ export function useLimitOrder(marketId: string) {
       }
 
       // v3: Check available balance in TraderVault
-      const balance = availableBalance as bigint || 0n;
+      const { data: latestBalance } = await refetchBalance();
+      const balance = (latestBalance || availableBalance) as bigint || 0n;
+
+      console.log('--- Limit Order Balance Check ---');
+      console.log('Vault Balance:', balance.toString());
+      console.log('Required Collateral:', collateralRequired.toString());
+      console.log('Price:', price);
+      console.log('Amount:', amount);
+      console.log('-------------------------------');
+
       if (balance < collateralRequired) {
         throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC. Please deposit more funds.`);
       }
@@ -165,7 +175,8 @@ export function useLimitOrder(marketId: string) {
 
       // v3: Check available balance for Buys
       if (isBuy) {
-        const balance = availableBalance as bigint || 0n;
+        const { data: latestBalance } = await refetchBalance();
+        const balance = (latestBalance || availableBalance) as bigint || 0n;
         if (balance < limitValue) {
           throw new Error(`Insufficient balance. Need ${(Number(limitValue) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
         }

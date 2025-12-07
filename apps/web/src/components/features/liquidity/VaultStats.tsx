@@ -35,7 +35,7 @@ export const VaultStats: React.FC = () => {
   const { mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
 
-  const chainLabel = allowedChains.find((c) => c.id === selectedChainId)?.shortName || 'Unknown network';
+  const chainLabel = allowedChains.find((c) => c.id === selectedChainId)?.displayName || 'Unknown network';
 
   const vaultType = (() => {
     if (mode === 'demo') {
@@ -48,15 +48,15 @@ export const VaultStats: React.FC = () => {
     if (selectedChainId === 10143) {
       return {
         ...VAULT_TYPES.D,
-        networkLabel: 'Monad Testnet',
-        mapping: 'D -> Monad Testnet',
+        networkLabel: 'Speed',
+        mapping: 'D -> Speed',
       };
     }
     if (selectedChainId === 84532) {
       return {
         ...VAULT_TYPES.C,
-        networkLabel: 'Base Sepolia',
-        mapping: 'C -> Base Sepolia',
+        networkLabel: 'Based',
+        mapping: 'C -> Based',
       };
     }
     return {
@@ -70,7 +70,7 @@ export const VaultStats: React.FC = () => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(formatUnits(val, 18)));
 
   return (
-    <Card className="bg-gradient-to-br from-indigo-900/20 to-slate-900/50 border-indigo-500/20">
+    <Card variant="premium" className="bg-gradient-to-br from-indigo-900/20 to-slate-900/50 border-indigo-500/20">
       <div className="flex items-start justify-between mb-6">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
@@ -80,26 +80,26 @@ export const VaultStats: React.FC = () => {
             {vaultType.description}
           </p>
         </div>
-        <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1">
+        <Badge variant="live" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1">
           APY: {apy}%
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">TVL</div>
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 transition-all duration-200 group">
+          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1 group-hover:text-indigo-400 transition-colors">TVL</div>
           <div className="text-xl font-mono font-medium text-white">
             {isLoading ? '...' : formatCurrency(totalAssets)}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">Share Price</div>
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 transition-all duration-200 group">
+          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1 group-hover:text-indigo-400 transition-colors">Share Price</div>
           <div className="text-xl font-mono font-medium text-white">
             {isLoading ? '...' : sharePrice.toFixed(4)} USDC
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1">Idle Liquidity</div>
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 transition-all duration-200 group">
+          <div className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-1 group-hover:text-indigo-400 transition-colors">Idle Liquidity</div>
           <div className="text-xl font-mono font-medium text-blue-400">
             {isLoading ? '...' : formatCurrency(totalAssets - (totalLocked || 0n))}
           </div>

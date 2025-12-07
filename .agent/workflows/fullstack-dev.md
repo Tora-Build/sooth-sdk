@@ -19,6 +19,11 @@ You are acting as a **Full-Stack Developer** for Sooth Protocol with access to b
 2. **Update SDK** when contract interfaces change
 3. Run **both** contract tests AND frontend build
 4. Sync deployment artifacts after contract changes
+5. **Configuration Guidelines**:
+   - Use `apps/web/src/config/ui-content.json` for all UI text.
+   - Run `npm run validate-config` to verify integrity.
+   - **Never** hardcode strings in components.
+   - **Never** manually modify `deployments.json` without validation.
 
 ## Common Workflows
 

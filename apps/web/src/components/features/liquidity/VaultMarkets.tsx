@@ -6,10 +6,11 @@ import { Badge } from '../../ui/Badge';
 import { useMarketStore } from '../../../store/useMarketStore';
 import { SOOTH_VAULT_ABI, SOOTH_RISK_MANAGER_ABI, SOOTH_MARKET_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
-
 import { useChainStore } from '../../../store/useChainStore';
+import { useContent } from '../../../hooks/useContent';
 
 export const VaultMarkets: React.FC = () => {
+  const { t } = useContent();
   const { markets, mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
   const deployments = useDeployments();
@@ -17,8 +18,6 @@ export const VaultMarkets: React.FC = () => {
   const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
 
   // Filter markets that are relevant
-  // For Real mode: only markets with id_numeric AND matching chainId
-  // For Demo mode: all demo markets
   const activeMarkets = markets.filter(m => {
     if (mode === 'real') {
       return m.mode === 'real' && 
@@ -63,7 +62,7 @@ export const VaultMarkets: React.FC = () => {
       enabled: mode === 'real',
     }
   });
-
+  
   // Fetch market status (isLive and isSettled) for real mode
   const { data: marketStatuses } = useReadContracts({
     contracts: activeMarkets.flatMap(m => [
@@ -83,11 +82,21 @@ export const VaultMarkets: React.FC = () => {
     }
   });
 
-  const multiplierFormatted = '1.00x'; // Fixed in v3 (Governor sets b directly)
+  // Calculate Dynamic Reserve Multiplier (estimated for now)
+  // In v3 architecture, b = Base + (Reserve * Multiplier)
+  // We can infer the multiplier if we knew Base, but for now we'll stick to 1.0x as default for v2
+  const multiplierFormatted = '1.00x'; 
 
   // Calculate Total Locked (Real Mode)
-  const totalLocked = lockedExposures?.reduce((acc, r) => {
-    return acc + (r.result ? (r.result as bigint) : 0n);
+  // Locked Exposure = b * 0.693 (approx worst case for balanced market)
+  const totalLocked = lockedExposures?.reduce((acc, r, i) => {
+    const locked = r.result ? (r.result as bigint) : 0n;
+    if (locked > 0n) return acc + locked;
+    
+    // Fallback: Estimate from b if lockedExposure call fails or returns 0 (e.g. old vault version)
+    const bParam = bParams?.[i]?.result;
+    const b = bParam ? (bParam as bigint) : 0n;
+    return acc + (b * 693n / 1000n);
   }, 0n) || 0n;
 
   // Calculate Total Locked (Demo Mode)
@@ -104,18 +113,18 @@ export const VaultMarkets: React.FC = () => {
     <Card className="mt-6 border-slate-800 bg-slate-900/20">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
-          <h3 className="font-heading font-bold text-xl text-white">Active Markets & Exposure</h3>
+          <h3 className="font-heading font-bold text-xl text-white">{t('lp.activeMarkets')}</h3>
           <p className="text-sm text-slate-400 mt-1">
-            Real-time tracking of vault capital locked across different markets.
+            {t('lp.realTimeTracking')}
           </p>
         </div>
         <div className="flex items-center gap-3">
             <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">Reserve Multiplier</div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">{t('trading.reserveMultiplier')}</div>
                 <div className="text-lg font-mono font-medium text-slate-300">{multiplierFormatted}</div>
             </div>
             <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">Total Locked</div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">{t('trading.totalLocked')}</div>
                 <div className="text-lg font-mono font-medium text-amber-400">{displayTotalLocked}</div>
             </div>
         </div>
@@ -125,23 +134,23 @@ export const VaultMarkets: React.FC = () => {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="text-slate-500 border-b border-slate-800">
-              <th className="pb-3 pl-2 font-medium">Market</th>
-              <th className="pb-3 font-medium">Risk Level</th>
-              <th className="pb-3 font-medium">Status</th>
+              <th className="pb-3 pl-2 font-medium">{t('stats.markets')}</th>
+              <th className="pb-3 font-medium">{t('lp.risk')}</th>
+              <th className="pb-3 font-medium">{t('trading.marketStatus')}</th>
               <th className="pb-3 font-medium text-right group/header relative">
-                <span className="border-b border-dotted border-slate-600 cursor-help">Liquidity (b)</span>
+                <span className="border-b border-dotted border-slate-600 cursor-help">{t('trading.liquidity')} (b)</span>
                 <div className="absolute bottom-full right-0 mb-2 w-80 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl opacity-0 invisible group-hover/header:opacity-100 group-hover/header:visible transition-all z-10">
-                  <p className="font-semibold text-white mb-1">Hybrid Liquidity (Dynamic)</p>
+                  <p className="font-semibold text-white mb-1">{t('lp.hybridLiquidity')}</p>
                   <p className="mb-2">
-                    Liquidity 'b' grows as the market earns spreads.
+                    {t('trading.liquidityGrow')}
                   </p>
                   <div className="space-y-2 pt-2 border-t border-slate-700/50">
                     <div>
-                      <p className="text-[10px] text-slate-400 font-mono">Formula:</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{t('lp.formula')}:</p>
                       <p className="font-mono text-blue-400">b = Base + (Reserve × Multiplier)</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-400 font-mono">Components:</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{t('lp.components')}:</p>
                       <ul className="list-disc list-inside text-[10px] text-slate-500">
                         <li><span className="text-slate-300">Base:</span> Global vault allocation</li>
                         <li><span className="text-slate-300">Reserve:</span> Market's accumulated spreads</li>
@@ -151,10 +160,10 @@ export const VaultMarkets: React.FC = () => {
                   </div>
                 </div>
               </th>
-              <th className="pb-3 font-medium text-right">Base Liquidity</th>
-              <th className="pb-3 font-medium text-right">Market Reserve</th>
+              <th className="pb-3 font-medium text-right">{t('trading.baseLiquidity')}</th>
+              <th className="pb-3 font-medium text-right">{t('trading.marketReserves')}</th>
               <th className="pb-3 font-medium text-right group/header relative">
-                <span className="border-b border-dotted border-slate-600 cursor-help">Solvency Factor</span>
+                <span className="border-b border-dotted border-slate-600 cursor-help">{t('trading.solvencyFactor')}</span>
                 <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl opacity-0 invisible group-hover/header:opacity-100 group-hover/header:visible transition-all z-10">
                   <p className="font-semibold text-white mb-1">Locked / b Ratio</p>
                   The ratio of capital locked per unit of liquidity depth.
@@ -165,9 +174,9 @@ export const VaultMarkets: React.FC = () => {
                 </div>
               </th>
               <th className="pb-3 pr-2 font-medium text-right group/header relative">
-                <span className="border-b border-dotted border-slate-600 cursor-help">Max Loss (Locked)</span>
+                <span className="border-b border-dotted border-slate-600 cursor-help">{t('trading.maxLossLocked')}</span>
                 <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl opacity-0 invisible group-hover/header:opacity-100 group-hover/header:visible transition-all z-10">
-                  <p className="font-semibold text-white mb-1">Worst-Case Payout</p>
+                  <p className="font-semibold text-white mb-1">{t('lp.worstCasePayout')}</p>
                   This is the maximum amount the vault could lose if the market resolves against its position. This capital is "locked" to ensure solvency.
                 </div>
               </th>
@@ -176,19 +185,21 @@ export const VaultMarkets: React.FC = () => {
           <tbody className="divide-y divide-slate-800/50">
             {activeMarkets.map((market, i) => {
               const lockedResult = lockedExposures?.[i];
-              const locked = lockedResult?.status === 'success' ? lockedResult.result as bigint : undefined;
+              const locked = lockedResult?.status === 'success' ? (lockedResult.result as bigint) : 0n;
               
-              // Use actual market bParam for both demo and real modes
               const bParam = bParams?.[i]?.result;
               const configBParam = market.bParam || 0n;
               const finalBParam = mode === 'demo' ? configBParam : ((bParam as bigint) || configBParam);
               const bValue = Number(formatUnits(finalBParam, 18));
+              const estimatedLoss = bValue * 0.693;
 
-              const displayLocked = mode === 'demo' 
-                ? `${(bValue * 0.693).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : (locked !== undefined ? parseFloat(formatUnits(locked, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-');
+              const finalLockedValue = locked > 0n ? Number(formatUnits(locked, 18)) : estimatedLoss;
+              const isEstimated = locked === 0n && bValue > 0;
 
-              // Use actual reserve from market object in demo mode
+              const displayLocked = mode === 'demo'
+                ? `${estimatedLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : (isLoading ? '-' : `${finalLockedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+              
               const marketReserve = (market as any).reserve || 0n;
               const reserveResult = marketReserves?.[i];
               const reserve = reserveResult?.status === 'success' ? reserveResult.result as bigint : undefined;
@@ -198,14 +209,10 @@ export const VaultMarkets: React.FC = () => {
 
               const bFormatted = formatUnits(finalBParam, 18);
 
-              // Display b value
               const displayB = mode === 'demo'
                 ? `${bValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : (isLoading ? '...' : `${parseFloat(bFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
-              // Calculate Base Liquidity
-              // For demo: use market.baseLiquidity from store
-              // For real: calculate as b - reserve
               const marketBaseLiquidity = (market as any).baseLiquidity || 0n;
               const reserveValue = mode === 'demo' 
                 ? Number(formatUnits(marketReserve, 18))
@@ -213,13 +220,12 @@ export const VaultMarkets: React.FC = () => {
               
               const baseValue = mode === 'demo' 
                 ? Number(formatUnits(marketBaseLiquidity, 18))
-                : (bValue - reserveValue); // b - reserve for real mode
+                : (bValue - reserveValue); 
               
               const displayBase = mode === 'demo'
                 ? `${baseValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : (isLoading ? '...' : `${baseValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
-              // Get market status
               let displayStatus = market.status;
               if (mode === 'real' && marketStatuses) {
                 const statusIdx = i * 2;
@@ -260,7 +266,7 @@ export const VaultMarkets: React.FC = () => {
                   </td>
                   <td className="py-4">
                     <Badge variant={displayStatus === 'trading' ? 'success' : 'default'} className="capitalize text-[10px]">
-                      {displayStatus}
+                      {t(`trading.${displayStatus}` as any) || displayStatus}
                     </Badge>
                   </td>
                   <td className="py-4 text-right font-mono text-blue-400">
@@ -275,14 +281,11 @@ export const VaultMarkets: React.FC = () => {
                   <td className="py-4 text-right font-mono text-slate-400">
                     {(() => {
                       if (mode === 'demo') return '0.693';
-                      const bVal = finalBParam ? parseFloat(formatUnits(finalBParam, 18)) : 0;
-                      const lockedVal = locked !== undefined ? parseFloat(formatUnits(locked, 18)) : undefined;
-                      
-                      if (lockedVal === undefined) return '-';
-                      return bVal > 0 ? (lockedVal / bVal).toFixed(4) : '-';
+                      if (bValue > 0) return (finalLockedValue / bValue).toFixed(4);
+                      return '-';
                     })()}
                   </td>
-                  <td className="py-4 pr-2 text-right font-mono text-amber-400">
+                  <td className={`py-4 pr-2 text-right font-mono ${isEstimated ? 'text-amber-400/70 italic' : 'text-amber-400'}`}>
                     {displayLocked}
                   </td>
                 </tr>
@@ -291,7 +294,7 @@ export const VaultMarkets: React.FC = () => {
             {activeMarkets.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-slate-500">
-                  No active markets found for this vault.
+                  {t('trading.noActiveMarkets')}
                 </td>
               </tr>
             )}

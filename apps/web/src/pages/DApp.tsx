@@ -22,47 +22,51 @@ export const DApp: React.FC<DAppProps> = () => {
     <div className="min-h-screen flex flex-col bg-background text-slate-300 font-sans selection:bg-indigo-500/30">
       <Navbar />
 
-      <main className="flex-1 container mx-auto max-w-7xl px-4 py-8">
+      <main className="flex-1 container mx-auto max-w-[1440px] px-4 py-8">
         <GlobalStats />
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <PortfolioSummary />
-          <ProtocolAddresses />
-        </div>
-
-        <TabsRoot value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          
-          {/* Feature Navigation */}
-          {/* Feature Navigation */}
-          <div className="flex justify-center w-full overflow-x-auto pb-2 no-scrollbar">
-            <TabsListImpl className="min-w-max">
-              <TabsTriggerImpl value="trader">Trader Terminal</TabsTriggerImpl>
-              <TabsTriggerImpl value="lp">LP Dashboard</TabsTriggerImpl>
-              <TabsTriggerImpl value="operator">Operator Console</TabsTriggerImpl>
-              <TabsTriggerImpl value="activity">Activity Log</TabsTriggerImpl>
-            </TabsListImpl>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-8">
+          {/* Left Sidebar: Unified Portfolio & Addresses */}
+          <div className="lg:col-span-1 space-y-6">
+            <PortfolioSummary />
           </div>
 
-          {/* Feature Views */}
-          <TabsContent value="trader" className="animate-slide-up">
-            <TraderTerminal />
-          </TabsContent>
-          
-          <TabsContent value="lp" className="animate-slide-up">
-            <LPDashboard />
-          </TabsContent>
-          
-          <TabsContent value="operator" className="animate-slide-up">
-            <OperatorConsole />
-          </TabsContent>
+          {/* Main Content Area */}
+          <div className="lg:col-span-3">
+            <TabsRoot value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              
+              {/* Feature Navigation */}
+              <div className="flex justify-start w-full border-b border-slate-800 pb-4 mb-6">
+                <TabsListImpl className="inline-flex">
+                  <TabsTriggerImpl value="trader">Trader Terminal</TabsTriggerImpl>
+                  <TabsTriggerImpl value="lp">LP Dashboard</TabsTriggerImpl>
+                  <TabsTriggerImpl value="operator">Operator Console</TabsTriggerImpl>
+                  <TabsTriggerImpl value="activity">Activity Log</TabsTriggerImpl>
+                </TabsListImpl>
+              </div>
 
-          <TabsContent value="activity" className="animate-slide-up">
-            <div className="h-[600px]">
-              <ActivityLog />
-            </div>
-          </TabsContent>
+              {/* Feature Views */}
+              <TabsContent value="trader" className="animate-slide-up">
+                <TraderTerminal />
+              </TabsContent>
+              
+              <TabsContent value="lp" className="animate-slide-up">
+                <LPDashboard />
+              </TabsContent>
+              
+              <TabsContent value="operator" className="animate-slide-up">
+                <OperatorConsole />
+              </TabsContent>
 
-        </TabsRoot>
+              <TabsContent value="activity" className="animate-slide-up">
+                <div className="h-[600px]">
+                  <ActivityLog />
+                </div>
+              </TabsContent>
+
+            </TabsRoot>
+          </div>
+        </div>
       </main>
 
       <Footer />

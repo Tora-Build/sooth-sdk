@@ -8,6 +8,7 @@ import "../contracts/core/SoothLMSRReal.sol";
 import "../contracts/core/SoothGovernorVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/router/SoothRouter.sol";
 
 contract MockUSDC is IERC20 {
     string public name = "Mock USDC";
@@ -18,6 +19,7 @@ contract MockUSDC is IERC20 {
     mapping(address => mapping(address => uint256)) public allowance;
 
     function transfer(address recipient, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "ERC20: insufficient balance");
         balanceOf[msg.sender] -= amount;
         balanceOf[recipient] += amount;
         return true;
@@ -27,6 +29,9 @@ contract MockUSDC is IERC20 {
         return true;
     }
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        require(allowance[sender][msg.sender] >= amount, "ERC20: insufficient allowance");
+        require(balanceOf[sender] >= amount, "ERC20: insufficient balance");
+        
         allowance[sender][msg.sender] -= amount;
         balanceOf[sender] -= amount;
         balanceOf[recipient] += amount;
@@ -95,7 +100,6 @@ contract Deploy is Script {
             ISoothFeeController(address(feeController)),
             bytes32(0), // adjudicatorId
             bParam,
-            50, // 0.5% LMSR fee
             deployer, // governor
             initialQ
         );
@@ -109,6 +113,10 @@ contract Deploy is Script {
         governorVault.setAuthorized(address(traderVault), true);
         governorVault.setAuthorized(deployer, true);
         console.log("TraderVault authorized in GovernorVault");
+
+        // 6. Deploy SoothRouter
+        SoothRouter router = new SoothRouter(address(traderVault));
+        console.log("SoothRouter deployed at:", address(router));
 
         vm.stopBroadcast();
 

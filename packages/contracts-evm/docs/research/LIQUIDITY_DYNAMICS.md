@@ -1,208 +1,89 @@
-# Liquidity Dynamics & Update Mechanics
+# Liquidity Dynamics & Fees
 
-**Date:** 2025-12-02  
-**Status:** Technical Specification  
-**Impact:** Market Depth, Trader UX, Keeper Opportunities
+**Date:** 2025-12-05
+**Status:** Implemented (v3)
+**Impact:** Market Depth, LP profitability
 
 ---
 
 ## Executive Summary
 
-Every LP deposit/withdrawal changes vault TVL, which **should** update market liquidity depth (`bGlobal`). However, **`bGlobal` is not automatically recalculated** on vault operations. This creates a lag between capital changes and pricing updates, presenting both risks and keeper bot opportunities.
+Sooth v3 implements a **Dynamic Liquidity Model** where market depth (`b`) scales with trading activity. This incentivizes LPs by increasing capital efficiency as markets prove their demand, and provides traders with better slippage on popular markets.
 
 ---
 
-## 1. The Liquidity Formula Chain
+## 1. The Dynamic Liquidity Formula
 
-### **Complete Formula:**
+Market liquidity (`b`) is calculated dynamically on-chain based on a vault-configured base and the market's accumulated reserves.
+
+### **The Formula**
 
 ```
-b_market = Base + Boost
+b_market = b_base + (positive_reserve × reserveFactor)
+```
 
 Where:
-  Base = bGlobal × RiskClassMultiplier
-  Boost = MarketReserves × ReserveMultiplier (if reserves > 0)
 
-  bGlobal = Lmax × 1.4427
-  Lmax = min(TVL / K, LiquidBuffer)
-```
+- **`b_base`**: The initial liquidity allocated to the market by the Governor Vault (e.g., 10,000 USDC).
+- **`reserve`**: The net accumulated PnL/fees of the market (starts at 0).
+- **`reserveFactor`**: A multiplier enabling liquidity growth (e.g., 10% or 0.1x).
 
-### **Key Dependencies:**
+### **Example**
 
-```
-TVL (totalAssets)
-    ↓
-Lmax = TVL / K
-    ↓
-bGlobal = Lmax × 1.4427
-    ↓
-Base = bGlobal × RiskMultiplier
-    ↓
-b_market = Base + Boost
-    ↓
-Market Prices (LMSR uses b)
-```
+1.  **Initialization**:
 
----
+    - `b_base` = 10,000 USDC
+    - `reserve` = 0
+    - **Effective `b` = 10,000**
 
-## 2. The Update Lag Problem
+2.  **Trading Activity**:
 
-### **Current Behavior:**
+    - AMM earns 500 USDC in fees.
+    - `reserve` increases to 500.
 
-`SoothVault.deposit()` and `SoothVault.withdraw()` **do NOT** call `riskManager.updateGlobalB()`.
-
-**Code Evidence:**
-
-```solidity
-// SoothVault.sol - deposit function
-function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
-    // ... transfer logic ...
-    totalAssets += assets;  // ← TVL changes here
-    // ... emit events ...
-    // ❌ NO updateGlobalB() call
-}
-```
-
-### **When IS `bGlobal` Updated?**
-
-1. **Market Creation**: `SoothMarketFactory.createMarket()` calls `updateGlobalB()` before creating the market.
-2. **Manual Trigger**: Anyone can call `riskManager.updateGlobalB()` (it's a public function).
-
-### **Implications:**
-
-| Event                          | TVL Change | `bGlobal` Updated? | Market Impact                                  |
-| :----------------------------- | :--------- | :----------------- | :--------------------------------------------- |
-| LP deposits 100k USDC          | +100k      | ❌ **NO**          | Markets still use old (lower) liquidity depth  |
-| LP withdraws 50k USDC          | -50k       | ❌ **NO**          | Markets still use old (higher) liquidity depth |
-| New market created             | 0          | ✅ **YES**         | All markets get updated `bGlobal`              |
-| Keeper calls `updateGlobalB()` | 0          | ✅ **YES**         | All markets get updated `bGlobal`              |
+3.  **Liquidity Boost**:
+    - `reserveFactor` = 0.1 (10%)
+    - Boost = 500 \* 0.1 = 50
+    - **Effective `b` = 10,050**
 
 ---
 
-## 3. Impact Analysis
+## 2. Vault Configuration
 
-### **Scenario 1: Large Deposit (No Update)**
+The `SoothGovernorVault` holds default configuration parameters used when creating new markets. This allows the DAO/Governor to tune protocol-wide risk and liquidity settings.
 
-**Setup:**
+| Parameter          | Default Value       | Description                              |
+| :----------------- | :------------------ | :--------------------------------------- |
+| `defaultBBase`     | **10,000 USDC**     | Initial `b` liquidity for new markets.   |
+| `defaultFeeBps`    | **50 bps (0.5%)**   | Trading fee charged by the AMM.          |
+| `reserveFactorBps` | **1000 bps (0.1x)** | Multiplier for dynamic liquidity growth. |
 
-- Vault TVL: 100k USDC
-- K = 10
-- `bGlobal` = 14,427 USDC
-- Alice deposits 100k USDC
-
-**Expected Behavior:**
-
-- New TVL: 200k USDC
-- New `bGlobal`: 28,854 USDC (doubled)
-- Markets should have 2x deeper liquidity
-
-**Actual Behavior:**
-
-- `bGlobal` remains 14,427 USDC until someone calls `updateGlobalB()`
-- Traders get **worse execution** than they should
-- Markets are **under-liquid** relative to available capital
-
-### **Scenario 2: Large Withdrawal (No Update)**
-
-**Setup:**
-
-- Vault TVL: 200k USDC
-- `bGlobal` = 28,854 USDC
-- Bob withdraws 100k USDC
-
-**Expected Behavior:**
-
-- New TVL: 100k USDC
-- New `bGlobal`: 14,427 USDC (halved)
-- Markets should have 2x shallower liquidity
-
-**Actual Behavior:**
-
-- `bGlobal` remains 28,854 USDC until someone calls `updateGlobalB()`
-- Markets are **over-liquid** relative to available capital
-- **Risk**: Vault may not have enough capital to cover max losses if multiple markets hit `Lmax` simultaneously
+**Changing Defaults:**
+Calling `setVaultConfig(...)` updates these defaults. Existing markets are **not** affected; only new markets will inherit the new values. However, existing markets reference `reserveFactorBps` dynamically from the vault, so changing the factor affects **all** markets immediately.
 
 ---
 
-## 4. Keeper Bot Opportunity
+## 3. Fee Mechanism
 
-### **Strategy:**
+### **AMM Fees**
 
-Monitor vault events and call `updateGlobalB()` when TVL changes significantly.
+- **Charged:** On every trade against the AMM.
+- **Calculation:** `Fee = Trade Value * feeLMSR`
+- **Destination:** Added directly to the market's `reserve`.
+- **Effect:** Directly increases the market's `b` parameter (via the formula above), deepening liquidity for future traders.
 
-### **Implementation:**
+### **Orderbook Fees**
 
-```javascript
-// Keeper Bot Pseudocode
-const THRESHOLD = 0.05; // 5% TVL change
-let lastTVL = await vault.totalAssets();
-
-vault.on("Deposit", async (caller, owner, assets, shares) => {
-  const newTVL = await vault.totalAssets();
-  const change = Math.abs(newTVL - lastTVL) / lastTVL;
-
-  if (change > THRESHOLD) {
-    await riskManager.updateGlobalB();
-    lastTVL = newTVL;
-    console.log(`Updated bGlobal. TVL changed by ${change * 100}%`);
-  }
-});
-
-vault.on("Withdraw", async (caller, receiver, owner, assets, shares) => {
-  // Same logic as Deposit
-});
-```
-
-### **Gas Cost:**
-
-`updateGlobalB()` is a simple calculation (no loops, no storage writes except one `uint256`). Estimated gas: **~30k-50k**.
-
-### **Revenue Model:**
-
-- **Option 1**: Protocol subsidizes keeper (pays gas + small reward).
-- **Option 2**: Keeper is altruistic (MEV searchers, LPs protecting their capital).
-- **Option 3**: Charge a small "update fee" from traders (e.g., 0.01% of trade volume goes to keeper fund).
+- **Current Status:** Disabled (0%).
+- **Mechanism:** `SoothFeeController` supports fee splitting, but v3 currently focuses on AMM fees driving liquidity growth.
 
 ---
 
-## 5. Recommendations
+## 4. Code References
 
-### **Short-Term (Current Alpha):**
-
-1. **Document the lag** in frontend UI: "Liquidity depth updates on market creation or manual trigger."
-2. **Run a keeper bot** internally during testnet to ensure `bGlobal` stays fresh.
-
-### **Medium-Term (Mainnet v1):**
-
-1. **Add `updateGlobalB()` to deposit/withdraw** (gas cost: ~30k per LP operation).
-   - **Pro**: Always accurate.
-   - **Con**: Increases LP gas costs.
-2. **OR: Implement a "staleness threshold"** in `getBForMarket()`:
-   ```solidity
-   function getBForMarket(uint256 marketId) external view returns (uint256) {
-       if (block.timestamp - lastUpdateTime > 1 hours) {
-           revert("bGlobal stale, call updateGlobalB()");
-       }
-       // ... existing logic ...
-   }
-   ```
-   - **Pro**: Forces updates without adding gas to LP ops.
-   - **Con**: Traders pay the gas (first trade after 1 hour triggers update).
-
-### **Long-Term (Mainnet v2):**
-
-1. **Incentivize keepers** via a "Liquidity Accuracy Reward" funded by trading fees.
-2. **Automate via Chainlink Automation** or Gelato Network.
-
----
-
-## 6. Code References
-
-| Contract                 | Function          | Behavior                                               |
-| :----------------------- | :---------------- | :----------------------------------------------------- |
-| `SoothVault.sol`         | `deposit()`       | Updates `totalAssets`, does NOT call `updateGlobalB()` |
-| `SoothVault.sol`         | `withdraw()`      | Updates `totalAssets`, does NOT call `updateGlobalB()` |
-| `SoothRiskManager.sol`   | `updateGlobalB()` | Recalculates `bGlobal` from current `totalAssets`      |
-| `SoothMarketFactory.sol` | `createMarket()`  | Calls `updateGlobalB()` before creating market         |
-
----
+| Contract                 | Function/Var        | Description                                     |
+| :----------------------- | :------------------ | :---------------------------------------------- |
+| `SoothGovernorVault.sol` | `defaultBBase`      | Storage for default market config.              |
+| `SoothGovernorVault.sol` | `reserveFactorBps`  | Global multiplier read by all markets.          |
+| `SoothMarket.sol`        | `b()`               | View function implementing the dynamic formula. |
+| `SoothMarket.sol`        | `executeAMMTrade()` | Updates `reserve` with collected fees.          |

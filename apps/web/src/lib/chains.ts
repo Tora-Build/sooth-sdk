@@ -7,7 +7,8 @@ export type ChainType = 'evm' | 'solana';
 export interface AllowedChain {
   id: number | string;
   type: ChainType;
-  name: string;
+  name: string; // Real network name (for ChainSelector)
+  displayName: string; // Branded name (for UI)
   shortName: string;
   rpcUrl: string;
   explorerUrl: string;
@@ -39,7 +40,8 @@ export const allowedChains: AllowedChain[] = [
     id: 84532,
     type: 'evm',
     name: 'Base Sepolia',
-    shortName: 'Base',
+    displayName: 'Based',
+    shortName: 'Based',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
     icon: '🔵',
@@ -49,11 +51,28 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  // MegaETH Testnet
+  {
+    id: 6343,
+    type: 'evm',
+    name: 'MegaETH Testnet',
+    displayName: 'Speed',
+    shortName: 'Speed',
+    rpcUrl: 'https://timothy.megaeth.com/rpc',
+    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+    icon: '⚡',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+  },
   // Solana Devnet
   {
     id: 'devnet',
     type: 'solana',
     name: 'Solana Devnet',
+    displayName: 'Solana Devnet',
     shortName: 'Solana',
     rpcUrl: 'https://api.devnet.solana.com',
     explorerUrl: 'https://explorer.solana.com/?cluster=devnet',
@@ -65,6 +84,20 @@ export const allowedChains: AllowedChain[] = [
     },
   },
 ];
+
+// Define MegaETH Testnet using viem
+export const megaethTestnet = defineChain({
+  id: 6343,
+  name: 'MegaETH Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://timothy.megaeth.com/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+  },
+  testnet: true,
+});
 
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');

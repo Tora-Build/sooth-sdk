@@ -27,6 +27,11 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
 
     mapping(address => bool) public authorizedSpender;
 
+    // --- Vault Configuration (Per-Vault defaults) ---
+    uint256 public override defaultBBase;     // Default 'b' for new markets
+    uint256 public override defaultFeeBps;    // Default fee for new markets
+    uint256 public override reserveFactorBps; // Reserve multiplier (Global)
+
     // --- Events ---
     event Deposit(address indexed lp, uint256 assets, uint256 shares);
     event Withdraw(address indexed lp, uint256 assets, uint256 shares);
@@ -34,12 +39,33 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     event AuthorizedSet(address indexed who, bool allowed);
     event ExposureAllocated(uint256 indexed marketId, uint256 amount);
     event ExposureReleased(uint256 indexed marketId, uint256 amount);
+    event VaultConfigSet(uint256 bBase, uint256 feeBps, uint256 reserveFactor);
 
     constructor(IERC20 _asset) {
         asset = _asset;
         uint8 assetDecimals = IERC20Metadata(address(_asset)).decimals();
         decimals = assetDecimals;
         decimalsScale = 10 ** (18 - assetDecimals);
+
+        // Default Config
+        defaultBBase = 10000 * 1e18; // 10k USDC
+        defaultFeeBps = 50;          // 0.5%
+        reserveFactorBps = 1000;     // 0.1x (10%)
+    }
+
+    function setVaultConfig(
+        uint256 _bBase,
+        uint256 _feeBps,
+        uint256 _reserveFactorBps
+    ) external onlyOwner {
+        require(_feeBps <= 1000, "Fee too high"); // Max 10%
+        require(_reserveFactorBps <= 5000, "Reserve factor too high"); // Max 0.5x
+
+        defaultBBase = _bBase;
+        defaultFeeBps = _feeBps;
+        reserveFactorBps = _reserveFactorBps;
+        
+        emit VaultConfigSet(_bBase, _feeBps, _reserveFactorBps);
     }
 
     modifier onlyAuthorized() {

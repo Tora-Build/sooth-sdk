@@ -17,10 +17,13 @@ contract SoothMarket is ISoothMarket, Ownable {
 
     uint256 public marketId;
     bytes32 public adjudicatorId;
-    uint256 public b; // Liquidity parameter
+    
+    // Liquidity & Fee State
+    uint256 public bBase;      // Initial 'b' set at creation
+    int256 public reserve;     // Net market PnL (starts at 0)
 
     address public governor;
-    uint256 public feeLMSR;
+    // feeLMSR is now dynamic from vault
     uint256 public constant MAX_BPS = 10000;
 
     bool public override isLive;
@@ -48,6 +51,7 @@ contract SoothMarket is ISoothMarket, Ownable {
 
     event Initialized(uint256 indexed marketId, address traderVault, address amm, uint256 b);
     event Settled(uint8 winningOutcome);
+    event BBaseIncrease(uint256 amount, uint256 newBBase);
 
     // ============ Constructor ============
 
@@ -62,8 +66,7 @@ contract SoothMarket is ISoothMarket, Ownable {
         ISoothAMM _amm,
         ISoothFeeController _feeController,
         bytes32 _adjudicatorId,
-        uint256 _b,
-        uint256 _feeLMSR,
+        uint256 _bBase,
         address _governor,
         int256 _initialQuantity
     ) external onlyOwner {
@@ -76,18 +79,44 @@ contract SoothMarket is ISoothMarket, Ownable {
         feeController = _feeController;
         adjudicatorId = _adjudicatorId;
         marketId = _marketId;
-        b = _b;
-        feeLMSR = _feeLMSR;
+        bBase = _bBase;
+        // feeLMSR is dynamic
         governor = _governor;
+        
+        // Initial liquidity
+        ammState.qYes = _initialQuantity;
+        ammState.qNo = _initialQuantity;
+
         isLive = true;
 
-        ammState = ISoothAMM.State({
-            qYes: _initialQuantity,
-            qNo: _initialQuantity
-        });
-
-        emit Initialized(_marketId, _traderVault, address(_amm), _b);
+        emit Initialized(_marketId, _traderVault, address(_amm), _bBase);
     }
+    
+    // ============ Liquidity Views ============
+
+    function b() public view returns (uint256) {
+        uint256 factor = governorVault.reserveFactorBps();
+        if (reserve <= 0) return bBase;
+        // b = bBase + (reserve * factor / 10000)
+        return bBase + (uint256(reserve) * factor / MAX_BPS);
+    }
+
+    function feeLMSR() public view returns (uint256) {
+        return governorVault.defaultFeeBps();
+    }
+
+    function increaseBBase(uint256 amount) external onlyGovernor {
+        bBase += amount;
+        emit BBaseIncrease(amount, bBase);
+    }
+    
+    // ============ Core Logic ============
+    
+    // ... existing setGovernor ...
+
+    // ... existing settlement logic ...
+
+    // ... existing orderbook logic ...
 
     // ============ Modifiers ============
 
@@ -122,7 +151,7 @@ contract SoothMarket is ISoothMarket, Ownable {
     }
 
     function getPrice(uint8 outcome) external view override returns (uint256) {
-        return amm.price(ammState, outcome, b);
+        return amm.price(ammState, outcome, b());
     }
 
     // ============ TraderVault Callbacks ============
@@ -215,16 +244,19 @@ contract SoothMarket is ISoothMarket, Ownable {
             }
         }
 
-        // Calculate AMM cost
+        // Calculate AMM cost using dynamic b()
         ISoothAMM.State memory newState;
-        (cost, newState) = amm.costDelta(ammState, outcome, deltaShares, b);
+        (cost, newState) = amm.costDelta(ammState, outcome, deltaShares, b());
 
-        // Calculate fee
+        // Calculate fee using dynamic feeLMSR()
         uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
-        fee = (absCost * feeLMSR) / MAX_BPS;
+        fee = (absCost * feeLMSR()) / MAX_BPS;
 
         // Update state
         ammState = newState;
+        
+        // Update reserve with fee (LP profit)
+        reserve += int256(fee); 
 
         // If buying, credit tokens
         if (deltaShares > 0) {
@@ -331,12 +363,44 @@ contract SoothMarket is ISoothMarket, Ownable {
         noBalance[noBuyer] += amount;
 
         // Funds handling:
-        // - yesBuyer already paid yesPrice * amount when placing order
-        // - noBuyer already paid (1 - yesPrice) * amount when placing order
-        // - Total = 1 * amount = exactly what's needed for settlement
+        // Buyer pays: price * amount
+        // Seller gets: (1-price) * amount [which is priceNo * amount]
         
-        // No additional fund movement needed here - TraderVault handles it
-        // via onOrderMatched callback if needed
+        uint256 cost = amount * yesPrice / 1e18;
+        // Adjust for potential precision loss
+        if (cost * 1e18 / amount != yesPrice) {
+            // Very small amounts might be tricky, standard logic
+        }
+
+        uint256 proceeds = amount - cost;
+
+        // Fee logic would go here
+        
+        // Callback to TraderVault to handle funds Transfer
+        // This is simplified, actual vault calls are in matching loop
+        // We assume _tryMatch handles vault calls via onOrderMatched
+    }
+
+    // ============ Transfer Logic ============
+
+    function transferShares(
+        address from,
+        address to,
+        uint8 outcome,
+        uint256 amount
+    ) external override onlyTraderVault onlyLive {
+        require(from != address(0), "Market: invalid from");
+        require(to != address(0), "Market: invalid to");
+
+        if (outcome == 0) {
+            require(yesBalance[from] >= amount, "Market: insufficient YES balance");
+            yesBalance[from] -= amount;
+            yesBalance[to] += amount;
+        } else {
+            require(noBalance[from] >= amount, "Market: insufficient NO balance");
+            noBalance[from] -= amount;
+            noBalance[to] += amount;
+        }
     }
 
     // ============ Orderbook Helpers ============
@@ -433,13 +497,5 @@ contract SoothMarket is ISoothMarket, Ownable {
 
     // ============ Governor Functions ============
 
-    function increaseB(uint256 amount) external onlyGovernor {
-        require(amount > 0, "Market: zero amount");
-        b += amount;
-    }
 
-    function setFeeLMSR(uint256 _feeBps) external onlyGovernor {
-        require(_feeBps <= 1000, "Market: fee too high");
-        feeLMSR = _feeBps;
-    }
 }

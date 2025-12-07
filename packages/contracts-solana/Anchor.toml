@@ -6,7 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-sooth_protocol = "SoothProtoco1111111111111111111111111111111"
+sooth_protocol = "23pTwMDF5Y9FFjnaqr2411cXVN2qfYmvuHMmsaeHVPmG"
+
+[programs.devnet]
+sooth_protocol = "23pTwMDF5Y9FFjnaqr2411cXVN2qfYmvuHMmsaeHVPmG"
 
 [registry]
 url = "https://api.apr.dev"

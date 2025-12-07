@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V3_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
@@ -21,13 +21,17 @@ export function useTrade(marketId: string) {
   
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
+  const marketContractAddress = market?.contractAddress as `0x${string}`;
+  const tokenAddress = deployments.MockUSDC as `0x${string}`;
+  // V3 Change: Approve TraderVault, not Market
+  const spenderAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // v3: Use TraderVaultV3 as single entry point
-  const traderVaultAddress = deployments.TraderVaultV3 as `0x${string}`;
+  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // Balance Check - USDC Balance
   const { data: usdcBalance } = useReadContract({
-    address: deployments.MockERC20 as `0x${string}`,
+    address: deployments.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address || '0x0'],
@@ -35,6 +39,15 @@ export function useTrade(marketId: string) {
       enabled: mode === 'real' && !!address,
     },
   });
+
+  // Fetch token decimals
+  const { data: decimalsVal } = useReadContract({
+    address: deployments.MockUSDC as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'decimals',
+  });
+  
+  const decimals = Number(decimalsVal || 18);
 
   // v3: Check TraderVault available balance
   const { data: traderVaultBalance, refetch: refetchTraderVaultBalance } = useReadContract({
@@ -44,6 +57,7 @@ export function useTrade(marketId: string) {
     args: [address || '0x0'],
     query: {
       enabled: mode === 'real' && !!address && !!traderVaultAddress,
+      refetchInterval: 30000, // Increased to prevent RPC rate limiting
     },
   });
 
@@ -163,6 +177,7 @@ export function useTrade(marketId: string) {
       // Real Mode
       // 0. Refetch Market Data to ensure we have latest qYes/qNo/b
       await refetchMarket();
+      const { data: latestBalance } = await refetchTraderVaultBalance();
       
       const b = market?.bParam || 0n;
       const qYes = market?.qYes || 0n;
@@ -184,7 +199,8 @@ export function useTrade(marketId: string) {
         throw new Error('Failed to calculate trade cost');
       }
       
-      const expectedCost = parseUnits(Math.abs(quote.totalCost).toFixed(18), 18);
+      // Use token decimals for cost (Vault matches token decimals)
+      const expectedCost = parseUnits(Math.abs(quote.totalCost).toFixed(decimals), decimals);
       
       console.log('Trade Cost Calculation:', {
         sharesBig: sharesBig.toString(),
@@ -204,12 +220,12 @@ export function useTrade(marketId: string) {
 
       if (sharesBig > 0n) {
         // Buy: Willing to pay MORE (e.g. 100 -> 105)
-        // Use the displayed slippage only (no hidden buffer)
-        maxCost = expectedCost * (BPS + slippageFactor) / BPS;
+        // Add 0.5% (50bps) extra buffer for JS/Solidy math precision mismatch
+        maxCost = expectedCost * (BPS + slippageFactor + 50n) / BPS;
       } else {
-        // Sell: Willing to receive LESS (e.g. -100 -> -95, which is closer to 0)
-        // Use the displayed slippage only (no hidden buffer)
-        maxCost = expectedCost * (BPS - slippageFactor) / BPS;
+        // Sell: Willing to receive LESS (e.g. -100 -> -95)
+        // Add 0.5% buffer (receive even less) to ensure execution
+        maxCost = -(expectedCost * (BPS - slippageFactor - 50n) / BPS);
       }
 
       console.log('Slippage Calculation:', {
@@ -231,9 +247,11 @@ export function useTrade(marketId: string) {
       // We don't need ERC20 allowance here because we aren't pulling funds from the wallet.
       // We just need to ensure the user has enough 'availableBalance' in the vault.
       
-      const vaultBal = traderVaultBalance as bigint || 0n;
+      // Use the latest fetched balance if available, otherwise fallback to hook data
+      const vaultBal = (latestBalance || traderVaultBalance) as bigint || 0n;
+      
       if (sharesBig > 0n && vaultBal < maxCost) {
-         throw new Error(`Insufficient Trading Account balance. You have ${(Number(vaultBal) / 1e18).toFixed(2)} USDC but need ${(Number(maxCost) / 1e18).toFixed(2)} USDC. Please deposit funds first.`);
+         throw new Error(`Insufficient Trading Account balance. You have ${(Number(formatUnits(vaultBal, decimals))).toFixed(2)} USDC but need ${(Number(formatUnits(maxCost, decimals))).toFixed(2)} USDC. Please deposit funds first.`);
       }
 
       // 3. Execute Trade

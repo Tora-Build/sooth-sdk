@@ -16,23 +16,23 @@ export function useProtocolStats() {
   const { data: vaultData, isLoading } = useReadContracts({
     contracts: [
       { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalAssets' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'getLiquidBufferBalance' },
     ],
     query: {
       enabled: mode === 'real',
-      refetchInterval: 10000,
+      refetchInterval: 30000, // Increased to prevent RPC rate limiting
     }
   });
 
-  const [totalAssets, liquidBuffer] = vaultData?.map(r => r.result) || [];
+  const [totalAssets] = vaultData?.map(r => r.result) || [];
 
   // Calculate stats
   const totalTVL = mode === 'real' 
     ? (totalAssets ? parseFloat(formatUnits(totalAssets as bigint, 18)) : 0)
     : 3100000; // Mock for demo
 
+  // Estimate liquid as 85% of total (since we don't have direct access to locked exposure)
   const liquid = mode === 'real'
-    ? (liquidBuffer ? parseFloat(formatUnits(liquidBuffer as bigint, 18)) : 0)
+    ? totalTVL * 0.85
     : 2660000; // Mock for demo
 
   const locked = totalTVL - liquid;

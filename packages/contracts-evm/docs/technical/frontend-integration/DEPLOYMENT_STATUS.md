@@ -1,16 +1,22 @@
-# ✅ Deployment Status
+# ✅ Deployment- **Status**: ✅ Active & Synced
 
-**Last Updated:** 2025-12-04
-**Network:** Base Sepolia (Chain ID: 84532)
+- **Last Sync**: 2025-12-06
+- **Issues**: None (Orderbook & Market addresses verified)
+
+### Resolved Issues
+
+1. **Invalid Market Error**: Caused by stale address in `markets.json`. Fixed by automated sync script.
+2. **Deposit Revert**: Caused by missing balance check. Fixed by adding pre-flight check in `useTraderVault.ts`.
+3. **Limit Order Balance Error**: Caused by undefined `TraderVaultV3` key. Fixed by using `SoothTraderVault`.a (Chain ID: 84532)
 
 ## ✅ Active Deployment (v3)
 
 | Contract          | Address                                      |
 | ----------------- | -------------------------------------------- |
-| **TraderVaultV3** | `0x8B8c1F0711e5A78F1Fe7ba174eB47eb58880293b` |
-| **MarketV3**      | `0x222948d53B75ED5ef06844ABc8B01dEe557E4945` |
-| **GovernorVault** | `0x83AFf2901f29821f8Ef4f216256D9f8A6fAFaAb2` |
-| **FeeController** | `0x289a936E0947a2bA07D8a3A06116455ddf2c77Ad` |
+| **TraderVaultV3** | `0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e` |
+| **MarketV3**      | `0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf` |
+| **GovernorVault** | `0x296682686358E6bAf572118bfCAA6027C349F3d3` |
+| **FeeController** | `0x512076933a55acF5375A54A54b2DDBb996b05E97` |
 
 > [!NOTE]
 > See [V3_MIGRATION_GUIDE.md](./V3_MIGRATION_GUIDE.md) for integration details.
@@ -41,18 +47,18 @@ The **v2.0 architecture** with new fee mechanism has been deployed to both netwo
 
 ### Base Sepolia (84532)
 
-```json
 {
-  "MockERC20": "0x0c5677c9f1dDd7927d305da6833BDab24800755F",
-  "SoothTraderVault": "0x4BadC7fa7aBC5B25808D7763D08FB8b2D9BFa773",
-  "SoothGovernorVault": "0x05a444c96d0D56B59C9ca0d1D3dC2ffF877624b6",
-  "SoothFeeController": "0xB24327114210Ab30C1C9972186709798762d59Ad",
-  "SoothLMSRReal": "0x1d356E4147e1DDB02a0e0DeDA5B99F9F789c20a2",
-  "SoothAdjudicatorRegistry": "0xe62b547afAA2d34370024DC3536268B08D4825A9",
-  "SoothSettlement": "0x1D5DB91bDC9F81a8a48513c3401c1db1fbF844AF",
-  "SoothMarketFactory": "0x370bF1fB1fBcfb47fC5d02fFB85E4aEB0D92cE90"
+"MockERC20": "0x703A2bFa154d5Cf2608CcC63d8F61E53Af5C3607",
+"SoothTraderVault": "0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e",
+"SoothGovernorVault": "0x296682686358E6bAf572118bfCAA6027C349F3d3",
+"SoothFeeController": "0x512076933a55acF5375A54A54b2DDBb996b05E97",
+"SoothLMSRReal": "0x2fe47234662aE57E714d183c41f2Bd73DE91892F",
+"SoothMarketFactory": "Deprecated",
+"SoothSettlement": "In Progress",
+"SoothAdjudicatorRegistry": "In Progress"
 }
-```
+
+````
 
 ### Monad Testnet (10143)
 
@@ -67,7 +73,7 @@ The **v2.0 architecture** with new fee mechanism has been deployed to both netwo
   "SoothSettlement": "0x65b72e4d5138AeEdF55459B8f7527505217dcEBc",
   "SoothMarketFactory": "0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7"
 }
-```
+````
 
 ---
 

@@ -19,8 +19,8 @@ export function useTraderVault() {
   const publicClient = usePublicClient();
   const deployments = useDeployments();
   
-  const traderVaultAddress = deployments.TraderVaultV3 as `0x${string}`;
-  const tokenAddress = deployments.MockERC20 as `0x${string}`;
+  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
+  const tokenAddress = deployments.MockUSDC as `0x${string}`;
 
   // Read user balances and vault data
   const { data, refetch } = useReadContracts({
@@ -30,14 +30,16 @@ export function useTraderVault() {
       { address: traderVaultAddress, abi: TRADER_VAULT_V3_ABI, functionName: 'totalBalance', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress] },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals' },
     ],
     query: { 
       enabled: mode === 'real' && !!address,
-      refetchInterval: 5000 
+      refetchInterval: 30000 // Increased to 30s to prevent MegaETH RPC rate limiting
     }
   });
 
-  const [availableBalance, pendingBalance, totalBalance, userUsdcBalance, allowance] = data?.map(r => r.result) || [];
+  const [availableBalance, pendingBalance, totalBalance, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
+  const decimals = Number(rawDecimals || 18);
 
   // Demo mode data
   const demoAvailableBalance = 500n * 10n**18n;
@@ -71,17 +73,29 @@ export function useTraderVault() {
         return;
       }
 
-      const amountBig = parseUnits(amount, 18);
+      const amountBig = parseUnits(amount, decimals);
       
       if (!publicClient) throw new Error('Public Client not initialized');
       
-      // Check current allowance
-      const allowanceVal = await publicClient.readContract({
-        address: tokenAddress,
-        abi: ERC20_ABI,
-        functionName: 'allowance',
-        args: [address || '0x0', traderVaultAddress]
-      }) as bigint;
+      // Check current allowance and balance
+      const [allowanceVal, balanceVal] = await Promise.all([
+        publicClient.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [address || '0x0', traderVaultAddress]
+        }),
+        publicClient.readContract({
+          address: tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address || '0x0']
+        })
+      ]) as [bigint, bigint];
+
+      if (balanceVal < amountBig) {
+        throw new Error(`Insufficient USDC balance. Found ${formatUnits(balanceVal, decimals)} USDC, needed ${amount}.`);
+      }
 
       console.log('Deposit Debug:', { 
         amount: amountBig.toString(), 
@@ -168,7 +182,9 @@ export function useTraderVault() {
 
       if (!publicClient) throw new Error('Public Client not initialized');
 
-      const amountBig = parseUnits(amount, 18);
+      if (!publicClient) throw new Error('Public Client not initialized');
+  
+      const amountBig = parseUnits(amount, decimals);
       
       const hash = await writeContractAsync({
         address: traderVaultAddress,
@@ -295,11 +311,195 @@ export function useTraderVault() {
     }
   };
 
+  /**
+   * Place a limit order (V3 Unified Orderbook)
+   * @param marketAddress - Market contract address
+   * @param outcome - 0 = YES, 1 = NO
+   * @param price - Price per share (e.g., "0.60" for 60 cents)
+   * @param amount - Number of shares (e.g., "100")
+   */
+  const placeOrder = async (marketAddress: string, outcome: number, price: string, amount: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') {
+        await new Promise(r => setTimeout(r, 1000));
+        toast.success(`Demo: Placed ${outcome === 0 ? 'YES' : 'NO'} order @ ${price}`);
+        useActivityStore.getState().addActivity({
+          type: 'trade',
+          market: marketAddress,
+          description: `Placed limit order: ${amount} ${outcome === 0 ? 'YES' : 'NO'} @ ${price}`,
+          mode: 'demo',
+          timestamp: Date.now()
+        });
+        return 0n; // Demo order ID
+      }
+
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const priceWad = parseUnits(price, 18);
+      const amountWad = parseUnits(amount, 18);
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V3_ABI,
+        functionName: 'placeOrder',
+        args: [marketAddress as `0x${string}`, outcome, priceWad, amountWad],
+      });
+
+      const toastId = toast.loading('Placing order...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status === 'success') {
+        toast.success('Order placed!', { id: toastId });
+        useActivityStore.getState().addActivity({
+          type: 'trade',
+          market: marketAddress,
+          description: `Placed limit order: ${amount} ${outcome === 0 ? 'YES' : 'NO'} @ ${price}`,
+          hash,
+          mode,
+          timestamp: Date.now(),
+          chainId: publicClient.chain?.id
+        });
+        refetch();
+        // TODO: Extract orderId from event logs
+        return 0n;
+      } else {
+        throw new Error('Order transaction reverted');
+      }
+    } catch (err: any) {
+      console.error('Place order error:', err);
+      toast.error(err.message?.split('\n')[0] || 'Order failed');
+      throw err;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  /**
+   * Cancel an existing order
+   * @param marketAddress - Market contract address
+   * @param orderId - Order ID to cancel
+   */
+  const cancelOrder = async (marketAddress: string, orderId: bigint) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') {
+        await new Promise(r => setTimeout(r, 1000));
+        toast.success('Demo: Order cancelled');
+        return;
+      }
+
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V3_ABI,
+        functionName: 'cancelOrder',
+        args: [marketAddress as `0x${string}`, orderId],
+      });
+
+      const toastId = toast.loading('Cancelling order...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status === 'success') {
+        toast.success('Order cancelled!', { id: toastId });
+        useActivityStore.getState().addActivity({
+          type: 'trade',
+          market: marketAddress,
+          description: `Cancelled order #${orderId}`,
+          hash,
+          mode,
+          timestamp: Date.now(),
+          chainId: publicClient.chain?.id
+        });
+        refetch();
+      } else {
+        throw new Error('Cancel transaction reverted');
+      }
+    } catch (err: any) {
+      console.error('Cancel order error:', err);
+      toast.error(err.message?.split('\n')[0] || 'Cancel failed');
+      throw err;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  /**
+   * Execute AMM trade (market order with slippage protection)
+   * @param marketAddress - Market contract address
+   * @param outcome - 0 = YES, 1 = NO
+   * @param deltaShares - Positive = buy, negative = sell (e.g., "100" or "-50")
+   * @param maxCost - Max USDC to spend (buy) or min to receive (sell)
+   */
+  const tradeAMM = async (marketAddress: string, outcome: number, deltaShares: string, maxCost: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') {
+        await new Promise(r => setTimeout(r, 1000));
+        const action = parseFloat(deltaShares) > 0 ? 'Bought' : 'Sold';
+        toast.success(`Demo: ${action} ${Math.abs(parseFloat(deltaShares))} ${outcome === 0 ? 'YES' : 'NO'} shares`);
+        useActivityStore.getState().addActivity({
+          type: 'trade',
+          market: marketAddress,
+          description: `${action} ${Math.abs(parseFloat(deltaShares))} ${outcome === 0 ? 'YES' : 'NO'} shares`,
+          mode: 'demo',
+          timestamp: Date.now()
+        });
+        return;
+      }
+
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const deltaWad = parseUnits(deltaShares, 18);
+      const maxCostWad = parseUnits(maxCost, 18);
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V3_ABI,
+        functionName: 'tradeAMM',
+        args: [marketAddress as `0x${string}`, outcome, deltaWad, maxCostWad],
+      });
+
+      const toastId = toast.loading('Executing trade...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status === 'success') {
+        const action = parseFloat(deltaShares) > 0 ? 'Bought' : 'Sold';
+        toast.success(`${action} shares!`, { id: toastId });
+        useActivityStore.getState().addActivity({
+          type: 'trade',
+          market: marketAddress,
+          description: `${action} ${Math.abs(parseFloat(deltaShares))} ${outcome === 0 ? 'YES' : 'NO'} shares`,
+          hash,
+          mode,
+          timestamp: Date.now(),
+          chainId: publicClient.chain?.id
+        });
+        refetch();
+      } else {
+        throw new Error('Trade transaction reverted');
+      }
+    } catch (err: any) {
+      console.error('Trade error:', err);
+      toast.error(err.message?.split('\n')[0] || 'Trade failed');
+      throw err;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   return {
+    // Account management
     deposit,
     withdraw,
     claimUnlocked,
     redeem,
+    // Trading (V3)
+    placeOrder,
+    cancelOrder,
+    tradeAMM,
+    // State
     availableBalance: currentAvailableBalance,
     pendingBalance: currentPendingBalance,
     totalBalance: currentTotalBalance,
@@ -307,5 +507,7 @@ export function useTraderVault() {
     isPending,
     isLoading: mode === 'real' && !data,
     refetch,
+    decimals,
   };
 }
+

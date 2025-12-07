@@ -17,15 +17,16 @@ export const TradingVaultManager: React.FC = () => {
     availableBalance, 
     pendingBalance,
     userUsdcBalance,
-    isPending 
+    isPending,
+    decimals
   } = useTraderVault();
 
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
-  const available = parseFloat(formatUnits(availableBalance, 18));
-  const pending = parseFloat(formatUnits(pendingBalance, 18));
-  const walletBalance = parseFloat(formatUnits(userUsdcBalance, 18));
+  const available = parseFloat(formatUnits(availableBalance, decimals));
+  const pending = parseFloat(formatUnits(pendingBalance, decimals));
+  const walletBalance = parseFloat(formatUnits(userUsdcBalance, decimals));
 
   const handleDeposit = async () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) return;
@@ -41,9 +42,7 @@ export const TradingVaultManager: React.FC = () => {
 
   return (
     <Card className="border-slate-800/60 bg-slate-900/40">
-      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">
-        Trading Account
-      </h3>
+      <h3 className="font-heading font-medium text-slate-300 mb-4">Trading Account</h3>
 
       {/* Balance Display */}
       <div className="space-y-3 mb-6">

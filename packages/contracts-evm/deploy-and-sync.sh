@@ -1,17 +1,28 @@
 #!/bin/bash
 set -e
 
+# Save original RPC_URL
+ORIG_RPC_URL=$RPC_URL
+
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
 fi
 
+# Restore override if it was set
+if [ ! -z "$ORIG_RPC_URL" ]; then
+    RPC_URL=$ORIG_RPC_URL
+fi
+
+# Force correct frontend path for this workspace
+FRONTEND_PATH="../../apps/web"
+
 echo "🚀 Deploying Sooth contracts and syncing to frontend..."
 
 # Check if FRONTEND_PATH is set
 if [ -z "$FRONTEND_PATH" ]; then
-    echo "⚠️  FRONTEND_PATH not set. Using default: ../sooth-dapp"
-    FRONTEND_PATH="../sooth-dapp"
+    echo "⚠️  FRONTEND_PATH not set. Using default: ../../apps/web"
+    FRONTEND_PATH="../../apps/web"
 fi
 
 # Check if PRIVATE_KEY is set
@@ -43,25 +54,16 @@ fi
 
 echo "✅ Deployment complete!"
 
-# Create frontend config directories if they don't exist
+# Sync with Node script
 echo ""
 echo "📦 Syncing artifacts to frontend..."
-mkdir -p "$FRONTEND_PATH/src/config/abis"
 
-# Copy deployments.json
-cp deployments.json "$FRONTEND_PATH/src/config/deployments.json"
-echo "✅ Copied deployments.json"
-
-# Copy ABIs
-echo "📄 Copying ABIs..."
-cp out/SoothTraderVault.sol/SoothTraderVault.json "$FRONTEND_PATH/src/config/abis/"
-cp out/SoothGovernorVault.sol/SoothGovernorVault.json "$FRONTEND_PATH/src/config/abis/"
-cp out/SoothMarket.sol/SoothMarket.json "$FRONTEND_PATH/src/config/abis/"
-cp out/SoothFeeController.sol/SoothFeeController.json "$FRONTEND_PATH/src/config/abis/"
-cp out/SoothLMSRReal.sol/SoothLMSRReal.json "$FRONTEND_PATH/src/config/abis/"
-cp out/Deploy.s.sol/MockUSDC.json "$FRONTEND_PATH/src/config/abis/" || echo "⚠️  MockUSDC not found"
-
-echo "✅ All ABIs copied!"
+if command -v node &> /dev/null; then
+    node scripts/sync-deployments.js
+else
+    echo "❌ Node.js not found. Please install Node.js to sync deployments."
+    exit 1
+fi
 
 echo ""
 echo "🎉 Deployment and sync complete!"

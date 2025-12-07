@@ -65,7 +65,7 @@ export const ChainSelector: React.FC = () => {
             : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/80"
         )}
       >
-        <span>{displayChain.shortName}</span>
+        <span>{displayChain.displayName}</span>
         <ChevronDown size={14} className={cn("transition-transform", isOpen && "rotate-180")} />
       </button>
 
@@ -114,7 +114,7 @@ export const ChainSelector: React.FC = () => {
                 return (
                   <button
                     key={chain.id}
-                    onClick={() => handleChainSwitch(chain.id)}
+                    onClick={() => handleChainSwitch(typeof chain.id === 'number' ? chain.id : DEFAULT_CHAIN_ID)}
                     disabled={isSelected}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",

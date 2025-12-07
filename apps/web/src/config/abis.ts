@@ -10,12 +10,17 @@ export const SOOTH_MARKET_ABI = parseAbi([
   "function b() view returns (uint256)",
   "function feeLMSR() view returns (uint256)",
   "function governor() view returns (address)",
-  "function bestOrder(uint256 outcome) view returns (uint256)",
-  "function orders(uint256) view returns (uint256 id, address maker, uint8 outcome, uint256 price, uint256 amount, uint256 timestamp)",
+  // V3 Unified Orderbook
+  "function bestAsk() view returns (uint256)",
+  "function bestBid() view returns (uint256)",
+  "function bestOrder(uint256 outcome) view returns (uint256)", // Compatibility shim
+  "function orders(uint256) view returns (uint256 id, address maker, uint256 yesPrice, uint256 amount, uint256 timestamp, bool isBuySide)",
   "function nextOrder(uint256) view returns (uint256)",
-  "event OrderPlaced(uint256 indexed orderId, address indexed maker, uint8 outcome, uint256 price, uint256 amount)",
+  // Events
+  "event OrderCreated(uint256 indexed orderId, address indexed maker, uint8 outcome, uint256 price, uint256 amount)",
+  "event OrderMatched(uint256 indexed buyOrderId, uint256 indexed sellOrderId, uint256 amount, uint256 yesPrice)",
   "event OrderCancelled(uint256 indexed orderId)",
-  "event OrderMatched(uint256 indexed orderId, uint256 amount)",
+  "event BBaseIncrease(uint256 amount, uint256 newBBase)",
 ]);
 
 // V3: TraderVaultV3 for user fund management
@@ -62,16 +67,20 @@ export const SOOTH_GOVERNOR_VAULT_ABI = parseAbi([
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
-  "function getTreasuryBalance() view returns (uint256)",
-  "function getLiquidBufferBalance() view returns (uint256)",
-  "function lockedExposure(uint256) view returns (uint256)",
+  "function totalLockedExposure() view returns (uint256)",
+  "function lockedExposure(uint256 marketId) view returns (uint256)",
+  "function marketReserves(uint256 marketId) view returns (int256)",
   "function depositFor(address lp, uint256 assets) returns (uint256)",
   "function withdrawFor(address lp, uint256 assets, address receiver) returns (uint256)",
   "function getMarketReserve(uint256 marketId) view returns (int256)",
-  "function maxDeposit(address) view returns (uint256)",
-  "event Deposit(address indexed lp, uint256 assets)",
-  "event Withdraw(address indexed lp, uint256 assets, address indexed receiver)",
+  "function defaultBBase() view returns (uint256)",
+  "function defaultFeeBps() view returns (uint256)",
+  "function reserveFactorBps() view returns (uint256)",
+  "function setVaultConfig(uint256 bBase, uint256 feeBps, uint256 reserveFactorBps)",
+  "event Deposit(address indexed lp, uint256 assets, uint256 shares)",
+  "event Withdraw(address indexed lp, uint256 assets, uint256 shares, address indexed receiver)",
   "event MarketFlow(uint256 indexed marketId, int256 amount, int256 newReserve)",
+  "event VaultConfigSet(uint256 bBase, uint256 feeBps, uint256 reserveFactorBps)",
 ]);
 
 // DEPRECATED: Keep for backward compatibility

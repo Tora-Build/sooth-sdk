@@ -19,9 +19,12 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onAbout }) => {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 sm:mb-8 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-slate-800 backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Base Sepolia Live</span>
+            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Based Live</span>
           </div>
-          {/* Monad Testnet badge temporarily hidden - v3 not deployed */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-slate-800 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Speed Live</span>
+          </div>
         </div>
 
         {/* Hero Title */}

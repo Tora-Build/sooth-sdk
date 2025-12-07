@@ -7,8 +7,10 @@ import { SOOTH_MARKET_ABI } from '../../../config/abis';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
+import { useContent } from '../../../hooks/useContent';
 
 const GuardianRow: React.FC<{ market: any }> = ({ market }) => {
+  const { t } = useContent();
   const { pauseMarket, unpauseMarket, forceSettle, isPending } = useGuardian(market.id);
 
   return (
@@ -23,24 +25,25 @@ const GuardianRow: React.FC<{ market: any }> = ({ market }) => {
           market.status === 'settled' ? 'default' :
           market.status === 'paused' ? 'danger' : 'warning'
         }>
-          {market.status}
+          {t(`trading.${market.status}` as any) || market.status}
         </Badge>
       </td>
       <td className="py-4 px-4 flex gap-2">
         {market.status === 'paused' ? (
-          <Button size="sm" variant="success" onClick={unpauseMarket} disabled={isPending}>Unpause</Button>
+          <Button size="sm" variant="success" onClick={unpauseMarket} disabled={isPending}>{t('operator.resume')}</Button>
         ) : (
-          <Button size="sm" variant="danger" onClick={pauseMarket} disabled={isPending}>Pause</Button>
+          <Button size="sm" variant="danger" onClick={pauseMarket} disabled={isPending}>{t('operator.emergencyPause')}</Button>
         )}
         <div className="h-8 w-px bg-slate-800 mx-2" />
-        <Button size="sm" variant="danger" className="opacity-75 hover:opacity-100" onClick={() => forceSettle('YES')} disabled={isPending}>Force YES</Button>
-        <Button size="sm" variant="danger" className="opacity-75 hover:opacity-100" onClick={() => forceSettle('NO')} disabled={isPending}>Force NO</Button>
+        <Button size="sm" variant="danger" className="opacity-75 hover:opacity-100" onClick={() => forceSettle('YES')} disabled={isPending}>{t('operator.settleMarket')} (YES)</Button>
+        <Button size="sm" variant="danger" className="opacity-75 hover:opacity-100" onClick={() => forceSettle('NO')} disabled={isPending}>{t('operator.settleMarket')} (NO)</Button>
       </td>
     </tr>
   );
 };
 
 export const GuardianConsole: React.FC = () => {
+  const { t } = useContent();
   const { markets, mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
   
@@ -101,8 +104,8 @@ export const GuardianConsole: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-heading font-bold text-white">Guardian Console</h2>
-          <p className="text-slate-400 text-sm">Emergency controls and market pausing.</p>
+          <h2 className="text-2xl font-heading font-bold text-white">{t('operator.guardian')}</h2>
+          <p className="text-slate-400 text-sm">{t('operator.description')}</p>
         </div>
       </div>
 
@@ -111,16 +114,16 @@ export const GuardianConsole: React.FC = () => {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-slate-500 border-b border-slate-800">
-                <th className="pb-3 px-4 font-medium">Market</th>
-                <th className="pb-3 px-4 font-medium">Status</th>
-                <th className="pb-3 px-4 font-medium">Emergency Controls</th>
+                <th className="pb-3 px-4 font-medium">{t('stats.markets')}</th>
+                <th className="pb-3 px-4 font-medium">{t('trading.marketStatus')}</th>
+                <th className="pb-3 px-4 font-medium">{t('operator.emergencyPause')}</th>
               </tr>
             </thead>
             <tbody>
               {marketsWithStatus.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="py-8 text-center text-slate-500">
-                    No markets found in {mode} mode.
+                    {t('trading.noMarkets')}
                   </td>
                 </tr>
               ) : (

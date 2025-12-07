@@ -162,8 +162,8 @@ export function useTradeQuote(
         const newPrice = outcomeIndex === 0 ? newPriceYes : newPriceNo;
         const priceImpact = Math.abs((newPrice - oldPrice) / oldPrice) * 100;
 
-        // Fee display uses the same 0.2%
-        const fee = Math.abs(expectedCost) * 0.002;
+        // Fee display uses 0.5% default (matches SoothGovernorVault)
+        const fee = Math.abs(expectedCost) * 0.005;
         const totalCost = expectedCost; // already includes fee in costWithFee
 
         let suggestedSlippageBps = 50;
@@ -242,8 +242,11 @@ export function computeClientQuote(market: any, outcomeIndex: 0 | 1, shareAmount
   const newPrice = outcomeIndex === 0 ? newPriceYes : newPriceNo;
   const priceImpact = Math.abs((newPrice - oldPrice) / oldPrice) * 100;
 
-  const fee = Math.abs(expectedCost) * 0.002;
-  const totalCost = expectedCost > 0 ? expectedCost + fee : expectedCost - fee;
+  // Fee is always positive (expense). Cost is signed (- = income, + = expense).
+  const fee = Math.abs(expectedCost) * 0.005;
+  // Buy: 100 + 0.5 = 100.5 (Pay more)
+  // Sell: -100 + 0.5 = -99.5 (Receive less, closer to 0)
+  const totalCost = expectedCost + fee;
 
   // Match trade.ts slippage math (no precision buffer)
   const BPS = 10000;

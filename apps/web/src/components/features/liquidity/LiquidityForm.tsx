@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { TabsRoot, TabsListImpl, TabsTriggerImpl } from '../../ui/Tabs';
 import { formatUnits } from 'viem';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const LiquidityForm: React.FC = () => {
   const { deposit, withdraw, lpBalance, userUsdcBalance, maxDeposit, sharePrice, isPending, isLoading } = useVault();
@@ -31,109 +32,105 @@ export const LiquidityForm: React.FC = () => {
 
   const isDepositPaused = activeTab === 'deposit' && maxDepositVal === 0;
 
-  const previewAmount = activeTab === 'deposit'
-    ? (parseFloat(amount || '0') / sharePrice).toFixed(4)
-    : (parseFloat(amount || '0') * sharePrice).toFixed(4);
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col overflow-hidden h-fit" variant="premium">
+      <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+        <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
+          Liquidity Provider
+        </h3>
+      </div>
+
       <TabsRoot 
         value={activeTab} 
         onValueChange={(val) => {
           setActiveTab(val);
-          setAmount(''); // Clear amount on tab switch
+          setAmount('');
         }} 
-        className="h-full flex flex-col"
+        className="flex flex-col p-4 space-y-4"
       >
-        <TabsListImpl className="w-full grid grid-cols-2 mb-6">
+        <TabsListImpl className="w-full grid grid-cols-2">
           <TabsTriggerImpl value="deposit">Deposit</TabsTriggerImpl>
           <TabsTriggerImpl value="withdraw">Withdraw</TabsTriggerImpl>
         </TabsListImpl>
 
-        <div className="flex-1 flex flex-col justify-center space-y-6">
-          <div className="text-center">
-            <div className="text-sm text-slate-400 mb-2">
-              {activeTab === 'deposit' ? 'Add liquidity to earn yield' : 'Remove liquidity from vault'}
-            </div>
-            <div className="text-4xl font-bold text-white font-mono">
-              {amount || '0.00'} <span className="text-lg text-slate-500">{activeTab === 'deposit' ? 'USDC' : 'LP'}</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-2">
-              Available: {isLoading ? '...' : maxAvailable.toFixed(4)} {activeTab === 'deposit' ? 'USDC' : 'LP'}
-              {activeTab === 'deposit' && maxDepositVal > 0 && (
-                <span className="block text-[10px] text-slate-600 mt-1">
-                  Vault Cap: {maxDepositVal > 1e12 ? '> 1,000,000,000,000' : maxDepositVal.toLocaleString()} USDC
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
+            className="space-y-4"
+          >
+            {/* Info Rows */}
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/50">
+                <span className="text-slate-500">Wallet Balance</span>
+                <span className="font-mono text-white font-medium">
+                  {isLoading ? '...' : formatCurrency(userBalanceVal)}
                 </span>
-              )}
-            </div>
-            <div className="mt-3 p-2 bg-slate-900/30 rounded-lg border border-slate-800/50">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Exchange Rate</div>
-              <div className="text-sm font-mono text-slate-300">
-                1 LP Token = {sharePrice.toFixed(4)} USDC
-              </div>
-            </div>
-          </div>
-
-          {isDepositPaused ? (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
-              <div className="text-amber-400 font-medium mb-1">Deposits Paused</div>
-              <p className="text-xs text-amber-500/80">
-                The vault is currently not accepting new deposits.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="text-center text-lg h-14 pr-16"
-                />
-                <button 
-                  onClick={() => setAmount(maxAvailable.toString())}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-slate-800 hover:bg-slate-700 text-indigo-400 px-2 py-1 rounded transition-colors"
-                >
-                  MAX
-                </button>
               </div>
               
-              <div className="grid grid-cols-4 gap-2">
-                {[25, 50, 75, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    onClick={() => setAmount((maxAvailable * pct / 100).toFixed(4))}
-                    className="py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                  >
-                    {pct}%
-                  </button>
-                ))}
+              <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/50">
+                <span className="text-slate-500">Available to Deposit</span>
+                <span className={`font-mono font-medium ${activeTab === 'deposit' ? 'text-emerald-400' : 'text-slate-300'}`}>
+                  {isLoading ? '...' : formatCurrency(maxAvailable)}
+                </span>
               </div>
-
-              {amount && parseFloat(amount) > 0 && (
-                <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-800 text-center">
-                  <div className="text-xs text-slate-500 mb-1">
-                    You will receive approximately
-                  </div>
-                  <div className="text-sm font-mono text-white">
-                    {previewAmount} {activeTab === 'deposit' ? 'LP Tokens' : 'USDC'}
-                  </div>
-                </div>
-              )}
             </div>
-          )}
 
-          <Button
-            onClick={handleAction}
-            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > maxAvailable || isPending || isDepositPaused}
-            isLoading={isPending}
-            className="w-full py-4 text-lg"
-            variant={activeTab === 'deposit' ? 'primary' : 'secondary'}
-          >
-            {activeTab === 'deposit' ? 'Deposit USDC' : 'Withdraw Liquidity'}
-          </Button>
-        </div>
+            {isDepositPaused ? (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
+                <div className="text-amber-400 text-xs font-medium">
+                  Deposits are currently paused
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-500 px-1">
+                  <span>Amount</span>
+                  <span>Max: {formatCurrency(maxAvailable)}</span>
+                </div>
+                
+                <div className="relative">
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="pr-16 text-right font-mono text-lg bg-slate-950/50 border-slate-800 focus:border-indigo-500/50 transition-colors"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500 pointer-events-none">
+                    {activeTab === 'deposit' ? 'USDC' : 'LP'}
+                  </div>
+                  <button 
+                    onClick={() => setAmount(maxAvailable.toString())}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors"
+                  >
+                    Max
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={handleAction}
+              disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > maxAvailable || isPending || isDepositPaused}
+              isLoading={isPending}
+              className={`w-full py-5 text-sm font-bold shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${
+                activeTab === 'deposit' 
+                  ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20' 
+                  : 'bg-slate-700 hover:bg-slate-600'
+              }`}
+            >
+              {activeTab === 'deposit' ? 'Confirm Deposit' : 'Confirm Withdraw'}
+            </Button>
+
+          </motion.div>
+        </AnimatePresence>
       </TabsRoot>
     </Card>
   );

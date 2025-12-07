@@ -22,15 +22,15 @@ export const ProtocolAddresses: React.FC = () => {
   
   // Fetch decimals
   const { data: decimals } = useReadContract({
-    address: deployments.MockERC20 as `0x${string}`,
+    address: deployments.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'decimals',
   });
 
   // Fetch USDC allowance for TraderVaultV3
-  const traderVaultAddress = deployments.TraderVaultV3;
+  const traderVaultAddress = deployments.SoothTraderVault;
   const { data: allowance } = useReadContract({
-    address: deployments.MockERC20 as `0x${string}`,
+    address: deployments.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [userAddress || '0x0', traderVaultAddress as `0x${string}`],
@@ -43,7 +43,7 @@ export const ProtocolAddresses: React.FC = () => {
 
   // Fetch USDC Balance
   const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: deployments.MockERC20 as `0x${string}`,
+    address: deployments.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [userAddress || '0x0'],
@@ -57,12 +57,13 @@ export const ProtocolAddresses: React.FC = () => {
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
   
   const addresses = [
-    { label: 'Trader Vault V3', address: deployments.TraderVaultV3 },
-    { label: 'Market V3', address: deployments.MarketV3 },
-    { label: 'Governor Vault', address: deployments.GovernorVault },
-    { label: 'Fee Controller', address: deployments.FeeController },
-    { label: 'AMM', address: deployments.AMM },
-    { label: 'USDC', address: deployments.MockERC20, canMint: true },
+
+    { label: 'Trader Vault', address: deployments.SoothTraderVault },
+    { label: 'Market', address: deployments.SoothMarket },
+    { label: 'Governor Vault', address: deployments.SoothGovernorVault },
+    { label: 'Fee Controller', address: deployments.SoothFeeController },
+    { label: 'AMM', address: deployments.SoothLMSRReal },
+    { label: 'USDC', address: deployments.MockUSDC, canMint: true },
   ].filter(item => item.address); // Filter out undefined addresses
 
   const copyToClipboard = (text: string) => {
@@ -82,7 +83,7 @@ export const ProtocolAddresses: React.FC = () => {
       const mintAmount = parseUnits('100000', Number(tokenDecimals));
       
       const hash = await writeContractAsync({
-        address: deployments.MockERC20 as `0x${string}`,
+        address: deployments.MockUSDC as `0x${string}`,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [userAddress, mintAmount],

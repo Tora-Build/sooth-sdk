@@ -9,3 +9,6 @@ via_ir = true
 
 # Exclude archived contracts and scripts from compilation
 ignored_paths = ["contracts/archive/**", "script/archive/**"]
+
+[rpc_endpoints]
+megaethTestnet = "https://timothy.megaeth.com/rpc"

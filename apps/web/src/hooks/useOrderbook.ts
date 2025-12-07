@@ -1,26 +1,36 @@
-import { useReadContract, usePublicClient } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { SOOTH_MARKET_ABI } from '../config/abis';
-import { useDeployments } from './useDeployments';
 import { useMarket } from './useMarket';
 import { useState, useEffect, useCallback } from 'react';
 import { formatUnits } from 'viem';
 
+/**
+ * V3 Unified Orderbook Order
+ * All orders are stored normalized to YES price internally.
+ * isBuySide = true means the maker wants YES tokens.
+ * isBuySide = false means the maker wants NO tokens (i.e., they're "selling" YES).
+ */
 export interface Order {
   id: string;
   maker: string;
-  outcome: number; // 0 = YES, 1 = NO
-  price: string;
+  yesPrice: string;        // Normalized YES price (0-1)
+  displayPrice: string;    // Price shown to user based on viewing side
   amount: string;
   timestamp: number;
-  type: 'ask'; // Currently only asks (sell orders) are supported directly
+  isBuySide: boolean;      // true = wants YES, false = wants NO
+  side: 'bid' | 'ask';     // bid = wants to buy YES, ask = wants to sell YES
+}
+
+export interface OrderbookState {
+  bids: Order[];  // Buy YES orders (sorted by yesPrice DESC)
+  asks: Order[];  // Sell YES orders (sorted by yesPrice ASC)
 }
 
 export function useOrderbook(marketId: string) {
   const { market } = useMarket(marketId);
-  const deployments = useDeployments();
   const publicClient = usePublicClient();
   
-  const [orders, setOrders] = useState<{ yes: Order[], no: Order[] }>({ yes: [], no: [] });
+  const [orderbook, setOrderbook] = useState<OrderbookState>({ bids: [], asks: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number>(0);
   const [isSupported, setIsSupported] = useState<boolean>(true);
@@ -32,47 +42,52 @@ export function useOrderbook(marketId: string) {
 
     if (!isBackground) setIsLoading(true);
     try {
-      const fetchSide = async (outcome: 0 | 1) => {
+      /**
+       * V3 Unified Orderbook:
+       * - bestAsk = lowest yesPrice (best for YES buyers)
+       * - bestBid = highest yesPrice (best for NO buyers / YES sellers)
+       * 
+       * Asks: isBuySide = false (makers want NO, so they're "selling" YES)
+       * Bids: isBuySide = true (makers want YES)
+       */
+      
+      const fetchSide = async (startFn: 'bestAsk' | 'bestBid', side: 'ask' | 'bid') => {
         const sideOrders: Order[] = [];
-        console.log(`[Orderbook] Fetching bestOrder for outcome ${outcome} at ${contractAddress}`);
         
         let currentId = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
           abi: SOOTH_MARKET_ABI,
-          functionName: 'bestOrder',
-          args: [BigInt(outcome)]
+          functionName: startFn,
         });
 
-        console.log(`[Orderbook] Best order ID for outcome ${outcome}:`, currentId);
-
         let depth = 0;
-        const MAX_DEPTH = 10;
+        const MAX_DEPTH = 20;
 
-        // Safety break: Check if currentId is 0 or if we've hit max depth
         while (currentId && currentId !== 0n && depth < MAX_DEPTH) {
-          console.log(`[Orderbook] Fetching order ${currentId} (depth ${depth})`);
-          
           const orderData = await publicClient.readContract({
             address: contractAddress as `0x${string}`,
             abi: SOOTH_MARKET_ABI,
             functionName: 'orders',
             args: [currentId]
-          });
+          }) as [bigint, string, bigint, bigint, bigint, boolean];
 
-          // orderData: [id, maker, outcome, price, amount, timestamp]
           if (orderData) {
-            const amount = orderData[4] as bigint;
+            // OrderV3: [id, maker, yesPrice, amount, timestamp, isBuySide]
+            const [id, maker, yesPrice, amount, timestamp, isBuySide] = orderData;
+            
             // Only include orders with non-zero amount
             if (amount > 0n) {
-              console.log(`[Orderbook] Order ${currentId} data:`, orderData);
+              const yesPriceFormatted = formatUnits(yesPrice, 18);
+              
               sideOrders.push({
-                id: orderData[0].toString(),
-                maker: orderData[1],
-                outcome: orderData[2],
-                price: formatUnits(orderData[3], 18),
+                id: id.toString(),
+                maker,
+                yesPrice: yesPriceFormatted,
+                displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
                 amount: formatUnits(amount, 18),
-                timestamp: Number(orderData[5]),
-                type: 'ask'
+                timestamp: Number(timestamp),
+                isBuySide,
+                side,
               });
             }
           }
@@ -84,31 +99,34 @@ export function useOrderbook(marketId: string) {
             args: [currentId]
           });
 
-          console.log(`[Orderbook] Next order ID after ${currentId}:`, nextId);
-
-          // Prevent infinite loop if nextOrder returns same ID (shouldn't happen in correct contract, but safety first)
+          // Prevent infinite loop
           if (nextId === currentId) {
             console.warn(`[Orderbook] Infinite loop detected at ID ${currentId}`);
             break;
           }
           currentId = nextId;
-          
           depth++;
         }
         return sideOrders;
       };
 
-      const [yesOrders, noOrders] = await Promise.all([
-        fetchSide(0),
-        fetchSide(1)
+      const [asks, bids] = await Promise.all([
+        fetchSide('bestAsk', 'ask'),
+        fetchSide('bestBid', 'bid')
       ]);
 
-      setOrders({ yes: yesOrders, no: noOrders });
+      setOrderbook({ bids, asks });
       setLastUpdated(Date.now());
       setIsSupported(true);
     } catch (err: any) {
       console.error('Failed to fetch orderbook:', err);
-      // Check for revert error indicating function doesn't exist or failed
+      // Detailed error logging
+      console.log('--- Orderbook Fetch Error ---');
+      console.log('Contract:', contractAddress);
+      console.log('Error Message:', err.message);
+      console.log('Error Cause:', err.cause);
+      console.log('-----------------------------');
+
       if (err.message?.includes('reverted') || err.message?.includes('function selector')) {
         setIsSupported(false);
       }
@@ -122,17 +140,47 @@ export function useOrderbook(marketId: string) {
     fetchOrderbook(false);
   }, [fetchOrderbook]);
 
-  // Poll every 60 seconds
+  // Poll every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => fetchOrderbook(true), 60000);
+    const interval = setInterval(() => fetchOrderbook(true), 5000);
     return () => clearInterval(interval);
   }, [fetchOrderbook]);
 
+  /**
+   * Helper: Get orders for a specific outcome view
+   * - For YES view: bids are buy orders, asks are sell orders
+   * - For NO view: flip everything (bids become asks, prices inverted)
+   */
+  const getOrdersForOutcome = (outcome: 0 | 1) => {
+    if (outcome === 0) {
+      // YES view - direct mapping
+      return { bids: orderbook.bids, asks: orderbook.asks };
+    } else {
+      // NO view - flip sides and invert prices
+      return {
+        bids: orderbook.asks.map(o => ({
+          ...o,
+          displayPrice: (1 - parseFloat(o.yesPrice)).toFixed(4),
+          side: 'bid' as const,
+        })),
+        asks: orderbook.bids.map(o => ({
+          ...o,
+          displayPrice: (1 - parseFloat(o.yesPrice)).toFixed(4),
+          side: 'ask' as const,
+        })),
+      };
+    }
+  };
+
   return {
-    orders,
+    orderbook,
+    bids: orderbook.bids,
+    asks: orderbook.asks,
+    getOrdersForOutcome,
     isLoading,
     lastUpdated,
     isSupported,
     refetch: fetchOrderbook
   };
 }
+

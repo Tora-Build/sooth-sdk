@@ -1,14 +1,16 @@
 import React from 'react';
-import { useAccount, useReadContracts } from 'wagmi';
+import { useReadContracts } from 'wagmi';
 import { formatUnits } from 'viem';
 import { SOOTH_MARKET_ABI, SOOTH_RISK_MANAGER_ABI, SOOTH_VAULT_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import marketsConfig from '../../../config/markets.json';
 import { useMarketStore } from '../../../store/useMarketStore';
 import { Card } from '../../ui/Card';
+import { useContent } from '../../../hooks/useContent';
 import { Market } from '../../../types';
 
 export const SettlementSimulator: React.FC = () => {
+  const { t } = useContent();
   const { mode, markets: demoMarkets } = useMarketStore();
   const deployments = useDeployments();
   const riskManagerAddress = deployments.SoothRiskManager as `0x${string}`;
@@ -57,100 +59,17 @@ export const SettlementSimulator: React.FC = () => {
     }
   });
 
-  // 2. Calculation Logic
-  const calculateSimulation = (
-    qYes: number, 
-    qNo: number, 
-    b: number, 
-    isRealMarket: boolean = false,
-    initialProb: number = 0.5
-  ) => {
-    console.log('=== calculateSimulation ===', { qYes, qNo, b, isRealMarket, initialProb });
-    
-    // For Real markets, q starts at 0 (no initial offset)
-    // For Demo markets, q starts at b * ln(p)
-    let qInitYes = 0;
-    let qInitNo = 0;
-    
-    if (!isRealMarket) {
-      // Demo markets use LMSR initialization
-      qInitYes = b * Math.log(initialProb);
-      qInitNo = b * Math.log(1 - initialProb);
-      console.log('Demo init:', { qInitYes, qInitNo });
-    }
-
-    // Cost Function: C = b * ln(exp(qY/b) + exp(qN/b))
-    // Handle potential overflow for large q/b ratios
-    const expYesCurrent = Math.exp(qYes / b);
-    const expNoCurrent = Math.exp(qNo / b);
-    const costCurrent = b * Math.log(expYesCurrent + expNoCurrent);
-    
-    const expYesInit = Math.exp(qInitYes / b);
-    const expNoInit = Math.exp(qInitNo / b);
-    const costInitial = b * Math.log(expYesInit + expNoInit);
-    
-    console.log('Costs:', { costCurrent, costInitial, expYesCurrent, expNoCurrent, expYesInit, expNoInit });
-    
-    const collectedCapital = costCurrent - costInitial;
-
-    // User Shares (Outstanding)
-    // For Real: shares = q (since q starts at 0)
-    // For Demo: shares = q - q_init
-    const userSharesYes = Math.max(0, qYes - qInitYes);
-    const userSharesNo = Math.max(0, qNo - qInitNo);
-
-    console.log('Shares:', { userSharesYes, userSharesNo, collectedCapital });
-
-    // Scenarios
-    // YES Win: Users get 1 USDC per YES share. NO shares expire worthless.
-    // LP PnL = Collected - Payout(YES)
-    const payoutYesWin = userSharesYes;
-    const lpPnlYesWin = collectedCapital - payoutYesWin;
-
-    // NO Win: Users get 1 USDC per NO share.
-    // LP PnL = Collected - Payout(NO)
-    const payoutNoWin = userSharesNo;
-    const lpPnlNoWin = collectedCapital - payoutNoWin;
-
-    const result = {
-      collectedCapital,
-      userSharesYes,
-      userSharesNo,
-      payoutYesWin,
-      payoutNoWin,
-      lpPnlYesWin,
-      lpPnlNoWin
-    };
-    
-    console.log('Result:', result);
-    
-    return result;
-  };
-
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
 
   // 3. Render
   let activeMarkets: any[] = [];
 
-  console.log('SettlementSimulator render:', { 
-    mode, 
-    totalMarkets: demoMarkets.length,
-    demoMarkets: demoMarkets.map(m => ({ 
-      id: m.id, 
-      mode: (m as any).mode, 
-      status: m.status,
-      bParam: m.bParam?.toString()
-    }))
-  });
-
   if (mode === 'demo') {
     // demoMarkets is an array, filter for demo mode and trading status
     const demoModeMarkets = demoMarkets.filter((m): m is Market => 
       (m as any).mode === 'demo' && m.status === 'trading'
     );
-    
-    console.log('Filtered demo markets:', demoModeMarkets.length);
     
     activeMarkets = demoModeMarkets.map(m => {
       // For demo mode, use actual user shares from the market object
@@ -178,16 +97,6 @@ export const SettlementSimulator: React.FC = () => {
       
       const payoutNoWin = userSharesNo;
       const lpPnlNoWin = marketReserve - payoutNoWin;
-      
-      console.log('Demo Market Settlement:', {
-        name: m.question,
-        marketReserve,
-        priceYes,
-        userSharesYes,
-        userSharesNo,
-        lpPnlYesWin,
-        lpPnlNoWin
-      });
       
       return {
         id: m.id,
@@ -277,8 +186,8 @@ export const SettlementSimulator: React.FC = () => {
   return (
     <Card className="border-slate-800 bg-slate-900/50">
       <div className="p-6 border-b border-slate-800">
-        <h2 className="text-lg font-semibold text-white">Settlement Simulator</h2>
-        <p className="text-sm text-slate-400">Real-time PnL analysis for settlement scenarios</p>
+        <h2 className="text-lg font-semibold text-white">{t('simulator.title')}</h2>
+        <p className="text-sm text-slate-400">{t('simulator.description')}</p>
       </div>
       
       <div className="p-6">
@@ -286,22 +195,22 @@ export const SettlementSimulator: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-800">
-                <th className="py-3 px-4 font-medium uppercase tracking-wider">Market</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">Current YES %</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">Market Reserve</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">YES Shares</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">NO Shares</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-emerald-400">YES Win Payout</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-emerald-400">YES Win LP PnL</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-rose-400">NO Win Payout</th>
-                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-rose-400">NO Win LP PnL</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider">{t('stats.markets')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">{t('simulator.currentYes')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">{t('trading.marketReserves')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">{t('simulator.sharesYes')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right">{t('simulator.sharesNo')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-emerald-400">{t('simulator.payoutYes')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-emerald-400">{t('simulator.pnlYes')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-rose-400">{t('simulator.payoutNo')}</th>
+                <th className="py-3 px-4 font-medium uppercase tracking-wider text-right text-rose-400">{t('simulator.pnlNo')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {activeMarkets.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-500">
-                    {mode === 'real' && isLoading ? 'Loading market data...' : 'No active markets found'}
+                    {mode === 'real' && isLoading ? t('common.loading') : t('trading.noActiveMarkets')}
                   </td>
                 </tr>
               ) : (

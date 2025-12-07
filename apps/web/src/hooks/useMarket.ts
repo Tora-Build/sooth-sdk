@@ -22,7 +22,7 @@ export function useMarket(marketId: string) {
   const riskManagerAddress = deployments.SoothRiskManager as `0x${string}`;
 
   // 2. On-Chain Data Fetching (Only if Real Mode AND on correct chain)
-  const { data: onChainData, refetch } = useReadContracts({
+  const { data: onChainData, refetch, isLoading: isHookLoading, error: hookError } = useReadContracts({
     contracts: [
       { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'isLive' },
       { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'isSettled' },
@@ -33,7 +33,7 @@ export function useMarket(marketId: string) {
     ],
     query: {
       enabled: mode === 'real' && !!marketAddress && walletChainId === selectedChainId,
-      refetchInterval: 5000,
+      refetchInterval: 30000, // Increased to 30s to prevent MegaETH RPC rate limiting
     }
   });
 
@@ -88,7 +88,7 @@ export function useMarket(marketId: string) {
     if (!marketConfig) return undefined;
     return {
       ...marketConfig,
-      status: isSettled ? 'settled' : (isLive ? 'trading' : 'cooldown'), // Simplified status mapping
+      status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'), // Default to 'trading' while loading
       priceYes: prices?.[0].result ? parseFloat(formatUnits(prices[0].result as bigint, 18)) : 0.5,
       priceNo: prices?.[1].result ? parseFloat(formatUnits(prices[1].result as bigint, 18)) : 0.5,
       qYes,

@@ -17,28 +17,26 @@ export function useVault() {
   const deployments = useDeployments();
   // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
   const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
-  const tokenAddress = deployments.MockERC20 as `0x${string}`;
+  const tokenAddress = deployments.MockUSDC as `0x${string}`;
 
   // Read Data
   const { data, refetch } = useReadContracts({
     contracts: [
       { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalAssets' },
       { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalSupply' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'balanceOfLP', args: [address || '0x0'] },
+      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', vaultAddress] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'asset' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'maxDeposit', args: [address || '0x0'] },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'getTreasuryBalance' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'getLiquidBufferBalance' },
+      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalLockedExposure' },
     ],
     query: { 
       enabled: mode === 'real' && !!address,
-      refetchInterval: 5000 
+      refetchInterval: 30000 // Increased to prevent RPC rate limiting
     }
   });
 
-  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset, maxDeposit, treasuryBalance, bufferBalance] = data?.map(r => r.result) || [];
+  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset, totalLockedExposureResult] = data?.map(r => r.result) || [];
 
   if (vaultAsset && (vaultAsset as string).toLowerCase() !== tokenAddress.toLowerCase()) {
     console.error('CRITICAL: Vault asset mismatch!', {
@@ -116,20 +114,15 @@ export function useVault() {
       
       // Use Promise.all with individual readContract calls instead of multicall
       // This ensures compatibility with chains that don't support multicall3 (like Monad Testnet)
-      const [allowanceVal, maxDepositVal] = await Promise.all([
-        publicClient.readContract({
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'allowance',
-          args: [address || '0x0', vaultAddress]
-        }) as Promise<bigint>,
-        publicClient.readContract({
-          address: vaultAddress,
-          abi: SOOTH_VAULT_ABI,
-          functionName: 'maxDeposit',
-          args: [address || '0x0']
-        }) as Promise<bigint>
-      ]);
+      const allowanceVal = await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [address || '0x0', vaultAddress]
+      }) as bigint;
+
+      // Skip maxDeposit check as it reverts on current contract deployment
+      const maxDepositVal = FALLBACK_MAX_DEPOSIT;
 
       console.log('Deposit Debug:', { 
         amount: amountBig.toString(), 
@@ -168,8 +161,8 @@ export function useVault() {
       const hash = await writeContractAsync({
         address: vaultAddress,
         abi: SOOTH_VAULT_ABI,
-        functionName: 'deposit',
-        args: [amountBig, address || '0x0'],
+        functionName: 'depositFor',
+        args: [address || '0x0', amountBig],
       });
       
       const toastId = toast.loading('Deposit submitted...');
@@ -221,8 +214,8 @@ export function useVault() {
       const hash = await writeContractAsync({
         address: vaultAddress,
         abi: SOOTH_VAULT_ABI,
-        functionName: 'withdraw',
-        args: [amountBig, address || '0x0', address || '0x0'],
+        functionName: 'withdrawFor',
+        args: [address || '0x0', amountBig, address || '0x0'],
       });
 
       const toastId = toast.loading('Withdraw submitted...');
@@ -255,13 +248,14 @@ export function useVault() {
   // If maxDeposit fetch fails (undefined), default to max uint256 to allow attempts. 
   // Only block if explicitly 0n.
   const FALLBACK_MAX_DEPOSIT = 115792089237316195423570985008687907853269984665640564039457584007913129639935n;
-  const currentMaxDeposit = mode === 'demo' ? demoMaxDeposit : ((maxDeposit as bigint) ?? FALLBACK_MAX_DEPOSIT);
+  // No maxDeposit in contract, default to max
+  const currentMaxDeposit = mode === 'demo' ? demoMaxDeposit : FALLBACK_MAX_DEPOSIT;
 
   // Calculate Total Locked
   // Demo: Sum of b * 0.693 (calculated above as currentTotalLocked)
-  // Real: Total Assets - Buffer (assuming buffer is the idle liquidity)
-  const currentBuffer = mode === 'demo' ? 0n : (bufferBalance as bigint || 0n);
-  const totalLocked = mode === 'demo' ? currentTotalLocked : (currentTotalAssets - currentBuffer);
+  // Real: Use totalLockedExposure from contract
+  const contractLockedExposure = (totalLockedExposureResult as bigint) || 0n;
+  const totalLocked = mode === 'demo' ? currentTotalLocked : contractLockedExposure;
 
   return {
     deposit,
