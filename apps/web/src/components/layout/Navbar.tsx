@@ -13,25 +13,22 @@ export const Navbar: React.FC = () => {
 
   // Force mode based on connection status
   useEffect(() => {
-    // Prevent flashing during connection initialization
-    if (status === 'connecting' || status === 'reconnecting') return;
-
     if (isConnected) {
-      if (mode !== 'real') setMode('real');
+      setMode('real');
     } else {
-      if (mode !== 'demo') setMode('demo');
+      setMode('demo');
     }
-  }, [isConnected, status, mode, setMode]);
+  }, [isConnected, setMode]);
 
   // Format address for display
-  const displayAddress = address 
+  const displayAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : '';
 
   return (
     <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
       <div className="container mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
-        
+
         {/* Brand */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('dapp')}>
@@ -44,7 +41,7 @@ export const Navbar: React.FC = () => {
 
           {/* Nav Links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <button 
+            <button
               onClick={() => setView('dapp')}
               className={cn(
                 "transition-colors",
@@ -53,7 +50,7 @@ export const Navbar: React.FC = () => {
             >
               dApp
             </button>
-            <button 
+            <button
               onClick={() => setView('about')}
               className={cn(
                 "transition-colors",
@@ -67,15 +64,15 @@ export const Navbar: React.FC = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 sm:gap-4">
-          
+
           {/* Mode Toggle */}
           <div className="flex items-center bg-slate-900 rounded-full p-0.5 border border-slate-800">
             <button
               disabled
               className={cn(
                 "px-2 py-1 rounded-full text-[10px] font-medium transition-all cursor-default",
-                mode === 'real' 
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25" 
+                mode === 'real'
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
                   : "text-slate-700 opacity-50"
               )}
             >
@@ -85,8 +82,8 @@ export const Navbar: React.FC = () => {
               disabled
               className={cn(
                 "px-2 py-1 rounded-full text-[10px] font-medium transition-all cursor-default",
-                mode === 'demo' 
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/25" 
+                mode === 'demo'
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/25"
                   : "text-slate-700 opacity-50"
               )}
             >
@@ -99,14 +96,14 @@ export const Navbar: React.FC = () => {
 
           {/* Wallet Connect - AppKit */}
           {!isConnected ? (
-            <button 
+            <button
               onClick={() => open()}
               className="btn-primary text-xs sm:text-sm py-1.5 px-3 sm:py-2 sm:px-4 whitespace-nowrap"
             >
               Connect <span className="hidden sm:inline">Wallet</span>
             </button>
           ) : (
-            <button 
+            <button
               onClick={() => open({ view: 'Account' })}
               className="btn-secondary text-xs sm:text-sm py-1.5 px-2 sm:py-2 sm:px-4 flex items-center gap-2 whitespace-nowrap"
             >

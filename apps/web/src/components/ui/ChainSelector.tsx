@@ -19,7 +19,7 @@ export const ChainSelector: React.FC = () => {
 
   const handleChainSwitch = async (chainId: number) => {
     setIsOpen(false);
-    
+
     // Update selected chain in store
     setSelectedChain(chainId);
 
@@ -94,11 +94,11 @@ export const ChainSelector: React.FC = () => {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-[55]" 
+          <div
+            className="fixed inset-0 z-[55]"
             onClick={() => setIsOpen(false)}
           />
-          
+
           {/* Menu */}
           <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-[70] overflow-hidden">
             <div className="p-2 border-b border-slate-800">
@@ -107,10 +107,10 @@ export const ChainSelector: React.FC = () => {
               </p>
             </div>
             <div className="p-1">
-              {allowedChains.map((chain) => {
+              {allowedChains.filter(chain => chain.type === 'evm').map((chain) => {
                 const isSelected = chain.id === selectedChainId;
                 const isWalletChain = chain.id === walletChainId;
-                
+
                 return (
                   <button
                     key={chain.id}

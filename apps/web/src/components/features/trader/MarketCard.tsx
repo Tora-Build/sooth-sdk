@@ -29,10 +29,10 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const quote = useTradeQuote(
-    marketId, 
-    selectedOutcome, 
-    tradeMode === 'buy' 
-      ? (amount || '1') 
+    marketId,
+    selectedOutcome,
+    tradeMode === 'buy'
+      ? (amount || '1')
       : `-${amount || '1'}`,
     slippageBps
   );
@@ -62,7 +62,7 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
     }
   }
 
-  const formatCurrency = (val: number) => 
+  const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
   // Determine which prices to show based on whether user is trading
@@ -117,7 +117,7 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
       decrementIntervalRef.current = null;
     }
   };
-  
+
   // Risk level from market config (set by risk manager)
   const getRiskLevelDisplay = (level?: string): { label: string; color: string } => {
     switch (level?.toUpperCase()) {
@@ -158,12 +158,11 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             <Badge variant="outline" className="text-[10px]">
               {market.adjudicatorLabel}
             </Badge>
-            <Badge 
+            <Badge
               variant={market.status === 'trading' ? 'live' : 'outline'}
-              className={`text-[10px] ${
-                market.status === 'settled' && market.winningOutcome === 'YES' ? 'border-emerald-500 text-emerald-400' :
-                market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
-              }`}
+              className={`text-[10px] ${market.status === 'settled' && market.winningOutcome === 'YES' ? 'border-emerald-500 text-emerald-400' :
+                  market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
+                }`}
             >
               {t(`trading.${market.status}` as any) || market.status}
               {market.status === 'settled' && market.winningOutcome && ` - ${market.winningOutcome}`}
@@ -202,37 +201,33 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setTradeMode('buy')}
-            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${
-              tradeMode === 'buy' 
-                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald' 
+            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${tradeMode === 'buy'
+                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
                 : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
-            }`}
+              }`}
           >{t('trading.buy')}</button>
           <button
             onClick={() => setTradeMode('sell')}
-            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${
-              tradeMode === 'sell' 
-                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose' 
+            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${tradeMode === 'sell'
+                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
                 : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
-            }`}
+              }`}
           >{t('trading.sell')}</button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setSelectedOutcome(0)}
-            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${
-              selectedOutcome === 0 
-                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald' 
+            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${selectedOutcome === 0
+                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
                 : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
-            }`}
+              }`}
           >{t('trading.yes')}</button>
           <button
             onClick={() => setSelectedOutcome(1)}
-            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${
-              selectedOutcome === 1 
-                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose' 
+            className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${selectedOutcome === 1
+                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
                 : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
-            }`}
+              }`}
           >{t('trading.no')}</button>
         </div>
       </div>
@@ -243,19 +238,17 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
           {/* Market Info Bar */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-slate-950/50 border border-slate-800">
             <div>
-              <div className="text-xs text-slate-500">{t('trading.marketPrice')}</div>
+              <div className="text-xs text-slate-500">{t('trading.yesPrice')}</div>
               <div className="text-lg font-bold text-white font-mono">
-                {(selectedOutcome === 0 
-                  ? (hasValidAmount ? quote.newPriceYes : market.priceYes) 
+                {(selectedOutcome === 0
+                  ? (hasValidAmount ? quote.newPriceYes : market.priceYes)
                   : (hasValidAmount ? quote.newPriceNo : market.priceNo)
-                ).toFixed(2)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
+                ).toFixed(2)} {t('common.usdc')}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-slate-500 flex items-center gap-1 cursor-help" title="Unified Liquidity: Combined depth from AMM and Limit Orders">
-                {t('trading.liquidity')} <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">{t('trading.unified')}</span> <Info size={10} />
-              </div>
-              <div className="text-sm font-mono text-slate-300">
+              <div className="text-xs text-slate-500">{t('trading.liquidity')}</div>
+              <div className="text-sm font-mono text-blue-400">
                 ${virtualLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
             </div>
@@ -264,17 +257,23 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
           {/* Probability Bar */}
           <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-slate-500">{t('trading.probabilityYes')}</span>
+              <span className="text-xs text-slate-500">{t('trading.yesProb')}</span>
               <div className="flex items-center gap-2 text-sm font-mono">
-                <span className="text-slate-400">{(market.priceYes * 100).toFixed(0)}%</span>
-                <span className="text-slate-600">→</span>
-                <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
+                {hasValidAmount ? (
+                  <>
+                    <span className="text-slate-400">{(market.priceYes * 100).toFixed(0)}%</span>
+                    <span className="text-slate-600">→</span>
+                    <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
+                  </>
+                ) : (
+                  <span className="text-white">{(market.priceYes * 100).toFixed(0)}%</span>
+                )}
               </div>
             </div>
             <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
-                style={{ width: `${quote.newPriceYes * 100}%` }}
+                style={{ width: `${(hasValidAmount ? quote.newPriceYes : market.priceYes) * 100}%` }}
               />
             </div>
           </div>
@@ -361,7 +360,7 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
               {(slippageBps / 100).toFixed(1)}%
             </button>
           </div>
-          
+
           {showSlippageSelector && (
             <div className="grid grid-cols-4 gap-2">
               {[10, 50, 100, 200].map(bps => (
@@ -371,11 +370,10 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
                     setSlippageBps(bps);
                     setShowSlippageSelector(false);
                   }}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
-                    slippageBps === bps
+                  className={`px-2 py-1 rounded text-xs transition-colors ${slippageBps === bps
                       ? 'bg-indigo-500 text-white'
                       : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  }`}
+                    }`}
                 >
                   {(bps / 100).toFixed(1)}%
                 </button>
@@ -383,30 +381,29 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             </div>
           )}
         </div>
-        
+
         <Button
           onClick={handleTrade}
           disabled={
-            isPending || 
-            market.status !== 'trading' || 
-            !amount || 
+            isPending ||
+            market.status !== 'trading' ||
+            !amount ||
             parseFloat(amount) <= 0 ||
             (tradeMode === 'sell' && !canSell) ||
             (tradeMode === 'sell' && parseFloat(amount) > maxSellAmount)
           }
-          className={`w-full ${
-            selectedOutcome === 0
+          className={`w-full ${selectedOutcome === 0
               ? 'bg-emerald-600 hover:bg-emerald-700'
               : 'bg-rose-600 hover:bg-rose-700'
-          }`}
+            }`}
         >
-          {isPending 
-              ? t('common.loading') 
-              : `${tradeMode === 'buy' ? t('trading.buy') : t('trading.sell')} ${selectedOutcome === 0 ? t('trading.yes') : t('trading.no')}`
+          {isPending
+            ? t('common.loading')
+            : `${tradeMode === 'buy' ? t('trading.buy') : t('trading.sell')} ${selectedOutcome === 0 ? t('trading.yes') : t('trading.no')}`
           }
         </Button>
       </div>
-      
+
       {/* Footer */}
       <div className="text-center text-[10px] text-slate-600 mt-2">
         ⚡ {t('trading.marketOrderNote')}
@@ -425,12 +422,12 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             {market?.question}
           </h3>
           <div className="flex items-center gap-2 text-xs text-slate-500">
-             <span>#{market?.id_numeric || market?.id}</span>
-             <span>•</span>
-             <span>{t('trading.liquidity')}: ${(Number(market?.bParam) / 1e18).toLocaleString()}</span>
+            <span>#{market?.id_numeric || market?.id}</span>
+            <span>•</span>
+            <span>{t('trading.liquidity')}: ${(Number(market?.bParam) / 1e18).toLocaleString()}</span>
           </div>
         </div>
-        
+
         <TradeForm marketId={marketId} />
       </Drawer>
     </Card>

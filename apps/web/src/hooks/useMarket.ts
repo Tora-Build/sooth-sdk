@@ -5,10 +5,14 @@ import { SOOTH_MARKET_ABI, SOOTH_BALANCED_AMM_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
-import { useMarketStore } from '../store/useMarketStore';
 import { useChainStore } from '../store/useChainStore';
+import { useMarketStore } from '../store/useMarketStore'; // Assuming this was implicitly needed for useMarketStore
 
 export function useMarket(marketId: string) {
+  return useEVMMarket(marketId);
+}
+
+function useEVMMarket(marketId: string) {
   const { address } = useAccount();
   const walletChainId = useChainId();
   const { mode, markets: demoMarkets } = useMarketStore();
@@ -39,26 +43,26 @@ export function useMarket(marketId: string) {
 
   // 3. Price Calculation (LMSR) - Dependent on AMM State
   const [isLive, isSettled, ammState, bParam, yesBal, noBal] = onChainData?.map(r => r.result) || [];
-  
+
   // Parse ammState tuple [qYes, qNo]  
   const parsedQYes = ammState ? (ammState as any)[0] : undefined;
   const parsedQNo = ammState ? (ammState as any)[1] : undefined;
 
 
-  
+
   const { data: prices } = useReadContracts({
     contracts: [
-      { 
-        address: ammAddress, 
-        abi: SOOTH_BALANCED_AMM_ABI, 
-        functionName: 'price', 
-        args: [ammState as any, 0, bParam as bigint] 
+      {
+        address: ammAddress,
+        abi: SOOTH_BALANCED_AMM_ABI,
+        functionName: 'price',
+        args: [ammState as any, 0, bParam as bigint]
       },
-      { 
-        address: ammAddress, 
-        abi: SOOTH_BALANCED_AMM_ABI, 
-        functionName: 'price', 
-        args: [ammState as any, 1, bParam as bigint] 
+      {
+        address: ammAddress,
+        abi: SOOTH_BALANCED_AMM_ABI,
+        functionName: 'price',
+        args: [ammState as any, 1, bParam as bigint]
       },
     ],
     query: {
@@ -72,7 +76,7 @@ export function useMarket(marketId: string) {
     return {
       market: demoMarket,
       isLoading: false,
-      refetch: () => {},
+      refetch: () => { },
     };
   }
 
@@ -86,17 +90,41 @@ export function useMarket(marketId: string) {
   // Real Mode Construction
   const market: Market | undefined = React.useMemo(() => {
     if (!marketConfig) return undefined;
+
+    // Calculate price from AMM state if API price is not available
+    let calculatedPriceYes = 0;
+    let calculatedPriceNo = 0;
+
+    if (prices?.[0].result && prices?.[1].result) {
+      // Use API prices if available
+      calculatedPriceYes = parseFloat(formatUnits(prices[0].result as bigint, 18));
+      calculatedPriceNo = parseFloat(formatUnits(prices[1].result as bigint, 18));
+    } else if (qYes !== undefined && qNo !== undefined && (bParam || configBParam)) {
+      // Fallback: Calculate from AMM state using LMSR formula
+      // price_yes = exp(qYes/b) / (exp(qYes/b) + exp(qNo/b))
+      const b = Number(formatUnits((bParam as bigint) || configBParam, 18));
+      const qY = Number(formatUnits(qYes, 18));
+      const qN = Number(formatUnits(qNo, 18));
+
+      if (b > 0) {
+        const expYes = Math.exp(qY / b);
+        const expNo = Math.exp(qN / b);
+        calculatedPriceYes = expYes / (expYes + expNo);
+        calculatedPriceNo = expNo / (expYes + expNo);
+      }
+    }
+
     return {
       ...marketConfig,
-      status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'), // Default to 'trading' while loading
-      priceYes: prices?.[0].result ? parseFloat(formatUnits(prices[0].result as bigint, 18)) : 0.5,
-      priceNo: prices?.[1].result ? parseFloat(formatUnits(prices[1].result as bigint, 18)) : 0.5,
+      status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
+      priceYes: calculatedPriceYes,
+      priceNo: calculatedPriceNo,
       qYes,
       qNo,
       bParam: (bParam as bigint) || configBParam || 0n,
       userYesShares: yesBal ? parseFloat(formatUnits(yesBal as bigint, 18)) : 0,
       userNoShares: noBal ? parseFloat(formatUnits(noBal as bigint, 18)) : 0,
-      userAvgEntryYes: null, // Not tracked on-chain easily
+      userAvgEntryYes: null,
       userAvgEntryNo: null,
       mode: 'real',
     } as Market;

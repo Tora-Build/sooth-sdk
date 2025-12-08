@@ -1,5 +1,5 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { baseSepolia } from '@reown/appkit/networks';
+import { type AppKitNetwork, baseSepolia } from '@reown/appkit/networks';
 import { http } from 'viem';
 import { megaethTestnet } from './chains';
 
@@ -10,12 +10,12 @@ export const projectId = '01ecc3f4925fa2e6a5f3f82b74487317';
 export const metadata = {
   name: 'Sooth Protocol',
   description: 'Prediction Markets',
-  url: 'http://localhost:5173',
+  url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
 // Networks for AppKit
-export const networks = [baseSepolia, megaethTestnet];
+export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [baseSepolia, megaethTestnet];
 
 // Create Wagmi Adapter with custom RPC to avoid WalletConnect CORS issues
 // WalletConnect RPC does NOT allow browser requests (no CORS headers)

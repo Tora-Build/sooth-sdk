@@ -25,6 +25,7 @@ export const DApp: React.FC<DAppProps> = () => {
       <main className="flex-1 container mx-auto max-w-7xl px-4 py-8">
         <GlobalStats />
 
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <PortfolioSummary />
           <TradingAccountCard />

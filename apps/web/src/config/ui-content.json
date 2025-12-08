@@ -55,6 +55,8 @@
     "noActiveMarkets": "No active markets found for this vault.",
     "yes": "YES",
     "no": "NO",
+    "yesPrice": "YES Price",
+    "yesProb": "YES Probability",
     "probabilityYes": "YES Probability",
     "slippage": "Slippage Tolerance",
     "marketOrderNote": "Market orders match immediately against AMM"

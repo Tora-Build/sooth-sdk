@@ -121,4 +121,3 @@ export function isSolanaChain(chain: AllowedChain): boolean {
 
 // Default chain (Base Sepolia)
 export const DEFAULT_CHAIN_ID = 84532;
-
