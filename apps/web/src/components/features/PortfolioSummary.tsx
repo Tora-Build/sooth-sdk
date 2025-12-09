@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Wallet, TrendingUp, ChevronDown, ChevronRight, ExternalLink, Copy, Coins } from 'lucide-react';
 import { useAccount, useReadContracts, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { ERC20_ABI, GOVERNOR_VAULT_V4_ABI, MARKET_V4_ABI, MOCK_ERC20_ABI } from '../../config/abis';
+import { ERC20_ABI, GOVERNOR_VAULT_V4_ABI, MARKET_V4_ABI, MOCK_ERC20_ABI, TRADER_VAULT_V4_ABI } from '../../config/abis';
 import { useDeployments } from '../../hooks/useDeployments';
 import { useTraderVault } from '../../hooks/useTraderVault';
 import { useVault } from '../../hooks/useVault';
@@ -31,14 +31,21 @@ export const PortfolioSummary: React.FC = () => {
   const [positionsExpanded, setPositionsExpanded] = useState(false);
   const [vaultExpanded, setVaultExpanded] = useState(false);
 
-  // Get Market Positions
+  // Get Market Positions - V4 uses TraderVault.ammPositions
   const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real');
+  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   const marketContracts = realMarkets.flatMap(m => [
-    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
-    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'noBalance', args: [address || '0x0'] },
-    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'currentTick', args: [] },
-    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'b', args: [] },
+    // Fetch ammPositions from TraderVault (use zero address as fallback if not connected)
+    {
+      address: traderVaultAddress,
+      abi: TRADER_VAULT_V4_ABI,
+      functionName: 'ammPositions',
+      args: [address || '0x0000000000000000000000000000000000000000', m.contractAddress as `0x${string}`]
+    },
+    // Fetch market data
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'currentTick' },
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'b' },
   ]);
 
   const { data: positionData } = useReadContracts({
@@ -67,22 +74,24 @@ export const PortfolioSummary: React.FC = () => {
   } else {
     if (positionData) {
       realMarkets.forEach((market, idx) => {
-        const baseIdx = idx * 4;
-        const [yesBal, noBal, ammState, bParam] = [0, 1, 2, 3].map(i => positionData[baseIdx + i]);
+        const baseIdx = idx * 3; // 3 calls per market now
+        const [ammPosition, tickResult, bParam] = [0, 1, 2].map(i => positionData[baseIdx + i]);
 
+        // V4: Calculate price from tick
         let priceYes = 0.5, priceNo = 0.5;
-        if (ammState?.result && bParam?.result) {
-          const currentTick = ammState.result as bigint; // V4 uses tick instead of qYes/qNo
-          const bVal = bParam.result as bigint;
-          // TODO: Add tick to probability conversion if needed, or use derived values
-          // For now simplified display
-          priceYes = 0.5;
-          priceNo = 0.5;
+        if (tickResult?.result) {
+          const currentTick = Number(tickResult.result);
+          priceYes = currentTick / 1000;
+          priceNo = 1 - priceYes;
         }
 
+        // V4: Get shares from ammPositions [yesShares, noShares, unlockTime]
         let yesShares = 0, noShares = 0;
-        if (yesBal?.result) yesShares = parseFloat(formatUnits(yesBal.result as bigint, 18));
-        if (noBal?.result) noShares = parseFloat(formatUnits(noBal.result as bigint, 18));
+        if (ammPosition?.result) {
+          const pos = ammPosition.result as [bigint, bigint, bigint];
+          yesShares = parseFloat(formatUnits(pos[0], 18));
+          noShares = parseFloat(formatUnits(pos[1], 18));
+        }
 
         if (yesShares > 0 || noShares > 0) {
           const yesValue = yesShares * priceYes;

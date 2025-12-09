@@ -154,19 +154,20 @@ export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "event Withdraw(address indexed user, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
 ]);
 
-// V4: MarketV4 with tick-based pricing
+// V4: MarketV4 with continuous LMSR (qYes/qNo)
 export const MARKET_V4_ABI = parseAbi([
-  "function currentTick() view returns (uint256)",
+  "function qYes() view returns (int256)",
+  "function qNo() view returns (int256)",
   "function b() view returns (uint256)",
   "function bBase() view returns (uint256)",
-  "function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) view returns (int256, uint256, uint16)",
+  "function price(uint8 outcome) view returns (uint256)",
+  "function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) view returns (int256 cost, uint256 fee, int256 newQYes, int256 newQNo)",
   "function isLive() view returns (bool)",
   "function isSettled() view returns (bool)",
   "function yesBalance(address user) view returns (uint256)",
   "function noBalance(address user) view returns (uint256)",
   "function bestAsk() view returns (uint256)",
   "function bestBid() view returns (uint256)",
-  "function orders(uint256 id) view returns (uint256, address, uint256, uint256, uint256, bool)",
+  "function orders(uint256 id) view returns (address maker, uint8 outcome, uint256 yesPrice, uint256 amount, bool isBuySide)",
   "function nextOrder(uint256 id) view returns (uint256)",
-  "event TickUpdated(uint256 newTick, uint256 probability)",
 ]);

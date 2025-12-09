@@ -69,23 +69,23 @@ export function useOrderbook(marketId: string) {
             abi: MARKET_V4_ABI,
             functionName: 'orders',
             args: [currentId]
-          }) as [bigint, string, bigint, bigint, bigint, boolean];
+          }) as [string, number, bigint, bigint, boolean];
 
           if (orderData) {
-            // OrderV3: [id, maker, yesPrice, amount, timestamp, isBuySide]
-            const [id, maker, yesPrice, amount, timestamp, isBuySide] = orderData;
+            // OrderV4: [maker, outcome, yesPrice, amount, isBuySide]
+            const [maker, outcome, yesPrice, amount, isBuySide] = orderData;
 
             // Only include orders with non-zero amount
             if (amount > 0n) {
               const yesPriceFormatted = formatUnits(yesPrice, 18);
 
               sideOrders.push({
-                id: id.toString(),
+                id: currentId.toString(),
                 maker,
                 yesPrice: yesPriceFormatted,
                 displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
                 amount: formatUnits(amount, 18),
-                timestamp: Number(timestamp),
+                timestamp: 0, // V4 doesn't store timestamp
                 isBuySide,
                 side,
               });

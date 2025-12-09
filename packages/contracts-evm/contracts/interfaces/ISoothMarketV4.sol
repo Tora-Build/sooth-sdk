@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "../core/SoothInterfaces.sol";
 
 /// @title ISoothMarketV4
-/// @notice V4 Market interface - AMM engine without ERC1155
+/// @notice V4 Market interface - Continuous LMSR AMM with qYes/qNo state
 interface ISoothMarketV4 {
     // ============ Structs ============
 
@@ -61,7 +61,8 @@ interface ISoothMarketV4 {
         bytes32 _adjudicatorId,
         uint256 _bBase,
         address _governor,
-        uint16 _initialTick
+        int256 _initialQYes,
+        int256 _initialQNo
     ) external;
 
     function executeAMMTrade(
@@ -70,11 +71,12 @@ interface ISoothMarketV4 {
         int256 deltaShares
     ) external returns (int256 cost, uint256 fee);
 
+    /// @notice Calculate AMM trade cost (V4: returns newQYes/newQNo instead of tick)
     function calculateAMMTradeCost(
         uint8 outcome,
         uint256 shares,
         bool isBuy
-    ) external view returns (int256 cost, uint256 fee, uint16 newTick);
+    ) external view returns (int256 cost, uint256 fee, int256 newQYes, int256 newQNo);
 
     function createOrder(
         address maker,
@@ -83,28 +85,21 @@ interface ISoothMarketV4 {
         uint256 amount
     ) external returns (uint256 orderId);
 
-    function cancelOrder(
-        uint256 orderId,
-        address maker
-    ) external returns (uint256 refund);
+    function cancelOrder(uint256 orderId, address maker) external returns (uint256 refund);
 
     // ============ View Functions ============
 
     function marketId() external view returns (uint256);
-    function currentTick() external view returns (uint16);
     function bBase() external view returns (uint256);
-    function b() external view returns (uint256);
-    function price(uint8 outcome) external view returns (uint256);
     function isLive() external view returns (bool);
     function isSettled() external view returns (bool);
     function winningOutcome() external view returns (uint8);
-    function orders(uint256 orderId) external view returns (OrderV4 memory);
-    function bestOrder(uint256 outcome) external view returns (uint256);
+    
+    // Continuous LMSR state
+    function qYes() external view returns (int256);
+    function qNo() external view returns (int256);
+    
+    function price(uint8 outcome) external view returns (uint256 priceWad);
     function yesBalance(address user) external view returns (uint256);
     function noBalance(address user) external view returns (uint256);
-
-    // ============ Governor Functions ============
-
-    function settle(uint8 _winningOutcome) external;
-    function increaseBBase(uint256 amount) external;
 }

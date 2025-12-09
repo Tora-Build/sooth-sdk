@@ -5,17 +5,17 @@ import "../core/SoothInterfaces.sol";
 import "../interfaces/ISoothMarketV4.sol";
 import "../interfaces/ISoothTraderVault.sol";
 import "../interfaces/IOutcomeToken.sol";
-import "./libs/TickMath.sol";
-import "./libs/TickLMSR.sol";
+import {wrap} from "prb-math/sd59x18/Casting.sol";
+import {exp, ln} from "prb-math/sd59x18/Math.sol";
+import {uEXP_MAX_INPUT, uUNIT} from "prb-math/sd59x18/Constants.sol";
 
 /// @title SoothMarket (V4)
-/// @notice Unified tick-based prediction market - AMM engine only
-/// @dev V4: Removed ERC1155 inheritance. Tokens now in separate OutcomeToken contract.
+/// @notice Unified prediction market with continuous LMSR AMM
+/// @dev V4: Uses continuous LMSR (qYes/qNo state) with PRB-Math.
 ///      AMM trades are internal (handled by TraderVault), no minting/burning.
 ///      Orderbook trades use OutcomeToken (ERC1155).
 contract SoothMarketV4 is Ownable, ISoothMarketV4 {
-    using TickMath for uint16;
-    using TickLMSR for TickLMSR.TickCostArray;
+    int256 internal constant ONE = 1e18;
 
     // ============ State ============
     
@@ -31,9 +31,9 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
     uint256 public override bBase;      // Base liquidity parameter
     int256 public reserve;     // Net market PnL
     
-    // Tick-based AMM state
-    uint16 public override currentTick; // Current probability tick [0, 1000]
-    TickLMSR.TickCostArray private tickCosts;
+    // Continuous LMSR state (qYes, qNo)
+    int256 public qYes;
+    int256 public qNo;
     
     address public governor;
     uint256 public constant MAX_BPS = 10000;
@@ -53,7 +53,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
     // ============ Events ============
     
-    event Initialized(uint256 marketId, uint256 bBase, uint16 initialTick);
+    event Initialized(uint256 marketId, uint256 bBase, int256 initialQYes, int256 initialQNo);
     event Settled(uint8 winningOutcome);
     event BBaseIncrease(uint256 oldB, uint256 newB);
 
@@ -74,10 +74,11 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         bytes32 _adjudicatorId,
         uint256 _bBase,
         address _governor,
-        uint16 _initialTick
+        int256 _initialQYes,
+        int256 _initialQNo
     ) external onlyOwner {
         require(traderVault == address(0), "Market: already init");
-        require(_initialTick <= TickMath.TOTAL_TICKS, "Market: invalid tick");
+        require(_initialQYes >= 0 && _initialQNo >= 0, "Market: negative q");
 
         governorVault = ISoothGovernorVault(_governorVault);
         traderVault = _traderVault;
@@ -88,35 +89,75 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         adjudicatorId = _adjudicatorId;
         bBase = _bBase;
         governor = _governor;
-        currentTick = _initialTick;
-
-        // Initialize tick cost array
-        tickCosts.initializeTickCosts();
+        
+        // Initialize LMSR state (default: equal quantities for 50% probability)
+        qYes = _initialQYes;
+        qNo = _initialQNo;
         
         isLive = true;
 
-        emit Initialized(_marketId, _bBase, _initialTick);
+        emit Initialized(_marketId, _bBase, _initialQYes, _initialQNo);
+    }
+
+    // ============ LMSR Math ============
+
+    /// @dev ln(exp(a) + exp(b)) using the log-sum-exp trick
+    function _logSumExp2(int256 a, int256 b_) internal pure returns (int256) {
+        int256 m = a > b_ ? a : b_;
+        int256 aShifted = a - m;
+        int256 bShifted = b_ - m;
+        require(aShifted <= int256(uEXP_MAX_INPUT) && bShifted <= int256(uEXP_MAX_INPUT), "LMSR: exp overflow");
+
+        int256 eA = exp(wrap(aShifted)).unwrap();
+        int256 eB = exp(wrap(bShifted)).unwrap();
+
+        int256 sum = eA + eB;
+        require(sum > 0, "LMSR: exp underflow");
+        return ln(wrap(sum)).unwrap() + m;
+    }
+
+    /// @dev LMSR cost function C(q) = b * ln( exp(qY/b) + exp(qN/b) )
+    function _cost(int256 _qYes, int256 _qNo, uint256 bVal) internal pure returns (int256) {
+        require(bVal > 0, "LMSR: b = 0");
+        int256 bWad = int256(bVal);
+
+        int256 a = (_qYes * ONE) / bWad;
+        int256 c = (_qNo * ONE) / bWad;
+
+        int256 lse = _logSumExp2(a, c);
+        return (bWad * lse) / ONE;
+    }
+
+    /// @dev Calculate cost delta for a trade
+    function _costDelta(
+        int256 _qYes,
+        int256 _qNo,
+        uint8 outcomeIndex,
+        int256 deltaShares,
+        uint256 bVal
+    ) internal pure returns (int256 cost, int256 newQYes, int256 newQNo) {
+        int256 oldCost = _cost(_qYes, _qNo, bVal);
+
+        if (outcomeIndex == 0) {
+            newQYes = _qYes + deltaShares;
+            newQNo = _qNo;
+        } else {
+            newQYes = _qYes;
+            newQNo = _qNo + deltaShares;
+        }
+
+        int256 newCost = _cost(newQYes, newQNo, bVal);
+        cost = newCost - oldCost;
     }
 
     // ============ View Functions ============
     
     function b() public view returns (uint256) {
-        // Get unrealizedPnL from GovernorVault (stored in marketReserves[id])
         int256 unrealizedPnL = governorVault.getMarketReserve(marketId);
-        
-        // b = bBase + (reserveFactorBps / 10000) × unrealizedPnL
-        // This allows:
-        //   - Governor to increase b by increasing bBase
-        //   - unrealizedPnL to increase/decrease b automatically
         uint256 factor = governorVault.reserveFactorBps();
-        
-        // Calculate the unrealizedPnL contribution: (factor × unrealizedPnL) / MAX_BPS
         int256 pnlContribution = (unrealizedPnL * int256(factor)) / int256(MAX_BPS);
-        
-        // Add to bBase, ensuring b stays positive
         int256 effectiveB = int256(bBase) + pnlContribution;
         
-        // Ensure b is never negative (minimum is 1% of bBase)
         if (effectiveB < int256(bBase / 100)) {
             return bBase / 100;
         }
@@ -128,11 +169,30 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         return governorVault.defaultFeeBps();
     }
 
-    function price(uint8 outcome) external view returns (uint256) {
+    /// @notice Get price of outcome (0=YES, 1=NO)
+    function price(uint8 outcome) external view returns (uint256 priceWad) {
+        require(outcome < 2, "Market: invalid outcome");
+        uint256 bVal = b();
+        require(bVal > 0, "LMSR: b = 0");
+
+        int256 bWad = int256(bVal);
+        int256 a = (qYes * ONE) / bWad;
+        int256 c = (qNo * ONE) / bWad;
+
+        require(a <= int256(uEXP_MAX_INPUT) && c <= int256(uEXP_MAX_INPUT), "LMSR: exp overflow");
+
+        int256 eY = exp(wrap(a)).unwrap();
+        int256 eN = exp(wrap(c)).unwrap();
+
+        int256 denom = eY + eN;
+        require(denom > 0, "LMSR: denom");
+
+        int256 pYes = (eY * int256(uUNIT)) / denom;
+
         if (outcome == 0) {
-            return TickLMSR.priceAtTick(currentTick);
+            return uint256(pYes);
         } else {
-            return TickLMSR.noPriceAtTick(currentTick);
+            return uint256(int256(uUNIT) - pYes);
         }
     }
 
@@ -148,7 +208,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         }
     }
 
-    // Token balance wrappers - delegate to OutcomeToken
     function yesBalance(address user) external view override returns (uint256) {
         return outcomeToken.yesBalance(user);
     }
@@ -157,7 +216,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         return outcomeToken.noBalance(user);
     }
 
-    // ERC1155 balanceOf wrapper for interface compatibility
     function balanceOf(address account, uint256 id) external view returns (uint256) {
         return outcomeToken.balanceOf(account, id);
     }
@@ -182,12 +240,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
     // ============ AMM Trading ============
     
     /// @notice Execute AMM trade (V4: no token minting - internal positions only)
-    /// @dev TraderVault tracks internal ammPositions, not ERC1155
-    /// @param trader The trader address (for accounting)
-    /// @param outcome 0=YES, 1=NO
-    /// @param deltaShares Positive = buy, negative = sell
-    /// @return cost Net cost (positive = pay, negative = receive)
-    /// @return fee Fee charged
     function executeAMMTrade(
         address trader,
         uint8 outcome,
@@ -196,26 +248,20 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         require(deltaShares != 0, "Market: zero trade");
         require(outcome < 2, "Market: invalid outcome");
 
-        // Determine direction based on outcome and trade direction
-        bool buyingYes = (outcome == 0 && deltaShares > 0) || (outcome == 1 && deltaShares < 0);
-        uint256 absShares = deltaShares >= 0 ? uint256(deltaShares) : uint256(-deltaShares);
-
-        // V4: No token burning on sell - TraderVault handles internal positions
-        // (TraderVault will check ammPositions[user] before calling this)
-
-        // Calculate tick movement based on shares
-        uint16 targetTick;
-        (targetTick, cost) = _calculateTradeTicksAndCost(absShares, buyingYes);
+        uint256 bVal = b();
+        
+        int256 newQYes;
+        int256 newQNo;
+        (cost, newQYes, newQNo) = _costDelta(qYes, qNo, outcome, deltaShares, bVal);
 
         // Apply fee
         uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
         fee = (absCost * feeLMSR()) / MAX_BPS;
 
         // Update state
-        currentTick = targetTick;
+        qYes = newQYes;
+        qNo = newQNo;
         reserve += int256(fee);
-
-        // V4: No token minting on buy - TraderVault handles internal positions
 
         emit TradeAMM(trader, outcome, deltaShares, cost, fee);
     }
@@ -225,44 +271,16 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         uint8 outcome,
         uint256 shares,
         bool isBuy
-    ) external view override returns (int256 cost, uint256 fee, uint16 newTick) {
+    ) external view override returns (int256 cost, uint256 fee, int256 newQYes_, int256 newQNo_) {
         require(outcome < 2, "Market: invalid outcome");
         
-        bool buyingYes = (outcome == 0 && isBuy) || (outcome == 1 && !isBuy);
+        uint256 bVal = b();
+        int256 deltaShares = isBuy ? int256(shares) : -int256(shares);
         
-        // Calculate cost ignoring state updates
-        (uint16 targetTick, int256 _cost) = _calculateTradeTicksAndCost(shares, buyingYes);
-        cost = _cost;
-        newTick = targetTick;
+        (cost, newQYes_, newQNo_) = _costDelta(qYes, qNo, outcome, deltaShares, bVal);
         
         uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
         fee = (absCost * feeLMSR()) / MAX_BPS;
-    }
-
-    /// @notice Calculate target tick and cost for a trade
-    function _calculateTradeTicksAndCost(
-        uint256 shares,
-        bool buyingYes
-    ) internal view returns (uint16 targetTick, int256 cost) {
-        // Simplified: assume 1 share = 1 tick movement at current b
-        // Real implementation would use ticksFromBudget for budget-based trading
-        uint16 ticksToMove = uint16((shares * TickMath.TOTAL_TICKS) / b());
-        if (ticksToMove == 0) ticksToMove = 1;
-
-        if (buyingYes) {
-            targetTick = currentTick + ticksToMove;
-            if (targetTick >= TickMath.TOTAL_TICKS) {
-                targetTick = TickMath.TOTAL_TICKS - 1;
-            }
-            cost = tickCosts.costToMove(currentTick, targetTick, b());
-        } else {
-            if (ticksToMove >= currentTick) {
-                targetTick = 1;
-            } else {
-                targetTick = currentTick - ticksToMove;
-            }
-            cost = tickCosts.costToMove(currentTick, targetTick, b());
-        }
     }
 
     // ============ Orderbook Functions ============
@@ -282,11 +300,9 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         bool isBuySide;
 
         if (outcome == 0) {
-            // Buying YES at `price`
             yesPrice = price_;
             isBuySide = true;
         } else {
-            // Buying NO at `price` means selling YES at (1 - price)
             yesPrice = 1e18 - price_;
             isBuySide = false;
         }
@@ -343,15 +359,13 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         while (buyOrder.amount > 0 && bestAsk != 0) {
             OrderV4 storage askOrder = _orders[bestAsk];
             
-            // Can match if bid >= ask
             if (buyOrder.yesPrice < askOrder.yesPrice) break;
 
             uint256 matchPrice = askOrder.yesPrice;
             uint256 matchAmount = _min(buyOrder.amount, askOrder.amount);
 
-            // V4: Mint tokens via OutcomeToken (orderbook creates real tokens)
-            outcomeToken.mint(buyOrder.maker, 0, matchAmount);  // YES
-            outcomeToken.mint(askOrder.maker, 1, matchAmount);  // NO
+            outcomeToken.mint(buyOrder.maker, 0, matchAmount);
+            outcomeToken.mint(askOrder.maker, 1, matchAmount);
 
             buyOrder.amount -= matchAmount;
             askOrder.amount -= matchAmount;
@@ -372,15 +386,13 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         while (sellOrder.amount > 0 && bestBid != 0) {
             OrderV4 storage bidOrder = _orders[bestBid];
             
-            // Can match if ask <= bid
             if (sellOrder.yesPrice > bidOrder.yesPrice) break;
 
             uint256 matchPrice = bidOrder.yesPrice;
             uint256 matchAmount = _min(sellOrder.amount, bidOrder.amount);
 
-            // V4: Mint tokens via OutcomeToken
-            outcomeToken.mint(bidOrder.maker, 0, matchAmount);  // YES
-            outcomeToken.mint(sellOrder.maker, 1, matchAmount); // NO
+            outcomeToken.mint(bidOrder.maker, 0, matchAmount);
+            outcomeToken.mint(sellOrder.maker, 1, matchAmount);
 
             sellOrder.amount -= matchAmount;
             bidOrder.amount -= matchAmount;
@@ -394,8 +406,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
             }
         }
     }
-
-    // ============ Orderbook Helpers ============
 
     function _insertAsk(uint256 id, uint256 yesPrice) internal {
         uint256 prev = 0;
@@ -470,7 +480,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
     // ============ Token Transfer (Orderbook only) ============
     
-    /// @notice Transfer OrderbookToken shares (ERC1155)
     function transferShares(
         address from,
         address to,
@@ -479,8 +488,6 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
     ) external onlyTraderVault {
         require(outcome < 2, "Market: invalid outcome");
         uint256 id = outcome == 0 ? 0 : 1;
-        // Use ERC1155 safeTransferFrom via OutcomeToken
-        // Note: Caller must have approval
         outcomeToken.safeTransferFrom(from, to, id, amount, "");
     }
 
@@ -505,9 +512,10 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
     // ============ Required Interface Functions ============
     
-    // V4: merge() is now on OutcomeToken, not Market
-    // We keep a stub for interface compatibility but it reverts
     function merge(uint256) external pure {
         revert("Market: use OutcomeToken.merge()");
     }
+
+    // V4: Remove tick-related functions since we use qYes/qNo
+    // currentTick() is removed - use price() instead
 }

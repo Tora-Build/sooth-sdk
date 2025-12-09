@@ -8,6 +8,7 @@ import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothGovernorVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/core/TickCostRegistry.sol";
 
 /// @notice Mock ERC20 for testing
 contract MockUSDC is IERC20 {
@@ -65,6 +66,7 @@ contract V4IntegrationTest is Test {
     SoothMarketV4 market;
     OutcomeToken outcomeToken;
     SoothFeeController feeController;
+    TickCostRegistry tickCostRegistry;
 
     // Test accounts
     address alice = makeAddr("alice");
@@ -85,6 +87,10 @@ contract V4IntegrationTest is Test {
         feeController = new SoothFeeController(owner);
         feeController.setOrderbookFee(10); // 0.1%
 
+        // Deploy TickCostRegistry and initialize
+        tickCostRegistry = new TickCostRegistry();
+        tickCostRegistry.initializeAll(); // Works in test environment with high gas
+
         // Deploy GovernorVault
         governorVault = new SoothGovernorVault(IERC20(address(usdc)));
 
@@ -100,7 +106,7 @@ contract V4IntegrationTest is Test {
         // Initialize OutcomeToken
         outcomeToken.initialize(address(market), address(traderVault));
 
-        // Initialize Market
+        // Initialize Market with continuous LMSR (qYes/qNo)
         market.initialize(
             1, // marketId
             address(governorVault),
@@ -110,7 +116,8 @@ contract V4IntegrationTest is Test {
             bytes32(0), // adjudicatorId
             B_PARAM,
             governor,
-            500 // Initial Tick (50%)
+            0, // initialQYes (0 for 50%)
+            0  // initialQNo (0 for 50%)
         );
 
         // Configure permissions - authorize before calling receiveFunds

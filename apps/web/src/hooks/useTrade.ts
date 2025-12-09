@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
+import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V4_ABI, TRADER_VAULT_V3_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useChainStore } from '../store/useChainStore';
@@ -222,8 +222,11 @@ export function useTrade(marketId: string) {
 
       if (sharesBig > 0n) {
         // Buy: Willing to pay MORE (e.g. 100 -> 105)
-        // Add 0.5% (50bps) extra buffer for JS/Solidy math precision mismatch
-        maxCost = expectedCost * (BPS + slippageFactor + 50n) / BPS;
+        // Add 0.5% (50bps) extra buffer for JS/Solidity math precision mismatch
+        // IMPORTANT: LMSR cost can be 10-20x higher than linear (price*shares) estimate
+        // when buying large amounts relative to b parameter. Add 25x safety for fallback.
+        const lmsrSafetyMultiplier = 25n;
+        maxCost = expectedCost * lmsrSafetyMultiplier * (BPS + slippageFactor + 50n) / BPS;
       } else {
         // Sell: Willing to receive LESS (e.g. -100 -> -95)
         // Add 0.5% buffer (receive even less) to ensure execution
@@ -272,20 +275,21 @@ export function useTrade(marketId: string) {
         }
       }
 
-      // v4: Trade through TraderVaultV4.executeAMMTrade
+      // V3/V4: Trade through TraderVault.tradeAMM
       const client = publicClient;
       if (!client) throw new Error('Public client not found');
 
-      const isBuy = sharesBig > 0n;
-      const sharesAmount = isBuy ? sharesBig : -sharesBig; // V4 uses unsigned shares + boolean
+      // V3 uses signed deltaShares: positive=buy, negative=sell
+      // maxCost is int256 (pass as signed)
+      const deltaShares = sharesBig; // Already signed correctly
 
       try {
-        console.log('Simulating V4 trade...');
+        console.log('Simulating tradeAMM...', { market: market.contractAddress, outcome: outcomeIndex, deltaShares: deltaShares.toString(), maxCost: maxCost.toString() });
         await client.simulateContract({
           address: traderVaultAddress,
-          abi: TRADER_VAULT_V4_ABI,
-          functionName: 'executeAMMTrade',
-          args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesAmount, maxCost, isBuy],
+          abi: TRADER_VAULT_V3_ABI,
+          functionName: 'tradeAMM',
+          args: [market.contractAddress as `0x${string}`, outcomeIndex, deltaShares, maxCost],
           account: address,
         });
         console.log('Simulation successful');
@@ -297,9 +301,9 @@ export function useTrade(marketId: string) {
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'executeAMMTrade',
-        args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesAmount, maxCost, isBuy],
+        abi: TRADER_VAULT_V3_ABI,
+        functionName: 'tradeAMM',
+        args: [market.contractAddress as `0x${string}`, outcomeIndex, deltaShares, maxCost],
         gas: 500000n, // Explicit gas limit for AMM trade
       });
 

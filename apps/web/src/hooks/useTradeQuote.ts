@@ -82,9 +82,12 @@ export function useTradeQuote(
         return;
       }
 
-      // Real mode: Use on-chain V4 calculation
-      if (!publicClient || !market?.contractAddress) {
-        if (!cancelled) setQuote(null);
+      // Skip contract calls for placeholder/demo addresses (0x00...00b1 pattern)
+      const isPlaceholderAddress = market.contractAddress.match(/^0x0{38}[a-f0-9]{2}$/i);
+      if (isPlaceholderAddress) {
+        // Use client-side quote for demo markets with placeholder addresses
+        const demoQuote = computeClientQuote(market, outcomeIndex, shareAmount, slippageBps);
+        if (!cancelled) setQuote(demoQuote);
         return;
       }
 
@@ -105,9 +108,9 @@ export function useTradeQuote(
             shareAmountBig,
             isBuy
           ]
-        }) as [bigint, bigint, number]; // Returns (cost, fee, newTick)
+        }) as [bigint, bigint, bigint, bigint]; // V4: Returns (cost, fee, newQYes, newQNo)
 
-        const [rawCost, rawFee, newTick] = result;
+        const [rawCost, rawFee, newQYes, newQNo] = result;
 
         // Cost is usually positive for buy. Fee is positive.
         // Total cost = rawCost + rawFee
@@ -118,19 +121,36 @@ export function useTradeQuote(
         const expectedCost = Math.abs(costFloat);
         const fee = feeFloat;
 
-        // Calculate Price Impact
-        // Price = tick / 1000
+        // Calculate Price Impact for continuous LMSR
         const oldPriceYes = market.priceYes || 0.5;
-        const newPriceYesCalculated = newTick / 1000;
+
+        // For continuous LMSR, p_yes = exp(qYes/b) / (exp(qYes/b) + exp(qNo/b))
+        // Fetch b from market for accurate calculation
+        const bVal = market.bParam ? Number(formatUnits(BigInt(market.bParam.toString()), 18)) : 10000;
+
+        const qYesNum = parseFloat(formatUnits(newQYes, 18));
+        const qNoNum = parseFloat(formatUnits(newQNo, 18));
+
+        // LMSR softmax formula
+        let newPriceYesCalculated = 0.5;
+        if (bVal > 0) {
+          const expYes = Math.exp(qYesNum / bVal);
+          const expNo = Math.exp(qNoNum / bVal);
+          newPriceYesCalculated = expYes / (expYes + expNo);
+          // Clamp to valid range
+          newPriceYesCalculated = Math.max(0.001, Math.min(0.999, newPriceYesCalculated));
+        }
         const newPriceNoCalculated = 1 - newPriceYesCalculated;
 
-        const priceImpact = Math.abs(newPriceYesCalculated - oldPriceYes) / oldPriceYes;
+        const priceImpact = oldPriceYes > 0
+          ? Math.abs(newPriceYesCalculated - oldPriceYes) / oldPriceYes
+          : 0;
 
         // Slippage
         const BPS = 10000;
         const maxWithSlippage = isBuy
           ? expectedCost * (1 + (slippageBps + 50) / BPS)
-          : Number(rawCost) * (1 - (slippageBps + 50) / BPS); // For sell, rawCost is negative proceeds? No, executeAMMTrade return cost. 
+          : Number(rawCost) * (1 - (slippageBps + 50) / BPS);
 
         // executeAMMTrade returns `cost`. 
         // If buy: positive cost (user pays).

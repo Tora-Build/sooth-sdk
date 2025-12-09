@@ -1,12 +1,12 @@
 import React from 'react';
 import { useReadContracts, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { MARKET_V4_ABI } from '../config/abis';
+import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
 import { useChainStore } from '../store/useChainStore';
-import { useMarketStore } from '../store/useMarketStore'; // Assuming this was implicitly needed for useMarketStore
+import { useMarketStore } from '../store/useMarketStore';
 
 export function useMarket(marketId: string) {
   return useEVMMarket(marketId);
@@ -22,18 +22,22 @@ function useEVMMarket(marketId: string) {
   // 1. Config Lookup
   const marketConfig = marketsConfig.markets.find(m => m.id === marketId);
   const marketAddress = (marketConfig as any)?.contractAddress as `0x${string}`;
-  const ammAddress = deployments.AMM as `0x${string}`;
-  const riskManagerAddress = deployments.SoothRiskManager as `0x${string}`;
+  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // 2. On-Chain Data Fetching (Only if Real Mode AND on correct chain)
   const { data: onChainData, refetch, isLoading: isHookLoading, error: hookError } = useReadContracts({
     contracts: [
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive' },
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'currentTick' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0] }, // V4: fetch price(0) for YES probability
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'noBalance', args: [address || '0x0'] },
+      // V4: AMM positions are in TraderVault, not Market
+      {
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'ammPositions',
+        args: address && marketAddress ? [address, marketAddress] : undefined
+      },
     ],
     query: {
       enabled: mode === 'real' && !!marketAddress && walletChainId === selectedChainId,
@@ -42,17 +46,22 @@ function useEVMMarket(marketId: string) {
   });
 
   // 3. Process Data
-  const [isLive, isSettled, currentTick, bParam, yesBal, noBal] = onChainData?.map(r => r.result) || [];
+  const [isLive, isSettled, priceYesWad, bParam, ammPosition] = onChainData?.map(r => r.result) || [];
 
   const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
+
+  // Extract AMM position (yesShares, noShares, unlockTime)
+  const ammPos = ammPosition as [bigint, bigint, bigint] | undefined;
+  const ammYesShares = ammPos?.[0] || 0n;
+  const ammNoShares = ammPos?.[1] || 0n;
 
   // Real Mode Construction
   const market: Market | undefined = React.useMemo(() => {
     if (!marketConfig) return undefined;
 
-    // V4 Price Calculation: probability = tick / 1000
-    const tickVal = currentTick ? Number(currentTick) : 500; // default 0.5
-    const calculatedPriceYes = tickVal / 1000;
+    // V4 Continuous LMSR: price(0) returns YES probability in 18 decimals
+    const priceYesRaw = priceYesWad ? BigInt(priceYesWad as bigint) : 500000000000000000n; // default 0.5
+    const calculatedPriceYes = parseFloat(formatUnits(priceYesRaw, 18));
     const calculatedPriceNo = 1 - calculatedPriceYes;
 
     return {
@@ -60,16 +69,17 @@ function useEVMMarket(marketId: string) {
       status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
       priceYes: calculatedPriceYes,
       priceNo: calculatedPriceNo,
-      qYes: 0n, // V4 doesn't use qYes/qNo
+      qYes: 0n, // V4 continuous LMSR uses internal qYes/qNo state
       qNo: 0n,
       bParam: (bParam as bigint) || configBParam || 0n,
-      userYesShares: yesBal ? parseFloat(formatUnits(yesBal as bigint, 18)) : 0,
-      userNoShares: noBal ? parseFloat(formatUnits(noBal as bigint, 18)) : 0,
+      // V4: User shares from TraderVault.ammPositions
+      userYesShares: parseFloat(formatUnits(ammYesShares, 18)),
+      userNoShares: parseFloat(formatUnits(ammNoShares, 18)),
       userAvgEntryYes: null,
       userAvgEntryNo: null,
       mode: 'real',
     } as Market;
-  }, [marketConfig, isSettled, isLive, currentTick, bParam, configBParam, yesBal, noBal]);
+  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, configBParam, ammYesShares, ammNoShares]);
 
   return {
     market,
@@ -77,3 +87,4 @@ function useEVMMarket(marketId: string) {
     refetch,
   };
 }
+
