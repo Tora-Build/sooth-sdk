@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../contracts/core/SoothMarketV4.sol";
 import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothGovernorVault.sol";
-import "../contracts/core/SoothTraderVaultV4.sol";
+import "../contracts/core/SoothTraderVault.sol";
 
 /// @title DeployV4Markets  
 /// @notice Phase 2: Deploy 2 markets using infrastructure from Phase 1
@@ -25,10 +25,10 @@ contract DeployV4Markets is Script {
         console.log("=== Phase 2: Deploy V4 Markets ===");
         console.log("Using infrastructure:");
         console.log("  GovernorVault:", GOVERNOR_VAULT);
-        console.log("  TraderVaultV4:", TRADER_VAULT);
+        console.log("  TraderVault:", TRADER_VAULT);
 
         SoothGovernorVault governorVault = SoothGovernorVault(GOVERNOR_VAULT);
-        SoothTraderVaultV4 traderVault = SoothTraderVaultV4(TRADER_VAULT);
+        SoothTraderVault traderVault = SoothTraderVault(TRADER_VAULT);
 
         // ===== MARKET 1: Trump 2024 Win =====
         
@@ -73,7 +73,7 @@ contract DeployV4Markets is Script {
             bytes32(0),                 // adjudicatorId
             15_000 * 1e18,              // bBase = 15k (higher liquidity)
             deployer,                   // governor
-            700                         // 70% initial tick (bullish)
+            500                         // 50% initial tick (bullish)
         );
         
         traderVault.setMarket(address(market2), true);

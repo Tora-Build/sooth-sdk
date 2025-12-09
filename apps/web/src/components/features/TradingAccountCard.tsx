@@ -8,7 +8,7 @@ import { formatUnits } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const TradingAccountCard: React.FC = () => {
-  const { deposit, withdraw, claimUnlocked, availableBalance, pendingBalance, userUsdcBalance, isPending, isLoading } = useTraderVault();
+  const { deposit, withdraw, availableBalance, pendingBalance, userUsdcBalance, isPending, isLoading } = useTraderVault();
   const [amount, setAmount] = useState('');
   const [activeTab, setActiveTab] = useState('deposit');
 
@@ -26,11 +26,11 @@ export const TradingAccountCard: React.FC = () => {
   const availableVal = parseFloat(formatUnits(availableBalance, 18));
   const pendingVal = parseFloat(formatUnits(pendingBalance, 18));
 
-  const maxAvailable = activeTab === 'deposit' 
+  const maxAvailable = activeTab === 'deposit'
     ? userBalanceVal
     : availableVal;
 
-  const formatCurrency = (val: number) => 
+  const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
   return (
@@ -41,12 +41,12 @@ export const TradingAccountCard: React.FC = () => {
         </h3>
       </div>
 
-      <TabsRoot 
-        value={activeTab} 
+      <TabsRoot
+        value={activeTab}
         onValueChange={(val) => {
           setActiveTab(val);
           setAmount('');
-        }} 
+        }}
         className="flex flex-col p-4 space-y-4"
       >
         <TabsListImpl className="w-full grid grid-cols-2">
@@ -71,7 +71,7 @@ export const TradingAccountCard: React.FC = () => {
                   {isLoading ? '...' : formatCurrency(userBalanceVal)}
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-lg border border-slate-800/50">
                 <span className="text-slate-500">Available in Account</span>
                 <span className={`font-mono font-medium ${activeTab === 'deposit' ? 'text-emerald-400' : 'text-slate-300'}`}>
@@ -79,22 +79,7 @@ export const TradingAccountCard: React.FC = () => {
                 </span>
               </div>
 
-               {/* Pending Warning */}
-              {pendingVal > 0 && (
-                <div className="flex justify-between items-center bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
-                  <span className="text-xs text-amber-500/80">Pending (48h lock)</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-amber-400">{formatCurrency(pendingVal)}</span>
-                    <button
-                      onClick={claimUnlocked}
-                      disabled={isPending}
-                      className="px-2 py-1 text-[10px] bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded border border-amber-500/20 uppercase font-bold tracking-wide"
-                    >
-                      Claim
-                    </button>
-                  </div>
-                </div>
-              )}
+
             </div>
 
             <div className="space-y-2">
@@ -102,7 +87,7 @@ export const TradingAccountCard: React.FC = () => {
                 <span>Amount</span>
                 <span>Max: {formatCurrency(maxAvailable)}</span>
               </div>
-              
+
               <div className="relative">
                 <Input
                   type="number"
@@ -114,7 +99,7 @@ export const TradingAccountCard: React.FC = () => {
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500 pointer-events-none">
                   USDC
                 </div>
-                <button 
+                <button
                   onClick={() => setAmount(maxAvailable.toString())}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors"
                 >
@@ -127,11 +112,10 @@ export const TradingAccountCard: React.FC = () => {
               onClick={handleAction}
               disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > maxAvailable || isPending}
               isLoading={isPending}
-              className={`w-full py-5 text-sm font-bold shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                activeTab === 'deposit' 
-                  ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20' 
-                  : 'bg-slate-700 hover:bg-slate-600'
-              }`}
+              className={`w-full py-5 text-sm font-bold shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${activeTab === 'deposit'
+                ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20'
+                : 'bg-slate-700 hover:bg-slate-600'
+                }`}
             >
               {activeTab === 'deposit' ? 'Confirm Deposit' : 'Confirm Withdraw'}
             </Button>

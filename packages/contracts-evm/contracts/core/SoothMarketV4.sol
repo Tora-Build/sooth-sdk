@@ -220,6 +220,25 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         emit TradeAMM(trader, outcome, deltaShares, cost, fee);
     }
 
+    /// @notice View function to calculate trade cost/fee without executing
+    function calculateAMMTradeCost(
+        uint8 outcome,
+        uint256 shares,
+        bool isBuy
+    ) external view override returns (int256 cost, uint256 fee, uint16 newTick) {
+        require(outcome < 2, "Market: invalid outcome");
+        
+        bool buyingYes = (outcome == 0 && isBuy) || (outcome == 1 && !isBuy);
+        
+        // Calculate cost ignoring state updates
+        (uint16 targetTick, int256 _cost) = _calculateTradeTicksAndCost(shares, buyingYes);
+        cost = _cost;
+        newTick = targetTick;
+        
+        uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
+        fee = (absCost * feeLMSR()) / MAX_BPS;
+    }
+
     /// @notice Calculate target tick and cost for a trade
     function _calculateTradeTicksAndCost(
         uint256 shares,

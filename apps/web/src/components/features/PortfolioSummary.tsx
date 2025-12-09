@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Wallet, TrendingUp, ChevronDown, ChevronRight, ExternalLink, Copy, Coins } from 'lucide-react';
 import { useAccount, useReadContracts, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { ERC20_ABI, SOOTH_VAULT_ABI, SOOTH_MARKET_ABI, MOCK_ERC20_ABI } from '../../config/abis';
+import { ERC20_ABI, GOVERNOR_VAULT_V4_ABI, MARKET_V4_ABI, MOCK_ERC20_ABI } from '../../config/abis';
 import { useDeployments } from '../../hooks/useDeployments';
 import { useTraderVault } from '../../hooks/useTraderVault';
 import { useVault } from '../../hooks/useVault';
@@ -35,10 +35,10 @@ export const PortfolioSummary: React.FC = () => {
   const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real');
 
   const marketContracts = realMarkets.flatMap(m => [
-    { address: m.contractAddress as `0x${string}`, abi: SOOTH_MARKET_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
-    { address: m.contractAddress as `0x${string}`, abi: SOOTH_MARKET_ABI, functionName: 'noBalance', args: [address || '0x0'] },
-    { address: m.contractAddress as `0x${string}`, abi: SOOTH_MARKET_ABI, functionName: 'ammState', args: [] },
-    { address: m.contractAddress as `0x${string}`, abi: SOOTH_MARKET_ABI, functionName: 'b', args: [] },
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'noBalance', args: [address || '0x0'] },
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'currentTick', args: [] },
+    { address: m.contractAddress as `0x${string}`, abi: MARKET_V4_ABI, functionName: 'b', args: [] },
   ]);
 
   const { data: positionData } = useReadContracts({
@@ -72,17 +72,12 @@ export const PortfolioSummary: React.FC = () => {
 
         let priceYes = 0.5, priceNo = 0.5;
         if (ammState?.result && bParam?.result) {
-          const [qYes, qNo] = ammState.result as [bigint, bigint];
+          const currentTick = ammState.result as bigint; // V4 uses tick instead of qYes/qNo
           const bVal = bParam.result as bigint;
-          const qYesNum = parseFloat(formatUnits(qYes, 18));
-          const qNoNum = parseFloat(formatUnits(qNo, 18));
-          const bNum = parseFloat(formatUnits(bVal, 18));
-          if (bNum > 0) {
-            const expYes = Math.exp(qYesNum / bNum);
-            const expNo = Math.exp(qNoNum / bNum);
-            priceYes = expYes / (expYes + expNo);
-            priceNo = expNo / (expYes + expNo);
-          }
+          // TODO: Add tick to probability conversion if needed, or use derived values
+          // For now simplified display
+          priceYes = 0.5;
+          priceNo = 0.5;
         }
 
         let yesShares = 0, noShares = 0;
@@ -142,6 +137,8 @@ export const PortfolioSummary: React.FC = () => {
     navigator.clipboard.writeText(text);
     toast.success('Address copied');
   };
+
+
 
   const handleMint = async () => {
     if (!address) { toast.error('Connect wallet first'); return; }
@@ -344,7 +341,9 @@ export const PortfolioSummary: React.FC = () => {
             <div className="flex justify-between items-center px-1 py-1 rounded hover:bg-slate-800/20">
               <span className="text-[11px] text-slate-400">USDC</span>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500">Allowance: {formatCurrency(0)}</span>
+                <span className="text-[10px] text-slate-500">
+                  {balance ? formatCurrency(parseFloat(formatUnits(balance as bigint, Number(decimals || 18)))) : '...'}
+                </span>
                 <Button
                   variant="success"
                   size="sm"

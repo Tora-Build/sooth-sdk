@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V3_ABI } from '../config/abis';
+import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useChainStore } from '../store/useChainStore';
@@ -18,7 +18,7 @@ export function useTrade(marketId: string) {
   const { market, refetch: refetchMarket } = useMarket(marketId);
   const publicClient = usePublicClient();
   const deployments = useDeployments();
-  
+
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const marketContractAddress = market?.contractAddress as `0x${string}`;
@@ -35,7 +35,7 @@ export function useTrade(marketId: string) {
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address || '0x0'],
-    query: { 
+    query: {
       enabled: mode === 'real' && !!address,
     },
   });
@@ -46,20 +46,21 @@ export function useTrade(marketId: string) {
     abi: ERC20_ABI,
     functionName: 'decimals',
   });
-  
+
   const decimals = Number(decimalsVal || 18);
 
-  // v3: Check TraderVault available balance
-  const { data: traderVaultBalance, refetch: refetchTraderVaultBalance } = useReadContract({
+  // v4: Check TraderVaultV4 accounts (available, pending)
+  const { data: vaultAccounts, refetch: refetchTraderVaultBalance } = useReadContract({
     address: traderVaultAddress,
-    abi: TRADER_VAULT_V3_ABI,
-    functionName: 'availableBalance',
+    abi: TRADER_VAULT_V4_ABI,
+    functionName: 'accounts',
     args: [address || '0x0'],
     query: {
       enabled: mode === 'real' && !!address && !!traderVaultAddress,
-      refetchInterval: 30000, // Increased to prevent RPC rate limiting
+      refetchInterval: 30000,
     },
   });
+  const traderVaultBalance = vaultAccounts?.[0]; // available balance
 
   // Allowance Check - Must approve the TraderVault contract
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
@@ -67,7 +68,7 @@ export function useTrade(marketId: string) {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address || '0x0', traderVaultAddress],
-    query: { 
+    query: {
       enabled: mode === 'real' && !!address,
     },
   });
@@ -84,15 +85,16 @@ export function useTrade(marketId: string) {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [traderVaultAddress, amount],
+        gas: 200000n, // Explicit gas limit
       });
-      
+
       const toastId = toast.loading('Approving USDC...');
-      
+
       // Wait for transaction to be mined
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.loading('Verifying approval...', { id: toastId });
-        
+
         // Poll for allowance update (max 10 attempts)
         let retries = 0;
         while (retries < 10) {
@@ -104,13 +106,13 @@ export function useTrade(marketId: string) {
           }
           retries++;
         }
-        
+
         // If we get here, it might still be propagating, but we'll return true and let the trade function double check
         toast.success('Approval confirmed on-chain', { id: toastId });
       } else {
         toast.success('Approval sent', { id: toastId });
       }
-      
+
       return true;
     } catch (e) {
       console.error(e);
@@ -122,15 +124,15 @@ export function useTrade(marketId: string) {
     setIsPending(true);
     try {
       const sharesBig = parseUnits(shares, 18);
-      
+
       if (mode === 'demo') {
         // Simulation Logic
         await new Promise(r => setTimeout(r, 1000)); // Fake delay
-        
+
         // Use the same LMSR algorithm as the quote hook
         const shareAmount = parseFloat(shares);
         const quote = computeClientQuote(market, outcomeIndex, shareAmount, slippageBps);
-        
+
         if (!quote) {
           throw new Error('Failed to calculate demo trade');
         }
@@ -138,7 +140,7 @@ export function useTrade(marketId: string) {
         // Update Market State
         const currentQYes = Number(market?.qYes || 0n) / 1e18;
         const currentQNo = Number(market?.qNo || 0n) / 1e18;
-        
+
         const newQYes = outcomeIndex === 0 ? currentQYes + shareAmount : currentQYes;
         const newQNo = outcomeIndex === 1 ? currentQNo + shareAmount : currentQNo;
 
@@ -150,7 +152,7 @@ export function useTrade(marketId: string) {
           userYesShares: (market?.userYesShares || 0) + (outcomeIndex === 0 ? shareAmount : 0),
           userNoShares: (market?.userNoShares || 0) + (outcomeIndex === 1 ? shareAmount : 0),
         });
-        
+
         // Log Activity
         useActivityStore.getState().addActivity({
           type: 'trade',
@@ -168,7 +170,7 @@ export function useTrade(marketId: string) {
 
       // Real Mode - Chain Guard
       const chain = publicClient?.chain;
-      
+
       if (chain?.id !== selectedChainId) {
         const targetChain = getChainById(selectedChainId);
         throw new Error(`Please switch to ${targetChain?.name || 'the correct network'} to trade`);
@@ -178,12 +180,12 @@ export function useTrade(marketId: string) {
       // 0. Refetch Market Data to ensure we have latest qYes/qNo/b
       await refetchMarket();
       const { data: latestBalance } = await refetchTraderVaultBalance();
-      
+
       const b = market?.bParam || 0n;
       const qYes = market?.qYes || 0n;
       const qNo = market?.qNo || 0n;
       const shareAmount = parseFloat(shares);
-      
+
       console.log('Market State (Pre-Trade):', {
         bParam: b.toString(),
         qYes: qYes.toString(),
@@ -194,26 +196,26 @@ export function useTrade(marketId: string) {
       // 1. Calculate Expected Cost using client-side LMSR
       // v3: TraderVault will calculate exact cost on-chain, we just need estimate for approval
       const quote = computeClientQuote(market, outcomeIndex, shareAmount, slippageBps);
-      
+
       if (!quote) {
         throw new Error('Failed to calculate trade cost');
       }
-      
+
       // Use token decimals for cost (Vault matches token decimals)
       const expectedCost = parseUnits(Math.abs(quote.totalCost).toFixed(decimals), decimals);
-      
+
       console.log('Trade Cost Calculation:', {
         sharesBig: sharesBig.toString(),
         expectedCost: expectedCost.toString(),
         totalCost: quote.totalCost
       });
-      
+
       // Add Slippage
       const BPS = 10000n;
       // maxCost is the algebraic limit for the inequality: cost <= maxCost
       // - For Buys (cost > 0, deltaShares > 0): maxCost > cost (willing to pay more)
       // - For Sells (cost < 0, deltaShares < 0): maxCost < cost (willing to receive less, i.e., more negative)
-      
+
       let maxCost: bigint;
       const slippageFactor = BigInt(slippageBps);
       // BPS is already defined above
@@ -236,22 +238,22 @@ export function useTrade(marketId: string) {
       });
 
       // [Existing calculation code remains same, just adding logs below]
-      console.log('Trade Debug:', { 
-        allowance: allowance?.toString(), 
+      console.log('Trade Debug:', {
+        allowance: allowance?.toString(),
         maxCost: maxCost.toString(),
-        address 
+        address
       });
 
       // 2. Check Internal Balance (TraderVault)
-      // In v3, trading uses the internal balance managed by TraderVault.
-      // We don't need ERC20 allowance here because we aren't pulling funds from the wallet.
-      // We just need to ensure the user has enough 'availableBalance' in the vault.
-      
+      // v4: Trading uses the internal balance managed by TraderVault.
+      // We do NOT need ERC20 allowance here because we are not pulling funds from the wallet.
+      // We must ensure the user has enough 'availableBalance' in the vault.
+
       // Use the latest fetched balance if available, otherwise fallback to hook data
       const vaultBal = (latestBalance || traderVaultBalance) as bigint || 0n;
-      
+
       if (sharesBig > 0n && vaultBal < maxCost) {
-         throw new Error(`Insufficient Trading Account balance. You have ${(Number(formatUnits(vaultBal, decimals))).toFixed(2)} USDC but need ${(Number(formatUnits(maxCost, decimals))).toFixed(2)} USDC. Please deposit funds first.`);
+        throw new Error(`Insufficient Trading Account balance. Available: ${(Number(formatUnits(vaultBal, decimals))).toFixed(2)} USDC. Needed: ${(Number(formatUnits(maxCost, decimals))).toFixed(2)} USDC. Please deposit to your Trading Account first.`);
       }
 
       // 3. Execute Trade
@@ -266,36 +268,39 @@ export function useTrade(marketId: string) {
         const sellAmount = Math.abs(shareAmount);
         // Add small buffer for float comparison
         if ((userShares || 0) < sellAmount * 0.999) {
-           throw new Error(`Insufficient shares. You have ${userShares?.toFixed(2)} but trying to sell ${sellAmount}`);
+          throw new Error(`Insufficient shares. You have ${userShares?.toFixed(2)} but trying to sell ${sellAmount}`);
         }
       }
 
-      // v3: Trade through TraderVaultV3.tradeAMM instead of Market.trade
+      // v4: Trade through TraderVaultV4.executeAMMTrade
       const client = publicClient;
       if (!client) throw new Error('Public client not found');
-      
+
+      const isBuy = sharesBig > 0n;
+      const sharesAmount = isBuy ? sharesBig : -sharesBig; // V4 uses unsigned shares + boolean
+
       try {
-        console.log('Simulating trade...');
+        console.log('Simulating V4 trade...');
         await client.simulateContract({
           address: traderVaultAddress,
-          abi: TRADER_VAULT_V3_ABI,
-          functionName: 'tradeAMM',
-          args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesBig, maxCost],
+          abi: TRADER_VAULT_V4_ABI,
+          functionName: 'executeAMMTrade',
+          args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesAmount, maxCost, isBuy],
           account: address,
         });
         console.log('Simulation successful');
       } catch (simError: any) {
         console.error('Simulation Failed:', simError);
-        // Extract revert reason if possible
         const reason = simError.shortMessage || simError.message;
         throw new Error(`Transaction would fail: ${reason}`);
       }
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
-        functionName: 'tradeAMM',
-        args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesBig, maxCost],
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'executeAMMTrade',
+        args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesAmount, maxCost, isBuy],
+        gas: 500000n, // Explicit gas limit for AMM trade
       });
 
       console.log('Trade Hash:', hash);
@@ -306,7 +311,7 @@ export function useTrade(marketId: string) {
         throw new Error('Public client not found');
       }
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Trade successful!', { id: toastId });
         // Refresh data
@@ -316,7 +321,7 @@ export function useTrade(marketId: string) {
       } else {
         toast.error('Transaction reverted on-chain', { id: toastId });
       }
-      
+
     } catch (err: any) {
       console.error('Trade Error:', err);
       toast.error(err.message || 'Trade failed');

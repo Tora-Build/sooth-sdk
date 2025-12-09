@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
 import { parseUnits } from 'viem';
-import { TRADER_VAULT_V3_ABI } from '../config/abis';
+import { TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarket } from './useMarket';
 import toast from 'react-hot-toast';
@@ -17,23 +17,24 @@ export function useLimitOrder(marketId: string) {
   const { selectedChainId } = useChainStore();
   const { mode } = useMarketStore();
   const { writeContractAsync } = useWriteContract();
-  
+
   const [isPending, setIsPending] = useState(false);
 
-  // v3: Use TraderVaultV3 as single entry point
+  // v4: Use TraderVaultV4 as single entry point
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
-  // v3: Check available balance in TraderVault (not USDC allowance)
-  const { data: availableBalance, refetch: refetchBalance } = useReadContract({
+  // v4: Check accounts (available, pending) in TraderVaultV4
+  const { data: vaultAccounts, refetch: refetchBalance } = useReadContract({
     address: traderVaultAddress,
-    abi: TRADER_VAULT_V3_ABI,
-    functionName: 'availableBalance',
+    abi: TRADER_VAULT_V4_ABI,
+    functionName: 'accounts',
     args: [address || '0x0'],
-    query: { 
+    query: {
       enabled: !!address,
-      refetchInterval: 30000, // Increased to prevent RPC rate limiting
+      refetchInterval: 30000,
     },
   });
+  const availableBalance = vaultAccounts?.[0]; // available balance
 
 
 
@@ -50,7 +51,7 @@ export function useLimitOrder(marketId: string) {
 
       const priceBig = parseUnits(price, 18);
       const amountBig = parseUnits(amount, 18);
-      
+
       const ONE = parseUnits('1', 18);
       // Calculate required collateral:
       // For placing a limit order, collateral = price * amount (you pay upfront)
@@ -85,16 +86,17 @@ export function useLimitOrder(marketId: string) {
         throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC. Please deposit more funds.`);
       }
 
-      // v3: Place order through TraderVaultV3
+      // v4: Place order through TraderVaultV4
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeOrder',
         args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+        gas: 300000n, // Explicit gas limit
       });
 
       const toastId = toast.loading('Placing Order...');
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.success('Order Placed!', { id: toastId });
@@ -113,16 +115,17 @@ export function useLimitOrder(marketId: string) {
     try {
       if (!market?.contractAddress) throw new Error('Market not found');
 
-      // v3: Cancel order through TraderVaultV3
+      // v4: Cancel order through TraderVaultV4
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'cancelOrder',
         args: [market.contractAddress as `0x${string}`, BigInt(orderId)],
+        gas: 200000n, // Explicit gas limit
       });
 
       const toastId = toast.loading('Cancelling Order...');
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.success('Order Cancelled!', { id: toastId });
@@ -149,7 +152,7 @@ export function useLimitOrder(marketId: string) {
 
       const priceBig = parseUnits(price, 18);
       const amountBig = parseUnits(amount, 18);
-      
+
       // Calculate maxCost (Limit Value)
       // For Buy: Max amount of USDC willing to pay = price * amount
       // For Sell: Min amount of USDC willing to receive = price * amount
@@ -185,20 +188,26 @@ export function useLimitOrder(marketId: string) {
         // Note: strict check might fail if data is stale, but better than revert on-chain
         const userShares = outcome === 0 ? market.userYesShares : market.userNoShares;
         if (Number(amount) > (userShares || 0)) {
-           throw new Error(`Insufficient shares. Have ${userShares?.toFixed(2)}, trying to sell ${amount}`);
+          throw new Error(`Insufficient shares. Have ${userShares?.toFixed(2)}, trying to sell ${amount}`);
         }
       }
 
       // v3: Execute taker order through TraderVaultV3.tradeAMM
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
-        functionName: 'tradeAMM',
-        args: [market.contractAddress as `0x${string}`, outcome, shares, limitValue],
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'executeAMMTrade',
+        // In V4: market, outcomeIdx, shares, maxCost, isBuy
+        // Here we are filling a limit order via AMM? Or is this actually just a taker trade?
+        // If this is 'executeAMMTrade', looking at V3 'tradeAMM' usage:
+        // V3: market, outcome, deltaWad (shares), maxCostWad
+        // V4: market, outcome, shares, limit, isBuy
+        // We need to determine isBuy. shares > 0 is buy.
+        args: [market.contractAddress as `0x${string}`, outcome, shares, limitValue, true],
       });
 
       const toastId = toast.loading('Executing Trade...');
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.success('Trade Executed!', { id: toastId });

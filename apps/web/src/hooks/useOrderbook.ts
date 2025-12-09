@@ -1,5 +1,5 @@
 import { usePublicClient } from 'wagmi';
-import { SOOTH_MARKET_ABI } from '../config/abis';
+import { MARKET_V4_ABI } from '../config/abis';
 import { useMarket } from './useMarket';
 import { useState, useEffect, useCallback } from 'react';
 import { formatUnits } from 'viem';
@@ -29,7 +29,7 @@ export interface OrderbookState {
 export function useOrderbook(marketId: string) {
   const { market } = useMarket(marketId);
   const publicClient = usePublicClient();
-  
+
   const [orderbook, setOrderbook] = useState<OrderbookState>({ bids: [], asks: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number>(0);
@@ -50,13 +50,13 @@ export function useOrderbook(marketId: string) {
        * Asks: isBuySide = false (makers want NO, so they're "selling" YES)
        * Bids: isBuySide = true (makers want YES)
        */
-      
+
       const fetchSide = async (startFn: 'bestAsk' | 'bestBid', side: 'ask' | 'bid') => {
         const sideOrders: Order[] = [];
-        
+
         let currentId = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
-          abi: SOOTH_MARKET_ABI,
+          abi: MARKET_V4_ABI,
           functionName: startFn,
         });
 
@@ -66,7 +66,7 @@ export function useOrderbook(marketId: string) {
         while (currentId && currentId !== 0n && depth < MAX_DEPTH) {
           const orderData = await publicClient.readContract({
             address: contractAddress as `0x${string}`,
-            abi: SOOTH_MARKET_ABI,
+            abi: MARKET_V4_ABI,
             functionName: 'orders',
             args: [currentId]
           }) as [bigint, string, bigint, bigint, bigint, boolean];
@@ -74,11 +74,11 @@ export function useOrderbook(marketId: string) {
           if (orderData) {
             // OrderV3: [id, maker, yesPrice, amount, timestamp, isBuySide]
             const [id, maker, yesPrice, amount, timestamp, isBuySide] = orderData;
-            
+
             // Only include orders with non-zero amount
             if (amount > 0n) {
               const yesPriceFormatted = formatUnits(yesPrice, 18);
-              
+
               sideOrders.push({
                 id: id.toString(),
                 maker,
@@ -94,7 +94,7 @@ export function useOrderbook(marketId: string) {
 
           const nextId = await publicClient.readContract({
             address: contractAddress as `0x${string}`,
-            abi: SOOTH_MARKET_ABI,
+            abi: MARKET_V4_ABI,
             functionName: 'nextOrder',
             args: [currentId]
           });

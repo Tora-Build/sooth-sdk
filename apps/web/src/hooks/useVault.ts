@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useReadContracts, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { SOOTH_VAULT_ABI, ERC20_ABI } from '../config/abis';
+import { GOVERNOR_VAULT_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useActivityStore } from '../store/useActivityStore';
@@ -22,21 +22,20 @@ export function useVault() {
   // Read Data
   const { data, refetch } = useReadContracts({
     contracts: [
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalAssets' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalSupply' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalAssets' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalSupply' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', vaultAddress] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'asset' },
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalLockedExposure' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'asset' },
     ],
-    query: { 
+    query: {
       enabled: mode === 'real' && !!address,
       refetchInterval: 30000 // Increased to prevent RPC rate limiting
     }
   });
 
-  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset, totalLockedExposureResult] = data?.map(r => r.result) || [];
+  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset] = data?.map(r => r.result) || [];
 
   if (vaultAsset && (vaultAsset as string).toLowerCase() !== tokenAddress.toLowerCase()) {
     console.error('CRITICAL: Vault asset mismatch!', {
@@ -49,7 +48,7 @@ export function useVault() {
   const demoMarkets = mode === 'demo' ? markets.filter((m: any) => m.mode === 'demo') : [];
   const demoTotalLiquidity = demoMarkets.reduce((sum: number, m: any) => sum + Number(formatUnits(m.bParam || 0n, 18)), 0);
 
-  
+
   // Calculate Demo Locked (Sum of b * 0.693)
   const demoTotalLocked = demoMarkets.reduce((sum: number, m: any) => {
     const b = Number(formatUnits(m.bParam || 0n, 18));
@@ -67,12 +66,12 @@ export function useVault() {
   // Demo Mode Data
   // Supply = Sum of b (Liquidity Depth)
   const demoTotalSupply = BigInt(Math.floor(demoTotalLiquidity * 1e18));
-  
+
   // TVL = Supply (Share Price = 1.0)
   const demoTotalAssets = demoTotalSupply;
-  
-  const demoLpBalance = 1250n * 10n**18n;
-  const demoUserUsdc = 10000n * 10n**18n;
+
+  const demoLpBalance = 1250n * 10n ** 18n;
+  const demoUserUsdc = 10000n * 10n ** 18n;
 
   // Normalized Data
   const currentTotalAssets = mode === 'demo' ? demoTotalAssets : (totalAssets as bigint || 0n);
@@ -83,11 +82,11 @@ export function useVault() {
 
   // Derived Stats
   const sharePrice = mode === 'demo' ? 1.0 : (
-    currentTotalSupply > 0n 
+    currentTotalSupply > 0n
       ? Number(formatUnits(currentTotalAssets, 18)) / Number(formatUnits(currentTotalSupply, 18))
       : 1.0
   );
-  
+
   const apy = 12.4; // Mock APY for now
 
   const deposit = async (amount: string) => {
@@ -108,10 +107,10 @@ export function useVault() {
       }
 
       const amountBig = parseUnits(amount, 18);
-      
+
       // 1. Check Fresh Allowance & Max Deposit
       if (!publicClient) throw new Error('Public Client not initialized');
-      
+
       // Use Promise.all with individual readContract calls instead of multicall
       // This ensures compatibility with chains that don't support multicall3 (like Monad Testnet)
       const allowanceVal = await publicClient.readContract({
@@ -124,11 +123,11 @@ export function useVault() {
       // Skip maxDeposit check as it reverts on current contract deployment
       const maxDepositVal = FALLBACK_MAX_DEPOSIT;
 
-      console.log('Deposit Debug:', { 
-        amount: amountBig.toString(), 
+      console.log('Deposit Debug:', {
+        amount: amountBig.toString(),
         allowance: allowanceVal.toString(),
         maxDeposit: maxDepositVal.toString(),
-        needsApproval: allowanceVal < amountBig 
+        needsApproval: allowanceVal < amountBig
       });
 
       if (maxDepositVal < amountBig) {
@@ -143,13 +142,13 @@ export function useVault() {
           functionName: 'approve',
           args: [vaultAddress, amountBig],
         });
-        
+
         const toastId = toast.loading('Approving USDC...');
         console.log('Approval Sent:', tx);
-        
+
         const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
         console.log('Approval Mined:', receipt.status);
-        
+
         if (receipt.status !== 'success') {
           throw new Error('Approval transaction failed');
         }
@@ -160,14 +159,14 @@ export function useVault() {
       console.log('Sending Deposit...');
       const hash = await writeContractAsync({
         address: vaultAddress,
-        abi: SOOTH_VAULT_ABI,
-        functionName: 'depositFor',
-        args: [address || '0x0', amountBig],
+        abi: GOVERNOR_VAULT_V4_ABI,
+        functionName: 'deposit',
+        args: [amountBig, address || '0x0'],
       });
-      
+
       const toastId = toast.loading('Deposit submitted...');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Deposit successful!', { id: toastId });
         useActivityStore.getState().addActivity({
@@ -210,17 +209,17 @@ export function useVault() {
       if (!publicClient) throw new Error('Public Client not initialized');
 
       const amountBig = parseUnits(amount, 18);
-      
+
       const hash = await writeContractAsync({
         address: vaultAddress,
-        abi: SOOTH_VAULT_ABI,
-        functionName: 'withdrawFor',
-        args: [address || '0x0', amountBig, address || '0x0'],
+        abi: GOVERNOR_VAULT_V4_ABI,
+        functionName: 'withdraw',
+        args: [amountBig, address || '0x0', address || '0x0'],
       });
 
       const toastId = toast.loading('Withdraw submitted...');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Withdraw successful!', { id: toastId });
         useActivityStore.getState().addActivity({
@@ -244,7 +243,7 @@ export function useVault() {
     }
   };
 
-  const demoMaxDeposit = 1000000n * 10n**18n;
+  const demoMaxDeposit = 1000000n * 10n ** 18n;
   // If maxDeposit fetch fails (undefined), default to max uint256 to allow attempts. 
   // Only block if explicitly 0n.
   const FALLBACK_MAX_DEPOSIT = 115792089237316195423570985008687907853269984665640564039457584007913129639935n;
@@ -254,7 +253,8 @@ export function useVault() {
   // Calculate Total Locked
   // Demo: Sum of b * 0.693 (calculated above as currentTotalLocked)
   // Real: Use totalLockedExposure from contract
-  const contractLockedExposure = (totalLockedExposureResult as bigint) || 0n;
+  // Real: Use totalLockedExposure from contract (Not available in V4 basic view yet)
+  const contractLockedExposure = 0n; // Placeholder until V4 exposes this
   const totalLocked = mode === 'demo' ? currentTotalLocked : contractLockedExposure;
 
   return {

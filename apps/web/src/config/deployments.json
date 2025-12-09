@@ -1,58 +1,51 @@
 {
-  "version": "1.2",
-  "lastUpdated": "2025-12-06",
+  "version": "4.0",
+  "lastUpdated": "2025-12-09",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live & Verified",
+      "status": "✅ Live & Verified - V4",
       "contracts": {
-        "MockUSDC": "0x4b5dd5bb3284de785bf71363c486a23a2c2002ab",
-        "SoothTraderVault": "0x3d04fc908b6f05d189db096ee19feb30deea45cc",
-        "SoothMarket": "0x1a335b967ab35613c35f705ddeae0d996cc99536",
-        "SoothGovernorVault": "0x99c7eceb94fcd27cba148ddb947fc8be7e879b8d",
-        "SoothFeeController": "0x83a52223b7fdf26644786eac946d120e467046b7",
-        "SoothLMSRReal": "0x2cb104e930ab56ca74a2e6933c137d356872e6b7",
-        "SoothRouter": "0x587c4ee0d031fdcbb2645a7bbbb6c8fded6d8b94"
+        "MockUSDC": "0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab",
+        "SoothTraderVault": "0xee91e05f95cBaACD46f58432DF72CB5C451e98E0",
+        "SoothGovernorVault": "0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f",
+        "SoothFeeController": "0xa367B312Ca1845B7c6076345cB5cd529F935B4FA"
       },
       "notes": {
-        "usdc": "MockUSDC deployed by us for consistency across networks",
-        "update": "TraderVault is now ERC4626 compliant (1:1 ratio). Scripts renamed.",
-        "v1.3": "Security Fixes (GovernorVault Access Control + Market bestOrder)"
+        "version": "V4 - Dual-venue trading (AMM + Orderbook)",
+        "usdc": "MockUSDC with 18 decimals",
+        "traderVault": "TraderVaultV4 - executeAMMTrade, placeOrder, cancelOrder",
+        "governorVault": "LP liquidity vault (deposit/withdraw)"
       },
       "marketInfo": {
-        "marketId": 1,
-        "isLive": true,
-        "bParam": "10000000000000000000000",
-        "description": "Example Market"
+        "market1": {
+          "address": "0xf17f4863aeeecdd5db8d0eb2a81a5435987267db",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0x7f7a84196dc38b054a6f31b2efcd7142860b37c6"
+        },
+        "market2": {
+          "address": "0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0xd1385686a408e629271bddcc9b918c284134c069"
+        }
       }
     },
-
-    "megaethTestnet": {
-      "chainId": 6343,
-      "status": "✅ Live",
-      "rpc": "https://timothy.megaeth.com/rpc",
-      "contracts": {
-        "MockUSDC": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50",
-        "SoothTraderVault": "0xd9dfdec3046ead9891714f9fb465dbe89da48689",
-        "SoothGovernorVault": "0xa852857a15a10692a5cf22cb2b5b707c8dd64cf8",
-        "SoothFeeController": "0x42cbcaf89c380a55ef1b2ade6a32ee9590dd63e1",
-        "SoothLMSRReal": "0x27927f8a675fdd263efc1eaf163eeb106529ebbd",
-        "SoothRouter": "0x493da6e5c9de67ab50b2fb08d14865614189b5c2"
-      },
-      "notes": {
-        "deployment": "Deployed 2025-12-06 with 50x gas multiplier due to MegaETH testnet quirks",
-        "markets": "5 markets deployed - see markets-megaeth.json"
-      }
+    "monadTestnet": {
+      "chainId": 10143,
+      "status": "⏸️ Paused - Awaiting Funds",
+      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "contracts": {}
     }
   },
   "architecture": {
-    "entryPoint": "TraderVault - Single entry point for all trading",
+    "version": "V4",
+    "entryPoint": "TraderVaultV4 - Dual-venue trading",
     "features": [
-      "Unified orderbook (Sell YES = Buy NO)",
-      "Time-lock (48h on sell proceeds)",
-      "Auto-claim on user actions",
-      "Settlement redemption",
-      "ERC4626 Compliance (TraderVault)"
+      "AMM trading with 24h lock-on-buy",
+      "Orderbook limit orders (no locks)",
+      "ERC1155 outcome tokens",
+      "Tick-based pricing (0-1000)",
+      "Dynamic liquidity (b parameter)"
     ]
   }
 }

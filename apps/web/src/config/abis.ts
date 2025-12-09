@@ -127,3 +127,46 @@ export const MOCK_ERC20_ABI = parseAbi([
   "function mint(address to, uint256 amount)",
   "function _mint(address to, uint256 amount)",
 ]);
+
+// V4: TraderVaultV4 with dual-venue trading
+export const TRADER_VAULT_V4_ABI = parseAbi([
+  "function deposit(uint256 amount)",
+  "function withdraw(uint256 amount)",
+  "function accounts(address user) view returns (uint256 available, uint256 pending)",
+  "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime)",
+  "function executeAMMTrade(address market, uint8 outcome, uint256 shares, uint256 limit, bool isBuy)",
+  "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
+  "function cancelOrder(address market, uint256 orderId)",
+  "function claimWinnings(address market)",
+]);
+
+// V4: GovernorVault (Standard ERC4626)
+export const GOVERNOR_VAULT_V4_ABI = parseAbi([
+  "function asset() view returns (address)",
+  "function totalAssets() view returns (uint256)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function convertToShares(uint256 assets) view returns (uint256)",
+  "function convertToAssets(uint256 shares) view returns (uint256)",
+  "function deposit(uint256 assets, address receiver) returns (uint256)",
+  "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
+  "event Deposit(address indexed user, address indexed receiver, uint256 assets, uint256 shares)",
+  "event Withdraw(address indexed user, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
+]);
+
+// V4: MarketV4 with tick-based pricing
+export const MARKET_V4_ABI = parseAbi([
+  "function currentTick() view returns (uint256)",
+  "function b() view returns (uint256)",
+  "function bBase() view returns (uint256)",
+  "function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) view returns (int256, uint256, uint16)",
+  "function isLive() view returns (bool)",
+  "function isSettled() view returns (bool)",
+  "function yesBalance(address user) view returns (uint256)",
+  "function noBalance(address user) view returns (uint256)",
+  "function bestAsk() view returns (uint256)",
+  "function bestBid() view returns (uint256)",
+  "function orders(uint256 id) view returns (uint256, address, uint256, uint256, uint256, bool)",
+  "function nextOrder(uint256 id) view returns (uint256)",
+  "event TickUpdated(uint256 newTick, uint256 probability)",
+]);

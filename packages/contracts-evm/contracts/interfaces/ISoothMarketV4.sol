@@ -70,6 +70,12 @@ interface ISoothMarketV4 {
         int256 deltaShares
     ) external returns (int256 cost, uint256 fee);
 
+    function calculateAMMTradeCost(
+        uint8 outcome,
+        uint256 shares,
+        bool isBuy
+    ) external view returns (int256 cost, uint256 fee, uint16 newTick);
+
     function createOrder(
         address maker,
         uint8 outcome,

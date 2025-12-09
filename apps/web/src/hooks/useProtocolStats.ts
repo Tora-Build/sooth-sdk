@@ -1,6 +1,6 @@
 import { useReadContracts } from 'wagmi';
 import { formatUnits } from 'viem';
-import { SOOTH_VAULT_ABI } from '../config/abis';
+import { GOVERNOR_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useChainStore } from '../store/useChainStore';
@@ -9,13 +9,13 @@ export function useProtocolStats() {
   const { markets, mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
   const deployments = useDeployments();
-  // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
-  const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
+  // LP vault - use SoothGovernorVault
+  const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
 
   // We only fetch on-chain data if in Real mode
   const { data: vaultData, isLoading } = useReadContracts({
     contracts: [
-      { address: vaultAddress, abi: SOOTH_VAULT_ABI, functionName: 'totalAssets' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalAssets' },
     ],
     query: {
       enabled: mode === 'real',
@@ -26,7 +26,7 @@ export function useProtocolStats() {
   const [totalAssets] = vaultData?.map(r => r.result) || [];
 
   // Calculate stats
-  const totalTVL = mode === 'real' 
+  const totalTVL = mode === 'real'
     ? (totalAssets ? parseFloat(formatUnits(totalAssets as bigint, 18)) : 0)
     : 3100000; // Mock for demo
 

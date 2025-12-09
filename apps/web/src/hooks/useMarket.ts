@@ -1,7 +1,7 @@
 import React from 'react';
 import { useReadContracts, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { SOOTH_MARKET_ABI, SOOTH_BALANCED_AMM_ABI } from '../config/abis';
+import { MARKET_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
@@ -28,99 +28,40 @@ function useEVMMarket(marketId: string) {
   // 2. On-Chain Data Fetching (Only if Real Mode AND on correct chain)
   const { data: onChainData, refetch, isLoading: isHookLoading, error: hookError } = useReadContracts({
     contracts: [
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'isLive' },
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'isSettled' },
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'ammState' },
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'b' }, // v3: bParam is in Market contract
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
-      { address: marketAddress, abi: SOOTH_MARKET_ABI, functionName: 'noBalance', args: [address || '0x0'] },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'currentTick' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'yesBalance', args: [address || '0x0'] },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'noBalance', args: [address || '0x0'] },
     ],
     query: {
       enabled: mode === 'real' && !!marketAddress && walletChainId === selectedChainId,
-      refetchInterval: 30000, // Increased to 30s to prevent MegaETH RPC rate limiting
+      refetchInterval: 5000,
     }
   });
 
-  // 3. Price Calculation (LMSR) - Dependent on AMM State
-  const [isLive, isSettled, ammState, bParam, yesBal, noBal] = onChainData?.map(r => r.result) || [];
+  // 3. Process Data
+  const [isLive, isSettled, currentTick, bParam, yesBal, noBal] = onChainData?.map(r => r.result) || [];
 
-  // Parse ammState tuple [qYes, qNo]  
-  const parsedQYes = ammState ? (ammState as any)[0] : undefined;
-  const parsedQNo = ammState ? (ammState as any)[1] : undefined;
-
-
-
-  const { data: prices } = useReadContracts({
-    contracts: [
-      {
-        address: ammAddress,
-        abi: SOOTH_BALANCED_AMM_ABI,
-        functionName: 'price',
-        args: [ammState as any, 0, bParam as bigint]
-      },
-      {
-        address: ammAddress,
-        abi: SOOTH_BALANCED_AMM_ABI,
-        functionName: 'price',
-        args: [ammState as any, 1, bParam as bigint]
-      },
-    ],
-    query: {
-      enabled: mode === 'real' && !!ammState && !!bParam,
-    }
-  });
-
-  // 4. Return Data based on Mode
-  if (mode === 'demo') {
-    const demoMarket = demoMarkets.find(m => m.id === marketId);
-    return {
-      market: demoMarket,
-      isLoading: false,
-      refetch: () => { },
-    };
-  }
-
-  // Parse ammState tuple [qYes, qNo]
-  const qYes = ammState ? (ammState as any)[0] : 0n;
-  const qNo = ammState ? (ammState as any)[1] : 0n;
-
-  // Parse bParam from config (string -> bigint)
   const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
 
   // Real Mode Construction
   const market: Market | undefined = React.useMemo(() => {
     if (!marketConfig) return undefined;
 
-    // Calculate price from AMM state if API price is not available
-    let calculatedPriceYes = 0;
-    let calculatedPriceNo = 0;
-
-    if (prices?.[0].result && prices?.[1].result) {
-      // Use API prices if available
-      calculatedPriceYes = parseFloat(formatUnits(prices[0].result as bigint, 18));
-      calculatedPriceNo = parseFloat(formatUnits(prices[1].result as bigint, 18));
-    } else if (qYes !== undefined && qNo !== undefined && (bParam || configBParam)) {
-      // Fallback: Calculate from AMM state using LMSR formula
-      // price_yes = exp(qYes/b) / (exp(qYes/b) + exp(qNo/b))
-      const b = Number(formatUnits((bParam as bigint) || configBParam, 18));
-      const qY = Number(formatUnits(qYes, 18));
-      const qN = Number(formatUnits(qNo, 18));
-
-      if (b > 0) {
-        const expYes = Math.exp(qY / b);
-        const expNo = Math.exp(qN / b);
-        calculatedPriceYes = expYes / (expYes + expNo);
-        calculatedPriceNo = expNo / (expYes + expNo);
-      }
-    }
+    // V4 Price Calculation: probability = tick / 1000
+    const tickVal = currentTick ? Number(currentTick) : 500; // default 0.5
+    const calculatedPriceYes = tickVal / 1000;
+    const calculatedPriceNo = 1 - calculatedPriceYes;
 
     return {
       ...marketConfig,
       status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
       priceYes: calculatedPriceYes,
       priceNo: calculatedPriceNo,
-      qYes,
-      qNo,
+      qYes: 0n, // V4 doesn't use qYes/qNo
+      qNo: 0n,
       bParam: (bParam as bigint) || configBParam || 0n,
       userYesShares: yesBal ? parseFloat(formatUnits(yesBal as bigint, 18)) : 0,
       userNoShares: noBal ? parseFloat(formatUnits(noBal as bigint, 18)) : 0,
@@ -128,7 +69,7 @@ function useEVMMarket(marketId: string) {
       userAvgEntryNo: null,
       mode: 'real',
     } as Market;
-  }, [marketConfig, isSettled, isLive, prices, qYes, qNo, bParam, configBParam, yesBal, noBal]);
+  }, [marketConfig, isSettled, isLive, currentTick, bParam, configBParam, yesBal, noBal]);
 
   return {
     market,

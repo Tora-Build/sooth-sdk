@@ -1,24 +1,6 @@
 {
   "markets": [
     {
-      "id": "example_v3",
-      "id_numeric": 1,
-      "mode": "real",
-      "chainId": 84532,
-      "name": "Example v3 Market",
-      "question": "Example prediction market for v3 testing",
-      "adjudicatorKind": "MANUAL",
-      "adjudicatorLabel": "Manual Settlement",
-      "openEnded": true,
-      "contractAddress": "0x1a335b967ab35613c35f705ddeae0d996cc99536",
-      "adjudicatorId": "0xexample_v3",
-      "eventId": "0xevent_example_v3",
-      "initialStatus": "trading",
-      "initialYes": 0.5,
-      "riskLevel": "LOW",
-      "outcomes": ["YES", "NO"]
-    },
-    {
       "id": "megaeth_btc",
       "id_numeric": 1,
       "mode": "real",
@@ -35,7 +17,10 @@
       "initialYes": 0.5,
       "riskLevel": "LOW",
       "bParam": "43281000000000000000000",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "megaeth_eth_gas",
@@ -54,7 +39,10 @@
       "initialYes": 0.5,
       "riskLevel": "LOW",
       "bParam": "43281000000000000000000",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "megaeth_launch",
@@ -73,7 +61,10 @@
       "initialYes": 0.5,
       "riskLevel": "MEDIUM",
       "bParam": "72135000000000000000000",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "megaeth_tvl",
@@ -92,7 +83,10 @@
       "initialYes": 0.5,
       "riskLevel": "HIGH",
       "bParam": "100989000000000000000000",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "megaeth_top10",
@@ -111,7 +105,10 @@
       "initialYes": 0.5,
       "riskLevel": "HIGH",
       "bParam": "129843000000000000000000",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "m1",
@@ -128,7 +125,10 @@
       "initialStatus": "trading",
       "initialYes": 0.5,
       "riskLevel": "LOW",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "m2",
@@ -145,7 +145,10 @@
       "initialStatus": "cooldown",
       "initialYes": 0.41,
       "riskLevel": "HIGH",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "m3",
@@ -162,7 +165,10 @@
       "initialStatus": "trading",
       "initialYes": 0.5,
       "riskLevel": "MEDIUM",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     },
     {
       "id": "m4",
@@ -179,7 +185,56 @@
       "initialStatus": "settled",
       "winningOutcome": "YES",
       "riskLevel": "LOW",
-      "outcomes": ["YES", "NO"]
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "v4_alien_life",
+      "id_numeric": 1,
+      "mode": "real",
+      "chainId": 84532,
+      "name": "UN Confirms Alien Life",
+      "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",
+      "adjudicatorKind": "MANUAL",
+      "adjudicatorLabel": "Manual Settlement",
+      "openEnded": true,
+      "contractAddress": "0xf17f4863aeeecdd5db8d0eb2a81a5435987267db",
+      "outcomeTokenAddress": "0x7f7a84196dc38b054a6f31b2efcd7142860b37c6",
+      "adjudicatorId": "0xv4_alien",
+      "eventId": "0xevent_v4_alien",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "MEDIUM",
+      "bParam": "10000000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "v4_btc_twap",
+      "id_numeric": 2,
+      "mode": "real",
+      "chainId": 84532,
+      "name": "BTC 7-day TWAP >= $100k",
+      "question": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
+      "adjudicatorKind": "CHAINLINK",
+      "adjudicatorLabel": "Chainlink Oracle",
+      "openEnded": true,
+      "contractAddress": "0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7",
+      "outcomeTokenAddress": "0xd1385686a408e629271bddcc9b918c284134c069",
+      "adjudicatorId": "0xv4_btc_twap",
+      "eventId": "0xevent_v4_btc",
+      "initialStatus": "trading",
+      "initialYes": 0.7,
+      "riskLevel": "LOW",
+      "bParam": "15000000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
     }
   ]
 }

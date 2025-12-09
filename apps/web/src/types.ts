@@ -12,6 +12,7 @@ export interface MarketConfig {
   adjudicatorLabel?: string;
   openEnded: boolean;
   contractAddress: string;
+  outcomeTokenAddress?: string; // ERC1155 outcome tokens
   adjudicatorId: string;
   eventId: string;
   initialStatus?: MarketStatus;
@@ -29,32 +30,33 @@ export interface Market {
   adjudicatorLabel: string;
   openEnded: boolean;
   contractAddress: string;
+  outcomeTokenAddress?: string; // V4 only
   adjudicatorId: string;
   eventId: string;
   initialStatus?: MarketStatus;
   initialYes?: number;
   status: MarketStatus;
-  
+
   // Pricing (LMSR)
   priceYes: number;
   priceNo: number;
   qYes: bigint;
   qNo: bigint;
   bParam: bigint;
-  
+
   // Risk Management
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
-  
+
   // User Position
   userYesShares: number;
   userNoShares: number;
   userAvgEntryYes: number | null;
   userAvgEntryNo: number | null;
-  
+
   // Settlement
   winningOutcome?: 'YES' | 'NO';
   adjudicatorProofUploaded?: boolean;
-  
+
   // Demo Mode Only
   virtualYesStake?: number;
   virtualNoStake?: number;

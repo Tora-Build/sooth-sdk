@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useReadContracts, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { TRADER_VAULT_V3_ABI, ERC20_ABI } from '../config/abis';
+import { TRADER_VAULT_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useActivityStore } from '../store/useActivityStore';
@@ -18,34 +18,38 @@ export function useTraderVault() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const deployments = useDeployments();
-  
+
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
   const tokenAddress = deployments.MockUSDC as `0x${string}`;
 
   // Read user balances and vault data
   const { data, refetch } = useReadContracts({
     contracts: [
-      { address: traderVaultAddress, abi: TRADER_VAULT_V3_ABI, functionName: 'availableBalance', args: [address || '0x0'] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V3_ABI, functionName: 'pendingBalance', args: [address || '0x0'] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V3_ABI, functionName: 'totalBalance', args: [address || '0x0'] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'accounts', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals' },
     ],
-    query: { 
+    query: {
       enabled: mode === 'real' && !!address,
       refetchInterval: 30000 // Increased to 30s to prevent MegaETH RPC rate limiting
     }
   });
 
-  const [availableBalance, pendingBalance, totalBalance, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
+  const [accountsStruct, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
   const decimals = Number(rawDecimals || 18);
 
+  // V4 returns a tuple/struct for accounts: [available, pending]
+  // Note: Wagmi/Viem might return it as an array or object depending on config. Assuming array for now based on ABI.
+  const availableBalance = (accountsStruct as [bigint, bigint])?.[0] || 0n;
+  const pendingBalance = (accountsStruct as [bigint, bigint])?.[1] || 0n;
+  const totalBalance = availableBalance + pendingBalance;
+
   // Demo mode data
-  const demoAvailableBalance = 500n * 10n**18n;
-  const demoPendingBalance = 150n * 10n**18n;
+  const demoAvailableBalance = 500n * 10n ** 18n;
+  const demoPendingBalance = 150n * 10n ** 18n;
   const demoTotalBalance = demoAvailableBalance + demoPendingBalance;
-  const demoUserUsdc = 10000n * 10n**18n;
+  const demoUserUsdc = 10000n * 10n ** 18n;
 
   // Normalized data
   const currentAvailableBalance = mode === 'demo' ? demoAvailableBalance : (availableBalance as bigint || 0n);
@@ -74,9 +78,9 @@ export function useTraderVault() {
       }
 
       const amountBig = parseUnits(amount, decimals);
-      
+
       if (!publicClient) throw new Error('Public Client not initialized');
-      
+
       // Check current allowance and balance
       const [allowanceVal, balanceVal] = await Promise.all([
         publicClient.readContract({
@@ -97,8 +101,8 @@ export function useTraderVault() {
         throw new Error(`Insufficient USDC balance. Found ${formatUnits(balanceVal, decimals)} USDC, needed ${amount}.`);
       }
 
-      console.log('Deposit Debug:', { 
-        amount: amountBig.toString(), 
+      console.log('Deposit Debug:', {
+        amount: amountBig.toString(),
         allowance: allowanceVal.toString(),
         needsApproval: allowanceVal < amountBig,
         tokenAddress,
@@ -113,13 +117,13 @@ export function useTraderVault() {
           functionName: 'approve',
           args: [traderVaultAddress, amountBig],
         });
-        
+
         const toastId = toast.loading('Approving USDC...');
         console.log('Approval Sent:', tx);
-        
+
         const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
         console.log('Approval Mined:', receipt.status);
-        
+
         if (receipt.status !== 'success') {
           throw new Error('Approval transaction failed');
         }
@@ -130,14 +134,14 @@ export function useTraderVault() {
       console.log('Sending Deposit...');
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'deposit',
         args: [amountBig],
       });
-      
+
       const toastId = toast.loading('Deposit submitted...');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Deposit successful!', { id: toastId });
         useActivityStore.getState().addActivity({
@@ -183,19 +187,19 @@ export function useTraderVault() {
       if (!publicClient) throw new Error('Public Client not initialized');
 
       if (!publicClient) throw new Error('Public Client not initialized');
-  
+
       const amountBig = parseUnits(amount, decimals);
-      
+
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'withdraw',
         args: [amountBig],
       });
 
       const toastId = toast.loading('Withdraw submitted...');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Withdraw successful!', { id: toastId });
         useActivityStore.getState().addActivity({
@@ -222,16 +226,19 @@ export function useTraderVault() {
   /**
    * Claim unlocked pending balance (after 48h lock period)
    */
-  const claimUnlocked = async () => {
+  /**
+   * Claim Winnings (V4 Settlement)
+   */
+  const claimWinnings = async (marketAddress: string) => {
     setIsPending(true);
     try {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        toast.success('Demo: Claimed unlocked funds');
+        toast.success('Demo: Claimed winnings');
         useActivityStore.getState().addActivity({
-          type: 'claim',
-          market: 'Trading Vault',
-          description: 'Claimed unlocked funds',
+          type: 'claim', // Using 'claim' type for winnings as well
+          market: marketAddress,
+          description: 'Claimed winnings',
           mode: 'demo',
           timestamp: Date.now()
         });
@@ -239,23 +246,23 @@ export function useTraderVault() {
       }
 
       if (!publicClient) throw new Error('Public Client not initialized');
-      
+
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
-        functionName: 'claimUnlocked',
-        args: [],
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'claimWinnings',
+        args: [marketAddress as `0x${string}`],
       });
 
-      const toastId = toast.loading('Claiming unlocked funds...');
+      const toastId = toast.loading('Claiming winnings...');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
+
       if (receipt.status === 'success') {
         toast.success('Claimed successfully!', { id: toastId });
         useActivityStore.getState().addActivity({
           type: 'claim',
-          market: 'Trading Vault',
-          description: 'Claimed unlocked funds',
+          market: marketAddress,
+          description: 'Claimed winnings',
           hash: hash,
           mode: mode,
           timestamp: Date.now(),
@@ -276,40 +283,7 @@ export function useTraderVault() {
   /**
    * Redeem winning shares for USDC
    */
-  const redeem = async (marketAddress: string) => {
-    setIsPending(true);
-    try {
-      if (mode === 'demo') {
-        await new Promise(r => setTimeout(r, 1000));
-        toast.success('Demo: Redeemed winning shares');
-        return;
-      }
 
-      if (!publicClient) throw new Error('Public Client not initialized');
-
-      const hash = await writeContractAsync({
-        address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
-        functionName: 'redeem',
-        args: [marketAddress as `0x${string}`],
-      });
-
-      const toastId = toast.loading('Redeeming shares...');
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-      if (receipt.status === 'success') {
-        toast.success('Redeemed successfully!', { id: toastId });
-        refetch();
-      } else {
-        throw new Error('Redeem transaction reverted');
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Redeem failed');
-    } finally {
-      setIsPending(false);
-    }
-  };
 
   /**
    * Place a limit order (V3 Unified Orderbook)
@@ -341,7 +315,7 @@ export function useTraderVault() {
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeOrder',
         args: [marketAddress as `0x${string}`, outcome, priceWad, amountWad],
       });
@@ -393,7 +367,7 @@ export function useTraderVault() {
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'cancelOrder',
         args: [marketAddress as `0x${string}`, orderId],
       });
@@ -456,9 +430,17 @@ export function useTraderVault() {
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
-        functionName: 'tradeAMM',
-        args: [marketAddress as `0x${string}`, outcome, deltaWad, maxCostWad],
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'executeAMMTrade',
+        // V4 AMM Signature: market, outcome, shares, limit, isBuy
+        // Wrapper needs to adapt arguments
+        args: [
+          marketAddress as `0x${string}`,
+          outcome,
+          parseUnits(deltaShares.replace('-', ''), 18), // shares (unsigned)
+          maxCostWad, // limit
+          parseFloat(deltaShares) > 0 // isBuy
+        ],
       });
 
       const toastId = toast.loading('Executing trade...');
@@ -493,12 +475,12 @@ export function useTraderVault() {
     // Account management
     deposit,
     withdraw,
-    claimUnlocked,
-    redeem,
-    // Trading (V3)
+    // claimUnlocked, // Removed in V4 (auto-unlock or different mechanism)
+    claimWinnings, // Replaces redeem
+    // Trading (V4)
     placeOrder,
     cancelOrder,
-    tradeAMM,
+    executeAMMTrade: tradeAMM, // Alias for backward compatibility if needed, but prefer executeAMMTrade
     // State
     availableBalance: currentAvailableBalance,
     pendingBalance: currentPendingBalance,

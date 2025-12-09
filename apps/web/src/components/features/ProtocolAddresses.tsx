@@ -19,7 +19,7 @@ export const ProtocolAddresses: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [isMinting, setIsMinting] = useState(false);
-  
+
   // Fetch decimals
   const { data: decimals } = useReadContract({
     address: deployments.MockUSDC as `0x${string}`,
@@ -55,7 +55,8 @@ export const ProtocolAddresses: React.FC = () => {
 
   const chain = getChainById(selectedChainId);
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
-  
+
+
   const addresses = [
 
     { label: 'Trader Vault', address: deployments.SoothTraderVault },
@@ -76,21 +77,22 @@ export const ProtocolAddresses: React.FC = () => {
       toast.error('Connect wallet first');
       return;
     }
-    
+
     setIsMinting(true);
     try {
       const tokenDecimals = decimals || 18;
       const mintAmount = parseUnits('100000', Number(tokenDecimals));
-      
+
       const hash = await writeContractAsync({
         address: deployments.MockUSDC as `0x${string}`,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [userAddress, mintAmount],
+        gas: 200000n, // Explicit gas limit to prevent estimation hangs
       });
 
       const toastId = toast.loading('Fauceting 100,000 USDC...');
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.success('Received 100,000 USDC!', { id: toastId });
@@ -99,11 +101,11 @@ export const ProtocolAddresses: React.FC = () => {
         toast.success('Faucet transaction sent', { id: toastId });
       }
     } catch (err: any) {
-      const revertReason = err.message?.match(/reverted with the following reason:\s*(.+)/)?.[1] 
-        || err.shortMessage 
-        || err.message?.split('\n')[0] 
+      const revertReason = err.message?.match(/reverted with the following reason:\s*(.+)/)?.[1]
+        || err.shortMessage
+        || err.message?.split('\n')[0]
         || 'Unknown error';
-      
+
       toast.error(`Faucet failed: ${revertReason}`);
     } finally {
       setIsMinting(false);
@@ -146,8 +148,8 @@ export const ProtocolAddresses: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-500">{item.label}</span>
               {item.canMint && balance !== undefined && (
-                <span 
-                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 text-[10px] text-slate-300 font-mono" 
+                <span
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 text-[10px] text-slate-300 font-mono"
                   title="Your Wallet Balance"
                 >
                   {parseFloat(formatUnits(balance as bigint, Number(decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC
@@ -172,13 +174,13 @@ export const ProtocolAddresses: React.FC = () => {
               <span className="font-mono text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
                 {(item.address as string).slice(0, 6)}...{(item.address as string).slice(-4)}
               </span>
-              <button 
+              <button
                 onClick={() => copyToClipboard(item.address as string)}
                 className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-600 hover:text-slate-400"
               >
                 <Copy size={12} />
               </button>
-              <a 
+              <a
                 href={`${explorerUrl}/address/${item.address}`}
                 target="_blank"
                 rel="noopener noreferrer"
