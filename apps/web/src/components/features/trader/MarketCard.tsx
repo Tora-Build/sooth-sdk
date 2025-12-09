@@ -5,7 +5,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { useMarket } from '../../../hooks/useMarket';
 import { useTrade } from '../../../hooks/useTrade';
-import { useTradeQuote } from '../../../hooks/useTradeQuote';
+import { useV4Quote } from '../../../hooks/useV4Quote';
 import { TrendingUp, Info } from 'lucide-react';
 import { TradeForm } from './TradeForm';
 import { Drawer } from '../../ui/Drawer';
@@ -28,14 +28,17 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const quote = useTradeQuote(
-    marketId,
-    selectedOutcome,
-    tradeMode === 'buy'
-      ? (amount || '1')
-      : `-${amount || '1'}`,
-    slippageBps
+  // [NEW] V4 Hook
+  const { quote, isLoading } = useV4Quote(
+    marketId, // Pass ID, not address, so usage in hook works
+    selectedOutcome, // 0 or 1
+    amount || '0',
+    tradeMode === 'buy',
+    market?.fee // Pass dynamic fee safely
   );
+
+  const hasValidAmount = quote && parseFloat(amount) > 0;
+
 
   if (!market) return null;
 
@@ -66,9 +69,8 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
   // Determine which prices to show based on whether user is trading
-  const hasValidAmount = quote && parseFloat(amount) > 0;
-  const displayYesPrice = hasValidAmount ? (quote.newPriceYes * 100).toFixed(1) : priceYesPercent;
-  const displayNoPrice = hasValidAmount ? (quote.newPriceNo * 100).toFixed(1) : priceNoPercent;
+  const displayYesPrice = hasValidAmount && quote ? (quote.newPriceYes * 100).toFixed(1) : priceYesPercent;
+  const displayNoPrice = hasValidAmount && quote ? (quote.newPriceNo * 100).toFixed(1) : priceNoPercent;
 
   // Check if user has shares to sell
   const userYesShares = market.userYesShares || 0;
@@ -161,7 +163,7 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             <Badge
               variant={market.status === 'trading' ? 'live' : 'outline'}
               className={`text-[10px] ${market.status === 'settled' && market.winningOutcome === 'YES' ? 'border-emerald-500 text-emerald-400' :
-                  market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
+                market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
                 }`}
             >
               {t(`trading.${market.status}` as any) || market.status}
@@ -197,20 +199,20 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
       </div>
 
       {/* Buy/Sell + YES/NO Toggles */}
-      <div className="mb-4 space-y-2">
+      <div className="mb-4 space-y-2 relative">
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setTradeMode('buy')}
             className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${tradeMode === 'buy'
-                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
-                : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
+              ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
+              : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
               }`}
           >{t('trading.buy')}</button>
           <button
             onClick={() => setTradeMode('sell')}
             className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${tradeMode === 'sell'
-                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
-                : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
+              ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
+              : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
               }`}
           >{t('trading.sell')}</button>
         </div>
@@ -218,87 +220,88 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
           <button
             onClick={() => setSelectedOutcome(0)}
             className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${selectedOutcome === 0
-                ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
-                : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
+              ? 'border-emerald-500 bg-emerald-500/15 shadow-glow-emerald'
+              : 'border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5'
               }`}
           >{t('trading.yes')}</button>
           <button
             onClick={() => setSelectedOutcome(1)}
             className={`h-11 rounded-xl border-2 font-bold text-white transition-all duration-200 hover:scale-[1.02] ${selectedOutcome === 1
-                ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
-                : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
+              ? 'border-rose-500 bg-rose-500/15 shadow-glow-rose'
+              : 'border-slate-700 hover:border-rose-500/40 hover:bg-rose-500/5'
               }`}
           >{t('trading.no')}</button>
         </div>
       </div>
 
       {/* Quote Preview */}
-      {quote && (
-        <div className="mb-4 space-y-3">
-          {/* Market Info Bar */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-            <div>
-              <div className="text-xs text-slate-500">{t('trading.yesPrice')}</div>
-              <div className="text-lg font-bold text-white font-mono">
-                {(selectedOutcome === 0
-                  ? (hasValidAmount ? quote.newPriceYes : market.priceYes)
-                  : (hasValidAmount ? quote.newPriceNo : market.priceNo)
-                ).toFixed(2)} {t('common.usdc')}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-slate-500">{t('trading.liquidity')}</div>
-              <div className="text-sm font-mono text-blue-400">
-                ${virtualLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </div>
+      <div className="mb-4 space-y-3">
+        {/* Market Info Bar */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-950/50 border border-slate-800">
+          <div>
+            <div className="text-xs text-slate-500">{t('trading.yesPrice')}</div>
+            <div className="text-lg font-bold text-white font-mono">
+              {(selectedOutcome === 0
+                ? (hasValidAmount ? quote.newPriceYes : market.priceYes)
+                : (hasValidAmount ? quote.newPriceNo : market.priceNo)
+              ).toFixed(2)} {t('common.usdc')}
             </div>
           </div>
-
-          {/* Probability Bar */}
-          <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-slate-500">{t('trading.yesProb')}</span>
-              <div className="flex items-center gap-2 text-sm font-mono">
-                {hasValidAmount ? (
-                  <>
-                    <span className="text-slate-400">{(market.priceYes * 100).toFixed(0)}%</span>
-                    <span className="text-slate-600">→</span>
-                    <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
-                  </>
-                ) : (
-                  <span className="text-white">{(market.priceYes * 100).toFixed(0)}%</span>
-                )}
-              </div>
-            </div>
-            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
-                style={{ width: `${(hasValidAmount ? quote.newPriceYes : market.priceYes) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Order Summary */}
-          <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">{t('trading.costPerShare')}</span>
-              <span className="font-mono text-white">
-                {formatCurrency(Math.abs(quote.totalCost) / Math.max(parseFloat(amount || '1'), 1))}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">{t('trading.feeSlippage')}</span>
-              <span className="font-mono text-slate-400">
-                {formatCurrency(quote.fee)} + {(slippageBps / 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between text-sm border-t border-slate-800 pt-1.5">
-              <span className="text-slate-400 font-medium">{tradeMode === 'buy' ? t('trading.maxTotal') : t('trading.minReceived')}</span>
-              <span className="font-mono font-bold text-white">{formatCurrency(quote.maxWithSlippage)}</span>
+          <div className="text-right">
+            <div className="text-xs text-slate-500">{t('trading.liquidity')}</div>
+            <div className="text-sm font-mono text-blue-400">
+              ${virtualLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
         </div>
-      )}
+
+        {/* Probability Bar */}
+        <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-slate-500">{t('trading.yesProb')}</span>
+            <div className="flex items-center gap-2 text-sm font-mono">
+              {hasValidAmount ? (
+                <>
+                  <span className="text-slate-400">{(market.priceYes * 100).toFixed(0)}%</span>
+                  <span className="text-slate-600">→</span>
+                  <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
+                </>
+              ) : (
+                <span className="text-white">{(market.priceYes * 100).toFixed(0)}%</span>
+              )}
+            </div>
+          </div>
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
+              style={{ width: `${(hasValidAmount ? quote.newPriceYes : market.priceYes) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Order Summary */}
+        <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">{t('trading.costPerShare')}</span>
+            <span className="font-mono text-white">
+              {quote ? formatCurrency(Math.abs(quote.totalCost) / Math.max(parseFloat(amount || '1'), 1)) : '--'}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">{t('trading.feeSlippage')}</span>
+            <span className="font-mono text-slate-400">
+              {/* Show Fee (%) instead of Abs Value */}
+              {quote ? `${(market?.fee ? market.fee * 100 : 0.5).toFixed(1)}% + ${(slippageBps / 100).toFixed(1)}%` : '--'}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm border-t border-slate-800 pt-1.5">
+            <span className="text-slate-400 font-medium">{tradeMode === 'buy' ? 'Est. Total' : t('trading.minReceived')}</span>
+            <span className="font-mono font-bold text-white">
+              {quote && quote.maxWithSlippage ? formatCurrency(quote.maxWithSlippage) : '--'}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Quick Trade */}
       <div className="mt-auto space-y-3">
@@ -371,8 +374,8 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
                     setShowSlippageSelector(false);
                   }}
                   className={`px-2 py-1 rounded text-xs transition-colors ${slippageBps === bps
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                     }`}
                 >
                   {(bps / 100).toFixed(1)}%
@@ -393,8 +396,8 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             (tradeMode === 'sell' && parseFloat(amount) > maxSellAmount)
           }
           className={`w-full ${selectedOutcome === 0
-              ? 'bg-emerald-600 hover:bg-emerald-700'
-              : 'bg-rose-600 hover:bg-rose-700'
+            ? 'bg-emerald-600 hover:bg-emerald-700'
+            : 'bg-rose-600 hover:bg-rose-700'
             }`}
         >
           {isPending

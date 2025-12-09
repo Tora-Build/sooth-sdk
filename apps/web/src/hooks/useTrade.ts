@@ -9,11 +9,14 @@ import { getChainById } from '../lib/chains';
 import { useMarket } from './useMarket';
 import toast from 'react-hot-toast';
 import { useActivityStore } from '../store/useActivityStore';
-import { computeClientQuote } from './useTradeQuote';
+import { getLMSRQuote } from '../utils/lmsr';
 
 export function useTrade(marketId: string) {
   const { address } = useAccount();
   const { mode, updateMarket } = useMarketStore();
+  // ... (keep imports and setup)
+
+
   const { selectedChainId } = useChainStore();
   const { market, refetch: refetchMarket } = useMarket(marketId);
   const publicClient = usePublicClient();
@@ -131,24 +134,24 @@ export function useTrade(marketId: string) {
 
         // Use the same LMSR algorithm as the quote hook
         const shareAmount = parseFloat(shares);
-        const quote = computeClientQuote(market, outcomeIndex, shareAmount, slippageBps);
+        const b = Number(formatUnits(market?.bParam || 0n, 18));
+        const qYes = Number(formatUnits(market?.qYes || 0n, 18));
+        const qNo = Number(formatUnits(market?.qNo || 0n, 18));
 
-        if (!quote) {
-          throw new Error('Failed to calculate demo trade');
-        }
+        const quote = getLMSRQuote(qYes, qNo, b, shareAmount, outcomeIndex);
+
+        if (!quote) throw new Error('Failed to calculate demo trade');
 
         // Update Market State
         const currentQYes = Number(market?.qYes || 0n) / 1e18;
         const currentQNo = Number(market?.qNo || 0n) / 1e18;
 
-        const newQYes = outcomeIndex === 0 ? currentQYes + shareAmount : currentQYes;
-        const newQNo = outcomeIndex === 1 ? currentQNo + shareAmount : currentQNo;
-
+        // Use quote.newQYes/No but verify if they are absolute or delta? quote returns absolute NEW q.
         updateMarket(marketId, {
           priceYes: quote.newPriceYes,
           priceNo: quote.newPriceNo,
-          qYes: BigInt(Math.floor(newQYes * 1e18)),
-          qNo: BigInt(Math.floor(newQNo * 1e18)),
+          qYes: BigInt(Math.floor(quote.newQYes * 1e18)),
+          qNo: BigInt(Math.floor(quote.newQNo * 1e18)),
           userYesShares: (market?.userYesShares || 0) + (outcomeIndex === 0 ? shareAmount : 0),
           userNoShares: (market?.userNoShares || 0) + (outcomeIndex === 1 ? shareAmount : 0),
         });
@@ -194,20 +197,23 @@ export function useTrade(marketId: string) {
       });
 
       // 1. Calculate Expected Cost using client-side LMSR
-      // v3: TraderVault will calculate exact cost on-chain, we just need estimate for approval
-      const quote = computeClientQuote(market, outcomeIndex, shareAmount, slippageBps);
 
-      if (!quote) {
-        throw new Error('Failed to calculate trade cost');
-      }
+      const bVal = Number(formatUnits(market?.bParam || 0n, 18));
+      const qYesVal = Number(formatUnits(market?.qYes || 0n, 18));
+      const qNoVal = Number(formatUnits(market?.qNo || 0n, 18));
+
+      const quote = getLMSRQuote(qYesVal, qNoVal, bVal, shareAmount, outcomeIndex);
+
+      const fee = Math.abs(quote.expectedCost) * 0.005; // 0.5% Est Fee
+      const totalCost = quote.expectedCost + fee;
 
       // Use token decimals for cost (Vault matches token decimals)
-      const expectedCost = parseUnits(Math.abs(quote.totalCost).toFixed(decimals), decimals);
+      const expectedCost = parseUnits(Math.abs(totalCost).toFixed(decimals), decimals);
 
       console.log('Trade Cost Calculation:', {
         sharesBig: sharesBig.toString(),
         expectedCost: expectedCost.toString(),
-        totalCost: quote.totalCost
+        totalCost: totalCost
       });
 
       // Add Slippage
@@ -255,9 +261,34 @@ export function useTrade(marketId: string) {
       // Use the latest fetched balance if available, otherwise fallback to hook data
       const vaultBal = (latestBalance || traderVaultBalance) as bigint || 0n;
 
-      if (sharesBig > 0n && vaultBal < maxCost) {
-        throw new Error(`Insufficient Trading Account balance. Available: ${(Number(formatUnits(vaultBal, decimals))).toFixed(2)} USDC. Needed: ${(Number(formatUnits(maxCost, decimals))).toFixed(2)} USDC. Please deposit to your Trading Account first.`);
+      // Limit Calculation
+      // V4: 'limit' is uint256 representing:
+      // - Buy: Max assets to spend (slippage cap)
+      // - Sell: Min assets to receive (slippage floor)
+
+      let limit: bigint;
+      // slippageFactor and BPS are already defined above
+
+      if (sharesBig > 0n) {
+        // Buy: max spending = expectedCost * (1 + slippage)
+        // Add 50bps buffer for LMSR precision
+        limit = expectedCost * (BPS + slippageFactor + 50n) / BPS;
+
+        if (vaultBal < limit) {
+          throw new Error(`Insufficient Trading Account balance. Available: ${(Number(formatUnits(vaultBal, decimals))).toFixed(2)} USDC. Max Cost: ${(Number(formatUnits(limit, decimals))).toFixed(2)} USDC. Please deposit to your Trading Account first.`);
+        }
+      } else {
+        // Sell: min received = expectedCost * (1 - slippage)
+        // expectedCost is already absolute value
+        limit = expectedCost * (BPS - slippageFactor - 50n) / BPS;
       }
+
+      console.log('Slippage & Limit:', {
+        Action: sharesBig > 0n ? 'BUY' : 'SELL',
+        Expected: expectedCost.toString(),
+        Limit: limit.toString(),
+        VaultBal: vaultBal.toString()
+      });
 
       // 3. Execute Trade
       console.log('Sending Trade Transaction...');
@@ -275,21 +306,27 @@ export function useTrade(marketId: string) {
         }
       }
 
-      // V3/V4: Trade through TraderVault.tradeAMM
+      // V4: tradeAMM(market, outcome, deltaShares, maxCost)
       const client = publicClient;
       if (!client) throw new Error('Public client not found');
 
-      // V3 uses signed deltaShares: positive=buy, negative=sell
-      // maxCost is int256 (pass as signed)
-      const deltaShares = sharesBig; // Already signed correctly
+      // deltaShares is sharesBig (already signed)
+      // maxCost is signed limit
+      const signedLimit = sharesBig > 0n ? limit : -limit;
 
       try {
-        console.log('Simulating tradeAMM...', { market: market.contractAddress, outcome: outcomeIndex, deltaShares: deltaShares.toString(), maxCost: maxCost.toString() });
+        console.log('Simulating tradeAMM...', {
+          market: market.contractAddress,
+          outcome: outcomeIndex,
+          deltaShares: sharesBig.toString(),
+          maxCost: signedLimit.toString()
+        });
+
         await client.simulateContract({
           address: traderVaultAddress,
-          abi: TRADER_VAULT_V3_ABI,
+          abi: TRADER_VAULT_V4_ABI,
           functionName: 'tradeAMM',
-          args: [market.contractAddress as `0x${string}`, outcomeIndex, deltaShares, maxCost],
+          args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesBig, signedLimit],
           account: address,
         });
         console.log('Simulation successful');
@@ -301,10 +338,10 @@ export function useTrade(marketId: string) {
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
-        abi: TRADER_VAULT_V3_ABI,
+        abi: TRADER_VAULT_V4_ABI,
         functionName: 'tradeAMM',
-        args: [market.contractAddress as `0x${string}`, outcomeIndex, deltaShares, maxCost],
-        gas: 500000n, // Explicit gas limit for AMM trade
+        args: [market.contractAddress as `0x${string}`, outcomeIndex, sharesBig, signedLimit],
+        gas: 500000n,
       });
 
       console.log('Trade Hash:', hash);

@@ -61,6 +61,8 @@ export interface Market {
   virtualYesStake?: number;
   virtualNoStake?: number;
   mode: 'real' | 'demo';
+  // V4 Dynamic Fee
+  fee?: number; // Fee rate, e.g. 0.005 for 0.5%
 }
 
 export interface PoolConfig {

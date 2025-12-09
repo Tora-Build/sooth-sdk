@@ -31,6 +31,9 @@ function useEVMMarket(marketId: string) {
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled' },
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0] }, // V4: fetch price(0) for YES probability
       { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR' },
       // V4: AMM positions are in TraderVault, not Market
       {
         address: traderVaultAddress,
@@ -46,7 +49,7 @@ function useEVMMarket(marketId: string) {
   });
 
   // 3. Process Data
-  const [isLive, isSettled, priceYesWad, bParam, ammPosition] = onChainData?.map(r => r.result) || [];
+  const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition] = onChainData?.map(r => r.result) || [];
 
   const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
 
@@ -69,8 +72,8 @@ function useEVMMarket(marketId: string) {
       status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
       priceYes: calculatedPriceYes,
       priceNo: calculatedPriceNo,
-      qYes: 0n, // V4 continuous LMSR uses internal qYes/qNo state
-      qNo: 0n,
+      qYes: (qYes as bigint) || 0n,
+      qNo: (qNo as bigint) || 0n,
       bParam: (bParam as bigint) || configBParam || 0n,
       // V4: User shares from TraderVault.ammPositions
       userYesShares: parseFloat(formatUnits(ammYesShares, 18)),
@@ -78,8 +81,9 @@ function useEVMMarket(marketId: string) {
       userAvgEntryYes: null,
       userAvgEntryNo: null,
       mode: 'real',
+      fee: feeData ? Number(feeData) / 10000 : 0.005, // Default to 0.5% if missing
     } as Market;
-  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, configBParam, ammYesShares, ammNoShares]);
+  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, ammYesShares, ammNoShares, feeData]);
 
   return {
     market,

@@ -17,30 +17,28 @@ export const V4_ADDRESSES = {
 
 export const V4_MARKETS = [
     {
-        id: 1,
+        id: 'market1',
         name: 'UN Confirms Alien Life',
         description: 'Will the United Nations officially confirm the existence of extraterrestrial life?',
-        marketAddress: '0xbF669983b1054809cF6860B5Afe192b03b0bea73',
-        outcomeTokenAddress: '0x4D1c7DdfA51d6686F3B3B26eC9bE2AF9d98c934A',
-        bBase: '10000000000000000000000',
-        // Continuous LMSR: qYes/qNo start at 0 for 50% initial probability
+        address: '0x5c8c3621b0606f8b42ab17c3e33057948e587ee7',
+        outcomeToken: '0x1c9cc0704b4da8b8f766ec05c16be2c336d19423',
+        bParam: '10000000000000000000000', // 10000 * 1e18
         initialQYes: '0',
         initialQNo: '0',
         status: 'live' as const,
     },
     {
-        id: 2,
-        name: 'BTC 7-day TWAP >= $100k',
+        id: 'market2',
+        name: 'BTC >= $100k',
         description: "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-        marketAddress: '0xD5C8b0FaA0CD924D9805577c77B50aC3493d04a1',
-        outcomeTokenAddress: '0x506D40d3ec2C7BE66db3F4509EEFd4aA880D6eE0',
-        bBase: '15000000000000000000000',
+        address: '0x00da96600863a4f26e8a9cb5ca5524c3d7115403',
+        outcomeToken: '0xbc433f98780d6fef61331d51606269457818c720',
+        bParam: '15000000000000000000000', // 15000 * 1e18
         initialQYes: '0',
         initialQNo: '0',
         status: 'live' as const,
-    },
+    }
 ] as const
 
 export type V4Address = typeof V4_ADDRESSES.baseSepolia
 export type V4Market = typeof V4_MARKETS[number]
-

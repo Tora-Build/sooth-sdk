@@ -6,16 +6,17 @@
 
 - ✅ **V4 Contracts Deployed**: Continuous LMSR (qYes/qNo) live on Base Sepolia
 - ✅ **Audit Complete**: All 85 tests pass, codebase cleaned, frontend audited
-- 🔄 **Pending**: dApp UI testing, limit order verification
+- ✅ **dApp UI Verified**: Pricing math, Fees usage, Transacting, Logic
+- ✅ **Clean Code**: Legacy V3 artifacts removed
 
 ## Recent Changes (Last 5 Sessions)
 
 | Date       | Area     | Change Summary                                  |
 |------------|----------|------------------------------------------------|
+| 2025-12-09 | Deploy   | **Redeployed Markets** - Fixed stale tick contracts |
 | 2025-12-09 | Protocol | **Continuous LMSR** - ticks removed (ADR-005)  |
 | 2025-12-09 | Audit    | Full codebase + frontend audit                 |
 | 2025-12-09 | Docs     | Created `CHANGELOG.md`, updated ADRs           |
-| 2025-12-09 | Deploy   | Deployed V4 markets with qYes/qNo              |
 | 2025-12-08 | Design   | Sooth Protocol V3 architecture finalization    |
 
 ## Active Deployments (Base Sepolia - Chain 84532)
@@ -31,16 +32,18 @@
 ### Markets (Continuous LMSR)
 | Market | Address |
 |--------|---------|
-| UN Confirms Alien Life | `0xbF669983b1054809cF6860B5Afe192b03b0bea73` |
-| BTC >= $100k | `0xD5C8b0FaA0CD924D9805577c77B50aC3493d04a1` |
+| UN Confirms Alien Life | `0x5c8c3621b0606f8b42ab17c3e33057948e587ee7` |
+| BTC >= $100k | `0x00da96600863a4f26e8a9cb5ca5524c3d7115403` |
 
 ## Audit Findings (2025-12-09)
 
 ### Fixed This Session
-- [x] Created `CHANGELOG.md` — living changelog
-- [x] Updated ADR-004 status — now Accepted (batch approach deployed)
+- [x] **CRITICAL**: Redeployed V4 Markets to fix stale Tick-based contracts
+- [x] Updated Frontend Config (`deployments.json`, `v4-addresses.ts`)
+- [x] Fixed `useMarket` hook hardcoding `qYes=0`
+- [x] Fixed `useTradeQuote` fallback math logic
+- [x] Fixed `AMMTradePanel` hardcoded placeholder
 - [x] Archived stale deploy scripts to `script_archive/`
-- [x] Archived stale `ABI_GUIDE.md` to `docs/.../Archive/`
 
 ### Deferred (Cannot Archive — Active Dependencies)
 - `SoothMarket.sol` — Used by V3 tests and `SoothRouter.sol`
@@ -54,7 +57,7 @@
 
 ## Next Steps
 
-- [ ] Test trades in dApp UI
+- [x] Test trades in dApp UI
 - [ ] Test Limit Orders
 - [ ] Monitor for any UI/contract interaction issues
 - [ ] Future: Refactor `SoothTraderVault` to use only V4 interface

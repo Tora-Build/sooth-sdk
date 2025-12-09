@@ -17,6 +17,12 @@ All notable changes to Sooth Protocol will be documented in this file.
 - `ISoothMarketV4.sol` - `initialize()` takes `_initialQYes`/`_initialQNo`, `calculateAMMTradeCost()` returns `newQYes`/`newQNo`
 - Price calculation: `exp(qYes/b) / (exp(qYes/b) + exp(qNo/b))`
 
+### Fixed
+- **Transaction Reverts**: Updated `useTrade.ts` to use `tradeAMM` with signed integers (`deltaShares`, `maxCost`)
+- **UI "Jumps"**: Rewrote `useV4Quote.ts` to use Optimistic Client-Side LMSR math
+- **Fee Display**: Updated `MarketCard` to show fee + slippage as `%` format
+- **Types**: Resolved `Market` type errors and cleaned up `useMarket.ts`
+
 ### Removed
 - Tick-based pricing system (`currentTick`, `TickCostRegistry` dependency for new markets)
 - Old `DeployV4.s.sol`, `DeployMarket1.s.sol`, `Step2_Initialize.s.sol` (archived)

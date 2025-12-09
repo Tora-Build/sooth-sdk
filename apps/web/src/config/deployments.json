@@ -1,10 +1,10 @@
 {
-  "version": "4.0",
+  "version": "4.1",
   "lastUpdated": "2025-12-09",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live & Verified - V4",
+      "status": "✅ Live & Verified - V4 Continuous",
       "contracts": {
         "MockUSDC": "0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab",
         "SoothTraderVault": "0xee91e05f95cBaACD46f58432DF72CB5C451e98E0",
@@ -19,14 +19,14 @@
       },
       "marketInfo": {
         "market1": {
-          "address": "0xf17f4863aeeecdd5db8d0eb2a81a5435987267db",
+          "address": "0x5c8c3621b0606f8b42ab17c3e33057948e587ee7",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x7f7a84196dc38b054a6f31b2efcd7142860b37c6"
+          "outcomeToken": "0x1c9cc0704b4da8b8f766ec05c16be2c336d19423"
         },
         "market2": {
-          "address": "0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7",
+          "address": "0x00da96600863a4f26e8a9cb5ca5524c3d7115403",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0xd1385686a408e629271bddcc9b918c284134c069"
+          "outcomeToken": "0xbc433f98780d6fef61331d51606269457818c720"
         }
       }
     },
@@ -44,7 +44,7 @@
       "AMM trading with 24h lock-on-buy",
       "Orderbook limit orders (no locks)",
       "ERC1155 outcome tokens",
-      "Tick-based pricing (0-1000)",
+      "Continuous LMSR (qYes/qNo) - No ticks",
       "Dynamic liquidity (b parameter)"
     ]
   }
