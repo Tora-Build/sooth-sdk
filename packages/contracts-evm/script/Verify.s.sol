@@ -5,8 +5,8 @@ import "forge-std/Script.sol";
 import "../contracts/core/SoothMarket.sol";
 import "../contracts/core/SoothTraderVault.sol";
 
-/// @notice Script to verify v3 deployment status on Base Sepolia
-contract Verify is Script {
+    /// @notice Script to verify deployment status on Base Sepolia
+    contract Verify is Script {
     address constant MARKET = 0xB2f1d1ebae053cC645055448150c2A11214884E5;
     address constant TRADER_VAULT = 0xA610975CC06de01456a36bD27390D12d5E4B6629;
     
@@ -19,12 +19,11 @@ contract Verify is Script {
         console.log("Is Live:", market.isLive());
         console.log("Is Settled:", market.isSettled());
         console.log("Market ID:", market.marketId());
-        console.log("b (liquidity):", market.b());
+        console.log("b (liquidity):", market.bBase());
         
-        // Get AMM state directly
-        (int256 qYes, int256 qNo) = market.ammState();
-        console.log("qYes:", uint256(qYes));
-        console.log("qNo:", uint256(qNo));
+        // Get Tick state directly
+        uint16 tick = market.currentTick();
+        console.log("Current Tick:", tick);
         
         console.log("\n=== TraderVault Status ===");
         console.log("Address:", address(vault));

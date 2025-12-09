@@ -1,7 +1,7 @@
 # Unified Tick-Based Prediction Market Model
 ## (formerly Model B: Tick-Based LMSR)
 
-This document defines the architectural specification for **Sooth V3**, a unified liquidity protocol combining an LMSR-based AMM with a Central Limit Orderbook using a shared discrete tick system. It integrates key findings regarding liquidity dynamics and token lock mechanics.
+This document defines the architectural specification for the **Unified Tick-Based AMM**, a unified liquidity protocol combining an LMSR-based AMM with a Central Limit Orderbook using a shared discrete tick system. It integrates key findings regarding liquidity dynamics and token lock mechanics.
 
 ---
 
@@ -11,7 +11,7 @@ Traditional prediction markets split liquidity between:
 1.  **AMM**: Continuous, high-gas, "always on" automated pricing (using expensive `exp`/`log`).
 2.  **Orderbook**: Discrete, low-gas, user-provided limit orders.
 
-**Sooth V3 unifies these** by adopting a discrete **Tick System** (inspired by Uniswap v3) where:
+**Sooth Unified Market unifies these** by adopting a discrete **Tick System** (inspired by Uniswap v3) where:
 *   The Probability Space $[0, 1]$ is divided into $N$ discrete ticks (e.g., 2000 ticks).
 *   **AMM**: Provides "Base Liquidity" across all ticks using a precomputed LMSR-convex curve.
 *   **User Orders**: Provide "Concentrated Liquidity" at specific ticks (Limit Orders).
@@ -48,22 +48,34 @@ Outcome shares (`YES`, `NO`) are standardized as **ERC1155** tokens.
 *   **Composability**: Visible in wallets, tradable on secondary markets (Uniswap, OpenSea).
 *   **Efficiency**: Single-contract management (`SoothMarket`) avoids the overhead of deploying separate ERC20s per market.
 
-## 2.3 Liquidity Dynamics: The "Split/Merge" Orderbook Principle
-The user correctly identified that an Orderbook match is not just a transfer—it can be a **Split**, **Transfer**, or **Merge** depending on the participants' starting states.
+### 2.2.1 Hybrid Approach: User Tokens + AMM Accounting
+*   **User Balances**: Fully tokenized (ERC1155). Users can transfer, trade on DEXs, or call `merge()`.
+*   **AMM Inventory**: **Virtual** (Accounting-based). The AMM does not hold ERC1155 balances.
+    *   State is represented by `currentTick` (or `qYes/qNo`).
+    *   Trades with AMM are **Mint** (Buy) or **Burn** (Sell) operations.
+*   **Analogy**: Similar to **pump.fun**'s internal bonding curve (accounting) vs external Raydium pool (tokenized).
 
-| Interaction Type | Scenario | Mechanism | Capital Effect | Lock Status |
+**Why This Works:**
+*   AMM acts as the **Issuer**, not a liquidity pool. It doesn't "hold" inventory—it creates/destroys claims on demand based on the cost function.
+*   This saves gas (no redundant balance updates for the AMM address) and prevents supply inflation (AMM-held tokens would artificially inflate total supply without representing real liabilities).
+
+## 2.3 Liquidity Dynamics: AMM-Centric Protection (The "Two-Tier" Model)
+We adopt a model where protection (Locking) is focused specifically on the AMM, while the Orderbook and Redemption layers remain open for maximum efficiency.
+
+| Interaction Source | Mechanism | Capital Effect | Lock Status | Rationale |
 | :--- | :--- | :--- | :--- | :--- |
-| **Split (Creation)** | Buyer A (USDC) matches Buyer B (USDC) | **Mint** (A gets YES, B gets NO) | Liquidity **UP** (Inflow) | 🔓 **Free** |
-| **Transfer (Swap)** | User C (YES) sells to Buyer A (USDC) | **Transfer** (C -> A) | Liquidity **Neutral** | 🔓 **Free** |
-| **AMM Sell (House Trade)** | User C (YES) sells to AMM | **Burn** (Claim Extinguished) | Liability **DOWN** (Reserve Payout) | 🔒 **Locked** |
-| **Merge (Redemption)** | User C via `merge()` (YES+NO) | **Burn** (Pair Destroyed) | Collateral **Unlock** (Full Exit) | 🔒 **Locked** |
+| **Orderbook P2P** | Transfer/Split/Merge | Neutral or Outflow | 🔓 **Free** | Market Driven. User takes counterparty risk. |
+| **Merge Function** | Burn (Redeem) | Outflow (Exit) | 🔓 **Free** | **Price Neutral**. User holds full set (Hedging). Safe to exit. |
+| **AMM Trade** | Sell / Buy | Liability Change | 🔒 **Locked** | **Protect AMM Actors**. Prevents toxic flow draining LPs. |
 
-### Note on AMM vs Orderbook
-*   **Orderbook** is peer-to-peer. A "Merge" requires a complete matched set (YES+NO) to unlock the backing collateral ($1).
-*   **AMM** is a **vAMM (LMSR)**. Liquidity is mathematical (`b` parameter).
-    *   When you "Sell" to the AMM, you are trading against the House's reserves.
-    *   The Token is burned (reducing the House's future liability), and Cash is paid out (reducing the House's current reserves).
-    *   Since this is a capital exit, it is **Locked** just like a Merge.
+### Why Unlock "Merge"?
+*   **Atomic Arbitrage**: By making `merge()` free, Keepers can buy mispriced shares (Sum < $1.00) and unlock the profit **atomically in one block**.
+*   **Peg Stability**: This ensures the combined price of YES+NO is practically pinned to $1.00, increasing confidence for all participants.
+*   **Security**: Since `Merge` requires holding both YES and NO ($Value = 1.00$), the user is delta-neutral. They cannot exploit oracle latency because their position value is fixed regardless of the outcome.
+
+### The "Casino vs Spot" Distinction
+1.  **The Casino (AMM)**: Guarded by TimeLocks. Interacting with the House requires safeguards.
+2.  **The Spot Market (Orderbook)**: Open and Permissionless. Users trading with users or interacting with the protocol mechanics (Merge) face no artificial friction.
 *   **Mechanism**: **Transfer**. `YES` tokens move from A to B.
 *   **Liquidity Effect**: **Neutral**. Total Open Interest (Supply) is constant.
 *   **Lock Interaction**: **None**. Funds remain in the Protocol Vault. No lock is triggered.
@@ -96,7 +108,7 @@ Unifying tokens and exposing `merge()` creates new surfaces for external interac
 
 # 3. Liquidity Comparison
 
-| Feature | Sooth V2 (Current) | Sooth V3 (Unified Tick) |
+| Feature | Legacy Sooth (V2) | Unified Tick Market |
 | :--- | :--- | :--- |
 | **Pricing Engine** | Continuous LMSR (High Gas) | Discrete Tick LMSR (Low Gas) |
 | **Orderbook** | Separate Linked-List | Unified Tick Overlay |
@@ -108,9 +120,9 @@ Unifying tokens and exposing `merge()` creates new surfaces for external interac
 
 # 4. Implementation Guidelines
 
-1.  **Strict Separation**: Ensure `transfer()` logic (Secondary) never touches the Vault's `lockProceeds` function. Only `merge()` and `sell` (where AMM burns) should trigger locks.
+1.  **Strict Separation**: Ensure `transfer()` (Secondary) and `merge()` (Redemption) never touch `TimeLock`. **Only `executeAMMTrade` (AMM Interaction) should trigger locks.**
 2.  **Tick Calibration**: Recommended $N=2000$ ticks for optimal gas/precision balance.
-3.  **Migration**: V3 will be a new Market implementation. Existing V2 markets can run in parallel but won't interact.
+3. **Migration**: This will be a new Market implementation. Existing legacy markets can run in parallel but won't interact.
 
 ---
 

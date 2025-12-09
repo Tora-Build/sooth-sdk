@@ -1,342 +1,197 @@
-# Sooth Protocol - Contract Interface Documentation
+# Contract Interfaces - V4 Reference
 
-**Version:** 2.0 (Singleton Trader Vault)  
-**Updated:** 2025-12-04
-
-> [!WARNING]
-> This doc was updated for the v2 architecture. Key changes:
->
-> - Users deposit to `SoothTraderVault` (not market)
-> - LPs deposit to `SoothGovernorVault` (renamed from SoothVault)
-> - `SoothRiskManager` removed - Governor sets `b` directly
-> - New `SoothFeeController` for orderbook fees
+**Version:** 4.0 (Dual-Venue)  
+**Updated:** 2025-12-09
 
 ---
 
-## Contract Addresses
-
-Load from `deployments.json` or `deployments-monad.json`:
+## Contract Addresses (Base Sepolia)
 
 ```json
 {
-  "MockERC20": "0x...",
-  "SoothTraderVault": "0x...",
-  "SoothGovernorVault": "0x...",
-  "SoothFeeController": "0x...",
-  "SoothLMSRReal": "0x...",
-  "SoothAdjudicatorRegistry": "0x...",
-  "SoothSettlement": "0x...",
-  "SoothMarketFactory": "0x..."
+  "USDC": "0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab",
+  "GovernorVault": "0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f",
+  "TraderVaultV4": "0xee91e05f95cBaACD46f58432DF72CB5C451e98E0",
+  "FeeController": "0xa367B312Ca1845B7c6076345cB5cd529F935B4FA"
 }
 ```
 
 ---
 
-## 1. SoothTraderVault - User Fund Management (NEW)
+## 1. SoothTraderVaultV4 - Entry Point
+
+All user interactions go through TraderVaultV4.
 
 ### View Functions
 
 ```solidity
-function freeBalance(address user) external view returns (uint256);
-function lockedBalance(address user) external view returns (uint256);
-function asset() external view returns (IERC20);
+function accounts(address user) external view returns (uint256 available, uint256 pending);
+function ammPositions(address user, address market) external view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime);
 ```
 
 ### Write Functions
 
 #### `deposit(uint256 amount)`
-
-Deposit collateral to trade.
-
 ```typescript
-// Approve first
-await usdc.approve(traderVaultAddress, amount);
-// Deposit
-await traderVault.deposit(parseUnits("100", 6));
+await usdc.approve(TRADER_VAULT, amount);
+await traderVault.deposit(parseUnits('100', 18));
 ```
 
 #### `withdraw(uint256 amount)`
+```typescript
+await traderVault.withdraw(parseUnits('50', 18));
+```
 
-Withdraw available (unlocked) funds.
+#### `executeAMMTrade(address market, uint8 outcome, uint256 shares, uint256 limit, bool isBuy)`
+
+AMM trade with lock-on-buy.
 
 ```typescript
-await traderVault.withdraw(parseUnits("50", 6));
-```
+// Buy (shares locked 24h)
+await traderVault.executeAMMTrade(
+  MARKET_ADDRESS,
+  1, // YES
+  parseUnits('10', 18),
+  parseUnits('15', 18), // maxCost
+  true
+);
 
----
-
-## 2. SoothGovernorVault - LP Liquidity (Renamed)
-
-### View Functions
-
-```solidity
-function totalAssets() external view returns (uint256);
-function balanceOf(address lp) external view returns (uint256);  // LP shares
-function totalSupply() external view returns (uint256);  // Total LP shares
-function getMarketReserve(uint256 marketId) external view returns (int256);
-```
-
-### Write Functions
-
-#### `depositFor(address lp, uint256 assets)`
-
-LP deposits collateral, receives svTokens.
-
-```typescript
-await usdc.approve(governorVaultAddress, amount);
-await governorVault.depositFor(lpAddress, amount);
-```
-
-#### `withdrawFor(address lp, uint256 assets, address receiver)`
-
-LP withdraws liquidity.
-
-```typescript
-await governorVault.withdrawFor(lpAddress, amount, lpAddress);
-```
-
----
-
-## 3. SoothMarket - Trading
-
-### View Functions
-
-```solidity
-function isLive() external view returns (bool);
-function isSettled() external view returns (bool);
-function ammState() external view returns (int256 qYes, int256 qNo);
-function yesBalance(address) external view returns (uint256);
-function noBalance(address) external view returns (uint256);
-function winningOutcome() external view returns (uint8);
-function truthTime() external view returns (uint64);
-function b() external view returns (uint256);         // Liquidity parameter
-function feeLMSR() external view returns (uint256);   // AMM fee (bps)
-function governor() external view returns (address);  // Governor address
-```
-
-### Write Functions
-
-#### `trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost)`
-
-Execute trade with fee and slippage protection.
-
-**Parameters:**
-
-- `outcomeIndex`: 0 = YES, 1 = NO
-- `deltaShares`: Positive = buy, Negative = sell
-- `maxCost`: Max cost including fees (slippage protection)
-
-**Example:**
-
-```typescript
-// Get price info
-const b = await market.b();
-const feeLMSR = await market.feeLMSR();
-const [qYes, qNo] = await market.ammState();
-
-// Calculate cost
-const [cost] = await amm.costDelta({ qYes, qNo }, 0, parseEther("10"), b);
-
-// Add fee + slippage
-const fee = (cost * BigInt(feeLMSR)) / 10000n;
-const maxCost = ((cost + fee) * 105n) / 100n; // 5% slippage buffer
-
-// Execute
-await market.trade(0, parseEther("10"), maxCost);
-```
-
-**Events:**
-
-```solidity
-event Trade(
-    address indexed trader,
-    uint8 outcomeIndex,
-    int256 deltaShares,
-    int256 cost,
-    uint256 orderbookFee,  // Fee from orderbook fills
-    uint256 ammFee         // Fee from AMM fills
+// Sell (after unlock, instant USDC)
+await traderVault.executeAMMTrade(
+  MARKET_ADDRESS,
+  1,
+  parseUnits('10', 18),
+  parseUnits('5', 18), // minProceeds
+  false
 );
 ```
 
-#### `placeOrder(uint8 outcome, uint256 price, uint256 amount)`
+#### `placeOrder(address market, uint8 outcome, uint256 price, uint256 amount)`
 
-Place limit order.
+Orderbook limit order (ERC1155, no locks).
 
 ```typescript
-await market.placeOrder(0, parseEther("0.6"), parseEther("100"));
+await traderVault.placeOrder(
+  MARKET_ADDRESS,
+  1,
+  parseUnits('0.6', 18), // 60% price
+  parseUnits('100', 18)
+);
 ```
 
-#### `cancelOrder(uint256 orderId)`
-
-Cancel limit order.
-
+#### `cancelOrder(address market, uint256 orderId)`
 ```typescript
-await market.cancelOrder(orderId);
+await traderVault.cancelOrder(MARKET_ADDRESS, ORDER_ID);
 ```
 
 ---
 
-## 4. SoothFeeController - Fee Settings (NEW)
+## 2. SoothMarketV4 - Market Data
 
 ### View Functions
 
 ```solidity
-function orderbookFee() external view returns (uint256);  // Basis points
-function lpSplitBps() external view returns (uint256);    // LP share of fees
-function treasury() external view returns (address);
+function currentTick() external view returns (uint16);
+function b() external view returns (uint256);
+function bBase() external view returns (uint256);
+function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) external view returns (uint256);
 ```
 
 ### Usage
 
 ```typescript
-// Display fees
-const orderbookFee = await feeController.orderbookFee();
-const feeLMSR = await market.feeLMSR();
+// Get probability
+const tick = await market.currentTick();
+const probability = tick / 1000; // 500 → 0.5 (50%)
 
-console.log(`Orderbook Fee: ${orderbookFee / 100}%`);
-console.log(`AMM Fee: ${feeLMSR / 100}%`);
+// Get liquidity
+const b = await market.b(); // Dynamic liquidity
+
+// Estimate cost
+const cost = await market.calculateAMMTradeCost(1, parseUnits('10', 18), true);
 ```
 
 ---
 
-## 5. SoothSettlement - Claims
+## 3. OutcomeToken - ERC1155 Orderbook Tokens
 
 ### View Functions
 
 ```solidity
-function results(uint256 marketId) external view returns (
-    bool exists,
-    bool settled,
-    bytes32 adjudicatorId,
-    uint64 truthTime,
-    uint8 winningOutcome
-);
-function settlementRoots(bytes32 batchId) external view returns (bytes32);
-function claimed(bytes32 batchId, address account) external view returns (bool);
+function balanceOf(address account, uint256 id) external view returns (uint256);
+function balanceOfBatch(address[] accounts, uint256[] ids) external view returns (uint256[]);
 ```
 
-### Write Functions
+### Usage
+
+```typescript
+// Check YES tokens (id=1)
+const yesBalance = await outcomeToken.balanceOf(userAddress, 1);
+
+// Check NO tokens (id=0)
+const noBalance = await outcomeToken.balanceOf(userAddress, 0);
+```
+
+---
+
+## 4. Events
+
+### TraderVaultV4
 
 ```solidity
-function claimSettlement(
-    uint256 marketId,
-    bytes32 batchId,
-    int256 pnlDelta,
-    bytes32[] merkleProof
-) external;
+event AMMBuy(address indexed user, address indexed market, uint8 outcome, uint256 shares, uint256 cost, uint256 unlockTime);
+event AMMSell(address indexed user, address indexed market, uint8 outcome, uint256 shares, uint256 proceeds);
+event OrderPlaced(address indexed user, address indexed market, uint256 orderId, uint8 outcome, uint256 price, uint256 amount);
+```
+
+### Market
+
+```solidity
+event TickUpdated(uint16 oldTick, uint16 newTick);
+event Initialized(uint256 marketId, uint256 bBase, uint16 initialTick);
 ```
 
 ---
 
-## 6. Price Calculation
+## Essential ABIs
 
-```typescript
-// Get market params
-const [qYes, qNo] = await market.ammState();
-const b = await market.b();
-
-// Get prices from AMM
-const yesPrice = await amm.price({ qYes, qNo }, 0, b);
-const noPrice = await amm.price({ qYes, qNo }, 1, b);
-
-// Calculate expected cost
-const [cost] = await amm.costDelta({ qYes, qNo }, 0, parseEther("10"), b);
-```
-
----
-
-## 7. Button Gating Logic
-
-### Trading
-
-```typescript
-const canTrade = market.isLive && !market.isSettled;
-const hasFunds = traderVault.freeBalance(user) >= estimatedCost;
-const canSellYes = yesBalance >= sellAmount;
-```
-
-### LP Dashboard
-
-```typescript
-const canDeposit = usdc.balanceOf(user) >= amount;
-const canWithdraw = governorVault.balanceOf(user) >= lpShares;
-```
-
-### Claims
-
-```typescript
-const canClaim = settlementRoots[batchId] !== 0 && !claimed[batchId][user];
-```
-
----
-
-## 8. Essential ABIs
-
-### SoothTraderVault
-
+### TraderVaultV4
 ```json
 [
-  "function deposit(uint256 amount) returns (uint256)",
-  "function withdraw(uint256 amount) returns (uint256)",
-  "function freeBalance(address) view returns (uint256)",
-  "function lockedBalance(address) view returns (uint256)"
+  "function deposit(uint256) returns (uint256)",
+  "function withdraw(uint256) returns (uint256)",
+  "function accounts(address) view returns (uint256 available, uint256 pending)",
+  "function ammPositions(address, address) view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime)",
+  "function executeAMMTrade(address market, uint8 outcome, uint256 shares, uint256 limit, bool isBuy)",
+  "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
+  "function cancelOrder(address market, uint256 orderId)"
 ]
 ```
 
-### SoothGovernorVault
-
+### MarketV4
 ```json
 [
-  "function totalAssets() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
-  "function depositFor(address lp, uint256 assets) returns (uint256)",
-  "function withdrawFor(address lp, uint256 assets, address receiver) returns (uint256)"
-]
-```
-
-### SoothMarket
-
-```json
-[
-  "function isLive() view returns (bool)",
-  "function isSettled() view returns (bool)",
-  "function ammState() view returns (int256 qYes, int256 qNo)",
-  "function yesBalance(address) view returns (uint256)",
-  "function noBalance(address) view returns (uint256)",
+  "function currentTick() view returns (uint16)",
   "function b() view returns (uint256)",
-  "function feeLMSR() view returns (uint256)",
-  "function trade(uint8 outcomeIndex, int256 deltaShares, int256 maxCost)",
-  "function placeOrder(uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
-  "function cancelOrder(uint256 orderId)",
-  "event Trade(address indexed trader, uint8 outcomeIndex, int256 deltaShares, int256 cost, uint256 orderbookFee, uint256 ammFee)"
+  "function bBase() view returns (uint256)",
+  "function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) view returns (uint256)"
 ]
 ```
 
-### SoothFeeController
-
+### OutcomeToken
 ```json
 [
-  "function orderbookFee() view returns (uint256)",
-  "function lpSplitBps() view returns (uint256)",
-  "function treasury() view returns (address)"
+  "function balanceOf(address account, uint256 id) view returns (uint256)",
+  "function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])"
 ]
 ```
 
 ---
 
-## 9. Error Handling
+## Error Handling
 
-**SoothTraderVault:**
-
-- `"TraderVault: insufficient free balance"` - Deposit more funds
-- `"TraderVault: not a market"` - Only markets can call restricted functions
-
-**SoothMarket:**
-
-- `"Market: not live"` - Market settled or paused
-- `"Market: slippage exceeded"` - Increase maxCost
-- `"Market: not enough YES/NO"` - Insufficient shares to sell
-
-**SoothGovernorVault:**
-
-- `"GovernorVault: insufficient shares"` - LP doesn't have enough tokens
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `TraderVault: insufficient available` | Not enough USDC | Deposit more |
+| `TraderVault: position locked` | AMM shares still locked | Wait for unlock time |
+| `Market: slippage exceeded` | Price moved | Increase slippage buffer |

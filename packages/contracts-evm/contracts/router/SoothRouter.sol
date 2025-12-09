@@ -7,9 +7,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+
 /// @title SoothRouter
 /// @notice Helper for atomic Hybrid Execution (Orderbook + AMM)
-contract SoothRouter {
+contract SoothRouter is ERC1155Holder {
     using SafeERC20 for IERC20;
 
     ISoothTraderVault public immutable traderVault;

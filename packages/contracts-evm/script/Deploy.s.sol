@@ -63,12 +63,11 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("Deploying Sooth v3...");
+        console.log("Deploying Sooth Unified Tick Market...");
         console.log("Deployer:", deployer);
         console.log("USDC:", usdc);
 
         // 1. Deploy Core Infrastructure (if not reusing)
-        // For v3, we'll deploy fresh instances to ensure clean state
         
         SoothLMSRReal amm = new SoothLMSRReal();
         console.log("SoothLMSRReal deployed at:", address(amm));
@@ -80,11 +79,11 @@ contract Deploy is Script {
         SoothGovernorVault governorVault = new SoothGovernorVault(IERC20(usdc));
         console.log("SoothGovernorVault deployed at:", address(governorVault));
 
-        // 2. Deploy TraderVault v3
+        // 2. Deploy TraderVault
         SoothTraderVault traderVault = new SoothTraderVault(IERC20(usdc), ISoothGovernorVault(address(governorVault)));
         console.log("SoothTraderVault deployed at:", address(traderVault));
 
-        // 3. Deploy Market v3 (Example Market: "Will ETH hit $4000 in 2025?")
+        // 3. Deploy Market
         SoothMarket market = new SoothMarket();
         console.log("SoothMarket deployed at:", address(market));
 
@@ -94,14 +93,13 @@ contract Deploy is Script {
         
         market.initialize(
             1, // marketId
-            ISoothGovernorVault(address(governorVault)),
+            address(governorVault),
             address(traderVault),
-            ISoothAMM(address(amm)),
-            ISoothFeeController(address(feeController)),
+            address(feeController),
             bytes32(0), // adjudicatorId
             bParam,
             deployer, // governor
-            initialQ
+            500 // initialTick (50%)
         );
         console.log("Market initialized");
 

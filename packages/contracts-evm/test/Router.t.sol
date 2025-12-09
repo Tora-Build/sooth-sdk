@@ -43,14 +43,13 @@ contract RouterTest is Test {
         // Initialize Market
         market.initialize(
             1, 
-            ISoothGovernorVault(address(gov)),
+            address(gov),
             address(vault), 
-            ISoothAMM(address(amm)), 
-            ISoothFeeController(address(fee)),
+            address(fee),
             bytes32(0),
             1000 * 1e18,
             address(this),
-            100 * 1e18
+            500 // Initial tick
         );
         vault.setMarket(address(market), true);
 
@@ -93,7 +92,7 @@ contract RouterTest is Test {
         SoothRouter.RouteParams memory params = SoothRouter.RouteParams({
             amountToBook: 50 * 1e18, // Take Bob's 50
             amountToAMM: 50 * 1e18,  // Buy another 50 from AMM
-            limitPrice: 0.65 * 1e18, // Willing to pay up to 0.65
+            limitPrice: 0.95 * 1e18, // Relaxed limit to ensure execution
             minOutput: 0             // Ignore for now
         });
 

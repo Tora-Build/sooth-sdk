@@ -49,12 +49,14 @@ contract CheckMonadMarkets is Script {
                 console2.log("ERROR: Failed to read marketId");
             }
             
+/*
             try market.ammState() returns (int256 qYes, int256 qNo) {
                 console2.log("qYes:", uint256(qYes) / 1e18);
                 console2.log("qNo:", uint256(qNo) / 1e18);
             } catch {
                 console2.log("ERROR: Failed to read ammState");
             }
+*/
             
             // Check orderbook state
             try market.bestOrder(0) returns (uint256 bestYes) {

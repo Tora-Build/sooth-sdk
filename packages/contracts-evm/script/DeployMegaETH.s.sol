@@ -100,14 +100,13 @@ contract DeployMegaETH is Script {
         SoothMarket market = new SoothMarket();
         market.initialize(
             id,
-            ISoothGovernorVault(gov),
+            gov,
             trader,
-            ISoothAMM(amm),
-            ISoothFeeController(fee),
+            fee,
             bytes32(uint256(id)), // Simple adjudicator ID derived from market ID
             bParam,
             deployer,
-            1000 * 1e18 // Initial Q
+            500 // Initial Tick (50%)
         );
         
         SoothTraderVault(trader).setMarket(address(market), true);

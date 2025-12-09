@@ -6,6 +6,9 @@ import "../interfaces/ISoothTraderVault.sol";
 import "../interfaces/ISoothMarket.sol";
 import "../interfaces/IYieldStrategy.sol";
 import "../interfaces/ITimeLock.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title SoothTraderVault
 /// @notice Single entry point for all Sooth trading - deposit, withdraw, trade AMM, trade orderbook
@@ -13,7 +16,8 @@ import "../interfaces/ITimeLock.sol";
 contract SoothTraderVault is ISoothTraderVault, Ownable {
     // ============ State ============
 
-    IERC20 public immutable _asset;
+    IERC20 private immutable _asset;
+    uint256 public immutable scalar; // Scale factor from Asset to WAD (e.g. 1e12 for USDC)
 
     struct UserAccount {
         uint256 available;  // Can trade or withdraw
@@ -32,9 +36,28 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
 
     // ============ Constructor ============
 
-    constructor(IERC20 asset_, ISoothGovernorVault governorVault_) {
+    constructor(
+        IERC20 asset_,
+        ISoothGovernorVault governorVault_
+    ) {
+        require(address(asset_) != address(0), "TraderVault: zero asset");
+        require(address(governorVault_) != address(0), "TraderVault: zero governor");
+        
         _asset = asset_;
         governorVault = governorVault_;
+        
+        uint8 decimals = 18;
+        try IERC20Metadata(address(asset_)).decimals() returns (uint8 d) {
+            decimals = d;
+        } catch {}
+        
+        // Scalar to convert Asset -> WAD (multiply) or WAD -> Asset (divide)
+        // Assume asset <= 18 decimals
+        if (decimals <= 18) {
+            scalar = 10**(18 - decimals);
+        } else {
+            scalar = 1; // Not supported, treat as 18
+        }
     }
 
     // ============ Modifiers ============
@@ -129,29 +152,45 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         // Handle fund movement
         if (cost > 0) {
             // User is BUYING - debit their account
-            uint256 totalCost = uint256(cost) + fee;
-            require(int256(totalCost) <= maxCost, "TraderVault: slippage exceeded");
-            require(accounts[msg.sender].available >= totalCost, "TraderVault: insufficient balance");
+            // Cost is in WAD. Scale to Asset.
+            // e.g. 25e18 cost -> 25e6 USDC (divide by 1e12)
+            uint256 wadCost = uint256(cost);
+            uint256 wadFee = fee;
             
-            accounts[msg.sender].available -= totalCost;
+            // Round up for safety when paying
+            uint256 assetCost = (wadCost + scalar - 1) / scalar;
+            uint256 assetFee = (wadFee + scalar - 1) / scalar;
+            uint256 totalAssetCost = assetCost + assetFee;
+
+            require(int256(totalAssetCost) <= maxCost, "TraderVault: slippage exceeded");
+            require(accounts[msg.sender].available >= totalAssetCost, "TraderVault: insufficient balance");
+            
+            accounts[msg.sender].available -= totalAssetCost;
             
             // Pay to governor vault
-            _ensureLiquidity(totalCost);
-            require(_asset.transfer(address(governorVault), totalCost), "TraderVault: transfer failed");
-            governorVault.receiveFunds(mkt.marketId(), totalCost);
+            _ensureLiquidity(totalAssetCost);
+            require(_asset.transfer(address(governorVault), totalAssetCost), "TraderVault: transfer failed");
+            governorVault.receiveFunds(mkt.marketId(), totalAssetCost);
         } else if (cost < 0) {
-            // User is SELLING - credit proceeds (potentially locked)
-            uint256 grossProceeds = uint256(-cost);
-            uint256 netProceeds = grossProceeds > fee ? grossProceeds - fee : 0;
-            // netProceeds is positive (money received). maxCost is negative (min money expected, e.g. -95).
-            // We want received >= expected.
-            // In negative terms: -received <= -expected.
-            require(-int256(netProceeds) <= maxCost, "TraderVault: slippage exceeded");
+            // User is SELLING
+            uint256 wadGross = uint256(-cost);
+            uint256 wadFee = fee;
+            
+            // Round down proceeds
+            uint256 assetGross = wadGross / scalar;
+            uint256 assetFee = (wadFee + scalar - 1) / scalar;
+            
+            uint256 netProceeds = assetGross > assetFee ? assetGross - assetFee : 0;
+            
+            // Slippage check for sells:
+            if (maxCost != type(int256).min) {
+                 require(int256(netProceeds) >= -maxCost, "TraderVault: slippage exceeded");
+            }
 
-            // Receive from governor vault
-            governorVault.sendFunds(mkt.marketId(), address(this), grossProceeds);
+            // Receive NET PROCEEDS from governor vault (Fee stays in Governor)
+            governorVault.sendFunds(mkt.marketId(), address(this), netProceeds);
 
-            // Credit user (locked if time-lock enabled)
+            // Credit user (net)
             _creditProceeds(msg.sender, netProceeds);
         }
 
@@ -254,6 +293,25 @@ contract SoothTraderVault is ISoothTraderVault, Ownable {
         _creditProceeds(seller, sellerProceeds);
         
         // The buyerCost stays in the vault for settlement
+    }
+
+    /// @notice Called by V3 market when user merges YES+NO tokens
+    /// @dev Merge is a capital exit (collateral unlock), so proceeds are locked
+    /// @param user The user merging tokens
+    /// @param amount Amount of complete sets merged (1 set = $1 worth)
+    function creditMergeProceeds(address user, uint256 amount) external onlyMarket {
+        require(amount > 0, "TraderVault: zero amount");
+        
+        // Scale from WAD to asset decimals
+        uint256 scale = governorVault.decimalsScale();
+        uint256 proceeds = amount / scale;
+        
+        // V3 Policy: Merge is FREE (no lock)
+        // Rationale: User holds delta-neutral position (YES+NO). No oracle exploit risk.
+        // Direct credit to available balance enables atomic arbitrage.
+        accounts[user].available += proceeds;
+        
+        emit MergeCredit(user, proceeds);
     }
 
     // ============ View Functions (Lazy Calculation) ============

@@ -1,128 +1,64 @@
-# ✅ Deployment- **Status**: ✅ Active & Synced
+# Deployment Status - Sooth Protocol V4
 
-- **Last Sync**: 2025-12-06
-- **Issues**: None (Orderbook & Market addresses verified)
+## Base Sepolia (Live)
 
-### Resolved Issues
+**Chain ID:** 84532  
+**Status:** ✅ Active  
+**Deployed:** December 9, 2025
 
-1. **Invalid Market Error**: Caused by stale address in `markets.json`. Fixed by automated sync script.
-2. **Deposit Revert**: Caused by missing balance check. Fixed by adding pre-flight check in `useTraderVault.ts`.
-3. **Limit Order Balance Error**: Caused by undefined `TraderVaultV3` key. Fixed by using `SoothTraderVault`.a (Chain ID: 84532)
+### Core Infrastructure
 
-## ✅ Active Deployment (v3)
+| Contract | Address | Status |
+|----------|---------|--------|
+| MockUSDC | `0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab` | ✅ Live |
+| GovernorVault | `0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f` | ✅ Live (500k funded) |
+| TraderVaultV4 | `0xee91e05f95cBaACD46f58432DF72CB5C451e98E0` | ✅ Live |
+| FeeController | `0xa367B312Ca1845B7c6076345cB5cd529F935B4FA` | ✅ Live |
 
-| Contract          | Address                                      |
-| ----------------- | -------------------------------------------- |
-| **TraderVaultV3** | `0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e` |
-| **MarketV3**      | `0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf` |
-| **GovernorVault** | `0x296682686358E6bAf572118bfCAA6027C349F3d3` |
-| **FeeController** | `0x512076933a55acF5375A54A54b2DDBb996b05E97` |
+### Markets
 
-> [!NOTE]
-> See [V3_MIGRATION_GUIDE.md](./V3_MIGRATION_GUIDE.md) for integration details.
-
-## ⏸️ Monad Testnet (Paused)
-
-**Status:** Deployment paused due to insufficient funds.
-
-**Deployer Address:** `0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F`  
-**Required:** ~0.8 MON
-
-Once funded, deployment will resume automatically.
-
-## ⚠️ Legacy Deployment (v2)
-
-**Status:** ✅ **DEPLOYED TO BASE SEPOLIA & MONAD TESTNET**  
-**Architecture:** v2.0 (Singleton Trader Vault)
+| ID | Name | Market Address | Status |
+|----|------|----------------|--------|
+| 1 | UN Confirms Alien Life | `0xf17f4863aeeecdd5db8d0eb2a81a5435987267db` | ✅ Live |
+| 2 | BTC 7-day TWAP >= $100k | `0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7` | ✅ Live |
 
 ---
 
-## 🎉 v2.0 Singleton Trader Vault is LIVE!
+## Contract Verification
 
-The **v2.0 architecture** with new fee mechanism has been deployed to both networks.
-
----
-
-## 📦 Contract Addresses
-
-### Base Sepolia (84532)
-
-{
-"MockERC20": "0x703A2bFa154d5Cf2608CcC63d8F61E53Af5C3607",
-"SoothTraderVault": "0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e",
-"SoothGovernorVault": "0x296682686358E6bAf572118bfCAA6027C349F3d3",
-"SoothFeeController": "0x512076933a55acF5375A54A54b2DDBb996b05E97",
-"SoothLMSRReal": "0x2fe47234662aE57E714d183c41f2Bd73DE91892F",
-"SoothMarketFactory": "Deprecated",
-"SoothSettlement": "In Progress",
-"SoothAdjudicatorRegistry": "In Progress"
-}
-
-````
-
-### Monad Testnet (10143)
-
-```json
-{
-  "MockERC20": "0x4d73eB7E7fBE4667802510579A8B30E17da3c748",
-  "SoothTraderVault": "0xf067C23BEE9D3d5c830ca0450A751836c181f566",
-  "SoothGovernorVault": "0xDaEE025f833B5408b840588b267ceeC94e049400",
-  "SoothFeeController": "0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0",
-  "SoothLMSRReal": "0xB01b0496309E5945CFdEA962b5627e19Bc50712d",
-  "SoothAdjudicatorRegistry": "0xF495702a9111513b7A2F77896021193312ddA851",
-  "SoothSettlement": "0x65b72e4d5138AeEdF55459B8f7527505217dcEBc",
-  "SoothMarketFactory": "0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7"
-}
-````
+All contracts deployed and verified on Base Sepolia block explorer.
 
 ---
 
-## 🚨 Breaking Changes (v1 → v2)
+## Version History
 
-| Change          | v1                 | v2                   |
-| --------------- | ------------------ | -------------------- |
-| User deposits   | `SoothVault`       | `SoothTraderVault`   |
-| LP deposits     | `SoothVault`       | `SoothGovernorVault` |
-| Approval target | Vault              | **TraderVault**      |
-| Fee controller  | N/A                | `SoothFeeController` |
-| Risk manager    | `SoothRiskManager` | **Removed**          |
+- **V4** (Dec 2025): Dual-venue, lock-on-buy AMM, ERC1155 orderbook
+- **V3** (Nov 2025): Lock-on-sell model (archived)
+- **V2** (Oct 2025): Initial singleton architecture (archived)
 
 ---
 
-## 🔧 Quick Integration
+## RPC Endpoint
 
-```javascript
-// 1. Update addresses
-const TRADER_VAULT = "0x4BadC7fa7aBC5B25808D7763D08FB8b2D9BFa773"; // Base Sepolia
-
-// 2. Approve TraderVault (CRITICAL!)
-await usdc.approve(TRADER_VAULT, ethers.MaxUint256);
-
-// 3. Deposit
-await traderVault.deposit(amount);
-
-// 4. Trade
-await market.trade(outcomeIndex, deltaShares, maxCost);
+```
+https://sepolia.base.org
 ```
 
 ---
 
-## ✅ What's Deployed
+## Faucets
 
-- ✅ SoothTraderVault (user fund management)
-- ✅ SoothGovernorVault (LP liquidity)
-- ✅ SoothFeeController (orderbook + AMM fees)
-- ✅ 5 markets per network with varied b and feeLMSR
-- ✅ 500,000 mUSDC LP liquidity pre-deposited
+- Base Sepolia ETH: https://www.base.org/faucet
+- Mock USDC: Use `mint()` function on contract
 
 ---
 
-## 📚 Documentation
+## ABI Files
 
-- [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md) - ABIs and functions
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System design
-- [FEE_DESIGN.md](./FEE_DESIGN.md) - Fee mechanism
+Located in: `out/<ContractName>.sol/<ContractName>.json`
 
----
-
-**Last Updated:** 2025-12-04
+Key contracts:
+- `SoothTraderVaultV4.json`
+- `SoothMarketV4.json`
+- `OutcomeToken.json`
+- `SoothGovernorVault.json`

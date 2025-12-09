@@ -5,11 +5,12 @@ import "../core/SoothInterfaces.sol";
 import "./ISoothTraderVault.sol";
 import "./IYieldStrategy.sol";
 import "./ITimeLock.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /// @title ISoothMarket
 /// @notice Market interface with unified orderbook (Sell YES = Buy NO)
 /// @dev Called by TraderVault only - users don't interact directly
-interface ISoothMarket {
+interface ISoothMarket is IERC1155 {
     // ============ Structs ============
 
     /// @notice Unified order - always normalized to YES price internally
@@ -114,15 +115,21 @@ interface ISoothMarket {
 
     // ============ Transfer Logic ============
 
-    /// @notice Transfer shares between users (called by TraderVault only)
-    /// @param from Sender address
-    /// @param to Recipient address
-    /// @param outcome 0 = YES, 1 = NO
-    /// @param amount Amount of shares to transfer
     function transferShares(
         address from,
         address to,
         uint8 outcome,
         uint256 amount
     ) external;
+
+    // ============ Unified Tick Functions (V3) ============
+
+    /// @notice Open pre-settlement exit: Burn YES+NO → Unlock Collateral
+    function merge(uint256 amount) external;
+
+    /// @notice Get current tick (price state)
+    function currentTick() external view returns (uint16);
+
+    /// @notice Base liquidity parameter
+    function bBase() external view returns (uint256);
 }

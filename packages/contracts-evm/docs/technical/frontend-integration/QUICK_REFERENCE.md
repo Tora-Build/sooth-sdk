@@ -1,88 +1,106 @@
-# Contract Interface Quick Reference
+# V4 Quick Reference
 
-**Version:** 2.0 (Singleton Trader Vault)
+**Version:** 4.0 (Dual-Venue)
 
-## Key Contracts
+---
 
-| Contract             | Purpose       | Approval Target  |
-| -------------------- | ------------- | ---------------- |
-| `SoothTraderVault`   | User deposits | ✅ Approve here  |
-| `SoothGovernorVault` | LP deposits   | ✅ Approve here  |
-| `SoothMarket`        | Trading       | ❌ Don't approve |
-| `SoothFeeController` | Fee settings  | Read only        |
+## Contract Addresses (Base Sepolia)
 
-## Quick Integration
+```
+TraderVaultV4: 0xee91e05f95cBaACD46f58432DF72CB5C451e98E0
+GovernorVault: 0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f
+FeeController:  0xa367B312Ca1845B7c6076345cB5cd529F935B4FA
+USDC:          0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab
 
-### 1. User Deposits
+Market 1: 0xf17f4863aeeecdd5db8d0eb2a81a5435987267db
+Market 2: 0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7
+```
 
-```typescript
-await usdc.approve(traderVault, MAX);
+---
+
+## Quick Actions
+
+### Deposit
+```ts
+await usdc.approve(TRADER_VAULT, MAX);
 await traderVault.deposit(amount);
 ```
 
-### 2. Trading
-
-```typescript
-const b = await market.b();
-const fee = await market.feeLMSR();
-const maxCost = (((estimatedCost * (10000n + fee)) / 10000n) * 105n) / 100n;
-await market.trade(0, shares, maxCost);
+### AMM Buy (24h lock)
+```ts
+await traderVault.executeAMMTrade(market, outcome, shares, maxCost, true);
 ```
 
-### 3. LP Deposits
-
-```typescript
-await usdc.approve(governorVault, MAX);
-await governorVault.depositFor(lp, amount);
+### AMM Sell (instant, after unlock)
+```ts
+await traderVault.executeAMMTrade(market, outcome, shares, minProceeds, false);
 ```
+
+### Orderbook Order (no locks)
+```ts
+await traderVault.placeOrder(market, outcome, price, amount);
+```
+
+---
 
 ## Button Gating
 
-```typescript
-// Trading
-const canTrade = isLive && !isSettled && freeBalance >= cost;
+```ts
+// Can trade?
+const canTrade = available >= estimatedCost;
 
-// Selling
-const canSell = yesBalance >= amount || noBalance >= amount;
+// Can sell AMM?
+const isUnlocked = Date.now() / 1000 >= position.unlockTime;
+const canSellAMM = position.yesShares >= amount && isUnlocked;
 
-// LP Withdraw
-const canWithdraw = lpBalance >= shares;
-
-// Claims
-const canClaim = settlementRoot !== 0 && !claimed;
+// Can sell orderbook?
+const canSellOrderbook = tokenBalance >= amount; // Always, no locks
 ```
 
-## Fee Display
+---
 
-```typescript
-const orderbookFee = await feeController.orderbookFee(); // Global
-const ammFee = await market.feeLMSR(); // Per market
+## Data Fetching
 
-// Display
-console.log(`Orderbook: ${orderbookFee / 100}%`);
-console.log(`AMM: ${ammFee / 100}%`);
+```ts
+// Balances
+const { available, pending } = await traderVault.accounts(user);
+
+// AMM positions
+const { yesShares, noShares, unlockTime } = await traderVault.ammPositions(user, market);
+
+// Orderbook tokens
+const yesTokens = await outcomeToken.balanceOf(user, 1);
+
+// Market data
+const tick = await market.currentTick();
+const probability = tick / 1000;
+const b = await market.b();
 ```
 
-## Events
+---
 
-| Contract      | Event                                                 | Purpose             |
-| ------------- | ----------------------------------------------------- | ------------------- |
-| Market        | `Trade(trader, outcome, shares, cost, obFee, ammFee)` | Trade executed      |
-| Market        | `OrderPlaced(id, maker, outcome, price, amount)`      | Limit order created |
-| Market        | `OrderFilled(id, amount)`                             | Order matched       |
-| GovernorVault | `Deposit(lp, assets)`                                 | LP deposit          |
-| GovernorVault | `Withdraw(lp, assets, receiver)`                      | LP withdraw         |
-| Settlement    | `Claimed(marketId, batchId, account, pnlDelta)`       | PnL claimed         |
+## Two Venues
+
+| Feature | AMM | Orderbook |
+|---------|-----|-----------|
+| Speed | Instant | Wait for match |
+| Lock | 24h on buy | No locks |
+| Tokens | Internal | ERC1155 |
+| Gas | Lower | Higher |
+
+---
 
 ## Common Errors
 
-| Error                       | Fix                    |
-| --------------------------- | ---------------------- |
-| `insufficient free balance` | Deposit to TraderVault |
-| `slippage exceeded`         | Increase maxCost       |
-| `not live`                  | Market settled         |
-| `not enough YES/NO`         | Insufficient shares    |
+| Error | Fix |
+|-------|-----|
+| `insufficient available` | Deposit USDC |
+| `position locked` | Wait for unlock |
+| `slippage exceeded` | Increase maxCost |
 
-## Full Documentation
+---
 
-See [CONTRACT_INTERFACES.md](./CONTRACT_INTERFACES.md) for complete ABIs and examples.
+## See Also
+
+- `V4_FRONTEND_GUIDE.md` - Complete guide
+- `CONTRACT_INTERFACES.md` - Full ABI reference

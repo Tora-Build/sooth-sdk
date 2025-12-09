@@ -126,11 +126,34 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
 
     // --- Market Actions ---
 
+    /// @notice Allocate exposure for a market based on its current b parameter
+    /// @dev This should be called when market's b increases (governor action or PnL growth)
+    /// @param marketId The market ID
     function allocateExposure(uint256 marketId, uint256 amount) external override onlyAuthorized {
         lockedExposure[marketId] += amount;
         totalLockedExposure += amount;
         require(totalLockedExposure <= totalAssets, "Overexposed");
         emit ExposureAllocated(marketId, amount);
+    }
+    
+    /// @notice Update exposure allocation to match market's current b (dynamic solvency)
+    /// @dev Can be called by market or governor to sync locked exposure with actual max loss
+    /// @param marketId The market ID
+    /// @param newExposure New exposure amount (typically equals market's b())
+    function updateExposure(uint256 marketId, uint256 newExposure) external onlyAuthorized {
+        uint256 oldExposure = lockedExposure[marketId];
+        
+        // Update tracking
+        totalLockedExposure = totalLockedExposure - oldExposure + newExposure;
+        lockedExposure[marketId] = newExposure;
+        
+        require(totalLockedExposure <= totalAssets, "Overexposed");
+        
+        if (newExposure > oldExposure) {
+            emit ExposureAllocated(marketId, newExposure - oldExposure);
+        } else if (newExposure < oldExposure) {
+            emit ExposureReleased(marketId, oldExposure - newExposure);
+        }
     }
 
     function releaseExposure(uint256 marketId, uint256 amount) external override onlyAuthorized {

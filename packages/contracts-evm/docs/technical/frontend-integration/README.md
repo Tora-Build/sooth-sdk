@@ -1,96 +1,56 @@
 # Frontend Integration Documentation
 
-**Version:** v1.1 (Current Architecture)
-**Updated:** 2025-12-04
+Welcome to Sooth Protocol V4 frontend integration docs.
 
-> [!IMPORTANT] > **Architecture Note:** `SoothTraderVault` is the **SINGLE** entry point for all user actions (Deposit, Withdraw, Trade, Claim). Do not interact with Market contracts directly for trading.
+## Start Here
 
----
+**👉 [V4_FRONTEND_GUIDE.md](./V4_FRONTEND_GUIDE.md)** - Complete integration guide for V4
 
-## 🚀 Quick Start
+## Quick Reference
 
-```javascript
-// 1. Approve TraderVault (once)
-await usdc.approve(traderVaultAddress, amount);
+### Deployed Contracts (Base Sepolia)
 
-// 2. Deposit USDC
-// Auto-claims any unlocked funds from previous sells!
-await traderVault.deposit(amount);
+**Infrastructure:**
+- USDC: `0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab`
+- GovernorVault: `0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f`
+- TraderVaultV4: `0xee91e05f95cBaACD46f58432DF72CB5C451e98E0`
+- FeeController: `0xa367B312Ca1845B7c6076345cB5cd529F935B4FA`
 
-// 3. Trade (Buy/Sell)
-// Note: Call tradeAMM on TraderVault, NOT on the Market contract
-await traderVault.tradeAMM(marketAddress, outcomeIndex, deltaShares, maxCost);
-```
+**Markets:**
+1. UN Confirms Alien Life: `0xf17f4863aeeecdd5db8d0eb2a81a5435987267db`
+2. BTC 7-day TWAP >= $100k: `0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7`
 
----
+### Key Changes in V4
 
-## 📦 Contract Addresses
-
-| Network               | File                                   | Status    |
-| --------------------- | -------------------------------------- | --------- |
-| Base Sepolia (84532)  | [deployments.json](./deployments.json) | ✅ Live   |
-| Monad Testnet (10143) | _Coming Soon_                          | ⏸️ Paused |
-
-### Key Contracts
-
-| Contract             | Purpose                                      |
-| -------------------- | -------------------------------------------- |
-| `SoothTraderVault`   | **Main Entry Point** (Deposit, Trade, Claim) |
-| `SoothMarket`        | Market logic (read-only for FE)              |
-| `SoothGovernorVault` | LP Liquidity Management                      |
-| `MockUSDC`           | Testnet Stablecoin                           |
+- ✅ **Dual-venue trading:** AMM + Orderbook
+- ✅ **AMM:** Lock-on-buy (24h), instant sell after unlock
+- ✅ **Orderbook:** ERC1155 tokens, no locks, limit orders
+- ✅ **Dynamic liquidity:** `b = bBase + (reserveFactor × unrealizedPnL)`
+- ✅ **Separate OutcomeToken** per market
 
 ---
 
-## 🧩 Key Features (v1.1)
+## Additional Resources
 
-### 1. Lazy View & Auto-Claim
-
-User funds from selling shares are time-locked for 48h.
-
-- **Display:** `availableBalance(user)` _includes_ funds that are unlocked but not yet claimed.
-- **Action:** Any `deposit`, `withdraw`, or `trade` automatically claims unlocked funds.
-- **Manual:** `claimUnlocked()` is optional.
-
-### 2. Unified Orderbook
-
-- **Sell YES** matches **Buy NO**.
-- Single liquidity pool for AMM and Orderbook.
-
-### 3. Settlement Redemption
-
-- Winners redeem shares via `traderVault.redeem(marketAddress)`.
-- 1 Winning Share = 1 USDC.
+- `ABI_GUIDE.md` - How to extract and use ABIs
+- `CONTRACT_INTERFACES.md` - Contract function reference
+- `DEPLOYMENT_STATUS.md` - Current deployment info
+- `FEE_DESIGN.md` - Fee structure
+- `INTEGRATION_GUIDE.md` - Step-by-step integration
+- `UX_RECOMMENDATIONS.md` - UI/UX best practices
+- `QUICK_REFERENCE.md` - Cheat sheet
 
 ---
 
-## 📖 Documentation Index
+## Archive
 
-### Integration Guides
-
-| Document                                               | Description                                        |
-| ------------------------------------------------------ | -------------------------------------------------- |
-| [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)         | **Start Here:** Full migration & integration guide |
-| [SETTLEMENT_GUIDE.md](./SETTLEMENT_GUIDE.md)           | How to handle locks, claims, and redemption        |
-| [ORDERBOOK_INTEGRATION.md](./ORDERBOOK_INTEGRATION.md) | Limit orders & unified book logic                  |
-| [ABI_GUIDE.md](./ABI_GUIDE.md)                         | Working with contract ABIs                         |
-| [UX_RECOMMENDATIONS.md](./UX_RECOMMENDATIONS.md)       | Best practices for UI/UX                           |
-
-### Reference
-
-| Document                                       | Description             |
-| ---------------------------------------------- | ----------------------- |
-| [DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md) | Current deployment info |
-| [DOCS_SUMMARY.md](./DOCS_SUMMARY.md)           | Overview of all docs    |
+Older V2/V3 documentation moved to `Archive/v2-v3/` for reference.
 
 ---
 
-## 🆘 Common Issues
+## Need Help?
 
-| Error                     | Fix                                                                 |
-| ------------------------- | ------------------------------------------------------------------- |
-| `insufficient allowance`  | Approve `SoothTraderVault` (not Market)                             |
-| `insufficient balance`    | Call `traderVault.deposit()`                                        |
-| `slippage exceeded`       | Increase `maxCost` (include fees)                                   |
-| `transfer failed`         | Check MockUSDC balance or allowance                                 |
-| `TraderVault: not market` | You are trying to call restricted function (use `tradeAMM` instead) |
+1. Start with `V4_FRONTEND_GUIDE.md`
+2. Check contract interfaces in `CONTRACT_INTERFACES.md`
+3. Review UX recommendations in `UX_RECOMMENDATIONS.md`
+4. Test on Base Sepolia with deployed contracts above

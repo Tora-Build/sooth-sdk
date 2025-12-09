@@ -36,6 +36,7 @@ interface ISoothTraderVault is IERC4626 {
     );
     event ProceedsLocked(address indexed user, uint256 amount, uint256 unlockTime);
     event ProceedsClaimed(address indexed user, uint256 amount);
+    event MergeCredit(address indexed user, uint256 amount);
     event SharesRedeemed(address indexed user, address indexed market, uint8 winningOutcome, uint256 shares);
 
     // ============ User Actions ============
@@ -128,6 +129,10 @@ interface ISoothTraderVault is IERC4626 {
         uint8 outcome,
         uint256 amount
     ) external;
+
+    /// @notice Credit proceeds from merging complete sets (burning YES+NO)
+    /// @dev Locked by time-lock module as it's a capital exit
+    function creditMergeProceeds(address user, uint256 amount) external;
 
     event ShareTransfer(
         address indexed market,

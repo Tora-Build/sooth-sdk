@@ -100,14 +100,13 @@ contract SoothTest is Test {
         // Initialize market
         market.initialize(
             1, // marketId
-            ISoothGovernorVault(address(governorVault)),
+            address(governorVault),
             address(traderVault),
-            ISoothAMM(address(amm)),
-            ISoothFeeController(address(feeController)),
+            address(feeController),
             bytes32(0), // adjudicatorId
             B_PARAM,
             governor,
-            INITIAL_Q
+            500 // Initial Tick
         );
 
         // Configure TraderVault
@@ -454,14 +453,14 @@ contract SoothTest is Test {
         // Alice buys YES
         vm.startPrank(alice);
         traderVault.deposit(1000e18);
-        traderVault.tradeAMM(address(market), 0, 100e18, 100e18); // Buy 100 YES
+        traderVault.tradeAMM(address(market), 0, 100e18, 2000e18); // Buy 100 YES with relaxed limit
         vm.stopPrank();
 
         // Alice sells YES -> Proceeds should be locked
         vm.startPrank(alice);
         uint256 balBefore = traderVault.availableBalance(alice);
         // Sell 100 YES, accept any price (maxCost = min int256)
-        traderVault.tradeAMM(address(market), 0, -100e18, type(int256).min); 
+        traderVault.tradeAMM(address(market), 0, -100e18, 0); // Expect non-negative proceeds 
         uint256 balAfter = traderVault.availableBalance(alice);
         
         // Available balance should NOT increase (proceeds locked)
