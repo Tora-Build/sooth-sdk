@@ -19,6 +19,7 @@ Welcome to the Sooth Protocol documentation.
 | Document                                                | Description                                                     |
 | ------------------------------------------------------- | --------------------------------------------------------------- |
 | **[FEE_DESIGN.md](./research/FEE_DESIGN.md)**           | Fee mechanism: LMSR fees (Governor) + Orderbook fees (Guardian) |
+| [SHORT_SELLING.md](./technical/SHORT_SELLING.md)        | **New**: Collateralized Short Selling Mechanics                 |
 | [STAKING_DESIGN.md](./research/STAKING_DESIGN.md)       | Future: Guardian and LP staking                                 |
 | [ACCESS_AND_CONFIG.md](./research/ACCESS_AND_CONFIG.md) | Roles and parameters reference                                  |
 | [ROADMAP_REVIEW.md](./research/ROADMAP_REVIEW.md)       | Strategic plan for mainnet                                      |

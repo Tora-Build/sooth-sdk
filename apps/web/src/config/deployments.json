@@ -1,15 +1,17 @@
 {
   "version": "4.1",
-  "lastUpdated": "2025-12-09",
+  "lastUpdated": "2025-12-10",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "status": "✅ Live & Verified - V4 Continuous",
       "contracts": {
-        "MockUSDC": "0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab",
-        "SoothTraderVault": "0xee91e05f95cBaACD46f58432DF72CB5C451e98E0",
-        "SoothGovernorVault": "0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f",
-        "SoothFeeController": "0xa367B312Ca1845B7c6076345cB5cd529F935B4FA"
+        "MockUSDC": "0x3c96e42e5dc8e28a0eb94f3f2ff0ece8c4593139",
+        "SoothTraderVault": "0x9b9148e635d61f6771f66079c2d666c83a4b189b",
+        "SoothGovernorVault": "0x2384b0ce7d1af975865c230f1f51addb718a828a",
+        "SoothFeeController": "0x6184906a66e731b19dbb9634c16c10b3a168987e",
+        "OutcomeToken": "0x3df8f6a4618ab8be1a3f6aa02f61e486353d5d34",
+        "SoothMarket": "0xf07d397ab5fd9bd82e1f9e0e0b0471b0650871bf"
       },
       "notes": {
         "version": "V4 - Dual-venue trading (AMM + Orderbook)",
@@ -19,14 +21,14 @@
       },
       "marketInfo": {
         "market1": {
-          "address": "0x5c8c3621b0606f8b42ab17c3e33057948e587ee7",
+          "address": "0x392994B7cb5cA697fa4e2177e0f17Fe2BA4E012F",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x1c9cc0704b4da8b8f766ec05c16be2c336d19423"
+          "outcomeToken": "0x0f0dd0be87f6ab153e732039469fe64353b95dbb"
         },
         "market2": {
-          "address": "0x00da96600863a4f26e8a9cb5ca5524c3d7115403",
+          "address": "0x1695ac9983f457e446d8f903d7c4061fbc7907f8",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0xbc433f98780d6fef61331d51606269457818c720"
+          "outcomeToken": "0x88b4c7ff6e968c591e4abf095b4bc66775033ed2"
         }
       }
     },

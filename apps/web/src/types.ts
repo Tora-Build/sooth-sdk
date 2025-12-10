@@ -38,8 +38,8 @@ export interface Market {
   status: MarketStatus;
 
   // Pricing (LMSR)
-  priceYes: number;
-  priceNo: number;
+  priceYes: number | undefined;
+  priceNo: number | undefined;
   qYes: bigint;
   qNo: bigint;
   bParam: bigint;
@@ -50,6 +50,8 @@ export interface Market {
   // User Position
   userYesShares: number;
   userNoShares: number;
+  userYesOutcomeTokens: number; // Integer (ERC1155)
+  userNoOutcomeTokens: number; // Integer (ERC1155)
   userAvgEntryYes: number | null;
   userAvgEntryNo: number | null;
 

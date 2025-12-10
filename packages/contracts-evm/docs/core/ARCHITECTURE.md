@@ -1,7 +1,146 @@
 # Sooth Protocol Architecture
 
-**Status:** Current (v2.0 - Singleton Trader Vault)  
-**Last Updated:** 2025-12-04
+**Status:** Current (v4.0 - Dual-Venue Hybrid)  
+**Last Updated:** 2025-12-10
+
+---
+
+## Architecture Overview
+
+Sooth V4 introduces a **Dual-Venue** architecture, combining an integer-based **Central Limit Order Book (CLOB)** with a WAD-based **Continuous LMSR AMM**.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         SOOTH PROTOCOL V4                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────┐              ┌─────────────────┐              │
+│  │ SoothTraderVault│              │SoothGovernorVault│             │
+│  │       V4        │              │   (LP Funds)    │              │
+│  ├─────────────────┤              ├─────────────────┤              │
+│  │ • User Accounts │              │ • LP Deposits   │              │
+│  │ • AMM Positions │              │ • Market Reserves│             │
+│  │ • Order Collateral             │ • AMM PnL       │              │
+│  └────────┬────────┘              └────────┬────────┘              │
+│           │                                │                        │
+│           └────────────────┬───────────────┘                        │
+│                            │                                        │
+│                            ▼                                        │
+│                 ┌──────────────────────┐                           │
+│                 │    SoothMarketV4     │                           │
+│                 │ (Continuous LMSR)    │                           │
+│                 ├──────────────────────┤                           │
+│                 │ • AMM Logic (qYes/No)│                           │
+│                 │ • Orderbook Matching │                           │
+│                 │ • Price Discovery    │                           │
+│                 └──────────┬───────────┘                           │
+│                            │                                        │
+│                 ┌──────────▼───────────┐                           │
+│                 │    OutcomeToken      │                           │
+│                 │      (ERC1155)       │                           │
+│                 │ (Orderbook Shares)   │                           │
+│                 └──────────────────────┘                           │
+│                                                                     │
+│   ┌─────────────────┐                    ┌─────────────────┐       │
+│   │ SoothFeeCtrl    │                    │ SoothTimeLock   │       │
+│   │ (Guardian Fees) │                    │ (Governance)    │       │
+│   └─────────────────┘                    └─────────────────┘       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Core Components
+
+### 1. SoothTraderVaultV4 (Dual-Venue)
+
+**Purpose:** The central treasury and position manager for users. It supports two distinct types of positions:
+
+*   **AMM Positions:** Internal accounting (structs). Users hold "virtual" exposure against the AMM. High precision (WAD).
+*   **Orderbook Positions:** ERC1155 tokens (`OutcomeToken`). Users hold tangible tokens traded peer-to-peer. Integer precision (Shares).
+
+| Function                            | Description                                      |
+| ----------------------------------- | ------------------------------------------------ |
+| `deposit(amount)`                   | User deposits USDC.                              |
+| `tradeAMM(...)`                     | Executed against Market's Continuous LMSR.       |
+| `placeOrder(...)`                   | Places limit order on Market (Integer shares).   |
+| `creditMergeProceeds(...)`          | Credits user when merging YES/NO tokens.         |
+
+### 2. SoothMarketV4 (Continuous LMSR)
+
+**Purpose:** Unified market logic handling both AMM pricing and Orderbook matching.
+
+*   **AMM Math:** Uses **Continuous LMSR** (`qYes`, `qNo` state) instead of discrete ticks. Calculates cost using log-sum-exp.
+*   **Orderbook:** Standard CLOB matching. Filled orders mint `OutcomeToken`s.
+*   **Liquidity:** `bBase` parameter defines AMM depth.
+
+### 3. OutcomeToken (ERC1155)
+
+**Purpose:** Represents **Orderbook Shares** only.
+*   **ID 0:** YES Shares
+*   **ID 1:** NO Shares
+*   **Minting:** Only occurs when Orderbook orders match.
+*   **Merging:** Users can merge 1 YES + 1 NO to redeem 1 USDC (via TraderVault).
+
+### 4. SoothGovernorVault
+
+**Purpose:** LP Liquidity Pool.
+*   Provides liquidity (`reserve`) to Markets.
+*   Absorbs AMM PnL.
+*   Earns fees from both AMM and Orderbook trades.
+
+---
+
+## Granularity Model (Hybrid)
+
+V4 uses a hybrid precision model to optimize for both AMM accuracy and Orderbook UX.
+
+| Feature       | Granularity      | Typical Unit | Logic                                   |
+| ------------- | ---------------- | ------------ | --------------------------------------- |
+| **AMM**       | **Fractional**   | `1e18` (WAD) | Math requires high precision.           |
+| **Orderbook** | **Integer Only** | `1` (Share)  | Matches user mental model ("10 shares").|
+
+*   **Orderbook:** `amount = 10` means 10 whole shares.
+*   **AMM:** `amount = 10 * 1e18` means 10.0 shares.
+
+---
+
+## Trade Flow
+
+### AMM Trade (Buy YES)
+1.  User calls `traderVault.tradeAMM(market, YES, +10e18)` (Buy 10 shares).
+2.  Vault calls `market.executeAMMTrade(...)`.
+3.  Market updates `qYes`, `qNo` and calculates `cost`.
+4.  Vault deducts `cost` from user's USDC balance.
+5.  Vault records internal **AMM Position**: `ammPositions[user][market].yesShares += 10e18`.
+
+### Orderbook Trade (Limit Buy YES)
+1.  User calls `traderVault.placeOrder(market, YES, price=0.40, amount=10, isBuy=true)`.
+2.  Vault locks collateral: `10 * 0.40 = 4.00 USDC`.
+3.  Vault calls `market.createOrder(...)`.
+4.  **If Matched:**
+    *   `OutcomeToken` mints 10 YES to Buyer.
+    *   `OutcomeToken` mints 10 NO to Seller (or transfers if they already hold).
+
+---
+
+## Deployment Order
+
+1.  **MockUSDC** (Testnet)
+2.  **SoothFeeController**
+3.  **SoothGovernorVault** (Linked to USDC)
+4.  **SoothTraderVaultV4** (Linked to Governor)
+5.  **SoothMarketV4** (Linked to Trader + Governor + Fees)
+    *   *Initialize with `OutcomeToken`*
+6.  **OutcomeToken**
+    *   *Initialize with `Market` + `TraderVault`*
+
+---
+
+## Legacy Removal (V3)
+*   Removed `SoothMarket` (V3), `SoothTraderVault` (V3), `SoothLMSRReal` (standalone), `TickCostRegistry`.
+*   Removed `ISoothAMM` interface.
+*   Replaced with pure V4 stack.
 
 ---
 

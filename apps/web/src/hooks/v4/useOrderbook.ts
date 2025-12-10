@@ -45,7 +45,7 @@ export function useOrderbook() {
         writeContract({
             address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
             abi: V4_ABIS.TraderVaultV4,
-            function Name: 'cancelOrder',
+            functionName: 'cancelOrder',
             args: [marketAddress, orderId],
         })
     }

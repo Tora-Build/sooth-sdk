@@ -1,14 +1,14 @@
-# Liquidity Dynamics & Fees
+# Liquidity Dynamics & Fees (V4)
 
-**Date:** 2025-12-05
-**Status:** Implemented (v3)
+**Date:** 2025-12-09
+**Status:** Implemented (V4)
 **Impact:** Market Depth, LP profitability
 
 ---
 
 ## Executive Summary
 
-Sooth v3 implements a **Dynamic Liquidity Model** where market depth (`b`) scales with trading activity. This incentivizes LPs by increasing capital efficiency as markets prove their demand, and provides traders with better slippage on popular markets.
+Sooth V4 implements a **Dynamic Liquidity Model** with Continuous LMSR. Market depth (`b`) scales with trading activity. This incentivizes LPs by increasing capital efficiency as markets prove their demand, and provides traders with better slippage on popular markets.
 
 ---
 
@@ -19,13 +19,13 @@ Market liquidity (`b`) is calculated dynamically on-chain based on a vault-confi
 ### **The Formula**
 
 ```
-b_market = b_base + (positive_reserve × reserveFactor)
+b_market = b_base + (net_fee_reserves × reserveFactor)
 ```
 
 Where:
 
 - **`b_base`**: The initial liquidity allocated to the market by the Governor Vault (e.g., 10,000 USDC).
-- **`reserve`**: The net accumulated PnL/fees of the market (starts at 0).
+- **`net_fee_reserves`**: The net accumulated fees of the market (starts at 0).
 - **`reserveFactor`**: A multiplier enabling liquidity growth (e.g., 10% or 0.1x).
 
 ### **Example**
@@ -50,7 +50,7 @@ Where:
 
 ## 2. Vault Configuration
 
-The `SoothGovernorVault` holds default configuration parameters used when creating new markets. This allows the DAO/Governor to tune protocol-wide risk and liquidity settings.
+The `SoothGovernorVault` holds default configuration parameters.
 
 | Parameter          | Default Value       | Description                              |
 | :----------------- | :------------------ | :--------------------------------------- |
@@ -58,24 +58,18 @@ The `SoothGovernorVault` holds default configuration parameters used when creati
 | `defaultFeeBps`    | **50 bps (0.5%)**   | Trading fee charged by the AMM.          |
 | `reserveFactorBps` | **1000 bps (0.1x)** | Multiplier for dynamic liquidity growth. |
 
-**Changing Defaults:**
-Calling `setVaultConfig(...)` updates these defaults. Existing markets are **not** affected; only new markets will inherit the new values. However, existing markets reference `reserveFactorBps` dynamically from the vault, so changing the factor affects **all** markets immediately.
-
 ---
 
 ## 3. Fee Mechanism
 
 ### **AMM Fees**
-
-- **Charged:** On every trade against the AMM.
-- **Calculation:** `Fee = Trade Value * feeLMSR`
-- **Destination:** Added directly to the market's `reserve`.
-- **Effect:** Directly increases the market's `b` parameter (via the formula above), deepening liquidity for future traders.
+- **Charged:** On every trade against the Continuous LMSR AMM.
+- **Effect:** Increases `reserve`, which instantly increases `b` (liquidity depth).
+- **Result:** We effectively "reinvest" fees into making the market deeper.
 
 ### **Orderbook Fees**
-
 - **Current Status:** Disabled (0%).
-- **Mechanism:** `SoothFeeController` supports fee splitting, but v3 currently focuses on AMM fees driving liquidity growth.
+- **Future:** Index-linked dynamic fees.
 
 ---
 
@@ -85,5 +79,5 @@ Calling `setVaultConfig(...)` updates these defaults. Existing markets are **not
 | :----------------------- | :------------------ | :---------------------------------------------- |
 | `SoothGovernorVault.sol` | `defaultBBase`      | Storage for default market config.              |
 | `SoothGovernorVault.sol` | `reserveFactorBps`  | Global multiplier read by all markets.          |
-| `SoothMarket.sol`        | `b()`               | View function implementing the dynamic formula. |
-| `SoothMarket.sol`        | `executeAMMTrade()` | Updates `reserve` with collected fees.          |
+| `SoothMarketV4.sol`      | `b()`               | View function implementing the dynamic formula. |
+| `SoothMarketV4.sol`      | `executeAMMTrade()` | Updates `reserve` with collected fees.          |

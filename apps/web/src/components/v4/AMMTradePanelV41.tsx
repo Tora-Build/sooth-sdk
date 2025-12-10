@@ -28,7 +28,7 @@ export function AMMTradePanelV41({ marketId, marketAddress, outcomeTokenAddress 
         marketId,
         outcome,
         shares,
-        parseInt(slippage)
+        isBuy
     )
 
     const handleTrade = async () => {

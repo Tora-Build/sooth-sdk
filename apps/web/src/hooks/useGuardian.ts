@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
-import { SOOTH_MARKET_ABI } from '../config/abis';
+import { MARKET_V4_ABI } from '../config/abis';
 import { useMarketStore } from '../store/useMarketStore';
 import toast from 'react-hot-toast';
 import { useActivityStore } from '../store/useActivityStore';
@@ -33,14 +33,14 @@ export function useGuardian(marketId: string) {
       }
 
       // Real Mode
-      // Note: This assumes the Market contract has a pause function or similar.
-      // Based on standard Pausable implementation.
-      await writeContractAsync({
-        address: marketId as `0x${string}`, // Assuming marketId is address in real mode, or we look it up
-        abi: SOOTH_MARKET_ABI,
-        functionName: 'pause', // Verify ABI has this
-        args: [],
-      });
+      // Note: V4 Market does not currently implement 'pause'.
+      // await writeContractAsync({
+      //   address: marketId as `0x${string}`,
+      //   abi: MARKET_V4_ABI,
+      //   functionName: 'pause',
+      //   args: [],
+      // });
+      toast.error('Pause not implemented for V4 Real Mode');
       toast.success('Market Paused');
     } catch (err: any) {
       toast.error(err.message || 'Pause failed');
@@ -67,12 +67,13 @@ export function useGuardian(marketId: string) {
         return;
       }
 
-      await writeContractAsync({
-        address: marketId as `0x${string}`,
-        abi: SOOTH_MARKET_ABI,
-        functionName: 'unpause',
-        args: [],
-      });
+      // await writeContractAsync({
+      //   address: marketId as `0x${string}`,
+      //   abi: MARKET_V4_ABI,
+      //   functionName: 'unpause',
+      //   args: [],
+      // });
+      toast.error('Unpause not implemented for V4 Real Mode');
       toast.success('Market Unpaused');
     } catch (err: any) {
       toast.error(err.message || 'Unpause failed');
@@ -86,7 +87,7 @@ export function useGuardian(marketId: string) {
     try {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        updateMarket(marketId, { 
+        updateMarket(marketId, {
           status: 'settled',
           winningOutcome: outcome
         });
@@ -106,7 +107,7 @@ export function useGuardian(marketId: string) {
       // This usually interacts with the Settlement contract or Market contract directly depending on architecture
       // For now, we'll assume a direct call for simplicity or placeholder
       toast.error('Force Settle not yet implemented for Real Mode');
-      
+
     } catch (err: any) {
       toast.error(err.message || 'Force Settle failed');
     } finally {

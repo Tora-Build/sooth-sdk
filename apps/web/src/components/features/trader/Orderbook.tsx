@@ -14,9 +14,13 @@ interface OrderbookProps {
 export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome: propOutcome = 0 }) => {
   const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(propOutcome);
   const [viewMode, setViewMode] = useState<'book' | 'my-orders'>('book');
-  const { bids, asks, getOrdersForOutcome, isLoading, refetch, isSupported } = useOrderbook(marketId);
+  const { bids: rawBids, asks: rawAsks, getOrdersForOutcome, isLoading, refetch, isSupported } = useOrderbook(marketId);
   const { cancelOrder, isPending: isCancelling } = useLimitOrder(marketId);
   const { address } = useAccount();
+
+  // Safety Defaults
+  const bids = Array.isArray(rawBids) ? rawBids : [];
+  const asks = Array.isArray(rawAsks) ? rawAsks : [];
 
   // Sync with prop changes
   useEffect(() => {
@@ -35,7 +39,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
   }
 
   // Get orders for selected outcome view
-  const outcomeOrders = getOrdersForOutcome(selectedOutcome);
+  // Safety check for getOrdersForOutcome return
+  const outcomeOrders = getOrdersForOutcome(selectedOutcome) || { bids: [], asks: [] };
 
   // Filter My Orders (from the raw bids/asks)
   const myOrders = [
@@ -44,43 +49,54 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
   ].filter(o => o.maker.toLowerCase() === address?.toLowerCase());
 
   // Derived Bids/Asks for display based on selected outcome
-  const displayAsks = outcomeOrders.asks;
-  const displayBids = outcomeOrders.bids;
+  const displayAsks = Array.isArray(outcomeOrders.asks) ? outcomeOrders.asks : [];
+  const displayBids = Array.isArray(outcomeOrders.bids) ? outcomeOrders.bids : [];
 
   // Helper: Aggregate orders by price level
   const aggregateOrders = (orders: any[]) => {
-    const map = new Map<string, any>();
-    
-    orders.forEach(o => {
-      const priceKey = Number(o.displayPrice).toFixed(2);
-      if (!map.has(priceKey)) {
-        map.set(priceKey, {
-          ...o,
-          displayPrice: priceKey, // Normalize ID/Key
-          amount: parseFloat(o.amount),
-          count: 1
-        });
-      } else {
-        const existing = map.get(priceKey);
-        existing.amount += parseFloat(o.amount);
-        existing.count += 1;
-      }
-    });
+    try {
+      const map = new Map<string, any>();
 
-    return Array.from(map.values()).map(o => ({
-      ...o,
-      amount: o.amount.toString(), // Convert back to string for consistent rendering
-      id: `agg-${o.displayPrice}` // aggregated ID
-    }));
+      if (!Array.isArray(orders)) return [];
+
+      orders.forEach(o => {
+        if (!o || !o.displayPrice || !o.amount) return; // Safety check
+        const priceKey = Number(o.displayPrice).toFixed(2);
+        if (!map.has(priceKey)) {
+          map.set(priceKey, {
+            ...o,
+            displayPrice: priceKey, // Normalize ID/Key
+            amount: parseFloat(o.amount),
+            count: 1
+          });
+        } else {
+          const existing = map.get(priceKey);
+          existing.amount += parseFloat(o.amount);
+          existing.count += 1;
+        }
+      });
+
+      return Array.from(map.values()).map(o => ({
+        ...o,
+        amount: o.amount.toString(), // Convert back to string for consistent rendering
+        id: `agg-${o.displayPrice}` // aggregated ID
+      }));
+    } catch (e) {
+      console.error('Orderbook Aggregation Error', e);
+      return [];
+    }
   };
 
   // Sort Asks: Lowest Price First (Best Ask)
-  const rawAsks = [...displayAsks].sort((a, b) => parseFloat(a.displayPrice) - parseFloat(b.displayPrice));
-  const sortedAsks = aggregateOrders(rawAsks);
-  
+  // Sort Asks: Lowest Price First (Best Ask)
+  const safeAsks = Array.isArray(displayAsks) ? displayAsks : [];
+  const asksForAgg = [...safeAsks].sort((a, b) => parseFloat(a?.displayPrice || '0') - parseFloat(b?.displayPrice || '0'));
+  const sortedAsks = aggregateOrders(asksForAgg);
+
   // Sort Bids: Highest Price First (Best Bid)
-  const rawBids = [...displayBids].sort((a, b) => parseFloat(b.displayPrice) - parseFloat(a.displayPrice));
-  const sortedBids = aggregateOrders(rawBids);
+  const safeBids = Array.isArray(displayBids) ? displayBids : [];
+  const bidsForAgg = [...safeBids].sort((a, b) => parseFloat(b?.displayPrice || '0') - parseFloat(a?.displayPrice || '0'));
+  const sortedBids = aggregateOrders(bidsForAgg);
 
   const OrderList = ({ items, type, colorClass, label }: { items: any[], type: string, colorClass: string, label: string }) => (
     <div className="flex-1 space-y-2">
@@ -98,8 +114,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
           </div>
         ) : (
           items.map((order) => (
-            <div 
-              key={order.id} 
+            <div
+              key={order.id}
               className={cn(
                 "grid grid-cols-2 text-xs px-2 py-1.5 rounded transition-colors cursor-default",
                 order.maker.toLowerCase() === address?.toLowerCase() ? "bg-indigo-500/10 border border-indigo-500/30" : "hover:bg-slate-800/50"
@@ -132,8 +148,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         </div>
       ) : (
         myOrders.map((order) => (
-          <div 
-            key={order.id} 
+          <div
+            key={order.id}
             className="grid grid-cols-4 items-center text-xs px-2 py-2 rounded bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
           >
             <span className={cn(
@@ -221,8 +237,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             </button>
           </div>
         </div>
-        <button 
-          onClick={() => refetch(false)} 
+        <button
+          onClick={() => refetch(false)}
           disabled={isLoading}
           className={cn("p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-white transition-colors", isLoading && "animate-spin")}
           title="Refresh Orderbook"
@@ -235,46 +251,46 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         <>
           {/* Outcome Toggle (Only visible in Book mode) */}
           <div className="flex justify-center mb-4">
-             <div className="flex gap-1 bg-slate-900/50 rounded p-0.5 border border-slate-800">
-                <button
-                  onClick={() => setSelectedOutcome(0)}
-                  className={cn(
-                    "px-3 py-1 text-[10px] font-semibold rounded transition-all",
-                    selectedOutcome === 0
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-500 hover:text-slate-300"
-                  )}
-                >
-                  YES
-                </button>
-                <button
-                  onClick={() => setSelectedOutcome(1)}
-                  className={cn(
-                    "px-3 py-1 text-[10px] font-semibold rounded transition-all",
-                    selectedOutcome === 1
-                      ? "bg-rose-500/20 text-rose-400"
-                      : "text-slate-500 hover:text-slate-300"
-                  )}
-                >
-                  NO
-                </button>
-              </div>
+            <div className="flex gap-1 bg-slate-900/50 rounded p-0.5 border border-slate-800">
+              <button
+                onClick={() => setSelectedOutcome(0)}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  selectedOutcome === 0
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                YES
+              </button>
+              <button
+                onClick={() => setSelectedOutcome(1)}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  selectedOutcome === 1
+                    ? "bg-rose-500/20 text-rose-400"
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                NO
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-4">
             {/* Bids */}
-            <OrderList 
-              items={sortedBids} 
-              type="bid" 
-              colorClass="text-emerald-400" 
+            <OrderList
+              items={sortedBids}
+              type="bid"
+              colorClass="text-emerald-400"
               label="Bids"
             />
             <div className="w-px bg-slate-800 self-stretch"></div>
             {/* Asks */}
-            <OrderList 
-              items={sortedAsks} 
-              type="ask" 
-              colorClass="text-rose-400" 
+            <OrderList
+              items={sortedAsks}
+              type="ask"
+              colorClass="text-rose-400"
               label="Asks"
             />
           </div>

@@ -3,7 +3,7 @@ const path = require('path');
 
 // Configuration
 const CONFIG_PATH = path.resolve(__dirname, '../../../apps/web/src/config/deployments.json');
-const BROADCAST_DIR = path.resolve(__dirname, '../broadcast/Deploy.s.sol');
+const BROADCAST_DIR = path.resolve(__dirname, '../broadcast/DeployFreshV4.s.sol');
 const OUT_DIR = path.resolve(__dirname, '../out');
 const ABI_DEST_DIR = path.resolve(__dirname, '../../../apps/web/src/config/abis');
 
@@ -16,13 +16,11 @@ const CHAINS = {
 // Contracts to track
 const CONTRACTS = [
     'MockUSDC',
-    'SoothTraderVault',
-    'SoothMarket',
+    'SoothTraderVaultV4',
+    'SoothMarketV4',
+    'OutcomeToken',
     'SoothGovernorVault',
     'SoothFeeController',
-    'SoothFeeController',
-    'SoothLMSRReal',
-    'SoothRouter',
     // 'SoothBalancedAMM' // Future-proofing
 ];
 
@@ -43,7 +41,7 @@ function main() {
     let updated = false;
     for (const [chainId, networkKey] of Object.entries(CHAINS)) {
         const runFile = path.join(BROADCAST_DIR, chainId, 'run-latest.json');
-        
+
         if (!fs.existsSync(runFile)) {
             console.log(`⚠️  No broadcast file found for ${networkKey} (${chainId}). Skipping.`);
             continue;
@@ -59,14 +57,19 @@ function main() {
             // but here we intend to overwrite with latest deployment.
             // Actually, let's start with current config and update found ones.
             const currentContracts = config.networks[networkKey]?.contracts || {};
-            
+
             // Helper to clean contract name (e.g., "MockUSDC" from "script/Deploy.s.sol:MockUSDC")
             // Broadcast json usually has "contractName": "MockUSDC" directly.
 
             transactions.forEach(tx => {
                 if (tx.transactionType === 'CREATE' && tx.contractName) {
                     if (CONTRACTS.includes(tx.contractName)) {
-                        newContracts[tx.contractName] = tx.contractAddress;
+                        // Map V4 names to legacy keys for frontend compatibility
+                        let key = tx.contractName;
+                        if (key === 'SoothTraderVaultV4') key = 'SoothTraderVault';
+                        if (key === 'SoothMarketV4') key = 'SoothMarket';
+
+                        newContracts[key] = tx.contractAddress;
                     }
                 }
             });
@@ -77,10 +80,10 @@ function main() {
                     ...currentContracts,
                     ...newContracts
                 };
-                
+
                 // Update status if it was paused/empty (optional helper)
                 // config.networks[networkKey].status = "✅ Live & Updated"; 
-                
+
                 updated = true;
                 console.log(`   ✅ Updated ${Object.keys(newContracts).length} contracts for ${networkKey}`);
             } else {
@@ -104,10 +107,10 @@ function main() {
             try {
                 const marketsConfig = JSON.parse(fs.readFileSync(MARKETS_PATH, 'utf8'));
                 let marketUpdated = false;
-                
+
                 // Find deployed market address
                 const marketAddress = config.networks.baseSepolia?.contracts?.SoothMarket;
-                
+
                 if (marketAddress) {
                     // Update example_v3 market
                     const market = marketsConfig.markets.find(m => m.id === 'example_v3');
@@ -137,18 +140,13 @@ function main() {
     }
 
     const abiFiles = [
-        { src: 'SoothTraderVault.sol/SoothTraderVault.json', dest: 'SoothTraderVault.json' },
+        // Map V4 contracts to standard names for frontend compatibility
+        { src: 'SoothTraderVaultV4.sol/SoothTraderVaultV4.json', dest: 'SoothTraderVault.json' },
         { src: 'SoothGovernorVault.sol/SoothGovernorVault.json', dest: 'SoothGovernorVault.json' },
-        { src: 'SoothMarket.sol/SoothMarket.json', dest: 'SoothMarket.json' },
+        { src: 'SoothMarketV4.sol/SoothMarketV4.json', dest: 'SoothMarket.json' },
         { src: 'SoothFeeController.sol/SoothFeeController.json', dest: 'SoothFeeController.json' },
-        { src: 'SoothLMSRReal.sol/SoothLMSRReal.json', dest: 'SoothLMSRReal.json' },
-        { src: 'SoothRouter.sol/SoothRouter.json', dest: 'SoothRouter.json' },
-        // Special case for MockUSDC which might be in Script or separate file depending on how it's built
-        // Based on deploy script, it's defined in Deploy.s.sol but usually artifacts are by contract name.
-        // Let's look for standard artifact first.
+        { src: 'OutcomeToken.sol/OutcomeToken.json', dest: 'OutcomeToken.json' },
         { src: 'MockUSDC.sol/MockUSDC.json', dest: 'MockUSDC.json', optional: true },
-        // Fallback for MockUSDC defined inside Deploy script file
-        { src: 'Deploy.s.sol/MockUSDC.json', dest: 'MockUSDC.json', optional: true },
     ];
 
     let abiCount = 0;
@@ -174,7 +172,7 @@ function main() {
         }
     });
     console.log(`✅ Synced ${abiCount} ABIs.`);
-    
+
     console.log('\n🎉 Sync complete!');
 }
 

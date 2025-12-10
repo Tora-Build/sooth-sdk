@@ -44,7 +44,7 @@ echo "🌐 RPC URL: $RPC_URL"
 # Deploy contracts
 echo ""
 echo "📝 Deploying contracts..."
-forge script script/Deploy.s.sol --tc Deploy --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
+forge script script/DeployFreshV4.s.sol --tc DeployFreshV4 --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
 
 # Check if deployments.json was created
 if [ ! -f "deployments.json" ]; then

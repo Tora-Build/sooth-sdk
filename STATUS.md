@@ -1,49 +1,61 @@
 # Project Status
 
-> Last Updated: 2025-12-09 18:05 UTC+7
+> Last Updated: 2025-12-10 03:55 UTC+7
 
 ## Current Focus
+-   **Frontend Integration & Verification**:
+    -   Updating specific hooks (`useOrder`, `useTrade`) to use **Integer** amounts for Limit Orders.
+    -   Updating `SoothMarket` hooks to use `price(outcome)` instead of ticks.
+    -   Verifying full Dual-Venue flow (AMM + Orderbook) on Base Sepolia.
 
-- ✅ **V4 Contracts Deployed**: Continuous LMSR (qYes/qNo) live on Base Sepolia
-- ✅ **Audit Complete**: All 85 tests pass, codebase cleaned, frontend audited
-- ✅ **dApp UI Verified**: Pricing math, Fees usage, Transacting, Logic
-- ✅ **Clean Code**: Legacy V3 artifacts removed
+## Recent Changes
+-   **2025-12-10 [Protocol]**: **V3 Legacy Code REMOVED**.
+    -   Deleted all V3 contracts (`SoothMarket`, `SoothTraderVault`, `SoothLMSRReal`).
+    -   Removed `ISoothAMM` and Tick-based logic.
+-   **2025-12-10 [Deployment]**: **Fresh V4 Deployment** on Base Sepolia.
+    -   Deployed V4 stack with Hybrid Granularity (Integer OB, WAD AMM).
+    -   Synced new addresses and ABIs to Frontend.
+-   **2025-12-10 [Docs]**: **Documentation Overhaul**.
+    -   Updated `ARCHITECTURE.md`, `README.md`, `SHORT_SELLING.md` to V4.
+    -   Created `V4_MIGRATION_GUIDE.md` for frontend devs.
+-   **2025-12-10 [Fixes]**: **Critical Bug Fixes & UI Polish**.
+    -   Fixed `panic: 0x11` (Arithmetic Underflow) in `TraderVault` by increasing Market return precision to WAD.
+    -   Redeployed Markets 1 & 2 to apply fixes.
+    -   Refined `LimitOrderForm` to be strictly for Limit Orders (Removed confusing "Market" toggle).
 
-## Recent Changes (Last 5 Sessions)
-
-| Date       | Area     | Change Summary                                  |
-|------------|----------|------------------------------------------------|
-| 2025-12-09 | Deploy   | **Redeployed Markets** - Fixed stale tick contracts |
-| 2025-12-09 | Protocol | **Continuous LMSR** - ticks removed (ADR-005)  |
-| 2025-12-09 | Audit    | Full codebase + frontend audit                 |
-| 2025-12-09 | Docs     | Created `CHANGELOG.md`, updated ADRs           |
-| 2025-12-08 | Design   | Sooth Protocol V3 architecture finalization    |
+## Pending/Blocked
+-   **Frontend Code**: Needs updates to match V4 interfaces (Integer granularity).
 
 ## Active Deployments (Base Sepolia - Chain 84532)
 
 ### Infrastructure
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0xa0eEa05Cc350Ac218683815e85Cac4A1a1eF36dd` |
-| GovernorVault | `0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f` |
-| TraderVault | `0xee91e05f95cBaACD46f58432DF72CB5C451e98E0` |
-| FeeController | `0xa367B312Ca1845B7c6076345cB5cd529F935B4FA` |
+| MockUSDC | `0x968a13217cac0710b3c313f133061cac2f95d889` |
+| GovernorVault | `0xe02a65ea1bb6ed6a183f0f3d51bc2eaf01c2941d` |
+| TraderVaultV4 | `0x53b107a356367b8063e2bf38590c6178934cccb1` |
+| FeeController | `0x4e6f9c06a56c734e93ce2275407b51eac6b9e4a0` |
+| OutcomeToken | `0xc0a118537f70be3cb535524a4acf0d9b94336da7` |
 
 ### Markets (Continuous LMSR)
 | Market | Address |
 |--------|---------|
-| UN Confirms Alien Life | `0x5c8c3621b0606f8b42ab17c3e33057948e587ee7` |
-| BTC >= $100k | `0x00da96600863a4f26e8a9cb5ca5524c3d7115403` |
+| UN Confirms Alien Life | `0x1c95b682b7c2589e9c16b8ee8742e359276ccab3` |
+| BTC >= $100k | `0xa4dc5b625fec5f39242f0f16d6d56d5fa847f6c8` |
 
 ## Audit Findings (2025-12-09)
 
 ### Fixed This Session
+- [x] **Feature**: Implemented Collateralized Short Selling (Vault V3 & V4)
 - [x] **CRITICAL**: Redeployed V4 Markets to fix stale Tick-based contracts
 - [x] Updated Frontend Config (`deployments.json`, `v4-addresses.ts`)
 - [x] Fixed `useMarket` hook hardcoding `qYes=0`
 - [x] Fixed `useTradeQuote` fallback math logic
 - [x] Fixed `AMMTradePanel` hardcoded placeholder
 - [x] Archived stale deploy scripts to `script_archive/`
+- [x] Fixed `approve` transaction failure (undefined address)
+- [x] Fixed `TraderVault` refund math (Panic 0x11)
+- [x] Fixed `LimitOrderForm` UI (Removed Market toggle)
 
 ### Deferred (Cannot Archive — Active Dependencies)
 - `SoothMarket.sol` — Used by V3 tests and `SoothRouter.sol`
@@ -58,7 +70,8 @@
 ## Next Steps
 
 - [x] Test trades in dApp UI
-- [ ] Test Limit Orders
+- [x] Test Limit Orders
+- [x] **New Feature**: Hybrid Sell (UI-Only Virtual Short)
 - [ ] Monitor for any UI/contract interaction issues
 - [ ] Future: Refactor `SoothTraderVault` to use only V4 interface
 

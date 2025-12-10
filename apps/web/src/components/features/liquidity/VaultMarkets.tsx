@@ -60,7 +60,7 @@ export const VaultMarkets: React.FC = () => {
     }
   });
 
-  const isLoading = mode === 'real' && (!isLiveResult || !isSettledResult);
+  const isLoading = mode === 'real' && !marketStatuses;
 
   // Calculate Dynamic Reserve Multiplier (estimated for now)
   // In v3 architecture, b = Base + (Reserve * Multiplier)

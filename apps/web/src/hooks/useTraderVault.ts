@@ -235,43 +235,9 @@ export function useTraderVault() {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
         toast.success('Demo: Claimed winnings');
-        useActivityStore.getState().addActivity({
-          type: 'claim', // Using 'claim' type for winnings as well
-          market: marketAddress,
-          description: 'Claimed winnings',
-          mode: 'demo',
-          timestamp: Date.now()
-        });
         return;
       }
-
-      if (!publicClient) throw new Error('Public Client not initialized');
-
-      const hash = await writeContractAsync({
-        address: traderVaultAddress,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'claimWinnings',
-        args: [marketAddress as `0x${string}`],
-      });
-
-      const toastId = toast.loading('Claiming winnings...');
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-      if (receipt.status === 'success') {
-        toast.success('Claimed successfully!', { id: toastId });
-        useActivityStore.getState().addActivity({
-          type: 'claim',
-          market: marketAddress,
-          description: 'Claimed winnings',
-          hash: hash,
-          mode: mode,
-          timestamp: Date.now(),
-          chainId: publicClient.chain.id
-        });
-        refetch();
-      } else {
-        throw new Error('Claim transaction reverted');
-      }
+      toast.error("Claims handled via Merge outcomes in V4");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || 'Claim failed');
@@ -292,16 +258,16 @@ export function useTraderVault() {
    * @param price - Price per share (e.g., "0.60" for 60 cents)
    * @param amount - Number of shares (e.g., "100")
    */
-  const placeOrder = async (marketAddress: string, outcome: number, price: string, amount: string) => {
+  const placeOrder = async (marketAddress: string, outcome: number, price: string, amount: string, isBuy: boolean = true) => {
     setIsPending(true);
     try {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        toast.success(`Demo: Placed ${outcome === 0 ? 'YES' : 'NO'} order @ ${price}`);
+        toast.success(`Demo: Placed ${isBuy ? 'Buy' : 'Sell'} ${outcome === 0 ? 'YES' : 'NO'} order @ ${price}`);
         useActivityStore.getState().addActivity({
           type: 'trade',
           market: marketAddress,
-          description: `Placed limit order: ${amount} ${outcome === 0 ? 'YES' : 'NO'} @ ${price}`,
+          description: `Placed ${isBuy ? 'Buy' : 'Sell'} order: ${amount} ${outcome === 0 ? 'YES' : 'NO'} @ ${price}`,
           mode: 'demo',
           timestamp: Date.now()
         });
@@ -317,7 +283,7 @@ export function useTraderVault() {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeOrder',
-        args: [marketAddress as `0x${string}`, outcome, priceWad, amountWad],
+        args: [marketAddress as `0x${string}`, outcome, priceWad, amountWad, isBuy],
       });
 
       const toastId = toast.loading('Placing order...');
@@ -428,18 +394,20 @@ export function useTraderVault() {
       const deltaWad = parseUnits(deltaShares, 18);
       const maxCostWad = parseUnits(maxCost, 18);
 
+      // Calculate signed shares (WAD): Buy = +shares, Sell = -shares
+      const sharesSigned = parseFloat(deltaShares) > 0
+        ? parseUnits(deltaShares, 18)
+        : -parseUnits(deltaShares.replace('-', ''), 18);
+
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
-        functionName: 'executeAMMTrade',
-        // V4 AMM Signature: market, outcome, shares, limit, isBuy
-        // Wrapper needs to adapt arguments
+        functionName: 'tradeAMM',
         args: [
           marketAddress as `0x${string}`,
           outcome,
-          parseUnits(deltaShares.replace('-', ''), 18), // shares (unsigned)
-          maxCostWad, // limit
-          parseFloat(deltaShares) > 0 // isBuy
+          sharesSigned, // int256 deltaShares
+          maxCostWad,   // int256 maxCost
         ],
       });
 

@@ -14,7 +14,7 @@ type Venue = 'amm' | 'orderbook'
 
 export function V4MarketPage() {
     const { address, isConnected } = useAccount()
-    const [selectedMarket, setSelectedMarket] = useState(V4_MARKETS[0])
+    const [selectedMarket, setSelectedMarket] = useState<typeof V4_MARKETS[number]>(V4_MARKETS[0])
     const [venue, setVenue] = useState<Venue>('amm')
 
     if (!isConnected) {
@@ -69,11 +69,12 @@ export function V4MarketPage() {
                         <div className="mt-6">
                             {venue === 'amm' ? (
                                 <AMMTradePanel
-                                    marketAddress={selectedMarket.marketAddress as `0x${string}`}
-                                    outcomeTokenAddress={selectedMarket.outcomeTokenAddress as `0x${string}`}
+                                    marketId={selectedMarket.id}
+                                    marketAddress={selectedMarket.address as `0x${string}`}
+                                    outcomeTokenAddress={selectedMarket.outcomeToken as `0x${string}`}
                                 />
                             ) : (
-                                <OrderbookPanel marketAddress={selectedMarket.marketAddress as `0x${string}`} />
+                                <OrderbookPanel marketAddress={selectedMarket.address as `0x${string}`} />
                             )}
                         </div>
                     </div>
@@ -84,8 +85,8 @@ export function V4MarketPage() {
                     <div className="p-6 border rounded-lg dark:border-gray-700 sticky top-6">
                         <h2 className="text-xl font-bold mb-4">Your Portfolio</h2>
                         <PortfolioView
-                            marketAddress={selectedMarket.marketAddress as `0x${string}`}
-                            outcomeTokenAddress={selectedMarket.outcomeTokenAddress as `0x${string}`}
+                            marketAddress={selectedMarket.address as `0x${string}`}
+                            outcomeTokenAddress={selectedMarket.outcomeToken as `0x${string}`}
                         />
                     </div>
                 </div>

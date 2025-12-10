@@ -1,6 +1,104 @@
 # @sooth/contracts-evm
 
-Solidity smart contracts for Sooth Protocol, built with Foundry.
+Solidity smart contracts for Sooth Protocol (V4).
+
+## Architecture (V4)
+
+Sooth V4 uses a **Dual-Venue** architecture:
+
+```
+                    ┌─────────────────┐
+                    │SoothTraderVaultV4│  ← User Accounts & AMM Positions
+                    └────────┬────────┘
+                             │
+                    ┌────────┴────────┐
+                    │  SoothMarketV4  │  ← Continuous LMSR + Orderbook
+                    └────────┬────────┘
+                             │
+         ┌───────────────────┼────────────────────┐
+         │                   │                    │
+┌────────▼────────┐ ┌────────┴────────┐   ┌──────┴───────┐
+│  OutcomeToken   │ │SoothGovernorVault│   │SoothFeeCtrl │
+│    (ERC1155)    │ │   (LP Funds)     │   │ (Fees)      │
+└─────────────────┘ └─────────────────┘   └──────────────┘
+```
+
+## Core Contracts
+
+| Contract             | Purpose                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| `SoothTraderVaultV4` | Main user entry point. Manages deposits and positions.     |
+| `SoothMarketV4`      | Unified Market (Continuous LMSR + Orderbook).              |
+| `OutcomeToken`       | ERC1155 token for Orderbook shares (YES/NO).               |
+| `SoothGovernorVault` | LP Liquidity Pool.                                         |
+| `SoothFeeController` | Global fee settings.                                       |
+
+## Quick Start
+
+```bash
+# Build
+forge build
+
+# Test
+forge test
+
+# Deploy to Base Sepolia
+./deploy-and-sync.sh
+```
+
+## Testing
+
+```bash
+# Run all tests
+forge test
+
+# Key Tests
+forge test --match-contract GranularityTest
+forge test --match-contract OrderbookShort
+forge test --match-contract V4Integration
+```
+
+## Deployment
+
+1. Configure `.env`:
+
+```env
+PRIVATE_KEY=0x...
+RPC_URL=https://...
+```
+
+2. Run deployment script:
+
+```bash
+./deploy-and-sync.sh
+```
+
+## Documentation
+
+- [Architecture](./docs/core/ARCHITECTURE.md)
+- [Frontend Integration](./docs/technical/frontend-integration/README.md)
+- [Fee Design](./docs/research/FEE_DESIGN.md)
+
+## Directory Structure
+
+```
+contracts/
+  core/
+    SoothTraderVaultV4.sol  # User vault
+    SoothMarketV4.sol       # Market logic
+    OutcomeToken.sol        # ERC1155 Shares
+    SoothGovernorVault.sol  # LP vault
+    SoothFeeController.sol  # Fee management
+    SoothInterfaces.sol     # Shared interfaces
+
+test/
+    GranularityTest.t.sol   # V4 Math tests
+    V4Integration.t.sol     # System tests
+    OrderbookShort.t.sol    # Short selling tests
+
+script/
+  DeployFreshV4.s.sol       # V4 Deployment
+```
 
 ## Architecture
 

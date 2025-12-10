@@ -82,7 +82,7 @@ export const ChainSelector: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => handleChainSwitch(selectedChainId)}
+            onClick={() => handleChainSwitch(Number(selectedChainId))}
             className="w-full mt-2 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium rounded transition-colors"
           >
             Switch to {displayChain.name}

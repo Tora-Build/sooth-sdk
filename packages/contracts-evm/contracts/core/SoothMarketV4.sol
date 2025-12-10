@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "../core/SoothInterfaces.sol";
 import "../interfaces/ISoothMarketV4.sol";
-import "../interfaces/ISoothTraderVault.sol";
+import "../interfaces/ISoothTraderVaultV4.sol";
 import "../interfaces/IOutcomeToken.sol";
 import {wrap} from "prb-math/sd59x18/Casting.sol";
 import {exp, ln} from "prb-math/sd59x18/Math.sol";
@@ -290,7 +290,11 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         uint8 outcome,
         uint256 price_,
         uint256 amount
-    ) external onlyTraderVault onlyLive returns (uint256 orderId) {
+    ) external onlyTraderVault onlyLive returns (
+        uint256 orderId,
+        uint256 matchedAmount,
+        uint256 matchedValue
+    ) {
         require(price_ > 0 && price_ < 1e18, "Market: invalid price");
         require(amount > 0, "Market: invalid amount");
 
@@ -323,7 +327,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
         emit OrderCreated(orderId, maker, outcome, price_, amount);
 
-        _tryMatch(orderId);
+        (matchedAmount, matchedValue) = _tryMatch(orderId);
     }
 
     function cancelOrder(
@@ -342,18 +346,18 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         emit OrderCancelled(orderId, maker, refund);
     }
 
-    function _tryMatch(uint256 newOrderId) internal {
+    function _tryMatch(uint256 newOrderId) internal returns (uint256 matchedAmount, uint256 matchedValue) {
         OrderV4 storage newOrder = _orders[newOrderId];
-        if (newOrder.amount == 0) return;
+        if (newOrder.amount == 0) return (0, 0);
 
         if (newOrder.isBuySide) {
-            _matchBuyOrder(newOrderId);
+            return _matchBuyOrder(newOrderId);
         } else {
-            _matchSellOrder(newOrderId);
+            return _matchSellOrder(newOrderId);
         }
     }
 
-    function _matchBuyOrder(uint256 buyOrderId) internal {
+    function _matchBuyOrder(uint256 buyOrderId) internal returns (uint256 totalAmount, uint256 totalValue) {
         OrderV4 storage buyOrder = _orders[buyOrderId];
         
         while (buyOrder.amount > 0 && bestAsk != 0) {
@@ -369,8 +373,15 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
             buyOrder.amount -= matchAmount;
             askOrder.amount -= matchAmount;
+            
+            totalAmount += matchAmount;
+            totalValue += (matchAmount * matchPrice);
 
             emit OrderMatched(buyOrderId, bestAsk, matchAmount, matchPrice);
+
+            // Notify TraderVault
+            ISoothTraderVaultV4(traderVault).onOrderMatched(buyOrderId, matchAmount);
+            ISoothTraderVaultV4(traderVault).onOrderMatched(bestAsk, matchAmount);
 
             if (askOrder.amount == 0) {
                 uint256 filledAsk = bestAsk;
@@ -380,7 +391,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         }
     }
 
-    function _matchSellOrder(uint256 sellOrderId) internal {
+    function _matchSellOrder(uint256 sellOrderId) internal returns (uint256 totalAmount, uint256 totalValue) {
         OrderV4 storage sellOrder = _orders[sellOrderId];
         
         while (sellOrder.amount > 0 && bestBid != 0) {
@@ -397,7 +408,14 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
             sellOrder.amount -= matchAmount;
             bidOrder.amount -= matchAmount;
 
+            totalAmount += matchAmount;
+            totalValue += (matchAmount * matchPrice);
+
             emit OrderMatched(bestBid, sellOrderId, matchAmount, matchPrice);
+
+            // Notify TraderVault
+            ISoothTraderVaultV4(traderVault).onOrderMatched(bestBid, matchAmount);
+            ISoothTraderVaultV4(traderVault).onOrderMatched(sellOrderId, matchAmount);
 
             if (bidOrder.amount == 0) {
                 uint256 filledBid = bestBid;
@@ -512,8 +530,11 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
 
     // ============ Required Interface Functions ============
     
-    function merge(uint256) external pure {
-        revert("Market: use OutcomeToken.merge()");
+    function merge(uint256 amount) external returns (uint256 proceeds) {
+        outcomeToken.merge(amount);
+        // Proceeds are credited to msg.sender (Vault) by OutcomeToken
+        // We return the amount in WAD for Vault's logic
+        return amount * 1e18;
     }
 
     // V4: Remove tick-related functions since we use qYes/qNo

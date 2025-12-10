@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../contracts/core/SoothMarketV4.sol";
 import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothGovernorVault.sol";
-import "../contracts/core/SoothTraderVault.sol";
+import "../contracts/core/SoothTraderVaultV4.sol";
 
 /// @title DeployV4Markets  
 /// @notice Phase 2: Deploy markets using infrastructure from Phase 0 & 1
@@ -36,7 +36,7 @@ contract DeployV4Markets is Script {
         console.log("  TraderVault:", TRADER_VAULT);
 
         SoothGovernorVault governorVault = SoothGovernorVault(GOVERNOR_VAULT);
-        SoothTraderVault traderVault = SoothTraderVault(TRADER_VAULT);
+        SoothTraderVaultV4 traderVault = SoothTraderVaultV4(TRADER_VAULT);
 
         // ===== MARKET 1: UN Confirms Alien Life =====
         

@@ -7,10 +7,10 @@ interface MarketCardProps {
 }
 
 export function MarketCard({ market }: MarketCardProps) {
-    const { probability, liquidity, tick } = useMarketV4(market.marketAddress as `0x${string}`)
+    const { probability, liquidity, priceYes } = useMarketV4(market.address as `0x${string}`)
 
-    const yesPercent = (probability * 100).toFixed(1)
-    const noPercent = ((1 - probability) * 100).toFixed(1)
+    const yesPercent = probability !== undefined ? (probability * 100).toFixed(1) : '—'
+    const noPercent = probability !== undefined ? ((1 - probability) * 100).toFixed(1) : '—'
 
     return (
         <div className="p-6 border rounded-lg hover:shadow-lg transition-shadow dark:border-gray-700">
@@ -54,9 +54,10 @@ export function MarketCard({ market }: MarketCardProps) {
                     <span className="font-medium">Liquidity:</span> {parseFloat(liquidity).toFixed(0)}
                 </div>
                 <div>
-                    <span className="font-medium">Tick:</span> {tick}
+                    <span className="font-medium">Price:</span> {priceYes ? parseFloat(priceYes).toFixed(2) : '—'}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
+

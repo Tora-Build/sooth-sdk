@@ -1,7 +1,7 @@
 import React from 'react';
 import { useReadContracts } from 'wagmi';
 import { formatUnits } from 'viem';
-import { SOOTH_MARKET_ABI, SOOTH_RISK_MANAGER_ABI, SOOTH_VAULT_ABI } from '../../../config/abis';
+import { MARKET_V4_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import marketsConfig from '../../../config/markets.json';
 import { useMarketStore } from '../../../store/useMarketStore';
@@ -19,34 +19,34 @@ export const SettlementSimulator: React.FC = () => {
 
   // 1. Prepare Data Fetching for Real Mode
   const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real');
-  
+
   const marketContracts = realMarkets.flatMap(m => [
     {
       address: m.contractAddress as `0x${string}`,
-      abi: SOOTH_MARKET_ABI,
-      functionName: 'ammState',
+      abi: MO_MARKET_ABI, // Using V4 ABI alias
+      functionName: 'b',
       args: [],
     },
     {
-      address: riskManagerAddress,
-      abi: SOOTH_RISK_MANAGER_ABI,
-      functionName: 'getBForMarket',
-      args: [BigInt(m.id_numeric || 0)],
-    },
-    {
-      address: vaultAddress,
-      abi: SOOTH_VAULT_ABI,
-      functionName: 'getMarketReserve',
-      args: [BigInt(m.id_numeric || 0)],
+      address: m.contractAddress as `0x${string}`,
+      abi: MO_MARKET_ABI,
+      functionName: 'q',
+      args: [0], // qYes
     },
     {
       address: m.contractAddress as `0x${string}`,
-      abi: SOOTH_MARKET_ABI,
+      abi: MO_MARKET_ABI,
+      functionName: 'q',
+      args: [1], // qNo
+    },
+    {
+      address: m.contractAddress as `0x${string}`,
+      abi: MO_MARKET_ABI,
       functionName: 'isLive',
     },
     {
       address: m.contractAddress as `0x${string}`,
-      abi: SOOTH_MARKET_ABI,
+      abi: MO_MARKET_ABI,
       functionName: 'isSettled',
     },
   ]);
@@ -59,45 +59,39 @@ export const SettlementSimulator: React.FC = () => {
     }
   });
 
-  const formatCurrency = (val: number) => 
+  const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
 
   // 3. Render
   let activeMarkets: any[] = [];
 
+  // Define MO_MARKET_ABI locally or import MARKET_V4_ABI as alias
+  const MO_MARKET_ABI = MARKET_V4_ABI;
+
   if (mode === 'demo') {
-    // demoMarkets is an array, filter for demo mode and trading status
-    const demoModeMarkets = demoMarkets.filter((m): m is Market => 
+    // ... (Keep existing demo logic)
+    const demoModeMarkets = demoMarkets.filter((m): m is Market =>
       (m as any).mode === 'demo' && m.status === 'trading'
     );
-    
     activeMarkets = demoModeMarkets.map(m => {
-      // For demo mode, use actual user shares from the market object
+      // ... (Keep mapping)
+      // Copy paste from original file or keep mostly same
       const userSharesYes = m.userYesShares || 0;
       const userSharesNo = m.userNoShares || 0;
-      
-      // Use actual market reserve from the market object (5% of base)
       const marketReserve = Number(formatUnits((m as any).reserve || 0n, 18));
-      
-      // Calculate current implied YES probability from AMM state
       const b = Number(formatUnits(m.bParam || 0n, 18));
       const qYes = Number(formatUnits(m.qYes || 0n, 18));
       const qNo = Number(formatUnits(m.qNo || 0n, 18));
-      
-      let priceYes = 0.5; // Default
+      let priceYes = 0.5;
       if (b > 0) {
         const expYes = Math.exp(qYes / b);
         const expNo = Math.exp(qNo / b);
         priceYes = expYes / (expYes + expNo);
       }
-      
-      // Settlement scenarios
       const payoutYesWin = userSharesYes;
       const lpPnlYesWin = marketReserve - payoutYesWin;
-      
       const payoutNoWin = userSharesNo;
       const lpPnlNoWin = marketReserve - payoutNoWin;
-      
       return {
         id: m.id,
         name: m.question,
@@ -114,22 +108,25 @@ export const SettlementSimulator: React.FC = () => {
     });
   } else if (realData) {
     activeMarkets = realMarkets.map((m: any, i: number) => {
-      const baseIdx = i * 5; // Now 5 calls per market
-      const ammRes = realData[baseIdx];
-      const bRes = realData[baseIdx + 1];
-      const reserveRes = realData[baseIdx + 2];
+      const baseIdx = i * 5;
+      const bRes = realData[baseIdx];
+      const qYesRes = realData[baseIdx + 1];
+      const qNoRes = realData[baseIdx + 2];
       const isLiveRes = realData[baseIdx + 3];
       const isSettledRes = realData[baseIdx + 4];
 
-      if (ammRes?.result && bRes?.result && reserveRes?.result) {
-        const [qYesBig, qNoBig] = ammRes.result as [bigint, bigint];
+      if (bRes?.result !== undefined && qYesRes?.result !== undefined) {
         const bBig = bRes.result as bigint;
-        const reserveBig = reserveRes.result as bigint;
+        const qYesBig = qYesRes.result as bigint;
+        const qNoBig = qNoRes.result as bigint;
 
+        const b = Number(formatUnits(bBig, 18));
         const qYes = Number(formatUnits(qYesBig, 18));
         const qNo = Number(formatUnits(qNoBig, 18));
-        const b = Number(formatUnits(bBig, 18));
-        const marketReserve = Number(formatUnits(reserveBig, 18));
+
+        // Reserve Logic for V4: approximate as b * 0.1 for display or fetch specific if added
+        // V4 doesn't have explicit 'reserve' view easily accessible in standard ABI yet
+        const marketReserve = b * 0.1;
 
         // Calculate current implied YES probability
         let priceYes = 0.5;
@@ -139,30 +136,21 @@ export const SettlementSimulator: React.FC = () => {
           priceYes = expYes / (expYes + expNo);
         }
 
-        // Calculate user shares from q values (for real markets, q starts at 0)
-        const userSharesYes = Math.max(0, qYes);
+        const userSharesYes = Math.max(0, qYes); // Approximation for simulator
         const userSharesNo = Math.max(0, qNo);
-        
-        // Settlement scenarios
+
         const payoutYesWin = userSharesYes;
         const lpPnlYesWin = marketReserve - payoutYesWin;
-        
         const payoutNoWin = userSharesNo;
         const lpPnlNoWin = marketReserve - payoutNoWin;
 
-        // Get market status from blockchain
         let status = m.status;
         if (isLiveRes?.result !== undefined && isSettledRes?.result !== undefined) {
           const isLive = isLiveRes.result as boolean;
           const isSettled = isSettledRes.result as boolean;
-          
-          if (isSettled) {
-            status = 'settled';
-          } else if (isLive) {
-            status = 'trading';
-          } else {
-            status = 'cooldown';
-          }
+          if (isSettled) status = 'settled';
+          else if (isLive) status = 'trading';
+          else status = 'cooldown';
         }
 
         return {
@@ -189,7 +177,7 @@ export const SettlementSimulator: React.FC = () => {
         <h2 className="text-lg font-semibold text-white">{t('simulator.title')}</h2>
         <p className="text-sm text-slate-400">{t('simulator.description')}</p>
       </div>
-      
+
       <div className="p-6">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">

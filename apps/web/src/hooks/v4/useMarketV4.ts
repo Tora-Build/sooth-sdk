@@ -5,11 +5,12 @@ import { V4_ABIS } from '../../config/abis/v4-abis'
 import { baseSepolia } from 'wagmi/chains'
 
 export function useMarketV4(marketAddress: `0x${string}`) {
-    // Current tick (0-1000)
-    const { data: tick, refetch: refetchTick } = useReadContract({
+    // Price for YES (Probability)
+    const { data: priceYes, refetch: refetchPrice } = useReadContract({
         address: marketAddress,
         abi: V4_ABIS.MarketV4,
-        functionName: 'currentTick',
+        functionName: 'price',
+        args: [0], // YES
         chainId: baseSepolia.id,
     })
 
@@ -30,30 +31,24 @@ export function useMarketV4(marketAddress: `0x${string}`) {
     })
 
     // Watch for tick updates
-    useWatchContractEvent({
-        address: marketAddress,
-        abi: V4_ABIS.MarketV4,
-        eventName: 'TickUpdated',
-        chainId: baseSepolia.id,
-        onLogs() {
-            refetchTick()
-        },
-    })
+    // TODO: Watch for Price updates (TradeAMM event)
+    // useWatchContractEvent(...)
 
-    // Calculate probability from tick
-    const probability = tick ? Number(tick) / 1000 : 0.5
+    // Calculate probability from price (WAD)
+    const probability = priceYes ? Number(formatUnits(priceYes as bigint, 18)) : 0.5
 
     // Format liquidity
-    const liquidity = b ? formatUnits(b, 18) : '0'
-    const baseLiquidity = bBase ? formatUnits(bBase, 18) : '0'
+    // Format liquidity
+    const liquidity = b ? formatUnits(b as bigint, 18) : '0'
+    const baseLiquidity = bBase ? formatUnits(bBase as bigint, 18) : '0'
 
     return {
-        tick: tick ? Number(tick) : null,
+        priceYes: priceYes ? formatUnits(priceYes as bigint, 18) : null,
         probability,
-        b,
-        bBase,
+        b: b as bigint,
+        bBase: bBase as bigint,
         liquidity,
         baseLiquidity,
-        refetch: refetchTick,
+        refetch: refetchPrice,
     }
 }

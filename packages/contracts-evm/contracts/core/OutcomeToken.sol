@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../interfaces/IOutcomeToken.sol";
-import "../interfaces/ISoothTraderVault.sol";
+import "../interfaces/ISoothTraderVaultV4.sol";
 
 /// @title OutcomeToken
 /// @notice ERC1155 tokens representing outcome shares for orderbook trading
@@ -80,7 +80,7 @@ contract OutcomeToken is ERC1155, IOutcomeToken {
         
         // Credit USDC to user via TraderVault
         // Merge is FREE (no lock) - user holds delta-neutral position
-        ISoothTraderVault(traderVault).creditMergeProceeds(msg.sender, amount);
+        ISoothTraderVaultV4(traderVault).creditMergeProceeds(msg.sender, amount);
         
         emit Merged(msg.sender, amount);
     }

@@ -38,7 +38,7 @@ export function useLimitOrder(marketId: string) {
 
 
 
-  const placeOrder = async (outcome: 0 | 1, price: string, amount: string) => {
+  const placeOrder = async (outcome: 0 | 1, price: string, amount: string, isBuy: boolean = true) => {
     setIsPending(true);
     try {
       const chain = publicClient?.chain;
@@ -50,15 +50,34 @@ export function useLimitOrder(marketId: string) {
       if (!market?.contractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
-      const amountBig = parseUnits(amount, 18);
+
+      // V4: Limit Order Amount is INTEGER (decimals=0)
+      // Ensure we parse as BigInt directly, assuming whole numbers
+      if (!/^\d+$/.test(amount)) {
+        throw new Error('Limit orders require integer amounts (no decimals)');
+      }
+      const amountBig = BigInt(amount);
 
       const ONE = parseUnits('1', 18);
-      // Calculate required collateral:
-      // For placing a limit order, collateral = price * amount (you pay upfront)
-      const collateralRequired = priceBig * amountBig / ONE;
 
-      console.log('Placing Order:', {
+      // Calculate required collateral:
+      // Price is WAD (18 decimals). Amount is Integer (0 decimals).
+      // Collateral = Price * Amount
+      // Example: Price 0.60 (0.6e18) * 10 Shares = 6e18 (6 USDC)
+
+      let collateralRequired: bigint;
+
+      if (isBuy) {
+        collateralRequired = priceBig * amountBig;
+      } else {
+        // Short Sell: Collateral is (1 - Price) * Amount
+        // (1e18 - 0.6e18) * 10 = 0.4e18 * 10 = 4e18 (4 USDC)
+        collateralRequired = (ONE - priceBig) * amountBig;
+      }
+
+      console.log('Placing Limit Order:', {
         outcome,
+        isBuy,
         price,
         amount,
         collateralRequired: collateralRequired.toString()
@@ -66,33 +85,26 @@ export function useLimitOrder(marketId: string) {
 
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        toast.success(`Demo: Placed Limit Order for ${amount} shares`);
+        toast.success(`Demo: Placed ${isBuy ? 'Buy' : 'Sell'} Limit Order`);
         setIsPending(false);
         return;
       }
 
-      // v3: Check available balance in TraderVault
+      // Check available balance in TraderVault
       const { data: latestBalance } = await refetchBalance();
       const balance = (latestBalance || availableBalance) as bigint || 0n;
 
-      console.log('--- Limit Order Balance Check ---');
-      console.log('Vault Balance:', balance.toString());
-      console.log('Required Collateral:', collateralRequired.toString());
-      console.log('Price:', price);
-      console.log('Amount:', amount);
-      console.log('-------------------------------');
-
       if (balance < collateralRequired) {
-        throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC. Please deposit more funds.`);
+        throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
       }
 
       // v4: Place order through TraderVaultV4
+      // placeOrder(market, outcome, price, amount, isBuy)
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeOrder',
-        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
-        gas: 300000n, // Explicit gas limit
+        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig, isBuy],
       });
 
       const toastId = toast.loading('Placing Order...');
@@ -110,6 +122,55 @@ export function useLimitOrder(marketId: string) {
     }
   };
 
+  const placeSpotOrder = async (outcome: 0 | 1, price: string, amount: string) => {
+    setIsPending(true);
+    try {
+      const chain = publicClient?.chain;
+      if (chain?.id !== selectedChainId) throw new Error('Wrong Network');
+      if (!market?.contractAddress) throw new Error('Market not found');
+
+      const priceBig = parseUnits(price, 18);
+
+      if (!/^\d+$/.test(amount)) throw new Error('Integer amounts only');
+      const amountBig = BigInt(amount);
+
+      console.log('Placing Spot Order:', { outcome, price, amount });
+
+      if (mode === 'demo') {
+        await new Promise(r => setTimeout(r, 1000));
+        toast.success(`Demo: Placed Spot Sell Order`);
+        setIsPending(false);
+        return;
+      }
+
+      // Check SHARE balance (not USDC)
+      const shareBalance = outcome === 0 ? market.userYesShares : market.userNoShares;
+      if (Number(amount) > (shareBalance || 0)) {
+        throw new Error(`Insufficient shares. Have ${shareBalance}, trying to sell ${amount}`);
+      }
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'placeSpotOrder',
+        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+      });
+
+      const toastId = toast.loading('Placing Spot Order...');
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+        toast.success('Spot Order Placed!', { id: toastId });
+      }
+
+    } catch (err: any) {
+      console.error('Place Spot Order Error:', err);
+      toast.error(err.message || 'Failed to place spot order');
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   const cancelOrder = async (orderId: string) => {
     setIsPending(true);
     try {
@@ -121,7 +182,6 @@ export function useLimitOrder(marketId: string) {
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'cancelOrder',
         args: [market.contractAddress as `0x${string}`, BigInt(orderId)],
-        gas: 200000n, // Explicit gas limit
       });
 
       const toastId = toast.loading('Cancelling Order...');
@@ -151,16 +211,21 @@ export function useLimitOrder(marketId: string) {
       if (!market?.contractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
-      const amountBig = parseUnits(amount, 18);
+
+      // V4: Amount is Integer
+      if (!/^\d+$/.test(amount)) throw new Error('Amount must be integer');
+      const amountBig = BigInt(amount);
 
       // Calculate maxCost (Limit Value)
-      // For Buy: Max amount of USDC willing to pay = price * amount
-      // For Sell: Min amount of USDC willing to receive = price * amount
-      const ONE = parseUnits('1', 18);
-      const limitValue = priceBig * amountBig / ONE;
+      // Price (WAD) * Amount (Int) = Value (WAD)
+      const limitValue = priceBig * amountBig;
 
       // Shares: Positive for Buy, Negative for Sell
-      const shares = isBuy ? amountBig : -amountBig;
+      // SCALE TO WAD: tradeAMM expects WAD shares
+      const sharesWad = isBuy ? amountBig * 1000000000000000000n : -(amountBig * 1000000000000000000n);
+
+      // Limit Cost: Positive for Buy (Max Input), Negative for Sell (Min Output)
+      const costSigned = isBuy ? limitValue : -limitValue;
 
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
@@ -172,8 +237,8 @@ export function useLimitOrder(marketId: string) {
       console.log('Executing Taker Order:', {
         outcome,
         isBuy,
-        shares: shares.toString(),
-        limitValue: limitValue.toString()
+        sharesWad: sharesWad.toString(),
+        costSigned: costSigned.toString()
       });
 
       // v3: Check available balance for Buys
@@ -192,18 +257,12 @@ export function useLimitOrder(marketId: string) {
         }
       }
 
-      // v3: Execute taker order through TraderVaultV3.tradeAMM
+      // v4: Execute taker order through TraderVaultV4.tradeAMM
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
-        functionName: 'executeAMMTrade',
-        // In V4: market, outcomeIdx, shares, maxCost, isBuy
-        // Here we are filling a limit order via AMM? Or is this actually just a taker trade?
-        // If this is 'executeAMMTrade', looking at V3 'tradeAMM' usage:
-        // V3: market, outcome, deltaWad (shares), maxCostWad
-        // V4: market, outcome, shares, limit, isBuy
-        // We need to determine isBuy. shares > 0 is buy.
-        args: [market.contractAddress as `0x${string}`, outcome, shares, limitValue, true],
+        functionName: 'tradeAMM',
+        args: [market.contractAddress as `0x${string}`, outcome, sharesWad, costSigned],
       });
 
       const toastId = toast.loading('Executing Trade...');
@@ -223,6 +282,7 @@ export function useLimitOrder(marketId: string) {
 
   return {
     placeOrder,
+    placeSpotOrder,
     cancelOrder,
     executeTakerOrder,
     isPending,

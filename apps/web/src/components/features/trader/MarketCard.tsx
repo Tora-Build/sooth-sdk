@@ -52,8 +52,8 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
     setAmount('1');
   };
 
-  let priceYesPercent = (market.priceYes * 100).toFixed(1);
-  let priceNoPercent = (market.priceNo * 100).toFixed(1);
+  let priceYesPercent = ((market.priceYes ?? 0.5) * 100).toFixed(1);
+  let priceNoPercent = ((market.priceNo ?? 0.5) * 100).toFixed(1);
 
   if (market.status === 'settled' && market.winningOutcome) {
     if (market.winningOutcome === 'YES') {
@@ -242,8 +242,8 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             <div className="text-xs text-slate-500">{t('trading.yesPrice')}</div>
             <div className="text-lg font-bold text-white font-mono">
               {(selectedOutcome === 0
-                ? (hasValidAmount ? quote.newPriceYes : market.priceYes)
-                : (hasValidAmount ? quote.newPriceNo : market.priceNo)
+                ? (hasValidAmount ? quote.newPriceYes : (market.priceYes ?? 0.5))
+                : (hasValidAmount ? quote.newPriceNo : (market.priceNo ?? 0.5))
               ).toFixed(2)} {t('common.usdc')}
             </div>
           </div>
@@ -262,19 +262,24 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             <div className="flex items-center gap-2 text-sm font-mono">
               {hasValidAmount ? (
                 <>
-                  <span className="text-slate-400">{(market.priceYes * 100).toFixed(0)}%</span>
+                  <span className="text-2xl font-bold font-mono text-white">
+                    {((market.priceYes ?? 0.5) * 100).toFixed(1)}%
+                  </span>
+                  <span className="text-sm text-slate-500 ml-2">
+                    (NO: {((market.priceNo ?? 0.5) * 100).toFixed(1)}%)
+                  </span>
                   <span className="text-slate-600">→</span>
                   <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
                 </>
               ) : (
-                <span className="text-white">{(market.priceYes * 100).toFixed(0)}%</span>
+                <span className="text-white">{((market.priceYes ?? 0.5) * 100).toFixed(0)}%</span>
               )}
             </div>
           </div>
           <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
-              style={{ width: `${(hasValidAmount ? quote.newPriceYes : market.priceYes) * 100}%` }}
+              style={{ width: `${(hasValidAmount ? quote.newPriceYes : (market.priceYes ?? 0.5)) * 100}%` }}
             />
           </div>
         </div>

@@ -1,16 +1,16 @@
 {
   "version": "1.2",
-  "lastUpdated": "2025-12-05",
+  "lastUpdated": "2025-12-10",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "status": "✅ Live & Verified",
       "contracts": {
-        "MockUSDC": "0x703A2bFa154d5Cf2608CcC63d8F61E53Af5C3607",
-        "SoothTraderVault": "0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e",
-        "SoothMarket": "0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf",
-        "SoothGovernorVault": "0x296682686358E6bAf572118bfCAA6027C349F3d3",
-        "SoothFeeController": "0x512076933a55acF5375A54A54b2DDBb996b05E97",
+        "MockUSDC": "0x5553832e32a0789fb5988e900061f929f2a30add",
+        "SoothTraderVault": "0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5",
+        "SoothMarket": "0x392994B7cb5cA697fa4e2177e0f17Fe2BA4E012F",
+        "SoothGovernorVault": "0x805825E6AF09178ea699A32a8D6CC5CA3637Df80",
+        "SoothFeeController": "0x90295752f2424380123914c8ee6ef14e98f70fe8",
         "SoothLMSRReal": "0x2fe47234662aE57E714d183c41f2Bd73DE91892F"
       },
       "notes": {

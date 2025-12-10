@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "../core/SoothInterfaces.sol";
+import "./ISoothTraderVaultV4.sol";
+import "./IOutcomeToken.sol";
 
 /// @title ISoothMarketV4
 /// @notice V4 Market interface - Continuous LMSR AMM with qYes/qNo state
@@ -83,7 +85,11 @@ interface ISoothMarketV4 {
         uint8 outcome,
         uint256 price,
         uint256 amount
-    ) external returns (uint256 orderId);
+    ) external returns (
+        uint256 orderId,
+        uint256 matchedAmount,
+        uint256 matchedValue
+    );
 
     function cancelOrder(uint256 orderId, address maker) external returns (uint256 refund);
 
@@ -102,4 +108,8 @@ interface ISoothMarketV4 {
     function price(uint8 outcome) external view returns (uint256 priceWad);
     function yesBalance(address user) external view returns (uint256);
     function noBalance(address user) external view returns (uint256);
+    function outcomeToken() external view returns (IOutcomeToken);
+    function merge(uint256 amount) external returns (uint256 proceeds);
+    
+    function nextOrderId() external view returns (uint256);
 }

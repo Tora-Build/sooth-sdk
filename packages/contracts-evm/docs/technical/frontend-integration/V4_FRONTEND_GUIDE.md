@@ -1,6 +1,112 @@
 # V4 Frontend Integration - Complete Guide
 
-## Quick Start
+## Core Architecture
+Sooth V4 uses a **Dual-Venue Hybrid Architecture**:
+
+1.  **Orderbook (CLOB):** Integer shares (1 = 1 share). Peer-to-peer.
+2.  **AMM (Continuous LMSR):** Fractional shares (1e18 = 1 share). Always available liquidity.
+
+---
+
+## 1. Key Interactions
+
+### Orderbook: Place Limit Order
+**Granularity:** Integers (`decimals=0`).
+**Cost:** `price (WAD) * amount (Int)`.
+
+```typescript
+// Buy 100 YES shares at 0.60 USDC
+await writeContract({
+  address: TRADER_VAULT,
+  abi: SoothTraderVaultABI,
+  functionName: 'placeOrder',
+  args: [
+    MARKET_ADDRESS,
+    1, // outcome (0=YES, 1=NO) - Wait, confirm mapping in contract
+       // Actually 0=YES, 1=NO in contract usually. 
+       // Let's verify: SoothMarketV4 line 302: if (outcome == 0) yesPrice = price_ ...
+       // So 0 is YES.
+    0, // outcome (0=YES)
+    parseUnits('0.60', 18), // Price (WAD)
+    100n,                   // Amount (INTEGER) - 100 shares
+    true                    // isBuy
+  ]
+})
+```
+
+### AMM: Instant Trade
+**Granularity:** WAD (`decimals=18`).
+**Cost:** Calculated by LMSR curve.
+
+```typescript
+// Buy 10.5 YES shares from AMM
+await writeContract({
+  address: TRADER_VAULT,
+  abi: SoothTraderVaultABI,
+  functionName: 'tradeAMM', // Renamed from executeAMMTrade in interface ISoothTraderVaultV4
+  args: [
+    MARKET_ADDRESS,
+    0, // outcome (0=YES)
+    parseUnits('10.5', 18), // Delta Shares (WAD)
+    parseUnits('7.0', 18)   // Max Cost (WAD)
+  ]
+})
+```
+
+---
+
+## 2. Fetching Market Data
+
+### Price & Probability
+The AMM determines the "Market Price".
+
+```typescript
+// Get Price of YES (0)
+const priceWad = await readContract({
+  address: MARKET_ADDRESS,
+  abi: SoothMarketABI,
+  functionName: 'price',
+  args: [0] // 0=YES
+})
+
+const prob = formatUnits(priceWad, 18) // e.g. "0.50"
+```
+
+### User Balances
+Users can have two types of positions:
+
+1.  **Outcome Tokens (Orderbook)**:
+    ```typescript
+    // Check YES tokens (ID=0)
+    const balance = await readContract({
+      address: OUTCOME_TOKEN,
+      abi: OutcomeTokenABI,
+      functionName: 'balanceOf',
+      args: [user, 0]
+    })
+    // Returns Integer (e.g. 100n)
+    ```
+
+2.  **AMM Positions (Internal)**:
+    ```typescript
+    const pos = await readContract({
+      address: TRADER_VAULT,
+      abi: SoothTraderVaultABI,
+      functionName: 'ammPositions',
+      args: [user, MARKET_ADDRESS]
+    })
+    // Returns { yesShares: WAD, noShares: WAD, ... }
+    ```
+
+---
+
+## 3. ABIs & Addresses
+
+Contracts are deployed to Base Sepolia.
+New ABIs are located in `src/config/abis/`:
+- `SoothTraderVault.json` (Points to V4)
+- `SoothMarket.json` (Points to V4)
+- `OutcomeToken.json`
 
 **Infrastructure (Base Sepolia):**
 - USDC: `0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab`
@@ -215,6 +321,13 @@ function AMMPosition({ position }) {
   )
 }
 ```
+
+### Short Selling & Hybrid Sell UI
+
+The Protocol treats all Limit Sell orders as "Virtual Shorts" requesting to buy the opposite outcome.
+- **Collateral:** Always requires `(1 - Price) * Amount` in USDC.
+- **Hybrid Sell (User Owns Shares):** Current UI implementation **does not lock local shares**. Users engaging in "Hybrid Sell" (selling owned shares via limit order) must also provide USDC collateral.
+- **Recommendation:** Clearly label this "Collateral" requirement in the Sell UI to avoid user confusion.
 
 ### Show Venue Comparison
 

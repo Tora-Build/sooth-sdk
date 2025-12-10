@@ -8,9 +8,9 @@ source .env
 
 # Configuration
 RPC_URL="https://sepolia.base.org"
-TRADER_VAULT="0xee91e05f95cBaACD46f58432DF72CB5C451e98E0"
-GOVERNOR_VAULT="0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f"
-FEE_CONTROLLER="0xa367B312Ca1845B7c6076345cB5cd529F935B4FA"
+TRADER_VAULT="0x9b9148e635d61f6771f66079c2d666c83a4b189b"
+GOVERNOR_VAULT="0x2384b0ce7d1af975865c230f1f51addb718a828a"
+FEE_CONTROLLER="0x6184906a66e731b19dbb9634c16c10b3a168987e"
 
 echo "=== Deploying Market 1: Trump 2024 Win ==="
 echo ""
@@ -45,10 +45,10 @@ echo ""
 echo "Step 4: Initializing Market..."
 DEPLOYER=$(cast wallet address --private-key $PRIVATE_KEY)
 cast send --rpc-url $RPC_URL --private-key $PRIVATE_KEY --legacy --gas-price 200000000 \
-  $MARKET "initialize(uint256,address,address,address,address,bytes32,uint256,address,uint16)" \
+  $MARKET "initialize(uint256,address,address,address,address,bytes32,uint256,address,int256,int256)" \
   1 $GOVERNOR_VAULT $TRADER_VAULT $FEE_CONTROLLER $OUTCOME_TOKEN \
   0x0000000000000000000000000000000000000000000000000000000000000000 \
-  10000000000000000000000 $DEPLOYER 500
+  10000000000000000000000 $DEPLOYER 0 0
 echo "Market initialized"
 sleep 2
 echo ""

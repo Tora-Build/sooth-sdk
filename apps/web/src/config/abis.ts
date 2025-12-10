@@ -3,11 +3,12 @@ import { parseAbi } from "viem";
 export const SOOTH_MARKET_ABI = parseAbi([
   "function isLive() view returns (bool)",
   "function isSettled() view returns (bool)",
-  "function ammState() view returns (int256 qYes, int256 qNo)",
-  "function yesBalance(address) view returns (uint256)",
-  "function noBalance(address) view returns (uint256)",
-  "function winningOutcome() view returns (uint8)",
+  "function price(uint8 outcome) view returns (uint256)",
   "function b() view returns (uint256)",
+  "function bBase() view returns (uint256)",
+  "function qYes() view returns (int256)",
+  "function qNo() view returns (int256)",
+  "function winningOutcome() view returns (uint8)",
   "function feeLMSR() view returns (uint256)",
   "function governor() view returns (address)",
   // V3 Unified Orderbook
@@ -135,9 +136,13 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function accounts(address user) view returns (uint256 available, uint256 pending)",
   "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime)",
   "function tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)",
-  "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
+  "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount, bool isBuy) returns (uint256)",
+  "function placeSpotOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
   "function cancelOrder(address market, uint256 orderId)",
-  "function claimWinnings(address market)",
+  "function cancelSpotOrder(address market, uint256 orderId)",
+  "function onOrderMatched(uint256 orderId, uint256 matchedAmount)",
+  "function claimUnlocked()",
+  "function redeem(address market)",
 ]);
 
 // V4: GovernorVault (Standard ERC4626)
@@ -171,4 +176,14 @@ export const MARKET_V4_ABI = parseAbi([
   "function bestBid() view returns (uint256)",
   "function orders(uint256 id) view returns (address maker, uint8 outcome, uint256 yesPrice, uint256 amount, bool isBuySide)",
   "function nextOrder(uint256 id) view returns (uint256)",
+  "function outcomeToken() view returns (address)",
+  "function merge(uint256 amount) returns (uint256 proceeds)",
+]);
+
+// V4: OutcomeToken (ERC1155 per market)
+export const OUTCOME_TOKEN_ABI = parseAbi([
+  "function balanceOf(address account, uint256 id) view returns (uint256)",
+  "function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])",
+  "function isApprovedForAll(address account, address operator) view returns (bool)",
+  "function setApprovalForAll(address operator, bool approved)",
 ]);

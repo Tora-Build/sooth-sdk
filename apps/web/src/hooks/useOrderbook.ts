@@ -54,58 +54,65 @@ export function useOrderbook(marketId: string) {
       const fetchSide = async (startFn: 'bestAsk' | 'bestBid', side: 'ask' | 'bid') => {
         const sideOrders: Order[] = [];
 
-        let currentId = await publicClient.readContract({
-          address: contractAddress as `0x${string}`,
-          abi: MARKET_V4_ABI,
-          functionName: startFn,
-        });
-
-        let depth = 0;
-        const MAX_DEPTH = 20;
-
-        while (currentId && currentId !== 0n && depth < MAX_DEPTH) {
-          const orderData = await publicClient.readContract({
+        try {
+          let currentId = await publicClient.readContract({
             address: contractAddress as `0x${string}`,
             abi: MARKET_V4_ABI,
-            functionName: 'orders',
-            args: [currentId]
-          }) as [string, number, bigint, bigint, boolean];
-
-          if (orderData) {
-            // OrderV4: [maker, outcome, yesPrice, amount, isBuySide]
-            const [maker, outcome, yesPrice, amount, isBuySide] = orderData;
-
-            // Only include orders with non-zero amount
-            if (amount > 0n) {
-              const yesPriceFormatted = formatUnits(yesPrice, 18);
-
-              sideOrders.push({
-                id: currentId.toString(),
-                maker,
-                yesPrice: yesPriceFormatted,
-                displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
-                amount: formatUnits(amount, 18),
-                timestamp: 0, // V4 doesn't store timestamp
-                isBuySide,
-                side,
-              });
-            }
-          }
-
-          const nextId = await publicClient.readContract({
-            address: contractAddress as `0x${string}`,
-            abi: MARKET_V4_ABI,
-            functionName: 'nextOrder',
-            args: [currentId]
+            functionName: startFn,
           });
 
-          // Prevent infinite loop
-          if (nextId === currentId) {
-            console.warn(`[Orderbook] Infinite loop detected at ID ${currentId}`);
-            break;
+          let depth = 0;
+          const MAX_DEPTH = 20;
+
+          while (currentId && currentId !== 0n && depth < MAX_DEPTH) {
+            const orderData = await publicClient.readContract({
+              address: contractAddress as `0x${string}`,
+              abi: MARKET_V4_ABI,
+              functionName: 'orders',
+              args: [currentId]
+            }) as [string, number, bigint, bigint, boolean] | undefined; // Add undefined check in type hint if needed, though wagmi usually throws or returns data.
+
+            if (orderData) {
+              // OrderV4: [maker, outcome, yesPrice, amount, isBuySide]
+              // Check if orderData is an array and has enough elements
+              if (Array.isArray(orderData) && orderData.length >= 5) {
+                const [maker, outcome, yesPrice, amount, isBuySide] = orderData;
+
+                // Only include orders with non-zero amount
+                if (amount > 0n) {
+                  const yesPriceFormatted = formatUnits(yesPrice, 18);
+
+                  sideOrders.push({
+                    id: currentId.toString(),
+                    maker,
+                    yesPrice: yesPriceFormatted,
+                    displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
+                    amount: amount.toString(), // V4: Orderbook uses Integers (0 decimals)
+                    timestamp: 0, // V4 doesn't store timestamp
+                    isBuySide,
+                    side,
+                  });
+                }
+              }
+            }
+
+            const nextId = await publicClient.readContract({
+              address: contractAddress as `0x${string}`,
+              abi: MARKET_V4_ABI,
+              functionName: 'nextOrder',
+              args: [currentId]
+            });
+
+            // Prevent infinite loop
+            if (nextId === currentId) {
+              console.warn(`[Orderbook] Infinite loop detected at ID ${currentId}`);
+              break;
+            }
+            currentId = nextId;
+            depth++;
           }
-          currentId = nextId;
-          depth++;
+        } catch (err) {
+          console.error(`[Orderbook] Error fetching ${side} orders:`, err);
         }
         return sideOrders;
       };

@@ -10,7 +10,7 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
     const { address } = useAccount()
 
     // USDC balances in TraderVault
-    const { data: accounts, refetch: refetchAccounts } = useReadContract({
+    const { data: accountsData, refetch: refetchAccounts } = useReadContract({
         address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
         abi: V4_ABIS.TraderVaultV4,
         functionName: 'accounts',
@@ -22,7 +22,7 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
     })
 
     // AMM position (locked shares)
-    const { data: ammPosition, refetch: refetchAMM } = useReadContract({
+    const { data: ammPositionData, refetch: refetchAMM } = useReadContract({
         address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
         abi: V4_ABIS.TraderVaultV4,
         functionName: 'ammPositions',
@@ -58,18 +58,20 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
     })
 
     // Parse accounts data
+    const accounts = accountsData as [bigint, bigint] | undefined
     const available = accounts ? formatUnits(accounts[0], 18) : '0'
     const pending = accounts ? formatUnits(accounts[1], 18) : '0'
 
     // Parse AMM position
+    const ammPosition = ammPositionData as [bigint, bigint, bigint] | undefined
     const yesShares = ammPosition ? formatUnits(ammPosition[0], 18) : '0'
     const noShares = ammPosition ? formatUnits(ammPosition[1], 18) : '0'
     const unlockTime = ammPosition ? Number(ammPosition[2]) : 0
     const isLocked = unlockTime > Date.now() / 1000
 
     // Parse ERC1155 balances
-    const yesTokens = yesTokenBalance ? formatUnits(yesTokenBalance, 18) : '0'
-    const noTokens = noTokenBalance ? formatUnits(noTokenBalance, 18) : '0'
+    const yesTokens = yesTokenBalance ? formatUnits(yesTokenBalance as bigint, 18) : '0'
+    const noTokens = noTokenBalance ? formatUnits(noTokenBalance as bigint, 18) : '0'
 
     return {
         // USDC

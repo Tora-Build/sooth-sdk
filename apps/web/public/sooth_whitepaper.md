@@ -1,4 +1,4 @@
-# ****Sooth Protocol: The Infinite-End Decentralized Prediction Market****
+# ****Sooth Protocol: The Open-End Decentralized Prediction Market****
 
 ### ****Official Whitepaper****
 
@@ -6,7 +6,7 @@
 
 ## ****1. Abstract****
 
-Sooth Protocol is a decentralized prediction market platform designed for institutional-grade reliability and on-chain transparency. It introduces **Infinite-End Markets**, a novel market structure that eliminates rigid expiration dates, allowing markets to remain open until a verifiable event condition is met.
+Sooth Protocol is a decentralized prediction market platform designed for institutional-grade reliability and on-chain transparency. It introduces **Open-End Markets**, a novel market structure that eliminates rigid expiration dates, allowing markets to remain open until a verifiable event condition is met.
 
 By combining a **Singleton Vault** liquidity model with trust-minimized **Zero-Knowledge (ZK) Settlement**, Sooth addresses the key limitations of existing platforms: fragmented liquidity, settlement latency, and the "Free Option" vulnerability that drains liquidity providers. The protocol leverages Account Abstraction to offer a seamless, non-custodial user experience while providing robust compliance hooks for institutional participants.
 
@@ -23,13 +23,13 @@ Sooth Protocol is designed to bridge this gap. It blends the continuous trading 
 
 ---
 
-## ****3. Market Philosophy: The Infinite-End Model****
+## ****3. Market Philosophy: The Open-End Model****
 
 ### ****3.1 Beyond Fixed Expiries****
 
 Traditional prediction markets are "periodical"—they rely on fixed end dates. If an event happens early, liquidity dries up; if it is delayed, the contract expires unresolved.
 
-Sooth introduces **Infinite-End Markets**:
+Sooth introduces **Open-End Markets**:
 * **Continuous Trading:** Markets have no preset trading rounds or intervals. Trading stops only when the outcome is finalized.
 * **Truth-Driven Termination:** The lifecycle of a market is defined solely by the event condition, not the calendar. A market remains live until an Adjudicator explicitly signals resolution.
 
@@ -161,7 +161,7 @@ Sooth adopts a "pragmatic decentralization" approach.
 
 | Dimension           | **Sooth Protocol**                     | **Polymarket**          | **Kalshi**                       | **Omen**                |
 | :------------------ | :------------------------------------- | :---------------------- | :------------------------------- | :---------------------- |
-| **Market Type**     | **Infinite-End** (Terminates at $T^*$) | Event-based (Fixed End) | Event Contracts (Fixed End)      | Event-based (Fixed End) |
+| **Market Type**     | **Open-End** (Terminates at $T^*$) | Event-based (Fixed End) | Event Contracts (Fixed End)      | Event-based (Fixed End) |
 | **Liquidity Model** | **Singleton Vaults** (LMSR vAMM)       | Hybrid Order Book       | Central Limit Order Book         | Fragmented AMM Pools    |
 | **LVR Protection**  | **Retroactive Settlement ($T^*$)**     | None (Latency Arb Risk) | Centralized Circuit Breakers     | None                    |
 | **Settlement**      | **ZK Accounting + Retroactive**        | Optimistic Oracle (UMA) | Centralized Regulatory Oversight | Reality.eth + Kleros    |
@@ -235,4 +235,4 @@ interface ISettlementSink {
 
 Sooth Protocol advances the state of the art in information markets. It marries the institutional rigor of traditional exchanges with the innovation of Web3.
 
-By replacing fixed expirations with **Infinite-End Markets**, and fragmented pools with **Singleton Vaults**, Sooth ensures that markets remain liquid and information-rich from inception until resolution. Its integration of **Retroactive ZK Settlement** specifically targets the "Free Option" vulnerability, creating the first AMM design that is fundamentally resistant to latency arbitrage. With Sooth, we move toward a future where prediction markets are reliable, widely used instruments for global risk management.
+By replacing fixed expirations with **Open-End Markets**, and fragmented pools with **Singleton Vaults**, Sooth ensures that markets remain liquid and information-rich from inception until resolution. Its integration of **Retroactive ZK Settlement** specifically targets the "Free Option" vulnerability, creating the first AMM design that is fundamentally resistant to latency arbitrage. With Sooth, we move toward a future where prediction markets are reliable, widely used instruments for global risk management.

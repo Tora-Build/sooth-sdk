@@ -3,7 +3,7 @@ import { useReadContracts } from 'wagmi';
 import { useMarketStore } from '../../../store/useMarketStore';
 import { useGuardian } from '../../../hooks/useGuardian';
 import { useChainStore } from '../../../store/useChainStore';
-import { SOOTH_MARKET_ABI } from '../../../config/abis';
+import { MARKET_V4_ABI } from '../../../config/abis';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
@@ -22,8 +22,8 @@ const GuardianRow: React.FC<{ market: any }> = ({ market }) => {
       <td className="py-4 px-4">
         <Badge variant={
           market.status === 'trading' ? 'success' :
-          market.status === 'settled' ? 'default' :
-          market.status === 'paused' ? 'danger' : 'warning'
+            market.status === 'settled' ? 'default' :
+              market.status === 'paused' ? 'danger' : 'warning'
         }>
           {t(`trading.${market.status}` as any) || market.status}
         </Badge>
@@ -46,11 +46,11 @@ export const GuardianConsole: React.FC = () => {
   const { t } = useContent();
   const { markets, mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
-  
+
   const filteredMarkets = markets.filter(m => {
     if (m.mode !== mode) return false;
     if (mode === 'real') {
-       return m.chainId === undefined || m.chainId === selectedChainId;
+      return m.chainId === undefined || m.chainId === selectedChainId;
     }
     return true;
   });
@@ -60,12 +60,12 @@ export const GuardianConsole: React.FC = () => {
     contracts: filteredMarkets.flatMap(m => [
       {
         address: m.contractAddress as `0x${string}`,
-        abi: SOOTH_MARKET_ABI,
+        abi: MARKET_V4_ABI,
         functionName: 'isLive',
       },
       {
         address: m.contractAddress as `0x${string}`,
-        abi: SOOTH_MARKET_ABI,
+        abi: MARKET_V4_ABI,
         functionName: 'isSettled',
       },
     ]),
@@ -80,11 +80,11 @@ export const GuardianConsole: React.FC = () => {
       const statusIdx = i * 2;
       const isLiveResult = marketStatuses[statusIdx];
       const isSettledResult = marketStatuses[statusIdx + 1];
-      
+
       if (isLiveResult?.status === 'success' && isSettledResult?.status === 'success') {
         const isLive = isLiveResult.result as boolean;
         const isSettled = isSettledResult.result as boolean;
-        
+
         let status = market.status;
         if (isSettled) {
           status = 'settled';
@@ -93,7 +93,7 @@ export const GuardianConsole: React.FC = () => {
         } else {
           status = 'cooldown';
         }
-        
+
         return { ...market, status };
       }
     }

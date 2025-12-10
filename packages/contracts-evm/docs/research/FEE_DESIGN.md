@@ -1,21 +1,20 @@
-# Fee Design
+# Fee Design (V4)
 
 **Status:** Implemented  
-**Last Updated:** 2025-12-05  
-**Architecture:** Singleton Trader Vault + Dynamic Liquidity (v3.0)
+**Last Updated:** 2025-12-09  
+**Architecture:** Singleton Trader Vault + Dynamic Liquidity (V4 Continuous LMSR)
 
 ---
 
 ## Overview
 
-The Sooth Protocol v3 fee system is designed to create a self-reinforcing liquidity loop.
+The Sooth Protocol V4 fee system is designed to create a self-reinforcing liquidity loop using Continuous LMSR.
 
 **Key Principles:**
 
 - **Fees Compound Liquidity**: All AMM fees are added to the market's `reserve`.
-- **Dynamic Liquidity**: Liquidity (`b`) automatically increases as `reserve` grows.
+- **Dynamic Liquidity (`b`)**: Liquidity parameter `b` automatically increases as `reserve` grows.
 - **Governor Control**: Fees and liquidity multipliers are set by the Governor via the Vault.
-- **Unified Settings**: Default parameters are managed at the Vault level for consistency.
 
 ---
 
@@ -49,24 +48,29 @@ The Sooth Protocol v3 fee system is designed to create a self-reinforcing liquid
 **Applied to:** All trades routed through the AMM.
 
 ```solidity
-uint256 absCost = |ammCost|;
+// Calculate Cost Delta in Continuous LMSR
+int256 costDelta = newCost - oldCost;
+
+// Calculate Fee
+uint256 absCost = costDelta >= 0 ? uint256(costDelta) : uint256(-costDelta);
 uint256 fee = (absCost * feeLMSR) / 10000;
 
 // Update Market State
-reserve += fee; // Adds directly to market PnL
+reserve += int256(fee); // Adds directly to market PnL
 ```
 
 **Effect:**
 
 1.  **Increases `reserve`**: The fee is effectively "profit" for the AMM.
 2.  **Increases `b`**: `b = bBase + (reserve * reserveFactor)`.
-3.  **Deepens Liquidity**: Future traders get better pricing/lower slippage.
+3.  **Deepens Liquidity**: A larger `b` flattens the LMSR pricing curve, reducing slippage for future traders.
 
 ### 2. Orderbook Fees
 
 **Applied to:** All limit order matches.
 
 **Current Status:** Disabled (0 bps) to encourage early orderbook adoption.
+*Future: See Index-Linked Dynamic Fees research.*
 
 ---
 
@@ -83,30 +87,33 @@ reserve += fee; // Adds directly to market PnL
                     │   Fee = Cost * 0.5%       │
                     └─────────────┬─────────────┘
                                   │
-               ┌──────────────────┴──────────────────┐
-               │                                     │
-               ▼                                     ▼
-     ┌───────────────────┐                 ┌───────────────────┐
-     │   Market Reserve  │                 │    Dynamic 'b'    │
-     │   (Increases with │ ──────────────> │   (Calculated)    │
-     │    fees)          │                 │   b = Base +      │
-     └───────────────────┘                 │   (Res * Factor)  │
-                                           └───────────────────┘
+                                  ▼
+                    ┌───────────────────────────┐
+                    │  Market Reserve (Fees)    │
+                    │  (Increases)              │
+                    └─────────────┬─────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │    Effective Liquidity    │
+                    │    b = bBase + (Res*fac)  │
+                    │    (Curve Flattens)       │
+                    └───────────────────────────┘
 ```
 
 ---
 
 ## Contract Implementation
 
-### SoothMarket.sol
+### SoothMarketV4.sol
 
-The market now fetches fee and liquidity parameters dynamically from the Governor Vault.
+The market fetches fee and liquidity parameters dynamically from the Governor Vault.
 
 ```solidity
 function b() public view returns (uint256) {
-    uint256 factor = governorVault.reserveFactorBps();
-    if (reserve <= 0) return bBase;
-    return bBase + (uint256(reserve) * factor / MAX_BPS);
+    int256 unrealizedPnL = governorVault.getMarketReserve(marketId);
+    // ... calculate dynamic boost ...
+    return bBase + boost;
 }
 
 function feeLMSR() public view returns (uint256) {

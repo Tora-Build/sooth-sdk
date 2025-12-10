@@ -68,10 +68,10 @@ Vite + React 18 dApp with:
 
 Foundry project containing:
 
-- `SoothTraderVault` — User fund management
+- `SoothTraderVaultV4` — User fund management & AMM Positions
 - `SoothGovernorVault` — LP liquidity pool
-- `SoothMarket` — AMM + Orderbook trading
-- `SoothLMSRReal` — LMSR pricing math
+- `SoothMarketV4` — Unified Market (LMSR + Orderbook)
+- `OutcomeToken` — Orderbook Share Tokens (ERC1155)
 
 ### `packages/sdk`
 
