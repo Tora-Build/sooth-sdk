@@ -40,6 +40,7 @@ contract HybridSellTest is Test {
         );
         
         traderVault.setMarket(address(market), true);
+        traderVault.setOutcomeToken(address(outcomeToken), true);
         governorVault.setAuthorized(address(market), true);
         governorVault.setAuthorized(address(traderVault), true);
 
@@ -69,8 +70,8 @@ contract HybridSellTest is Test {
         traderVault.placeOrder(address(market), 1, 0.5e18, 10, true); // Buy NO (matches YES buy)
         vm.stopPrank();
         
-        // User1 should have 10 YES shares
-        assertEq(outcomeToken.balanceOf(user1, 0), 10);
+        // User1 should have 10 YES shares (in custodial ledger)
+        assertEq(traderVault.shareBalances(user1, address(market), 0), 10);
         
         // 2. User1 executes Hybrid Sell of 15 YES shares at 0.50
         // Expected: 10 Spot Sell (closes position), 5 Short Sell (opens short)
@@ -82,8 +83,8 @@ contract HybridSellTest is Test {
         vm.stopPrank();
         
         // Verification
-        // 1. YES Balance should be 0 (All sold/locked)
-        assertEq(outcomeToken.balanceOf(user1, 0), 0);
+        // 1. YES Balance should be 0 (All sold/locked in orders)
+        assertEq(traderVault.shareBalances(user1, address(market), 0), 0);
         
         // 2. Orders should verify logic
         // We can't easily check internal orderbook state without getters,
@@ -97,13 +98,13 @@ contract HybridSellTest is Test {
         // (Order 1, 2 were the initial setup trades).
         
         ISoothMarketV4.OrderV4 memory order3 = market.orders(3);
-        // Spot Order Maker is Vault
+        // Spot Order Maker is Vault (custodial)
         assertEq(order3.maker, address(traderVault)); 
         assertEq(order3.amount, 10);
         
         ISoothMarketV4.OrderV4 memory order4 = market.orders(4);
-        // Short Order Maker is User1
-        assertEq(order4.maker, user1);
+        // Short Order Maker is also Vault (custodial)
+        assertEq(order4.maker, address(traderVault));
         assertEq(order4.amount, 5);
     }
     
@@ -122,8 +123,8 @@ contract HybridSellTest is Test {
         traderVault.executeHybridSell(address(market), 0, 0.5e18, 5);
         vm.stopPrank();
         
-        // Remaining Balance: 5
-        assertEq(outcomeToken.balanceOf(user1, 0), 5);
+        // Remaining Balance: 5 (in custodial ledger)
+        assertEq(traderVault.shareBalances(user1, address(market), 0), 5);
         
         // Order 3 should be Maker=Vault, Amount=5
         ISoothMarketV4.OrderV4 memory order3 = market.orders(3);
@@ -141,11 +142,11 @@ contract HybridSellTest is Test {
         vm.stopPrank();
         
         // Balance still 0
-        assertEq(outcomeToken.balanceOf(user1, 0), 0);
+        assertEq(traderVault.shareBalances(user1, address(market), 0), 0);
         
-        // Order 1 Maker = User1
+        // Order 1 Maker = Vault (custodial)
         ISoothMarketV4.OrderV4 memory order1 = market.orders(1);
-        assertEq(order1.maker, user1);
+        assertEq(order1.maker, address(traderVault));
         assertEq(order1.amount, 10);
     }
 }
