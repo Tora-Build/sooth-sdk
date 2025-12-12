@@ -95,13 +95,13 @@ export const useActivePositions = () => {
             if (priceRes?.result) priceYes = parseFloat(formatUnits(priceRes.result as bigint, 18));
             const priceNo = 1 - priceYes;
 
-            // Parse AMM Locked (WAD - 18 decimals)
+            // Parse AMM Locked (WAD - 18 decimals) - V4.6: only 2 fields, no unlockTime
             let lockYes = 0, lockNo = 0, unlockTime = 0;
             if (ammPosRes?.result) {
-                const pos = ammPosRes.result as [bigint, bigint, bigint];
+                const pos = ammPosRes.result as [bigint, bigint];
                 lockYes = parseFloat(formatUnits(pos[0], 18));
                 lockNo = parseFloat(formatUnits(pos[1], 18));
-                unlockTime = Number(pos[2]);
+                // V4.6 Lock-on-Sell: unlockTime always 0 (shares never locked)
             }
 
             // Parse Orderbook Liquid (WAD - 18 decimals, same as AMM)

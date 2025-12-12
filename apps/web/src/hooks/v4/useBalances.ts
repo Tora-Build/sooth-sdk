@@ -62,12 +62,13 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
     const available = accounts ? formatUnits(accounts[0], 18) : '0'
     const pending = accounts ? formatUnits(accounts[1], 18) : '0'
 
-    // Parse AMM position
-    const ammPosition = ammPositionData as [bigint, bigint, bigint] | undefined
+    // Parse AMM position - V4.6: only 2 fields (yesShares, noShares) - no unlockTime
+    const ammPosition = ammPositionData as [bigint, bigint] | undefined
     const yesShares = ammPosition ? formatUnits(ammPosition[0], 18) : '0'
     const noShares = ammPosition ? formatUnits(ammPosition[1], 18) : '0'
-    const unlockTime = ammPosition ? Number(ammPosition[2]) : 0
-    const isLocked = unlockTime > Date.now() / 1000
+    const unlockTime = 0  // V4.6 Lock-on-Sell: always 0
+    // V4.6 Lock-on-Sell: shares are NEVER locked (only proceeds are locked)
+    const isLocked = false; // unlockTime is now 0 for all positions
 
     // Parse ERC1155 balances
     const yesTokens = yesTokenBalance ? formatUnits(yesTokenBalance as bigint, 18) : '0'

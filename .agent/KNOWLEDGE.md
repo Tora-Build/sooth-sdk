@@ -41,10 +41,11 @@ b                 | Depth           | Liquidity param
 WAD       = 1e18           // All internal math
 USDC_DEC  = 18             // MockUSDC uses 18 decimals (testnet)
 SCALAR    = 1              // WAD / USDC = 1e18/1e18
-LOCK      = 24 hours       // AMM buy lock duration
+LOCK      = 24 hours       // AMM sell lock duration (Lock-on-Sell)
 
 Note: Real USDC is 6 decimals. Scalar would be 1e12.
       Testnet MockUSDC is 18 decimals for simplicity.
+      Lock applies to SELL proceeds, not BUY shares.
 ```
 
 ---
@@ -116,14 +117,22 @@ AMM Buy:
     → Market.executeAMMTrade() → updates qYes
     → Vault → Governor.receiveFunds()
     → credits ammPositions[user][mkt].yesShares
-    → sets unlockTime = now + 24h
+    → NO unlock time (shares always tradable)
 
-AMM Sell:
+AMM Sell (Lock-on-Sell):
   tradeAMM(mkt, 0, -Δ, min)
-    → require unlockTime passed
     → require yesShares >= Δ
     → Market.executeAMMTrade() → updates qYes
-    → Governor.sendFunds() → Vault
+    → Governor.lockProceeds(marketId, user, netProceeds)
+      → creates LockEntry{amount, unlockTime = now + 24h}
+      → funds stay in Governor, earmarked for user
+    → user.locked += netProceeds
+
+Claim Unlocked:
+  claimUnlocked()
+    → Governor.claimUnlocked(user, traderVault)
+      → iterates lock queue, claims expired entries
+      → transfers USDC → TraderVault
     → credits user.available
 
 Limit Order:
@@ -213,12 +222,15 @@ TraderVault.deposit()               | none                | anyone
 TraderVault.withdraw()              | none                | anyone (own funds)
 TraderVault.tradeAMM()              | none                | anyone
 TraderVault.placeOrder()            | none                | anyone
+TraderVault.claimUnlocked()         | none                | anyone (own funds)
 TraderVault.onOrderMatched()        | onlyMarket          | Market contracts
 TraderVault.creditMergeProceeds()   | onlyOutcomeToken    | OutcomeToken
 TraderVault.setMarket()             | onlyOwner           | deployer
 TraderVault.setOutcomeToken()       | onlyOwner           | deployer
 GovernorVault.receiveFunds()        | onlyAuthorized      | Markets/Vault
 GovernorVault.sendFunds()           | onlyAuthorized      | Markets/Vault
+GovernorVault.lockProceeds()        | onlyAuthorized      | TraderVault only
+GovernorVault.claimUnlocked()       | onlyAuthorized      | TraderVault only
 GovernorVault.setAuthorized()       | onlyOwner           | deployer
 Market.executeAMMTrade()            | none                | TraderVault only*
 Market.createOrder()                | none                | TraderVault only*
@@ -230,5 +242,6 @@ OutcomeToken.merge()                | none                | anyone (burns own)
 ---
 
 ```
-Version: V4.6 | KB: v1.3 | Updated: 2025-12-12
+Version: V4.6 | KB: v1.4 | Updated: 2025-12-12
+Lock Model: Lock-on-Sell (proceeds locked 24h, shares always tradable)
 ```

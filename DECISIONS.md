@@ -104,3 +104,22 @@
     - **Fixes Bug**: Hybrid sell and merge operations now work correctly.
     - **Separation of Concerns**: Clear distinction between Market callbacks and OutcomeToken callbacks.
     - **Deployment Checklist**: Must call `setOutcomeToken()` for each market's OutcomeToken.
+
+## ADR-010: Lock-on-Sell vs Lock-on-Buy
+- **Date**: 2025-12-12
+- **Status**: Accepted (branch `codex/review-and-implement-lock-mechanism`)
+- **Context**: V4.5 used Lock-on-Buy (shares locked 24h after purchase). Research document `LOCK_MECHANISM_COMPARISON.md` analyzed two approaches:
+    - **Lock-on-Buy**: Blocks trading flow (can't sell after buy for 24h)
+    - **Lock-on-Sell**: Locks proceeds (can trade freely, but proceeds locked 24h)
+- **Decision**: Implement **Lock-on-Sell with Option A** (funds stay in GovernorVault):
+    - Remove `unlockTime` from `AMMPosition` struct
+    - On SELL: call `governorVault.lockProceeds()` instead of `sendFunds()`
+    - Funds remain in GovernorVault and are earmarked for user
+    - After 24h: user calls `claimUnlocked()` to receive funds
+    - `withdrawFor()` protects both `totalLockedExposure` AND `totalLockedProceeds`
+- **Consequences**:
+    - **UX Improvement**: Continuous trading flow (buy/sell/buy/sell) is uninterrupted
+    - **Capital Efficiency**: Users can trade while proceeds are locked
+    - **LP Protection**: Attackers can't extract value immediately after settlement
+    - **Implementation**: Lock queue in GovernorVault with per-user entries
+    - **Test Impact**: All tests updated to reflect new lock behavior (20/22 passing)

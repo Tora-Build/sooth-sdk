@@ -266,4 +266,66 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 
 ---
 
-*Last updated: 2025-12-12*
+## 14. PortfolioView (V4.6 Lock-on-Sell)
+
+> Added 2025-12-12 for Lock-on-Sell feature
+
+### Component Structure
+
+```
+PortfolioView
+├── USDC Balance Card
+│   ├── Available (green)
+│   ├── Locked (amber, with claim button)
+│   ├── Pending (gray)
+│   └── Total
+├── AMM Positions Card
+│   ├── UnlockTimer (legacy, may be unused)
+│   ├── YES Shares
+│   └── NO Shares
+└── Orderbook Tokens Card
+    ├── YES Tokens
+    └── NO Tokens
+```
+
+### USDC Balance Section
+
+| Label | Variable | Source | Notes |
+|-------|----------|--------|-------|
+| **💰 USDC Balance** | Header | Static | Card title |
+| **Available** | `availableFormatted` | `useLockedFunds()` | Green text, can withdraw |
+| **🔒 Locked** | `lockedFormatted` | `useLockedFunds()` | Amber text, only shows if `locked > 0n` |
+| **Claim Button** | `claimableFormatted` | `useLockedFunds()` | Green button, only shows if `hasClaimable` |
+| **📋 Pending** | `pendingFormatted` | `useLockedFunds()` | Gray text, reserved for orders |
+| **Total** | `totalFormatted` | `useLockedFunds()` | Sum of all balances |
+
+### useLockedFunds Hook
+
+| Function | Return Type | Description |
+|----------|-------------|-------------|
+| `lockedBalance(user)` | `uint256` | Total locked USDC (proceeds from sells) |
+| `claimableBalance(user)` | `uint256` | Portion of locked that has expired |
+| `availableBalance(user)` | `uint256` | Free balance for trading/withdraw |
+| `pendingBalance(user)` | `uint256` | Collateral reserved for orders |
+| `totalBalance(user)` | `uint256` | Sum of all balances |
+| `claimUnlocked()` | Action | Claims expired locks to available |
+
+### Data Sources
+
+| Data | Hook | Contract |
+|------|------|----------|
+| Locked/Claimable | `useLockedFunds` | `TraderVaultV4` |
+| AMM Positions | `useBalances` | `TraderVaultV4.ammPositions()` |
+| Orderbook Tokens | `useBalances` | `OutcomeToken.balanceOf()` |
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `components/v4/PortfolioView.tsx` | Main portfolio display |
+| `hooks/useLockedFunds.ts` | Lock balance hook |
+| `hooks/v4/useBalances.ts` | Position balances |
+
+---
+
+*Last updated: 2025-12-12 (V4.6 Lock-on-Sell)*

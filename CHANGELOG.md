@@ -5,6 +5,15 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Lock-on-Sell Architecture** (branch `codex/review-and-implement-lock-mechanism`):
+  - `SoothGovernorVault`: Lock queue with per-user `LockEntry[]`, `lockProceeds()`, `claimUnlocked()`
+  - Removed `unlockTime` from AMM positions — shares always unlocked
+  - Sell proceeds locked 24h in GovernorVault until claimed
+  - ADR-010 documents the design decision (Lock-on-Sell vs Lock-on-Buy)
+- **Claim Modal UI**:
+  - Added "Locked Proceeds" card to Trading Account
+  - Added Claim Dialog with countdown timer (`nextUnlock`)
+  - Updated `useLockedFunds` hook to fetch detailed lock info
 - **MegaETH Testnet Deployment**: V4.5 infrastructure + 2 markets (Chain 6343)
   - Used viem script with `gas: 999999999n` (forge script failed with RPC gas issues)
   - Script: `apps/web/scripts/deploy-megaeth.ts`

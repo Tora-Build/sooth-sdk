@@ -60,11 +60,11 @@ function useEVMMarket(marketId: string) {
 
   const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
 
-  // Extract AMM position (yesShares, noShares, unlockTime)
-  const ammPos = ammPosition as [bigint, bigint, bigint] | undefined;
+  // Extract AMM position - V4.6: only 2 fields (yesShares, noShares) - no unlockTime
+  const ammPos = ammPosition as [bigint, bigint] | undefined;
   const ammYesShares = ammPos?.[0] || 0n;
   const ammNoShares = ammPos?.[1] || 0n;
-  const ammUnlockTime = ammPos?.[2] || 0n;
+  const ammUnlockTime = 0n; // V4.6 Lock-on-Sell: always 0
 
   // Real Mode Construction
   const market: Market | undefined = React.useMemo(() => {
