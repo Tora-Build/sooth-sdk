@@ -9,6 +9,7 @@ import "./SoothInterfaces.sol";
 contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     IERC20 public immutable override asset;
     uint256 public immutable override decimalsScale;
+    uint256 public constant LOCK_DURATION = 24 hours;
 
     // --- LP Share State ---
     string public name = "Sooth LP Shares";
@@ -24,8 +25,22 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     mapping(uint256 => int256) public marketReserves; // PnL per market
     mapping(uint256 => uint256) public lockedExposure; // Max loss allocated
     uint256 public totalLockedExposure;
+    uint256 public totalLockedProceeds;
 
     mapping(address => bool) public authorizedSpender;
+
+    struct LockEntry {
+        uint256 amount;
+        uint64 unlockTime;
+    }
+
+    struct UserLockState {
+        LockEntry[] locks;
+        uint256 headIndex;
+        uint256 totalLocked;
+    }
+
+    mapping(address => UserLockState) private _lockStates;
 
     // --- Vault Configuration (Per-Vault defaults) ---
     uint256 public override defaultBBase;     // Default 'b' for new markets
@@ -40,6 +55,9 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     event ExposureAllocated(uint256 indexed marketId, uint256 amount);
     event ExposureReleased(uint256 indexed marketId, uint256 amount);
     event VaultConfigSet(uint256 bBase, uint256 feeBps, uint256 reserveFactor);
+    event Locked(address indexed user, uint256 amount, uint64 unlockTime);
+    event Unlocked(address indexed user, uint256 amount);
+    event Claimed(address indexed user, uint256 amount);
 
     constructor(IERC20 _asset) {
         asset = _asset;
@@ -76,6 +94,112 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
     function setAuthorized(address who, bool allowed) external onlyOwner {
         authorizedSpender[who] = allowed;
         emit AuthorizedSet(who, allowed);
+    }
+
+    // --- Locked Proceeds (Sell-side timelock lives in Governor) ---
+
+    function lockProceeds(uint256 marketId, address user, uint256 amount)
+        external
+        override
+        onlyAuthorized
+        returns (uint64 unlockTime)
+    {
+        require(amount > 0, "Zero amount");
+        require(totalAssets >= amount, "Insufficient assets");
+
+        UserLockState storage state = _lockStates[user];
+
+        unlockTime = uint64(block.timestamp) + uint64(LOCK_DURATION);
+        state.locks.push(LockEntry({amount: amount, unlockTime: unlockTime}));
+        state.totalLocked += amount;
+        totalLockedProceeds += amount;
+
+        // Account for AMM payout while keeping funds in vault
+        marketReserves[marketId] -= int256(amount);
+        totalAssets -= amount;
+
+        emit Locked(user, amount, unlockTime);
+    }
+
+    function claimUnlocked(address user, address recipient)
+        external
+        override
+        onlyAuthorized
+        returns (uint256 claimed)
+    {
+        claimed = _claimUnlockedInternal(user);
+
+        if (claimed > 0) {
+            totalLockedProceeds -= claimed;
+            require(asset.transfer(recipient, claimed), "Transfer failed");
+            emit Unlocked(user, claimed);
+            emit Claimed(user, claimed);
+        }
+    }
+
+    function lockedBalance(address user) public view override returns (uint256) {
+        return _lockStates[user].totalLocked;
+    }
+
+    function claimableBalance(address user) public view override returns (uint256 claimable) {
+        UserLockState storage state = _lockStates[user];
+        uint256 len = state.locks.length;
+
+        for (uint256 i = state.headIndex; i < len; i++) {
+            LockEntry storage entry = state.locks[i];
+            if (entry.unlockTime <= block.timestamp) {
+                claimable += entry.amount;
+            } else {
+                break;
+            }
+        }
+    }
+
+    function getLockEntries(address user)
+        external
+        view
+        override
+        returns (uint256[] memory amounts, uint64[] memory unlockTimes)
+    {
+        UserLockState storage state = _lockStates[user];
+        uint256 len = state.locks.length;
+        uint256 active = len > state.headIndex ? len - state.headIndex : 0;
+
+        amounts = new uint256[](active);
+        unlockTimes = new uint64[](active);
+
+        for (uint256 i = 0; i < active; i++) {
+            LockEntry storage entry = state.locks[state.headIndex + i];
+            amounts[i] = entry.amount;
+            unlockTimes[i] = entry.unlockTime;
+        }
+    }
+
+    function nextUnlock(address user) external view override returns (uint256 amount, uint64 unlockTime) {
+        UserLockState storage state = _lockStates[user];
+        uint256 len = state.locks.length;
+        if (state.headIndex < len) {
+            LockEntry storage entry = state.locks[state.headIndex];
+            amount = entry.amount;
+            unlockTime = entry.unlockTime;
+        }
+    }
+
+    function _claimUnlockedInternal(address user) internal returns (uint256 claimed) {
+        UserLockState storage state = _lockStates[user];
+
+        uint256 len = state.locks.length;
+        for (uint256 i = state.headIndex; i < len; i++) {
+            LockEntry storage entry = state.locks[i];
+
+            if (entry.unlockTime <= block.timestamp) {
+                claimed += entry.amount;
+                state.totalLocked -= entry.amount;
+                state.headIndex = i + 1;
+            } else {
+                break;
+            }
+        }
     }
 
     // --- LP Actions ---

@@ -13,14 +13,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
 /// @title SoothTraderVaultV4
-/// @notice V4: Dual-venue trading with Lock-on-Buy policy
-/// @dev AMM trades are internal positions (locked on buy). Orderbook uses ERC1155.
+/// @notice V4: Dual-venue trading with Lock-on-Sell policy
+/// @dev AMM trades are internal positions. Orderbook uses ERC1155.
 contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============
     
-    uint256 public constant LOCK_DURATION = 24 hours;
     uint256 public constant MAX_BPS = 10000;
 
     // ============ State ============
@@ -37,7 +36,6 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     struct AMMPosition {
         uint256 yesShares;
         uint256 noShares;
-        uint256 unlockTime;  // When shares become sellable
     }
 
     mapping(address => UserAccount) public accounts;
@@ -116,19 +114,29 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     }
 
     function claimUnlocked() external returns (uint256 amount) {
-        // V4: No TimeLock for AMM (lock is on shares, not USDC)
-        // This function can be used for legacy orderbook locks if needed
-        amount = accounts[msg.sender].pending;
-        if (amount > 0) {
-            accounts[msg.sender].pending = 0;
-            accounts[msg.sender].available += amount;
-            emit ProceedsClaimed(msg.sender, amount);
+        amount = _claimUnlockedInternal(msg.sender);
+    }
+
+    function _lockProceeds(address user, uint256 marketId, uint256 amount) internal {
+        _claimUnlockedInternal(user);
+
+        uint64 unlockTime = governorVault.lockProceeds(marketId, user, amount);
+        emit Locked(user, amount, unlockTime);
+    }
+
+    function _claimUnlockedInternal(address user) internal returns (uint256 claimed) {
+        claimed = governorVault.claimUnlocked(user, address(this));
+
+        if (claimed > 0) {
+            accounts[user].available += claimed;
+            emit Unlocked(user, claimed);
+            emit Claimed(user, claimed);
         }
     }
 
-    // ============ AMM Trading (V4: Lock on Buy) ============
-    
-    /// @notice Trade with AMM - BUY locks shares, SELL is free after unlock
+    // ============ AMM Trading (V4: Lock on Sell) ============
+
+    /// @notice Trade with AMM - proceeds from SELL are time-locked
     function tradeAMM(
         address market,
         uint8 outcome,
@@ -143,7 +151,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         AMMPosition storage pos = ammPositions[msg.sender][market];
 
         if (deltaShares > 0) {
-            // ========== BUY: Lock shares for 24h ==========
+            // ========== BUY ==========
             uint256 shares = uint256(deltaShares);
             
             // Execute trade on market (returns cost in WAD)
@@ -169,24 +177,19 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             require(_asset.transfer(address(governorVault), totalCost), "TraderVault: transfer failed");
             governorVault.receiveFunds(mkt.marketId(), totalCost);
             
-            // Credit internal shares (locked until unlockTime)
+            // Credit internal shares
             if (outcome == 0) {
                 pos.yesShares += shares;
             } else {
                 pos.noShares += shares;
             }
-            pos.unlockTime = block.timestamp + LOCK_DURATION;
-            
-            emit AMMBuy(msg.sender, market, outcome, shares, totalCost, pos.unlockTime);
+            emit AMMBuy(msg.sender, market, outcome, shares, totalCost, 0);
             emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
-            
+
         } else {
-            // ========== SELL: Requires unlocked shares ==========
+            // ========== SELL: Lock proceeds ==========
             uint256 shares = uint256(-deltaShares);
-            
-            // Check shares are unlocked
-            require(block.timestamp >= pos.unlockTime, "TraderVault: shares locked");
-            
+
             // Check sufficient shares
             if (outcome == 0) {
                 require(pos.yesShares >= shares, "TraderVault: insufficient YES shares");
@@ -217,10 +220,9 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             
             // Receive from governor vault
             governorVault.sendFunds(mkt.marketId(), address(this), netProceeds);
-            
-            // Credit user IMMEDIATELY (no lock on sell in V4)
-            accounts[msg.sender].available += netProceeds;
-            
+
+            _lockProceeds(msg.sender, mkt.marketId(), netProceeds);
+
             emit AMMSell(msg.sender, market, outcome, shares, netProceeds);
             emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
         }
@@ -564,13 +566,29 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     }
 
     // ============ View Functions ============
-    
+
     function availableBalance(address user) external view returns (uint256) {
         return accounts[user].available;
     }
 
     function totalBalance(address user) external view returns (uint256) {
-        return accounts[user].available + accounts[user].pending;
+        return accounts[user].available + accounts[user].pending + governorVault.lockedBalance(user);
+    }
+
+    function lockedBalance(address user) public view returns (uint256) {
+        return governorVault.lockedBalance(user);
+    }
+
+    function claimableBalance(address user) public view returns (uint256 claimable) {
+        claimable = governorVault.claimableBalance(user);
+    }
+
+    function getLockEntries(address user) external view returns (uint256[] memory amounts, uint64[] memory unlockTimes) {
+        (amounts, unlockTimes) = governorVault.getLockEntries(user);
+    }
+
+    function nextUnlock(address user) external view returns (uint256 amount, uint64 unlockTime) {
+        (amount, unlockTime) = governorVault.nextUnlock(user);
     }
 
     function isMarket(address market) external view returns (bool) {
@@ -595,8 +613,8 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         AMMPosition storage pos = ammPositions[user][market];
         yesShares = pos.yesShares;
         noShares = pos.noShares;
-        unlockTime = pos.unlockTime;
-        isUnlocked = block.timestamp >= pos.unlockTime;
+        unlockTime = 0;
+        isUnlocked = true;
     }
 
     function asset() external view returns (address) {

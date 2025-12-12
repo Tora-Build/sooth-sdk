@@ -56,8 +56,8 @@ contract MockUSDC is IERC20 {
     }
 }
 
-/// @title V4 Integration Tests
-/// @notice Tests for Lock-on-Buy architecture with dual-venue trading
+    /// @title V4 Integration Tests
+    /// @notice Tests for Lock-on-Sell architecture with dual-venue trading
 contract V4IntegrationTest is Test {
     // Contracts
     MockUSDC usdc;
@@ -138,99 +138,82 @@ contract V4IntegrationTest is Test {
         usdc.approve(address(traderVault), type(uint256).max);
     }
 
-    // ============ AMM Lock-on-Buy Tests ============
+    // ============ AMM Lock-on-Sell Tests ============
 
-    function testAMMBuy_SharesLocked() public {
+    function testAMMSell_ProceedsLocked() public {
         vm.startPrank(alice);
-        
-        // Deposit USDC
-        traderVault.deposit(1000e18);
-        
-        // Buy 100 YES from AMM
-        traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
-        
-        // Check AMM position
-        (uint256 yesShares, uint256 noShares, uint256 unlockTime, bool isUnlocked) = 
-            traderVault.getAMMPosition(alice, address(market));
-        
-        assertEq(yesShares, 100e18, "Should have 100 YES shares");
-        assertEq(noShares, 0, "Should have 0 NO shares");
-        assertEq(unlockTime, block.timestamp + LOCK_DURATION, "Unlock time should be 24h from now");
-        assertFalse(isUnlocked, "Should be locked");
-        
-        vm.stopPrank();
-    }
 
-    function testAMMSell_FailsWhenLocked() public {
-        vm.startPrank(alice);
-        
         traderVault.deposit(1000e18);
-        
-        // Buy shares
+
         traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
-        
-        // Try to sell immediately - should fail
-        vm.expectRevert("TraderVault: shares locked");
+        uint256 availableBeforeSell = traderVault.availableBalance(alice);
+        uint256 traderBalanceBeforeSell = usdc.balanceOf(address(traderVault));
+
+        // Immediate sell should be allowed but proceeds locked
         traderVault.tradeAMM(address(market), 0, -50e18, 0);
-        
+
+        uint256 availableAfterSell = traderVault.availableBalance(alice);
+        uint256 locked = traderVault.lockedBalance(alice);
+        uint256 traderBalanceAfterSell = usdc.balanceOf(address(traderVault));
+
+        assertEq(availableAfterSell, availableBeforeSell, "Available should not increase while locked");
+        assertGt(locked, 0, "Proceeds should be locked");
+        assertEq(traderBalanceAfterSell, traderBalanceBeforeSell, "Funds should remain in Governor until claimed");
+
         vm.stopPrank();
     }
 
-    function testAMMSell_SucceedsAfterUnlock() public {
+    function testClaimUnlocked_AfterDuration() public {
         vm.startPrank(alice);
-        
-        traderVault.deposit(1000e18);
-        
-        // Buy shares
-        traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
-        uint256 balanceAfterBuy = traderVault.availableBalance(alice);
-        
-        // Fast forward 24 hours
-        vm.warp(block.timestamp + LOCK_DURATION);
-        
-        // Check shares are now unlocked
-        (, , , bool isUnlocked) = traderVault.getAMMPosition(alice, address(market));
-        assertTrue(isUnlocked, "Should be unlocked after 24h");
-        
-        // Sell shares - should succeed
-        traderVault.tradeAMM(address(market), 0, -50e18, 0);
-        
-        // Check balance increased (instant credit, no lock)
-        uint256 balanceAfterSell = traderVault.availableBalance(alice);
-        assertGt(balanceAfterSell, balanceAfterBuy, "Balance should increase after sell");
-        
-        // Check shares decreased
-        (uint256 yesShares, , , ) = traderVault.getAMMPosition(alice, address(market));
-        assertEq(yesShares, 50e18, "Should have 50 YES shares remaining");
-        
-        vm.stopPrank();
-    }
 
-    function testAMMSell_NoUSDCLock() public {
-        vm.startPrank(alice);
-        
         traderVault.deposit(1000e18);
-        
-        // Buy shares
         traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
-        
-        // Fast forward
-        vm.warp(block.timestamp + LOCK_DURATION);
-        
-        // Record balance before sell
-        uint256 availableBefore = traderVault.availableBalance(alice);
-        uint256 pendingBefore = traderVault.pendingBalance(alice);
-        
-        // Sell shares
-        traderVault.tradeAMM(address(market), 0, -100e18, 0);
-        
-        // Check: proceeds went to AVAILABLE, not PENDING
+
+        // Lock some proceeds
+        traderVault.tradeAMM(address(market), 0, -40e18, 0);
+
+        uint256 lockedBefore = traderVault.lockedBalance(alice);
+        uint256 traderBalanceBeforeClaim = usdc.balanceOf(address(traderVault));
+        uint256 governorAssetsBefore = governorVault.totalAssets();
+
+        // Wait for unlock and claim
+        vm.warp(block.timestamp + LOCK_DURATION + 1);
+        uint256 claimed = traderVault.claimUnlocked();
+
+        uint256 lockedAfter = traderVault.lockedBalance(alice);
         uint256 availableAfter = traderVault.availableBalance(alice);
-        uint256 pendingAfter = traderVault.pendingBalance(alice);
-        
-        assertGt(availableAfter, availableBefore, "Available should increase");
-        assertEq(pendingAfter, pendingBefore, "Pending should not change");
-        
+        uint256 traderBalanceAfterClaim = usdc.balanceOf(address(traderVault));
+
+        assertGt(claimed, 0, "Should claim unlocked proceeds");
+        assertLt(lockedAfter, lockedBefore, "Locked balance should decrease after claim");
+        assertGt(availableAfter, 0, "Available should increase after claim");
+        assertEq(traderBalanceAfterClaim, traderBalanceBeforeClaim + claimed, "Claim should transfer funds to TraderVault");
+        assertEq(governorVault.totalAssets(), governorAssetsBefore, "Claim should not change Governor accounting");
+
+        vm.stopPrank();
+    }
+
+    function testAutoClaimOnNewLock() public {
+        vm.startPrank(alice);
+
+        traderVault.deposit(1000e18);
+        traderVault.tradeAMM(address(market), 0, 120e18, 2000e18);
+
+        // First sell and wait for it to unlock
+        traderVault.tradeAMM(address(market), 0, -20e18, 0);
+        vm.warp(block.timestamp + LOCK_DURATION + 1);
+
+        uint256 availableBefore = traderVault.availableBalance(alice);
+
+        // Second sell should auto-claim the first lock before adding the next
+        traderVault.tradeAMM(address(market), 0, -20e18, 0);
+
+        uint256 availableAfter = traderVault.availableBalance(alice);
+        uint256 locked = traderVault.lockedBalance(alice);
+
+        assertGt(availableAfter, availableBefore, "Auto-claim should release expired funds");
+        assertGt(locked, 0, "New proceeds should be locked");
+
         vm.stopPrank();
     }
 
@@ -341,46 +324,38 @@ contract V4IntegrationTest is Test {
 
     // ============ Edge Cases ============
 
-    function testMultipleBuys_ExtendLock() public {
+    function testMultipleBuys_NoLocking() public {
         vm.startPrank(alice);
         traderVault.deposit(2000e18);
-        
-        // First buy at T=0
+
         traderVault.tradeAMM(address(market), 0, 50e18, 2000e18);
-        
-        (, , uint256 unlockTime1, ) = traderVault.getAMMPosition(alice, address(market));
-        
-        // Wait 12 hours
         vm.warp(block.timestamp + 12 hours);
-        
-        // Second buy
         traderVault.tradeAMM(address(market), 0, 50e18, 2000e18);
-        
-        (, , uint256 unlockTime2, ) = traderVault.getAMMPosition(alice, address(market));
-        
-        // Lock should be extended
-        assertGt(unlockTime2, unlockTime1, "Lock should extend on new buy");
-        
+
+        (uint256 yesShares, , uint256 unlockTime, bool isUnlocked) = traderVault.getAMMPosition(alice, address(market));
+
+        assertEq(yesShares, 100e18, "Should accumulate YES shares");
+        assertEq(unlockTime, 0, "No lock on AMM buys");
+        assertTrue(isUnlocked, "Positions should always be unlocked");
+
         vm.stopPrank();
     }
 
-    function testBuyBothOutcomes_SameLock() public {
+    function testBuyBothOutcomes_NoLock() public {
         vm.startPrank(alice);
         traderVault.deposit(2000e18);
-        
-        // Buy YES
+
         traderVault.tradeAMM(address(market), 0, 50e18, 2000e18);
-        
-        // Buy NO
         traderVault.tradeAMM(address(market), 1, 50e18, 2000e18);
-        
-        (uint256 yesShares, uint256 noShares, uint256 unlockTime, ) = 
+
+        (uint256 yesShares, uint256 noShares, uint256 unlockTime, bool isUnlocked) =
             traderVault.getAMMPosition(alice, address(market));
-        
+
         assertEq(yesShares, 50e18, "Should have YES shares");
         assertEq(noShares, 50e18, "Should have NO shares");
-        assertEq(unlockTime, block.timestamp + LOCK_DURATION, "Both share same unlock time");
-        
+        assertEq(unlockTime, 0, "No lock time recorded");
+        assertTrue(isUnlocked, "Positions should be tradable immediately");
+
         vm.stopPrank();
     }
 }

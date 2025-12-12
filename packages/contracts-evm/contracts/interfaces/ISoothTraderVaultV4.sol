@@ -17,6 +17,9 @@ interface ISoothTraderVaultV4 {
     event SharesRedeemed(address indexed user, address indexed market, uint8 winningOutcome, uint256 shares);
     event AMMBuy(address indexed user, address indexed market, uint8 outcome, uint256 shares, uint256 cost, uint256 unlockTime);
     event AMMSell(address indexed user, address indexed market, uint8 outcome, uint256 shares, uint256 proceeds);
+    event Locked(address indexed user, uint256 amount, uint64 unlockTime);
+    event Unlocked(address indexed user, uint256 amount);
+    event Claimed(address indexed user, uint256 amount);
 
     // ============ User Actions ============
     function deposit(uint256 amount) external;
@@ -39,6 +42,10 @@ interface ISoothTraderVaultV4 {
     // ============ View Functions ============
     function availableBalance(address user) external view returns (uint256);
     function totalBalance(address user) external view returns (uint256);
+    function lockedBalance(address user) external view returns (uint256);
+    function claimableBalance(address user) external view returns (uint256);
+    function getLockEntries(address user) external view returns (uint256[] memory amounts, uint64[] memory unlockTimes);
+    function nextUnlock(address user) external view returns (uint256 amount, uint64 unlockTime);
     function isMarket(address market) external view returns (bool);
     function asset() external view returns (address);
 

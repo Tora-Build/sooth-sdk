@@ -10,6 +10,14 @@ interface ISoothGovernorVault {
     function totalAssets() external view returns (uint256);
     function decimalsScale() external view returns (uint256);
 
+    // Lock-on-Sell accounting (proceeds remain in Governor)
+    function lockProceeds(uint256 marketId, address user, uint256 amount) external returns (uint64 unlockTime);
+    function claimUnlocked(address user, address recipient) external returns (uint256 claimed);
+    function lockedBalance(address user) external view returns (uint256);
+    function claimableBalance(address user) external view returns (uint256);
+    function getLockEntries(address user) external view returns (uint256[] memory amounts, uint64[] memory unlockTimes);
+    function nextUnlock(address user) external view returns (uint256 amount, uint64 unlockTime);
+
     // LP Actions
     function depositFor(address lp, uint256 assets) external returns (uint256);
     function withdrawFor(address lp, uint256 assets, address receiver) external returns (uint256);
