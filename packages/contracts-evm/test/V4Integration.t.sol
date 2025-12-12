@@ -188,7 +188,8 @@ contract V4IntegrationTest is Test {
         assertLt(lockedAfter, lockedBefore, "Locked balance should decrease after claim");
         assertGt(availableAfter, 0, "Available should increase after claim");
         assertEq(traderBalanceAfterClaim, traderBalanceBeforeClaim + claimed, "Claim should transfer funds to TraderVault");
-        assertEq(governorVault.totalAssets(), governorAssetsBefore, "Claim should not change Governor accounting");
+        // Funds leave Governor when claimed, so totalAssets decreases
+        assertEq(governorVault.totalAssets(), governorAssetsBefore - claimed, "Governor totalAssets should decrease by claimed amount");
 
         vm.stopPrank();
     }
@@ -237,8 +238,8 @@ contract V4IntegrationTest is Test {
         // Fund governor for merge payout
         vm.startPrank(owner);
         governorVault.setAuthorized(address(outcomeToken), true);
-        // OutcomeToken calls traderVault.creditMergeProceeds, so authorize it
-        traderVault.setMarket(address(outcomeToken), true);
+        // OutcomeToken calls traderVault.creditMergeProceeds, so register it
+        traderVault.setOutcomeToken(address(outcomeToken), true);
         vm.stopPrank();
         
         // Record balance before
@@ -253,8 +254,10 @@ contract V4IntegrationTest is Test {
         assertEq(outcomeToken.noBalance(alice), 50, "Should have 50 NO left");
         
         // Check USDC credited (merge is FREE in V4)
+        // merge(50) merges 50 raw tokens. creditMergeProceeds scales by scalar.
+        // 50 tokens / scalar (1 for 18-decimal) = 50 wei payout
         uint256 balanceAfter = traderVault.availableBalance(alice);
-        assertEq(balanceAfter, balanceBefore + 50e18, "Should receive 50 USDC");
+        assertEq(balanceAfter, balanceBefore + 50, "Should receive 50 wei (unscaled)");
     }
 
     // ============ Isolation Tests ============

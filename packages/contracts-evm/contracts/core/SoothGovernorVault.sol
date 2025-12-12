@@ -105,7 +105,8 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
         returns (uint64 unlockTime)
     {
         require(amount > 0, "Zero amount");
-        require(totalAssets >= amount, "Insufficient assets");
+        // Funds are staying in vault, just check we have enough unallocated
+        require(totalAssets >= totalLockedProceeds + totalLockedExposure + amount, "Insufficient assets");
 
         UserLockState storage state = _lockStates[user];
 
@@ -114,9 +115,9 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
         state.totalLocked += amount;
         totalLockedProceeds += amount;
 
-        // Account for AMM payout while keeping funds in vault
+        // Track PnL for this market (user sold shares back to LP)
         marketReserves[marketId] -= int256(amount);
-        totalAssets -= amount;
+        // DO NOT decrease totalAssets - funds stay in Governor until claimed
 
         emit Locked(user, amount, unlockTime);
     }
@@ -131,6 +132,7 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
 
         if (claimed > 0) {
             totalLockedProceeds -= claimed;
+            totalAssets -= claimed;  // Funds are now leaving the vault
             require(asset.transfer(recipient, claimed), "Transfer failed");
             emit Unlocked(user, claimed);
             emit Claimed(user, claimed);
@@ -236,7 +238,8 @@ contract SoothGovernorVault is ISoothGovernorVault, Ownable {
         }
         
         require(balanceOf[lp] >= shares, "Insufficient shares");
-        require(totalAssets >= totalLockedExposure + assets, "Locked funds");
+        // Protect both market exposure AND locked trader proceeds
+        require(totalAssets >= totalLockedExposure + totalLockedProceeds + assets, "Locked funds");
 
         balanceOf[lp] -= shares;
         totalSupply -= shares;

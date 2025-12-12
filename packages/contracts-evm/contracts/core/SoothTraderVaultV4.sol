@@ -218,9 +218,8 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
                 pos.noShares -= shares;
             }
             
-            // Receive from governor vault
-            governorVault.sendFunds(mkt.marketId(), address(this), netProceeds);
-
+            // Lock proceeds in Governor (funds stay there until claimed)
+            // DO NOT call sendFunds - funds stay in Governor
             _lockProceeds(msg.sender, mkt.marketId(), netProceeds);
 
             emit AMMSell(msg.sender, market, outcome, shares, netProceeds);
