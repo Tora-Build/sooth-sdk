@@ -14,16 +14,16 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onAbout }) => {
 
       {/* Content Container */}
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center flex-1 flex flex-col justify-center">
-        
+
         {/* Badges */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 sm:mb-8 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-slate-800 backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Based Live</span>
+            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Base Sepolia</span>
           </div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/50 border border-slate-800 backdrop-blur-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">Speed Live</span>
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+            <span className="text-xs font-medium text-slate-300 tracking-wide uppercase">BNB Testnet</span>
           </div>
         </div>
 
@@ -41,21 +41,21 @@ export const Landing: React.FC<LandingProps> = ({ onEnter, onAbout }) => {
 
         {/* Subtitle */}
         <p className="text-base sm:text-xl text-slate-400 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed animate-slide-up px-4" style={{ animationDelay: '0.1s' }}>
-          The next generation of prediction markets. 
-          <span className="text-indigo-400"> Infinite-end</span>, 
-          <span className="text-violet-400"> retroactive finality</span>, and 
+          The next generation of prediction markets.
+          <span className="text-indigo-400"> Open-end</span>,
+          <span className="text-violet-400"> retroactive finality</span>, and
           <span className="text-emerald-400"> ZK-verified settlement</span>.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 animate-slide-up px-4" style={{ animationDelay: '0.2s' }}>
-          <button 
+          <button
             onClick={onEnter}
             className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 shadow-indigo-500/25 hover:shadow-indigo-500/40 w-full sm:w-auto"
           >
             Launch App
           </button>
-          <button 
+          <button
             onClick={onAbout}
             className="px-6 sm:px-8 py-3 sm:py-4 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all w-full sm:w-auto font-medium text-base sm:text-lg"
           >

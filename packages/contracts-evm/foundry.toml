@@ -6,9 +6,13 @@ solc_version = "0.8.30"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
-
-# Exclude archived contracts and scripts from compilation
-ignored_paths = ["contracts/archive/**", "script/archive/**"]
+remappings = ["prb-math/=lib/prb-math/src/"]
 
 [rpc_endpoints]
 megaethTestnet = "https://timothy.megaeth.com/rpc"
+bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+baseSepolia = "https://sepolia.base.org"
+
+# MegaETH requires higher gas settings
+[profile.megaeth]
+gas_price = 100000000

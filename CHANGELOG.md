@@ -5,12 +5,18 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **MegaETH Testnet Deployment**: V4.5 infrastructure + 2 markets (Chain 6343)
+  - Used viem script with `gas: 999999999n` (forge script failed with RPC gas issues)
+  - Script: `apps/web/scripts/deploy-megaeth.ts`
 - **UI Specs System**: `apps/web/docs/specs/` with 4 spec documents
   - `LP_DASHBOARD_SPEC.md`, `TRADING_TERMINAL_SPEC.md`
   - `OPERATOR_CONSOLE_SPEC.md`, `ACTIVITY_LOG_SPEC.md`
 - **SOP Rule**: Frontend-dev must check-in/check-out specs before/after UI modifications
 
 ### Changed
+- **Landing Page**: Added MegaETH badge (green indicator)
+- **About Page**: "Infinite-End" → "Open-End" terminology throughout
+- **KNOWLEDGE.md**: Updated with all 3 testnet deployment addresses, precision corrections
 - **VaultStats.tsx**: Simplified header to "Governor Vault (Based)", removed Vault Type A/B/C/D
 - **VaultMarkets.tsx**: 
   - Dynamic solvency factor from `price(0)` instead of hardcoded 0.693
@@ -22,6 +28,8 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **useProtocolStats.ts**: Fixed locked calculation (was hardcoded 85% estimate)
 
 ### Fixed
+- **Mobile Zoom**: Disabled pinch-to-zoom to prevent fat finger issues
+- **First-TX Page Reload**: Removed auto-reload on version mismatch in `useDeployments.ts`
 - **AmmMarketCard.tsx**: Removed duplicate `<h3>` (title appearing twice)
 - **SettlementSimulator.tsx**: `MO_MARKET_ABI` hoisting bug, changed `q()` to `price()`
 - **CRITICAL (C-07)**: `creditMergeProceeds` — Used `onlyMarket` but called by OutcomeToken during merge
@@ -33,6 +41,16 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
 
 ### Deployed
+- **MegaETH Testnet V4.5 (2025-12-12)**:
+  - MockUSDC: `0x493da6e5c9de67ab50b2fb08d14865614189b5c2`
+  - TraderVault: `0xdc980ac16626211a7c472a94a163440eb68c5bfc`
+  - GovernorVault: `0xdb0063ce93e445ff7a8916f6f5a093f80833494f`
+  - Market 1: `0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c`
+  - Market 2: `0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0`
+- **BNB Testnet V4.5 (2025-12-12)**:
+  - MockUSDC: `0x58F35BE6A5e3D2be4C3575853043322B02FEeD84`
+  - TraderVault: `0x50293aD4e42593A8b081960c991c198729E81192`
+  - GovernorVault: `0x8629b9ca457F4088ec8346FAED61DA858FDB498d`
 - **Base Sepolia V4.5 (2025-12-12)**:
   - MockUSDC: `0x3E45bf96a8D866D796E168eE77a5fA7507D544F1`
   - TraderVault: `0x48Efb2434383E87a4a143D2B07BeE73611f5423C`

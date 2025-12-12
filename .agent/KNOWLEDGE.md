@@ -38,10 +38,13 @@ b                 | Depth           | Liquidity param
 
 ## Precision
 ```
-WAD       = 1e18
-USDC_DEC  = 6
-SCALAR    = 1e12        // WAD / USDC
-LOCK      = 24 hours
+WAD       = 1e18           // All internal math
+USDC_DEC  = 18             // MockUSDC uses 18 decimals (testnet)
+SCALAR    = 1              // WAD / USDC = 1e18/1e18
+LOCK      = 24 hours       // AMM buy lock duration
+
+Note: Real USDC is 6 decimals. Scalar would be 1e12.
+      Testnet MockUSDC is 18 decimals for simplicity.
 ```
 
 ---
@@ -144,16 +147,42 @@ Hybrid Sell:
 
 ---
 
-## Deployment (Base Sepolia)
+## Deployments
+
+### Base Sepolia (Chain 84532) — V4.5
 ```
-Vault     = 0x8348A02D742e59B2ad9fe7Bfe354fAE01176d17d
-Governor  = 0x6c60D3e25FEf9AECf3DC2F66287322641D8651Be
-Fee       = 0x2300BBe091E5176410eCcb3c3710ef67781B68ff
-USDC      = 0x2d2aed066c34523913ab7084b668bff3529cb176
-Market1   = 0xEA44Fb3acaCF2527c54D8Ec787A50C87b2114535
-Token1    = 0x47d955F5269b4addF51491D4e309bD1b052cc14D
-Market2   = 0x6Ee804abCBc912A2831fdDdC9d36EeA68aef92cD
-Token2    = 0x8bB9E039409fb1d21159E7dBd08faDFe1510C3C3
+Vault     = 0x48Efb2434383E87a4a143D2B07BeE73611f5423C
+Governor  = 0xcB0f1305951d4BC6EF266790836aC62604cFA733
+Fee       = 0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97
+USDC      = 0x3E45bf96a8D866D796E168eE77a5fA7507D544F1
+Market1   = 0x99CB8c0e3da2604518b8210589edcaB50Cc6f769 (Alien)
+Token1    = 0x6C590f0cd0750043ad46Ec37D2d095De89506cfd
+Market2   = 0x94D02d846a04A751e9e4f93A6684a30e043444Da (BTC)
+Token2    = 0x7178301FDEe367DC0ad10215c466293f9E7CDc5e
+```
+
+### BNB Testnet (Chain 97) — V4.5
+```
+Vault     = 0x50293aD4e42593A8b081960c991c198729E81192
+Governor  = 0x8629b9ca457F4088ec8346FAED61DA858FDB498d
+Fee       = 0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38
+USDC      = 0x58F35BE6A5e3D2be4C3575853043322B02FEeD84
+Market1   = 0xa852857A15a10692A5cF22cB2B5b707C8dD64cf8 (Alien)
+Token1    = 0x4F0b73177dac5A7f5EA2dbCffd2b983B3719b39B
+Market2   = 0x7c60001d89D9878B1f7C4180916fCc3ede592e8d (BTC)
+Token2    = 0xaaE4610eEB6bF5FCf3775AcA69A5911691556995
+```
+
+### MegaETH Testnet (Chain 6343) — V4.5
+```
+Vault     = 0xdc980ac16626211a7c472a94a163440eb68c5bfc
+Governor  = 0xdb0063ce93e445ff7a8916f6f5a093f80833494f
+Fee       = 0x9dbdfe94e596262dff5d91c007bae2ba4d80a8f7
+USDC      = 0x493da6e5c9de67ab50b2fb08d14865614189b5c2
+Market1   = 0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c (Alien)
+Token1    = 0xda5979e913c8ce987d5c44e9d138e0cea87802ff
+Market2   = 0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0 (BTC)
+Token2    = 0xd8e977e9e7e81d29daec823bf60e0303e80281cb
 ```
 
 ---
@@ -201,5 +230,5 @@ OutcomeToken.merge()                | none                | anyone (burns own)
 ---
 
 ```
-Version: V4.5 | KB: v1.2 | Updated: 2025-12-12
+Version: V4.6 | KB: v1.3 | Updated: 2025-12-12
 ```

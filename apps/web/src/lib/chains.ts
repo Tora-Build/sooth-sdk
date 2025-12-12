@@ -34,14 +34,27 @@ export const baseSepolia = defineChain({
   testnet: true,
 });
 
+export const bnbTestnet = defineChain({
+  id: 97,
+  name: 'BNB Testnet',
+  nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://data-seed-prebsc-1-s1.bnbchain.org:8545'] },
+  },
+  blockExplorers: {
+    default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
+  },
+  testnet: true,
+});
+
 // Canonical list of allowed chains with metadata
 export const allowedChains: AllowedChain[] = [
   {
     id: 84532,
     type: 'evm',
     name: 'Base Sepolia',
-    displayName: 'Based',
-    shortName: 'Based',
+    displayName: 'Base',
+    shortName: 'Base',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
     icon: '🔵',
@@ -51,38 +64,38 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
-  // MegaETH Testnet
+  // BNB Testnet
   {
-    id: 6343,
+    id: 97,
     type: 'evm',
-    name: 'MegaETH Testnet',
-    displayName: 'Speed',
-    shortName: 'Speed',
-    rpcUrl: 'https://timothy.megaeth.com/rpc',
-    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
-    icon: '⚡',
+    name: 'BNB Testnet',
+    displayName: 'BNB',
+    shortName: 'BNB',
+    rpcUrl: 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
+    explorerUrl: 'https://testnet.bscscan.com',
+    icon: '🟡',
     nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
+      name: 'tBNB',
+      symbol: 'tBNB',
       decimals: 18,
     },
   },
-  // Solana Devnet
-  {
-    id: 'devnet',
-    type: 'solana',
-    name: 'Solana Devnet',
-    displayName: 'Solana Devnet',
-    shortName: 'Solana',
-    rpcUrl: 'https://api.devnet.solana.com',
-    explorerUrl: 'https://explorer.solana.com/?cluster=devnet',
-    icon: '🟣',
-    nativeCurrency: {
-      name: 'Solana',
-      symbol: 'SOL',
-      decimals: 9,
-    },
-  },
+  // MegaETH Testnet - HIDDEN (RPC rate limiting)
+  // {
+  //   id: 6343,
+  //   type: 'evm',
+  //   name: 'MegaETH Testnet',
+  //   displayName: 'MegaETH',
+  //   shortName: 'Mega',
+  //   rpcUrl: 'https://timothy.megaeth.com/rpc',
+  //   explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+  //   icon: '⚡',
+  //   nativeCurrency: {
+  //     name: 'Ether',
+  //     symbol: 'ETH',
+  //     decimals: 18,
+  //   },
+  // },
 ];
 
 // Define MegaETH Testnet using viem
@@ -103,7 +116,7 @@ export const megaethTestnet = defineChain({
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
 // Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia];
+export const wagmiChains: Chain[] = [baseSepolia, bnbTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

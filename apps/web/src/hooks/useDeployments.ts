@@ -1,4 +1,5 @@
 import { useChainId } from 'wagmi';
+import { useEffect } from 'react';
 import deploymentsData from '../config/deployments.json';
 import { DEFAULT_CHAIN_ID } from '../lib/chains';
 
@@ -36,6 +37,7 @@ const deploymentsConfig = deploymentsData as unknown as DeploymentsConfig;
 // Map chainId to network name
 const CHAIN_ID_MAP: Record<number, string> = {
   84532: 'baseSepolia',
+  97: 'bnbTestnet',
   10143: 'monadTestnet',
   6343: 'megaethTestnet'
 };
@@ -49,19 +51,17 @@ export function useDeployments() {
   const chainDeployments = deploymentsConfig.networks[networkName]?.contracts;
   const configVersion = deploymentsConfig.version;
 
-  // Runtime guard: Detect stale browser cache
-  if (typeof window !== 'undefined' && chainDeployments) {
-    const storedVersion = localStorage.getItem('sooth_config_version');
-    if (storedVersion && storedVersion !== configVersion) {
-      console.warn(`[useDeployments] Config version mismatch: localStorage=${storedVersion}, current=${configVersion}. Clearing cache.`);
-      localStorage.setItem('sooth_config_version', configVersion);
-      // Clear wagmi cache and reload
-      localStorage.removeItem('wagmi.store');
-      window.location.reload();
-    } else if (!storedVersion) {
+  // Runtime guard: Detect stale browser cache (just log, don't reload)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedVersion = localStorage.getItem('sooth_config_version');
+      if (storedVersion && storedVersion !== configVersion) {
+        console.warn(`[useDeployments] Config version updated: ${storedVersion} → ${configVersion}`);
+      }
+      // Always update to latest version
       localStorage.setItem('sooth_config_version', configVersion);
     }
-  }
+  }, [configVersion]);
 
 
   if (!chainDeployments) {

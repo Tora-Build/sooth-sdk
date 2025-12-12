@@ -146,8 +146,9 @@ export const TradingAccountCard: React.FC = () => {
                 <RefreshCw size={12} />
               </button>
             </div>
-            <div className="text-[10px] text-slate-500 font-mono">
-              {address?.slice(0, 6)}...{address?.slice(-4)}
+            <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1" title="Wallet USDC Balance">
+              <Wallet size={10} className="text-slate-600" />
+              {formatCurrency(walletAvailable)}
             </div>
           </div>
 
