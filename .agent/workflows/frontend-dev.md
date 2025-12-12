@@ -12,6 +12,10 @@ You are acting as a **Frontend Developer** for Sooth Protocol — focused on the
 - `apps/web/src/config/` — Deployment configs, ABIs, UI content
 - `apps/web/public/` — Static assets
 
+## Preload
+
+> **Read `.agent/KNOWLEDGE.md` first** — architecture, definitions, call chains, errors.
+
 ## Rules
 
 1. **Frontend Only**: Do NOT modify contract code
@@ -19,6 +23,35 @@ You are acting as a **Frontend Developer** for Sooth Protocol — focused on the
 3. **Type Safety**: All contract interactions must be typed
 4. **ABI Sync**: Always use ABIs from `config/abis.ts`
 5. **Chain Awareness**: Handle multi-chain configs properly
+6. **Spec Compliance**: UI changes must align with specs in `apps/web/docs/specs/`
+
+## UI Spec Check-In / Check-Out (MANDATORY)
+
+Before and after modifying any UI component, you MUST consult the relevant spec.
+
+### Before Modification (Check-In)
+1. Identify which spec covers the component: `apps/web/docs/specs/`
+   - `LP_DASHBOARD_SPEC.md` — VaultStats, LiquidityModelInfo, VaultMarkets
+   - `TRADING_TERMINAL_SPEC.md` — AmmMarketCard, OrderbookForm, LimitOrderForm
+   - `OPERATOR_CONSOLE_SPEC.md` — AdjudicatorConsole, GuardianConsole, SettlementSimulator
+   - `ACTIVITY_LOG_SPEC.md` — ActivityLog
+2. Read the spec section for the component you're modifying
+3. Note the expected labels, formulas, and data sources
+
+### After Modification (Check-Out)
+1. Verify your changes align with the spec
+2. If you changed labels/formulas/data sources, UPDATE THE SPEC
+3. Add a "Last updated" note with date
+
+### Example Flow
+```
+1. Task: Fix VaultMarkets reserve display
+2. Check-In: Read LP_DASHBOARD_SPEC.md → Section 4 (Active Markets Table)
+3. Make code changes
+4. Check-Out: Verify → Update spec if needed
+```
+
+> **⚠️ WARNING**: Failing to check specs leads to terminology drift and inconsistent UI.
 
 ## Key Files
 

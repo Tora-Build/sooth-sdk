@@ -153,12 +153,13 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function orderOwners(uint256 orderId) view returns (address)",
 ]);
 
-// V4: GovernorVault (Standard ERC4626)
+// V4: GovernorVault (Standard ERC4626 + Sooth extensions)
 export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
+  "function totalLockedExposure() view returns (uint256)",
   "function convertToShares(uint256 assets) view returns (uint256)",
   "function convertToAssets(uint256 shares) view returns (uint256)",
   "function deposit(uint256 assets, address receiver) returns (uint256)",

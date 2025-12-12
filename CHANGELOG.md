@@ -4,7 +4,26 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **UI Specs System**: `apps/web/docs/specs/` with 4 spec documents
+  - `LP_DASHBOARD_SPEC.md`, `TRADING_TERMINAL_SPEC.md`
+  - `OPERATOR_CONSOLE_SPEC.md`, `ACTIVITY_LOG_SPEC.md`
+- **SOP Rule**: Frontend-dev must check-in/check-out specs before/after UI modifications
+
+### Changed
+- **VaultStats.tsx**: Simplified header to "Governor Vault (Based)", removed Vault Type A/B/C/D
+- **VaultMarkets.tsx**: 
+  - Dynamic solvency factor from `price(0)` instead of hardcoded 0.693
+  - Added `bBase()` fetch for correct base liquidity display
+  - Fixed market reserves precision (6 → 18 decimals)
+  - Updated column headers: "b_base", "Reserves", "Locked Exposure"
+- **LiquidityModelInfo.tsx**: Aligned text and formulas with KNOWLEDGE.md
+- **useVault.ts**: Fetches `totalLockedExposure` from GovernorVault contract
+- **useProtocolStats.ts**: Fixed locked calculation (was hardcoded 85% estimate)
+
 ### Fixed
+- **AmmMarketCard.tsx**: Removed duplicate `<h3>` (title appearing twice)
+- **SettlementSimulator.tsx**: `MO_MARKET_ABI` hoisting bug, changed `q()` to `price()`
 - **CRITICAL (C-07)**: `creditMergeProceeds` — Used `onlyMarket` but called by OutcomeToken during merge
   - Added `_isOutcomeToken` mapping and `onlyOutcomeToken` modifier
   - Added `setOutcomeToken()` admin function
@@ -12,11 +31,6 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **My Orders Display**: Orders not showing in "My Orders" tab
   - Root cause: Market's `maker` is TraderVault, not user wallet
   - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
-
-### Added
-- `executeHybridSell` — Single-transaction hybrid sell in frontend hooks
-- OutcomeToken authorization system in `SoothTraderVaultV4`
-- `orderOwners` view function to `TRADER_VAULT_V4_ABI`
 
 ### Deployed
 - **Base Sepolia V4.5 (2025-12-12)**:

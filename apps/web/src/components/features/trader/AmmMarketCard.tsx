@@ -173,10 +173,6 @@ const AmmMarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
               <span className="text-slate-500 mr-2">#{market.id_numeric || market.id}</span>
               {market.question}
             </h3>
-            <h3 className="font-heading font-semibold text-xl text-white mb-2 line-clamp-2 flex-1">
-              <span className="text-slate-500 mr-2">#{market.id_numeric || market.id}</span>
-              {market.question}
-            </h3>
           </div>
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2 flex-wrap">

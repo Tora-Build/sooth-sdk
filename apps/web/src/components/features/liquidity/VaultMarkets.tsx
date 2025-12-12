@@ -4,7 +4,7 @@ import { formatUnits } from 'viem';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { useMarketStore } from '../../../store/useMarketStore';
-import { MARKET_V4_ABI } from '../../../config/abis';
+import { MARKET_V4_ABI, SOOTH_GOVERNOR_VAULT_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { useChainStore } from '../../../store/useChainStore';
 import { useContent } from '../../../hooks/useContent';
@@ -60,22 +60,68 @@ export const VaultMarkets: React.FC = () => {
     }
   });
 
+  // Fetch marketReserves from GovernorVault for each market
+  const { data: marketReservesData } = useReadContracts({
+    contracts: activeMarkets.map(m => ({
+      address: vaultAddress,
+      abi: SOOTH_GOVERNOR_VAULT_ABI,
+      functionName: 'getMarketReserve',
+      args: [BigInt(m.id_numeric || 0)],
+    })),
+    query: {
+      enabled: mode === 'real' && !!vaultAddress,
+    }
+  });
+
+  // Fetch YES prices from markets for dynamic solvency factor
+  const { data: yesPricesData } = useReadContracts({
+    contracts: activeMarkets.map(m => ({
+      address: m.contractAddress as `0x${string}`,
+      abi: MARKET_V4_ABI,
+      functionName: 'price',
+      args: [0], // outcome 0 = YES
+    })),
+    query: {
+      enabled: mode === 'real',
+    }
+  });
+
+  // Fetch bBase from each market (the base allocation from vault)
+  const { data: bBaseParams } = useReadContracts({
+    contracts: activeMarkets.map(m => ({
+      address: m.contractAddress as `0x${string}`,
+      abi: MARKET_V4_ABI,
+      functionName: 'bBase',
+    })),
+    query: {
+      enabled: mode === 'real',
+    }
+  });
+
+  // Calculate solvency factor from YES price: p*ln(p) + (1-p)*ln(1-p)
+  const calcSolvencyFactor = (pYes: number): number => {
+    if (pYes <= 0.001 || pYes >= 0.999) return 0.01; // edge case protection
+    return Math.abs(pYes * Math.log(pYes) + (1 - pYes) * Math.log(1 - pYes));
+  };
+
   const isLoading = mode === 'real' && !marketStatuses;
 
-  // Calculate Dynamic Reserve Multiplier (estimated for now)
-  // In v3 architecture, b = Base + (Reserve * Multiplier)
-  // We can infer the multiplier if we knew Base, but for now we'll stick to 1.0x as default for v2
-  const multiplierFormatted = '1.00x';
+  const multiplierFormatted = '10%'; // reserveFactorBps = 1000 = 10%
 
-  // Calculate Total Locked (Real Mode)
-  // Calculate Total Locked (Real Mode)
-  // Locked Exposure = b * 0.693 (estimate)
-  const totalLocked = bParams?.reduce((acc, r) => {
+  // Calculate Total Locked using dynamic solvency factors
+  const totalLocked = bParams?.reduce((acc, r, i) => {
     const b = r.result ? (r.result as bigint) : 0n;
-    return acc + (b * 693n / 1000n);
-  }, 0n) || 0n;
+    const bNum = Number(formatUnits(b, 18));
+    // Get YES price for this market
+    const yesPriceResult = yesPricesData?.[i]?.result;
+    const pYes = yesPriceResult !== undefined
+      ? Number(formatUnits(yesPriceResult as bigint, 18))
+      : 0.5;
+    const sf = calcSolvencyFactor(pYes);
+    return acc + bNum * sf;
+  }, 0) || 0;
 
-  // Calculate Total Locked (Demo Mode)
+  // Demo mode: use hardcoded 0.693
   const demoTotalLocked = activeMarkets.reduce((acc, market) => {
     const b = Number(formatUnits(market.bParam || 0n, 18));
     return acc + (b * 0.693);
@@ -83,7 +129,7 @@ export const VaultMarkets: React.FC = () => {
 
   const displayTotalLocked = mode === 'demo'
     ? `$${demoTotalLocked.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-    : (isLoading ? '...' : `$${parseFloat(formatUnits(totalLocked, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
+    : (isLoading ? '...' : `$${totalLocked.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
 
   return (
     <Card className="mt-6 border-slate-800 bg-slate-900/20">
@@ -96,11 +142,11 @@ export const VaultMarkets: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-            <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">{t('trading.reserveMultiplier')}</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">Reserve Factor</div>
             <div className="text-lg font-mono font-medium text-slate-300">{multiplierFormatted}</div>
           </div>
           <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-            <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">{t('trading.totalLocked')}</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider font-medium">Total Locked</div>
             <div className="text-lg font-mono font-medium text-amber-400">{displayTotalLocked}</div>
           </div>
         </div>
@@ -123,78 +169,79 @@ export const VaultMarkets: React.FC = () => {
                   <div className="space-y-2 pt-2 border-t border-slate-700/50">
                     <div>
                       <p className="text-[10px] text-slate-400 font-mono">{t('lp.formula')}:</p>
-                      <p className="font-mono text-blue-400">b = Base + (Reserve × Multiplier)</p>
+                      <p className="font-mono text-blue-400">b = b_base + (reserves × factor / 10000)</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-slate-400 font-mono">{t('lp.components')}:</p>
                       <ul className="list-disc list-inside text-[10px] text-slate-500">
-                        <li><span className="text-slate-300">Base:</span> Global vault allocation</li>
-                        <li><span className="text-slate-300">Reserve:</span> Market's accumulated spreads</li>
-                        <li><span className="text-slate-300">Multiplier:</span> {multiplierFormatted} (Current)</li>
+                        <li><span className="text-slate-300">b_base:</span> Global vault allocation to market</li>
+                        <li><span className="text-slate-300">reserves:</span> Cumulative market PnL</li>
+                        <li><span className="text-slate-300">factor:</span> {multiplierFormatted} (reserveFactorBps = 1000)</li>
                       </ul>
                     </div>
                   </div>
                 </div>
               </th>
-              <th className="pb-3 font-medium text-right">{t('trading.baseLiquidity')}</th>
-              <th className="pb-3 font-medium text-right">{t('trading.marketReserves')}</th>
+              <th className="pb-3 font-medium text-right">b_base</th>
+              <th className="pb-3 font-medium text-right">Reserves</th>
               <th className="pb-3 font-medium text-right group/header relative">
-                <span className="border-b border-dotted border-slate-600 cursor-help">{t('trading.solvencyFactor')}</span>
+                <span className="border-b border-dotted border-slate-600 cursor-help">Solvency Factor</span>
                 <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl opacity-0 invisible group-hover/header:opacity-100 group-hover/header:visible transition-all z-10">
-                  <p className="font-semibold text-white mb-1">Locked / b Ratio</p>
-                  The ratio of capital locked per unit of liquidity depth.
-                  <br /><br />
-                  <span className="font-mono text-amber-400">~0.693</span> for balanced markets.
-                  <br />
-                  Changes as the market price shifts.
+                  <p className="font-semibold text-white mb-1">solvencyFactor(p)</p>
+                  <p className="font-mono text-amber-400 mb-2">= p·ln(p) + (1-p)·ln(1-p)</p>
+                  Dynamic based on YES price (p).<br />
+                  At 50%: 0.693 • At 90%: 0.325
                 </div>
               </th>
               <th className="pb-3 pr-2 font-medium text-right group/header relative">
-                <span className="border-b border-dotted border-slate-600 cursor-help">{t('trading.maxLossLocked')}</span>
+                <span className="border-b border-dotted border-slate-600 cursor-help">Locked Exposure</span>
                 <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 shadow-xl opacity-0 invisible group-hover/header:opacity-100 group-hover/header:visible transition-all z-10">
-                  <p className="font-semibold text-white mb-1">{t('lp.worstCasePayout')}</p>
-                  This is the maximum amount the vault could lose if the market resolves against its position. This capital is "locked" to ensure solvency.
+                  <p className="font-semibold text-white mb-1">lockedExposure = b × solvencyFactor</p>
+                  Capital locked to guarantee solvency. This is the worst-case payout if market resolves against the vault.
                 </div>
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
             {activeMarkets.map((market, i) => {
-              const locked = 0n; // Not available in V4 directly
-
               const bParam = bParams?.[i]?.result;
               const configBParam = market.bParam || 0n;
               const finalBParam = mode === 'demo' ? configBParam : ((bParam as bigint) || configBParam);
               const bValue = Number(formatUnits(finalBParam, 18));
-              const estimatedLoss = bValue * 0.693;
 
-              // Always use estimated loss for now in V4 as we don't fetch locked per market
-              const finalLockedValue = estimatedLoss;
-              const isEstimated = true;
+              // Get YES price and calculate dynamic solvency factor
+              const yesPriceResult = yesPricesData?.[i]?.result;
+              const pYes = yesPriceResult !== undefined
+                ? Number(formatUnits(yesPriceResult as bigint, 18))
+                : 0.5; // default to 50%
+              const solvencyFactor = calcSolvencyFactor(pYes);
+              const lockedExposure = bValue * solvencyFactor;
 
               const displayLocked = mode === 'demo'
-                ? `${estimatedLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : (bParam === undefined ? '...' : `${finalLockedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                ? `${(bValue * 0.693).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : (bParam === undefined ? '...' : `${lockedExposure.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
-              const reserve = 0n; // Not available in V4 directly
-              const displayReserve = '-';
+              // Fetch market reserves from GovernorVault (WAD = 18 decimals)
+              const reserveResult = marketReservesData?.[i]?.result;
+              const reserveValue = reserveResult !== undefined ? Number(formatUnits(reserveResult as bigint, 18)) : 0;
+              const displayReserve = mode === 'demo'
+                ? '-'
+                : (reserveResult === undefined ? '...' : `$${reserveValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
               const bFormatted = formatUnits(finalBParam, 18);
-
               const displayB = mode === 'demo'
                 ? `${bValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : (bParam === undefined ? '...' : `${parseFloat(bFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
-              const marketBaseLiquidity = (market as any).baseLiquidity || 0n;
-              const reserveValue = 0;
-
-              const baseValue = mode === 'demo'
-                ? Number(formatUnits(marketBaseLiquidity, 18))
-                : bValue; // Approximate base as b for now
+              // Get bBase from contract (base allocation before reserves boost)
+              const bBaseParam = bBaseParams?.[i]?.result;
+              const bBaseValue = bBaseParam !== undefined
+                ? Number(formatUnits(bBaseParam as bigint, 18))
+                : bValue; // fallback to b if bBase not available
 
               const displayBase = mode === 'demo'
-                ? `${baseValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : (bParam === undefined ? '...' : `${baseValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                ? `${bValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : (bBaseParam === undefined ? '...' : `${bBaseValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
               let displayStatus = market.status;
               if (mode === 'real' && marketStatuses) {
@@ -251,11 +298,10 @@ export const VaultMarkets: React.FC = () => {
                   <td className="py-4 text-right font-mono text-slate-400">
                     {(() => {
                       if (mode === 'demo') return '0.693';
-                      if (bValue > 0) return (finalLockedValue / bValue).toFixed(4);
-                      return '-';
+                      return solvencyFactor.toFixed(4);
                     })()}
                   </td>
-                  <td className={`py-4 pr-2 text-right font-mono ${isEstimated ? 'text-amber-400/70 italic' : 'text-amber-400'}`}>
+                  <td className="py-4 pr-2 text-right font-mono text-amber-400">
                     {displayLocked}
                   </td>
                 </tr>

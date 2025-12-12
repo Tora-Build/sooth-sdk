@@ -20,24 +20,27 @@ export const SettlementSimulator: React.FC = () => {
   // 1. Prepare Data Fetching for Real Mode
   const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real');
 
+  // Define MO_MARKET_ABI alias for V4
+  const MO_MARKET_ABI = MARKET_V4_ABI;
+
   const marketContracts = realMarkets.flatMap(m => [
     {
       address: m.contractAddress as `0x${string}`,
-      abi: MO_MARKET_ABI, // Using V4 ABI alias
+      abi: MO_MARKET_ABI,
       functionName: 'b',
       args: [],
     },
     {
       address: m.contractAddress as `0x${string}`,
       abi: MO_MARKET_ABI,
-      functionName: 'q',
-      args: [0], // qYes
+      functionName: 'price',
+      args: [0], // YES price
     },
     {
       address: m.contractAddress as `0x${string}`,
       abi: MO_MARKET_ABI,
-      functionName: 'q',
-      args: [1], // qNo
+      functionName: 'price',
+      args: [1], // NO price
     },
     {
       address: m.contractAddress as `0x${string}`,
@@ -64,9 +67,6 @@ export const SettlementSimulator: React.FC = () => {
 
   // 3. Render
   let activeMarkets: any[] = [];
-
-  // Define MO_MARKET_ABI locally or import MARKET_V4_ABI as alias
-  const MO_MARKET_ABI = MARKET_V4_ABI;
 
   if (mode === 'demo') {
     // ... (Keep existing demo logic)
@@ -110,34 +110,24 @@ export const SettlementSimulator: React.FC = () => {
     activeMarkets = realMarkets.map((m: any, i: number) => {
       const baseIdx = i * 5;
       const bRes = realData[baseIdx];
-      const qYesRes = realData[baseIdx + 1];
-      const qNoRes = realData[baseIdx + 2];
+      const priceYesRes = realData[baseIdx + 1];
+      const priceNoRes = realData[baseIdx + 2];
       const isLiveRes = realData[baseIdx + 3];
       const isSettledRes = realData[baseIdx + 4];
 
-      if (bRes?.result !== undefined && qYesRes?.result !== undefined) {
+      if (bRes?.result !== undefined && priceYesRes?.result !== undefined) {
         const bBig = bRes.result as bigint;
-        const qYesBig = qYesRes.result as bigint;
-        const qNoBig = qNoRes.result as bigint;
+        const priceYesBig = priceYesRes.result as bigint;
 
         const b = Number(formatUnits(bBig, 18));
-        const qYes = Number(formatUnits(qYesBig, 18));
-        const qNo = Number(formatUnits(qNoBig, 18));
+        const priceYes = Number(formatUnits(priceYesBig, 18));
 
-        // Reserve Logic for V4: approximate as b * 0.1 for display or fetch specific if added
-        // V4 doesn't have explicit 'reserve' view easily accessible in standard ABI yet
+        // Reserve: approximate as b * 0.1 for display (actual reserves from GovernorVault)
         const marketReserve = b * 0.1;
 
-        // Calculate current implied YES probability
-        let priceYes = 0.5;
-        if (b > 0) {
-          const expYes = Math.exp(qYes / b);
-          const expNo = Math.exp(qNo / b);
-          priceYes = expYes / (expYes + expNo);
-        }
-
-        const userSharesYes = Math.max(0, qYes); // Approximation for simulator
-        const userSharesNo = Math.max(0, qNo);
+        // Placeholder user shares (would need actual balance fetching)
+        const userSharesYes = 0;
+        const userSharesNo = 0;
 
         const payoutYesWin = userSharesYes;
         const lpPnlYesWin = marketReserve - payoutYesWin;

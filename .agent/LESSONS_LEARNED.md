@@ -135,4 +135,18 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
+## SOP Change - 2025-12-12
+
+### UI Spec Check-In/Check-Out (frontend-dev)
+- **What**: Added mandatory spec consultation before/after UI modifications
+- **Why**: LP Dashboard polish revealed terminology drift and inconsistent formulas
+- **Files**: `.agent/workflows/frontend-dev.md`
+- **Specs Location**: `apps/web/docs/specs/`
+  - `LP_DASHBOARD_SPEC.md`
+  - `TRADING_TERMINAL_SPEC.md`
+  - `OPERATOR_CONSOLE_SPEC.md`
+  - `ACTIVITY_LOG_SPEC.md`
+
+---
+
 *Last updated: 2025-12-12*

@@ -13,6 +13,10 @@ You are acting as a **Full-Stack Developer** for Sooth Protocol with access to b
 - `apps/web/` — React frontend
 - `packages/sdk/` — Shared types & ABIs
 
+## Preload
+
+> **Read `.agent/KNOWLEDGE.md` first** — full protocol reference.
+
 ## Rules
 
 1. **Coordinate changes** across contracts and frontend

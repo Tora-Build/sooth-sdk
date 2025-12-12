@@ -12,30 +12,28 @@ export function useProtocolStats() {
   // LP vault - use SoothGovernorVault
   const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
 
-  // We only fetch on-chain data if in Real mode
+  // Fetch totalAssets and totalLockedExposure from vault
   const { data: vaultData, isLoading } = useReadContracts({
     contracts: [
       { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalAssets' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalLockedExposure' },
     ],
     query: {
       enabled: mode === 'real',
-      refetchInterval: 30000, // Increased to prevent RPC rate limiting
+      refetchInterval: 30000,
     }
   });
 
-  const [totalAssets] = vaultData?.map(r => r.result) || [];
+  const [totalAssets, totalLockedExposure] = vaultData?.map(r => r.result) || [];
 
-  // Calculate stats
+  // Calculate stats from actual contract values
   const totalTVL = mode === 'real'
     ? (totalAssets ? parseFloat(formatUnits(totalAssets as bigint, 18)) : 0)
     : 3100000; // Mock for demo
 
-  // Estimate liquid as 85% of total (since we don't have direct access to locked exposure)
-  const liquid = mode === 'real'
-    ? totalTVL * 0.85
-    : 2660000; // Mock for demo
-
-  const locked = totalTVL - liquid;
+  const locked = mode === 'real'
+    ? (totalLockedExposure ? parseFloat(formatUnits(totalLockedExposure as bigint, 18)) : 0)
+    : 2140000; // Mock for demo (~69% of TVL)
 
   // Counts - filter by current mode AND selected chain
   const filteredMarkets = markets.filter(m => {
@@ -46,7 +44,7 @@ export function useProtocolStats() {
     return m.mode === 'real' && (m.chainId === undefined || m.chainId === selectedChainId);
   });
   const marketCount = filteredMarkets.length;
-  // There's only 1 vault per chain in real mode, or count unique adjudicator types in demo
+  // There's only 1 vault per chain in real mode
   const poolCount = mode === 'real' ? 1 : new Set(filteredMarkets.map(m => m.adjudicatorKind)).size;
 
   return {

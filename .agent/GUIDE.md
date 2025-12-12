@@ -19,6 +19,7 @@ Quick reference for when to use which workflow or rule.
 |----------|-------------|
 | `/preflight` | Session start, resuming after break, when agent seems forgetful |
 | `/coordinator` | After major changes, end of session, status sync |
+| `/sop` | Adding/editing workflows, recording lessons, proposing rules |
 | `/deploy` | Before/during contract deployment |
 | `/deploy-sync` | After `forge script --broadcast` |
 | `/evm-dev` | Solidity development |

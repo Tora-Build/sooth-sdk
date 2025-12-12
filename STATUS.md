@@ -1,21 +1,38 @@
 # Project Status
 
-> Last Updated: 2025-12-12 07:26 UTC+7
+> Last Updated: 2025-12-12 12:24 UTC+7
 
 ## Current Focus
-- **V4.5 Live** — All critical bugs fixed, hybrid sell working.
-- **User Testing** — Testing orderbook and hybrid sell functionality.
+- **V4.5 Live** — All critical bugs fixed, UI polish phase.
+- **LP Dashboard Polish** — Completed: terminology, formula alignment, dynamic solvency factor.
+- **UI Specs System** — New documentation governance for frontend changes.
 
 ## Recent Changes (2025-12-12)
 
-### ✅ Fixes Applied
-1. **OutcomeToken Authorization (C-07)**: Fixed `creditMergeProceeds` modifier
-2. **My Orders Display**: Now shows user's orders correctly via `orderOwners` lookup
-3. **Hybrid Sell**: Single-transaction execution working
+### ✅ LP Dashboard Polish
+1. **VaultStats.tsx**: Removed confusing Vault Type A/B/C/D, simplified to "Governor Vault"
+2. **VaultMarkets.tsx**: 
+   - Dynamic solvency factor using `price(0)` from each market
+   - Fetching `bBase()` for correct base liquidity display
+   - Fixed market reserves precision from 6 to 18 decimals
+3. **LiquidityModelInfo.tsx**: Text and formulas aligned with KNOWLEDGE.md
+4. **useVault.ts**: Now fetches `totalLockedExposure` from contract
+5. **useProtocolStats.ts**: Fixed locked calculation (was hardcoded 85%)
 
-### ✅ V4.5 Deployment
-- Full redeploy of all infrastructure + markets to Base Sepolia
-- Verification passed — all contracts linked correctly
+### ✅ Bug Fixes
+1. **AmmMarketCard.tsx**: Removed duplicate `<h3>` element (title appearing twice)
+2. **SettlementSimulator.tsx**: Fixed `MO_MARKET_ABI` hoisting bug, changed `q()` to `price()`
+
+### ✅ New UI Specs System
+- Created `apps/web/docs/specs/` folder with:
+  - `LP_DASHBOARD_SPEC.md`
+  - `TRADING_TERMINAL_SPEC.md`
+  - `OPERATOR_CONSOLE_SPEC.md`
+  - `ACTIVITY_LOG_SPEC.md`
+
+### ✅ SOP Update
+- Updated `.agent/workflows/frontend-dev.md` with mandatory spec check-in/check-out
+- Recorded in `.agent/LESSONS_LEARNED.md`
 
 ## Active Deployments (Base Sepolia - Chain 84532)
 
@@ -36,8 +53,12 @@
 | OutcomeToken 2 | `0x7178301FDEe367DC0ad10215c466293f9E7CDc5e` |
 
 ## Pending/Blocked
-- [ ] User testing of hybrid sell functionality
+- [ ] Visual verification of LP Dashboard polish
 - [ ] Monad testnet deployment (awaiting funds)
+
+## Next Steps
+- Continue UI polish on Operator Console if needed
+- Test portfolio page with active positions
 
 ## Previous Session Summary (2025-12-11)
 - V4.4 deployed with 6 critical WAD overflow bug fixes

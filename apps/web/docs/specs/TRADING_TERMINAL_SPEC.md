@@ -1,0 +1,269 @@
+# Trading Terminal UI Specification
+
+> Reference document for Trading Terminal terminology, labels, and calculations.
+> Aligned with `.agent/KNOWLEDGE.md` as the canonical source of truth.
+
+---
+
+## 1. Component Structure
+
+```
+TraderTerminal (page)
+├── MarketSelector
+├── MarketFilters
+└── AmmMarketCard (main trading card)
+    ├── Header (title, badges, adjudicator link)
+    ├── Trade Mode Toggle (Buy/Sell)
+    ├── Outcome Toggle (YES/NO)
+    ├── Quote Preview Section
+    │   ├── Price & Liquidity Bar
+    │   ├── Probability Bar
+    │   └── Order Summary
+    ├── Shares Input
+    ├── Slippage Selector
+    ├── Execute Button
+    └── Orderbook Drawer
+        ├── LimitOrderForm
+        └── Orderbook Display
+```
+
+---
+
+## 2. AmmMarketCard Header
+
+| Element | Source | Notes |
+|---------|--------|-------|
+| **Title** | `#{market.id_numeric} {market.question}` | Line-clamped to 2 lines |
+| **Adjudicator Badge** | `market.adjudicatorLabel` | e.g., "Manual Settlement" |
+| **Status Badge** | `market.status` | "Trading" / "Settled - YES/NO" |
+| **Orderbook Button** | Opens drawer | "↗ Orderbook" |
+| **Adjudicator Link** | `market.adjudicatorId` | Links to BaseScan in real mode |
+
+---
+
+## 3. Trade Mode & Outcome Toggles
+
+| Element | States | Styling |
+|---------|--------|---------|
+| **Buy/Sell Toggle** | `tradeMode: 'buy' \| 'sell'` | Green border (buy), Rose border (sell) |
+| **YES/NO Toggle** | `selectedOutcome: 0 \| 1` | Green (YES=0), Rose (NO=1) |
+
+---
+
+## 4. Quote Preview Section
+
+### Price & Liquidity Bar
+
+| Label | Variable | Formula |
+|-------|----------|---------|
+| **YES Price** | `quote.newPriceYes` or `market.priceYes` | From AMM or quote hook |
+| **USDC** | Static label | Currency denomination |
+| **Liquidity** | `virtualLiquidity` | `market.bParam / 1e18` |
+
+### Probability Bar
+
+| Label | Variable | Formula |
+|-------|----------|---------|
+| **YES Probability** | `priceYesPercent` | `market.priceYes * 100` |
+| **Arrow (→)** | Shown when | `hasValidAmount && quote` |
+| **New Probability** | `quote.newPriceYes * 100` | After trade impact |
+| **Progress Bar** | Width | `newPriceYes * 100%` |
+
+### Order Summary
+
+| Label | Variable | Formula |
+|-------|----------|---------|
+| **Cost per share** | Computed | `\|quote.totalCost\| / amount` |
+| **Fee + Slippage** | `market.fee`, `slippageBps` | `{fee*100}% + {slippageBps/100}%` |
+| **Est. Total** (Buy) | `quote.maxWithSlippage` | Total cost including slippage |
+| **Min Received** (Sell) | `quote.maxWithSlippage` | Minimum proceeds |
+
+---
+
+## 5. Shares Input
+
+| Element | Variable | Notes |
+|---------|----------|-------|
+| **Label** | "Shares" | Static |
+| **Lock Info** (Sell) | `lockedAmount`, `hoursRemaining` | Shows if user has locked shares |
+| **Available** (Sell) | `maxSellAmount` | User's available balance |
+| **Decrement Button** | `-` | Hold-to-repeat enabled |
+| **Input Field** | `amount` | Numeric, 1 step |
+| **Increment Button** | `+` | Hold-to-repeat enabled |
+
+---
+
+## 6. Slippage Selector
+
+| Element | Variable | Options |
+|---------|----------|---------|
+| **Label** | "Slippage Tolerance" | With info icon |
+| **Current Value** | `slippageBps / 100` | e.g., "0.5%" |
+| **Options** | Click to expand | 0.1%, 0.5%, 1.0%, 2.0% |
+
+---
+
+## 7. Execute Button
+
+| State | Condition | Text |
+|-------|-----------|------|
+| **Normal** | Ready | "Buy YES" / "Sell NO" etc. |
+| **Loading** | `isPending` | "Loading..." |
+| **Disabled - Balance** | `hasInsufficientBalance` | "Insufficient Balance (X USDC)" |
+| **Disabled - Amount** | `amount <= 0` | Button disabled |
+| **Disabled - Sell** | `!canSell` | Button disabled |
+| **Disabled - Status** | `market.status !== 'trading'` | Button disabled |
+
+---
+
+## 8. Orderbook Drawer
+
+### Drawer Header
+
+| Element | Source |
+|---------|--------|
+| **Title** | "Orderbook" |
+| **Market Question** | `market.question` |
+| **Market ID** | `#{market.id_numeric}` |
+| **Liquidity** | `market.bParam / 1e18` |
+
+### LimitOrderForm
+
+| Element | Variable | Notes |
+|---------|----------|-------|
+| **Mode Tabs** | "Limit" | Only limit orders supported |
+| **Side Toggle** | `orderSide: 'bid' \| 'ask'` | Bid = Buy, Ask = Sell |
+| **Outcome Toggle** | `selectedOutcome: 0 \| 1` | YES / NO |
+| **Price Input** | `price` | 0.01 - 0.99 range |
+| **Quantity Input** | `quantity` | Shares to buy/sell |
+
+### Order Summary (Limit)
+
+| Label | Variable | Formula |
+|-------|----------|---------|
+| **Current YES Price** | `market.priceYes` | From AMM |
+| **Order Price** | `price` | User input |
+| **Collateral Required** | Computed | `max(price, 1-price) × quantity` |
+| **Max Profit** | Computed | `(1 - collateralPerShare) × quantity` |
+
+### Place Order Button
+
+| State | Condition | Text |
+|-------|-----------|------|
+| **Bid + YES** | Normal | "Place Bid (Buy YES)" |
+| **Ask + YES** | Normal | "Place Ask (Sell YES)" |
+| **Bid + NO** | Normal | "Place Bid (Buy NO)" |
+| **Ask + NO** | Normal | "Place Ask (Sell NO)" |
+| **Loading** | `isPending` | "Placing..." |
+| **Needs Approval** | `!isApproved` | "Approve & Place" |
+
+---
+
+## 9. Orderbook Display
+
+### Tabs
+
+| Tab | Content |
+|-----|---------|
+| **Orderbook** | Bid/Ask order display |
+| **My Orders** | User's open orders |
+
+### Order Levels
+
+| Column | Data |
+|--------|------|
+| **Price** | Order price (0.01 - 0.99) |
+| **Size** | Aggregated shares at price level |
+| **Total** | Cumulative notional |
+| **Bar** | Width proportional to size |
+
+### My Orders
+
+| Column | Data |
+|--------|------|
+| **Type** | Bid/Ask |
+| **Price** | Order price |
+| **Size** | Remaining shares |
+| **Cancel** | Cancel button |
+
+---
+
+## 10. Calculation Reference
+
+### AMM Quote (useV4Quote)
+
+```typescript
+const { quote } = useV4Quote(marketId, outcome, amount, isBuy, fee);
+
+// Returns:
+quote.totalCost      // Total USDC cost (negative for sells)
+quote.avgPrice       // Weighted average price
+quote.newPriceYes    // YES price after trade
+quote.newPriceNo     // NO price after trade
+quote.maxWithSlippage // Cost with slippage buffer
+```
+
+### Limit Order Collateral
+
+```typescript
+// For bid (buying):
+collateral = price × quantity;       // YES bid
+collateral = (1 - price) × quantity; // NO bid
+
+// For ask (selling):
+// Must hold shares to sell
+```
+
+### Slippage Buffer
+
+```typescript
+const withSlippage = totalCost * (1 + slippageBps / 10000);
+```
+
+---
+
+## 11. Data Sources
+
+| Data | Hook | Contract Function |
+|------|------|-------------------|
+| Market Info | `useAmmMarket` | Various market reads |
+| AMM Quote | `useV4Quote` | `calculateAMMTradeCost()` |
+| Balance | `useAmmTrade` | `yesBalance()`, `noBalance()` |
+| Orderbook | `useOrderbook` | `orders()`, `bestBid()`, `bestAsk()` |
+| User Orders | `useOrderbook` | Filtered by `msg.sender` |
+
+---
+
+## 12. Files
+
+| File | Purpose |
+|------|---------|
+| `AmmMarketCard.tsx` | Main trading card component |
+| `OrderbookForm.tsx` | Drawer wrapper for limit orders |
+| `LimitOrderForm.tsx` | Limit order placement UI |
+| `Orderbook.tsx` | Order book display |
+| `MarketSelector.tsx` | Market selection dropdown |
+| `MarketFilters.tsx` | Category filters |
+
+---
+
+## 13. Translation Keys
+
+| Key | English Text |
+|-----|--------------|
+| `trading.buy` | "Buy" |
+| `trading.sell` | "Sell" |
+| `trading.yes` | "YES" |
+| `trading.no` | "NO" |
+| `trading.yesPrice` | "YES Price" |
+| `trading.yesProb` | "YES Probability" |
+| `trading.liquidity` | "Liquidity" |
+| `trading.shares` | "Shares" |
+| `trading.costPerShare` | "Cost per share" |
+| `trading.feeSlippage` | "Fee + Slippage" |
+| `trading.orderbook` | "Orderbook" |
+| `trading.marketOrderNote` | "Market orders match immediately against AMM" |
+
+---
+
+*Last updated: 2025-12-12*

@@ -12,6 +12,10 @@ You are acting as an **EVM Protocol Developer** for Sooth Protocol — focused o
 - `packages/contracts-evm/test/` — Foundry tests
 - `packages/contracts-evm/script/` — Deployment scripts
 
+## Preload
+
+> **Read `.agent/KNOWLEDGE.md` first** — architecture, formulas, errors, auth matrix.
+
 ## Rules
 
 1. **Contracts Only**: Do NOT modify frontend code

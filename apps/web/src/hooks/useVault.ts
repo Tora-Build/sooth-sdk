@@ -28,6 +28,7 @@ export function useVault() {
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', vaultAddress] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'asset' },
+      { address: vaultAddress, abi: GOVERNOR_VAULT_V4_ABI, functionName: 'totalLockedExposure' },
     ],
     query: {
       enabled: mode === 'real' && !!address,
@@ -35,7 +36,7 @@ export function useVault() {
     }
   });
 
-  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset] = data?.map(r => r.result) || [];
+  const [totalAssets, totalSupply, lpBalance, allowance, userUsdcBalance, vaultAsset, contractTotalLocked] = data?.map(r => r.result) || [];
 
   if (vaultAsset && (vaultAsset as string).toLowerCase() !== tokenAddress.toLowerCase()) {
     console.error('CRITICAL: Vault asset mismatch!', {
@@ -253,9 +254,7 @@ export function useVault() {
   // Calculate Total Locked
   // Demo: Sum of b * 0.693 (calculated above as currentTotalLocked)
   // Real: Use totalLockedExposure from contract
-  // Real: Use totalLockedExposure from contract (Not available in V4 basic view yet)
-  const contractLockedExposure = 0n; // Placeholder until V4 exposes this
-  const totalLocked = mode === 'demo' ? currentTotalLocked : contractLockedExposure;
+  const totalLocked = mode === 'demo' ? currentTotalLocked : (contractTotalLocked as bigint || 0n);
 
   return {
     deposit,
