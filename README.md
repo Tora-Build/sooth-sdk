@@ -1,28 +1,122 @@
-# Sooth Protocol - Fullstack Skeleton v5 (No OpenZeppelin Dependency)
+# Sooth Protocol Monorepo
 
-This version removes all OpenZeppelin imports for Foundry by providing local stubs:
+A unified prediction market protocol supporting **EVM** (Ethereum, Base, Monad) and **Solana** (planned).
 
-- `contracts/stubs/Initializable.sol`
-- `contracts/stubs/OwnableUpgradeable.sol`
-- `contracts/stubs/ReentrancyGuardUpgradeable.sol`
-- `contracts/stubs/IERC20Upgradeable.sol`
-- `contracts/stubs/MerkleProof.sol`
+## Structure
 
-Core contracts:
+```
+sooth-alpha/
+├── apps/
+│   └── web/                      # Frontend dApp (Vite + React 18)
+├── packages/
+│   ├── contracts-evm/            # Solidity smart contracts (Foundry)
+│   ├── contracts-solana/         # Rust programs (Anchor) [Planned]
+│   └── sdk/                      # Shared types, ABIs, and config
+├── .github/
+│   └── CODEOWNERS                # Role-based PR review enforcement
+├── package.json                  # pnpm workspace root
+├── pnpm-workspace.yaml
+└── turbo.json                    # Build pipeline
+```
 
-- `SoothVault` (singleton vault)
-- `SoothMarket` (binary vAMM market using simplified LMSR)
-- `SoothAdjudicatorManager` + adjudicator adapters (UMA, Reality, Chainlink, Attestation)
-- `SoothMarketFactory`
-- `SoothSmartAccount`
-- Settlement: `SoothSettlementMerkle` + `SoothZKVerifierStub`
+## Quick Start
 
-Testing:
+### Prerequisites
+
+- **Node.js** 18+
+- **pnpm** 9+ (`npm install -g pnpm`)
+- **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`)
+
+### Setup
 
 ```bash
-forge install foundry-rs/forge-std --no-commit
-forge clean
+# Install all dependencies
+pnpm install
+
+# Build everything
+pnpm build
+```
+
+### Development
+
+**Frontend:**
+
+```bash
+pnpm --filter web dev
+# Opens at http://localhost:5173
+```
+
+**Contracts:**
+
+```bash
+cd packages/contracts-evm
+forge build
 forge test
 ```
 
-Hardhat is configured via `hardhat.config.ts` and `scripts/deploy-sooth.ts`, but uses the same contracts.
+## Packages
+
+### `apps/web`
+
+Vite + React 18 dApp with:
+
+- Wagmi v2 for Web3 connectivity
+- Zustand for state management
+- Tailwind CSS for styling
+
+### `packages/contracts-evm`
+
+Foundry project containing:
+
+- `SoothTraderVaultV4` — User fund management & AMM Positions
+- `SoothGovernorVault` — LP liquidity pool
+- `SoothMarketV4` — Unified Market (LMSR + Orderbook)
+- `OutcomeToken` — Orderbook Share Tokens (ERC1155)
+
+### `packages/sdk`
+
+Shared TypeScript package:
+
+- ABIs exported from contracts
+- Type definitions
+- Deployment configurations
+
+### `packages/contracts-solana` (Planned)
+
+Anchor project for Solana deployment.
+
+## Agent Workflows
+
+This repo supports **scoped agent contexts** for different developer roles:
+
+| Role         | Workspace                | Command         |
+| ------------ | ------------------------ | --------------- |
+| Protocol Dev | `packages/contracts-evm` | `/protocol-dev` |
+| Frontend Dev | `apps/web`               | `/frontend-dev` |
+
+## Scripts
+
+| Script                  | Description                    |
+| ----------------------- | ------------------------------ |
+| `./sync-fe-docs.sh`     | Sync contract docs to frontend |
+| `./sync-deployments.sh` | Sync deployment addresses      |
+
+## Deployments
+
+### Base Sepolia
+
+See `packages/contracts-evm/deployments.json`
+
+### Monad Testnet
+
+See `packages/contracts-evm/deployments/monad/`
+
+## Documentation
+
+- [Architecture](./packages/contracts-evm/docs/core/ARCHITECTURE.md)
+- [Frontend Integration](./packages/contracts-evm/docs/technical/frontend-integration/README.md)
+- [Fee Design](./packages/contracts-evm/docs/research/FEE_DESIGN.md)
+
+## License
+
+MIT

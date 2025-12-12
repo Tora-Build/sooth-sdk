@@ -1,0 +1,242 @@
+{
+  "markets": [
+    {
+      "id": "megaeth_btc",
+      "id_numeric": 1,
+      "mode": "real",
+      "chainId": 6343,
+      "name": "BTC Price Market",
+      "question": "Will BTC price exceed $100k by Dec 31?",
+      "adjudicatorKind": "UMA",
+      "adjudicatorLabel": "UMA Optimistic Oracle",
+      "openEnded": true,
+      "contractAddress": "0xe41801b8cbd9ced2f6b32e476609b72c90f954de",
+      "adjudicatorId": "0xmegaeth_btc_adj",
+      "eventId": "0xmegaeth_btc_event",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "LOW",
+      "bParam": "43281000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "megaeth_eth_gas",
+      "id_numeric": 2,
+      "mode": "real",
+      "chainId": 6343,
+      "name": "ETH Gas Market",
+      "question": "Will ETH gas exceed 100 gwei average for 100 blocks?",
+      "adjudicatorKind": "CHAINLINK",
+      "adjudicatorLabel": "Chainlink Functions",
+      "openEnded": true,
+      "contractAddress": "0x7c60001d89d9878b1f7c4180916fcc3ede592e8d",
+      "adjudicatorId": "0xmegaeth_gas_adj",
+      "eventId": "0xmegaeth_gas_event",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "LOW",
+      "bParam": "43281000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "megaeth_launch",
+      "id_numeric": 3,
+      "mode": "real",
+      "chainId": 6343,
+      "name": "MegaETH Launch Market",
+      "question": "Will MegaETH mainet launch in 2026 Q1?",
+      "adjudicatorKind": "TELLOR",
+      "adjudicatorLabel": "Tellor Oracle",
+      "openEnded": true,
+      "contractAddress": "0x9a792f0d93e0b71155dbea9bded1a43d257e14fa",
+      "adjudicatorId": "0xmegaeth_launch_adj",
+      "eventId": "0xmegaeth_launch_event",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "MEDIUM",
+      "bParam": "72135000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "megaeth_tvl",
+      "id_numeric": 4,
+      "mode": "real",
+      "chainId": 6343,
+      "name": "Sooth Speed TVL Market",
+      "question": "Will Sooth Speed Market TVL exceed $10M?",
+      "adjudicatorKind": "MULTISIG",
+      "adjudicatorLabel": "Multisig Committee",
+      "openEnded": true,
+      "contractAddress": "0xab4dbabc3a55f911967f8450c1172cd13c6a636f",
+      "adjudicatorId": "0xmegaeth_tvl_adj",
+      "eventId": "0xmegaeth_tvl_event",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "HIGH",
+      "bParam": "100989000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "megaeth_top10",
+      "id_numeric": 5,
+      "mode": "real",
+      "chainId": 6343,
+      "name": "MegaETH Top 10 Market",
+      "question": "Will MegaETH become top 10 L1 by TVL?",
+      "adjudicatorKind": "GOVERNANCE",
+      "adjudicatorLabel": "Governance Vote",
+      "openEnded": true,
+      "contractAddress": "0xf0a5ce5f112d885928b605f1c6d72ebb1c6063dc",
+      "adjudicatorId": "0xmegaeth_top10_adj",
+      "eventId": "0xmegaeth_top10_event",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "HIGH",
+      "bParam": "129843000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "m1",
+      "id_numeric": 1,
+      "mode": "demo",
+      "name": "BTC 7-day TWAP >= $100k",
+      "question": "BTC 7-day TWAP >= $100k",
+      "adjudicatorKind": "CHAINLINK_ZK",
+      "adjudicatorLabel": "Oracle + ZK",
+      "openEnded": true,
+      "contractAddress": "0x00000000000000000000000000000000000000b1",
+      "adjudicatorId": "0xoracle_zk_btc_twap",
+      "eventId": "0xevent_btc_100k",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "LOW",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "m2",
+      "id_numeric": 2,
+      "mode": "demo",
+      "name": "Protocol X hacked > $1M?",
+      "question": "Protocol X exploit > $1M",
+      "adjudicatorKind": "ZK_PROOF",
+      "adjudicatorLabel": "ZK Rule",
+      "openEnded": true,
+      "contractAddress": "0x00000000000000000000000000000000000000b2",
+      "adjudicatorId": "0xzk_rule_protocol_x",
+      "eventId": "0xevent_protocolx_hack",
+      "initialStatus": "cooldown",
+      "initialYes": 0.41,
+      "riskLevel": "HIGH",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "m3",
+      "id_numeric": 3,
+      "mode": "demo",
+      "name": "UN confirms alien life",
+      "question": "UN confirms alien life",
+      "adjudicatorKind": "UMA_REALITY",
+      "adjudicatorLabel": "Optimistic",
+      "openEnded": true,
+      "contractAddress": "0x00000000000000000000000000000000000000b3",
+      "adjudicatorId": "0xoptimistic_un_aliens",
+      "eventId": "0xevent_un_aliens",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "MEDIUM",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "m4",
+      "id_numeric": 4,
+      "mode": "demo",
+      "name": "Stablecoin Z < $0.90",
+      "question": "Stablecoin Z < $0.90",
+      "adjudicatorKind": "CHAINLINK_ZK",
+      "adjudicatorLabel": "Oracle + ZK",
+      "openEnded": false,
+      "contractAddress": "0x00000000000000000000000000000000000000b4",
+      "adjudicatorId": "0xoracle_zk_stablecoin_z",
+      "eventId": "0xevent_stablecoinz_depeg",
+      "initialStatus": "settled",
+      "winningOutcome": "YES",
+      "riskLevel": "LOW",
+      "outcomes": [
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "id": "v4_alien_life",
+      "id_numeric": 1,
+      "mode": "real",
+      "chainId": 84532,
+      "name": "UN Confirms Alien Life",
+      "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",
+      "adjudicatorKind": "MANUAL",
+      "adjudicatorLabel": "Manual Settlement",
+      "openEnded": true,
+      "contractAddress": "0x99CB8c0e3da2604518b8210589edcaB50Cc6f769",
+      "outcomeTokenAddress": "0x6C590f0cd0750043ad46Ec37D2d095De89506cfd",
+      "adjudicatorId": "0xv4_alien",
+      "eventId": "0xevent_v4_alien",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "MEDIUM",
+      "bParam": "10000000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
+      "version": "v4"
+    },
+    {
+      "id": "v4_btc_twap",
+      "id_numeric": 2,
+      "mode": "real",
+      "chainId": 84532,
+      "name": "BTC 7-day TWAP >= $100k",
+      "question": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
+      "adjudicatorKind": "CHAINLINK",
+      "adjudicatorLabel": "Chainlink Oracle",
+      "openEnded": true,
+      "contractAddress": "0x94D02d846a04A751e9e4f93A6684a30e043444Da",
+      "outcomeTokenAddress": "0x7178301FDEe367DC0ad10215c466293f9E7CDc5e",
+      "adjudicatorId": "0xv4_btc_twap",
+      "eventId": "0xevent_v4_btc",
+      "initialStatus": "trading",
+      "initialYes": 0.5,
+      "riskLevel": "LOW",
+      "bParam": "15000000000000000000000",
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
+      "version": "v4"
+    }
+  ]
+}

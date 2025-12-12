@@ -1,0 +1,8 @@
+[
+  {
+    "question": "Will Bitcoin reach $100,000 by end of 2025?",
+    "outcomes": ["YES", "NO"],
+    "riskClass": "MEDIUM",
+    "adjudicatorId": "0x4455434b595f41444a00000000000000000000000000000000000000000000"
+  }
+]

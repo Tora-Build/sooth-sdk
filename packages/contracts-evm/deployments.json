@@ -1,0 +1,52 @@
+{
+  "version": "4.1",
+  "lastUpdated": "2025-12-10",
+  "networks": {
+    "baseSepolia": {
+      "chainId": 84532,
+      "status": "✅ Live & Verified - V4 Hybrid Sell",
+      "contracts": {
+        "MockUSDC": "0x85232d6e51467dac82dd36aab5b25cd412fab7a8",
+        "SoothTraderVault": "0x12b3c9456d9b0f0edbc29c9e4f95f7b21d51256f",
+        "SoothGovernorVault": "0xbb044a919bed2d20eda32de62f52ca7fc819268d",
+        "SoothFeeController": "0x2f043cff8ab8366d3e96f378089c3bbbc41cf1fb",
+        "OutcomeToken": "0xf047950cf0b8d0d117ae1f233ba23f631baccb4c",
+        "SoothMarket": "0xf4a4077645f76a78e1a29d9b817cec59aa38709e"
+      },
+      "notes": {
+        "version": "V4 - Dual-venue trading (AMM + Orderbook)",
+        "date": "2025-12-10",
+        "fix": "Hybrid Sell (Spot + Short Atomic Split)"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0xf4a4077645f76a78e1a29d9b817cec59aa38709e",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0xf047950cf0b8d0d117ae1f233ba23f631baccb4c"
+        },
+        "market2": {
+          "address": "0xff38c86ac7481b298f2196cca553685bae385977",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0x118e7e1bdf1e8223d7ae1ee3b7c6070eece273d3"
+        }
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "status": "⏸️ Paused - Awaiting Funds",
+      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "contracts": {}
+    }
+  },
+  "architecture": {
+    "version": "V4",
+    "entryPoint": "TraderVaultV4 - Dual-venue trading",
+    "features": [
+      "AMM trading with 24h lock-on-buy",
+      "Orderbook limit orders (no locks)",
+      "ERC1155 outcome tokens",
+      "Continuous LMSR (qYes/qNo) - No ticks",
+      "Dynamic liquidity (b parameter)"
+    ]
+  }
+}

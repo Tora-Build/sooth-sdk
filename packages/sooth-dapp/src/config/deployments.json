@@ -1,0 +1,45 @@
+{
+  "version": "1.2",
+  "lastUpdated": "2025-12-05",
+  "networks": {
+    "baseSepolia": {
+      "chainId": 84532,
+      "status": "✅ Live & Verified",
+      "contracts": {
+        "MockUSDC": "0x703A2bFa154d5Cf2608CcC63d8F61E53Af5C3607",
+        "SoothTraderVault": "0xd82Ef7bc2aFC25aA0f4B7e13E43bd379e955745e",
+        "SoothMarket": "0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf",
+        "SoothGovernorVault": "0x296682686358E6bAf572118bfCAA6027C349F3d3",
+        "SoothFeeController": "0x512076933a55acF5375A54A54b2DDBb996b05E97",
+        "SoothLMSRReal": "0x2fe47234662aE57E714d183c41f2Bd73DE91892F"
+      },
+      "notes": {
+        "usdc": "MockUSDC deployed by us for consistency across networks",
+        "update": "TraderVault is now ERC4626 compliant (1:1 ratio). Scripts renamed.",
+        "v1.3": "Security Fixes (GovernorVault Access Control + Market bestOrder)"
+      },
+      "marketInfo": {
+        "marketId": 1,
+        "isLive": true,
+        "bParam": "10000000000000000000000",
+        "description": "Example Market"
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "status": "⏸️ Paused - Awaiting Funds",
+      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "contracts": {}
+    }
+  },
+  "architecture": {
+    "entryPoint": "TraderVault - Single entry point for all trading",
+    "features": [
+      "Unified orderbook (Sell YES = Buy NO)",
+      "Time-lock (48h on sell proceeds)",
+      "Auto-claim on user actions",
+      "Settlement redemption",
+      "ERC4626 Compliance (TraderVault)"
+    ]
+  }
+}

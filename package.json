@@ -1,0 +1,15 @@
+{
+  "name": "sooth-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:contracts": "pnpm --filter contracts-evm test",
+    "deploy:contracts": "pnpm --filter contracts-evm deploy"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}

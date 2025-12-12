@@ -1,4 +1,52 @@
-
+# General
 .DS_Store
+.env
+.env.local
+.env.*.local
+**/.vscode
+**/.idea
+
+# Security - Private Keys & Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+.secret
+secrets/
+private/
+
+# Foundry (packages/contracts-evm)
+out/
+cache/
+broadcast/
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
+lib/prb-math
+
+# Hardhat
+artifacts/
+typechain-types/
+coverage/
+coverage.json
+
+# Node / Frontend
+node_modules/
+.next/
+build/
+dist/
+.npm
+*.log
+apps/web/deploy/
+
+# pnpm
+pnpm-lock.yaml
+
+# Turbo
+.turbo/
+
+# Graph
+generated/
+graph-data/
+
+# Archive folders
+**/archive/**
