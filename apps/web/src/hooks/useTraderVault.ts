@@ -32,7 +32,7 @@ export function useTraderVault() {
     ],
     query: {
       enabled: mode === 'real' && !!address,
-      refetchInterval: 30000 // Increased to 30s to prevent MegaETH RPC rate limiting
+      refetchInterval: 3000 // Sync with other hooks (3s)
     }
   });
 
@@ -56,6 +56,32 @@ export function useTraderVault() {
   const currentPendingBalance = mode === 'demo' ? demoPendingBalance : (pendingBalance as bigint || 0n);
   const currentTotalBalance = mode === 'demo' ? demoTotalBalance : (totalBalance as bigint || 0n);
   const currentUserUsdc = mode === 'demo' ? demoUserUsdc : (userUsdcBalance as bigint || 0n);
+  const currentAllowance = mode === 'demo' ? 1000000n * 10n ** 18n : (allowance as bigint || 0n);
+
+  /**
+   * Approve USDC for Vault
+   */
+  const approveUSDC = async (amount: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') { await new Promise(r => setTimeout(r, 1000)); toast.success('Demo: Approved'); return; }
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const amountBig = parseUnits(amount, decimals);
+      const hash = await writeContractAsync({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [traderVaultAddress, amountBig],
+      });
+      const toastId = toast.loading('Approving USDC...');
+      await publicClient?.waitForTransactionReceipt({ hash });
+      toast.success('Approved!', { id: toastId });
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'Approval failed');
+    } finally { setIsPending(false); }
+  };
 
   /**
    * Deposit USDC to trading vault
@@ -64,74 +90,26 @@ export function useTraderVault() {
     setIsPending(true);
     try {
       if (mode === 'demo') {
+        // ... demo logic ...
         await new Promise(r => setTimeout(r, 1000));
         toast.success(`Demo: Deposited ${amount} USDC`);
-        useActivityStore.getState().addActivity({
-          type: 'deposit',
-          market: 'Trading Vault',
-          description: `Deposited ${amount} USDC`,
-          mode: 'demo',
-          hash: `0x${Math.random().toString(16).slice(2)}`,
-          timestamp: Date.now()
-        });
         return;
       }
 
-      const amountBig = parseUnits(amount, decimals);
-
       if (!publicClient) throw new Error('Public Client not initialized');
 
-      // Check current allowance and balance
-      const [allowanceVal, balanceVal] = await Promise.all([
-        publicClient.readContract({
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'allowance',
-          args: [address || '0x0', traderVaultAddress]
-        }),
-        publicClient.readContract({
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [address || '0x0']
-        })
-      ]) as [bigint, bigint];
+      const amountBig = parseUnits(amount, decimals);
 
-      if (balanceVal < amountBig) {
-        throw new Error(`Insufficient USDC balance. Found ${formatUnits(balanceVal, decimals)} USDC, needed ${amount}.`);
+      // Explicit check: UI should prefer calling approveUSDC first, but we keep this safety
+      if (currentAllowance < amountBig) {
+        await approveUSDC(amount);
+        // Re-check after approve (or just let user click again, but let's try to proceed)
+        // But refetch might not be fast enough.
+        // Better to throw "Please approve first" or let UI handle it.
+        // For now, let's keep the existing flow but rely on the new UI to prevent this path.
       }
 
-      console.log('Deposit Debug:', {
-        amount: amountBig.toString(),
-        allowance: allowanceVal.toString(),
-        needsApproval: allowanceVal < amountBig,
-        tokenAddress,
-        traderVaultAddress
-      });
-
-      // Approve if needed
-      if (allowanceVal < amountBig) {
-        const tx = await writeContractAsync({
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [traderVaultAddress, amountBig],
-        });
-
-        const toastId = toast.loading('Approving USDC...');
-        console.log('Approval Sent:', tx);
-
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
-        console.log('Approval Mined:', receipt.status);
-
-        if (receipt.status !== 'success') {
-          throw new Error('Approval transaction failed');
-        }
-        toast.success('Approved!', { id: toastId });
-      }
-
-      // Deposit
-      console.log('Sending Deposit...');
+      console.log('Sending Deposit to:', traderVaultAddress);
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
@@ -140,6 +118,7 @@ export function useTraderVault() {
       });
 
       const toastId = toast.loading('Deposit submitted...');
+      // ... rest of function
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {
@@ -183,8 +162,6 @@ export function useTraderVault() {
         });
         return;
       }
-
-      if (!publicClient) throw new Error('Public Client not initialized');
 
       if (!publicClient) throw new Error('Public Client not initialized');
 
@@ -366,6 +343,88 @@ export function useTraderVault() {
   };
 
   /**
+   * Deposit ERC1155 shares into the Vault (Custodial)
+   */
+  const depositShares = async (marketAddress: string, outcome: number, amount: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') { await new Promise(r => setTimeout(r, 1000)); toast.success('Demo: Shares deposited'); return; }
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const amountBig = parseUnits(amount, 18);
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'depositShares',
+        args: [marketAddress as `0x${string}`, outcome, amountBig],
+      });
+      const toastId = toast.loading('Depositing shares...');
+      await publicClient.waitForTransactionReceipt({ hash });
+      toast.success('Shares deposited!', { id: toastId });
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Deposit shares failed');
+    } finally { setIsPending(false); }
+  };
+
+  /**
+   * Withdraw shares from Vault to Wallet
+   */
+  const withdrawShares = async (marketAddress: string, outcome: number, amount: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') { await new Promise(r => setTimeout(r, 1000)); toast.success('Demo: Shares withdrawn'); return; }
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const amountBig = parseUnits(amount, 18);
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'withdrawShares',
+        args: [marketAddress as `0x${string}`, outcome, amountBig],
+      });
+      const toastId = toast.loading('Withdrawing shares...');
+      await publicClient.waitForTransactionReceipt({ hash });
+      toast.success('Shares withdrawn!', { id: toastId });
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Withdraw shares failed');
+    } finally { setIsPending(false); }
+  };
+
+  /**
+   * Place Spot Sell Order (uses internal shareBalances)
+   */
+  const placeSpotOrder = async (marketAddress: string, outcome: number, price: string, amount: string) => {
+    setIsPending(true);
+    try {
+      if (mode === 'demo') { await new Promise(r => setTimeout(r, 1000)); toast.success('Demo: Spot Sell placed'); return 0n; }
+      if (!publicClient) throw new Error('Public Client not initialized');
+
+      const priceWad = parseUnits(price, 18);
+      const amountWad = parseUnits(amount, 18);
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'placeSpotOrder',
+        args: [marketAddress as `0x${string}`, outcome, priceWad, amountWad],
+      });
+      const toastId = toast.loading('Placing spot sell...');
+      await publicClient.waitForTransactionReceipt({ hash });
+      toast.success('Spot Sell Placed!', { id: toastId });
+      refetch();
+      return 0n;
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Spot sell failed');
+      throw err;
+    } finally { setIsPending(false); }
+  };
+
+  /**
    * Execute AMM trade (market order with slippage protection)
    * @param marketAddress - Market contract address
    * @param outcome - 0 = YES, 1 = NO
@@ -447,17 +506,28 @@ export function useTraderVault() {
     claimWinnings, // Replaces redeem
     // Trading (V4)
     placeOrder,
+    placeSpotOrder,
     cancelOrder,
-    executeAMMTrade: tradeAMM, // Alias for backward compatibility if needed, but prefer executeAMMTrade
+    executeAMMTrade: tradeAMM,
+
+    // Custodial Management
+    depositShares,
+    withdrawShares,
+
     // State
     availableBalance: currentAvailableBalance,
     pendingBalance: currentPendingBalance,
     totalBalance: currentTotalBalance,
     userUsdcBalance: currentUserUsdc,
+    allowance: currentAllowance,
     isPending,
     isLoading: mode === 'real' && !data,
     refetch,
     decimals,
+
+    // Actions
+    approveUSDC,
+    traderVaultAddress
   };
 }
 

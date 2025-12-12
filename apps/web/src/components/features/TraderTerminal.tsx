@@ -3,11 +3,12 @@ import { TrendingUp, Sparkles } from 'lucide-react';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useChainStore } from '../../store/useChainStore';
 import { useContent } from '../../hooks/useContent';
-import { MarketCard } from './trader/MarketCard';
+import { TradingAccountCard } from './portfolio/TradingAccountCard';
+import { ActivePositionsCard } from './portfolio/ActivePositionsCard';
+import { AmmMarketCard as MarketCard } from './trader/AmmMarketCard';
 import { SearchBar } from './trader/SearchBar';
 import { MarketFilters, SortOption, FilterOption } from './trader/MarketFilters';
 import { MarketSkeleton } from './trader/MarketSkeleton';
-import { TradingVaultManager } from './trader/TradingVaultManager';
 import { searchMarkets, filterMarkets, sortMarkets } from '../../utils/marketUtils';
 
 export const TraderTerminal: React.FC = () => {
@@ -18,12 +19,12 @@ export const TraderTerminal: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('status');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Filter markets based on current mode and chain
   const modeFilteredMarkets = useMemo(() => markets.filter(m => {
     // 1. Filter by Mode
     if (m.mode !== mode) return false;
-    
+
     // 2. For Real mode, filter by Chain ID
     if (mode === 'real') {
       // If market has a chainId, it MUST match the selected chain
@@ -35,10 +36,10 @@ export const TraderTerminal: React.FC = () => {
         return false;
       }
     }
-    
+
     return true;
   }), [markets, mode, selectedChainId]);
-  
+
   // Apply search, filter, and sort
   const processedMarkets = useMemo(() => {
     let result = modeFilteredMarkets;
@@ -81,7 +82,7 @@ export const TraderTerminal: React.FC = () => {
     return (
       <div className="space-y-6">
 
-      {/* Header with controls */}
+        {/* Header with controls */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <h2 className="text-2xl font-heading font-bold text-white mb-1">{t('trading.markets')}</h2>
@@ -91,8 +92,8 @@ export const TraderTerminal: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
-            <MarketFilters 
-              sortBy={sortBy} 
+            <MarketFilters
+              sortBy={sortBy}
               onSortChange={setSortBy}
               filterBy={filterBy}
               onFilterChange={setFilterBy}
@@ -106,7 +107,7 @@ export const TraderTerminal: React.FC = () => {
             <span className="text-2xl">🔍</span>
           </div>
           <p className="text-slate-400 text-sm">{t('trading.noResults')}</p>
-          <button 
+          <button
             onClick={() => {
               setSearchQuery('');
               setFilterBy('all');
@@ -121,7 +122,21 @@ export const TraderTerminal: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+
+      {/* Portfolio Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left: Trading Account (2 Cols -> 40%) */}
+        <div className="lg:col-span-2 h-full">
+          <TradingAccountCard />
+        </div>
+        {/* Right: Active Positions (3 Cols -> 60%) */}
+        <div className="lg:col-span-3 h-full">
+          <ActivePositionsCard />
+        </div>
+      </div>
+
+      <div className="h-px bg-slate-800/50 w-full" />
 
       {/* Header with controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -133,8 +148,8 @@ export const TraderTerminal: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
-          <MarketFilters 
-            sortBy={sortBy} 
+          <MarketFilters
+            sortBy={sortBy}
             onSortChange={setSortBy}
             filterBy={filterBy}
             onFilterChange={setFilterBy}

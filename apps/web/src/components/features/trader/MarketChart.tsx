@@ -1,13 +1,13 @@
 import React from 'react';
 import { Card } from '../../ui/Card';
-import { useMarket } from '../../../hooks/useMarket';
+import { useAmmMarket } from '../../../hooks/useAmmMarket';
 
 interface MarketChartProps {
   marketId: string;
 }
 
 export const MarketChart: React.FC<MarketChartProps> = ({ marketId }) => {
-  const { market } = useMarket(marketId);
+  const { market } = useAmmMarket(marketId);
   const probYes = (market?.priceYes || 0.5) * 100;
 
   return (

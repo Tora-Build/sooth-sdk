@@ -50,6 +50,11 @@ export interface Market {
   // User Position
   userYesShares: number;
   userNoShares: number;
+  // Locked Shares (AMM)
+  userYesLocked?: number;
+  userNoLocked?: number;
+  unlockTime?: number;
+
   userYesOutcomeTokens: number; // Integer (ERC1155)
   userNoOutcomeTokens: number; // Integer (ERC1155)
   userAvgEntryYes: number | null;

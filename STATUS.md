@@ -1,85 +1,44 @@
 # Project Status
 
-> Last Updated: 2025-12-10 03:55 UTC+7
+> Last Updated: 2025-12-12 00:15 UTC+7
 
 ## Current Focus
--   **Frontend Integration & Verification**:
-    -   Updating specific hooks (`useOrder`, `useTrade`) to use **Integer** amounts for Limit Orders.
-    -   Updating `SoothMarket` hooks to use `price(outcome)` instead of ticks.
-    -   Verifying full Dual-Venue flow (AMM + Orderbook) on Base Sepolia.
+- **V4.5 Deployed & Verified** — OutcomeToken authorization fix applied.
+- **Ready for Testing** — User should hard refresh and mint new USDC.
 
-## Recent Changes
--   **2025-12-10 [Protocol]**: **V3 Legacy Code REMOVED**.
-    -   Deleted all V3 contracts (`SoothMarket`, `SoothTraderVault`, `SoothLMSRReal`).
-    -   Removed `ISoothAMM` and Tick-based logic.
--   **2025-12-10 [Deployment]**: **Fresh V4 Deployment** on Base Sepolia.
-    -   Deployed V4 stack with Hybrid Granularity (Integer OB, WAD AMM).
-    -   Synced new addresses and ABIs to Frontend.
--   **2025-12-10 [Docs]**: **Documentation Overhaul**.
-    -   Updated `ARCHITECTURE.md`, `README.md`, `SHORT_SELLING.md` to V4.
-    -   Created `V4_MIGRATION_GUIDE.md` for frontend devs.
--   **2025-12-10 [Fixes]**: **Critical Bug Fixes & UI Polish**.
-    -   Fixed `panic: 0x11` (Arithmetic Underflow) in `TraderVault` by increasing Market return precision to WAD.
-    -   Redeployed Markets 1 & 2 to apply fixes.
-    -   Refined `LimitOrderForm` to be strictly for Limit Orders (Removed confusing "Market" toggle).
+## Recent Changes (2025-12-12)
 
-## Pending/Blocked
--   **Frontend Code**: Needs updates to match V4 interfaces (Integer granularity).
+### 🔴 Critical Bug Fix: OutcomeToken Authorization
+- **Root Cause**: `creditMergeProceeds` used `onlyMarket` modifier but was called by OutcomeToken during merge flow.
+- **Fix**: Added `onlyOutcomeToken` modifier and `setOutcomeToken()` admin function.
+
+### ✅ V4.5 Deployment
+- **Full redeploy** of all infrastructure + markets to Base Sepolia.
+- **Verification passed** — all contracts linked correctly.
 
 ## Active Deployments (Base Sepolia - Chain 84532)
 
-### Infrastructure
+### V4.5 Infrastructure (Current)
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0x968a13217cac0710b3c313f133061cac2f95d889` |
-| GovernorVault | `0xe02a65ea1bb6ed6a183f0f3d51bc2eaf01c2941d` |
-| TraderVaultV4 | `0x53b107a356367b8063e2bf38590c6178934cccb1` |
-| FeeController | `0x4e6f9c06a56c734e93ce2275407b51eac6b9e4a0` |
-| OutcomeToken | `0xc0a118537f70be3cb535524a4acf0d9b94336da7` |
+| MockUSDC | `0x3E45bf96a8D866D796E168eE77a5fA7507D544F1` |
+| GovernorVault | `0xcB0f1305951d4BC6EF266790836aC62604cFA733` |
+| TraderVaultV4 | `0x48Efb2434383E87a4a143D2B07BeE73611f5423C` |
+| FeeController | `0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97` |
 
-### Markets (Continuous LMSR)
+### V4.5 Markets (Current)
 | Market | Address |
 |--------|---------|
-| UN Confirms Alien Life | `0x1c95b682b7c2589e9c16b8ee8742e359276ccab3` |
-| BTC >= $100k | `0xa4dc5b625fec5f39242f0f16d6d56d5fa847f6c8` |
+| UN Confirms Alien Life | `0x99CB8c0e3da2604518b8210589edcaB50Cc6f769` |
+| OutcomeToken 1 | `0x6C590f0cd0750043ad46Ec37D2d095De89506cfd` |
+| BTC TWAP >= $100k | `0x94D02d846a04A751e9e4f93A6684a30e043444Da` |
+| OutcomeToken 2 | `0x7178301FDEe367DC0ad10215c466293f9E7CDc5e` |
 
-## Audit Findings (2025-12-09)
+## Pending/Blocked
+- [ ] User testing of hybrid sell functionality
+- [ ] Monad testnet deployment (awaiting funds)
 
-### Fixed This Session
-- [x] **Feature**: Implemented Collateralized Short Selling (Vault V3 & V4)
-- [x] **CRITICAL**: Redeployed V4 Markets to fix stale Tick-based contracts
-- [x] Updated Frontend Config (`deployments.json`, `v4-addresses.ts`)
-- [x] Fixed `useMarket` hook hardcoding `qYes=0`
-- [x] Fixed `useTradeQuote` fallback math logic
-- [x] Fixed `AMMTradePanel` hardcoded placeholder
-- [x] Archived stale deploy scripts to `script_archive/`
-- [x] Fixed `approve` transaction failure (undefined address)
-- [x] Fixed `TraderVault` refund math (Panic 0x11)
-- [x] Fixed `LimitOrderForm` UI (Removed Market toggle)
-
-### Deferred (Cannot Archive — Active Dependencies)
-- `SoothMarket.sol` — Used by V3 tests and `SoothRouter.sol`
-- `SoothTraderVaultV4.sol` — Used by `V4Integration.t.sol`
-- `ISoothMarket.sol` — Used by `SoothTraderVault.sol`, `SoothRouter.sol`
-
-### Info (Low Priority)
-- [ ] Lint warnings in `SoothLMSRReal.sol` (3 unsafe typecast)
-- [ ] TODO in `AMMTradePanel.tsx` — cost estimate placeholder
-- [ ] 75+ markdown files — some potentially stale
-
-## Next Steps
-
-- [x] Test trades in dApp UI
-- [x] Test Limit Orders
-- [x] **New Feature**: Hybrid Sell (UI-Only Virtual Short)
-- [ ] Monitor for any UI/contract interaction issues
-- [ ] Future: Refactor `SoothTraderVault` to use only V4 interface
-
-## Key Files
-
-- Contracts: `packages/contracts-evm/contracts/`
-- Frontend: `apps/web/src/`
-- Deployments: `apps/web/src/config/v4-addresses.ts`
-- Changelog: `CHANGELOG.md`
-- Decisions: `DECISIONS.md`
-
+## Previous Session Summary (2025-12-11)
+- V4.4 deployed with 6 critical WAD overflow bug fixes
+- Frontend `useActivePositions` and `LimitOrderForm` fixes
+- Added `executeHybridSell` to frontend hooks

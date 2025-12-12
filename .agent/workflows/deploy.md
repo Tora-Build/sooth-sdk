@@ -51,17 +51,35 @@ forge verify-contract <ADDRESS> SoothMarketV4 \
   --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-## Post-Deployment
+## Post-Deployment (MANDATORY - DO NOT SKIP)
 
-### 1. Verify Deployment
+> ⚠️ **Read `.agent/LESSONS_LEARNED.md` before deploying!**
+> Past mistakes: DeployFreshV4 had broken constructor args, caused zombie contracts.
+
+### 1. Run Verification Script
 
 ```bash
 // turbo
-cast code <CONTRACT_ADDRESS> --rpc-url $RPC_URL
-# Should return bytecode, not 0x
+cd packages/contracts-evm
+./script/verify-deployment.sh
 ```
 
-### 2. Sync to Frontend
+**If this fails, STOP and fix before proceeding.**
+
+This validates:
+- All addresses have code on-chain
+- TraderVault.asset() matches USDC
+- Markets are linked to correct Vault
+- Vault.isMarket() returns true
+
+### 2. Update Frontend Config
+
+```bash
+# Update deployments.json with new addresses
+# UPDATE the "version" field to trigger browser cache refresh!
+```
+
+### 3. Run Sync Script
 
 ```bash
 // turbo
@@ -69,9 +87,12 @@ cd ../..
 ./sync-deployments.sh
 ```
 
-### 3. Update STATUS.md
+### 4. Update STATUS.md
 
 Record the deployment in project status.
+
+### 5. Notify User to Hard Refresh
+
 
 ## Network Configs
 

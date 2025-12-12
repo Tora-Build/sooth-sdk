@@ -3,22 +3,23 @@ import React, { useState, useRef } from 'react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { useMarket } from '../../../hooks/useMarket';
-import { useTrade } from '../../../hooks/useTrade';
+import { useAmmMarket } from '../../../hooks/useAmmMarket';
+import { useAmmTrade } from '../../../hooks/useAmmTrade';
 import { useV4Quote } from '../../../hooks/useV4Quote';
 import { TrendingUp, Info } from 'lucide-react';
-import { TradeForm } from './TradeForm';
+import { OrderbookForm } from './OrderbookForm';
 import { Drawer } from '../../ui/Drawer';
 import { useContent } from '../../../hooks/useContent';
+import { parseUnits } from 'viem';
 
 interface MarketCardProps {
   marketId: string;
 }
 
-const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
+const AmmMarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const { t } = useContent();
-  const { market } = useMarket(marketId);
-  const { trade, isPending } = useTrade(marketId);
+  const { market } = useAmmMarket(marketId);
+  const { trade, isPending, balance, decimals } = useAmmTrade(marketId);
   const [amount, setAmount] = useState('1');
   const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(0);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
@@ -28,17 +29,15 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // [NEW] V4 Hook
   const { quote, isLoading } = useV4Quote(
-    marketId, // Pass ID, not address, so usage in hook works
-    selectedOutcome, // 0 or 1
+    marketId,
+    selectedOutcome,
     amount || '0',
     tradeMode === 'buy',
-    market?.fee // Pass dynamic fee safely
+    market?.fee
   );
 
   const hasValidAmount = quote && parseFloat(amount) > 0;
-
 
   if (!market) return null;
 
@@ -72,11 +71,21 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const displayYesPrice = hasValidAmount && quote ? (quote.newPriceYes * 100).toFixed(1) : priceYesPercent;
   const displayNoPrice = hasValidAmount && quote ? (quote.newPriceNo * 100).toFixed(1) : priceNoPercent;
 
+  // Lock Status
+  const userYesLocked = market.userYesLocked || 0;
+  const userNoLocked = market.userNoLocked || 0;
+  const unlockTime = market.unlockTime || 0;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const isLocked = Number(unlockTime) > nowSeconds;
+  const hoursRemaining = isLocked ? ((Number(unlockTime) - nowSeconds) / 3600).toFixed(1) : '0';
+  const lockedAmount = selectedOutcome === 0 ? userYesLocked : userNoLocked;
+
   // Check if user has shares to sell
   const userYesShares = market.userYesShares || 0;
   const userNoShares = market.userNoShares || 0;
-  const canSell = selectedOutcome === 0 ? userYesShares > 0 : userNoShares > 0;
-  const maxSellAmount = selectedOutcome === 0 ? userYesShares : userNoShares;
+  const rawMaxSell = selectedOutcome === 0 ? userYesShares : userNoShares;
+  const maxSellAmount = isLocked ? Math.max(0, rawMaxSell - lockedAmount) : rawMaxSell;
+  const canSell = maxSellAmount > 0;
 
   // Calculate virtual liquidity
   const virtualLiquidity = Number(market.bParam) / 1e18;
@@ -135,6 +144,25 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   };
   const riskLevel = getRiskLevelDisplay(market.riskLevel);
 
+  // Balance Check Logic
+  const hasInsufficientBalance = React.useMemo(() => {
+    if (tradeMode !== 'buy' || !quote || !amount) return false;
+
+    // Safety check for quote.totalCost being NaN or undefined
+    if (!quote.totalCost && quote.totalCost !== 0) return false;
+
+    try {
+      // Use fixed decimals (6 for USDC) if available, or fallback to 18
+      const safeDecimals = decimals || 18;
+      const costBig = parseUnits(quote.totalCost.toFixed(safeDecimals), safeDecimals);
+
+      return balance < costBig;
+    } catch (e) {
+      console.error('Balance check error:', e);
+      return false;
+    }
+  }, [tradeMode, quote, balance, decimals, amount]);
+
   return (
     <Card variant="interactive" className="flex flex-col h-full">
       {/* Header */}
@@ -145,6 +173,26 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
               <span className="text-slate-500 mr-2">#{market.id_numeric || market.id}</span>
               {market.question}
             </h3>
+            <h3 className="font-heading font-semibold text-xl text-white mb-2 line-clamp-2 flex-1">
+              <span className="text-slate-500 mr-2">#{market.id_numeric || market.id}</span>
+              {market.question}
+            </h3>
+          </div>
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-[10px]">
+                {market.adjudicatorLabel}
+              </Badge>
+              <Badge
+                variant={market.status === 'trading' ? 'live' : 'outline'}
+                className={`text-[10px] ${market.status === 'settled' && market.winningOutcome === 'YES' ? 'border-emerald-500 text-emerald-400' :
+                  market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
+                  }`}
+              >
+                {t(`trading.${market.status}` as any) || market.status}
+                {market.status === 'settled' && market.winningOutcome && ` - ${market.winningOutcome}`}
+              </Badge>
+            </div>
             <Button
               variant="info"
               size="sm"
@@ -155,20 +203,6 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
               <TrendingUp size={12} />
               <span>{t('trading.orderbook')}</span>
             </Button>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <Badge variant="outline" className="text-[10px]">
-              {market.adjudicatorLabel}
-            </Badge>
-            <Badge
-              variant={market.status === 'trading' ? 'live' : 'outline'}
-              className={`text-[10px] ${market.status === 'settled' && market.winningOutcome === 'YES' ? 'border-emerald-500 text-emerald-400' :
-                market.status === 'settled' && market.winningOutcome === 'NO' ? 'border-rose-500 text-rose-400' : ''
-                }`}
-            >
-              {t(`trading.${market.status}` as any) || market.status}
-              {market.status === 'settled' && market.winningOutcome && ` - ${market.winningOutcome}`}
-            </Badge>
           </div>
           {/* Liquidity and Adjudicator on same line */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[10px]">
@@ -257,22 +291,21 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
 
         {/* Probability Bar */}
         <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-slate-500">{t('trading.yesProb')}</span>
-            <div className="flex items-center gap-2 text-sm font-mono">
-              {hasValidAmount ? (
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-slate-400">{t('trading.yesProb')}</span>
+            <div className="flex items-baseline gap-2 font-mono">
+              <span className={`text-xl font-bold tabular-nums ${hasValidAmount ? 'text-slate-300' : 'text-white'}`}>
+                {((market.priceYes ?? 0.5) * 100).toFixed(1)}%
+              </span>
+
+              {hasValidAmount && quote && (
                 <>
-                  <span className="text-2xl font-bold font-mono text-white">
-                    {((market.priceYes ?? 0.5) * 100).toFixed(1)}%
+                  <span className="text-slate-600 text-sm">→</span>
+                  <span className={`text-xl font-bold tabular-nums ${quote.newPriceYes >= (market.priceYes ?? 0.5) ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                    {(quote.newPriceYes * 100).toFixed(1)}%
                   </span>
-                  <span className="text-sm text-slate-500 ml-2">
-                    (NO: {((market.priceNo ?? 0.5) * 100).toFixed(1)}%)
-                  </span>
-                  <span className="text-slate-600">→</span>
-                  <span className="text-white">{(quote.newPriceYes * 100).toFixed(0)}%</span>
                 </>
-              ) : (
-                <span className="text-white">{((market.priceYes ?? 0.5) * 100).toFixed(0)}%</span>
               )}
             </div>
           </div>
@@ -286,6 +319,7 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
 
         {/* Order Summary */}
         <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-1.5">
+          {/* ... (Lines 288-300 Same) ... */}
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">{t('trading.costPerShare')}</span>
             <span className="font-mono text-white">
@@ -295,7 +329,6 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">{t('trading.feeSlippage')}</span>
             <span className="font-mono text-slate-400">
-              {/* Show Fee (%) instead of Abs Value */}
               {quote ? `${(market?.fee ? market.fee * 100 : 0.5).toFixed(1)}% + ${(slippageBps / 100).toFixed(1)}%` : '--'}
             </span>
           </div>
@@ -315,6 +348,11 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             <label className="text-xs text-slate-500">{t('trading.shares')}</label>
             {tradeMode === 'sell' && (
               <span className="text-xs text-slate-500">
+                {lockedAmount > 0 && isLocked && (
+                  <span className="mr-1 text-amber-500/80 text-[10px]">
+                    (Unlock after {hoursRemaining}h : {lockedAmount.toFixed(2)})
+                  </span>
+                )}
                 {t('portfolio.max')}: {maxSellAmount.toFixed(2)}
               </span>
             )}
@@ -398,16 +436,19 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
             !amount ||
             parseFloat(amount) <= 0 ||
             (tradeMode === 'sell' && !canSell) ||
-            (tradeMode === 'sell' && parseFloat(amount) > maxSellAmount)
+            (tradeMode === 'sell' && parseFloat(amount) > maxSellAmount) ||
+            hasInsufficientBalance
           }
           className={`w-full ${selectedOutcome === 0
             ? 'bg-emerald-600 hover:bg-emerald-700'
             : 'bg-rose-600 hover:bg-rose-700'
-            }`}
+            } ${hasInsufficientBalance ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {isPending
             ? t('common.loading')
-            : `${tradeMode === 'buy' ? t('trading.buy') : t('trading.sell')} ${selectedOutcome === 0 ? t('trading.yes') : t('trading.no')}`
+            : hasInsufficientBalance
+              ? `${t('trading.insufficientBalance', { amount: (Number(balance) / 10 ** decimals).toFixed(0) })}`
+              : `${tradeMode === 'buy' ? t('trading.buy') : t('trading.sell')} ${selectedOutcome === 0 ? t('trading.yes') : t('trading.no')}`
           }
         </Button>
       </div>
@@ -436,11 +477,11 @@ const MarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
           </div>
         </div>
 
-        <TradeForm marketId={marketId} />
+        <OrderbookForm marketId={marketId} />
       </Drawer>
     </Card>
   );
 };
 
 // Memoize to prevent unnecessary re-renders
-export const MarketCard = React.memo(MarketCardComponent);
+export const AmmMarketCard = React.memo(AmmMarketCardComponent);

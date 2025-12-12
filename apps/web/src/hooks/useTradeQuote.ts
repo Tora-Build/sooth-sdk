@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMarket } from './useMarket';
+import { useAmmMarket } from './useAmmMarket';
 import { usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useDeployments } from './useDeployments';
@@ -46,7 +46,7 @@ export function useTradeQuote(
   shares: string,
   slippageBps: number = 50
 ): TradeQuote | null {
-  const { market } = useMarket(marketId);
+  const { market } = useAmmMarket(marketId);
   const publicClient = usePublicClient();
   const deployments = useDeployments();
   const [quote, setQuote] = useState<TradeQuote | null>(null);

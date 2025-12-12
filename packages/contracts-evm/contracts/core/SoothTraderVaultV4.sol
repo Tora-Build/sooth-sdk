@@ -10,11 +10,12 @@ import "../interfaces/ITimeLock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
 /// @title SoothTraderVaultV4
 /// @notice V4: Dual-venue trading with Lock-on-Buy policy
 /// @dev AMM trades are internal positions (locked on buy). Orderbook uses ERC1155.
-contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
+contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============
@@ -44,6 +45,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
     // ammPositions[user][market] = position
     
     mapping(address => bool) private _isMarket;
+    mapping(address => bool) private _isOutcomeToken;
 
     ISoothGovernorVault public governorVault;
     IYieldStrategy public yieldStrategy;
@@ -86,6 +88,11 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
 
     modifier onlyMarketOrOwner(address market) {
         require(msg.sender == market || msg.sender == owner, "TraderVault: denied");
+        _;
+    }
+
+    modifier onlyOutcomeToken() {
+        require(_isOutcomeToken[msg.sender], "TraderVault: not outcomeToken");
         _;
     }
 
@@ -221,6 +228,45 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
 
     // ============ Orderbook Trading (uses OutcomeToken ERC1155) ============
     
+    // ============ Custodial State (V4 Update) ============
+
+    // user => market => outcome => balance
+    mapping(address => mapping(address => mapping(uint8 => uint256))) public shareBalances;
+    
+    // orderId => owner
+    mapping(uint256 => address) public orderOwners;
+
+    // ============ Custodial Actions ============
+
+    function depositShares(address market, uint8 outcome, uint256 amount) external {
+        require(_isMarket[market], "TraderVault: invalid market");
+        require(amount > 0, "TraderVault: zero amount");
+        require(outcome < 2, "TraderVault: invalid outcome");
+
+        // Transfer USER -> VAULT (ERC1155)
+        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
+        token.safeTransferFrom(msg.sender, address(this), outcome, amount, "");
+
+        // Credit Internal Ledger
+        shareBalances[msg.sender][market][outcome] += amount;
+        
+        emit Deposit(msg.sender, amount); // Reusing event (amount is opaque)
+    }
+
+    function withdrawShares(address market, uint8 outcome, uint256 amount) external {
+        require(shareBalances[msg.sender][market][outcome] >= amount, "TraderVault: insufficient shares");
+        require(amount > 0, "TraderVault: zero amount");
+
+        // Debit Internal Ledger
+        shareBalances[msg.sender][market][outcome] -= amount;
+
+        // Transfer VAULT -> USER (ERC1155)
+        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
+        token.safeTransferFrom(address(this), msg.sender, outcome, amount, "");
+        
+        emit Withdraw(msg.sender, amount);
+    }
+
     // ============ Spot Order Tracking ============
     
     struct SpotOrder {
@@ -239,6 +285,17 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
         uint256 amount,
         bool isBuy
     ) external override returns (uint256 orderId) {
+        return _placeOrder(msg.sender, market, outcome, price, amount, isBuy);
+    }
+
+    function _placeOrder(
+        address user,
+        address market,
+        uint8 outcome,
+        uint256 price,
+        uint256 amount,
+        bool isBuy
+    ) internal returns (uint256 orderId) {
         require(_isMarket[market], "TraderVault: invalid market");
         require(price > 0 && price < 1e18, "TraderVault: invalid price");
         require(amount > 0, "TraderVault: invalid amount");
@@ -262,65 +319,69 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
 
         uint256 cost = rawCost / scalar;
 
-        require(accounts[msg.sender].available >= cost, "TraderVault: insufficient balance");
-        accounts[msg.sender].available -= cost;
+        require(accounts[user].available >= cost, "TraderVault: insufficient balance");
+        accounts[user].available -= cost;
+        accounts[user].pending += cost; // Track Reserved Collateral
 
         // Create order on market (Sender is User)
         uint256 matchedAmount;
         uint256 matchedValue;
-        (orderId, matchedAmount, matchedValue) = ISoothMarketV4(market).createOrder(msg.sender, targetOutcome, targetPrice, amount);
+        
+        // Predict Order ID to handle synchronous callback (onOrderMatched)
+        orderId = ISoothMarketV4(market).nextOrderId();
+        orderOwners[orderId] = user;
+        
+        // Custodial: Vault is Maker
+        (uint256 actualId, uint256 mAmount, uint256 mValue) = ISoothMarketV4(market).createOrder(address(this), targetOutcome, targetPrice, amount);
+        require(actualId == orderId, "TraderVault: orderId mismatch");
+        
+        matchedAmount = mAmount;
+        matchedValue = mValue;
 
         // Refund Logic
         if (matchedAmount > 0) {
             uint256 refund;
-            if (isBuy) {
-                // Buy YES: Refund = (LimitPrice * Matched) - ActualValue
-                // targetPrice = LimitPrice
-                // ActualValue = matchedValue (in terms of YES)
-                refund = (targetPrice * matchedAmount) - matchedValue;
-            } else {
-                // Short Sell (Buy NO): 
-                // matchedValue = Sum(ExecPrice * Amt). ExecPrice is YES price.
-                // We paid Collateral = (1 - LimitYES) * Matched.
-                // We effectively "Sold" at ExecPrice (Received YES price credit vs 1).
-                // Or: We bought NO at (1 - ExecPrice).
-                // Cost Actual = (1 - ExecPrice) * Amt = Amt - ExecCost.
-                // Refund = Cost Limit - Cost Actual
-                //        = [(1 - LimitYES) * Amt] - [Amt - ExecVal]
-                //        = ExecVal - (LimitYES * Amt)
-                // Note: matchedValue = ExecVal
-                // targetPrice = 1 - LimitYES. (Wait, targetPrice passed to market IS LimitYES if outcome switched?)
-                // NO. Market logic: if outcome switched, we passed `1e18 - price`.
-                // In Market `createOrder`: if outcome=1, `yesPrice = 1e18 - (1e18 - price) = price`.
-                // So Market Order is actually for YES at `price`?
-                // Let's re-read Market.createOrder logic.
-                
-                // Market.createOrder(targetOutcome=1, targetPrice=1-P):
-                // if outcome==1: yesPrice = 1e18 - targetPrice = 1e18 - (1e18 - P) = P.
-                // isBuySide = false.
-                // So it creates an ASK for YES at P. Correct.
-                
-                // Matched Value = Sum(MatchPrice * Amount). MatchPrice >= P.
-                // Refund = matchedValue - (price * matchedAmount).
-                // Example: Limit Sell YES at 0.60. P=0.60.
-                // Matches Bid at 0.65. matchedValue = 0.65.
-                // Refund = 0.65 - 0.60 = 0.05. CORRECT.
-                
-                refund = matchedValue - (price * matchedAmount);
-            }
+            uint256 usedCost;
             
-            // Allow for tiny precision errors or zero refund
+            if (isBuy) {
+                // Buy: Refund = (LimitPrice * Matched / 1e18) - ActualValue
+                // targetPrice and matchedAmount are both WAD, so multiply creates WAD*WAD
+                uint256 limitValue = (targetPrice * matchedAmount) / 1e18;
+                refund = limitValue > matchedValue ? limitValue - matchedValue : 0;
+                // Cost Used = ActualValue (already WAD)
+                usedCost = matchedValue;
+            } else {
+                // Short Sell: Refund = matchedValue - (price * matchedAmount / 1e18)
+                uint256 sellerReceives = (price * matchedAmount) / 1e18;
+                refund = matchedValue > sellerReceives ? matchedValue - sellerReceives : 0;
+                // Collateral Used = (1-price) * matchedAmount / 1e18
+                usedCost = ((1e18 - price) * matchedAmount) / 1e18;
+            }
+
+            // Scale
+            uint256 scaledUsed = usedCost / 1e18 / scalar;
+            
             if (refund > 0) {
                 uint256 scaledRefund = refund / scalar;
-                accounts[msg.sender].available += scaledRefund;
-                // Reuse OrderCancelled event with orderId? Or just silent credit?
-                // OrderCancelled is for full/partial cancels.
-                // For now, silent credit or maybe emit MergeCredit?
-                emit MergeCredit(msg.sender, scaledRefund); // Reusing event for "System Credit"
+                accounts[user].available += scaledRefund;
+                emit MergeCredit(user, scaledRefund);
+            }
+            
+            // Release Pending for the matched portion
+            // Note: If refund > 0 (price improvement), pending still reduces by the *base cost* of the matched amount.
+            // Wait, logic:
+            // Initial Pending = Cost (Limit Price based).
+            // Matched Amount M.
+            // Cost for M = M * Price (or 1-Price).
+            // We reduce pending by this Cost for M.
+            if (accounts[user].pending >= scaledUsed) {
+                accounts[user].pending -= scaledUsed;
+            } else {
+                accounts[user].pending = 0; // Safety
             }
         }
 
-        emit OrderPlaced(msg.sender, market, orderId, outcome, price, amount);
+        emit OrderPlaced(user, market, orderId, outcome, price, amount);
     }
     
     function placeSpotOrder(
@@ -329,79 +390,162 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
         uint256 price,
         uint256 amount
     ) external override returns (uint256 orderId) {
+        return _placeSpotOrder(msg.sender, market, outcome, price, amount);
+    }
+
+    function _placeSpotOrder(
+        address user,
+        address market,
+        uint8 outcome,
+        uint256 price,
+        uint256 amount
+    ) internal returns (uint256 orderId) {
         require(_isMarket[market], "TraderVault: invalid market");
         require(price > 0 && price < 1e18, "TraderVault: invalid price");
         require(amount > 0, "TraderVault: invalid amount");
         
-        // Lock Shares
-        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
-        token.safeTransferFrom(msg.sender, address(this), outcome, amount, "");
-        
+        // Lock Shares - Deduct from Internal Ledger (Custodial)
+        require(shareBalances[user][market][outcome] >= amount, "TraderVault: insufficient shares");
+        shareBalances[user][market][outcome] -= amount;
+
         // Target: Buy Opposite (to close)
         uint256 targetPrice = 1e18 - price;
         uint8 targetOutcome = outcome == 0 ? 1 : 0;
         
-        // CRITICAL FIX: Predict OrderId and set mapping BEFORE calling createOrder
-        // This is necessary because createOrder calls onOrderMatched synchronously
+        // Pre-map orderId
         orderId = ISoothMarketV4(market).nextOrderId();
         
         spotOrders[orderId] = SpotOrder({
-            user: msg.sender,
+            user: user,
             market: market,
             outcome: outcome,
             amount: amount
         });
         
-        // Place Order
+        // Place Order (Maker = Vault)
         (uint256 actualId, , ) = ISoothMarketV4(market).createOrder(address(this), targetOutcome, targetPrice, amount);
         require(actualId == orderId, "TraderVault: orderId mismatch");
         
-        emit OrderPlaced(msg.sender, market, orderId, outcome, price, amount);
+        emit OrderPlaced(user, market, orderId, outcome, price, amount);
+    }
+
+    function executeHybridSell(
+        address market,
+        uint8 outcome,
+        uint256 price,
+        uint256 totalAmount
+    ) external override {
+        require(totalAmount > 0, "TraderVault: zero amount");
+        
+        // 1. Check Internal Balance
+        uint256 balance = shareBalances[msg.sender][market][outcome];
+        
+        // 2. Calculate Split
+        uint256 spotAmount = balance > totalAmount ? totalAmount : balance;
+        uint256 shortAmount = totalAmount - spotAmount;
+        
+        // 3. Execute Spot Sell (if any)
+        if (spotAmount > 0) {
+            _placeSpotOrder(msg.sender, market, outcome, price, spotAmount);
+        }
+        
+        // 4. Execute Short Sell (if any)
+        if (shortAmount > 0) {
+            _placeOrder(msg.sender, market, outcome, price, shortAmount, false);
+        }
     }
     
-    function onOrderMatched(uint256 orderId, uint256 matchedAmount) external override onlyMarket {
+    // Updated 3-arg callback
+    function onOrderMatched(uint256 orderId, uint256 matchedAmount, uint256 matchedValue) external override onlyMarket {
         SpotOrder storage info = spotOrders[orderId];
         
-        // Only process known Spot Orders
+        // 1. Spot Sell Match
         if (info.user != address(0)) {
             require(info.amount >= matchedAmount, "TraderVault: overmatch");
             info.amount -= matchedAmount;
+            
+            address user = info.user; // Cache user before deletion
             
             if (info.amount == 0) {
                 delete spotOrders[orderId];
             }
             
             // Merge shares -> USDC
-            // This burns the shares.
-            uint256 proceeds = ISoothMarketV4(msg.sender).merge(matchedAmount);
+            IOutcomeToken token = ISoothMarketV4(msg.sender).outcomeToken();
             
-            // CRITICAL FIX: Pull backing capital from GovernorVault
-            // The shares burned were backed by collateral in GovernorVault.
-            // We must move that collateral to TraderVault to pay the user.
-            governorVault.sendFunds(ISoothMarketV4(msg.sender).marketId(), address(this), proceeds);
+            // This triggers creditMergeProceeds(address(this), amount)
+            // Which pulls 1.00 USDC from Governor.
+            token.merge(matchedAmount);
             
-            uint256 scaledProceeds = proceeds / scalar;
+            // matchedAmount is already WAD (1 share = 1e18)
+            // Each share redeems for 1.00 USDC, so proceeds = matchedAmount
+            uint256 proceeds = matchedAmount; // FIX: Was matchedAmount * 1e18 (overflow!)
             
-            // Credit Original User
-            accounts[info.user].available += scaledProceeds;
+            // Spot Sell: User gets (1.00 - matchPrice) per share
+            // proceeds = total redemption value, matchedValue = what buyer paid
+            // userPayoutRaw is in WAD
+            uint256 userPayoutRaw = proceeds > matchedValue ? proceeds - matchedValue : 0;
+            uint256 scaledPayout = userPayoutRaw / scalar;
             
-            emit MergeCredit(info.user, scaledProceeds);
+            accounts[user].available += scaledPayout;
+            emit MergeCredit(user, scaledPayout);
+            
+            return;
+        }
+
+        // 2. Custodial Share Credit (Buy/Short)
+        address owner = orderOwners[orderId];
+        if (owner != address(0)) {
+            // Determine outcome received
+            ISoothMarketV4.OrderV4 memory o = ISoothMarketV4(msg.sender).orders(orderId);
+            uint8 receivedOutcome = o.isBuySide ? 0 : 1;
+            
+            shareBalances[owner][msg.sender][receivedOutcome] += matchedAmount;
+
+            // Release Pending (Collateral Used)
+            uint256 usedCost;
+            if (o.isBuySide) {
+                // Buy: Used = Price * Amount
+                usedCost = (o.yesPrice * matchedAmount) / 1e18;
+            } else {
+                // Short: Used = (1-Price) * Amount
+                usedCost = ((1e18 - o.yesPrice) * matchedAmount) / 1e18;
+            }
+            
+            uint256 scaledUsed = usedCost / scalar;
+            if (accounts[owner].pending >= scaledUsed) {
+                accounts[owner].pending -= scaledUsed;
+            } else {
+                accounts[owner].pending = 0;
+            }
         }
     }
+
+    function cancelLimitOrder(address market, uint256 orderId) public {
+        require(orderOwners[orderId] == msg.sender, "TraderVault: not owner");
+        
+        // Cancel on Market (Vault is Maker)
+        uint256 refund = ISoothMarketV4(market).cancelOrder(orderId, address(this));
+        
+        // Refund = Unused Collateral (WAD)
+        uint256 scaledRefund = refund / scalar;
+        
+        accounts[msg.sender].available += scaledRefund;
+        
+        // Release from Pending
+        if (accounts[msg.sender].pending >= scaledRefund) {
+            accounts[msg.sender].pending -= scaledRefund;
+        } else {
+            accounts[msg.sender].pending = 0;
+        }
+
+        delete orderOwners[orderId];
+        emit OrderCancelled(msg.sender, market, orderId, refund);
+    }
     
-    function cancelOrder(address market, uint256 orderId) external onlyMarketOrOwner(market) {
-        // ... (Not called by User directly? User calls cancelOrder on Market usually?)
-        // Wait, Market calls this? No, ISoothTraderVault interface says cancelOrder...
-        // But implementation in V4 Market calls `cancelOrder` on Market?
-        // Ah, `SoothTraderVault.cancelOrder` is a proxy for User interacting with Vault?
-        // But the previous code had `onlyMarketOrOwner`. That's suspicious.
-        
-        // Let's look at `cancelOrder` spec.
-        // Usually User calls `market.cancelOrder`.
-        // If Maker is Vault (Spot Order), User cannot call `market.cancelOrder` (msg.sender != maker).
-        // So User MUST call `vault.cancelSpotOrder`?
-        
-        revert("Use cancelSpotOrder for spot, or interact with Market directly for others");
+    // Legacy mapping support or catch-all
+    function cancelOrder(address market, uint256 orderId) external {
+        cancelLimitOrder(market, orderId);
     }
     
     function cancelSpotOrder(address market, uint256 orderId) external {
@@ -412,12 +556,11 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
         // Cancel on market (vault is maker)
         ISoothMarketV4(market).cancelOrder(orderId, address(this));
         
-        // Unlock (Transfer Vault -> User)
-        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
-        token.safeTransferFrom(address(this), msg.sender, info.outcome, info.amount, "");
+        // Unlock (Custodial: Credit internal ledger)
+        shareBalances[msg.sender][market][info.outcome] += info.amount;
         
         delete spotOrders[orderId];
-        emit OrderCancelled(msg.sender, market, orderId, 0); // 0 refund in USDC
+        emit OrderCancelled(msg.sender, market, orderId, 0);
     }
 
     // ============ View Functions ============
@@ -432,6 +575,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
 
     function isMarket(address market) external view returns (bool) {
         return _isMarket[market];
+    }
+
+    function isOutcomeToken(address token) external view returns (bool) {
+        return _isOutcomeToken[token];
     }
 
     function pendingBalance(address user) external view returns (uint256) {
@@ -462,6 +609,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
         _isMarket[market] = enabled;
     }
 
+    function setOutcomeToken(address token, bool enabled) external onlyOwner {
+        _isOutcomeToken[token] = enabled;
+    }
+
     function setGovernorVault(ISoothGovernorVault _governorVault) external onlyOwner {
         governorVault = _governorVault;
     }
@@ -478,17 +629,25 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
     
     /// @notice Called by Market when orderbook tokens are matched
     /// @dev V4: Orderbook tokens are ERC1155, not internal
-    function creditMergeProceeds(address user, uint256 amount) external onlyMarket {
+    function creditMergeProceeds(address user, uint256 amount) external onlyOutcomeToken {
         require(amount > 0, "TraderVault: zero amount");
         
-        // V4: Shares are Integers (1 Share = 1e18 value in WAD space)
-        // proceeds = amount * 1e18 / scalar
-        uint256 proceeds = amount * 1e18 / scalar;
+        // Pull Funds from Governor? 
+        // NO. Orderbook liquidity is held in TraderVault (float).
+        // Only AMM liquidity is in Governor.
+        // If OutcomeToken is strictly Orderbook, we simply release the Float.
         
-        // V4: Merge is FREE (instant credit)
-        accounts[user].available += proceeds;
+        // Amount is WAD. Price is 1.0 (WAD). Value is Amount.
+        // Convert WAD Amount to Asset Decimals
+        uint256 proceeds = amount / scalar;
         
-        emit MergeCredit(user, proceeds);
+        // governorVault.sendFunds(marketId, address(this), proceeds); <--- REMOVED
+        
+        // Credit User (unless it's the Vault itself)
+        if (user != address(this)) {
+            accounts[user].available += proceeds;
+            emit MergeCredit(user, proceeds);
+        }
     }
 
     /// @notice Redeem winning shares after market settlement
@@ -499,25 +658,30 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
         require(mkt.isSettled(), "TraderVault: market not settled");
         
         uint8 winningOutcome = mkt.winningOutcome();
+        
+        // 1. Redeem AMM Positions
         AMMPosition storage pos = ammPositions[msg.sender][market];
-        
         uint256 shares;
-        
-        // Get user's winning AMM shares
         if (winningOutcome == 0) {
             shares = pos.yesShares;
-            require(shares > 0, "TraderVault: no YES shares");
             pos.yesShares = 0;
         } else {
             shares = pos.noShares;
-            require(shares > 0, "TraderVault: no NO shares");
             pos.noShares = 0;
         }
         
-        // Send funds to Governor
-        // Scale down and credit (1 share = $1)
-        // Shares are Integers. Payout = shares * 1e18 / scalar
-        uint256 payout = shares * 1e18 / scalar;
+        // 2. Redeem Custodial Shares
+        uint256 custShares = shareBalances[msg.sender][market][winningOutcome];
+        if (custShares > 0) {
+            shares += custShares;
+            shareBalances[msg.sender][market][winningOutcome] = 0;
+        }
+        
+        require(shares > 0, "TraderVault: no winning shares");
+        
+        // shares is WAD (1e18 per share). Each share redeems for 1.00 USDC.
+        // Just scale from WAD to asset decimals.
+        uint256 payout = shares / scalar;
         
         governorVault.sendFunds(mkt.marketId(), address(this), payout);
         accounts[msg.sender].available += payout;
@@ -527,7 +691,6 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable {
 
     // ============ Required Interface Stubs ============
     
-    // These are not used in V4 but required by interface
     function transferShares(address, address, uint8, uint256) external pure {
         revert("V4: use OutcomeToken for transfers");
     }

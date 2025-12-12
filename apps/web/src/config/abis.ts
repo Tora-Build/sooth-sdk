@@ -134,15 +134,23 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function deposit(uint256 amount)",
   "function withdraw(uint256 amount)",
   "function accounts(address user) view returns (uint256 available, uint256 pending)",
+  "function shareBalances(address user, address market, uint8 outcome) view returns (uint256)",
   "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime)",
   "function tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)",
+  "function depositShares(address market, uint8 outcome, uint256 amount)",
+  "function withdrawShares(address market, uint8 outcome, uint256 amount)",
   "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount, bool isBuy) returns (uint256)",
   "function placeSpotOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
+  "function executeHybridSell(address market, uint8 outcome, uint256 price, uint256 totalAmount)",
   "function cancelOrder(address market, uint256 orderId)",
   "function cancelSpotOrder(address market, uint256 orderId)",
   "function onOrderMatched(uint256 orderId, uint256 matchedAmount)",
   "function claimUnlocked()",
   "function redeem(address market)",
+  "function collateralToken() view returns (address)",
+  "function asset() view returns (address)",
+  "function isMarket(address market) view returns (bool)",
+  "function orderOwners(uint256 orderId) view returns (address)",
 ]);
 
 // V4: GovernorVault (Standard ERC4626)

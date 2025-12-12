@@ -44,8 +44,10 @@ interface ISoothTraderVaultV4 {
 
     // ============ Admin & Internal ============
     function setMarket(address market, bool enabled) external;
+    function setOutcomeToken(address token, bool enabled) external;
     function transferShares(address market, address to, uint8 outcome, uint256 amount) external;
     function creditMergeProceeds(address user, uint256 amount) external;
+    function isOutcomeToken(address token) external view returns (bool);
     
     /// @notice Place a Spot Sell order (uses owned shares as collateral)
     function placeSpotOrder(
@@ -55,9 +57,17 @@ interface ISoothTraderVaultV4 {
         uint256 amount
     ) external returns (uint256 orderId);
 
-    /// @notice Callback from Market when a Vault-owned order is matched
-    function onOrderMatched(
-        uint256 orderId,
-        uint256 matchedAmount
+    /// @notice Execute atomic Hybrid Sell (Spot Sell available shares + Short Sell remainder)
+    function executeHybridSell(
+        address market,
+        uint8 outcome,
+        uint256 price,
+        uint256 totalAmount
     ) external;
+
+    /// @notice Callback from Market when an order is matched
+    /// @param orderId The ID of the order that was matched
+    /// @param matchedAmount The amount of shares matched
+    /// @param matchedValue The total value (price * amount) of the match in WAD
+    function onOrderMatched(uint256 orderId, uint256 matchedAmount, uint256 matchedValue) external;
 }

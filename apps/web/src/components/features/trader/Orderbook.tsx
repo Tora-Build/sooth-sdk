@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOrderbook } from '../../../hooks/useOrderbook';
-import { useLimitOrder } from '../../../hooks/useLimitOrder';
+import { useOrderbookTrade } from '../../../hooks/useOrderbookTrade';
 import { useAccount } from 'wagmi';
 import { Card } from '../../ui/Card';
 import { cn } from '../../../lib/utils';
@@ -15,7 +15,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
   const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(propOutcome);
   const [viewMode, setViewMode] = useState<'book' | 'my-orders'>('book');
   const { bids: rawBids, asks: rawAsks, getOrdersForOutcome, isLoading, refetch, isSupported } = useOrderbook(marketId);
-  const { cancelOrder, isPending: isCancelling } = useLimitOrder(marketId);
+  const { cancelOrder, isPending: isCancelling } = useOrderbookTrade(marketId);
   const { address } = useAccount();
 
   // Safety Defaults
@@ -238,7 +238,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
           </div>
         </div>
         <button
-          onClick={() => refetch(false)}
+          onClick={() => refetch()}
           disabled={isLoading}
           className={cn("p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-white transition-colors", isLoading && "animate-spin")}
           title="Refresh Orderbook"

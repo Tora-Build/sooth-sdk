@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
-import { parseUnits } from 'viem';
+import { useAccount, useWriteContract, usePublicClient, useReadContract, useReadContracts } from 'wagmi';
+import { parseUnits, formatUnits } from 'viem';
 import { TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
-import { useMarket } from './useMarket';
+import { useAmmMarket } from './useAmmMarket';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
 import { getChainById } from '../lib/chains';
 import { useMarketStore } from '../store/useMarketStore';
 
-export function useLimitOrder(marketId: string) {
+export function useOrderbookTrade(marketId: string) {
   const { address } = useAccount();
-  const { market } = useMarket(marketId);
+  const { market } = useAmmMarket(marketId);
   const deployments = useDeployments();
   const publicClient = usePublicClient();
   const { selectedChainId } = useChainStore();
@@ -24,17 +24,22 @@ export function useLimitOrder(marketId: string) {
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // v4: Check accounts (available, pending) in TraderVaultV4
-  const { data: vaultAccounts, refetch: refetchBalance } = useReadContract({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    functionName: 'accounts',
-    args: [address || '0x0'],
+  const { data: vaultData, refetch: refetchBalance } = useReadContracts({
+    contracts: [
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'accounts', args: [address || '0x0'] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', market?.contractAddress as `0x${string}`, 0] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', market?.contractAddress as `0x${string}`, 1] },
+    ],
     query: {
-      enabled: !!address,
-      refetchInterval: 30000,
+      enabled: !!address && !!market?.contractAddress,
+      refetchInterval: 3000,
     },
   });
-  const availableBalance = vaultAccounts?.[0]; // available balance
+
+  const availableBalance = vaultData?.[0]?.result?.[0]; // available
+  const internalYesShares = vaultData?.[1]?.result || 0n;
+  const internalNoShares = vaultData?.[2]?.result || 0n;
+
 
 
 
@@ -50,38 +55,19 @@ export function useLimitOrder(marketId: string) {
       if (!market?.contractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
-
-      // V4: Limit Order Amount is INTEGER (decimals=0)
-      // Ensure we parse as BigInt directly, assuming whole numbers
-      if (!/^\d+$/.test(amount)) {
-        throw new Error('Limit orders require integer amounts (no decimals)');
-      }
-      const amountBig = BigInt(amount);
+      const amountBig = parseUnits(amount, 18); // V4: WAD Granularity
 
       const ONE = parseUnits('1', 18);
 
-      // Calculate required collateral:
-      // Price is WAD (18 decimals). Amount is Integer (0 decimals).
-      // Collateral = Price * Amount
-      // Example: Price 0.60 (0.6e18) * 10 Shares = 6e18 (6 USDC)
-
+      // Calculate collateral (Frontend Check)
       let collateralRequired: bigint;
-
       if (isBuy) {
-        collateralRequired = priceBig * amountBig;
+        collateralRequired = (priceBig * amountBig) / ONE;
       } else {
-        // Short Sell: Collateral is (1 - Price) * Amount
-        // (1e18 - 0.6e18) * 10 = 0.4e18 * 10 = 4e18 (4 USDC)
-        collateralRequired = (ONE - priceBig) * amountBig;
+        collateralRequired = ((ONE - priceBig) * amountBig) / ONE;
       }
 
-      console.log('Placing Limit Order:', {
-        outcome,
-        isBuy,
-        price,
-        amount,
-        collateralRequired: collateralRequired.toString()
-      });
+      console.log('Placing Limit Order:', { outcome, isBuy, price, amount, collateralRequired: collateralRequired.toString() });
 
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
@@ -90,16 +76,32 @@ export function useLimitOrder(marketId: string) {
         return;
       }
 
-      // Check available balance in TraderVault
-      const { data: latestBalance } = await refetchBalance();
-      const balance = (latestBalance || availableBalance) as bigint || 0n;
+      // Check available balance (Frontend Check)
+      await refetchBalance();
+      const balance = (availableBalance) as bigint || 0n;
 
       if (balance < collateralRequired) {
         throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
       }
 
-      // v4: Place order through TraderVaultV4
-      // placeOrder(market, outcome, price, amount, isBuy)
+      // SIMULATE first to catch revert reasons
+      if (publicClient) {
+        try {
+          await publicClient.simulateContract({
+            account: address,
+            address: traderVaultAddress,
+            abi: TRADER_VAULT_V4_ABI,
+            functionName: 'placeOrder',
+            args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig, isBuy],
+          });
+        } catch (simError: any) {
+          console.error('Simulation Failed:', simError);
+          const reason = simError.reason || simError.shortMessage || simError.message || 'Transaction would fail';
+          throw new Error(`Simulation failed: ${reason}`);
+        }
+      }
+
+      // v4: Place order
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
@@ -108,11 +110,11 @@ export function useLimitOrder(marketId: string) {
       });
 
       const toastId = toast.loading('Placing Order...');
-
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
         toast.success('Order Placed!', { id: toastId });
       }
+
 
     } catch (err: any) {
       console.error('Place Order Error:', err);
@@ -130,9 +132,7 @@ export function useLimitOrder(marketId: string) {
       if (!market?.contractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
-
-      if (!/^\d+$/.test(amount)) throw new Error('Integer amounts only');
-      const amountBig = BigInt(amount);
+      const amountBig = parseUnits(amount, 18);
 
       console.log('Placing Spot Order:', { outcome, price, amount });
 
@@ -143,10 +143,10 @@ export function useLimitOrder(marketId: string) {
         return;
       }
 
-      // Check SHARE balance (not USDC)
-      const shareBalance = outcome === 0 ? market.userYesShares : market.userNoShares;
-      if (Number(amount) > (shareBalance || 0)) {
-        throw new Error(`Insufficient shares. Have ${shareBalance}, trying to sell ${amount}`);
+      // Check INTERNAL SHARE balance
+      const shareBalance = outcome === 0 ? internalYesShares : internalNoShares;
+      if (amountBig > shareBalance) {
+        throw new Error(`Insufficient internal shares. Have ${formatUnits(shareBalance, 18)}, trying to sell ${amount}. Info: Spot sell requires shares in Vault.`);
       }
 
       const hash = await writeContractAsync({
@@ -166,6 +166,71 @@ export function useLimitOrder(marketId: string) {
     } catch (err: any) {
       console.error('Place Spot Order Error:', err);
       toast.error(err.message || 'Failed to place spot order');
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  /**
+   * Execute Hybrid Sell in a SINGLE transaction.
+   * The contract automatically splits between:
+   * - Spot Sell (using custodial shares)
+   * - Short Sell (using USDC collateral)
+   */
+  const executeHybridSell = async (outcome: 0 | 1, price: string, amount: string) => {
+    setIsPending(true);
+    try {
+      const chain = publicClient?.chain;
+      if (chain?.id !== selectedChainId) throw new Error('Wrong Network');
+      if (!market?.contractAddress) throw new Error('Market not found');
+
+      const priceBig = parseUnits(price, 18);
+      const amountBig = parseUnits(amount, 18);
+
+      console.log('Executing Hybrid Sell:', { outcome, price, amount });
+
+      if (mode === 'demo') {
+        await new Promise(r => setTimeout(r, 1000));
+        toast.success(`Demo: Hybrid Sell executed`);
+        setIsPending(false);
+        return;
+      }
+
+      // Estimate gas with 1.5x multiplier for matching gas
+      let gasEstimate: bigint | undefined;
+      if (publicClient) {
+        try {
+          gasEstimate = await publicClient.estimateContractGas({
+            account: address,
+            address: traderVaultAddress,
+            abi: TRADER_VAULT_V4_ABI,
+            functionName: 'executeHybridSell',
+            args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+          });
+          gasEstimate = (gasEstimate * 150n) / 100n; // 1.5x multiplier
+        } catch (e) {
+          console.warn('Gas estimation failed, using default');
+        }
+      }
+
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'executeHybridSell',
+        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+        gas: gasEstimate,
+      });
+
+      const toastId = toast.loading('Executing Hybrid Sell...');
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+        toast.success('Hybrid Sell Executed!', { id: toastId });
+      }
+
+    } catch (err: any) {
+      console.error('Hybrid Sell Error:', err);
+      toast.error(err.message || 'Failed to execute hybrid sell');
     } finally {
       setIsPending(false);
     }
@@ -283,10 +348,13 @@ export function useLimitOrder(marketId: string) {
   return {
     placeOrder,
     placeSpotOrder,
+    executeHybridSell,
     cancelOrder,
     executeTakerOrder,
     isPending,
     availableBalance: (availableBalance as bigint || 0n),
+    internalYesShares,
+    internalNoShares,
     refetchBalance
   };
 }

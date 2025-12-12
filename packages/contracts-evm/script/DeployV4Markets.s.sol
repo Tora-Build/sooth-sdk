@@ -15,11 +15,11 @@ contract DeployV4Markets is Script {
     address constant TICK_REGISTRY = 0xF8928d461BB54F5B8473A133DF1d77BC043Af605;
     address constant NEW_USDC = 0xa0eEa05Cc350Ac218683815e85Cac4A1a1eF36dd;
     
-    // Phase 1 addresses (infrastructure - existing)
-    address constant USDC = 0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab;
-    address constant GOVERNOR_VAULT = 0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f;
-    address constant TRADER_VAULT = 0xee91e05f95cBaACD46f58432DF72CB5C451e98E0;
-    address constant FEE_CONTROLLER = 0xa367B312Ca1845B7c6076345cB5cd529F935B4FA;
+    // Phase 1 addresses (infrastructure - deployed 2025-12-12 V4.5 with OutcomeToken auth fix)
+    address constant USDC = 0x3E45bf96a8D866D796E168eE77a5fA7507D544F1;
+    address constant GOVERNOR_VAULT = 0xcB0f1305951d4BC6EF266790836aC62604cFA733;
+    address constant TRADER_VAULT = 0x48Efb2434383E87a4a143D2B07BeE73611f5423C;
+    address constant FEE_CONTROLLER = 0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97;
     
     function run() external {
         require(TICK_REGISTRY != address(0), "Set TICK_REGISTRY address first");
@@ -59,6 +59,7 @@ contract DeployV4Markets is Script {
         );
         
         traderVault.setMarket(address(market1), true);
+        traderVault.setOutcomeToken(address(outcomeToken1), true);
         governorVault.setAuthorized(address(market1), true);
         
         console.log("");
@@ -87,6 +88,7 @@ contract DeployV4Markets is Script {
         );
         
         traderVault.setMarket(address(market2), true);
+        traderVault.setOutcomeToken(address(outcomeToken2), true);
         governorVault.setAuthorized(address(market2), true);
         
         console.log("");

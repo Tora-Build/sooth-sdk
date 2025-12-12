@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { usePublicClient, useAccount } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { MARKET_V4_ABI } from '../config/abis';
-import { useMarket } from './useMarket';
+import { useAmmMarket } from './useAmmMarket';
 
 // Types
 export interface V4Quote {
@@ -36,7 +36,7 @@ export function useV4Quote(
     feeRate: number = 0.005 // Default 0.5%
 ): UseV4QuoteResult {
     const { address } = useAccount();
-    const { market } = useMarket(marketId);
+    const { market } = useAmmMarket(marketId);
     const publicClient = usePublicClient();
 
     // Internal Debounce State

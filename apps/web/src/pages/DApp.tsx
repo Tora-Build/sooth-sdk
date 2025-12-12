@@ -8,8 +8,6 @@ import { OperatorConsole } from '../components/features/OperatorConsole';
 import { ActivityLog } from '../components/features/ActivityLog';
 
 import { GlobalStats } from '../components/features/GlobalStats';
-import { PortfolioSummary } from '../components/features/PortfolioSummary';
-import { TradingAccountCard } from '../components/features/TradingAccountCard';
 
 interface DAppProps {
   onBack?: () => void;
@@ -25,11 +23,7 @@ export const DApp: React.FC<DAppProps> = () => {
       <main className="flex-1 container mx-auto max-w-7xl px-4 py-8">
         <GlobalStats />
 
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <PortfolioSummary />
-          <TradingAccountCard />
-        </div>
+        <div className="mb-8"></div>
 
         <TabsRoot value={activeTab} onValueChange={setActiveTab} className="space-y-8">
 
@@ -63,9 +57,9 @@ export const DApp: React.FC<DAppProps> = () => {
           </TabsContent>
 
         </TabsRoot>
-      </main>
+      </main >
 
       <Footer />
-    </div>
+    </div >
   );
 };

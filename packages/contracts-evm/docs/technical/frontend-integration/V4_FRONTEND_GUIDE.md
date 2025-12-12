@@ -10,9 +10,10 @@ Sooth V4 uses a **Dual-Venue Hybrid Architecture**:
 
 ## 1. Key Interactions
 
-### Orderbook: Place Limit Order
-**Granularity:** Integers (`decimals=0`).
-**Cost:** `price (WAD) * amount (Int)`.
+### Orderbook: Place Limit Order (Custodial)
+**Granularity:** WAD (`decimals=18`).
+**Cost:** `price (WAD) * amount (WAD)`.
+**Output:** Updates internal `shareBalances` (No immediate ERC1155 mint).
 
 ```typescript
 // Buy 100 YES shares at 0.60 USDC
@@ -22,16 +23,33 @@ await writeContract({
   functionName: 'placeOrder',
   args: [
     MARKET_ADDRESS,
-    1, // outcome (0=YES, 1=NO) - Wait, confirm mapping in contract
-       // Actually 0=YES, 1=NO in contract usually. 
-       // Let's verify: SoothMarketV4 line 302: if (outcome == 0) yesPrice = price_ ...
-       // So 0 is YES.
-    0, // outcome (0=YES)
+    0, // outcome (0=YES, 1=NO)
     parseUnits('0.60', 18), // Price (WAD)
-    100n,                   // Amount (INTEGER) - 100 shares
+    parseUnits('100', 18),  // Amount (WAD) - 100 shares
     true                    // isBuy
   ]
 })
+
+### Orderbook: Deposit/Withdraw Shares
+To move assets between Wallet (ERC1155) and Vault (Internal Ledger):
+
+```typescript
+// Deposit 50 YES Shares to Vault
+await writeContract({
+  address: TRADER_VAULT,
+  abi: SoothTraderVaultABI,
+  functionName: 'depositShares',
+  args: [MARKET_ADDRESS, 0, parseUnits('50', 18)]
+})
+
+// Withdraw 20 YES Shares to Wallet
+await writeContract({
+  address: TRADER_VAULT,
+  abi: SoothTraderVaultABI,
+  functionName: 'withdrawShares',
+  args: [MARKET_ADDRESS, 0, parseUnits('20', 18)]
+})
+```
 ```
 
 ### AMM: Instant Trade
@@ -75,7 +93,20 @@ const prob = formatUnits(priceWad, 18) // e.g. "0.50"
 ### User Balances
 Users can have two types of positions:
 
-1.  **Outcome Tokens (Orderbook)**:
+1.  **Internal Shares (Orderbook)**:
+    *New in V4*: Orderbook trades settle to this internal ledger.
+    ```typescript
+    const shares = await readContract({
+      address: TRADER_VAULT,
+      abi: SoothTraderVaultABI,
+      functionName: 'shareBalances',
+      args: [user, MARKET_ADDRESS, 0] // 0=YES
+    })
+    // Returns WAD (e.g. 100.0 * 1e18)
+    ```
+
+2.  **Wallet Tokens (ERC1155)**:
+    Tokens withdrawn from Vault or minted directly.
     ```typescript
     // Check YES tokens (ID=0)
     const balance = await readContract({
@@ -84,19 +115,19 @@ Users can have two types of positions:
       functionName: 'balanceOf',
       args: [user, 0]
     })
-    // Returns Integer (e.g. 100n)
+    // Returns WAD (e.g. 100.0 * 1e18) [Updated granularity]
     ```
 
-2.  **AMM Positions (Internal)**:
-    ```typescript
-    const pos = await readContract({
-      address: TRADER_VAULT,
-      abi: SoothTraderVaultABI,
-      functionName: 'ammPositions',
-      args: [user, MARKET_ADDRESS]
-    })
-    // Returns { yesShares: WAD, noShares: WAD, ... }
-    ```
+### AMM Positions (Internal)
+```typescript
+const pos = await readContract({
+  address: TRADER_VAULT,
+  abi: SoothTraderVaultABI,
+  functionName: 'ammPositions',
+  args: [user, MARKET_ADDRESS]
+})
+// Returns { yesShares: WAD, noShares: WAD, ... }
+```
 
 ---
 
@@ -129,31 +160,31 @@ V4 supports **two trading venues** with different mechanics:
 | Feature | AMM | Orderbook |
 |---------|-----|-----------|
 | **Trading** | Instant execution | Limit orders |
-| **Token Type** | Internal positions | ERC1155 tokens |
-| **Lock on Buy** | ✅ 24h lock | ❌ No lock |
-| **Sell** | Instant USDC (after unlock) | Instant USDC |
-| **Gas** | Lower | Higher (ERC1155 mints) |
+| **Asset** | Internal Position | Internal Share (Claimable as ERC1155) |
+| **Lock on Buy** | ✅ 24h lock | ❌ No Time-Lock |
+| **Sell** | Instant USDC (after unlock) | Instant USDC (Spot Sell) |
+| **Gas** | Lower | Low (Custodial Ledger) |
 
 ### AMM (Lock-on-Buy)
 
 **Buy Flow:**
 1. User deposits USDC to TraderVault
-2. Executes AMM buy → shares locked for 24h
+2. Executes AMM buy → internal position locked for 24h
 3. Cannot sell until unlock time
 
 **Sell Flow (after unlock):**
 1. Execute AMM sell → instant USDC to account
-2. No waiting, no locks
 
-### Orderbook (Lock-Free)
+### Orderbook (Custodial)
 
 **Buy Flow:**
 1. Deposit USDC
-2. Place limit order → ERC1155 tokens minted immediately
-3. Can transfer/sell tokens anytime
+2. Place limit order → Internal `shareBalances` credited
+3. (Optional) Withdraw to Wallet (ERC1155)
 
 **Sell Flow:**
-1. Sell ERC1155 tokens → instant USDC
+1. (If needed) Deposit ERC1155 to Vault
+2. Place Spot Sell order (uses internal shares) → instant USDC
 
 ---
 

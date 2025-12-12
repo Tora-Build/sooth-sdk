@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMarket } from '../../../hooks/useMarket';
+import { useAmmMarket } from '../../../hooks/useAmmMarket';
 import { Card } from '../../ui/Card';
 import { cn } from '../../../lib/utils';
 
@@ -8,7 +8,7 @@ interface PositionCardProps {
 }
 
 export const PositionCard: React.FC<PositionCardProps> = ({ marketId }) => {
-  const { market } = useMarket(marketId);
+  const { market } = useAmmMarket(marketId);
 
   const hasPosition = (market?.userYesShares || 0) > 0 || (market?.userNoShares || 0) > 0;
   

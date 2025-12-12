@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLimitOrder } from '../../../hooks/useLimitOrder';
-import { useTrade } from '../../../hooks/useTrade';
+import { useOrderbookTrade } from '../../../hooks/useOrderbookTrade';
+import { useAmmTrade } from '../../../hooks/useAmmTrade';
 import { useContent } from '../../../hooks/useContent';
 import { Button } from '../../ui/Button';
 import { cn } from '../../../lib/utils';
-import { useMarket } from '../../../hooks/useMarket';
+import { useAmmMarket } from '../../../hooks/useAmmMarket';
 import { useOrderbook } from '../../../hooks/useOrderbook';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { OUTCOME_TOKEN_ABI } from '../../../config/abis';
+import { OUTCOME_TOKEN_ABI, ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 
 interface LimitOrderFormProps {
@@ -28,27 +28,25 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const deployments = useDeployments();
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
-  const { placeOrder, placeSpotOrder, isPending: isLimitPending, availableBalance } = useLimitOrder(marketId);
-  const { trade, isPending: isTradePending } = useTrade(marketId);
+  // V4: Use internal shares for Spot Sell availability
+  const {
+    placeOrder,
+    placeSpotOrder,
+    executeHybridSell,
+    isPending: isLimitPending,
+    availableBalance,
+    // internalYesShares/NoShares removed from hook
+  } = useOrderbookTrade(marketId);
+  const { trade, isPending: isTradePending } = useAmmTrade(marketId); // Keeping for Trade connection if needed, though OrderbookForm separates them?
   const isPending = isLimitPending || isTradePending;
 
-  const { market } = useMarket(marketId);
-  const { bids, asks } = useOrderbook(marketId);
+  const { market } = useAmmMarket(marketId);
+  const { bids, asks, userYesShares: obYes, userNoShares: obNo } = useOrderbook(marketId);
 
   const { writeContractAsync } = useWriteContract();
 
-  // Check Approval
-  const outcomeTokenAddress = market?.outcomeTokenAddress as `0x${string}`;
-
-  const { data: isApproved, refetch: refetchApproval } = useReadContract({
-    address: outcomeTokenAddress,
-    abi: OUTCOME_TOKEN_ABI,
-    functionName: 'isApprovedForAll',
-    args: [address || '0x0', traderVaultAddress],
-    query: {
-      enabled: !!address && !!outcomeTokenAddress && !!traderVaultAddress
-    }
-  });
+  // Note: USDC Approval is NOT needed for Trading (V4 uses Internal Vault Balance).
+  // Users must Deposit USDC into the Vault first.
 
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [outcome, setOutcome] = useState<0 | 1>(propOutcome);
@@ -56,7 +54,6 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const [price, setPrice] = useState('');
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [isApproving, setIsApproving] = useState(false);
 
   const handleOutcomeChange = (newOutcome: 0 | 1) => {
     setOutcome(newOutcome);
@@ -68,40 +65,48 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const amountNum = parseFloat(amount) || 0;
 
   // Determine Sell Mode
-  // AMM Shares cannot be Limit Sold (Link failure). Only Token Shares can be Spot Sold.
-  const userTokenShares = outcome === 0 ? (market?.userYesOutcomeTokens || 0) : (market?.userNoOutcomeTokens || 0);
 
+  // AMM Shares (Source: useAmmMarket) - Internal locked positions
+  const ammShares = outcome === 0 ? (market?.userYesLocked || 0) : (market?.userNoLocked || 0);
+
+  // Orderbook Shares (Source: useOrderbook) - Custodial liquid shares
+  const obShares = outcome === 0 ? obYes : obNo;
+
+  // Lock Status (for AMM shares only)
+  const unlockTime = market?.unlockTime || 0;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const isLocked = Number(unlockTime) > nowSeconds;
+  const hoursRemaining = isLocked ? ((Number(unlockTime) - nowSeconds) / 3600).toFixed(1) : '0';
+
+  // Available for Spot Sell: Orderbook Shares (these are ALWAYS liquid, separate from AMM)
+  // FIX: OB shares and AMM shares are in different pools, don't subtract!
+  const userTokenShares = obShares;
+
+  // Display Locked Amount (AMM shares only)
+  const userLockedShares = isLocked ? ammShares : 0;
+
+  // Spot Sell Availability: Can only Spot Sell UNLOCKED shares
   const isSpotSell = orderType === 'sell' && userTokenShares >= amountNum;
   const isHybridSell = orderType === 'sell' && userTokenShares > 0 && userTokenShares < amountNum;
-
-  // V3 Unified Orderbook:
-  // Buy: You pay Price * Amount
-  // Spot Sell: You pay Shares (Collateral). No USDC cost.
-  // Short Sell: You pay (1 - Price) * Amount as USDC Collateral
-  // Hybrid Sell: Spot part pays shares, Short part pays collateral
 
   const sharesToSpotSell = isHybridSell ? userTokenShares : (isSpotSell ? amountNum : 0);
   const sharesToShortSell = isHybridSell ? (amountNum - userTokenShares) : (!isSpotSell && orderType === 'sell' ? amountNum : 0);
 
-  // Cost Per Share Display (Weighted Average for Hybrid?)
-  // Spot part = 0 USDC. Short part = (1 - Price) USDC.
-  // totalCost = ShortPart * (1 - Price)
-  // costPerShare = totalCost / amountNum
-
+  // Cost Per Share Display
   let totalCost = 0;
   if (orderType === 'buy') {
     totalCost = priceNum * amountNum;
   } else {
-    // Sell Side
+    // Sell Side: Only Short/Hybrid portion costs USDC (Collateral)
     const shortCost = (1 - priceNum) * sharesToShortSell;
-    totalCost = shortCost; // Spot part costs 0 USDC
+    totalCost = shortCost;
   }
 
   const costPerShare = amountNum > 0 ? (totalCost / amountNum) : 0;
 
   const isValidPrice = priceNum > 0 && priceNum < 1;
 
-  // Handicap Logic (For Price Display Reference Only - No Auto Routing)
+  // Handicap Logic
   const isBuyingYes = (orderType === 'buy' && outcome === 0) || (orderType === 'sell' && outcome === 1);
   const bestAsk = asks[0] ? parseFloat(asks[0].yesPrice) : null;
   const bestBid = bids[0] ? parseFloat(bids[0].yesPrice) : null;
@@ -111,102 +116,38 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     bestBookPrice = 1 - bestBookPrice;
   }
 
-  // Note: bestBookPrice is already set to the relevant side (Ask for Buy, Bid for Sell)
   const isCrossingBook = bestBookPrice !== null && (
     orderType === 'buy' ? priceNum >= bestBookPrice : priceNum <= bestBookPrice
   );
 
-  const needsApproval = (isSpotSell || isHybridSell) && !isApproved;
-
-  const handleApprove = async () => {
-    if (!outcomeTokenAddress || !traderVaultAddress) {
-      toast.error("Missing token or vault address for approval.");
-      return;
-    }
-    setIsApproving(true);
-    try {
-      await writeContractAsync({
-        address: outcomeTokenAddress,
-        abi: OUTCOME_TOKEN_ABI,
-        functionName: 'setApprovalForAll',
-        args: [traderVaultAddress, true],
-      });
-      toast.success("Approval successful!");
-      refetchApproval(); // Refetch approval status after successful approval
-    } catch (error) {
-      console.error("Approval failed:", error);
-      toast.error("Approval failed. Please try again.");
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
   const handlePlaceOrder = async () => {
-    console.log('handlePlaceOrder Triggered', {
-      step: 'start',
-      needsApproval,
-      approved: isApproved,
-      amount,
-      price,
-      isValidPrice,
-      orderType
-    });
+    // Check Internal Balance
+    const requiredCost = parseUnits(totalCost.toFixed(6), 18);
+    const hasEnough = (availableBalance || 0n) >= requiredCost;
 
-    if (needsApproval) {
-      console.log('handlePlaceOrder: Needs Approval, calling handleApprove');
-      await handleApprove();
+    if (totalCost > 0 && !hasEnough) {
+      toast.error("Insufficient USDC in Trading Vault. Please Deposit.");
       return;
     }
 
     if (!amount || !price || !isValidPrice) {
-      console.warn('handlePlaceOrder: Validation Failed', { amount, price, isValidPrice });
       return;
     }
 
-    console.log('handlePlaceOrder: Validation Passed, Proceeding to execution');
-
     // Strict Orderbook Logic - No AMM Routing
     if (orderType === 'buy') {
-      console.log('handlePlaceOrder: Executing Buy Order');
       try {
         await placeOrder(outcome, price, amount, true);
-        console.log('handlePlaceOrder: Buy Order function returned');
       } catch (e) {
-        console.error('handlePlaceOrder: Buy Order Error', e);
+        console.error('Buy Order Error', e);
       }
     } else {
-      // Sell Side
-      if (isSpotSell) {
-        // Fully covered by shares
-        await placeSpotOrder(outcome, price, amount);
-      } else if (isHybridSell) {
-        // Mixed: Spot Sell Available Shares -> Short Sell Remaining
-        // Note: Sequential execution. Ideally would be batched.
-
-        // 1. Spot Sell
-        const spotAmountStr = sharesToSpotSell.toString();
-        const toastId = toast.loading('Executing Part 1: Spot Sell (' + spotAmountStr + ')');
-        try {
-          await placeSpotOrder(outcome, price, spotAmountStr);
-          toast.success('Part 1 Complete', { id: toastId });
-        } catch (e) {
-          toast.error('Spot Sell Failed', { id: toastId });
-          return;
-        }
-
-        // 2. Short Sell
-        const shortAmountStr = sharesToShortSell.toString();
-        const toastId2 = toast.loading('Executing Part 2: Short Sell (' + shortAmountStr + ')');
-        try {
-          await placeOrder(outcome, price, shortAmountStr, false);
-          toast.success('Part 2 Complete', { id: toastId2 });
-        } catch (e) {
-          toast.error('Short Sell Failed', { id: toastId2 });
-        }
-
-      } else {
-        // No shares -> Full Short Sell
-        await placeOrder(outcome, price, amount, false);
+      // Sell Side - Use single-transaction hybrid sell
+      // The contract handles spot/short split atomically
+      try {
+        await executeHybridSell(outcome, price, amount);
+      } catch (e) {
+        console.error('Sell Order Error', e);
       }
     }
   };
@@ -276,36 +217,45 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     if (!totalCost && !amountNum) return false;
 
     // Spot Sell: Check Shares (already checked via isSpotSell flag logic)
-    if (isSpotSell) return false; // We have shares logic above sets isSpotSell=true only if we have shares.
+    if (isSpotSell) return false;
 
-    // Buy / Short Sell / Hybrid: Require USDC Collateral for the UNCOVERED portion
-    // totalCost correctly calculates only the Short portion cost
-    // So logic holds: availableBalance >= totalCost.
-
+    // Buy / Short Sell / Hybrid: Require Vault USDC for the UNCOVERED portion
     const requiredCollateral = parseUnits(totalCost.toFixed(6), 18);
+
+    // V4: Use Internal Vault Balance (availableBalance)
     const hasEnoughUSDC = (availableBalance || 0n) >= requiredCollateral;
     return !hasEnoughUSDC;
 
   }, [orderType, totalCost, amountNum, availableBalance, isSpotSell, isHybridSell]);
 
-  // Only disable if user needs to approve AND is currently approving
-  // We allow clicking "Approve Manager" so don't disable if needsApproval is true
-  const isActionDisabled = isDisabled || insufficientBalance || (needsApproval && isApproving);
+  // Only disable if pending
+  const isActionDisabled = isDisabled || insufficientBalance;
 
   // Helper text for badge
-  const badgeText = isCrossingBook
+  let badgeText = isCrossingBook
     ? "⚡ Executing against Orderbook. You will be refunded any price improvement."
     : "⏳ Limit orders wait in orderbook until filled.";
 
-  const badgeColor = isCrossingBook ? "text-emerald-400 bg-emerald-500/10" : "text-slate-500 bg-slate-500/10";
+  let badgeColor = isCrossingBook ? "text-emerald-400 bg-emerald-500/10" : "text-slate-500 bg-slate-500/10";
 
-  // Check balance for buy logic above (omitted for brevity)
+  // Info badges for Sell orders
+  if (orderType === 'sell') {
+    if (isSpotSell) {
+      // Fully covered by OB shares
+      badgeText = `✅ Spot Sell: Using your ${amountNum} orderbook shares. No collateral needed.`;
+      badgeColor = "text-emerald-400 bg-emerald-500/10";
+    } else if (isHybridSell) {
+      // Partial coverage
+      badgeText = `⚠️ Hybrid Sell: ${sharesToSpotSell.toFixed(0)} shares from orderbook + ${sharesToShortSell.toFixed(0)} short sold (requires ${((1 - priceNum) * sharesToShortSell).toFixed(2)} USDC collateral).`;
+      badgeColor = "text-amber-400 bg-amber-500/10";
+    } else if (sharesToShortSell > 0) {
+      // Full short sell
+      badgeText = `⚠️ Short Sell: Requires ${totalCost.toFixed(2)} USDC collateral (${((1 - priceNum) * 100).toFixed(0)}% of ${amountNum} shares).`;
+      badgeColor = "text-amber-400 bg-amber-500/10";
+    }
+  }
 
   const getButtonText = () => {
-    if (needsApproval) {
-      return isApproving ? "Approving..." : "Approve Manager";
-    }
-
     // Default Button Text
     const action = orderType === 'buy' ? t('trading.buy') : t('trading.sell');
     const outcomeText = outcome === 0 ? t('common.yes') : t('common.no');
@@ -315,7 +265,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         return t('trading.insufficientBalance', { amount: (Number(availableBalance || 0n) / 1e18).toFixed(0) });
       } else {
         // Short Sell Checks (Spot Sell bypasses this via insufficientBalance=false)
-        return t('trading.needCollateral', { amount: totalCost.toFixed(2) });
+        return "Insufficient USDC (Collateral)";
       }
     }
 
@@ -337,8 +287,6 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 
   return (
     <div className="space-y-4">
-
-
       {/* Market Info Bar */}
       <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-slate-950/50 border border-slate-800">
         <div>
@@ -346,7 +294,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           <div className="text-lg font-bold text-white font-mono">
             {(currentMarketPrice ?? 0.5).toFixed(2)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
           </div>
-        </div >
+        </div>
         <div className="text-right">
           <div className="text-xs text-slate-500">{t('trading.bestPrice')}</div>
           <div className="text-lg font-bold text-emerald-400 font-mono">
@@ -357,7 +305,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           <span>LQ: ${ammLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           <span>Depth: {orderbookDepth} offers</span>
         </div>
-      </div >
+      </div>
 
       {/* Buttons */}
       <div className="grid grid-cols-2 gap-2" >
@@ -398,9 +346,12 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="relative h-12">
           <button
             onMouseDown={startPriceDec} onMouseUp={stopPriceDec} onMouseLeave={stopPriceDec}
-            className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10"
+            onTouchStart={startPriceDec} onTouchEnd={stopPriceDec}
+            className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
-          >−</button>
+          >
+            <span className="text-lg font-bold">−</span>
+          </button>
           <input
             type="number"
             value={price}
@@ -410,9 +361,12 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           />
           <button
             onMouseDown={startPriceInc} onMouseUp={stopPriceInc} onMouseLeave={stopPriceInc}
-            className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10"
+            onTouchStart={startPriceInc} onTouchEnd={stopPriceInc}
+            className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
-          >+</button>
+          >
+            <span className="text-lg font-bold">+</span>
+          </button>
         </div>
         {/* Price validation message */}
         {price && currentMarketPrice && (
@@ -426,9 +380,12 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="relative h-12">
           <button
             onMouseDown={startDecrement} onMouseUp={stopDecrement} onMouseLeave={stopDecrement}
-            className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10"
+            onTouchStart={startDecrement} onTouchEnd={stopDecrement}
+            className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
-          >−</button>
+          >
+            <span className="text-lg font-bold">−</span>
+          </button>
           <input
             type="number"
             value={amount}
@@ -444,16 +401,25 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           />
           <button
             onMouseDown={startIncrement} onMouseUp={stopIncrement} onMouseLeave={stopIncrement}
-            className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10"
+            onTouchStart={startIncrement} onTouchEnd={stopIncrement}
+            className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
-          >+</button>
+          >
+            <span className="text-lg font-bold">+</span>
+          </button>
         </div>
 
-        {/* Spot Balance Display */}
-        <div className="flex justify-end mt-1">
-          <span className="text-[10px] text-slate-500">
-            Spot Balance: <span className="font-mono text-emerald-400 font-bold">{outcome === 0 ? market?.userYesOutcomeTokens : market?.userNoOutcomeTokens}</span>
-          </span>
+        {/* Balance / Locked Display */}
+        <div className="flex flex-col items-end mt-1.5 gap-0.5">
+          {/* Unlocked Balance (Clickable Max) */}
+          <div
+            className="text-[10px] text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
+            onClick={() => setAmount(userTokenShares.toString())}
+            title="Click to set max"
+          >
+            <span>Max:</span>
+            <span className="font-mono text-emerald-400 font-bold">{userTokenShares.toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
@@ -477,16 +443,18 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       <Button
         onClick={handlePlaceOrder}
         disabled={isActionDisabled}
-        isLoading={isPending || isApproving}
+        isLoading={isPending} // Removed isApproving
         className={cn("w-full h-12 font-bold",
           isActionDisabled ? "bg-slate-700" : orderType === 'buy' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
         )}
       >
         {getButtonText()}
-      </Button>{/* Footer */}
+      </Button>
+
+      {/* Footer */}
       <div className="text-center text-[10px] text-slate-600">
         {badgeText}
       </div>
-    </div >
+    </div>
   );
 };

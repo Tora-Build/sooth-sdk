@@ -42,23 +42,38 @@ const CHAIN_ID_MAP: Record<number, string> = {
 
 export function useDeployments() {
   const chainId = useChainId();
-  
+
   // Fallback to default chain if current chain is not supported
   const activeChainId = CHAIN_ID_MAP[chainId] ? chainId : DEFAULT_CHAIN_ID;
   const networkName = CHAIN_ID_MAP[activeChainId];
   const chainDeployments = deploymentsConfig.networks[networkName]?.contracts;
+  const configVersion = deploymentsConfig.version;
+
+  // Runtime guard: Detect stale browser cache
+  if (typeof window !== 'undefined' && chainDeployments) {
+    const storedVersion = localStorage.getItem('sooth_config_version');
+    if (storedVersion && storedVersion !== configVersion) {
+      console.warn(`[useDeployments] Config version mismatch: localStorage=${storedVersion}, current=${configVersion}. Clearing cache.`);
+      localStorage.setItem('sooth_config_version', configVersion);
+      // Clear wagmi cache and reload
+      localStorage.removeItem('wagmi.store');
+      window.location.reload();
+    } else if (!storedVersion) {
+      localStorage.setItem('sooth_config_version', configVersion);
+    }
+  }
 
 
   if (!chainDeployments) {
     console.error(`[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`);
     return {} as ChainDeployments;
   }
-  
+
   return chainDeployments;
 }
 
 // Helper to get deployments for a specific chain ID (useful outside of hooks)
 export function getDeployments(chainId: number) {
-    const networkName = CHAIN_ID_MAP[chainId] || 'baseSepolia';
-    return deploymentsConfig.networks[networkName]?.contracts;
+  const networkName = CHAIN_ID_MAP[chainId] || 'baseSepolia';
+  return deploymentsConfig.networks[networkName]?.contracts;
 }

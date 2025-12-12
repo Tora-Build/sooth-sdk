@@ -26,40 +26,56 @@ All user interactions go through TraderVaultV4.
 
 ```solidity
 function accounts(address user) external view returns (uint256 available, uint256 pending);
+function shareBalances(address user, address market, uint8 outcome) external view returns (uint256 balanceWad);
 function ammPositions(address user, address market) external view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime);
 ```
 
 ### Write Functions
 
 #### `deposit(uint256 amount)`
+Deposits USDC to internal `available` balance.
 ```typescript
 await usdc.approve(TRADER_VAULT, amount);
 await traderVault.deposit(parseUnits('100', 18));
 ```
 
-#### `tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)`
-AMM trade (WAD Granularity).
-
+#### `depositShares(address market, uint8 outcome, uint256 amount)`
+Deposits ERC1155 tokens to internal `shareBalances`.
 ```typescript
-// Buy 10 YES shares (WAD)
-await traderVault.tradeAMM(
-  MARKET_ADDRESS,
-  0, // YES
-  parseUnits('10', 18), // shares
-  parseUnits('15', 18)  // maxCost
-);
+await outcomeToken.setApprovalForAll(TRADER_VAULT, true);
+await traderVault.depositShares(MARKET_ADDRESS, 0, parseUnits('50', 18));
+```
+
+#### `withdrawShares(address market, uint8 outcome, uint256 amount)`
+Withdraws internal `shareBalances` to ERC1155 tokens.
+```typescript
+await traderVault.withdrawShares(MARKET_ADDRESS, 0, parseUnits('20', 18));
 ```
 
 #### `placeOrder(address market, uint8 outcome, uint256 price, uint256 amount, bool isBuy)`
-Orderbook limit order (Integer Granularity, No Locks).
+Limit Order (Buy or Short Sell).
+- **Buy**: Uses `available` USDC.
+- **Short**: Uses `available` USDC (Collateral).
 
 ```typescript
 await traderVault.placeOrder(
   MARKET_ADDRESS,
   0, // YES
-  parseUnits('0.6', 18), // 60% price (WAD)
-  100n,                  // 100 Shares (INTEGER)
-  true                   // isBuy
+  parseUnits('0.6', 18), // Price
+  parseUnits('100', 18), // Amount
+  true // isBuy
+);
+```
+
+#### `placeSpotOrder(address market, uint8 outcome, uint256 price, uint256 amount)`
+Spot Sell (Uses internal `shareBalances`).
+
+```typescript
+await traderVault.placeSpotOrder(
+  MARKET_ADDRESS,
+  0, // YES
+  parseUnits('0.6', 18),
+  parseUnits('50', 18)
 );
 ```
 
@@ -71,37 +87,44 @@ await traderVault.placeOrder(
 
 ```solidity
 function price(uint8 outcome) external view returns (uint256 priceWad);
+function qYes() external view returns (int256);
+function qNo() external view returns (int256);
+function b() external view returns (uint256);
 function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) external view returns (int256 cost, uint256 fee, int256 newQYes, int256 newQNo);
 ```
 
 ### Usage
 
 ```typescript
-// Get probability/price
-const priceWad = await market.price(1); // 1 = YES? Check contract convention.
+// Get Price (WAD)
+const price = await market.price(0); // 0=YES
 
-// Estimate cost
-const costData = await market.calculateAMMTradeCost(0, parseUnits('10', 18), true);
+// Estimate AMM Cost
+const quote = await market.calculateAMMTradeCost(0, parseUnits('10', 18), true);
+// returns [cost, fee, newQYes, newQNo]
 ```
 
 ---
 
 ## 3. OutcomeToken - ERC1155 Orderbook Tokens
+(Standard ERC1155 Interface)
 
-### View Functions
+---
 
+## 4. Events
+### TraderVaultV4
 ```solidity
-function balanceOf(address account, uint256 id) external view returns (uint256);
+event OrderPlaced(address indexed user, address indexed market, uint256 orderId, uint8 outcome, uint256 price, uint256 amount);
+event MergeCredit(address indexed user, uint256 amount); // Spot Sell Payout
+event SharesDeposited(address indexed user, address indexed market, uint8 outcome, uint256 amount);
+event SharesWithdrawn(address indexed user, address indexed market, uint8 outcome, uint256 amount);
 ```
 
-### Usage
+### Market
 
-```typescript
-// Check YES tokens (id=0)
-const yesBalance = await outcomeToken.balanceOf(userAddress, 0);
-
-// Check NO tokens (id=1)
-const noBalance = await outcomeToken.balanceOf(userAddress, 1);
+```solidity
+event TickUpdated(uint16 oldTick, uint16 newTick);
+event Initialized(uint256 marketId, uint256 bBase, uint16 initialTick);
 ```
 
 ---

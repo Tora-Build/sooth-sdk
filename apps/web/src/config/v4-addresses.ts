@@ -10,32 +10,36 @@ export const V4_ADDRESSES = {
 
         // Phase 1: Infrastructure
         governorVault: '0x2384b0ce7d1af975865c230f1f51addb718a828a',
-        traderVault: '0x9b9148e635d61f6771f66079c2d666c83a4b189b',
+        traderVault: '0x547bc4ca02cf67b4cea44bcf969fffab72f4e6b5',
         feeController: '0x6184906a66e731b19dbb9634c16c10b3a168987e',
     },
 } as const
 
 export const V4_MARKETS = [
     {
-        id: 'market1',
-        name: 'UN Confirms Alien Life',
-        description: 'Will the United Nations officially confirm the existence of extraterrestrial life?',
-        address: '0x1c95b682b7c2589e9c16b8ee8742e359276ccab3',
-        outcomeToken: '0xfebe82ccacc60f702a045a273b455b4d4ccc119b',
+        id: '1',
+        name: 'Trump Wins 2024 US Election',
+        address: '0xf04e9231ebb0ff375553af550147993288e7eb5c',
+        outcomeToken: '0x5245f2dc2cbc1aea6d0b74af28439ec817b86071',
         bParam: '10000000000000000000000', // 10000 * 1e18
         initialQYes: '0',
         initialQNo: '0',
+        description: 'Will Trump win the 2024 US Election?',
+        image: '/images/trump.png',
+        category: 'Politics',
         status: 'live' as const,
     },
     {
-        id: 'market2',
-        name: 'BTC >= $100k',
-        description: "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-        address: '0xa4dc5b625fec5f39242f0f16d6d56d5fa847f6c8',
-        outcomeToken: '0xabebdca7e7197296c7b7fa7344a4c05f1784f03d',
+        id: '2',
+        name: 'BTC 7-day TWAP > $100k',
+        address: '0x7ade00da0c0a078cfddf011b25e444457a276c9f',
+        outcomeToken: '0xc7b84a8d578a48a697d02dba7265f1eb6c4b6383',
         bParam: '15000000000000000000000', // 15000 * 1e18
         initialQYes: '0',
         initialQNo: '0',
+        description: 'Will BTC 7-day TWAP stay above $100k?',
+        image: '/images/btc.png',
+        category: 'Crypto',
         status: 'live' as const,
     }
 ] as const

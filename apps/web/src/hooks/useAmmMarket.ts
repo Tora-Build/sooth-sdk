@@ -1,14 +1,14 @@
 import React from 'react';
 import { useReadContracts, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, OUTCOME_TOKEN_ABI } from '../config/abis';
+import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
 import { useChainStore } from '../store/useChainStore';
 import { useMarketStore } from '../store/useMarketStore';
 
-export function useMarket(marketId: string) {
+export function useAmmMarket(marketId: string) {
   return useEVMMarket(marketId);
 }
 
@@ -40,21 +40,13 @@ function useEVMMarket(marketId: string) {
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'ammPositions',
         args: [address || '0x0000000000000000000000000000000000000000', marketAddress]
-      },
-      // V4: Orderbook positions (OutcomeToken)
-      {
-        address: (marketConfig as any)?.outcomeTokenAddress as `0x${string}`,
-        abi: OUTCOME_TOKEN_ABI,
-        functionName: 'balanceOfBatch',
-        // Use fallback logic similar to Portfolio just in case, though balanceOfBatch needs array
-        args: [[address || '0x0000000000000000000000000000000000000000', address || '0x0000000000000000000000000000000000000000'], [0n, 1n]],
       }
     ],
     query: {
       // Relaxed check: Fetch if real mode and we have a valid market address.
       // Removed walletChainId === selectedChainId to match PortfolioSummary behavior.
       enabled: mode === 'real' && !!marketAddress,
-      refetchInterval: 5000,
+      refetchInterval: 3000,
     }
   });
 
@@ -64,7 +56,7 @@ function useEVMMarket(marketId: string) {
   }
 
   // 3. Process Data
-  const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition, obBalances] = onChainData?.map(r => r.result) || [];
+  const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition] = onChainData?.map(r => r.result) || [];
 
   const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
 
@@ -72,12 +64,7 @@ function useEVMMarket(marketId: string) {
   const ammPos = ammPosition as [bigint, bigint, bigint] | undefined;
   const ammYesShares = ammPos?.[0] || 0n;
   const ammNoShares = ammPos?.[1] || 0n;
-
-  // Extract Orderbook position (Integers)
-  // balanceOfBatch returns [yesBal, noBal]
-  const obBals = obBalances as [bigint, bigint] | undefined;
-  const obYesShares = obBals?.[0] || 0n;
-  const obNoShares = obBals?.[1] || 0n;
+  const ammUnlockTime = ammPos?.[2] || 0n;
 
   // Real Mode Construction
   const market: Market | undefined = React.useMemo(() => {
@@ -92,13 +79,12 @@ function useEVMMarket(marketId: string) {
           user: address
         });
       } else if (ammResult?.result) {
-        console.log('UseMarket: AMM Position Success', ammResult.result);
+        // console.log('UseMarket: AMM Position Success', ammResult.result);
       }
     }
 
     if (!marketConfig) return undefined;
 
-    // V4 Continuous LMSR: price(0) returns YES probability in 18 decimals
     // V4 Continuous LMSR: price(0) returns YES probability in 18 decimals
     const priceYesRaw = priceYesWad ? BigInt(priceYesWad as bigint) : undefined;
 
@@ -114,17 +100,23 @@ function useEVMMarket(marketId: string) {
       qYes: (qYes as bigint) || 0n,
       qNo: (qNo as bigint) || 0n,
       bParam: (bParam as bigint) || configBParam || 0n,
-      // V4: User shares = AMM (WAD) + OB (Integer)
-      userYesShares: parseFloat(formatUnits(ammYesShares, 18)) + Number(obYesShares),
-      userNoShares: parseFloat(formatUnits(ammNoShares, 18)) + Number(obNoShares),
-      userYesOutcomeTokens: Number(obYesShares),
-      userNoOutcomeTokens: Number(obNoShares),
+      userYesShares: parseFloat(formatUnits(ammYesShares, 18)),
+      userNoShares: parseFloat(formatUnits(ammNoShares, 18)),
+
+      // Breakdown for Locked Shares Logic
+      userYesLocked: parseFloat(formatUnits(ammYesShares, 18)),
+      userNoLocked: parseFloat(formatUnits(ammNoShares, 18)),
+      unlockTime: Number(ammUnlockTime),
+
+      // Orderbook tokens handled in useOrderbook now
+      userYesOutcomeTokens: 0,
+      userNoOutcomeTokens: 0,
       userAvgEntryYes: null,
       userAvgEntryNo: null,
       mode: 'real',
       fee: feeData ? Number(feeData) / 10000 : 0.005, // Default to 0.5% if missing
     } as Market;
-  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, ammYesShares, ammNoShares, feeData, obYesShares, obNoShares]);
+  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, ammYesShares, ammNoShares, ammUnlockTime, feeData]);
 
   // React to global refresh events
   React.useEffect(() => {

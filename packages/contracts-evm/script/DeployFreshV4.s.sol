@@ -18,9 +18,9 @@ contract DeployFreshV4 is Script {
 
         console.log("=== Deploying Fresh V4 System ===");
         
-        // 1. Deploy MockUSDC (if not mainnet - assuming testnet/local)
-        MockUSDC usdc = new MockUSDC();
-        console.log("USDC:", address(usdc));
+        // 1. Use Existing USDC
+        MockUSDC usdc = MockUSDC(0x2D2Aed066C34523913ab7084B668bFf3529cB176);
+        console.log("Using Existing USDC:", address(usdc));
 
         // 2. Deploy FeeController
         SoothFeeController feeController = new SoothFeeController(deployer);

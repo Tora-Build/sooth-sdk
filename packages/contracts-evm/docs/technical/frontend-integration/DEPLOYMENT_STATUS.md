@@ -4,23 +4,23 @@
 
 **Chain ID:** 84532  
 **Status:** ✅ Active  
-**Deployed:** December 9, 2025
+**Deployed:** December 10, 2025 (V4 Hybrid Sell)
 
 ### Core Infrastructure
 
 | Contract | Address | Status |
 |----------|---------|--------|
-| MockUSDC | `0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab` | ✅ Live |
-| GovernorVault | `0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f` | ✅ Live (500k funded) |
-| TraderVaultV4 | `0xee91e05f95cBaACD46f58432DF72CB5C451e98E0` | ✅ Live |
-| FeeController | `0xa367B312Ca1845B7c6076345cB5cd529F935B4FA` | ✅ Live |
+| MockUSDC | `0x85232d6e51467dac82dd36aab5b25cd412fab7a8` | ✅ Live |
+| GovernorVault | `0xbb044a919bed2d20eda32de62f52ca7fc819268d` | ✅ Live |
+| TraderVaultV4 | `0x12b3c9456d9b0f0edbc29c9e4f95f7b21d51256f` | ✅ Live |
+| FeeController | `0x2f043cff8ab8366d3e96f378089c3bbbc41cf1fb` | ✅ Live |
 
 ### Markets
 
 | ID | Name | Market Address | Status |
 |----|------|----------------|--------|
-| 1 | UN Confirms Alien Life | `0xf17f4863aeeecdd5db8d0eb2a81a5435987267db` | ✅ Live |
-| 2 | BTC 7-day TWAP >= $100k | `0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7` | ✅ Live |
+| 1 | UN Confirms Alien Life | `0xf4a4077645f76a78e1a29d9b817cec59aa38709e` | ✅ Live |
+| 2 | BTC 7-day TWAP >= $100k | `0xff38c86ac7481b298f2196cca553685bae385977` | ✅ Live |
 
 ---
 
@@ -32,6 +32,8 @@ All contracts deployed and verified on Base Sepolia block explorer.
 
 ## Version History
 
+- **V4 Hybrid Sell** (Dec 10, 2025): Added `executeHybridSell` for atomic Split (Spot/Short).
+- **V4 Fix** (Dec 10, 2025): Fixed Spot Order settlement bug.
 - **V4** (Dec 2025): Dual-venue, lock-on-buy AMM, ERC1155 orderbook
 - **V3** (Nov 2025): Lock-on-sell model (archived)
 - **V2** (Oct 2025): Initial singleton architecture (archived)

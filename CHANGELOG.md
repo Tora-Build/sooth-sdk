@@ -4,19 +4,51 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **CRITICAL (C-07)**: `creditMergeProceeds` — Used `onlyMarket` but called by OutcomeToken during merge
+  - Added `_isOutcomeToken` mapping and `onlyOutcomeToken` modifier
+  - Added `setOutcomeToken()` admin function
+  - Fixed hybrid sell transaction failures
+
+### Added
+- `executeHybridSell` — Single-transaction hybrid sell in frontend hooks
+- OutcomeToken authorization system in `SoothTraderVaultV4`
+
+### Deployed
+- **Base Sepolia V4.5 (2025-12-12)**:
+  - MockUSDC: `0x3E45bf96a8D866D796E168eE77a5fA7507D544F1`
+  - TraderVault: `0x48Efb2434383E87a4a143D2B07BeE73611f5423C`
+  - GovernorVault: `0xcB0f1305951d4BC6EF266790836aC62604cFA733`
+  - FeeController: `0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97`
+  - Market 1: `0x99CB8c0e3da2604518b8210589edcaB50Cc6f769`
+  - Market 2: `0x94D02d846a04A751e9e4f93A6684a30e043444Da`
+
+---
+
+## [0.4.4] - 2025-12-11
+
+### Fixed
+- **CRITICAL (C-01)**: `onOrderMatched` — `matchedAmount * 1e18` overflow (matchedAmount already WAD)
+- **CRITICAL (C-02)**: `_placeOrder` — `targetPrice * matchedAmount` missing `/1e18`
+- **CRITICAL (C-03)**: `redeem()` — `shares * 1e18 / scalar` (shares already WAD)
+- **CRITICAL (C-04)**: `_matchBuyOrder` — `matchAmount * matchPrice` missing `/1e18`
+- **CRITICAL (C-05)**: `_matchSellOrder` — Same as C-04
+- **CRITICAL (C-06)**: `merge()` — `return amount * 1e18` (already WAD)
+- **Frontend**: `ammPositions` ABI argument order corrected to `(user, market)`
+- **Frontend**: Orderbook share decimals now correctly use WAD (18 decimals)
+
+### Added
+- **Security Audit**: Internal audit of all V4 contracts (6 Critical, 2 High, 1 Medium, 2 Low)
+- **Verification Tooling**: `verify-deployment.sh` script to validate config vs on-chain state
+- **Pre-commit Hook**: `.husky/pre-commit` blocks commits with invalid deployment config
+- **Agent Memory Aid**: `.agent/LESSONS_LEARNED.md` for persistent knowledge across sessions
+
+---
+
+## [0.4.0] - 2025-12-10
+
 ### Added
 - Continuous LMSR implementation using PRB-Math (`qYes`/`qNo` state)
-- `MockUSDC.sol` - Moved to dedicated `contracts/mocks/` folder
-- `DeployUtilities.s.sol`, `DeployUtilitiesBatch.s.sol` - Phased deployment scripts
-- `STATUS.md`, `DECISIONS.md` - Project coordination artifacts
-- Agent workflows in `.agent/workflows/`
-- Agent workflows in `.agent/workflows/`
-- ADR-005: Continuous LMSR decision record
-- **Collateralized Short Selling**: Users can sell outcomes they don't own by posting `(1-price)` collateral.
-- **Hybrid Sell UI**: `LimitOrderForm` visualizes "Spot + Short" backing but routes via standard "Virtual Short" logic.
-- `OrderbookShortTest.t.sol`: Verification suite for short selling.
-- `DeployFreshV4.s.sol`: New deployment script for clean V4 environment (MockUSDC, FeeController, GovernorVault, TraderVaultV4, Markets).
-- `V4_MIGRATION_GUIDE.md`: Frontend guide for migrating to Integer/WAD hybrid model.
 
 ### Changed
 - **BREAKING**: `ISoothTraderVault.placeOrder` now requires `bool isBuy` as the 5th argument.

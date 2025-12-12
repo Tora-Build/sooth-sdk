@@ -69,3 +69,38 @@
     - **Fixes Bug**: Prevents panic 0x11.
     - **Precision**: Refunds are now accurate to the wei, even for small integer order amounts.
     - **Consistency**: The interface now consistently returns value in WAD, aligning with `SoothTraderVault`'s internal logic.
+
+## ADR-008: WAD × WAD Multiplication Rule
+- **Date**: 2025-12-11
+- **Status**: Accepted
+- **Context**: Internal audit discovered **6 critical bugs** where two WAD values were multiplied without dividing by 1e18, creating 1e36 overflows. This pattern corrupted user balances (e.g., showing `$1,200,000,000,000,000`).
+- **Decision**: Establish a **mandatory code review rule** for all WAD math:
+    - **Rule**: If both operands are WAD (1e18 scale), the result is WAD×WAD (1e36). MUST divide by 1e18.
+    - **Checklist**: Before any multiplication, ask: "Is operand A in WAD? Is operand B in WAD? If both yes, add `/1e18`."
+    - **Examples**:
+      - ❌ `price * amount` → 1e36 overflow
+      - ✅ `(price * amount) / 1e18` → correct WAD result
+- **Consequences**:
+    - **Prevention**: All future PRs must verify WAD math.
+    - **Documentation**: Added to `.agent/LESSONS_LEARNED.md` for AI agents.
+    - **Testing**: Consider adding invariant tests for balance tracking.
+
+## ADR-009: OutcomeToken Authorization for Merge Callbacks
+- **Date**: 2025-12-12
+- **Status**: Accepted
+- **Context**: Hybrid sell transactions were failing with "TraderVault: not market" error. Investigation revealed that `creditMergeProceeds` was using the `onlyMarket` modifier, but it's called by OutcomeToken (not Market) during the merge flow:
+    ```
+    TraderVault.onOrderMatched() 
+      → OutcomeToken.merge() 
+        → TraderVault.creditMergeProceeds() ❌ FAILS
+    ```
+- **Decision**: Add separate authorization for OutcomeTokens:
+    - New `_isOutcomeToken` mapping to track authorized OutcomeToken contracts
+    - New `onlyOutcomeToken` modifier for functions called by OutcomeToken
+    - Changed `creditMergeProceeds` to use `onlyOutcomeToken` instead of `onlyMarket`
+    - Added `setOutcomeToken(address, bool)` admin function
+    - Deployment script now automatically registers OutcomeTokens after creation
+- **Consequences**:
+    - **Fixes Bug**: Hybrid sell and merge operations now work correctly.
+    - **Separation of Concerns**: Clear distinction between Market callbacks and OutcomeToken callbacks.
+    - **Deployment Checklist**: Must call `setOutcomeToken()` for each market's OutcomeToken.

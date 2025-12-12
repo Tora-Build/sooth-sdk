@@ -362,6 +362,14 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         
         while (buyOrder.amount > 0 && bestAsk != 0) {
             OrderV4 storage askOrder = _orders[bestAsk];
+
+            // Safety: Skip and remove ghost orders
+            if (askOrder.amount == 0) {
+                uint256 ghost = bestAsk;
+                bestAsk = nextOrder[ghost];
+                delete _orders[ghost];
+                continue;
+            }
             
             if (buyOrder.yesPrice < askOrder.yesPrice) break;
 
@@ -375,13 +383,14 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
             askOrder.amount -= matchAmount;
             
             totalAmount += matchAmount;
-            totalValue += (matchAmount * matchPrice);
+            totalValue += (matchAmount * matchPrice) / 1e18;
 
             emit OrderMatched(buyOrderId, bestAsk, matchAmount, matchPrice);
 
             // Notify TraderVault
-            ISoothTraderVaultV4(traderVault).onOrderMatched(buyOrderId, matchAmount);
-            ISoothTraderVaultV4(traderVault).onOrderMatched(bestAsk, matchAmount);
+            uint256 value = (matchAmount * matchPrice) / 1e18;
+            ISoothTraderVaultV4(traderVault).onOrderMatched(buyOrderId, matchAmount, value);
+            ISoothTraderVaultV4(traderVault).onOrderMatched(bestAsk, matchAmount, value);
 
             if (askOrder.amount == 0) {
                 uint256 filledAsk = bestAsk;
@@ -396,6 +405,14 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         
         while (sellOrder.amount > 0 && bestBid != 0) {
             OrderV4 storage bidOrder = _orders[bestBid];
+
+            // Safety: Skip and remove ghost orders
+            if (bidOrder.amount == 0) {
+                uint256 ghost = bestBid;
+                bestBid = nextOrder[ghost];
+                delete _orders[ghost];
+                continue;
+            }
             
             if (sellOrder.yesPrice > bidOrder.yesPrice) break;
 
@@ -409,13 +426,14 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
             bidOrder.amount -= matchAmount;
 
             totalAmount += matchAmount;
-            totalValue += (matchAmount * matchPrice);
+            totalValue += (matchAmount * matchPrice) / 1e18;
 
             emit OrderMatched(bestBid, sellOrderId, matchAmount, matchPrice);
 
             // Notify TraderVault
-            ISoothTraderVaultV4(traderVault).onOrderMatched(bestBid, matchAmount);
-            ISoothTraderVaultV4(traderVault).onOrderMatched(sellOrderId, matchAmount);
+            uint256 value = (matchAmount * matchPrice) / 1e18;
+            ISoothTraderVaultV4(traderVault).onOrderMatched(bestBid, matchAmount, value);
+            ISoothTraderVaultV4(traderVault).onOrderMatched(sellOrderId, matchAmount, value);
 
             if (bidOrder.amount == 0) {
                 uint256 filledBid = bestBid;
@@ -533,8 +551,8 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
     function merge(uint256 amount) external returns (uint256 proceeds) {
         outcomeToken.merge(amount);
         // Proceeds are credited to msg.sender (Vault) by OutcomeToken
-        // We return the amount in WAD for Vault's logic
-        return amount * 1e18;
+        // amount is already WAD, return as-is
+        return amount;
     }
 
     // V4: Remove tick-related functions since we use qYes/qNo

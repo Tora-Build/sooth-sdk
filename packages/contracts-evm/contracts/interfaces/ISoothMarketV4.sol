@@ -112,4 +112,5 @@ interface ISoothMarketV4 {
     function merge(uint256 amount) external returns (uint256 proceeds);
     
     function nextOrderId() external view returns (uint256);
+    function orders(uint256 orderId) external view returns (OrderV4 memory);
 }
