@@ -1,20 +1,21 @@
 # Project Status
 
-> Last Updated: 2025-12-12 00:15 UTC+7
+> Last Updated: 2025-12-12 07:26 UTC+7
 
 ## Current Focus
-- **V4.5 Deployed & Verified** — OutcomeToken authorization fix applied.
-- **Ready for Testing** — User should hard refresh and mint new USDC.
+- **V4.5 Live** — All critical bugs fixed, hybrid sell working.
+- **User Testing** — Testing orderbook and hybrid sell functionality.
 
 ## Recent Changes (2025-12-12)
 
-### 🔴 Critical Bug Fix: OutcomeToken Authorization
-- **Root Cause**: `creditMergeProceeds` used `onlyMarket` modifier but was called by OutcomeToken during merge flow.
-- **Fix**: Added `onlyOutcomeToken` modifier and `setOutcomeToken()` admin function.
+### ✅ Fixes Applied
+1. **OutcomeToken Authorization (C-07)**: Fixed `creditMergeProceeds` modifier
+2. **My Orders Display**: Now shows user's orders correctly via `orderOwners` lookup
+3. **Hybrid Sell**: Single-transaction execution working
 
 ### ✅ V4.5 Deployment
-- **Full redeploy** of all infrastructure + markets to Base Sepolia.
-- **Verification passed** — all contracts linked correctly.
+- Full redeploy of all infrastructure + markets to Base Sepolia
+- Verification passed — all contracts linked correctly
 
 ## Active Deployments (Base Sepolia - Chain 84532)
 

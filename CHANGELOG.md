@@ -9,10 +9,14 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Added `_isOutcomeToken` mapping and `onlyOutcomeToken` modifier
   - Added `setOutcomeToken()` admin function
   - Fixed hybrid sell transaction failures
+- **My Orders Display**: Orders not showing in "My Orders" tab
+  - Root cause: Market's `maker` is TraderVault, not user wallet
+  - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
 
 ### Added
 - `executeHybridSell` — Single-transaction hybrid sell in frontend hooks
 - OutcomeToken authorization system in `SoothTraderVaultV4`
+- `orderOwners` view function to `TRADER_VAULT_V4_ABI`
 
 ### Deployed
 - **Base Sepolia V4.5 (2025-12-12)**:
