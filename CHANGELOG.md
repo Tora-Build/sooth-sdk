@@ -34,9 +34,9 @@ All notable changes to Sooth Protocol will be documented in this file.
     - `packages/contracts-evm/test/scenarios/AdversarialScenarios.t.sol`
 
 ### Changed
-- **Base Sepolia Config (V4.6)**:
-  - Bumped `apps/web/src/config/deployments.json` version to `4.9` (cache refresh)
-  - Updated Base Sepolia market + outcome token addresses across:
+- **Multi-Chain Config (V4.6)**:
+  - Bumped `apps/web/src/config/deployments.json` version to `4.10` (cache refresh)
+  - Updated Base Sepolia + BNB Testnet market + outcome token addresses across:
     - `apps/web/src/config/deployments.json`
     - `apps/web/src/config/markets.json`
 - **ProtocolAddresses UI**: now lists per-chain **Market + OutcomeToken** addresses from `markets.json` (instead of a single optional `SoothMarket` field).
@@ -74,24 +74,24 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
 
 ### Deployed
-- **Base Sepolia V4.6 Markets (2025-12-14)**:
-  - MockUSDC: `0x53d34066A316AE1699d434753B70593A6D59Fec1`
-  - TraderVault: `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B`
-  - GovernorVault: `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1`
-  - FeeController: `0x1a646107e7E88aa01Fadff3145Af08156679198e`
-  - Market 1 (Alien): `0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9`
-  - OutcomeToken 1: `0xBf2866f71A082446DA6919C92C477d9D1608E4B7`
-  - Market 2 (BTC): `0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02`
-  - OutcomeToken 2: `0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f`
-- **BNB Testnet V4.6 (2025-12-14)**:
-  - MockUSDC: `0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c`
-  - TraderVault: `0x05818C4028ff5c273B45B3c55131Af2Bd9D12322`
-  - GovernorVault: `0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0`
-  - FeeController: `0x3152A8cd6CA0C64675C73486B06203a9D8226448`
-  - Market 1: `0x347a74a7025C42BE608F3Bdc0B150D4AD6eb4674`
-  - OutcomeToken 1: `0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d`
-  - Market 2: `0xD222b33742cA522fa2Ec8198197F3a05ef896B40`
-  - OutcomeToken 2: `0x1A7B20B43455CA6f861a574EcD8F9E5c9cE4e3a3`
+- **Base Sepolia V4.6 Fresh Markets (2025-12-14 Session 2)**:
+  - MockUSDC: `0x53d34066A316AE1699d434753B70593A6D59Fec1` (unchanged)
+  - TraderVault: `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B` (unchanged)
+  - GovernorVault: `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1` (unchanged)
+  - FeeController: `0x1a646107e7E88aa01Fadff3145Af08156679198e` (unchanged)
+  - Market 1 (Alien): `0x93AF286C7112dBeCB1e99B67c9E17427dD2ADec8` ✨ NEW
+  - OutcomeToken 1: `0x0359d69Fc421a68b6Ee818F84EA7575f5073E21c` ✨ NEW
+  - Market 2 (BTC): `0xaF3638175C66bA5B4aEd255A1d266504D3df31a3` ✨ NEW
+  - OutcomeToken 2: `0x9D84d61C9e6eb38bd4227F0Dd3b9Bd8ac13F792A` ✨ NEW
+- **BNB Testnet V4.6 Fresh Markets (2025-12-14 Session 2)**:
+  - MockUSDC: `0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c` (unchanged)
+  - TraderVault: `0x05818C4028ff5c273B45B3c55131Af2Bd9D12322` (unchanged)
+  - GovernorVault: `0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0` (unchanged)
+  - FeeController: `0x3152A8cd6CA0C64675C73486B06203a9D8226448` (unchanged)
+  - Market 1 (Alien): `0x93CD5Cd848af2Af5247Ba132FcAc4B6840531585` ✨ NEW
+  - OutcomeToken 1: `0xAf358498666D7b0F8Cd4A02B5194D19CA654756d` ✨ NEW
+  - Market 2 (BTC): `0x45419a4f8Fc485aC548F289d1a6279b9010c11ca` ✨ NEW
+  - OutcomeToken 2: `0xb68Cf3fB896fd9b3869830473917767C3F6a28cF` ✨ NEW
 - **MegaETH Testnet V4.5 (2025-12-12)**:
   - MockUSDC: `0x493da6e5c9de67ab50b2fb08d14865614189b5c2`
   - TraderVault: `0xdc980ac16626211a7c472a94a163440eb68c5bfc`

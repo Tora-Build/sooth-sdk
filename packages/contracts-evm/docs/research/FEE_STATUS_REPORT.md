@@ -1,6 +1,6 @@
 # Fee System Status Report
 
-This report documents the current on-chain fee implementation for Sooth V4, highlights coverage gaps, and recommends next steps. A ready-to-download copy is available in [`FEE_STATUS_REPORT_DOWNLOAD.md`](./FEE_STATUS_REPORT_DOWNLOAD.md).
+This report documents the current on-chain fee implementation for Sooth V4, highlights coverage gaps, and recommends next steps.
 
 ## Current State Overview
 
@@ -60,6 +60,7 @@ flowchart TD
 4. **Add monitoring and reporting**
    - Track AMM vs. orderbook fee accrual separately in events/metrics.
    - Create dashboards to confirm LP accrual and treasury receipts match expectations once orderbook fees are live.
+
 
 
 

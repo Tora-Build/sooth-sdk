@@ -47,12 +47,100 @@ echo ""
 
 ERRORS=0
 
+# Helper function to get contract code (with curl fallback for sandbox environments)
+get_code() {
+    local addr=$1
+    # Try cast first
+    local code=$(cast code $addr --rpc-url $RPC_URL 2>/dev/null)
+    if [ $? -eq 0 ] && [ -n "$code" ] && [ "$code" != "0x" ]; then
+        echo "$code"
+        return
+    fi
+    # Fallback to curl (for sandbox/macOS environments where cast crashes)
+    local result=$(curl -s -X POST -H "Content-Type: application/json" \
+        --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"$addr\",\"latest\"],\"id\":1}" \
+        "$RPC_URL" 2>/dev/null | jq -r '.result // "0x"')
+    echo "$result"
+}
+
+# Helper function to call a contract (with curl fallback)
+# Usage: call_contract <to_address> "<signature> [arg]"
+# Examples:
+#   call_contract 0x123 "asset()(address)"
+#   call_contract 0x123 "isMarket(address)(bool) 0x456"
+call_contract() {
+    local to=$1
+    local data=$2
+    # Extract signature and optional arg
+    local sig=$(echo "$data" | awk '{print $1}')
+    local arg=$(echo "$data" | awk '{print $2}')
+    
+    # Try cast first
+    if [ -n "$arg" ]; then
+        local result=$(cast call $to "$sig" "$arg" --rpc-url $RPC_URL 2>/dev/null)
+    else
+        local result=$(cast call $to "$sig" --rpc-url $RPC_URL 2>/dev/null)
+    fi
+    if [ $? -eq 0 ] && [ -n "$result" ] && [ "$result" != "FAILED" ]; then
+        echo "$result"
+        return
+    fi
+    
+    # Fallback to curl for sandbox environments
+    local calldata=""
+    case "$sig" in
+        "asset()(address)")
+            calldata="0x38d52e0f"
+            ;;
+        "isMarket(address)(bool)")
+            # Encode address argument (pad to 32 bytes)
+            local addr_clean="${arg#0x}"
+            calldata="0x6ec934da000000000000000000000000${addr_clean}"
+            ;;
+        "traderVault()(address)")
+            calldata="0x51ed0ee3"
+            ;;
+        *)
+            echo "FAILED"
+            return
+            ;;
+    esac
+    
+    local json_result=$(curl -s -X POST -H "Content-Type: application/json" \
+        --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_call\",\"params\":[{\"to\":\"$to\",\"data\":\"$calldata\"},\"latest\"],\"id\":1}" \
+        "$RPC_URL" 2>/dev/null)
+    local hex_result=$(echo "$json_result" | jq -r '.result // "FAILED"')
+    
+    # Decode based on return type
+    if [ "$hex_result" != "FAILED" ] && [ "$hex_result" != "null" ] && [ -n "$hex_result" ]; then
+        case "$sig" in
+            *"(address)")
+                # Address is last 40 hex chars
+                echo "0x${hex_result: -40}"
+                ;;
+            *"(bool)")
+                # Bool: 1 = true, 0 = false
+                if [ "${hex_result: -1}" == "1" ]; then
+                    echo "true"
+                else
+                    echo "false"
+                fi
+                ;;
+            *)
+                echo "$hex_result"
+                ;;
+        esac
+    else
+        echo "FAILED"
+    fi
+}
+
 # Helper function
 check_code() {
     local name=$1
     local addr=$2
-    local code=$(cast code $addr --rpc-url $RPC_URL 2>/dev/null || echo "0x")
-    if [ "$code" == "0x" ] || [ -z "$code" ]; then
+    local code=$(get_code $addr)
+    if [ "$code" == "0x" ] || [ -z "$code" ] || [ "$code" == "null" ]; then
         echo "❌ $name ($addr): NO CODE ON CHAIN"
         ERRORS=$((ERRORS + 1))
     else
@@ -72,7 +160,7 @@ echo ""
 
 # 2. Verify TraderVault.asset() == USDC
 echo "--- Step 2: Verify TraderVault Asset ---"
-VAULT_ASSET=$(cast call $TRADER_VAULT "asset()(address)" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+VAULT_ASSET=$(call_contract $TRADER_VAULT "asset()(address)")
 # Normalize to lowercase for comparison
 VAULT_ASSET_LOWER=$(echo "$VAULT_ASSET" | tr '[:upper:]' '[:lower:]')
 USDC_LOWER=$(echo "$USDC" | tr '[:upper:]' '[:lower:]')
@@ -86,16 +174,19 @@ echo ""
 
 # 3. Verify Market1.traderVault() == TraderVault
 echo "--- Step 3: Verify Market -> Vault Link ---"
-M1_VAULT=$(cast call $MARKET1 "traderVault()(address)" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
-if [ "$M1_VAULT" == "$TRADER_VAULT" ]; then
+M1_VAULT=$(call_contract $MARKET1 "traderVault()(address)")
+M1_VAULT_LOWER=$(echo "$M1_VAULT" | tr '[:upper:]' '[:lower:]')
+TRADER_VAULT_LOWER=$(echo "$TRADER_VAULT" | tr '[:upper:]' '[:lower:]')
+if [ "$M1_VAULT_LOWER" == "$TRADER_VAULT_LOWER" ]; then
     echo "✅ Market1.traderVault() matches config"
 else
     echo "❌ Market1.traderVault() = $M1_VAULT (expected $TRADER_VAULT)"
     ERRORS=$((ERRORS + 1))
 fi
 
-M2_VAULT=$(cast call $MARKET2 "traderVault()(address)" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
-if [ "$M2_VAULT" == "$TRADER_VAULT" ]; then
+M2_VAULT=$(call_contract $MARKET2 "traderVault()(address)")
+M2_VAULT_LOWER=$(echo "$M2_VAULT" | tr '[:upper:]' '[:lower:]')
+if [ "$M2_VAULT_LOWER" == "$TRADER_VAULT_LOWER" ]; then
     echo "✅ Market2.traderVault() matches config"
 else
     echo "❌ Market2.traderVault() = $M2_VAULT (expected $TRADER_VAULT)"
@@ -105,7 +196,7 @@ echo ""
 
 # 4. Verify TraderVault.isMarket() for both markets
 echo "--- Step 4: Verify Vault Knows Markets ---"
-IS_M1=$(cast call $TRADER_VAULT "isMarket(address)(bool)" $MARKET1 --rpc-url $RPC_URL 2>/dev/null || echo "false")
+IS_M1=$(call_contract $TRADER_VAULT "isMarket(address)(bool) $MARKET1")
 if [ "$IS_M1" == "true" ]; then
     echo "✅ TraderVault.isMarket(Market1) = true"
 else
@@ -113,7 +204,7 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
-IS_M2=$(cast call $TRADER_VAULT "isMarket(address)(bool)" $MARKET2 --rpc-url $RPC_URL 2>/dev/null || echo "false")
+IS_M2=$(call_contract $TRADER_VAULT "isMarket(address)(bool) $MARKET2")
 if [ "$IS_M2" == "true" ]; then
     echo "✅ TraderVault.isMarket(Market2) = true"
 else
@@ -135,15 +226,15 @@ else
     for ADDR in $MARKET_ADDRESSES; do
         if [ "$ADDR" != "null" ] && [ -n "$ADDR" ]; then
             # Check if market has code
-            CODE=$(cast code $ADDR --rpc-url $RPC_URL 2>/dev/null || echo "0x")
-            if [ "$CODE" == "0x" ] || [ -z "$CODE" ]; then
+            CODE=$(get_code $ADDR)
+            if [ "$CODE" == "0x" ] || [ -z "$CODE" ] || [ "$CODE" == "null" ]; then
                 echo "❌ Market $ADDR: NO CODE ON CHAIN"
                 ERRORS=$((ERRORS + 1))
                 continue
             fi
             
             # Check if market is registered in TraderVault
-            IS_REGISTERED=$(cast call $TRADER_VAULT "isMarket(address)(bool)" $ADDR --rpc-url $RPC_URL 2>/dev/null || echo "false")
+            IS_REGISTERED=$(call_contract $TRADER_VAULT "isMarket(address)(bool) $ADDR")
             if [ "$IS_REGISTERED" == "true" ]; then
                 echo "✅ markets.json: $ADDR is registered"
             else

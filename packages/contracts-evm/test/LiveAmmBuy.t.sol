@@ -31,11 +31,11 @@ interface IMarketMin {
 }
 
 contract LiveAmmBuy is Test {
-    // Live Base Sepolia addresses
-    address constant TRADER_VAULT = 0x8348A02D742e59B2ad9fe7Bfe354fAE01176d17d;
-    address constant MARKET_ALIEN = 0xEA44Fb3acaCF2527c54D8Ec787A50C87b2114535;
-    address constant MARKET_BTC = 0x6Ee804abCBc912A2831fdDdC9d36EeA68aef92cD;
-    address constant USDC = 0x2D2Aed066C34523913ab7084B668bFf3529cB176;
+    // Live Base Sepolia addresses (V4.6 - updated 2025-12-14)
+    address constant TRADER_VAULT = 0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B;
+    address constant MARKET_ALIEN = 0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9;
+    address constant MARKET_BTC = 0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02;
+    address constant USDC = 0x53d34066A316AE1699d434753B70593A6D59Fec1;
     
     // Your wallet (for impersonation)
     address constant TRADER = 0xbD29556A41C10deb19072c558E147C6B4b384eed;
