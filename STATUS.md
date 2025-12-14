@@ -1,15 +1,30 @@
 # Project Status
 
-> Last Updated: 2025-12-14 (Session 2)
+> Last Updated: 2025-12-14 (Session 3)
 
 ## Current Focus
 - **V4.6 Multi-Chain** — 3 testnets now live: Base Sepolia, BNB, MegaETH ✅
-- **Lock-on-Sell Implementation** — Branch `codex/review-and-implement-lock-mechanism` ready (not pushed)
-- **Terminology Update** — "Infinite-End" → "Open-End" across all UI
+- **Launchpad Model Research** — All design decisions finalized, ready for contract spec ✅ NEW
+- **Lock-on-Sell** — Merged to main ✅
+- **Terminology Update** — "Infinite-End" → "Open-End" across all UI ✅
 - **Fresh Market Deployment** — Both Base Sepolia and BNB Testnet redeployed with new markets ✅
 - **QA Hardening** — Added invariant + scenario suites (multi-role, settlement, adversarial) ✅
 
 ## Recent Changes
+
+### ✅ Launchpad Model Research Complete (2025-12-14 Session 3)
+- Finalized **Sooth Launchpad** architecture: pump.fun-inspired per-market liquidity model
+- All design decisions documented in `LAUNCHPAD_MODEL_RESEARCH.md` and `LAUNCHPAD_ECONOMICS_V2.md`
+- Key decisions:
+  - Creator deposit: USDC only (no SOOTH bond), `deposit = b × 0.693` (1.44x liquidity leverage)
+  - Fixed liquidity tiers: $100, $1k, $10k, $100k
+  - Graduation: 2× b in fees, 5-day deadline
+  - Fee split (post-grad): 50% liquidity (b growth), 30% LP Vault (exchangeRate), 20% protocol
+  - Expiry refund: Creator deposit + LP fees returned if market fails to graduate
+  - Early settlement: If truth known before graduation → market fails (refunds, no settlement)
+  - Open/Fixed-end: Creator's choice at creation
+- Validated LMSR math: `delta_b = fee / 0.693` is always safe (maxLoss = 0.693b guaranteed)
+- See ADR-014 in DECISIONS.md
 
 ### ✅ Multi-Chain Fresh Market Deployment (2025-12-14 Session 2)
 - Deployed **fresh V4 markets** to both **Base Sepolia** and **BNB Testnet** via chain-aware `DeployV4Markets.s.sol`
@@ -119,9 +134,10 @@
 | Market 2 (BTC) | `0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0` |
 
 ## Pending/Blocked
+- [ ] **Launchpad V5**: Contract interface spec (LaunchpadFactory, LaunchpadMarket, MarketLPVault)
+- [ ] **Launchpad V5**: Solidity implementation of finalized design
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
-- [ ] Lock-on-Sell branch: review and push/merge (currently local)
 - [ ] Commit + push worktree changes (new market addresses, config v4.10)
 - [ ] Optional: `forge clean` in `packages/contracts-evm` (stale artifact warnings)
 - [ ] QA next: targeted fuzz suite (LMSR/orderbook edge cases) + deeper invariants (exposure/proceeds bounds)
@@ -131,8 +147,7 @@
 ## Branch Status
 | Branch | Status | Description |
 |--------|--------|-------------|
-| `main` | Active | V4.5 with Lock-on-Buy |
-| `codex/review-and-implement-lock-mechanism` | Local (2 commits ahead) | V4.6 Lock-on-Sell |
+| `main` | Active | V4.6 with Lock-on-Sell ✅ |
 
 ## Deployment Notes
 - **MegaETH RPC quirk**: `forge script` fails with "intrinsic gas too low"

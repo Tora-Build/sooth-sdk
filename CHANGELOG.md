@@ -5,6 +5,11 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Launchpad Model Research** — Complete design for V5 permissionless market creation:
+  - `LAUNCHPAD_MODEL_RESEARCH.md` — Full architecture and design decisions
+  - `LAUNCHPAD_ECONOMICS_V2.md` — Role-by-role economic analysis
+  - ADR-014 documents all finalized decisions
+  - Key features: per-market liquidity, 1.44x liquidity leverage, graduation race, LP Vault with exchangeRate
 - **Lock-on-Sell Architecture** (branch `codex/review-and-implement-lock-mechanism`):
   - `SoothGovernorVault`: Lock queue with per-user `LockEntry[]`, `lockProceeds()`, `claimUnlocked()`
   - Removed `unlockTime` from AMM positions — shares always unlocked

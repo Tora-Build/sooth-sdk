@@ -164,3 +164,27 @@
   - Faster detection of systemic accounting and authorization regressions.
   - Enables repeatable multi-role simulation without UI.
   - Establishes a clear ladder of confidence: unit → integration → scenario → invariant → fuzz → fork/E2E.
+
+## ADR-014: Sooth Launchpad Model (V5 Architecture)
+- **Date**: 2025-12-14
+- **Status**: Accepted (Research Complete, Implementation Pending)
+- **Context**: The existing GovernorVault model requires centralized LP provisioning. To achieve permissionless market creation with aligned incentives, a new "launchpad" model was designed inspired by pump.fun.
+- **Decision**: Adopt **per-market liquidity** with the following parameters:
+  - **Creator Deposit**: USDC only (no SOOTH bond). Amount = `b × 0.693` where `b` is the chosen liquidity tier.
+  - **Liquidity Tiers**: Fixed at $100, $1k, $10k, $100k (no custom `b`).
+  - **Liquidity Leverage**: 1.44x — creator deposits `maxLoss` but gets `b = deposit / ln(2)` liquidity depth.
+  - **Fee-to-b Math**: `delta_b = fee / 0.693` (LMSR guarantees maxLoss = 0.693b regardless of price).
+  - **Graduation**: Market graduates when fees reach `2 × b`. Deadline: 5 days.
+  - **Internal Phase**: 5% AMM fee, 100% → b growth. Traders earn LP tokens proportional to fees paid.
+  - **External Phase**: 1% AMM fee, 0.5% OB fee. Split: 50% liquidity (b), 30% LP Vault (exchangeRate), 20% protocol.
+  - **LP Vault**: ERC4626-inspired with `exchangeRate()`. No deposit/withdraw; redeem at settlement only.
+  - **Expiry Refund**: If market fails to graduate in 5 days, creator deposit + LP fees are refunded.
+  - **Early Settlement**: If truth is known before graduation, market fails (refunds, no settlement).
+  - **Open/Fixed-End**: Creator's choice at creation.
+  - **Protocol's 20%**: Redistributed to creators and adjudicators as incentives.
+- **Consequences**:
+  - Enables permissionless market creation with aligned incentives (skin in the game).
+  - Removes dependency on global LP pool for new markets.
+  - Creates "graduation race" gamification (viral loop mechanic).
+  - Requires new contracts: `LaunchpadFactory`, `LaunchpadMarket`, `MarketLPVault`.
+  - See `LAUNCHPAD_MODEL_RESEARCH.md` and `LAUNCHPAD_ECONOMICS_V2.md` for full analysis.

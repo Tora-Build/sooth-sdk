@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { ChevronDown, AlertCircle } from 'lucide-react';
 import { allowedChains, getChainById, DEFAULT_CHAIN_ID } from '../../lib/chains';
+import { ensureChain, getEthereumProvider } from '../../lib/ensureChain';
 import { useChainStore } from '../../store/useChainStore';
 import { cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
@@ -29,7 +30,25 @@ export const ChainSelector: React.FC = () => {
         await switchChain({ chainId });
         toast.success(`Switched to ${getChainById(chainId)?.name}`);
       } catch (error: any) {
-        console.error('Chain switch failed:', error);
+        console.error('Chain switch failed via wagmi, trying EIP-3085 fallback:', error);
+        
+        // Fallback: Try direct EIP-3085/3326 (for Phantom and wallets that need chain added)
+        try {
+          const provider = getEthereumProvider();
+          if (provider) {
+            const success = await ensureChain(provider, chainId);
+            if (success) {
+              toast.success(`Switched to ${getChainById(chainId)?.name}`);
+              return;
+            } else {
+              toast.error('Chain switch rejected by wallet');
+              return;
+            }
+          }
+        } catch (fallbackError: any) {
+          console.error('EIP-3085 fallback also failed:', fallbackError);
+        }
+        
         if (error.message?.includes('rejected')) {
           toast.error('Chain switch rejected by wallet');
         } else {
