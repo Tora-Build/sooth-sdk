@@ -150,3 +150,17 @@
 - **Consequences**:
   - No duplicate address sources; BNB and other chains work as soon as configs are synced.
   - Reduces “connected to chain X but calling chain Y contracts” class of bugs.
+
+## ADR-013: QA Strategy — Actor-Based Invariants + Scenario Suites
+- **Date**: 2025-12-14
+- **Status**: Accepted
+- **Context**: Contract logic spans multiple roles (Trader, LP, Governor) and multiple venues (AMM + Orderbook). Prior bugs (WAD math, callback authorization, lock accounting) demonstrate that unit-only testing misses systemic failures.
+- **Decision**:
+  - Adopt an **actor-based** testing strategy:
+    - Invariant tests (properties that must always hold) driven by actor contracts (Trader/LP).
+    - Scenario suites for multi-role flows (concurrency), settlement constraints, and adversarial access-control probes.
+  - Treat small **rounding drift** (dust in wei) as acceptable within a bounded threshold for accounting comparisons in tests.
+- **Consequences**:
+  - Faster detection of systemic accounting and authorization regressions.
+  - Enables repeatable multi-role simulation without UI.
+  - Establishes a clear ladder of confidence: unit → integration → scenario → invariant → fuzz → fork/E2E.

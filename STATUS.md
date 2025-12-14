@@ -7,6 +7,7 @@
 - **Lock-on-Sell Implementation** — Branch `codex/review-and-implement-lock-mechanism` ready (not pushed)
 - **Terminology Update** — "Infinite-End" → "Open-End" across all UI
 - **Base Sepolia Markets** — Redeployed markets and synced frontend configs ✅
+- **QA Hardening** — Added invariant + scenario suites (multi-role, settlement, adversarial) ✅
 
 ## Recent Changes
 
@@ -22,6 +23,18 @@
   - `ProtocolAddresses` now displays per-chain **Market + OutcomeToken** addresses
   - `apps/web/src/hooks/v4/useAMMTrade.ts` now uses `tradeAMM` (not `executeAMMTrade`)
   - V4 lock warning copy updated to Lock-on-Sell semantics
+
+### ✅ QA Test Expansion (2025-12-14)
+- Added **Invariant Test Harness** (actor-based):
+  - `packages/contracts-evm/test/invariants/VaultInvariants.t.sol`
+  - `packages/contracts-evm/test/actors/TraderActor.sol`
+- Added **Multi-Role Scenarios** (Traders + LPs):
+  - `packages/contracts-evm/test/scenarios/MultiRoleScenarios.t.sol`
+  - `packages/contracts-evm/test/actors/LPActor.sol`
+- Added **Settlement Scenarios** (post-settlement constraints + merge + claim):
+  - `packages/contracts-evm/test/scenarios/SettlementScenarios.t.sol`
+- Added **Adversarial Scenarios** (access-control + slippage + invalid-input probes):
+  - `packages/contracts-evm/test/scenarios/AdversarialScenarios.t.sol`
 
 ### ✅ BNB Testnet V4.6 Deploy + Frontend V4 Multi-Chain Fix (2025-12-14)
 - Deployed **V4.6 infra + 2 markets** to **BNB testnet (chain 97)** via `packages/contracts-evm/script/DeployMultiChainV4.s.sol`
@@ -103,6 +116,8 @@
 - [ ] Lock-on-Sell branch: review and push/merge (currently local)
 - [ ] Commit + push today's deployment/config sync + frontend fixes
 - [ ] Optional: `forge clean` in `packages/contracts-evm` (stale artifact warnings)
+- [ ] QA next: targeted fuzz suite (LMSR/orderbook edge cases) + deeper invariants (exposure/proceeds bounds)
+- [ ] QA next: E2E happy-path (Synpress) for deposit → trade → claim → withdraw across chains
 
 ## Branch Status
 | Branch | Status | Description |

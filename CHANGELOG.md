@@ -25,6 +25,13 @@ All notable changes to Sooth Protocol will be documented in this file.
   - `LP_DASHBOARD_SPEC.md`, `TRADING_TERMINAL_SPEC.md`
   - `OPERATOR_CONSOLE_SPEC.md`, `ACTIVITY_LOG_SPEC.md`
 - **SOP Rule**: Frontend-dev must check-in/check-out specs before/after UI modifications
+- **QA Test Harness (Foundry)**:
+  - Invariants: `packages/contracts-evm/test/invariants/VaultInvariants.t.sol`
+  - Actors: `packages/contracts-evm/test/actors/TraderActor.sol`, `packages/contracts-evm/test/actors/LPActor.sol`
+  - Scenarios:
+    - `packages/contracts-evm/test/scenarios/MultiRoleScenarios.t.sol`
+    - `packages/contracts-evm/test/scenarios/SettlementScenarios.t.sol`
+    - `packages/contracts-evm/test/scenarios/AdversarialScenarios.t.sol`
 
 ### Changed
 - **Base Sepolia Config (V4.6)**:
