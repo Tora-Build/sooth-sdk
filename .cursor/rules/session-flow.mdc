@@ -19,6 +19,7 @@ When starting a new conversation:
 - Mixed contract + frontend → /fullstack-dev
 - Deploying contracts → /deploy → /deploy-sync
 - Code review → /auditor
+- Writing tests → /qa
 - End of session → /coordinator
 - Agent made mistake → Add to .agent/LESSONS_LEARNED.md
 

@@ -28,6 +28,7 @@ Quick reference for when to use which workflow or rule.
 | `/auditor` | Code review, bug hunting |
 | `/researcher` | Documentation, design exploration |
 | `/designer` | UI/UX design |
+| `/qa` | Test strategy, coverage, quality assurance |
 
 ---
 
