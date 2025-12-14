@@ -16,7 +16,8 @@ export function useAmmTrade(marketId: string) {
 
   const { market, refetch: refetchMarket } = useAmmMarket(marketId);
   const publicClient = usePublicClient();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
 
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();

@@ -17,7 +17,8 @@ export function useTraderVault() {
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
 
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
   const tokenAddress = deployments.MockUSDC as `0x${string}`;
@@ -449,14 +450,47 @@ export function useTraderVault() {
       }
 
       if (!publicClient) throw new Error('Public Client not initialized');
+      if (!address) throw new Error('Wallet not connected');
 
-      const deltaWad = parseUnits(deltaShares, 18);
-      const maxCostWad = parseUnits(maxCost, 18);
+      const isBuy = parseFloat(deltaShares) > 0;
+      const absShares = deltaShares.replace('-', '');
+      const sharesBig = parseUnits(absShares, 18);
+      const sharesSigned = isBuy ? sharesBig : -sharesBig;
 
-      // Calculate signed shares (WAD): Buy = +shares, Sell = -shares
-      const sharesSigned = parseFloat(deltaShares) > 0
-        ? parseUnits(deltaShares, 18)
-        : -parseUnits(deltaShares.replace('-', ''), 18);
+      // Auto-Deposit Logic for BUY
+      if (isBuy) {
+        // Fetch current available balance in Vault directly to avoid stale state
+        const available = await publicClient.readContract({
+          address: traderVaultAddress,
+          abi: TRADER_VAULT_V4_ABI,
+          functionName: 'availableBalance',
+          args: [address]
+        }) as bigint;
+
+        const costAsset = parseUnits(maxCost, decimals);
+
+        if (available < costAsset) {
+          const needed = costAsset - available;
+          const tId = toast.loading(`Depositing ${formatUnits(needed, decimals)} USDC...`);
+
+          try {
+            const depHash = await writeContractAsync({
+              address: traderVaultAddress,
+              abi: TRADER_VAULT_V4_ABI,
+              functionName: 'deposit',
+              args: [needed]
+            });
+            await publicClient.waitForTransactionReceipt({ hash: depHash });
+            toast.success('Deposit successful', { id: tId });
+          } catch (e) {
+            toast.error('Deposit failed', { id: tId });
+            throw e;
+          }
+        }
+      }
+
+      // Proceed to Trade
+      const maxCostAsset = parseUnits(maxCost, decimals);
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
@@ -465,8 +499,8 @@ export function useTraderVault() {
         args: [
           marketAddress as `0x${string}`,
           outcome,
-          sharesSigned, // int256 deltaShares
-          maxCostWad,   // int256 maxCost
+          sharesSigned,
+          maxCostAsset,
         ],
       });
 
@@ -474,7 +508,7 @@ export function useTraderVault() {
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {
-        const action = parseFloat(deltaShares) > 0 ? 'Bought' : 'Sold';
+        const action = isBuy ? 'Bought' : 'Sold';
         toast.success(`${action} shares!`, { id: toastId });
         useActivityStore.getState().addActivity({
           type: 'trade',

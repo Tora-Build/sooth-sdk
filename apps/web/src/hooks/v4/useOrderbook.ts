@@ -6,7 +6,8 @@ import { useDeployments } from '../useDeployments'
 
 export function useOrderbook() {
     const { writeContract, data: hash, isPending, error } = useWriteContract()
-    const deployments = useDeployments()
+    const { config } = useDeployments()
+    const deployments = config.contracts
     const traderVault = deployments.SoothTraderVault as `0x${string}` | undefined
 
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({

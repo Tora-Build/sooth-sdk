@@ -8,7 +8,9 @@
 - **Lock-on-Sell** — Merged to main ✅
 - **Terminology Update** — "Infinite-End" → "Open-End" across all UI ✅
 - **Fresh Market Deployment** — Both Base Sepolia and BNB Testnet redeployed with new markets ✅
-- **QA Hardening** — Added invariant + scenario suites (multi-role, settlement, adversarial) ✅
+- **Start Launchpad Deployment** — Deployed Launchpad V5 contracts to Base Sepolia ✅
+- **TraderVault Integration** — Resolving whitelisting permission blocker ⏳
+- **Frontend Implementation** — Begin implementing `CreateMarket` flow based on spec ⏳
 
 ## Recent Changes
 
@@ -25,6 +27,18 @@
   - Open/Fixed-end: Creator's choice at creation
 - Validated LMSR math: `delta_b = fee / 0.693` is always safe (maxLoss = 0.693b guaranteed)
 - See ADR-014 in DECISIONS.md
+
+### ✅ Launchpad Implementation (2025-12-14)
+- Implemented **Launchpad V5** contract suite:
+  - `LaunchpadFactory`: Clone-based cheap deployment, handles creator deposits.
+  - `LaunchpadMarket`: Dynamic fee logic (5% -> 1%), graduation threshold (2x B), expiry refunds.
+  - `MarketLPVault`: Per-market governor vault for isolated LPs.
+  - `LaunchpadOutcomeToken`: Dynamic cloneable ERC1155 token.
+- Refactored `SoothTraderVaultV4` to support dynamic GovernorVault lookup.
+- Added comprehensive unit tests in `Launchpad.t.sol`.
+- **Audit Status**: Cleaned comments, verified interfaces, ready for testnet deployment.
+- **QA Status**: ✅ Verified `test/Launchpad.t.sol` (Creation, Funding, Trading, Fee Accrual). Fixed 1e18 scaling issue.
+- **Specs**: Created `apps/web/docs/specs/LAUNCHPAD_SPEC.md` for frontend integration.
 
 ### ✅ Multi-Chain Fresh Market Deployment (2025-12-14 Session 2)
 - Deployed **fresh V4 markets** to both **Base Sepolia** and **BNB Testnet** via chain-aware `DeployV4Markets.s.sol`
@@ -130,8 +144,11 @@
 | MockUSDC | `0x493da6e5c9de67ab50b2fb08d14865614189b5c2` |
 | GovernorVault | `0xdb0063ce93e445ff7a8916f6f5a093f80833494f` |
 | TraderVaultV4 | `0xdc980ac16626211a7c472a94a163440eb68c5bfc` |
-| Market 1 (Alien) | `0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c` |
-| Market 2 (BTC) | `0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0` |
+| Market 1 | `0x99CB8c0e3da2604518b8210589edcaB50Cc6f769` |
+| Market 2 | `0x94D02d846a04A751e9e4f93A6684a30e043444Da` |
+| LaunchpadFactory | `0x844C46bDfC2994e2CC7C559d2Ab8F340E54522fD` |
+| LaunchpadMarketImpl | `0x5A77630Fd17F72Fe6f6fAF1dA8ceab8CFb8213C3` |
+| LaunchpadOutcomeTokenImpl | `0xf2b16B964F0e413EB7c89129aacDf3D7de8096f0` |
 
 ## Pending/Blocked
 - [ ] **Launchpad V5**: Contract interface spec (LaunchpadFactory, LaunchpadMarket, MarketLPVault)

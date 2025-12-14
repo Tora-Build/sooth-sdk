@@ -19,7 +19,8 @@ import toast from 'react-hot-toast';
 
 export const TradingAccountCard: React.FC = () => {
   const { address, isConnected } = useAccount();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const { selectedChainId } = useChainStore();
 
   // Trading Account data

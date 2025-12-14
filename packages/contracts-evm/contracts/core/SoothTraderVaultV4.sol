@@ -7,6 +7,7 @@ import "../interfaces/ISoothTraderVaultV4.sol";
 import "../interfaces/IOutcomeToken.sol";
 import "../interfaces/IYieldStrategy.sol";
 import "../interfaces/ITimeLock.sol";
+import "../launchpad/interfaces/ILaunchpadFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -80,7 +81,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     // ============ Modifiers ============
     
     modifier onlyMarket() {
-        require(_isMarket[msg.sender], "TraderVault: not market");
+        require(_isValidMarket(msg.sender), "TraderVault: not market");
         _;
     }
 
@@ -114,18 +115,26 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     }
 
     function claimUnlocked() external returns (uint256 amount) {
-        amount = _claimUnlockedInternal(msg.sender);
+        // Default to global governor for backward compatibility or direct user claim
+        amount = _claimUnlockedInternal(governorVault, msg.sender);
+    }
+    
+    // V4.7: Overload for specific governor
+    function claimUnlocked(ISoothGovernorVault vault) external returns (uint256 amount) {
+        amount = _claimUnlockedInternal(vault, msg.sender);
     }
 
-    function _lockProceeds(address user, uint256 marketId, uint256 amount) internal {
-        _claimUnlockedInternal(user);
+    // Renamed from _lockProceeds to be explicit it targets a specific governor
+    function _lockProceedsOnGovernor(ISoothGovernorVault targetVault, address user, uint256 marketId, uint256 amount) internal {
+        // Claim any previously unlocked funds from this specific vault
+        _claimUnlockedInternal(targetVault, user);
 
-        uint64 unlockTime = governorVault.lockProceeds(marketId, user, amount);
+        uint64 unlockTime = targetVault.lockProceeds(marketId, user, amount);
         emit Locked(user, amount, unlockTime);
     }
 
-    function _claimUnlockedInternal(address user) internal returns (uint256 claimed) {
-        claimed = governorVault.claimUnlocked(user, address(this));
+    function _claimUnlockedInternal(ISoothGovernorVault targetVault, address user) internal returns (uint256 claimed) {
+        claimed = targetVault.claimUnlocked(user, address(this));
 
         if (claimed > 0) {
             accounts[user].available += claimed;
@@ -143,11 +152,17 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         int256 deltaShares,
         int256 maxCost
     ) external {
-        require(_isMarket[market], "TraderVault: invalid market");
+        require(_isValidMarket(market), "TraderVault: invalid market");
         require(deltaShares != 0, "TraderVault: zero shares");
         require(outcome < 2, "TraderVault: invalid outcome");
 
         ISoothMarketV4 mkt = ISoothMarketV4(market);
+        
+        // V4.7 CHANGE: Fetch governor vault from the market itself
+        // Supports Launchpad (MarketLPVault) and Standard (Global Governor)
+        ISoothGovernorVault marketGovernor = mkt.governorVault();
+        require(address(marketGovernor) != address(0), "TraderVault: zero governor");
+
         AMMPosition storage pos = ammPositions[msg.sender][market];
 
         if (deltaShares > 0) {
@@ -173,9 +188,9 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             // Debit user
             accounts[msg.sender].available -= totalCost;
             
-            // Pay to governor vault
-            require(_asset.transfer(address(governorVault), totalCost), "TraderVault: transfer failed");
-            governorVault.receiveFunds(mkt.marketId(), totalCost);
+            // Pay to governor vault attached to THIS market
+            require(_asset.transfer(address(marketGovernor), totalCost), "TraderVault: transfer failed");
+            marketGovernor.receiveFunds(mkt.marketId(), totalCost);
             
             // Credit internal shares
             if (outcome == 0) {
@@ -220,7 +235,9 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             
             // Lock proceeds in Governor (funds stay there until claimed)
             // DO NOT call sendFunds - funds stay in Governor
-            _lockProceeds(msg.sender, mkt.marketId(), netProceeds);
+            
+            // V4.7 CHANGE: Call lockProceeds on the market-specific Governor
+            _lockProceedsOnGovernor(marketGovernor, msg.sender, mkt.marketId(), netProceeds);
 
             emit AMMSell(msg.sender, market, outcome, shares, netProceeds);
             emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
@@ -240,7 +257,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     // ============ Custodial Actions ============
 
     function depositShares(address market, uint8 outcome, uint256 amount) external {
-        require(_isMarket[market], "TraderVault: invalid market");
+        require(_isValidMarket(market), "TraderVault: invalid market");
         require(amount > 0, "TraderVault: zero amount");
         require(outcome < 2, "TraderVault: invalid outcome");
 
@@ -297,7 +314,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         uint256 amount,
         bool isBuy
     ) internal returns (uint256 orderId) {
-        require(_isMarket[market], "TraderVault: invalid market");
+        require(_isValidMarket(market), "TraderVault: invalid market");
         require(price > 0 && price < 1e18, "TraderVault: invalid price");
         require(amount > 0, "TraderVault: invalid amount");
 
@@ -401,7 +418,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         uint256 price,
         uint256 amount
     ) internal returns (uint256 orderId) {
-        require(_isMarket[market], "TraderVault: invalid market");
+        require(_isValidMarket(market), "TraderVault: invalid market");
         require(price > 0 && price < 1e18, "TraderVault: invalid price");
         require(amount > 0, "TraderVault: invalid amount");
         
@@ -630,8 +647,26 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         _isOutcomeToken[token] = enabled;
     }
 
+    address public launchpadFactory;
+
     function setGovernorVault(ISoothGovernorVault _governorVault) external onlyOwner {
         governorVault = _governorVault;
+    }
+
+    function setLaunchpadFactory(address _launchpadFactory) external onlyOwner {
+        launchpadFactory = _launchpadFactory;
+    }
+
+    function _isValidMarket(address market) internal view returns (bool) {
+        if (_isMarket[market]) return true;
+        if (launchpadFactory != address(0)) {
+            try ILaunchpadFactory(launchpadFactory).isMarket(market) returns (bool valid) {
+                return valid;
+            } catch {
+                return false;
+            }
+        }
+        return false;
     }
 
     function setYieldStrategy(IYieldStrategy strategy) external onlyOwner {
@@ -669,7 +704,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
 
     /// @notice Redeem winning shares after market settlement
     function redeem(address market) external {
-        require(_isMarket[market], "TraderVault: invalid market");
+        require(_isValidMarket(market), "TraderVault: invalid market");
         
         ISoothMarketV4 mkt = ISoothMarketV4(market);
         require(mkt.isSettled(), "TraderVault: market not settled");

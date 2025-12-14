@@ -11,7 +11,8 @@ export function useSettlement(marketId: string) {
   const { mode, updateMarket } = useMarketStore();
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
 
   const settlementAddress = deployments.SoothSettlement as `0x${string}` | undefined;
 
@@ -42,9 +43,9 @@ export function useSettlement(marketId: string) {
     try {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        updateMarket(marketId, { 
+        updateMarket(marketId, {
           status: 'settling',
-          winningOutcome: outcome 
+          winningOutcome: outcome
         });
         toast.success(`Demo: Adjudicated ${outcome}`);
         useActivityStore.getState().addActivity({
@@ -94,9 +95,9 @@ export function useSettlement(marketId: string) {
     try {
       if (mode === 'demo') {
         await new Promise(r => setTimeout(r, 1000));
-        updateMarket(marketId, { 
+        updateMarket(marketId, {
           status: 'clearing',
-          adjudicatorProofUploaded: true 
+          adjudicatorProofUploaded: true
         });
         toast.success('Demo: PnL Uploaded');
         useActivityStore.getState().addActivity({

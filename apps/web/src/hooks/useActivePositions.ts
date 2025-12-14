@@ -21,7 +21,8 @@ export interface ActivePosition {
 export const useActivePositions = () => {
     const { address } = useAccount();
     const { mode, markets: demoMarkets } = useMarketStore();
-    const deployments = useDeployments();
+    const { config } = useDeployments();
+    const deployments = config.contracts;
     const { selectedChainId } = useChainStore();
 
     const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;

@@ -25,7 +25,8 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 }) => {
   const { address } = useAccount();
   const { t } = useContent();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // V4: Use internal shares for Spot Sell availability

@@ -17,7 +17,8 @@ function useEVMMarket(marketId: string) {
   const walletChainId = useChainId();
   const { mode, refreshKey, markets: demoMarkets } = useMarketStore();
   const { selectedChainId } = useChainStore();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
 
   // 1. Config Lookup
   const marketConfig = marketsConfig.markets.find(m => m.id === marketId);
@@ -45,7 +46,8 @@ function useEVMMarket(marketId: string) {
     query: {
       // Relaxed check: Fetch if real mode and we have a valid market address.
       // Removed walletChainId === selectedChainId to match PortfolioSummary behavior.
-      enabled: mode === 'real' && !!marketAddress,
+      // Fix: Don't fetch for demo markets (which have dummy addresses) even if mode is real
+      enabled: mode === 'real' && !!marketAddress && (marketConfig as any)?.mode !== 'demo',
       refetchInterval: 3000,
     }
   });

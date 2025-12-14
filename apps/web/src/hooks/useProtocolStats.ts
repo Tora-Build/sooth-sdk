@@ -8,7 +8,8 @@ import { useChainStore } from '../store/useChainStore';
 export function useProtocolStats() {
   const { markets, mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   // LP vault - use SoothGovernorVault
   const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
 

@@ -10,6 +10,9 @@ export interface ChainDeployments {
   SoothTraderVault?: string;
   SoothGovernorVault?: string;
   SoothFeeController?: string;
+  LaunchpadFactory?: string;
+  LaunchpadMarketImpl?: string;
+  LaunchpadOutcomeToken?: string;
 
   // Markets (optional; many flows use markets.json instead)
   SoothMarket?: string;
@@ -69,10 +72,10 @@ export function useDeployments() {
 
   if (!chainDeployments) {
     console.error(`[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`);
-    return {} as ChainDeployments;
+    return { config: { contracts: {} as ChainDeployments } };
   }
 
-  return chainDeployments;
+  return { config: { contracts: chainDeployments } };
 }
 
 // Helper to get deployments for a specific chain ID (useful outside of hooks)

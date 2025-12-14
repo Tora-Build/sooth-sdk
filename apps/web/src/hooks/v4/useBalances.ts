@@ -8,7 +8,8 @@ import { useDeployments } from '../useDeployments'
 export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?: `0x${string}`) {
     const { address } = useAccount()
     const chainId = useChainId()
-    const deployments = useDeployments()
+    const { config } = useDeployments()
+    const deployments = config.contracts
     const traderVault = deployments.SoothTraderVault as `0x${string}` | undefined
 
     // USDC balances in TraderVault

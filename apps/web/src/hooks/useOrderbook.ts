@@ -1,5 +1,5 @@
 import { usePublicClient, useAccount, useReadContracts } from 'wagmi';
-import { MARKET_V4_ABI, OUTCOME_TOKEN_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
+import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useAmmMarket } from './useAmmMarket';
 import { useDeployments } from './useDeployments';
 import { useState, useEffect, useCallback } from 'react';
@@ -31,7 +31,8 @@ export interface OrderbookState {
 export function useOrderbook(marketId: string) {
   const { market } = useAmmMarket(marketId);
   const { address } = useAccount();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
   const publicClient = usePublicClient();
 

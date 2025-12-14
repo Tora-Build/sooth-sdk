@@ -37,7 +37,8 @@ export interface UseLockedFundsResult {
 
 export function useLockedFunds(): UseLockedFundsResult {
     const { address } = useAccount();
-    const contracts = useDeployments();
+    const { config } = useDeployments();
+    const contracts = config.contracts;
     const [isClaiming, setIsClaiming] = useState(false);
 
     const traderVault = contracts?.SoothTraderVault as `0x${string}` | undefined;

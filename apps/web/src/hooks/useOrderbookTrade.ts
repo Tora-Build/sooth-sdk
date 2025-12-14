@@ -12,7 +12,8 @@ import { useMarketStore } from '../store/useMarketStore';
 export function useOrderbookTrade(marketId: string) {
   const { address } = useAccount();
   const { market } = useAmmMarket(marketId);
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const publicClient = usePublicClient();
   const { selectedChainId } = useChainStore();
   const { mode } = useMarketStore();

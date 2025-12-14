@@ -10,6 +10,13 @@ All notable changes to Sooth Protocol will be documented in this file.
   - `LAUNCHPAD_ECONOMICS_V2.md` — Role-by-role economic analysis
   - ADR-014 documents all finalized decisions
   - Key features: per-market liquidity, 1.44x liquidity leverage, graduation race, LP Vault with exchangeRate
+- **Launchpad V5 Contracts** (Session 3):
+  - `LaunchpadFactory.sol`: Deploys markets via Clones, initializes liquidity tiers
+  - `LaunchpadMarket.sol`: Implements graduation logic (2x liquidity target), dynamic fee switch (5% → 1%)
+  - `MarketLPVault.sol`: Per-market governor vault compliant with `ISoothGovernorVault`
+  - `LaunchpadOutcomeToken.sol`: Cloneable ERC1155 token
+  - `test/Launchpad.t.sol`: Comprehensive unit tests for creation, trading, fees, and graduation flows
+- **Frontend Specs**: `LAUNCHPAD_SPEC.md` covering market creation and graduation UI flows.
 - **Lock-on-Sell Architecture** (branch `codex/review-and-implement-lock-mechanism`):
   - `SoothGovernorVault`: Lock queue with per-user `LockEntry[]`, `lockProceeds()`, `claimUnlocked()`
   - Removed `unlockTime` from AMM positions — shares always unlocked
@@ -61,6 +68,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **LiquidityModelInfo.tsx**: Aligned text and formulas with KNOWLEDGE.md
 - **useVault.ts**: Fetches `totalLockedExposure` from GovernorVault contract
 - **useProtocolStats.ts**: Fixed locked calculation (was hardcoded 85% estimate)
+- **SoothTraderVaultV4**: Updated `tradeAMM` to fetch `governorVault` dynamically from the market contract (`mkt.governorVault()`), allowing per-market liquidity pools (essential for Launchpad).
 
 ### Fixed
 - **Settlement Hook Safety**: `useSettlement.ts` now guards when `SoothSettlement` isn’t configured for a chain (prevents reads/writes from crashing).
@@ -77,6 +85,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **My Orders Display**: Orders not showing in "My Orders" tab
   - Root cause: Market's `maker` is TraderVault, not user wallet
   - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
+- **Launchpad Factory B-Values**: Fixed slippage error in Launchpad markets by scaling `tierBValues` to WAD (1e18) precision in Factory, matching `SoothMarketV4` LMSR math expectations.
 
 ### Deployed
 - **Base Sepolia V4.6 Fresh Markets (2025-12-14 Session 2)**:

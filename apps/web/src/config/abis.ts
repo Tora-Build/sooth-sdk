@@ -204,10 +204,48 @@ export const MARKET_V4_ABI = parseAbi([
   "function merge(uint256 amount) returns (uint256 proceeds)",
 ]);
 
-// V4: OutcomeToken (ERC1155 per market)
-export const OUTCOME_TOKEN_ABI = parseAbi([
-  "function balanceOf(address account, uint256 id) view returns (uint256)",
-  "function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])",
-  "function isApprovedForAll(address account, address operator) view returns (bool)",
-  "function setApprovalForAll(address operator, bool approved)",
+// V5: Launchpad Factory
+export const LAUNCHPAD_FACTORY_ABI = parseAbi([
+  "function createMarket(string name, string symbol, string description, uint8 liquidityTierIndex, bool isOpenEnd, uint40 durationSeconds) returns (address market, address lpVault)",
+  "function tierDeposits(uint256) view returns (uint256)",
+  "function tierBValues(uint256) view returns (uint256)",
+  "function usdc() view returns (address)",
+  "function getAllMarkets() view returns (address[])",
+  "event MarketCreated(address indexed market, address indexed creator, address indexed lpVault, string name, string symbol, uint256 liquidityTier, uint256 depositAmount)",
 ]);
+
+// V5: Launchpad Market (inherits MarketV4)
+export const LAUNCHPAD_MARKET_ABI = parseAbi([
+  // Inherits V4 functions...
+  "function qYes() view returns (int256)",
+  "function qNo() view returns (int256)",
+  "function b() view returns (uint256)",
+  "function bBase() view returns (uint256)",
+  "function price(uint8 outcome) view returns (uint256)",
+  "function isLive() view returns (bool)",
+  "function isSettled() view returns (bool)",
+  "function calculateAMMTradeCost(uint8 outcome, uint256 shares, bool isBuy) view returns (int256 cost, uint256 fee, int256 newQYes, int256 newQNo)",
+  "function yesBalance(address user) view returns (uint256)",
+  "function noBalance(address user) view returns (uint256)",
+  "function outcomeToken() view returns (address)",
+  "function merge(uint256 amount) returns (uint256 proceeds)",
+  // Launchpad specifics
+  "function isGraduated() view returns (bool)",
+  "function graduationThreshold() view returns (uint256)",
+  "function deadline() view returns (uint40)",
+  "function creator() view returns (address)",
+  "function lpVault() view returns (address)",
+  "function graduate()",
+  "function expire()",
+  "function claimRefund()",
+  "event Graduated(uint256 timestamp, uint256 totalLiquidity)",
+  "event Expired(uint256 timestamp)",
+]);
+
+// V5: Market LP Vault (Per-market Governor)
+export const MARKET_LP_VAULT_ABI = parseAbi([
+  "function totalAssets() view returns (uint256)",
+  "function market() view returns (address)",
+  "function asset() view returns (address)",
+]);
+

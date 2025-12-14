@@ -1,5 +1,5 @@
 {
-  "version": "4.9",
+  "version": "4.10",
   "lastUpdated": "2025-12-14",
   "networks": {
     "baseSepolia": {
@@ -9,7 +9,10 @@
         "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
         "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
         "SoothGovernorVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
-        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e"
+        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e",
+        "LaunchpadOutcomeToken": "0x065261c67711b13fc711fb0820f55fe947d3ebb4",
+        "LaunchpadMarketImpl": "0xa6d5b3de5f11ad1bd88da5eca421bba5425a3a43",
+        "LaunchpadFactory": "0x9eB51D7e3342D692fbcA0876761ba0bce197fD79"
       },
       "notes": {
         "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
@@ -18,7 +21,8 @@
           "lockProceeds() added to GovernorVault",
           "claimUnlocked() to claim expired locks",
           "Shares always tradable (no unlockTime)",
-          "Proceeds locked in Governor until 24h passed"
+          "Proceeds locked in Governor until 24h passed",
+          "Added Launchpad V5 Contracts (Factory, MarketImpl, OutcomeToken)"
         ]
       },
       "marketInfo": {
@@ -103,7 +107,9 @@
       "ERC1155 outcome tokens",
       "Continuous LMSR (qYes/qNo) - No ticks",
       "Dynamic liquidity (b parameter)",
-      "claimUnlocked() to claim expired proceeds"
+      "Dynamic liquidity (b parameter)",
+      "claimUnlocked() to claim expired proceeds",
+      "Launchpad V5: Permissionless market creation + graduation"
     ]
   }
 }

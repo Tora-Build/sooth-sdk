@@ -14,7 +14,8 @@ export function useVault() {
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
   const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
   const tokenAddress = deployments.MockUSDC as `0x${string}`;

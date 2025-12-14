@@ -48,7 +48,8 @@ export function useTradeQuote(
 ): TradeQuote | null {
   const { market } = useAmmMarket(marketId);
   const publicClient = usePublicClient();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const [quote, setQuote] = useState<TradeQuote | null>(null);
 
   // Recompute on inputs

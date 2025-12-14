@@ -15,7 +15,8 @@ import marketsConfig from '../../config/markets.json';
 export const ProtocolAddresses: React.FC = () => {
   const { mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const { address: userAddress } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();

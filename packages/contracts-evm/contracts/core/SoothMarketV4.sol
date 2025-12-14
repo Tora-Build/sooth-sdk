@@ -76,7 +76,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         address _governor,
         int256 _initialQYes,
         int256 _initialQNo
-    ) external onlyOwner {
+    ) external {
         require(traderVault == address(0), "Market: already init");
         require(_initialQYes >= 0 && _initialQNo >= 0, "Market: negative q");
 
@@ -165,7 +165,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         return uint256(effectiveB);
     }
 
-    function feeLMSR() public view returns (uint256) {
+    function feeLMSR() public view virtual returns (uint256) {
         return governorVault.defaultFeeBps();
     }
 
@@ -244,7 +244,7 @@ contract SoothMarketV4 is Ownable, ISoothMarketV4 {
         address trader,
         uint8 outcome,
         int256 deltaShares
-    ) external onlyTraderVault onlyLive returns (int256 cost, uint256 fee) {
+    ) public virtual override onlyTraderVault onlyLive returns (int256 cost, uint256 fee) {
         require(deltaShares != 0, "Market: zero trade");
         require(outcome < 2, "Market: invalid outcome");
 

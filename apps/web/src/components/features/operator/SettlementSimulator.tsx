@@ -12,7 +12,8 @@ import { Market } from '../../../types';
 export const SettlementSimulator: React.FC = () => {
   const { t } = useContent();
   const { mode, markets: demoMarkets } = useMarketStore();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const riskManagerAddress = deployments.SoothRiskManager as `0x${string}`;
   // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
   const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;

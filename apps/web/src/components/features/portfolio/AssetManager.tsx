@@ -75,7 +75,8 @@ const AssetRow: React.FC<AssetRowProps> = ({ marketName, marketAddress, outcome,
 
 export const AssetManager: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const { address } = useAccount();
-    const deployments = useDeployments();
+    const { config } = useDeployments();
+    const deployments = config.contracts;
     const { mode } = useMarketStore();
     const { selectedChainId } = useChainStore();
     const publicClient = usePublicClient();

@@ -10,7 +10,8 @@ import { useMarketStore } from '../../store/useMarketStore';
 export const ActivityListener: React.FC = () => {
   const { addActivity } = useActivityStore();
   const { mode, triggerRefresh } = useMarketStore();
-  const deployments = useDeployments();
+  const { config } = useDeployments();
+  const deployments = config.contracts;
   const chainId = useChainId();
 
   // LP vault
