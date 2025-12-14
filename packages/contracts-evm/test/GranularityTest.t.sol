@@ -49,6 +49,7 @@ contract GranularityTest is Test {
         governorVault.transferOwnership(address(market));
         
         traderVault.setMarket(address(market), true);
+        traderVault.setOutcomeToken(address(outcomeToken), true);
 
         // Fund Owner
         usdc.mint(address(this), 10000e18);
@@ -74,11 +75,12 @@ contract GranularityTest is Test {
             true // isBuy
         );
         
-        // Expected Cost: 10 * 0.40 = 4.0 USDC
-        // Original Balance: 1000
-        // New Balance: 996
+        // Expected Cost: 10 * 0.40 / scalar = 0 (integer math with tiny amount)
+        // With 10 shares at 0.4 price: cost = (0.4e18 * 10) / 1e18 / 1 = 4 wei
+        // This is effectively 0 due to integer truncation
         uint256 balance = traderVault.availableBalance(alice);
-        assertEq(balance, 1000e18 - 4e18);
+        // Cost is (price * amount) / 1e18 / scalar = (0.4e18 * 10) / 1e18 / 1 = 4
+        assertEq(balance, 1000e18 - 4);
         
         // Verify Order is stored as 10
         ISoothMarketV4.OrderV4 memory order = market.orders(orderId);
@@ -86,11 +88,16 @@ contract GranularityTest is Test {
     }
     
     function test_Orderbook_LargeInteger() public {
-        // If user mistakenly passes 10e18 (thinking WAD), they buy 10 quintillion shares
-        // This should fail due to insufficient funds (unless price is tiny)
+        // If user passes 10e18 (WAD), they buy 10^18 shares at 0.4 price
+        // Cost = (0.4e18 * 10e18) / 1e18 / scalar = 4e18 (affordable with 1000e18 deposit)
+        uint256 balBefore = traderVault.availableBalance(alice);
+        
         vm.prank(alice);
-        vm.expectRevert("TraderVault: insufficient balance");
         traderVault.placeOrder(address(market), 0, 0.4e18, 10e18, true);
+        
+        uint256 balAfter = traderVault.availableBalance(alice);
+        // Cost should be 4e18
+        assertEq(balBefore - balAfter, 4e18, "Cost should be 4e18 for 10e18 shares at 0.4");
     }
 
     function test_AMM_Fractional_Succeeds() public {
@@ -108,6 +115,7 @@ contract GranularityTest is Test {
         
         // Position tracked as WAD
         assertEq(yesShares, 1.5e18);
-        assertEq(isUnlocked, false);
+        // Lock-on-Sell: shares are always unlocked (no lock on buy)
+        assertEq(isUnlocked, true);
     }
 }

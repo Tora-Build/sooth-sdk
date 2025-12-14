@@ -202,8 +202,8 @@
       "adjudicatorKind": "MANUAL",
       "adjudicatorLabel": "Manual Settlement",
       "openEnded": true,
-      "contractAddress": "0x99CB8c0e3da2604518b8210589edcaB50Cc6f769",
-      "outcomeTokenAddress": "0x6C590f0cd0750043ad46Ec37D2d095De89506cfd",
+      "contractAddress": "0x107aF8183a2761dcaA28ac89b85e09A3b63d7C31",
+      "outcomeTokenAddress": "0xc893D7b4A3b86Edc5C40F3F552d6D2180Dbb3214",
       "adjudicatorId": "0xv4_alien",
       "eventId": "0xevent_v4_alien",
       "initialStatus": "trading",
@@ -214,7 +214,7 @@
         "YES",
         "NO"
       ],
-      "version": "v4"
+      "version": "v4.6-lock-on-sell"
     },
     {
       "id": "v4_btc_twap",
@@ -226,8 +226,8 @@
       "adjudicatorKind": "CHAINLINK",
       "adjudicatorLabel": "Chainlink Oracle",
       "openEnded": true,
-      "contractAddress": "0x94D02d846a04A751e9e4f93A6684a30e043444Da",
-      "outcomeTokenAddress": "0x7178301FDEe367DC0ad10215c466293f9E7CDc5e",
+      "contractAddress": "0xf7696D23edd93B81386323175fF8c9aCe5441333",
+      "outcomeTokenAddress": "0x6c3A38D04F14bdd955ad2E2992B47947CEDd2886",
       "adjudicatorId": "0xv4_btc_twap",
       "eventId": "0xevent_v4_btc",
       "initialStatus": "trading",
@@ -238,7 +238,7 @@
         "YES",
         "NO"
       ],
-      "version": "v4"
+      "version": "v4.6-lock-on-sell"
     },
     {
       "id": "bnb_alien_life",

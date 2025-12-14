@@ -59,6 +59,7 @@ contract OrderbookShortTest is Test {
         governorVault.transferOwnership(address(market));
         
         traderVault.setMarket(address(market), true);
+        traderVault.setOutcomeToken(address(outcomeToken), true);
         
         // Fund accounts
         usdc.mint(alice, 1000e18); // 18 decimals mocked
@@ -110,7 +111,7 @@ contract OrderbookShortTest is Test {
         // yesPrice = 1e18 - 0.6 = 0.4
         // isBuySide = false (Ask)
         
-        assertEq(order.maker, alice, "Maker should be Alice");
+        assertEq(order.maker, address(traderVault), "Maker should be TraderVault (custodial)");
         assertEq(order.outcome, 1, "Market outcome should be 1 (NO)"); 
         assertEq(order.yesPrice, 0.4e18, "Yes Price should be 0.4");
         assertEq(order.isBuySide, false, "Should be Ask (Sell) side of YES book");
@@ -128,17 +129,17 @@ contract OrderbookShortTest is Test {
         traderVault.placeOrder(address(market), 0, 0.4e18, 10e18, true);
         vm.stopPrank();
         
-        // Verify balances
+        // Verify balances in custodial ledger
         // Alice (Short Seller):
         // - Paid 6 collateral
-        // - Received 10 NO tokens from match
-        assertEq(market.yesBalance(alice), 0, "Alice has no YES");
-        assertEq(market.noBalance(alice), 10e18, "Alice has 10 NO");
+        // - Received 10 NO tokens from match (in shareBalances)
+        assertEq(traderVault.shareBalances(alice, address(market), 0), 0, "Alice has no YES");
+        assertEq(traderVault.shareBalances(alice, address(market), 1), 10e18, "Alice has 10 NO");
         
         // Bob (Buyer):
         // - Paid 4 cost
         // - Received 10 YES tokens from match
-        assertEq(market.yesBalance(bob), 10e18, "Bob has 10 YES");
-        assertEq(market.noBalance(bob), 0, "Bob has no NO");
+        assertEq(traderVault.shareBalances(bob, address(market), 0), 10e18, "Bob has 10 YES");
+        assertEq(traderVault.shareBalances(bob, address(market), 1), 0, "Bob has no NO");
     }
 }

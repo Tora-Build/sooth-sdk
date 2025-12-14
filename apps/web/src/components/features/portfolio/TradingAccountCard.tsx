@@ -4,13 +4,15 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
-import { TrendingUp, Copy, ExternalLink, RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock } from 'lucide-react';
+import { TrendingUp, Copy, ExternalLink, RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock } from 'lucide-react';
+import { cn } from '../../../lib/utils';
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { ERC20_ABI, MOCK_ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { useActivePositions } from '../../../hooks/useActivePositions';
+import { useLockedFunds } from '../../../hooks/useLockedFunds';
 import { useChainStore } from '../../../store/useChainStore';
 import { getChainById } from '../../../lib/chains';
 import toast from 'react-hot-toast';
@@ -23,12 +25,14 @@ export const TradingAccountCard: React.FC = () => {
   // Trading Account data
   const { availableBalance, pendingBalance, totalBalance, deposit, withdraw, isPending, refetch, userUsdcBalance, decimals, allowance, approveUSDC, traderVaultAddress } = useTraderVault();
   const { totalPositionValue, refetch: refetchPositions } = useActivePositions();
+  const { locked, lockedFormatted, claimableFormatted, hasClaimable, isClaiming, claim, refetch: refetchLocked, nextUnlockFormatted, timeRemaining } = useLockedFunds();
 
   // Dialog State
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [isClaimOpen, setIsClaimOpen] = useState(false);
 
   // Faucet Logic
   const { writeContractAsync } = useWriteContract();
@@ -66,6 +70,7 @@ export const TradingAccountCard: React.FC = () => {
   const handleRefresh = () => {
     refetch();
     refetchPositions();
+    refetchLocked();
   };
 
   const handleMint = async () => {
@@ -208,6 +213,46 @@ export const TradingAccountCard: React.FC = () => {
             <div className="text-[10px] text-amber-500/40 mt-1 font-medium">Reserved Collateral</div>
           </div>
 
+          {/* V4.6 Locked Proceeds (Lock-on-Sell) */}
+          {locked > 0n && (
+            <div className="col-span-2 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 flex justify-between items-center relative overflow-hidden group">
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+              <div className="relative z-10">
+                <div className="text-[10px] text-rose-400/80 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+                  🔒 Locked Proceeds
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
+                  {hasClaimable ? (
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <Coins size={10} /> Ready to Claim
+                    </span>
+                  ) : (
+                    <span className="text-rose-400/60 flex items-center gap-1">
+                      <Clock size={10} /> Unlocks in {timeRemaining}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="text-lg font-mono font-bold text-white/90 leading-none">
+                  {lockedFormatted}
+                </div>
+                <button
+                  onClick={() => setIsClaimOpen(true)}
+                  className={cn("px-3 py-1.5 text-xs font-bold rounded-lg transition-all border",
+                    hasClaimable
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50"
+                      : "bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700 hover:text-white"
+                  )}
+                >
+                  {hasClaimable ? 'Claim' : 'Manage'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Position Value */}
           <div className="col-span-2 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-md flex justify-between items-center">
             <div>
@@ -322,9 +367,50 @@ export const TradingAccountCard: React.FC = () => {
 
 
 
+
           <Button onClick={onDeposit} disabled={isPending || !depositAmount} className="w-full">
             {isPending ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
           </Button>
+        </div>
+      </Dialog>
+
+      <Dialog isOpen={isClaimOpen} onClose={() => setIsClaimOpen(false)} title="Locked Proceeds">
+        <div className="space-y-4 pt-4">
+          <div className="p-3 bg-slate-950/50 rounded-lg space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Total Locked</span>
+              <span className="font-mono font-bold text-white">{lockedFormatted}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Claimable Now</span>
+              <span className="font-mono font-bold text-emerald-400">{claimableFormatted}</span>
+            </div>
+
+            <div className="h-px bg-slate-800 my-2" />
+
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Next Unlock</span>
+              <div className="text-right">
+                <div className="font-mono font-bold text-amber-400">{nextUnlockFormatted}</div>
+                <div className="text-[10px] text-slate-500 font-mono">in {timeRemaining}</div>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={async () => {
+              await claim();
+              setIsClaimOpen(false);
+            }}
+            disabled={!hasClaimable || isClaiming}
+            className={cn("w-full font-bold", hasClaimable ? "bg-emerald-600 hover:bg-emerald-500" : "bg-slate-700 text-slate-400")}
+          >
+            {isClaiming ? 'Claiming...' : (hasClaimable ? `Claim ${claimableFormatted}` : `Locked (${timeRemaining})`)}
+          </Button>
+
+          <p className="text-[10px] text-center text-slate-500">
+            Proceeds from AMM sells are locked for 24 hours to prevent manipulation.
+          </p>
         </div>
       </Dialog>
     </Card>

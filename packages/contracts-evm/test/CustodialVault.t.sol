@@ -45,7 +45,7 @@ contract CustodialVaultTest is Test {
         
         token.initialize(address(market), address(vault));
         vault.setMarket(address(market), true);
-        vault.setMarket(address(token), true); // OutcomeToken calls creditMergeProceeds
+        vault.setOutcomeToken(address(token), true); // OutcomeToken calls creditMergeProceeds
 
         // Authorize in Governor (Required for sendFunds)
         governor.setAuthorized(address(market), true);

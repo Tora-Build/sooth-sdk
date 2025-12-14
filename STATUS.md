@@ -1,12 +1,27 @@
 # Project Status
 
-> Last Updated: 2025-12-12 15:32 UTC+7
+> Last Updated: 2025-12-12 16:50 UTC+7
 
 ## Current Focus
 - **V4.6 Multi-Chain** — 3 testnets now live: Base Sepolia, BNB, MegaETH ✅
+- **Lock-on-Sell Implementation** — Branch `codex/review-and-implement-lock-mechanism` ready (not pushed)
 - **Terminology Update** — "Infinite-End" → "Open-End" across all UI
 
 ## Recent Changes (2025-12-12)
+
+### ✅ Lock-on-Sell UI (2025-12-12)
+- Implemented "Locked Proceeds" card in `TradingAccountCard`
+- Added "Claim" modal with countdown timer
+- Fixed Lock-on-Buy logic removal in Trading Terminal
+- Updated ABIs to support `lockedBalance` and `nextUnlock`
+
+### ✅ Lock-on-Sell Branch (Local Only)
+- Reviewed and fixed `codex/review-and-implement-lock-mechanism` branch
+- Fixed accounting bug: `lockProceeds()` was incorrectly decreasing `totalAssets`
+- Option A implemented: funds stay in GovernorVault until claimed
+- Fixed 4 test files: CustodialVault, HybridSell, OrderbookShort, GranularityTest
+- Test results: 20/22 passing (2 fork tests require network)
+- 2 local commits ready, not pushed
 
 ### ✅ MegaETH Testnet Deployment
 - Full V4.5 infrastructure + 2 markets deployed to MegaETH Testnet (Chain 6343)
@@ -57,6 +72,13 @@
 ## Pending/Blocked
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
+- [ ] Lock-on-Sell branch: review and push/merge (currently local)
+
+## Branch Status
+| Branch | Status | Description |
+|--------|--------|-------------|
+| `main` | Active | V4.5 with Lock-on-Buy |
+| `codex/review-and-implement-lock-mechanism` | Local (2 commits ahead) | V4.6 Lock-on-Sell |
 
 ## Deployment Notes
 - **MegaETH RPC quirk**: `forge script` fails with "intrinsic gas too low"

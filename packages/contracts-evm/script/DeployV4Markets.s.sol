@@ -11,15 +11,15 @@ import "../contracts/core/SoothTraderVaultV4.sol";
 /// @notice Phase 2: Deploy markets using infrastructure from Phase 0 & 1
 /// @dev Requires TickCostRegistry to be deployed and initialized first
 contract DeployV4Markets is Script {
-    // Phase 0 addresses (utilities - deployed 2025-12-09)
+    // Phase 0 addresses (utilities - deployed 2025-12-09) - NOT USED in V4.6
     address constant TICK_REGISTRY = 0xF8928d461BB54F5B8473A133DF1d77BC043Af605;
     address constant NEW_USDC = 0xa0eEa05Cc350Ac218683815e85Cac4A1a1eF36dd;
     
-    // Phase 1 addresses (infrastructure - deployed 2025-12-12 V4.5 with OutcomeToken auth fix)
-    address constant USDC = 0x3E45bf96a8D866D796E168eE77a5fA7507D544F1;
-    address constant GOVERNOR_VAULT = 0xcB0f1305951d4BC6EF266790836aC62604cFA733;
-    address constant TRADER_VAULT = 0x48Efb2434383E87a4a143D2B07BeE73611f5423C;
-    address constant FEE_CONTROLLER = 0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97;
+    // Phase 1 addresses (infrastructure - deployed 2025-12-12 V4.6 Lock-on-Sell)
+    address constant USDC = 0x53d34066A316AE1699d434753B70593A6D59Fec1;
+    address constant GOVERNOR_VAULT = 0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1;
+    address constant TRADER_VAULT = 0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B;
+    address constant FEE_CONTROLLER = 0x1a646107e7E88aa01Fadff3145Af08156679198e;
     
     function run() external {
         require(TICK_REGISTRY != address(0), "Set TICK_REGISTRY address first");

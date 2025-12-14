@@ -72,18 +72,16 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   // Orderbook Shares (Source: useOrderbook) - Custodial liquid shares
   const obShares = outcome === 0 ? obYes : obNo;
 
-  // Lock Status (for AMM shares only)
-  const unlockTime = market?.unlockTime || 0;
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const isLocked = Number(unlockTime) > nowSeconds;
-  const hoursRemaining = isLocked ? ((Number(unlockTime) - nowSeconds) / 3600).toFixed(1) : '0';
+  // Lock Status - V4.6: shares are NEVER locked (Lock-on-Sell)
+  const isLocked = false;  // V4.6: Lock-on-Sell means shares always tradable
+  const hoursRemaining = '0';
 
   // Available for Spot Sell: Orderbook Shares (these are ALWAYS liquid, separate from AMM)
   // FIX: OB shares and AMM shares are in different pools, don't subtract!
   const userTokenShares = obShares;
 
-  // Display Locked Amount (AMM shares only)
-  const userLockedShares = isLocked ? ammShares : 0;
+  // Display Locked Amount - V4.6: Always 0 (no locked shares)
+  const userLockedShares = 0;
 
   // Spot Sell Availability: Can only Spot Sell UNLOCKED shares
   const isSpotSell = orderType === 'sell' && userTokenShares >= amountNum;

@@ -129,13 +129,14 @@ export const MOCK_ERC20_ABI = parseAbi([
   "function _mint(address to, uint256 amount)",
 ]);
 
-// V4: TraderVaultV4 with dual-venue trading
+// V4.6: TraderVaultV4 with dual-venue trading + Lock-on-Sell
 export const TRADER_VAULT_V4_ABI = parseAbi([
   "function deposit(uint256 amount)",
   "function withdraw(uint256 amount)",
   "function accounts(address user) view returns (uint256 available, uint256 pending)",
   "function shareBalances(address user, address market, uint8 outcome) view returns (uint256)",
-  "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares, uint256 unlockTime)",
+  // V4.6: ammPositions now returns only 2 fields (Lock-on-Sell - no unlockTime)
+  "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares)",
   "function tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)",
   "function depositShares(address market, uint8 outcome, uint256 amount)",
   "function withdrawShares(address market, uint8 outcome, uint256 amount)",
@@ -145,27 +146,41 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function cancelOrder(address market, uint256 orderId)",
   "function cancelSpotOrder(address market, uint256 orderId)",
   "function onOrderMatched(uint256 orderId, uint256 matchedAmount)",
-  "function claimUnlocked()",
+  "function claimUnlocked() returns (uint256)",
   "function redeem(address market)",
   "function collateralToken() view returns (address)",
   "function asset() view returns (address)",
   "function isMarket(address market) view returns (bool)",
   "function orderOwners(uint256 orderId) view returns (address)",
+  // V4.6 Lock-on-Sell additions
+  "function lockedBalance(address user) view returns (uint256)",
+  "function claimableBalance(address user) view returns (uint256)",
+  "function availableBalance(address user) view returns (uint256)",
+  "function pendingBalance(address user) view returns (uint256)",
+  "function totalBalance(address user) view returns (uint256)",
+  "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
 ]);
 
-// V4: GovernorVault (Standard ERC4626 + Sooth extensions)
+// V4.6: GovernorVault (ERC4626 + Lock-on-Sell)
 export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
   "function totalLockedExposure() view returns (uint256)",
+  "function totalLockedProceeds() view returns (uint256)",
   "function convertToShares(uint256 assets) view returns (uint256)",
   "function convertToAssets(uint256 shares) view returns (uint256)",
   "function deposit(uint256 assets, address receiver) returns (uint256)",
   "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
+  // V4.6 Lock-on-Sell additions
+  "function lockedBalance(address user) view returns (uint256)",
+  "function claimableBalance(address user) view returns (uint256)",
   "event Deposit(address indexed user, address indexed receiver, uint256 assets, uint256 shares)",
   "event Withdraw(address indexed user, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
+  "event Locked(address indexed user, uint256 amount, uint64 unlockTime)",
+  "event Unlocked(address indexed user, uint256 amount)",
+  "event Claimed(address indexed user, uint256 amount)",
 ]);
 
 // V4: MarketV4 with continuous LMSR (qYes/qNo)

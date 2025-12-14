@@ -1,35 +1,36 @@
 {
-  "version": "4.6",
+  "version": "4.7",
   "lastUpdated": "2025-12-12",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V4.5 OutcomeToken Auth Fix",
+      "status": "✅ Live - V4.6 Lock-on-Sell",
       "contracts": {
-        "MockUSDC": "0x3E45bf96a8D866D796E168eE77a5fA7507D544F1",
-        "SoothTraderVault": "0x48Efb2434383E87a4a143D2B07BeE73611f5423C",
-        "SoothGovernorVault": "0xcB0f1305951d4BC6EF266790836aC62604cFA733",
-        "SoothFeeController": "0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97"
+        "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
+        "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
+        "SoothGovernorVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
+        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e"
       },
       "notes": {
-        "version": "V4.5 - OutcomeToken Authorization Fix",
+        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
         "date": "2025-12-12",
-        "fixes": [
-          "creditMergeProceeds now uses onlyOutcomeToken modifier",
-          "Added setOutcomeToken() admin function",
-          "Hybrid sell transactions now work correctly"
+        "changes": [
+          "lockProceeds() added to GovernorVault",
+          "claimUnlocked() to claim expired locks",
+          "Shares always tradable (no unlockTime)",
+          "Proceeds locked in Governor until 24h passed"
         ]
       },
       "marketInfo": {
         "market1": {
-          "address": "0x99CB8c0e3da2604518b8210589edcaB50Cc6f769",
+          "address": "0x107aF8183a2761dcaA28ac89b85e09A3b63d7C31",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x6C590f0cd0750043ad46Ec37D2d095De89506cfd"
+          "outcomeToken": "0xc893D7b4A3b86Edc5C40F3F552d6D2180Dbb3214"
         },
         "market2": {
-          "address": "0x94D02d846a04A751e9e4f93A6684a30e043444Da",
+          "address": "0xf7696D23edd93B81386323175fF8c9aCe5441333",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x7178301FDEe367DC0ad10215c466293f9E7CDc5e"
+          "outcomeToken": "0x6c3A38D04F14bdd955ad2E2992B47947CEDd2886"
         }
       }
     },
@@ -94,14 +95,15 @@
     }
   },
   "architecture": {
-    "version": "V4",
+    "version": "V4.6",
     "entryPoint": "TraderVaultV4 - Dual-venue trading",
     "features": [
-      "AMM trading with 24h lock-on-buy",
+      "AMM trading with 24h lock-on-sell (proceeds locked)",
       "Orderbook limit orders (no locks)",
       "ERC1155 outcome tokens",
       "Continuous LMSR (qYes/qNo) - No ticks",
-      "Dynamic liquidity (b parameter)"
+      "Dynamic liquidity (b parameter)",
+      "claimUnlocked() to claim expired proceeds"
     ]
   }
 }

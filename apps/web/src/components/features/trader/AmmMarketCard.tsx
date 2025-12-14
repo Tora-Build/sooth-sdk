@@ -71,20 +71,18 @@ const AmmMarketCardComponent: React.FC<MarketCardProps> = ({ marketId }) => {
   const displayYesPrice = hasValidAmount && quote ? (quote.newPriceYes * 100).toFixed(1) : priceYesPercent;
   const displayNoPrice = hasValidAmount && quote ? (quote.newPriceNo * 100).toFixed(1) : priceNoPercent;
 
-  // Lock Status
-  const userYesLocked = market.userYesLocked || 0;
-  const userNoLocked = market.userNoLocked || 0;
-  const unlockTime = market.unlockTime || 0;
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const isLocked = Number(unlockTime) > nowSeconds;
-  const hoursRemaining = isLocked ? ((Number(unlockTime) - nowSeconds) / 3600).toFixed(1) : '0';
-  const lockedAmount = selectedOutcome === 0 ? userYesLocked : userNoLocked;
+  // Lock Status - V4.6: shares are NEVER locked (Lock-on-Sell)
+  const userYesLocked = 0; // V4.6: no locked shares
+  const userNoLocked = 0;  // V4.6: no locked shares
+  const isLocked = false;  // V4.6: Lock-on-Sell means shares are always tradable
+  const hoursRemaining = '0';
+  const lockedAmount = 0;
 
   // Check if user has shares to sell
   const userYesShares = market.userYesShares || 0;
   const userNoShares = market.userNoShares || 0;
   const rawMaxSell = selectedOutcome === 0 ? userYesShares : userNoShares;
-  const maxSellAmount = isLocked ? Math.max(0, rawMaxSell - lockedAmount) : rawMaxSell;
+  const maxSellAmount = rawMaxSell; // V4.6: no locked amount to subtract
   const canSell = maxSellAmount > 0;
 
   // Calculate virtual liquidity
