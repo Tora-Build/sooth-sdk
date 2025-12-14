@@ -1,0 +1,37 @@
+---
+alwaysApply: true
+description: "Sooth Protocol session flow and workflow guidance"
+---
+
+## Session Flow
+
+When starting a new conversation:
+1. Run `/preflight` to load context (STATUS.md, LESSONS_LEARNED.md, DECISIONS.md)
+2. Use role-specific workflow for the task (/evm-dev, /frontend-dev, etc.)
+3. Run `/deploy-sync` after any deployment
+4. Run `/coordinator` at end of session to update status docs
+
+## Decision Matrix
+
+- Starting new chat → /preflight
+- Writing Solidity → /evm-dev
+- Writing React/TypeScript → /frontend-dev
+- Mixed contract + frontend → /fullstack-dev
+- Deploying contracts → /deploy → /deploy-sync
+- Code review → /auditor
+- End of session → /coordinator
+- Agent made mistake → Add to .agent/LESSONS_LEARNED.md
+
+## Key Files
+
+- `.agent/KNOWLEDGE.md` - Protocol facts, formulas, architecture
+- `.agent/LESSONS_LEARNED.md` - Past mistakes to avoid
+- `STATUS.md` - Current project state
+- `DECISIONS.md` - Architecture decisions
+
+## Critical Rules
+
+- Always read KNOWLEDGE.md before modifying contracts
+- Always read LESSONS_LEARNED.md before deployments
+- Bump deployments.json version after config changes
+- WAD × WAD multiplication requires /1e18
