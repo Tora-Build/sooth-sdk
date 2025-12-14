@@ -2,12 +2,12 @@ import { expect } from '@playwright/test';
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 
-import basicSetup from '../test/wallet-setup/basic.setup';
+import basicSetup, { walletPassword } from '../test/wallet-setup/basic.setup';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 
 test('MetaMask can connect to Sooth web app', async ({ context, page, metamaskPage, extensionId }) => {
-  const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId);
+  const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId);
 
   await page.goto('/');
 

@@ -20,6 +20,9 @@ const SECRET_WORDS_RAW = getEnvOrThrow('SECRET_WORDS');
 // Synpress docs allow comma-separated or space-separated.
 const SECRET_WORDS = SECRET_WORDS_RAW.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
 
+// Expose for tests that need to instantiate MetaMask helpers.
+export const walletPassword = WALLET_PASSWORD;
+
 export default defineWalletSetup(WALLET_PASSWORD, async (context, walletPage) => {
   const metamask = new MetaMask(context, walletPage, WALLET_PASSWORD);
   await metamask.importWallet(SECRET_WORDS);

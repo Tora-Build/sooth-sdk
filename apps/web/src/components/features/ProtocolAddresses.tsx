@@ -44,7 +44,9 @@ export const ProtocolAddresses: React.FC = () => {
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
 
   const chainMarkets = marketsConfig.markets
-    .filter((m: any) => m.mode === 'real' && (m.chainId ?? 84532) === selectedChainId)
+    // Only show markets that *explicitly* match the selected chain.
+    // Do NOT default missing chainId to a specific network (prevents cross-chain leakage).
+    .filter((m: any) => m.mode === 'real' && typeof m.chainId === 'number' && m.chainId === selectedChainId)
     .flatMap((m: any) => {
       const outcomeToken = m.outcomeTokenAddress || m.outcomeToken;
       return [
