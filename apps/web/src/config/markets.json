@@ -11,7 +11,7 @@
       "adjudicatorLabel": "Multisig Committee",
       "openEnded": true,
       "contractAddress": "0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c",
-      "outcomeToken": "0xda5979e913c8ce987d5c44e9d138e0cea87802ff",
+      "outcomeTokenAddress": "0xda5979e913c8ce987d5c44e9d138e0cea87802ff",
       "adjudicatorId": "0x0000000000000000000000000000000000000000000000000000000000000001",
       "eventId": "0xmegaeth_alien_event",
       "initialStatus": "trading",
@@ -34,7 +34,7 @@
       "adjudicatorLabel": "Chainlink Functions",
       "openEnded": true,
       "contractAddress": "0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0",
-      "outcomeToken": "0xd8e977e9e7e81d29daec823bf60e0303e80281cb",
+      "outcomeTokenAddress": "0xd8e977e9e7e81d29daec823bf60e0303e80281cb",
       "adjudicatorId": "0x0000000000000000000000000000000000000000000000000000000000000002",
       "eventId": "0xmegaeth_btc100k_event",
       "initialStatus": "trading",
@@ -202,8 +202,8 @@
       "adjudicatorKind": "MANUAL",
       "adjudicatorLabel": "Manual Settlement",
       "openEnded": true,
-      "contractAddress": "0x107aF8183a2761dcaA28ac89b85e09A3b63d7C31",
-      "outcomeTokenAddress": "0xc893D7b4A3b86Edc5C40F3F552d6D2180Dbb3214",
+      "contractAddress": "0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9",
+      "outcomeTokenAddress": "0xBf2866f71A082446DA6919C92C477d9D1608E4B7",
       "adjudicatorId": "0xv4_alien",
       "eventId": "0xevent_v4_alien",
       "initialStatus": "trading",
@@ -226,8 +226,8 @@
       "adjudicatorKind": "CHAINLINK",
       "adjudicatorLabel": "Chainlink Oracle",
       "openEnded": true,
-      "contractAddress": "0xf7696D23edd93B81386323175fF8c9aCe5441333",
-      "outcomeTokenAddress": "0x6c3A38D04F14bdd955ad2E2992B47947CEDd2886",
+      "contractAddress": "0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02",
+      "outcomeTokenAddress": "0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f",
       "adjudicatorId": "0xv4_btc_twap",
       "eventId": "0xevent_v4_btc",
       "initialStatus": "trading",
@@ -250,8 +250,8 @@
       "adjudicatorKind": "MANUAL",
       "adjudicatorLabel": "Manual Settlement",
       "openEnded": true,
-      "contractAddress": "0xa852857A15a10692A5cF22cB2B5b707C8dD64cf8",
-      "outcomeTokenAddress": "0x4F0b73177dac5A7f5EA2dbCffd2b983B3719b39B",
+      "contractAddress": "0x347a74a7025C42BE608F3Bdc0B150D4AD6eb4674",
+      "outcomeTokenAddress": "0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d",
       "adjudicatorId": "0xbnb_alien",
       "eventId": "0xevent_bnb_alien",
       "initialStatus": "trading",
@@ -262,7 +262,7 @@
         "YES",
         "NO"
       ],
-      "version": "v4"
+      "version": "v4.6-lock-on-sell"
     },
     {
       "id": "bnb_btc_twap",
@@ -274,8 +274,8 @@
       "adjudicatorKind": "CHAINLINK",
       "adjudicatorLabel": "Chainlink Oracle",
       "openEnded": true,
-      "contractAddress": "0x7c60001d89D9878B1f7C4180916fCc3ede592e8d",
-      "outcomeTokenAddress": "0xaaE4610eEB6bF5FCf3775AcA69A5911691556995",
+      "contractAddress": "0xD222b33742cA522fa2Ec8198197F3a05ef896B40",
+      "outcomeTokenAddress": "0x1A7B20B43455CA6f861a574EcD8F9E5c9cE4e3a3",
       "adjudicatorId": "0xbnb_btc_twap",
       "eventId": "0xevent_bnb_btc",
       "initialStatus": "trading",
@@ -286,7 +286,7 @@
         "YES",
         "NO"
       ],
-      "version": "v4"
+      "version": "v4.6-lock-on-sell"
     }
   ]
 }

@@ -2,10 +2,10 @@
 export const V4_ADDRESSES = {
     baseSepolia: {
         chainId: 84532,
-        usdc: '0xd2C6903C7311C7EC6F2f09DA7A0d417A59CB04ab',
-        governorVault: '0x0C96BcCa40f5D45D0a000C91276E3b5ac3A45e6f',
-        traderVault: '0xee91e05f95cBaACD46f58432DF72CB5C451e98E0',
-        feeController: '0xa367B312Ca1845B7c6076345cB5cd529F935B4FA',
+        usdc: '0x53d34066A316AE1699d434753B70593A6D59Fec1',
+        governorVault: '0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1',
+        traderVault: '0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B',
+        feeController: '0x1a646107e7E88aa01Fadff3145Af08156679198e',
     },
 } as const
 
@@ -14,8 +14,8 @@ export const V4_MARKETS = [
         id: 1,
         name: 'UN Confirms Alien Life',
         description: 'Will the United Nations officially confirm the existence of extraterrestrial life?',
-        marketAddress: '0xf17f4863aeeecdd5db8d0eb2a81a5435987267db',
-        outcomeTokenAddress: '0x7f7a84196dc38b054a6f31b2efcd7142860b37c6',
+        marketAddress: '0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9',
+        outcomeTokenAddress: '0xBf2866f71A082446DA6919C92C477d9D1608E4B7',
         bBase: '10000000000000000000000',
         initialTick: 500,
         status: 'live' as const,
@@ -24,8 +24,8 @@ export const V4_MARKETS = [
         id: 2,
         name: 'BTC 7-day TWAP >= $100k',
         description: "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-        marketAddress: '0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7',
-        outcomeTokenAddress: '0xd1385686a408e629271bddcc9b918c284134c069',
+        marketAddress: '0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02',
+        outcomeTokenAddress: '0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f',
         bBase: '15000000000000000000000',
         initialTick: 700,
         status: 'live' as const,

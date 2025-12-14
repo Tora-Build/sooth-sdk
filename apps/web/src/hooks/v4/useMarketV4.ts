@@ -1,17 +1,18 @@
 // useMarketV4.ts - Fetch market data and probabilities
-import { useReadContract, useWatchContractEvent } from 'wagmi'
+import { useReadContract, useChainId } from 'wagmi'
 import { formatUnits } from 'viem'
 import { V4_ABIS } from '../../config/abis/v4-abis'
-import { baseSepolia } from 'wagmi/chains'
 
 export function useMarketV4(marketAddress: `0x${string}`) {
+    const chainId = useChainId()
+
     // Price for YES (Probability)
     const { data: priceYes, refetch: refetchPrice } = useReadContract({
         address: marketAddress,
         abi: V4_ABIS.MarketV4,
         functionName: 'price',
         args: [0], // YES
-        chainId: baseSepolia.id,
+        chainId,
     })
 
     // Effective liquidity (dynamic b)
@@ -19,7 +20,7 @@ export function useMarketV4(marketAddress: `0x${string}`) {
         address: marketAddress,
         abi: V4_ABIS.MarketV4,
         functionName: 'b',
-        chainId: baseSepolia.id,
+        chainId,
     })
 
     // Base liquidity
@@ -27,7 +28,7 @@ export function useMarketV4(marketAddress: `0x${string}`) {
         address: marketAddress,
         abi: V4_ABIS.MarketV4,
         functionName: 'bBase',
-        chainId: baseSepolia.id,
+        chainId,
     })
 
     // Watch for tick updates

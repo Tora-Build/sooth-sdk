@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { SOOTH_MARKET_ABI, ERC20_ABI, SOOTH_BALANCED_AMM_ABI, TRADER_VAULT_V4_ABI, TRADER_VAULT_V3_ABI } from '../config/abis';
+import { ERC20_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
-import { useChainStore } from '../store/useChainStore';
-import { getChainById } from '../lib/chains';
 import { useAmmMarket } from './useAmmMarket';
 import toast from 'react-hot-toast';
 import { useActivityStore } from '../store/useActivityStore';
@@ -16,19 +14,13 @@ export function useAmmTrade(marketId: string) {
   const { mode, updateMarket } = useMarketStore();
   // ... (keep imports and setup)
 
-
-  const { selectedChainId } = useChainStore();
   const { market, refetch: refetchMarket } = useAmmMarket(marketId);
   const publicClient = usePublicClient();
   const deployments = useDeployments();
 
   const [isPending, setIsPending] = useState(false);
   const { writeContractAsync } = useWriteContract();
-  const marketContractAddress = market?.contractAddress as `0x${string}`;
-  // V3 Change: Approve TraderVault, not Market
-  const spenderAddress = deployments.SoothTraderVault as `0x${string}`;
 
-  // v4: Use TraderVaultV3 as single entry point
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // 1. Fetch the EXACT collateral token that TraderVault expects (usually 'asset')
@@ -90,6 +82,8 @@ export function useAmmTrade(marketId: string) {
   const trade = async (outcomeIndex: 0 | 1, shares: string, slippageBps: number = 50) => {
     setIsPending(true);
     try {
+      if (!publicClient) throw new Error('Public client not found');
+      if (!traderVaultAddress) throw new Error('TraderVault not configured for this chain');
       const sharesBig = parseUnits(shares, 18);
 
       if (mode === 'demo') {
@@ -105,7 +99,7 @@ export function useAmmTrade(marketId: string) {
       // Real Mode
       // 0. Refetch Market Data
       await refetchMarket();
-      const { data: latestBalance } = await refetchTraderVaultBalance();
+      await refetchTraderVaultBalance();
 
       const bVal = Number(formatUnits(market?.bParam || 0n, 18));
       const qYesVal = Number(formatUnits(market?.qYes || 0n, 18));
@@ -159,7 +153,6 @@ export function useAmmTrade(marketId: string) {
       console.log('Trade Hash:', hash);
       const toastId = toast.loading('Transaction sent! Waiting for confirmation...');
 
-      if (!publicClient) throw new Error('Public client not found');
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {

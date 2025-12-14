@@ -6,19 +6,21 @@
 set -e
 
 REPO_ROOT="$(dirname "$0")"
-CANONICAL="$REPO_ROOT/packages/contracts-evm/docs/technical/frontend-integration/deployments.json"
+CANONICAL="$REPO_ROOT/apps/web/src/config/deployments.json"
 CONTRACTS="$REPO_ROOT/packages/contracts-evm/deployments.json"
-WEB="$REPO_ROOT/apps/web/docs/contract-integration/deployments.json"
+SOOTH_DAPP="$REPO_ROOT/packages/sooth-dapp/src/config/deployments.json"
 
 echo "📦 Syncing deployment files..."
+echo "Source: $CANONICAL"
 
 # Ensure destination dirs exist
-mkdir -p "$(dirname "$WEB")"
+mkdir -p "$(dirname "$CONTRACTS")"
+mkdir -p "$(dirname "$SOOTH_DAPP")"
 
 # Copy from canonical source to all locations
 cp "$CANONICAL" "$CONTRACTS"
-cp "$CANONICAL" "$WEB"
+cp "$CANONICAL" "$SOOTH_DAPP"
 
 echo "✅ Synced to:"
 echo "  - Contracts: packages/contracts-evm/deployments.json"
-echo "  - Web: apps/web/docs/contract-integration/deployments.json"
+echo "  - Sooth dapp: packages/sooth-dapp/src/config/deployments.json"

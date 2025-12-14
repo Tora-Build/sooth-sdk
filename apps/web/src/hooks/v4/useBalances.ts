@@ -1,35 +1,37 @@
 // useBalances.ts - Fetch all user balances (USDC, AMM positions, ERC1155 tokens)
-import { useReadContract } from 'wagmi'
+import { useReadContract, useChainId } from 'wagmi'
 import { useAccount } from 'wagmi'
 import { formatUnits } from 'viem'
 import { V4_ABIS } from '../../config/abis/v4-abis'
-import { V4_ADDRESSES } from '../../config/v4-addresses'
-import { baseSepolia } from 'wagmi/chains'
+import { useDeployments } from '../useDeployments'
 
 export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?: `0x${string}`) {
     const { address } = useAccount()
+    const chainId = useChainId()
+    const deployments = useDeployments()
+    const traderVault = deployments.SoothTraderVault as `0x${string}` | undefined
 
     // USDC balances in TraderVault
     const { data: accountsData, refetch: refetchAccounts } = useReadContract({
-        address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
+        address: traderVault,
         abi: V4_ABIS.TraderVaultV4,
         functionName: 'accounts',
         args: address ? [address] : undefined,
-        chainId: baseSepolia.id,
+        chainId,
         query: {
-            enabled: !!address,
+            enabled: !!address && !!traderVault,
         },
     })
 
     // AMM position (locked shares)
     const { data: ammPositionData, refetch: refetchAMM } = useReadContract({
-        address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
+        address: traderVault,
         abi: V4_ABIS.TraderVaultV4,
         functionName: 'ammPositions',
         args: address && marketAddress ? [address, marketAddress] : undefined,
-        chainId: baseSepolia.id,
+        chainId,
         query: {
-            enabled: !!address && !!marketAddress,
+            enabled: !!address && !!marketAddress && !!traderVault,
         },
     })
 
@@ -39,7 +41,7 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
         abi: V4_ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: address ? [address, BigInt(1)] : undefined,
-        chainId: baseSepolia.id,
+        chainId,
         query: {
             enabled: !!address && !!outcomeTokenAddress,
         },
@@ -51,7 +53,7 @@ export function useBalances(marketAddress?: `0x${string}`, outcomeTokenAddress?:
         abi: V4_ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: address ? [address, BigInt(0)] : undefined,
-        chainId: baseSepolia.id,
+        chainId,
         query: {
             enabled: !!address && !!outcomeTokenAddress,
         },

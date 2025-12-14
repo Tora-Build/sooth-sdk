@@ -13,7 +13,7 @@ export function useSettlement(marketId: string) {
   const { writeContractAsync } = useWriteContract();
   const deployments = useDeployments();
 
-  const settlementAddress = deployments.SoothSettlement as `0x${string}`;
+  const settlementAddress = deployments.SoothSettlement as `0x${string}` | undefined;
 
   // Read Settlement State
   // Safely convert marketId to BigInt, fallback to 0n if not possible
@@ -32,7 +32,7 @@ export function useSettlement(marketId: string) {
     contracts: [
       { address: settlementAddress, abi: SOOTH_SETTLEMENT_ABI, functionName: 'results', args: [safeMarketId] },
     ],
-    query: { enabled: mode === 'real' && !!marketId && safeMarketId !== 0n }
+    query: { enabled: mode === 'real' && !!settlementAddress && !!marketId && safeMarketId !== 0n }
   });
 
   const [result] = data?.map(r => r.result) || [];
@@ -57,6 +57,8 @@ export function useSettlement(marketId: string) {
         });
         return;
       }
+
+      if (!settlementAddress) throw new Error('Settlement contract not configured for this chain (missing SoothSettlement in deployments.json)');
 
       // Real Mode: storeResult
       // Note: Requires Adjudicator/Owner role
@@ -108,6 +110,8 @@ export function useSettlement(marketId: string) {
         return;
       }
 
+      if (!settlementAddress) throw new Error('Settlement contract not configured for this chain (missing SoothSettlement in deployments.json)');
+
       // Real Mode: storeSettlementRoot
       const hash = await writeContractAsync({
         address: settlementAddress,
@@ -152,6 +156,8 @@ export function useSettlement(marketId: string) {
         });
         return;
       }
+
+      if (!settlementAddress) throw new Error('Settlement contract not configured for this chain (missing SoothSettlement in deployments.json)');
 
       const hash = await writeContractAsync({
         address: settlementAddress,

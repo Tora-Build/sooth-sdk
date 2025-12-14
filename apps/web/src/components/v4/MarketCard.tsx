@@ -1,13 +1,13 @@
 // MarketCard.tsx - Display market info
 import { useMarketV4 } from '../../hooks/v4'
-import type { V4Market } from '../../config/v4-addresses'
+import type { MarketConfig } from '../../types'
 
 interface MarketCardProps {
-    market: V4Market
+    market: MarketConfig
 }
 
 export function MarketCard({ market }: MarketCardProps) {
-    const { probability, liquidity, priceYes } = useMarketV4(market.address as `0x${string}`)
+    const { probability, liquidity, priceYes } = useMarketV4(market.contractAddress as `0x${string}`)
 
     const yesPercent = probability !== undefined ? (probability * 100).toFixed(1) : '—'
     const noPercent = probability !== undefined ? ((1 - probability) * 100).toFixed(1) : '—'
@@ -16,7 +16,7 @@ export function MarketCard({ market }: MarketCardProps) {
         <div className="p-6 border rounded-lg hover:shadow-lg transition-shadow dark:border-gray-700">
             <h2 className="text-xl font-bold mb-2">{market.name}</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                {market.description}
+                {market.question}
             </p>
 
             {/* Probability Bars */}

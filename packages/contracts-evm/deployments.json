@@ -1,33 +1,89 @@
 {
-  "version": "4.1",
-  "lastUpdated": "2025-12-10",
+  "version": "4.9",
+  "lastUpdated": "2025-12-14",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live & Verified - V4 Hybrid Sell",
+      "status": "✅ Live - V4.6 Lock-on-Sell",
       "contracts": {
-        "MockUSDC": "0x85232d6e51467dac82dd36aab5b25cd412fab7a8",
-        "SoothTraderVault": "0x12b3c9456d9b0f0edbc29c9e4f95f7b21d51256f",
-        "SoothGovernorVault": "0xbb044a919bed2d20eda32de62f52ca7fc819268d",
-        "SoothFeeController": "0x2f043cff8ab8366d3e96f378089c3bbbc41cf1fb",
-        "OutcomeToken": "0xf047950cf0b8d0d117ae1f233ba23f631baccb4c",
-        "SoothMarket": "0xf4a4077645f76a78e1a29d9b817cec59aa38709e"
+        "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
+        "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
+        "SoothGovernorVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
+        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e"
       },
       "notes": {
-        "version": "V4 - Dual-venue trading (AMM + Orderbook)",
-        "date": "2025-12-10",
-        "fix": "Hybrid Sell (Spot + Short Atomic Split)"
+        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
+        "date": "2025-12-12",
+        "changes": [
+          "lockProceeds() added to GovernorVault",
+          "claimUnlocked() to claim expired locks",
+          "Shares always tradable (no unlockTime)",
+          "Proceeds locked in Governor until 24h passed"
+        ]
       },
       "marketInfo": {
         "market1": {
-          "address": "0xf4a4077645f76a78e1a29d9b817cec59aa38709e",
+          "address": "0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0xf047950cf0b8d0d117ae1f233ba23f631baccb4c"
+          "outcomeToken": "0xBf2866f71A082446DA6919C92C477d9D1608E4B7"
         },
         "market2": {
-          "address": "0xff38c86ac7481b298f2196cca553685bae385977",
+          "address": "0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x118e7e1bdf1e8223d7ae1ee3b7c6070eece273d3"
+          "outcomeToken": "0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f"
+        }
+      }
+    },
+    "bnbTestnet": {
+      "chainId": 97,
+      "status": "✅ Live - V4.6 Lock-on-Sell",
+      "contracts": {
+        "MockUSDC": "0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c",
+        "SoothTraderVault": "0x05818C4028ff5c273B45B3c55131Af2Bd9D12322",
+        "SoothGovernorVault": "0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0",
+        "SoothFeeController": "0x3152A8cd6CA0C64675C73486B06203a9D8226448"
+      },
+      "notes": {
+        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
+        "date": "2025-12-14"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0x347a74a7025C42BE608F3Bdc0B150D4AD6eb4674",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d"
+        },
+        "market2": {
+          "address": "0xD222b33742cA522fa2Ec8198197F3a05ef896B40",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0x1A7B20B43455CA6f861a574EcD8F9E5c9cE4e3a3"
+        }
+      }
+    },
+    "megaethTestnet": {
+      "chainId": 6343,
+      "status": "✅ Live - V4.5",
+      "contracts": {
+        "MockUSDC": "0x493da6e5c9de67ab50b2fb08d14865614189b5c2",
+        "SoothTraderVault": "0xdc980ac16626211a7c472a94a163440eb68c5bfc",
+        "SoothGovernorVault": "0xdb0063ce93e445ff7a8916f6f5a093f80833494f",
+        "SoothFeeController": "0x9dbdfe94e596262dff5d91c007bae2ba4d80a8f7"
+      },
+      "notes": {
+        "version": "V4.5 - MegaETH Testnet Launch",
+        "date": "2025-12-12",
+        "deployMethod": "viem script with gas: 999999999n"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0xda5979e913c8ce987d5c44e9d138e0cea87802ff"
+        },
+        "market2": {
+          "address": "0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0xd8e977e9e7e81d29daec823bf60e0303e80281cb"
         }
       }
     },
@@ -39,14 +95,15 @@
     }
   },
   "architecture": {
-    "version": "V4",
+    "version": "V4.6",
     "entryPoint": "TraderVaultV4 - Dual-venue trading",
     "features": [
-      "AMM trading with 24h lock-on-buy",
+      "AMM trading with 24h lock-on-sell (proceeds locked)",
       "Orderbook limit orders (no locks)",
       "ERC1155 outcome tokens",
       "Continuous LMSR (qYes/qNo) - No ticks",
-      "Dynamic liquidity (b parameter)"
+      "Dynamic liquidity (b parameter)",
+      "claimUnlocked() to claim expired proceeds"
     ]
   }
 }

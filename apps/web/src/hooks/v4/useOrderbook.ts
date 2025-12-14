@@ -2,10 +2,12 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseUnits } from 'viem'
 import { V4_ABIS } from '../../config/abis/v4-abis'
-import { V4_ADDRESSES } from '../../config/v4-addresses'
+import { useDeployments } from '../useDeployments'
 
 export function useOrderbook() {
     const { writeContract, data: hash, isPending, error } = useWriteContract()
+    const deployments = useDeployments()
+    const traderVault = deployments.SoothTraderVault as `0x${string}` | undefined
 
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
         hash,
@@ -16,14 +18,20 @@ export function useOrderbook() {
         outcome,
         price,
         amount,
+        isBuy,
     }: {
         marketAddress: `0x${string}`
         outcome: 0 | 1
         price: string // e.g., "0.6" for 60%
         amount: string // in ETH units
+        isBuy: boolean
     }) => {
+        if (!traderVault) {
+            throw new Error('TraderVault address not found for current chain (check deployments.json)')
+        }
+
         writeContract({
-            address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
+            address: traderVault,
             abi: V4_ABIS.TraderVaultV4,
             functionName: 'placeOrder',
             args: [
@@ -31,6 +39,7 @@ export function useOrderbook() {
                 outcome,
                 parseUnits(price, 18),
                 parseUnits(amount, 18),
+                isBuy,
             ],
         })
     }
@@ -42,8 +51,12 @@ export function useOrderbook() {
         marketAddress: `0x${string}`
         orderId: bigint
     }) => {
+        if (!traderVault) {
+            throw new Error('TraderVault address not found for current chain (check deployments.json)')
+        }
+
         writeContract({
-            address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
+            address: traderVault,
             abi: V4_ABIS.TraderVaultV4,
             functionName: 'cancelOrder',
             args: [marketAddress, orderId],

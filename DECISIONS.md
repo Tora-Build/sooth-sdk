@@ -123,3 +123,30 @@
     - **LP Protection**: Attackers can't extract value immediately after settlement
     - **Implementation**: Lock queue in GovernorVault with per-user entries
     - **Test Impact**: All tests updated to reflect new lock behavior (20/22 passing)
+
+## ADR-011: Canonical Deployment Config Source-of-Truth
+- **Date**: 2025-12-14
+- **Status**: Accepted
+- **Context**: Deployment artifacts drifted across the monorepo (frontend config vs contracts package vs legacy docs paths). This caused stale addresses to persist after redeploys.
+- **Decision**:
+  - Treat `apps/web/src/config/deployments.json` as the **canonical** deployment config.
+  - Use `sync-deployments.sh` to sync the canonical file into:
+    - `packages/contracts-evm/deployments.json`
+    - `packages/sooth-dapp/src/config/deployments.json`
+  - Keep `packages/contracts-evm/script/verify-deployment.sh` robust to running from any working directory.
+- **Consequences**:
+  - Reduced config drift and “invalid market / stale address” frontend errors.
+  - Deploy workflow becomes: deploy → verify → bump config version → sync script → hard refresh.
+
+## ADR-012: Frontend V4 Uses Canonical Configs (Chain-Aware)
+- **Date**: 2025-12-14
+- **Status**: Accepted
+- **Context**: The V4 standalone UI path had a second, hardcoded address source (`v4-addresses.ts`) that only targeted Base Sepolia, causing BNB testnet to silently use the wrong contracts.
+- **Decision**:
+  - Remove `apps/web/src/config/v4-addresses.ts`
+  - Make V4 UI derive:
+    - **TraderVault address** from `deployments.json` via `useDeployments()`
+    - **Market list** from `markets.json` filtered by active `chainId`
+- **Consequences**:
+  - No duplicate address sources; BNB and other chains work as soon as configs are synced.
+  - Reduces “connected to chain X but calling chain Y contracts” class of bugs.

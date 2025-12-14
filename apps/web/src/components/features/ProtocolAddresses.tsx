@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { MOCK_ERC20_ABI, ERC20_ABI } from '../../config/abis';
+import marketsConfig from '../../config/markets.json';
 
 export const ProtocolAddresses: React.FC = () => {
   const { mode } = useMarketStore();
@@ -27,20 +28,6 @@ export const ProtocolAddresses: React.FC = () => {
     functionName: 'decimals',
   });
 
-  // Fetch USDC allowance for TraderVaultV3
-  const traderVaultAddress = deployments.SoothTraderVault;
-  const { data: allowance } = useReadContract({
-    address: deployments.MockUSDC as `0x${string}`,
-    abi: ERC20_ABI,
-    functionName: 'allowance',
-    args: [userAddress || '0x0', traderVaultAddress as `0x${string}`],
-    query: {
-      enabled: mode === 'real' && !!userAddress && !!traderVaultAddress,
-      refetchInterval: 5000,
-    }
-  });
-
-
   // Fetch USDC Balance
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: deployments.MockUSDC as `0x${string}`,
@@ -56,15 +43,25 @@ export const ProtocolAddresses: React.FC = () => {
   const chain = getChainById(selectedChainId);
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
 
+  const chainMarkets = marketsConfig.markets
+    .filter((m: any) => m.mode === 'real' && (m.chainId ?? 84532) === selectedChainId)
+    .flatMap((m: any) => {
+      const outcomeToken = m.outcomeTokenAddress || m.outcomeToken;
+      return [
+        { label: `Market: ${m.name}`, address: m.contractAddress },
+        ...(outcomeToken ? [{ label: `OutcomeToken: ${m.name}`, address: outcomeToken }] : []),
+      ];
+    });
+
 
   const addresses = [
 
     { label: 'Trader Vault', address: deployments.SoothTraderVault },
-    { label: 'Market', address: deployments.SoothMarket },
     { label: 'Governor Vault', address: deployments.SoothGovernorVault },
     { label: 'Fee Controller', address: deployments.SoothFeeController },
     { label: 'AMM', address: deployments.SoothLMSRReal },
     { label: 'USDC', address: deployments.MockUSDC, canMint: true },
+    ...chainMarkets,
   ].filter(item => item.address); // Filter out undefined addresses
 
   const copyToClipboard = (text: string) => {

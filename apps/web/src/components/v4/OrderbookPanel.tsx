@@ -8,6 +8,7 @@ interface OrderbookPanelProps {
 
 export function OrderbookPanel({ marketAddress }: OrderbookPanelProps) {
     const [outcome, setOutcome] = useState<0 | 1>(1)
+    const [isBuy, setIsBuy] = useState(true)
     const [price, setPrice] = useState('0.6') // 60%
     const [amount, setAmount] = useState('')
 
@@ -21,11 +22,28 @@ export function OrderbookPanel({ marketAddress }: OrderbookPanelProps) {
             outcome,
             price,
             amount,
+            isBuy,
         })
     }
 
     return (
         <div className="space-y-4">
+            {/* Buy/Sell Side */}
+            <div className="flex gap-2">
+                <button
+                    onClick={() => setIsBuy(true)}
+                    className={`flex-1 py-2 px-4 rounded font-medium transition-colors ${isBuy ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                >
+                    Buy
+                </button>
+                <button
+                    onClick={() => setIsBuy(false)}
+                    className={`flex-1 py-2 px-4 rounded font-medium transition-colors ${!isBuy ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                >
+                    Sell
+                </button>
+            </div>
+
             {/* Outcome Selection */}
             <div className="flex gap-2">
                 <button
@@ -62,12 +80,12 @@ export function OrderbookPanel({ marketAddress }: OrderbookPanelProps) {
 
             {/* Amount Input */}
             <div>
-                <label className="block text-sm font-medium mb-1">Amount (USDC)</label>
+                <label className="block text-sm font-medium mb-1">Amount (Shares)</label>
                 <input
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="100"
+                    placeholder="10"
                     className="w-full p-2 border rounded dark:bg-gray-800"
                 />
             </div>
@@ -75,7 +93,7 @@ export function OrderbookPanel({ marketAddress }: OrderbookPanelProps) {
             {/* No Lock Info */}
             <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded">
                 <p className="text-sm text-green-800 dark:text-green-200">
-                    🔓 <strong>No locks!</strong> You'll receive ERC1155 tokens immediately
+                    🔓 <strong>No locks!</strong> Orderbook trades mint/burn ERC1155 outcome tokens immediately
                 </p>
             </div>
 

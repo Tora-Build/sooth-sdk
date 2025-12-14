@@ -6,23 +6,37 @@
 set -e
 
 RPC_URL="${RPC_URL:-https://sepolia.base.org}"
-DEPLOYMENTS_JSON="../../apps/web/src/config/deployments.json"
+# Which network block in apps/web/src/config/deployments.json to validate.
+# Example: NETWORK=bnbTestnet RPC_URL=https://data-seed-prebsc-1-s1.bnbchain.org:8545 ./script/verify-deployment.sh
+NETWORK="${NETWORK:-baseSepolia}"
+# Resolve paths relative to this script (robust to cwd)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." >/dev/null 2>&1 && pwd)"
+DEPLOYMENTS_JSON="${REPO_ROOT}/apps/web/src/config/deployments.json"
 
 echo "=========================================="
 echo "  Deployment Verification Script"
 echo "=========================================="
 echo "RPC: $RPC_URL"
+echo "Network: $NETWORK"
 echo ""
 
 # Read addresses from deployments.json
-TRADER_VAULT=$(jq -r '.networks.baseSepolia.contracts.SoothTraderVault' $DEPLOYMENTS_JSON)
-GOVERNOR_VAULT=$(jq -r '.networks.baseSepolia.contracts.SoothGovernorVault' $DEPLOYMENTS_JSON)
-FEE_CONTROLLER=$(jq -r '.networks.baseSepolia.contracts.SoothFeeController' $DEPLOYMENTS_JSON)
-USDC=$(jq -r '.networks.baseSepolia.contracts.MockUSDC' $DEPLOYMENTS_JSON)
-MARKET1=$(jq -r '.networks.baseSepolia.marketInfo.market1.address' $DEPLOYMENTS_JSON)
-MARKET2=$(jq -r '.networks.baseSepolia.marketInfo.market2.address' $DEPLOYMENTS_JSON)
+CHAIN_ID=$(jq -r --arg net "$NETWORK" '.networks[$net].chainId // empty' "$DEPLOYMENTS_JSON")
+if [ -z "$CHAIN_ID" ] || [ "$CHAIN_ID" == "null" ]; then
+    echo "❌ Error: Could not resolve chainId for NETWORK=$NETWORK in deployments.json"
+    exit 1
+fi
+
+TRADER_VAULT=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothTraderVault' "$DEPLOYMENTS_JSON")
+GOVERNOR_VAULT=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothGovernorVault' "$DEPLOYMENTS_JSON")
+FEE_CONTROLLER=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothFeeController' "$DEPLOYMENTS_JSON")
+USDC=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.MockUSDC' "$DEPLOYMENTS_JSON")
+MARKET1=$(jq -r --arg net "$NETWORK" '.networks[$net].marketInfo.market1.address' "$DEPLOYMENTS_JSON")
+MARKET2=$(jq -r --arg net "$NETWORK" '.networks[$net].marketInfo.market2.address' "$DEPLOYMENTS_JSON")
 
 echo "Config Addresses:"
+echo "  ChainId:       $CHAIN_ID"
 echo "  TraderVault:   $TRADER_VAULT"
 echo "  GovernorVault: $GOVERNOR_VAULT"
 echo "  FeeController: $FEE_CONTROLLER"
@@ -110,13 +124,13 @@ echo ""
 
 # 5. Verify markets.json markets are registered
 echo "--- Step 5: Verify markets.json Markets ---"
-MARKETS_JSON="../../apps/web/src/config/markets.json"
+MARKETS_JSON="${REPO_ROOT}/apps/web/src/config/markets.json"
 
-# Extract all real-mode Base Sepolia market addresses
-MARKET_ADDRESSES=$(jq -r '.markets[] | select(.mode == "real" and .chainId == 84532) | .contractAddress' $MARKETS_JSON 2>/dev/null)
+# Extract all real-mode markets for this chain
+MARKET_ADDRESSES=$(jq -r --argjson chainId "$CHAIN_ID" '.markets[] | select(.mode == "real" and .chainId == $chainId) | .contractAddress' "$MARKETS_JSON" 2>/dev/null)
 
 if [ -z "$MARKET_ADDRESSES" ]; then
-    echo "⚠️  No real Base Sepolia markets found in markets.json"
+    echo "⚠️  No real markets found in markets.json for chainId=$CHAIN_ID"
 else
     for ADDR in $MARKET_ADDRESSES; do
         if [ "$ADDR" != "null" ] && [ -n "$ADDR" ]; then

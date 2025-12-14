@@ -1,11 +1,13 @@
-// useAMMTrade.ts - Execute AMM trades with lock-on-buy
+// useAMMTrade.ts - Execute AMM trades (Lock-on-Sell deployment)
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseUnits } from 'viem'
 import { V4_ABIS } from '../../config/abis/v4-abis'
-import { V4_ADDRESSES } from '../../config/v4-addresses'
+import { useDeployments } from '../useDeployments'
 
 export function useAMMTrade() {
     const { writeContract, data: hash, isPending, error } = useWriteContract()
+    const deployments = useDeployments()
+    const traderVault = deployments.SoothTraderVault as `0x${string}` | undefined
 
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
         hash,
@@ -24,16 +26,24 @@ export function useAMMTrade() {
         limit: string // maxCost or minProceeds in ETH units
         isBuy: boolean
     }) => {
+        if (!traderVault) {
+            throw new Error('TraderVault address not found for current chain (check deployments.json)')
+        }
+
+        const sharesWad = parseUnits(shares, 18)
+        const limitWad = parseUnits(limit, 18)
+        const deltaShares = isBuy ? sharesWad : -sharesWad
+        const signedLimit = isBuy ? limitWad : -limitWad
+
         writeContract({
-            address: V4_ADDRESSES.baseSepolia.traderVault as `0x${string}`,
+            address: traderVault,
             abi: V4_ABIS.TraderVaultV4,
-            functionName: 'executeAMMTrade',
+            functionName: 'tradeAMM',
             args: [
                 marketAddress,
                 outcome,
-                parseUnits(shares, 18),
-                parseUnits(limit, 18),
-                isBuy,
+                deltaShares,
+                signedLimit,
             ],
         })
     }

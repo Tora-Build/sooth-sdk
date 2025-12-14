@@ -199,11 +199,11 @@ export function AMMTradePanelV41({ marketId, marketAddress, outcomeTokenAddress 
             </div>
 
             {/* Lock Warning */}
-            {isBuy && parseFloat(shares) > 0 && (
+            {!isBuy && parseFloat(shares) > 0 && (
                 <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded flex items-start gap-2">
                     <span className="text-lg">⏳</span>
                     <p className="text-sm text-yellow-800 dark:text-yellow-200 leading-tight pt-1">
-                        Shares will be locked for <strong>24 hours</strong>. You cannot sell them until the lock expires.
+                        Your <strong>sell proceeds</strong> will be locked for <strong>24 hours</strong>. You can keep trading, but you can only withdraw proceeds after the lock expires.
                     </p>
                 </div>
             )}

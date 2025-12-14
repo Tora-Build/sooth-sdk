@@ -1,6 +1,6 @@
 {
-  "version": "4.7",
-  "lastUpdated": "2025-12-12",
+  "version": "4.9",
+  "lastUpdated": "2025-12-14",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -23,40 +23,40 @@
       },
       "marketInfo": {
         "market1": {
-          "address": "0x107aF8183a2761dcaA28ac89b85e09A3b63d7C31",
+          "address": "0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0xc893D7b4A3b86Edc5C40F3F552d6D2180Dbb3214"
+          "outcomeToken": "0xBf2866f71A082446DA6919C92C477d9D1608E4B7"
         },
         "market2": {
-          "address": "0xf7696D23edd93B81386323175fF8c9aCe5441333",
+          "address": "0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x6c3A38D04F14bdd955ad2E2992B47947CEDd2886"
+          "outcomeToken": "0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f"
         }
       }
     },
     "bnbTestnet": {
       "chainId": 97,
-      "status": "✅ Live - V4.5",
+      "status": "✅ Live - V4.6 Lock-on-Sell",
       "contracts": {
-        "MockUSDC": "0x58F35BE6A5e3D2be4C3575853043322B02FEeD84",
-        "SoothTraderVault": "0x50293aD4e42593A8b081960c991c198729E81192",
-        "SoothGovernorVault": "0x8629b9ca457F4088ec8346FAED61DA858FDB498d",
-        "SoothFeeController": "0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38"
+        "MockUSDC": "0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c",
+        "SoothTraderVault": "0x05818C4028ff5c273B45B3c55131Af2Bd9D12322",
+        "SoothGovernorVault": "0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0",
+        "SoothFeeController": "0x3152A8cd6CA0C64675C73486B06203a9D8226448"
       },
       "notes": {
-        "version": "V4.5 - Multi-chain expansion",
-        "date": "2025-12-12"
+        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
+        "date": "2025-12-14"
       },
       "marketInfo": {
         "market1": {
-          "address": "0xa852857A15a10692A5cF22cB2B5b707C8dD64cf8",
+          "address": "0x347a74a7025C42BE608F3Bdc0B150D4AD6eb4674",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x4F0b73177dac5A7f5EA2dbCffd2b983B3719b39B"
+          "outcomeToken": "0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d"
         },
         "market2": {
-          "address": "0x7c60001d89D9878B1f7C4180916fCc3ede592e8d",
+          "address": "0xD222b33742cA522fa2Ec8198197F3a05ef896B40",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0xaaE4610eEB6bF5FCf3775AcA69A5911691556995"
+          "outcomeToken": "0x1A7B20B43455CA6f861a574EcD8F9E5c9cE4e3a3"
         }
       }
     },

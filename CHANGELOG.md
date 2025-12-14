@@ -10,6 +10,10 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Removed `unlockTime` from AMM positions — shares always unlocked
   - Sell proceeds locked 24h in GovernorVault until claimed
   - ADR-010 documents the design decision (Lock-on-Sell vs Lock-on-Buy)
+- **Foundry Dependency**: `prb-math` installed under `packages/contracts-evm/lib/prb-math` for `SoothMarketV4` (sd59x18) imports.
+- **Deployment Tooling Robustness**:
+  - `packages/contracts-evm/script/verify-deployment.sh` now resolves repo paths relative to the script location (works from any cwd).
+  - `sync-deployments.sh` now treats `apps/web/src/config/deployments.json` as canonical and syncs to other packages.
 - **Claim Modal UI**:
   - Added "Locked Proceeds" card to Trading Account
   - Added Claim Dialog with countdown timer (`nextUnlock`)
@@ -23,6 +27,16 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **SOP Rule**: Frontend-dev must check-in/check-out specs before/after UI modifications
 
 ### Changed
+- **Base Sepolia Config (V4.6)**:
+  - Bumped `apps/web/src/config/deployments.json` version to `4.9` (cache refresh)
+  - Updated Base Sepolia market + outcome token addresses across:
+    - `apps/web/src/config/deployments.json`
+    - `apps/web/src/config/markets.json`
+- **ProtocolAddresses UI**: now lists per-chain **Market + OutcomeToken** addresses from `markets.json` (instead of a single optional `SoothMarket` field).
+- **V4 Standalone Page Hooks**:
+  - `apps/web/src/hooks/v4/useAMMTrade.ts` now calls `tradeAMM` with signed params (buy = positive, sell = negative).
+  - V4 UI is now chain-aware (no hardcoded Base Sepolia addresses) and supports BNB testnet deployments.
+  - Orderbook `placeOrder` now passes the required `isBuy` flag (ABI parity with contracts).
 - **Landing Page**: Added MegaETH badge (green indicator)
 - **About Page**: "Infinite-End" → "Open-End" terminology throughout
 - **KNOWLEDGE.md**: Updated with all 3 testnet deployment addresses, precision corrections
@@ -37,6 +51,9 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **useProtocolStats.ts**: Fixed locked calculation (was hardcoded 85% estimate)
 
 ### Fixed
+- **Settlement Hook Safety**: `useSettlement.ts` now guards when `SoothSettlement` isn’t configured for a chain (prevents reads/writes from crashing).
+- **Deployments Typing**: `useDeployments.ts` no longer requires optional infra keys that aren’t present in `deployments.json`.
+- **ABI Wiring (V4 hooks path)**: `apps/web/src/config/abis/v4-abis.ts` now points at `abis/v4/*` JSON artifacts.
 - **Mobile Zoom**: Disabled pinch-to-zoom to prevent fat finger issues
 - **First-TX Page Reload**: Removed auto-reload on version mismatch in `useDeployments.ts`
 - **AmmMarketCard.tsx**: Removed duplicate `<h3>` (title appearing twice)
@@ -50,6 +67,24 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Fix: Lookup real owner via `TraderVault.orderOwners(orderId)`
 
 ### Deployed
+- **Base Sepolia V4.6 Markets (2025-12-14)**:
+  - MockUSDC: `0x53d34066A316AE1699d434753B70593A6D59Fec1`
+  - TraderVault: `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B`
+  - GovernorVault: `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1`
+  - FeeController: `0x1a646107e7E88aa01Fadff3145Af08156679198e`
+  - Market 1 (Alien): `0xd2A266c2081C0f2c7c86b5541B9e9b255dde91F9`
+  - OutcomeToken 1: `0xBf2866f71A082446DA6919C92C477d9D1608E4B7`
+  - Market 2 (BTC): `0x3423223043A6815547c0E83ec5c4aE1AeCb0eE02`
+  - OutcomeToken 2: `0xe2A82254C7B831F87e659d3dc3D4dbe2B7De977f`
+- **BNB Testnet V4.6 (2025-12-14)**:
+  - MockUSDC: `0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c`
+  - TraderVault: `0x05818C4028ff5c273B45B3c55131Af2Bd9D12322`
+  - GovernorVault: `0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0`
+  - FeeController: `0x3152A8cd6CA0C64675C73486B06203a9D8226448`
+  - Market 1: `0x347a74a7025C42BE608F3Bdc0B150D4AD6eb4674`
+  - OutcomeToken 1: `0xC69003eEc9B262dd9d5911d4d00133BC73d5f70d`
+  - Market 2: `0xD222b33742cA522fa2Ec8198197F3a05ef896B40`
+  - OutcomeToken 2: `0x1A7B20B43455CA6f861a574EcD8F9E5c9cE4e3a3`
 - **MegaETH Testnet V4.5 (2025-12-12)**:
   - MockUSDC: `0x493da6e5c9de67ab50b2fb08d14865614189b5c2`
   - TraderVault: `0xdc980ac16626211a7c472a94a163440eb68c5bfc`

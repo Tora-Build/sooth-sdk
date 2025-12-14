@@ -6,18 +6,21 @@ import { DEFAULT_CHAIN_ID } from '../lib/chains';
 // Define the shape of deployments for a single chain
 export interface ChainDeployments {
   MockUSDC: string;
-  // v2: New contracts
+  // Core (V4+)
   SoothTraderVault?: string;
   SoothGovernorVault?: string;
   SoothFeeController?: string;
-  // v1: Legacy (kept for backward compatibility)
+
+  // Markets (optional; many flows use markets.json instead)
+  SoothMarket?: string;
+
+  // Optional/legacy infra (used by OperatorConsole or older deployments)
+  SoothLMSRReal?: string;
+  SoothAdjudicatorRegistry?: string;
+  SoothSettlement?: string;
+  SoothMarketFactory?: string;
   SoothVault?: string;
   SoothRiskManager?: string;
-  // Shared
-  SoothLMSRReal: string;
-  SoothAdjudicatorRegistry: string;
-  SoothSettlement: string;
-  SoothMarketFactory: string;
   [key: string]: string | undefined;
 }
 
