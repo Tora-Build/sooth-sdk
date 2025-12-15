@@ -4,6 +4,7 @@ import { parseUnits, formatUnits } from 'viem';
 import { TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useAmmMarket } from './useAmmMarket';
+import { useAmmMarketByAddress } from './useAmmMarketByAddress';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
 import { getChainById } from '../lib/chains';
@@ -11,7 +12,20 @@ import { useMarketStore } from '../store/useMarketStore';
 
 export function useOrderbookTrade(marketId: string) {
   const { address } = useAccount();
-  const { market } = useAmmMarket(marketId);
+
+  // Detect if marketId is an address (0x...) or a config ID
+  const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
+
+  // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
+  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { market: addressMarket } = useAmmMarketByAddress(
+    isAddressFormat ? (marketId as `0x${string}`) : undefined
+  );
+  const market = isAddressFormat ? addressMarket : configMarket;
+
+  // For address-format markets, use the marketId directly as the contract address
+  const marketContractAddress = isAddressFormat ? (marketId as `0x${string}`) : market?.contractAddress;
+
   const { config } = useDeployments();
   const deployments = config.contracts;
   const publicClient = usePublicClient();
@@ -28,11 +42,11 @@ export function useOrderbookTrade(marketId: string) {
   const { data: vaultData, refetch: refetchBalance } = useReadContracts({
     contracts: [
       { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'accounts', args: [address || '0x0'] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', market?.contractAddress as `0x${string}`, 0] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', market?.contractAddress as `0x${string}`, 1] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 0] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 1] },
     ],
     query: {
-      enabled: !!address && !!market?.contractAddress,
+      enabled: !!address && !!marketContractAddress,
       refetchInterval: 3000,
     },
   });
@@ -53,7 +67,7 @@ export function useOrderbookTrade(marketId: string) {
         throw new Error(`Please switch to ${targetChain?.name || 'the correct network'}`);
       }
 
-      if (!market?.contractAddress) throw new Error('Market not found');
+      if (!marketContractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
       const amountBig = parseUnits(amount, 18); // V4: WAD Granularity
@@ -93,7 +107,7 @@ export function useOrderbookTrade(marketId: string) {
             address: traderVaultAddress,
             abi: TRADER_VAULT_V4_ABI,
             functionName: 'placeOrder',
-            args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig, isBuy],
+            args: [marketContractAddress, outcome, priceBig, amountBig, isBuy],
           });
         } catch (simError: any) {
           console.error('Simulation Failed:', simError);
@@ -107,7 +121,7 @@ export function useOrderbookTrade(marketId: string) {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeOrder',
-        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig, isBuy],
+        args: [marketContractAddress, outcome, priceBig, amountBig, isBuy],
       });
 
       const toastId = toast.loading('Placing Order...');
@@ -130,7 +144,7 @@ export function useOrderbookTrade(marketId: string) {
     try {
       const chain = publicClient?.chain;
       if (chain?.id !== selectedChainId) throw new Error('Wrong Network');
-      if (!market?.contractAddress) throw new Error('Market not found');
+      if (!marketContractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
       const amountBig = parseUnits(amount, 18);
@@ -154,7 +168,7 @@ export function useOrderbookTrade(marketId: string) {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'placeSpotOrder',
-        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+        args: [marketContractAddress, outcome, priceBig, amountBig],
       });
 
       const toastId = toast.loading('Placing Spot Order...');
@@ -183,7 +197,7 @@ export function useOrderbookTrade(marketId: string) {
     try {
       const chain = publicClient?.chain;
       if (chain?.id !== selectedChainId) throw new Error('Wrong Network');
-      if (!market?.contractAddress) throw new Error('Market not found');
+      if (!marketContractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
       const amountBig = parseUnits(amount, 18);
@@ -206,7 +220,7 @@ export function useOrderbookTrade(marketId: string) {
             address: traderVaultAddress,
             abi: TRADER_VAULT_V4_ABI,
             functionName: 'executeHybridSell',
-            args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+            args: [marketContractAddress, outcome, priceBig, amountBig],
           });
           gasEstimate = (gasEstimate * 150n) / 100n; // 1.5x multiplier
         } catch (e) {
@@ -218,7 +232,7 @@ export function useOrderbookTrade(marketId: string) {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'executeHybridSell',
-        args: [market.contractAddress as `0x${string}`, outcome, priceBig, amountBig],
+        args: [marketContractAddress, outcome, priceBig, amountBig],
         gas: gasEstimate,
       });
 
@@ -240,14 +254,14 @@ export function useOrderbookTrade(marketId: string) {
   const cancelOrder = async (orderId: string) => {
     setIsPending(true);
     try {
-      if (!market?.contractAddress) throw new Error('Market not found');
+      if (!marketContractAddress) throw new Error('Market not found');
 
       // v4: Cancel order through TraderVaultV4
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'cancelOrder',
-        args: [market.contractAddress as `0x${string}`, BigInt(orderId)],
+        args: [marketContractAddress, BigInt(orderId)],
       });
 
       const toastId = toast.loading('Cancelling Order...');
@@ -274,7 +288,7 @@ export function useOrderbookTrade(marketId: string) {
         throw new Error(`Please switch to ${targetChain?.name || 'the correct network'}`);
       }
 
-      if (!market?.contractAddress) throw new Error('Market not found');
+      if (!marketContractAddress) throw new Error('Market not found');
 
       const priceBig = parseUnits(price, 18);
 
@@ -317,7 +331,7 @@ export function useOrderbookTrade(marketId: string) {
       } else {
         // v3: Check holdngs for Sells
         // Note: strict check might fail if data is stale, but better than revert on-chain
-        const userShares = outcome === 0 ? market.userYesShares : market.userNoShares;
+        const userShares = market ? (outcome === 0 ? market.userYesShares : market.userNoShares) : 0;
         if (Number(amount) > (userShares || 0)) {
           throw new Error(`Insufficient shares. Have ${userShares?.toFixed(2)}, trying to sell ${amount}`);
         }
@@ -328,7 +342,7 @@ export function useOrderbookTrade(marketId: string) {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'tradeAMM',
-        args: [market.contractAddress as `0x${string}`, outcome, sharesWad, costSigned],
+        args: [marketContractAddress, outcome, sharesWad, costSigned],
       });
 
       const toastId = toast.loading('Executing Trade...');

@@ -1,14 +1,34 @@
 # Project Status
 
-> Last Updated: 2025-12-15 (Session 5 - V5 Launchpad QA)
+> Last Updated: 2025-12-15 (Session 6 - V5 Frontend Trading)
 
 ## Current Focus
+- **V5 Frontend Trading** — Inline AMM trading on Markets page ✅
 - **V5 Launchpad QA** — Comprehensive test suite complete ✅
 - **Deployment Verification** — Base Sepolia + BNB Testnet verified ✅
-- **V5 Frontend Overhaul** — Major UI improvements for Launchpad markets ⏳ IN PROGRESS
-- **TraderVault Integration** — Resolving whitelisting permission blocker ⏳
 
 ## Recent Changes
+
+### ✅ V5 Frontend Trading (2025-12-15 Session 6)
+- **MarketCard Inline Trading**: Full AMM trading experience directly on Markets page
+  - Buy/Sell toggle with visual feedback
+  - YES/NO outcome selection as clickable probability cards
+  - Amount input with hold-to-increment/decrement buttons
+  - Quick amount buttons (10, 50, 100, 500)
+  - Cost per share display (uses `totalCost` for accuracy)
+  - Slippage options: 0.1%, 0.5%, 1%, 2%
+  - Max to sell display when in sell mode (clickable to set max)
+  - Fee display in quote summary
+  - Probability transition arrows (e.g., `50.0% → 55.2%`)
+  - Collapsible trading panel
+- **Orderbook Balance Fix**: V5 Launchpad markets now recognized by orderbook UI
+  - `useOrderbook.ts` — Detects address-format marketIds, uses `useAmmMarketByAddress`
+  - `useOrderbookTrade.ts` — Same fix, updated all contract calls to use resolved address
+  - `LimitOrderForm.tsx` — Uses correct market hook based on ID format
+- **Cost Per Share Fix**: Eliminated jumping/creeping values
+  - Added `quote.inputAmount` check to ensure displayed data matches current input
+  - Shows `--` while loading instead of falling back to stale market price
+  - Uses `totalCost` (includes fee) for accurate per-share calculation
 
 ### ✅ V5 Launchpad QA (2025-12-15 Session 5)
 - **Test Expansion**: Increased Launchpad tests from 2 → **17 tests** (all passing)
@@ -74,78 +94,6 @@
 - **QA Status**: ✅ Verified `test/Launchpad.t.sol` (Creation, Funding, Trading, Fee Accrual). Fixed 1e18 scaling issue.
 - **Specs**: Created `apps/web/docs/specs/LAUNCHPAD_SPEC.md` for frontend integration.
 
-### ✅ Multi-Chain Fresh Market Deployment (2025-12-14 Session 2)
-- Deployed **fresh V4 markets** to both **Base Sepolia** and **BNB Testnet** via chain-aware `DeployV4Markets.s.sol`
-- Script now dynamically resolves infrastructure addresses based on `block.chainid`
-- Updated `apps/web/src/config/deployments.json` → version `4.10`
-- Updated `apps/web/src/config/markets.json` with new contract + outcome token addresses
-- Ran `sync-deployments.sh` to propagate to all packages
-- Verified both deployments using `verify-deployment.sh` — **ALL CHECKS PASSED** ✅
-
-### ✅ Base Sepolia V4.6 Markets Redeploy + Frontend Sync (2025-12-14)
-- Deployed **new Base Sepolia markets** via `packages/contracts-evm/script/DeployV4Markets.s.sol` (broadcast success)
-- Updated `apps/web/src/config/deployments.json` → bumped version and refreshed Base Sepolia market + outcome token addresses
-- Updated `apps/web/src/config/markets.json` to match
-- Fixed `packages/contracts-evm/script/verify-deployment.sh` to be **cwd-independent** and re-verified on-chain ✅
-- Updated `sync-deployments.sh` to sync from **web config** as canonical, then synced to:
-  - `packages/contracts-evm/deployments.json`
-  - `packages/sooth-dapp/src/config/deployments.json`
-- Frontend audit fixes:
-  - `ProtocolAddresses` now displays per-chain **Market + OutcomeToken** addresses
-  - `apps/web/src/hooks/v4/useAMMTrade.ts` now uses `tradeAMM` (not `executeAMMTrade`)
-  - V4 lock warning copy updated to Lock-on-Sell semantics
-
-### ✅ QA Test Expansion (2025-12-14)
-- Added **Invariant Test Harness** (actor-based):
-  - `packages/contracts-evm/test/invariants/VaultInvariants.t.sol`
-  - `packages/contracts-evm/test/actors/TraderActor.sol`
-- Added **Multi-Role Scenarios** (Traders + LPs):
-  - `packages/contracts-evm/test/scenarios/MultiRoleScenarios.t.sol`
-  - `packages/contracts-evm/test/actors/LPActor.sol`
-- Added **Settlement Scenarios** (post-settlement constraints + merge + claim):
-  - `packages/contracts-evm/test/scenarios/SettlementScenarios.t.sol`
-- Added **Adversarial Scenarios** (access-control + slippage + invalid-input probes):
-  - `packages/contracts-evm/test/scenarios/AdversarialScenarios.t.sol`
-
-### ✅ BNB Testnet V4.6 Deploy + Frontend V4 Multi-Chain Fix (2025-12-14)
-- Deployed **V4.6 infra + 2 markets** to **BNB testnet (chain 97)** via `packages/contracts-evm/script/DeployMultiChainV4.s.sol`
-  - Broadcast required `--legacy --with-gas-price 1gwei` due to BNB min gas tip
-- Updated `apps/web/src/config/deployments.json` (**version `4.9`**) + `apps/web/src/config/markets.json` with new BNB addresses
-- Verification tooling:
-  - `packages/contracts-evm/script/verify-deployment.sh` now supports `NETWORK=bnbTestnet` (not just Base Sepolia)
-- Frontend V4 page (`V4MarketPage`) and `apps/web/src/hooks/v4/*` now respect active wallet chain (BNB works)
-
-### ✅ Lock-on-Sell UI (2025-12-12)
-- Implemented "Locked Proceeds" card in `TradingAccountCard`
-- Added "Claim" modal with countdown timer
-- Fixed Lock-on-Buy logic removal in Trading Terminal
-- Updated ABIs to support `lockedBalance` and `nextUnlock`
-
-### ✅ Lock-on-Sell Branch (Local Only)
-- Reviewed and fixed `codex/review-and-implement-lock-mechanism` branch
-- Fixed accounting bug: `lockProceeds()` was incorrectly decreasing `totalAssets`
-- Option A implemented: funds stay in GovernorVault until claimed
-- Fixed 4 test files: CustodialVault, HybridSell, OrderbookShort, GranularityTest
-- Test results: 20/22 passing (2 fork tests require network)
-- 2 local commits ready, not pushed
-
-### ✅ MegaETH Testnet Deployment
-- Full V4.5 infrastructure + 2 markets deployed to MegaETH Testnet (Chain 6343)
-- Created `apps/web/scripts/deploy-megaeth.ts` (viem-based with `gas: 999999999n`)
-- Forge scripts failed due to RPC "intrinsic gas too low" error
-- Solution: Use viem `deployContract` with explicit high gas limit
-
-### ✅ BNB Testnet Deployment
-- Full V4.5 infrastructure + 2 markets deployed (Chain 97)
-- Created `DeployMultiChainV4.s.sol` for multi-chain deployments
-
-### ✅ Frontend Updates
-- Landing page: Added MegaETH badge (green dot)
-- About page: "Infinite-End" → "Open-End" terminology
-- KNOWLEDGE.md: Updated with all 3 testnet deployment addresses
-- Fixed mobile zoom (disabled pinch-to-zoom)
-- Fixed first-tx page reload bug in `useDeployments.ts`
-
 ## Active Deployments
 
 ### Base Sepolia (Chain 84532) - V4.6 (Lock-on-Sell)
@@ -186,7 +134,7 @@
 
 ## Pending/Blocked
 - [ ] **Launchpad V5**: Deploy to testnet (contracts ready, 17 tests passing)
-- [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4 - uncommitted)
+- [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4-6 - uncommitted)
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
 - [ ] Commit + push worktree changes (new market addresses, config v4.10)

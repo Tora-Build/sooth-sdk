@@ -5,6 +5,18 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **V5 Frontend Trading** (2025-12-15 Session 6):
+  - `MarketCard.tsx` — Full inline AMM trading on Markets page
+    - Buy/Sell toggle, YES/NO outcome selection
+    - Amount input with hold-to-increment/decrement
+    - Quick amount buttons (10, 50, 100, 500)
+    - Cost per share display using `totalCost` for accuracy
+    - Slippage options: 0.1%, 0.5%, 1%, 2%
+    - Max to sell display (clickable to set max)
+    - Fee display in quote summary
+    - Probability transition arrows
+    - Collapsible trading panel
+
 - **V5 Launchpad QA Suite** (2025-12-15 Session 5):
   - Expanded `test/Launchpad.t.sol` from 2 → 17 tests (all passing, 0 warnings)
   - Graduation tests: `testGraduation`, `testManualGraduate`, `testDoubleGraduateFails`
@@ -69,6 +81,14 @@ All notable changes to Sooth Protocol will be documented in this file.
   - `App.tsx` — Removed create-market view case
 
 ### Fixed
+- **Orderbook Balance Recognition** (2025-12-15 Session 6): V5 Launchpad markets now work with orderbook UI
+  - `useOrderbook.ts` — Detects address-format marketIds, uses `useAmmMarketByAddress`
+  - `useOrderbookTrade.ts` — Same fix, updated contract calls to use resolved address
+  - `LimitOrderForm.tsx` — Uses correct market hook based on ID format
+- **Cost Per Share Calculation** (2025-12-15 Session 6): Fixed jumping/creeping values
+  - Added `quote.inputAmount` check to sync displayed data with current input
+  - Shows `--` while loading instead of stale market price fallback
+  - Uses `totalCost` (includes fee) for accurate per-share calculation
 - **Launchpad claimCreatorRefund()** (2025-12-15): `LaunchpadMarket.claimCreatorRefund()` was calling `lpVault.redeem()` which checks `balanceOf(msg.sender)`, but msg.sender was Market, not creator. Fixed to use `sendFunds()` for direct USDC transfer.
 - **Compiler Warnings**: Fixed 14 warnings in Launchpad contracts (unused params, view→pure)
 - **Fork Test Addresses**: Updated `LiveAmmBuy.t.sol` to use current V4.6 deployment addresses

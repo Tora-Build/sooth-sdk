@@ -5,6 +5,7 @@ import { useContent } from '../../../hooks/useContent';
 import { Button } from '../../ui/Button';
 import { cn } from '../../../lib/utils';
 import { useAmmMarket } from '../../../hooks/useAmmMarket';
+import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { useOrderbook } from '../../../hooks/useOrderbook';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -29,6 +30,9 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const deployments = config.contracts;
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
+  // Detect if marketId is an address (0x...) or a config ID
+  const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
+
   // V4: Use internal shares for Spot Sell availability
   const {
     placeOrder,
@@ -41,7 +45,13 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const { trade, isPending: isTradePending } = useAmmTrade(marketId); // Keeping for Trade connection if needed, though OrderbookForm separates them?
   const isPending = isLimitPending || isTradePending;
 
-  const { market } = useAmmMarket(marketId);
+  // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
+  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { market: addressMarket } = useAmmMarketByAddress(
+    isAddressFormat ? (marketId as `0x${string}`) : undefined
+  );
+  const market = isAddressFormat ? addressMarket : configMarket;
+
   const { bids, asks, userYesShares: obYes, userNoShares: obNo } = useOrderbook(marketId);
 
   const { writeContractAsync } = useWriteContract();

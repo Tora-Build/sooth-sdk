@@ -1,8 +1,9 @@
 import { usePublicClient, useAccount, useReadContracts } from 'wagmi';
 import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useAmmMarket } from './useAmmMarket';
+import { useAmmMarketByAddress } from './useAmmMarketByAddress';
 import { useDeployments } from './useDeployments';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatUnits } from 'viem';
 import marketsConfig from '../config/markets.json';
 
@@ -29,7 +30,16 @@ export interface OrderbookState {
 }
 
 export function useOrderbook(marketId: string) {
-  const { market } = useAmmMarket(marketId);
+  // Detect if marketId is an address (0x...) or a config ID
+  const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
+
+  // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
+  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { market: addressMarket } = useAmmMarketByAddress(
+    isAddressFormat ? (marketId as `0x${string}`) : undefined
+  );
+  const market = isAddressFormat ? addressMarket : configMarket;
+
   const { address } = useAccount();
   const { config } = useDeployments();
   const deployments = config.contracts;
@@ -41,7 +51,8 @@ export function useOrderbook(marketId: string) {
   const [lastUpdated, setLastUpdated] = useState<number>(0);
   const [isSupported, setIsSupported] = useState<boolean>(true);
 
-  const contractAddress = market?.contractAddress;
+  // For address-format markets, use the marketId directly as the contract address
+  const contractAddress = isAddressFormat ? (marketId as `0x${string}`) : market?.contractAddress;
 
   // Fetch User Balances (Custodial - From Vault)
   const { data: shareBalances, refetch: refetchBalances } = useReadContracts({

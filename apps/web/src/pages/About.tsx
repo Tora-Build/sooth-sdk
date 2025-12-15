@@ -1,12 +1,32 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Navbar } from '../components/layout/Navbar';
+import { ArrowLeft, Zap } from 'lucide-react';
 
-export const About: React.FC = () => {
+export const About = () => {
   return (
-    <>
-      <Navbar />
+    <div className="min-h-screen bg-background">
+      {/* Simple Header */}
+      <header className="h-16 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-xl sticky top-0 z-40">
+        <div className="container mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="p-2 rounded-lg border border-slate-700 hover:border-cyan-500/50 transition-all">
+              <ArrowLeft className="w-5 h-5 text-slate-400" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <img src="/sooth-logo.svg" alt="Sooth" className="w-8 h-8" />
+              <span className="font-heading font-bold text-xl text-white">SOOTH</span>
+            </div>
+          </div>
+          <Link
+            to="/markets"
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"
+          >
+            <Zap className="w-4 h-4" />
+            Launch App
+          </Link>
+        </div>
+      </header>
       <div className="min-h-screen pb-16">
         {/* Hero Section */}
         <section className="relative py-20 overflow-hidden">
@@ -368,20 +388,20 @@ export const About: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="py-8 border-t border-slate-800 mt-16">
+        <footer className="py-8 border-t border-slate-800/50 mt-16">
           <div className="container mx-auto max-w-7xl px-6">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-              <div>© 2025 Sooth Protocol.</div>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500 font-mono">
+              <div>© 2025 Sooth Protocol</div>
               <div className="flex gap-6">
-                <a href="#" className="hover:text-slate-300 transition-colors">Whitepaper</a>
-                <a href="#" className="hover:text-slate-300 transition-colors">Docs</a>
-                <a href="#" className="hover:text-slate-300 transition-colors">GitHub</a>
-                <a href="#" className="hover:text-slate-300 transition-colors">Governance</a>
+                <a href="#" className="hover:text-cyan-400 transition-colors">Whitepaper</a>
+                <a href="#" className="hover:text-cyan-400 transition-colors">Docs</a>
+                <a href="#" className="hover:text-cyan-400 transition-colors">GitHub</a>
+                <Link to="/markets" className="hover:text-cyan-400 transition-colors">Launch App</Link>
               </div>
             </div>
           </div>
         </footer>
       </div>
-    </>
+    </div>
   );
 };
