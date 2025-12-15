@@ -59,12 +59,9 @@ export function useLaunchpadFactory() {
 
     const { address: user } = useAccount();
 
-    // 1. Get USDC Address from Factory
-    const { data: usdcAddress } = useReadContract({
-        address: factoryAddress,
-        abi: LAUNCHPAD_FACTORY_ABI,
-        functionName: 'usdc',
-    });
+    // 1. Get USDC Address from Config (Single Source of Truth)
+    const usdcAddress = config?.contracts?.MockUSDC as `0x${string}` | undefined;
+
 
     // 2. Get Allowance & Balance
     const { data: allowance, refetch: refetchAllowance } = useReadContract({

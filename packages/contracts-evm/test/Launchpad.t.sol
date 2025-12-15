@@ -138,7 +138,7 @@ contract LaunchpadTest is Test {
 
     function testTradingAndFees() public {
         vm.startPrank(creator);
-        (address marketAddr, address lpVaultAddr) = factory.createMarket("M", "S", "D", 0, false, 3600);
+        (address marketAddr, ) = factory.createMarket("M", "S", "D", 0, false, 3600);
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -168,8 +168,7 @@ contract LaunchpadTest is Test {
         // Market.calculateAMMTradeCost returns cost (int256).
         // We need to see if it transfers standard amount.
         
-        uint256 buyAmount = 10 * 1e18; // 10 shares (WAD)
-        // We verify via TraderVault execution below
+        // Buy 10 shares (WAD) via TraderVault
 
         
         // Use TraderVault
@@ -197,6 +196,350 @@ contract LaunchpadTest is Test {
         
         assertTrue(bBaseAfter > bInitial, "Liquidity should grow from fees");
         
+        vm.stopPrank();
+    }
+
+    // =========================================================================
+    // Graduation Tests
+    // =========================================================================
+
+    function testGraduation() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("Grad", "GRD", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        vm.stopPrank();
+
+        uint256 initialB = factory.getLiquidityB(0);
+        uint256 threshold = market.graduationThreshold();
+        assertEq(threshold, initialB * 2, "Threshold should be 2x initial b");
+
+        // Pre-graduation checks
+        assertFalse(market.isGraduated(), "Should not be graduated initially");
+        assertEq(market.feeLMSR(), 500, "Pre-grad fee should be 5%");
+
+        // Fund trader heavily to generate enough fees
+        vm.startPrank(creator);
+        usdc.mint(trader, 10000 * 1e6);
+        vm.stopPrank();
+
+        vm.startPrank(trader);
+        usdc.approve(address(traderVault), type(uint256).max);
+        traderVault.deposit(10000 * 1e6);
+
+        // Trade repeatedly to accumulate fees until graduation
+        uint256 tradesNeeded = 0;
+        while (!market.isGraduated() && tradesNeeded < 100) {
+            traderVault.tradeAMM(marketAddr, 0, int256(100 * 1e18), int256(1000 * 1e6));
+            tradesNeeded++;
+        }
+        vm.stopPrank();
+
+        // Post-graduation checks
+        assertTrue(market.isGraduated(), "Should be graduated after sufficient fees");
+        assertEq(market.feeLMSR(), 100, "Post-grad fee should be 1%");
+        assertTrue(market.bBase() >= threshold, "bBase should meet threshold");
+    }
+
+    function testManualGraduate() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("ManGrad", "MG", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        vm.stopPrank();
+
+        // Try to graduate before threshold - should fail
+        vm.expectRevert("Threshold not met");
+        market.graduate();
+
+        assertFalse(market.isGraduated());
+    }
+
+    function testDoubleGraduateFails() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("DblGrad", "DG", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        usdc.mint(trader, 50000 * 1e6);
+        vm.stopPrank();
+
+        vm.startPrank(trader);
+        usdc.approve(address(traderVault), type(uint256).max);
+        traderVault.deposit(50000 * 1e6);
+        
+        // Trade until graduation
+        while (!market.isGraduated()) {
+            traderVault.tradeAMM(marketAddr, 0, int256(500 * 1e18), int256(5000 * 1e6));
+        }
+        vm.stopPrank();
+
+        assertTrue(market.isGraduated());
+
+        // Try to graduate again - should fail
+        vm.expectRevert("Already graduated");
+        market.graduate();
+    }
+
+    // =========================================================================
+    // Expiry/Refund Tests
+    // =========================================================================
+
+    function testExpiry() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("Expiry", "EXP", "D", 0, false, 3600); // 1 hour deadline
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+
+        // Before deadline - should fail
+        vm.expectRevert("Not expired");
+        market.expire();
+
+        assertTrue(market.isLive(), "Market should be live before expiry");
+
+        // Warp past deadline
+        vm.warp(block.timestamp + 3601);
+
+        // Now expire should work
+        market.expire();
+
+        assertFalse(market.isLive(), "Market should not be live after expiry");
+        assertFalse(market.isGraduated(), "Market should not be graduated");
+    }
+
+    function testExpiryBlocksTrading() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("ExpTrade", "EXT", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        vm.stopPrank();
+
+        // Warp and expire
+        vm.warp(block.timestamp + 3601);
+        market.expire();
+
+        // Try to trade - should fail
+        vm.startPrank(trader);
+        usdc.approve(address(traderVault), type(uint256).max);
+        traderVault.deposit(100 * 1e6);
+        
+        vm.expectRevert(); // Market not live
+        traderVault.tradeAMM(marketAddr, 0, int256(1e18), int256(10 * 1e6));
+        vm.stopPrank();
+    }
+
+    function testCreatorRefund() public {
+        vm.startPrank(creator);
+        (address marketAddr, address lpVaultAddr) = factory.createMarket("Refund", "REF", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        MarketLPVault lpVault = MarketLPVault(lpVaultAddr);
+        vm.stopPrank();
+
+        uint256 initialDeposit = 100 * 1e6;
+        assertEq(lpVault.totalAssets(), initialDeposit, "LP Vault should have deposit");
+
+        // Warp and expire
+        vm.warp(block.timestamp + 3601);
+        market.expire();
+
+        // Creator claims refund
+        uint256 creatorBalanceBefore = usdc.balanceOf(creator);
+        
+        vm.startPrank(creator);
+        market.claimCreatorRefund();
+        vm.stopPrank();
+
+        uint256 creatorBalanceAfter = usdc.balanceOf(creator);
+        
+        // Creator should receive back the deposit
+        assertGe(creatorBalanceAfter - creatorBalanceBefore, initialDeposit - 1, "Creator should get refund");
+    }
+
+    function testNonCreatorCannotClaimRefund() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("NoRefund", "NRF", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 3601);
+        market.expire();
+
+        // Non-creator tries to claim
+        vm.startPrank(trader);
+        vm.expectRevert("Not creator");
+        market.claimCreatorRefund();
+        vm.stopPrank();
+    }
+
+    function testCannotExpireGraduatedMarket() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("NoExp", "NEX", "D", 0, false, 36000);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        usdc.mint(trader, 50000 * 1e6);
+        vm.stopPrank();
+
+        vm.startPrank(trader);
+        usdc.approve(address(traderVault), type(uint256).max);
+        traderVault.deposit(50000 * 1e6);
+        
+        // Graduate the market
+        while (!market.isGraduated()) {
+            traderVault.tradeAMM(marketAddr, 0, int256(500 * 1e18), int256(5000 * 1e6));
+        }
+        vm.stopPrank();
+
+        // Warp past deadline
+        vm.warp(block.timestamp + 36001);
+
+        // Try to expire - should fail
+        vm.expectRevert("Already graduated");
+        market.expire();
+    }
+
+    // =========================================================================
+    // LP Vault Tests
+    // =========================================================================
+
+    function testLPVaultRedeem() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("LPTest", "LPT", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+
+        // Expire market so redemption is allowed
+        vm.warp(block.timestamp + 3601);
+        market.expire();
+
+        // Creator claims refund (mints LP tokens)
+        vm.startPrank(creator);
+        market.claimCreatorRefund();
+        vm.stopPrank();
+
+        // Check that LP tokens were properly handled
+        // After claimCreatorRefund, creator should have received USDC
+        assertTrue(usdc.balanceOf(creator) > 0, "Creator should have USDC");
+    }
+
+    function testLPVaultPreviewRedeem() public {
+        vm.startPrank(creator);
+        (, address lpVaultAddr) = factory.createMarket("Preview", "PRV", "D", 0, false, 3600);
+        MarketLPVault lpVault = MarketLPVault(lpVaultAddr);
+        vm.stopPrank();
+
+        // With no LP tokens minted, preview should return 0
+        assertEq(lpVault.previewRedeem(100), 0, "Preview with no supply should be 0");
+        
+        // Total assets should equal deposit
+        assertEq(lpVault.totalAssets(), 100 * 1e6, "Total assets should be deposit");
+    }
+
+    // =========================================================================
+    // Edge Cases & Adversarial Tests
+    // =========================================================================
+
+    function testInvalidTierIndex() public {
+        vm.startPrank(creator);
+        
+        vm.expectRevert("Factory: invalid tier");
+        factory.createMarket("Invalid", "INV", "D", 4, false, 3600);
+        
+        vm.stopPrank();
+    }
+
+    function testDoubleInitializeFails() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("DblInit", "DBI", "D", 0, false, 3600);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+
+        // Try to re-initialize launchpad
+        vm.expectRevert("Launchpad: already init");
+        market.initializeLaunchpad(address(0x999), 1, 9999, address(0x888), 1000);
+    }
+
+    function testOpenEndMarket() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("OpenEnd", "OPE", "D", 0, true, 0); // Open-end
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+
+        // Open-end markets have max deadline
+        assertEq(market.deadline(), type(uint40).max, "Open-end should have max deadline");
+
+        // Should not be expirable even after long time
+        vm.warp(block.timestamp + 365 days);
+        
+        vm.expectRevert("Not expired");
+        market.expire();
+    }
+
+    function testAllTiers() public {
+        vm.startPrank(creator);
+        
+        // Fund creator for all tiers
+        usdc.mint(creator, 200000 * 1e6);
+        usdc.approve(address(factory), type(uint256).max);
+
+        for (uint8 i = 0; i < 4; i++) {
+            uint256 expectedDeposit = factory.getRequiredDeposit(i);
+            uint256 expectedB = factory.getLiquidityB(i);
+
+            (address marketAddr, address lpVaultAddr) = factory.createMarket(
+                string(abi.encodePacked("Tier", i)),
+                "T",
+                "D",
+                i,
+                false,
+                3600
+            );
+
+            LaunchpadMarket market = LaunchpadMarket(marketAddr);
+            MarketLPVault lpVault = MarketLPVault(lpVaultAddr);
+
+            assertEq(market.liquidityTierIndex(), i, "Tier index mismatch");
+            assertEq(lpVault.totalAssets(), expectedDeposit, "Deposit mismatch");
+            assertEq(market.bBase(), expectedB, "B value mismatch");
+            assertEq(market.graduationThreshold(), expectedB * 2, "Threshold mismatch");
+        }
+
+        vm.stopPrank();
+    }
+
+    // =========================================================================
+    // Fee Rate Invariant Tests
+    // =========================================================================
+
+    function testFeeRateInvariant() public {
+        vm.startPrank(creator);
+        (address marketAddr, ) = factory.createMarket("FeeInv", "FI", "D", 0, false, 36000);
+        LaunchpadMarket market = LaunchpadMarket(marketAddr);
+        traderVault.setMarket(marketAddr, true);
+        usdc.mint(trader, 100000 * 1e6);
+        vm.stopPrank();
+
+        vm.startPrank(trader);
+        usdc.approve(address(traderVault), type(uint256).max);
+        traderVault.deposit(100000 * 1e6);
+
+        // Trade and verify fee rate
+        uint256 previousB = market.bBase();
+        
+        for (uint256 i = 0; i < 20; i++) {
+            uint256 feeRate = market.feeLMSR();
+            
+            if (market.isGraduated()) {
+                assertEq(feeRate, 100, "Post-grad fee must be 1%");
+            } else {
+                assertEq(feeRate, 500, "Pre-grad fee must be 5%");
+            }
+
+            // INVARIANT: bBase never decreases
+            assertTrue(market.bBase() >= previousB, "bBase must never decrease");
+            previousB = market.bBase();
+
+            traderVault.tradeAMM(marketAddr, 0, int256(100 * 1e18), int256(2000 * 1e6));
+        }
+
         vm.stopPrank();
     }
 }

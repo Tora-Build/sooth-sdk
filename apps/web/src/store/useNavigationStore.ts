@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type View = 'landing' | 'about' | 'dapp' | 'create-market' | 'launchpad-market';
+type View = 'landing' | 'about' | 'dapp' | 'launchpad-market';
 
 interface NavigationState {
   currentView: View;

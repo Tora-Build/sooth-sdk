@@ -608,7 +608,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     }
 
     function isMarket(address market) external view returns (bool) {
-        return _isMarket[market];
+        return _isValidMarket(market);
     }
 
     function isOutcomeToken(address token) external view returns (bool) {

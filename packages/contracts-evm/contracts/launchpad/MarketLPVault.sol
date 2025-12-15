@@ -109,7 +109,7 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
     mapping(address => UserLockState) private _lockStates;
     uint256 public constant LOCK_DURATION = 24 hours;
     
-    function lockProceeds(uint256 marketId, address user, uint256 amount)
+    function lockProceeds(uint256 /* marketId */, address user, uint256 amount)
         external
         override
         returns (uint64 unlockTime)
@@ -207,13 +207,13 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
     
     // --- Funds Flow ---
 
-    function receiveFunds(uint256 marketId, uint256 amount) external override {
+    function receiveFunds(uint256 /* marketId */, uint256 /* amount */) external view override {
         // Funds are strictly pulled or pushed? "Push model".
         // Just verify authorization and emit if needed (GovVault emits MarketFlow).
         _checkAuthorized();
     }
 
-    function sendFunds(uint256 marketId, address recipient, uint256 amount) external override {
+    function sendFunds(uint256 /* marketId */, address recipient, uint256 amount) external override {
         _checkAuthorized();
         require(totalAssets() >= amount, "Insufficient assets");
         asset.safeTransfer(recipient, amount);
@@ -221,18 +221,18 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
     
     // --- Unused/Stubbed Governor Interface ---
 
-    function depositFor(address, uint256) external returns (uint256) {
+    function depositFor(address, uint256) external pure returns (uint256) {
         revert("LPVault: use mint");
     }
-    function withdrawFor(address, uint256, address) external returns (uint256) {
+    function withdrawFor(address, uint256, address) external pure returns (uint256) {
         revert("LPVault: use redeem");
     }
     function allocateExposure(uint256, uint256) external {}
     function releaseExposure(uint256, uint256) external {}
-    function getMarketReserve(uint256) external view returns (int256) { return 0; }
-    function defaultBBase() external view returns (uint256) { return 0; }
-    function defaultFeeBps() external view returns (uint256) { return 0; }
-    function reserveFactorBps() external view returns (uint256) { return 0; }
+    function getMarketReserve(uint256) external pure returns (int256) { return 0; }
+    function defaultBBase() external pure returns (uint256) { return 0; }
+    function defaultFeeBps() external pure returns (uint256) { return 0; }
+    function reserveFactorBps() external pure returns (uint256) { return 0; }
 
     // --- Helpers ---
     

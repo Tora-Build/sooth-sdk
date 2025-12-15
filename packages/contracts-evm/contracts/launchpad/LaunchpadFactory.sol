@@ -96,7 +96,7 @@ contract LaunchpadFactory is Ownable, ILaunchpadFactory {
     function createMarket(
         string memory name,
         string memory symbol,
-        string memory description,
+        string memory /* description */,
         uint8 liquidityTierIndex,
         bool isOpenEnd,
         uint40 durationSeconds

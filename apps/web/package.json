@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "validate-config": "node scripts/validate-config.js",
+    "sync-deployments": "node scripts/sync-deployments.js",
     "dev": "npm run validate-config && vite",
     "build": "npm run validate-config && vite build",
     "preview": "npm run validate-config && vite preview",

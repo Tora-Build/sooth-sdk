@@ -20,6 +20,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' },
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'creator' },
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'feesAccrued' },
         ],
         query: {
             enabled: !!marketAddress,
@@ -33,7 +34,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         bBase,
         deadline,
         creator,
-        isLive
+        isLive,
+        feesAccrued
     ] = marketData?.map(r => r.result) || [];
 
     // Actions
@@ -72,6 +74,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         deadline: deadline ? Number(deadline) : undefined,
         creator: creator as `0x${string}` | undefined,
         isLive: !!isLive,
+        feesAccrued: feesAccrued as bigint | undefined,
 
         // Actions
         graduate,

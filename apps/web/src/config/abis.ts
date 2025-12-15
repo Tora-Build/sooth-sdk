@@ -235,6 +235,7 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function deadline() view returns (uint40)",
   "function creator() view returns (address)",
   "function lpVault() view returns (address)",
+  "function feesAccrued() view returns (uint256)",
   "function graduate()",
   "function expire()",
   "function claimRefund()",

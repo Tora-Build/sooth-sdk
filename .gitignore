@@ -18,7 +18,8 @@ private/
 # Foundry (packages/contracts-evm)
 out/
 cache/
-broadcast/
+broadcast/*
+!**/run-latest.json
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
 lib/prb-math

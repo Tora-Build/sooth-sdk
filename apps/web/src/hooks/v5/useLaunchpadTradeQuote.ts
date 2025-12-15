@@ -80,17 +80,24 @@ export function useLaunchpadTradeQuote(
                 // We'll skip precise impact for now or approximate.
                 const priceImpact = 0; // TODO: Fetch current Qs for accurate impact
 
-                // 3. Slippage Params
+                // 3. Slippage Params - MUST include fee in the calculation!
                 const BPS = 10000;
                 let maxCostParam = 0;
                 let minReceivedParam = undefined;
 
                 if (costFloat > 0) { // Buy
-                    maxCostParam = costFloat * (1 + (slippageBps + 10) / BPS);
+                    // Total cost = cost + fee (for buys)
+                    const totalCostWithFee = costFloat + feeFloat;
+                    // maxCost must cover cost + fee + slippage tolerance
+                    maxCostParam = totalCostWithFee * (1 + (slippageBps + 10) / BPS);
                 } else { // Sell
-                    // Cost is negative (e.g. -100). We need at least 99.
-                    maxCostParam = costFloat * (1 - (slippageBps + 10) / BPS);
-                    minReceivedParam = Math.abs(maxCostParam);
+                    // For sells: cost is negative (we receive money)
+                    // Net proceeds = abs(cost) - fee
+                    const netProceeds = Math.abs(costFloat) - feeFloat;
+                    // Apply slippage: we accept (netProceeds * (1 - slippage))
+                    minReceivedParam = netProceeds * (1 - (slippageBps + 10) / BPS);
+                    // maxCost is negative for sells (min we accept)
+                    maxCostParam = -minReceivedParam;
                 }
 
                 if (!cancelled) {

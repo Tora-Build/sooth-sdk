@@ -5,6 +5,21 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **V5 Launchpad QA Suite** (2025-12-15 Session 5):
+  - Expanded `test/Launchpad.t.sol` from 2 → 17 tests (all passing, 0 warnings)
+  - Graduation tests: `testGraduation`, `testManualGraduate`, `testDoubleGraduateFails`
+  - Expiry/refund tests: `testExpiry`, `testExpiryBlocksTrading`, `testCreatorRefund`, `testNonCreatorCannotClaimRefund`, `testCannotExpireGraduatedMarket`
+  - LP Vault tests: `testLPVaultRedeem`, `testLPVaultPreviewRedeem`
+  - Edge cases: `testInvalidTierIndex`, `testDoubleInitializeFails`, `testOpenEndMarket`, `testAllTiers`
+  - Invariant test: `testFeeRateInvariant` (bBase never decreases, fee 5%→1%)
+- **Deployment Tooling**: `verify-deployment.sh` now has curl fallback for sandbox environments where `cast` crashes (macOS system-configuration panic)
+- **V5 Frontend Overhaul** (2025-12-15):
+  - `CreateMarketDrawer` component — drawer-based market creation with 18-decimal USDC fix
+  - `GraduationProgress` component — animated progress bar, fee rate display, graduate button
+  - `MarketHeader` component — market name, status badges, creator address, deadline countdown
+  - Mini progress bar in `LaunchpadMarketCard` showing bonding curve progress
+  - `feesAccrued` read added to `useLaunchpadMarket` hook and `LAUNCHPAD_MARKET_ABI`
+  - `animate-shimmer` CSS utility class for progress bar animation
 - **Launchpad Model Research** — Complete design for V5 permissionless market creation:
   - `LAUNCHPAD_MODEL_RESEARCH.md` — Full architecture and design decisions
   - `LAUNCHPAD_ECONOMICS_V2.md` — Role-by-role economic analysis
@@ -44,6 +59,28 @@ All notable changes to Sooth Protocol will be documented in this file.
     - `packages/contracts-evm/test/scenarios/MultiRoleScenarios.t.sol`
     - `packages/contracts-evm/test/scenarios/SettlementScenarios.t.sol`
     - `packages/contracts-evm/test/scenarios/AdversarialScenarios.t.sol`
+
+### Changed
+- **V5 Frontend Overhaul** (2025-12-15):
+  - `LaunchpadMarket.tsx` — Complete page redesign with new header, graduation progress, probability cards
+  - `LPDashboard.tsx` — Now uses `CreateMarketDrawer` instead of navigation
+  - `TraderTerminal.tsx` — Create Market button opens drawer instead of navigating
+  - `useNavigationStore.ts` — Removed `create-market` view type
+  - `App.tsx` — Removed create-market view case
+
+### Fixed
+- **Launchpad claimCreatorRefund()** (2025-12-15): `LaunchpadMarket.claimCreatorRefund()` was calling `lpVault.redeem()` which checks `balanceOf(msg.sender)`, but msg.sender was Market, not creator. Fixed to use `sendFunds()` for direct USDC transfer.
+- **Compiler Warnings**: Fixed 14 warnings in Launchpad contracts (unused params, view→pure)
+- **Fork Test Addresses**: Updated `LiveAmmBuy.t.sol` to use current V4.6 deployment addresses
+- **Sell Slippage Calculation**: `useLaunchpadTradeQuote.ts` now correctly calculates `minReceived = (proceeds - fee) * (1 - slippage)` for sell orders
+- **USDC Decimals**: `CreateMarketDrawer` uses correct 18 decimals for MockUSDC (was 6)
+
+### Removed
+- **Archived V4 Legacy**: Moved to `src/_archive/`:
+  - `V4MarketPage.tsx` — Standalone V4 page
+  - `CreateLaunchpadMarket.tsx` — Superseded by drawer
+  - `LaunchpadTradeForm.tsx` — Trading now inline in cards
+  - `/components/v4/*` — All V4-specific components
 
 ### Changed
 - **Multi-Chain Config (V4.6)**:

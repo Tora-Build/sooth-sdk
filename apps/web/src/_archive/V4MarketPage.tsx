@@ -1,3 +1,4 @@
+// @ts-nocheck
 // V4MarketPage.tsx - Main trading page for V4
 import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useChainId } from 'wagmi'

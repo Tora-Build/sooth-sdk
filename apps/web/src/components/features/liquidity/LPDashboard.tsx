@@ -1,21 +1,21 @@
-import React from 'react';
-import { useNavigationStore } from '../../../store/useNavigationStore';
+import React, { useState } from 'react';
 import { VaultStats } from './VaultStats';
 import { VaultMarkets } from './VaultMarkets';
 import { LiquidityModelInfo } from './LiquidityModelInfo';
 import { LiquidityForm } from './LiquidityForm';
+import { CreateMarketDrawer } from '../trader/CreateMarketDrawer';
 
 export const LPDashboard: React.FC = () => {
-  const { setView } = useNavigationStore();
+  const [showCreateMarket, setShowCreateMarket] = useState(false);
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+        <h2 className="text-2xl font-heading font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
           Liquidity Dashboard
         </h2>
         <button
-          onClick={() => setView('create-market')}
+          onClick={() => setShowCreateMarket(true)}
           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded shadow-lg transition-transform active:scale-95"
         >
           + Create New Market
@@ -26,7 +26,6 @@ export const LPDashboard: React.FC = () => {
         {/* Left Column: Stats & Info */}
         <div className="lg:col-span-7 space-y-6">
           <VaultStats />
-
           <LiquidityModelInfo />
         </div>
 
@@ -37,6 +36,12 @@ export const LPDashboard: React.FC = () => {
       </div>
 
       <VaultMarkets />
+
+      {/* Create Market Drawer */}
+      <CreateMarketDrawer
+        isOpen={showCreateMarket}
+        onClose={() => setShowCreateMarket(false)}
+      />
     </div>
   );
 };

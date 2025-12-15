@@ -1,18 +1,52 @@
 # Project Status
 
-> Last Updated: 2025-12-14 (Session 3)
+> Last Updated: 2025-12-15 (Session 5 - V5 Launchpad QA)
 
 ## Current Focus
-- **V4.6 Multi-Chain** — 3 testnets now live: Base Sepolia, BNB, MegaETH ✅
-- **Launchpad Model Research** — All design decisions finalized, ready for contract spec ✅ NEW
-- **Lock-on-Sell** — Merged to main ✅
-- **Terminology Update** — "Infinite-End" → "Open-End" across all UI ✅
-- **Fresh Market Deployment** — Both Base Sepolia and BNB Testnet redeployed with new markets ✅
-- **Start Launchpad Deployment** — Deployed Launchpad V5 contracts to Base Sepolia ✅
+- **V5 Launchpad QA** — Comprehensive test suite complete ✅
+- **Deployment Verification** — Base Sepolia + BNB Testnet verified ✅
+- **V5 Frontend Overhaul** — Major UI improvements for Launchpad markets ⏳ IN PROGRESS
 - **TraderVault Integration** — Resolving whitelisting permission blocker ⏳
-- **Frontend Implementation** — Begin implementing `CreateMarket` flow based on spec ⏳
 
 ## Recent Changes
+
+### ✅ V5 Launchpad QA (2025-12-15 Session 5)
+- **Test Expansion**: Increased Launchpad tests from 2 → **17 tests** (all passing)
+  - Added graduation flow tests (`testGraduation`, `testManualGraduate`, `testDoubleGraduateFails`)
+  - Added expiry/refund tests (`testExpiry`, `testExpiryBlocksTrading`, `testCreatorRefund`, `testNonCreatorCannotClaimRefund`)
+  - Added LP Vault tests (`testLPVaultRedeem`, `testLPVaultPreviewRedeem`)
+  - Added edge case tests (`testInvalidTierIndex`, `testDoubleInitializeFails`, `testOpenEndMarket`, `testAllTiers`)
+  - Added invariant test (`testFeeRateInvariant` — bBase never decreases, fee rate 5%→1%)
+- **Bug Fixed**: `claimCreatorRefund()` in `LaunchpadMarket.sol` was calling `lpVault.redeem()` with wrong msg.sender
+  - Changed to use `sendFunds()` for direct USDC transfer
+- **Compiler Warnings Fixed**: Removed 14 warnings across Launchpad contracts
+  - `MarketLPVault.sol`: Fixed unused params, changed stubs to `pure`
+  - `LaunchpadFactory.sol`: Fixed unused `description` param
+- **Deployment Verification**: Both Base Sepolia and BNB Testnet verified on-chain ✅
+  - All contracts have code
+  - All markets registered in TraderVault
+  - All OutcomeTokens registered
+  - Market→Vault links correct
+- **Tooling**: Fixed `verify-deployment.sh` with curl fallback for sandbox environments (macOS cast crash)
+- **Fork Tests**: Updated `LiveAmmBuy.t.sol` with current V4.6 addresses, verified trades execute
+
+### ⏳ V5 Frontend Overhaul (2025-12-15 Session 4) — UNCOMMITTED
+- **Launchpad Trading Fix**: Fixed sell slippage calculation in `useLaunchpadTradeQuote.ts` — was not accounting for fees before applying slippage
+- **Create Market Drawer**: Converted `CreateLaunchpadMarket` page to `CreateMarketDrawer` component with:
+  - Fixed 18-decimal USDC handling
+  - Mock adjudicator selection UI (Manual active, Chainlink/UMA coming soon)
+  - Integrated into `TraderTerminal` and `LPDashboard`
+- **Market Detail Page Redesign**: Rewrote `LaunchpadMarket.tsx` with:
+  - New `MarketHeader` component (name, status badges, creator, deadline)
+  - New `GraduationProgress` component (animated bar, fee rate, graduate button)
+  - YES/NO probability cards
+  - Integrated trading panel
+- **Cleanup**: Archived deprecated files to `src/_archive/`:
+  - `V4MarketPage.tsx`, `CreateLaunchpadMarket.tsx`, `LaunchpadTradeForm.tsx`
+  - Entire `/components/v4/` directory
+- **Navigation**: Removed dead `create-market` view from navigation store
+- **API Updates**: Added `feesAccrued` to `useLaunchpadMarket` hook and ABI
+- **Styling**: Added `animate-shimmer` utility class
 
 ### ✅ Launchpad Model Research Complete (2025-12-14 Session 3)
 - Finalized **Sooth Launchpad** architecture: pump.fun-inspired per-market liquidity model
@@ -151,15 +185,14 @@
 | LaunchpadOutcomeTokenImpl | `0xf2b16B964F0e413EB7c89129aacDf3D7de8096f0` |
 
 ## Pending/Blocked
-- [ ] **Launchpad V5**: Contract interface spec (LaunchpadFactory, LaunchpadMarket, MarketLPVault)
-- [ ] **Launchpad V5**: Solidity implementation of finalized design
+- [ ] **Launchpad V5**: Deploy to testnet (contracts ready, 17 tests passing)
+- [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4 - uncommitted)
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
 - [ ] Commit + push worktree changes (new market addresses, config v4.10)
-- [ ] Optional: `forge clean` in `packages/contracts-evm` (stale artifact warnings)
-- [ ] QA next: targeted fuzz suite (LMSR/orderbook edge cases) + deeper invariants (exposure/proceeds bounds)
-- [ ] QA next: E2E happy-path (Synpress) for deposit → trade → claim → withdraw across chains
-- [ ] **Security**: Rotate the private key used for this session's deployments (it was exposed in chat)
+- [ ] QA next: Fuzz tests for LMSR edge cases (large trades, extreme prices)
+- [ ] QA next: E2E happy-path (Synpress) for deposit → trade → claim → withdraw
+- [ ] **Security**: Rotate the private key used for deployments (it was exposed in chat)
 
 ## Branch Status
 | Branch | Status | Description |

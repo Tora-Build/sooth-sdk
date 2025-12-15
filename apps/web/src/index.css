@@ -152,6 +152,9 @@
     background-size: 200% 100%;
     animation: shimmer 2s infinite;
   }
+  .animate-shimmer {
+    animation: shimmer 1.5s infinite;
+  }
 
   /* Pulse Glow for Status Indicators */
   @keyframes pulse-glow {

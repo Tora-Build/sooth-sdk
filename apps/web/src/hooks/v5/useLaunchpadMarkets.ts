@@ -22,12 +22,13 @@ export function useLaunchpadMarkets() {
     // @ts-ignore
     const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
     // 1. Fetch Market Addresses from Factory
-    const { data: marketAddresses } = useReadContract({
+    const { data: marketAddresses, refetch } = useReadContract({
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
-        query: { enabled: !!factoryAddress }
+        query: { enabled: !!factoryAddress, refetchInterval: 5000 }
     });
+
 
     const addresses = (marketAddresses as `0x${string}`[]) || [];
 
@@ -81,6 +82,7 @@ export function useLaunchpadMarkets() {
 
     return {
         markets,
-        isLoading: isLoadingMarketData || isLoadingTokenData
+        isLoading: isLoadingMarketData || isLoadingTokenData,
+        refetch
     };
 }

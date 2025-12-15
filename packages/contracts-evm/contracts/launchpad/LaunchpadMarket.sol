@@ -164,15 +164,16 @@ contract LaunchpadMarket is SoothMarketV4, ILaunchpadMarket {
     }
 
     function claimCreatorRefund() external override {
-        // If expired, mint/transfer LP tokens to creator so they can redeem?
-        // Or direct push.
         require(!isLive && !isGraduated, "Not expired/failed");
         require(msg.sender == creator, "Not creator");
         
-        // Transfer all assets from LPVault to Creator
-        // Mint 100% supply to Creator now, then redeem.
-        // This refunds the initial deposit + any fees accrued
-        IMarketLPVault(lpVault).mint(creator, IMarketLPVault(lpVault).totalAssets()); 
-        IMarketLPVault(lpVault).redeem(IERC20(lpVault).balanceOf(creator));
+        // Transfer all assets from LPVault directly to Creator
+        // Using sendFunds instead of redeem to avoid msg.sender balance check issue
+        uint256 totalRefund = IMarketLPVault(lpVault).totalAssets();
+        require(totalRefund > 0, "No assets to refund");
+        
+        IMarketLPVault(lpVault).sendFunds(marketId, creator, totalRefund);
+        
+        emit CreatorRefunded(creator, totalRefund);
     }
 }
