@@ -3,11 +3,13 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/OutcomeToken.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
-import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title MockUSDC for testnet deployments
 contract MockUSDC is IERC20 {
@@ -65,83 +67,96 @@ contract DeployMultiChainV4 is Script {
         feeController.setOrderbookFee(10); // 0.1%
         console.log("[2/4] FeeController:", address(feeController));
 
-        // 3. GovernorVault
-        SoothGovernorVault governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        console.log("[3/4] GovernorVault:", address(governorVault));
+        // 3. LiquidityVault (for TraderVault's global locked proceeds tracking)
+        SoothLiquidityVault liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        console.log("[3/4] LiquidityVault:", address(liquidityVault));
 
         // 4. TraderVaultV4
         SoothTraderVaultV4 traderVault = new SoothTraderVaultV4(
             IERC20(address(usdc)), 
-            ISoothGovernorVault(address(governorVault))
+            ISoothLiquidityVault(address(liquidityVault))
         );
         console.log("[4/4] TraderVaultV4:", address(traderVault));
 
         // 5. Setup permissions
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(deployer, true);
+        liquidityVault.setAuthorized(address(traderVault), true);
+        liquidityVault.setAuthorized(deployer, true);
 
         // 6. Fund vault with initial liquidity
-        usdc.approve(address(governorVault), 500_000 * 1e18);
-        usdc.transfer(address(governorVault), 500_000 * 1e18);
-        governorVault.receiveFunds(0, 500_000 * 1e18);
+        usdc.approve(address(liquidityVault), 500_000 * 1e18);
+        usdc.transfer(address(liquidityVault), 500_000 * 1e18);
+        liquidityVault.receiveFunds(0, 500_000 * 1e18);
 
-        // ==================== PHASE 2: MARKETS ====================
+        // ==================== PHASE 2: LAUNCHPAD FACTORY ====================
 
-        console.log("\n=== Deploying Markets ===");
+        console.log("\n=== Deploying Launchpad Factory ===");
 
-        // Market 1: UN Confirms Alien Life
-        OutcomeToken outcomeToken1 = new OutcomeToken();
-        SoothMarketV4 market1 = new SoothMarketV4();
+        // Deploy Launchpad components
+        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadMarket marketImpl = new LaunchpadMarket();
+        ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0); // 0% liquidation fee
         
-        outcomeToken1.initialize(address(market1), address(traderVault));
-        
-        market1.initialize(
-            1,                          // marketId
-            address(governorVault),
+        LaunchpadFactory factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(traderVault),
             address(feeController),
-            address(outcomeToken1),
-            bytes32(0),                 // adjudicatorId
-            10_000 * 1e18,              // bBase = 10k
-            deployer,                   // governor
-            0,                          // initialQYes (50% probability)
-            0                           // initialQNo (50% probability)
+            address(outcomeTokenImpl),
+            deployer, // treasury
+            deployer, // adjudicator
+            address(protocolConfig)
         );
         
+        console.log("[Factory] LaunchpadFactory:", address(factory));
+        console.log("[Factory] MarketImpl:", address(marketImpl));
+        console.log("[Factory] OutcomeTokenImpl:", address(outcomeTokenImpl));
+        console.log("[Factory] ProtocolConfig:", address(protocolConfig));
+
+        // ==================== PHASE 3: MARKETS ====================
+
+        console.log("\n=== Creating Launchpad Markets ===");
+
+        // Fund deployer for market creation
+        usdc.mint(deployer, 10_000 * 1e18);
+        usdc.approve(address(factory), type(uint256).max);
+
+        // Market 1: UN Confirms Alien Life
+        // Use tier 1 ($1k deposit, b ~ 1442.69e18)
+        (address market1Addr, ) = factory.createMarket(
+            "UN Confirms Alien Life",
+            "ALIEN",
+            "Will the UN confirm the existence of alien life?",
+            1, // tier 1
+            false, // fixed deadline
+            90 days // duration
+        );
+        LaunchpadMarket market1 = LaunchpadMarket(market1Addr);
+        
         traderVault.setMarket(address(market1), true);
-        traderVault.setOutcomeToken(address(outcomeToken1), true);
-        governorVault.setAuthorized(address(market1), true);
+        traderVault.setOutcomeToken(address(market1.outcomeToken()), true);
         
         console.log("\nMarket 1: UN Confirms Alien Life");
         console.log("  Address:", address(market1));
-        console.log("  OutcomeToken:", address(outcomeToken1));
+        console.log("  OutcomeToken:", address(market1.outcomeToken()));
 
         // Market 2: BTC 7-day TWAP >= $100k
-        OutcomeToken outcomeToken2 = new OutcomeToken();
-        SoothMarketV4 market2 = new SoothMarketV4();
-        
-        outcomeToken2.initialize(address(market2), address(traderVault));
-        
-        market2.initialize(
-            2,                          // marketId
-            address(governorVault),
-            address(traderVault),
-            address(feeController),
-            address(outcomeToken2),
-            bytes32(0),                 // adjudicatorId
-            15_000 * 1e18,              // bBase = 15k (higher liquidity)
-            deployer,                   // governor
-            0,                          // initialQYes (50% probability)
-            0                           // initialQNo (50% probability)
+        // Use tier 2 ($10k deposit, b ~ 14426.95e18)
+        (address market2Addr, ) = factory.createMarket(
+            "BTC 7-day TWAP >= $100k",
+            "BTC100K",
+            "Will BTC 7-day TWAP reach $100k?",
+            2, // tier 2
+            false, // fixed deadline
+            90 days // duration
         );
+        LaunchpadMarket market2 = LaunchpadMarket(market2Addr);
         
         traderVault.setMarket(address(market2), true);
-        traderVault.setOutcomeToken(address(outcomeToken2), true);
-        governorVault.setAuthorized(address(market2), true);
+        traderVault.setOutcomeToken(address(market2.outcomeToken()), true);
         
         console.log("\nMarket 2: BTC 7-day TWAP >= $100k");
         console.log("  Address:", address(market2));
-        console.log("  OutcomeToken:", address(outcomeToken2));
+        console.log("  OutcomeToken:", address(market2.outcomeToken()));
 
         vm.stopBroadcast();
 
@@ -152,14 +167,14 @@ contract DeployMultiChainV4 is Script {
         console.log("Chain ID:", block.chainid);
         console.log("\nInfrastructure:");
         console.log("  MockUSDC:", address(usdc));
-        console.log("  GovernorVault:", address(governorVault));
+        console.log("  LiquidityVault:", address(liquidityVault));
         console.log("  TraderVaultV4:", address(traderVault));
         console.log("  FeeController:", address(feeController));
         console.log("\nMarkets:");
         console.log("  Market1 (Alien):", address(market1));
-        console.log("  Token1:", address(outcomeToken1));
+        console.log("  Token1:", address(market1.outcomeToken()));
         console.log("  Market2 (BTC):", address(market2));
-        console.log("  Token2:", address(outcomeToken2));
+        console.log("  Token2:", address(market2.outcomeToken()));
         console.log("========================================");
     }
 }

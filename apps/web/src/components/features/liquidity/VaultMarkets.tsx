@@ -15,8 +15,8 @@ export const VaultMarkets: React.FC = () => {
   const { selectedChainId } = useChainStore();
   const { config } = useDeployments();
   const deployments = config.contracts;
-  // LP vault - use SoothGovernorVault
-  const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
+  // LP vault - use SoothLiquidityVault (renamed from SoothGovernorVault)
+  const vaultAddress = deployments.SoothLiquidityVault as `0x${string}`;
 
   // Filter markets that are relevant
   const activeMarkets = markets.filter(m => {

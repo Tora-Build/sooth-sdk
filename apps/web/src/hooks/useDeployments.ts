@@ -8,7 +8,7 @@ export interface ChainDeployments {
   MockUSDC: string;
   // Core (V4+)
   SoothTraderVault?: string;
-  SoothGovernorVault?: string;
+  SoothLiquidityVault?: string; // Renamed from SoothGovernorVault
   SoothFeeController?: string;
   LaunchpadFactory?: string;
   LaunchpadMarketImpl?: string;

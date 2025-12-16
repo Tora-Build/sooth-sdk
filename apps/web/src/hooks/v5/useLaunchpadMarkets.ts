@@ -60,14 +60,33 @@ export function useLaunchpadMarkets() {
         query: { enabled: !!marketData && addresses.length > 0 }
     });
 
+    // DEBUG: Log token data status
+    console.log('[useLaunchpadMarkets] addresses:', addresses.length);
+    console.log('[useLaunchpadMarkets] marketData:', marketData?.map((m, i) => ({
+        idx: i,
+        fn: i % 3 === 0 ? 'outcomeToken' : i % 3 === 1 ? 'isGraduated' : 'deadline',
+        result: m.result
+    })));
+    console.log('[useLaunchpadMarkets] tokenData:', tokenData?.map((t, i) => ({
+        idx: i,
+        fn: i % 2 === 0 ? 'name' : 'symbol',
+        result: t.result,
+        error: t.error
+    })));
+
     // 4. Transform and Merge
     const markets: LaunchpadMarketData[] = addresses.map((addr, i) => {
         const isGraduated = marketData?.[i * 3 + 1]?.result as boolean;
         const deadline = marketData?.[i * 3 + 2]?.result as unknown; // Cast unknown first to be safe
 
-        // Token data
-        const name = tokenData?.[i * 2]?.result as string || 'Loading...';
-        const symbol = tokenData?.[i * 2 + 1]?.result as string || '...';
+        // Token data - handle loading vs error states
+        // If still loading, use empty string to trigger skeleton
+        // If loaded but empty/error, use fallback text to avoid stuck loading state
+        const nameResult = tokenData?.[i * 2];
+        const symbolResult = tokenData?.[i * 2 + 1];
+
+        const name = (nameResult?.result as string) || (isLoadingTokenData ? '' : 'Unknown Market');
+        const symbol = (symbolResult?.result as string) || (isLoadingTokenData ? '' : '???');
 
         return {
             address: addr,

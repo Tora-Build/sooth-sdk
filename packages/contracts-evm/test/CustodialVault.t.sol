@@ -3,56 +3,76 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/OutcomeToken.sol";
 import "../contracts/mocks/MockUSDC.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/interfaces/IOutcomeToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CustodialVaultTest is Test {
     SoothTraderVaultV4 vault;
-    SoothMarketV4 market;
-    OutcomeToken token;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     MockUSDC usdc;
-    SoothGovernorVault governor;
+    SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
 
-    address user = address(0x1);
-    address buyer = address(0x2);
+    address creator = address(0x1);
+    address user = address(0x3);
+    address buyer = address(0x4);
 
     function setUp() public {
         usdc = new MockUSDC();
-        governor = new SoothGovernorVault(IERC20(address(usdc)));
-        token = new OutcomeToken();
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        outcomeTokenImpl = new OutcomeToken();
         feeController = new SoothFeeController(address(this));
+        protocolConfig = new ProtocolConfig(address(this), 0);
 
-        market = new SoothMarketV4();
-        vault = new SoothTraderVaultV4(IERC20(address(usdc)), governor);
-
-        // Init Market
-        market.initialize(
-            1, // marketId
-            address(governor),
+        vault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        marketImpl = new LaunchpadMarket();
+        
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(vault),
             address(feeController),
-            address(token),
-            bytes32(0),
-            1000e18, // bBase
-            address(this), // governor
-            1000e18, // qYes
-            1000e18  // qNo
+            address(outcomeTokenImpl),
+            creator, // treasury
+            creator, // adjudicator
+            address(protocolConfig)
         );
         
-        token.initialize(address(market), address(vault));
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Custodial Test",
+            "CUST",
+            "Test market for custodial vault",
+            0, // tier 0
+            false,
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+        
         vault.setMarket(address(market), true);
-        vault.setOutcomeToken(address(token), true); // OutcomeToken calls creditMergeProceeds
+        vault.setOutcomeToken(address(market.outcomeToken()), true);
 
-        // Authorize in Governor (Required for sendFunds)
-        governor.setAuthorized(address(market), true);
-        governor.setAuthorized(address(vault), true);
+        // Authorize in LiquidityVault (for TraderVault operations)
+        liquidityVault.setAuthorized(address(vault), true);
 
-        // Fund Governor
-        usdc.mint(address(governor), 10000e18);
+        // Fund LiquidityVault (for global operations)
+        usdc.mint(address(liquidityVault), 10000e18);
         
         // Fund User
         usdc.mint(user, 1000e18);
@@ -89,6 +109,7 @@ contract CustodialVaultTest is Test {
         assertEq(vault.shareBalances(buyer, address(market), 1), 10e18, "Buyer should have 10 NO");
         
         // 4. Verify External Balances (Vault holds tokens)
+        IOutcomeToken token = market.outcomeToken();
         assertEq(token.balanceOf(address(vault), 0), 10e18, "Vault should hold YES");
         assertEq(token.balanceOf(address(vault), 1), 10e18, "Vault should hold NO");
         
@@ -120,7 +141,8 @@ contract CustodialVaultTest is Test {
         // 8. Withdraw Remaining 5 YES
         vault.withdrawShares(address(market), 0, 5e18);
         assertEq(vault.shareBalances(user, address(market), 0), 0, "Internal balance 0");
-        assertEq(token.balanceOf(user, 0), 5e18, "User wallet has 5 YES");
+        IOutcomeToken token2 = market.outcomeToken();
+        assertEq(token2.balanceOf(user, 0), 5e18, "User wallet has 5 YES");
         vm.stopPrank();
     }
 }

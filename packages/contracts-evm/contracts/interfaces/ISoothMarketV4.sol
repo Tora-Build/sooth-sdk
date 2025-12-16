@@ -56,13 +56,13 @@ interface ISoothMarketV4 {
 
     function initialize(
         uint256 _marketId,
-        address _governorVault,
+        address _liquidityVault,
         address _traderVault,
         address _feeController,
         address _outcomeToken,
         bytes32 _adjudicatorId,
         uint256 _bBase,
-        address _governor,
+        address _marketOperator,
         int256 _initialQYes,
         int256 _initialQNo
     ) external;
@@ -96,7 +96,7 @@ interface ISoothMarketV4 {
     // ============ View Functions ============
 
     function marketId() external view returns (uint256);
-    function governorVault() external view returns (ISoothGovernorVault);
+    function liquidityVault() external view returns (ISoothLiquidityVault);
     function traderVault() external view returns (address);
     function feeController() external view returns (ISoothFeeController);
     function feeLMSR() external view returns (uint256); // Added for Launchpad override visibility

@@ -3,66 +3,75 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/interfaces/ISoothMarketV4.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract OrderbookShortTest is Test {
     MockUSDC usdc;
-    SoothGovernorVault governorVault;
+    SoothLiquidityVault liquidityVault;
     SoothTraderVaultV4 traderVault;
-    SoothMarketV4 market;
-    OutcomeToken outcomeToken;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
     
-    address lp = address(0x10);
+    address creator = address(0x10);
     address alice = address(0x20); // Short Seller
     address bob = address(0x30);   // Buyer
 
     function setUp() public {
         usdc = new MockUSDC();
         feeController = new SoothFeeController(address(this));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         
-        // Fix: OutcomeToken has 0-arg constructor
-        outcomeToken = new OutcomeToken();
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(address(this), 0);
         
-        // Fix: GovernorVault has 1-arg constructor (asset)
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), governorVault);
-        
-        market = new SoothMarketV4();
-        
-        // Initialize Market
-        market.initialize(
-            1, // marketId
-            address(governorVault),
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(traderVault),
             address(feeController),
-            address(outcomeToken),
-            bytes32(0),
-            1000e18, // bBase
-            address(this), // governor
-            1000e18, // qYes
-            1000e18  // qNo
+            address(outcomeTokenImpl),
+            creator, // treasury
+            creator, // adjudicator
+            address(protocolConfig)
         );
-
-        // Fix: Initialize OutcomeToken manually as test setup
-        outcomeToken.initialize(address(market), address(traderVault));
-
+        
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Short Test",
+            "SHORT",
+            "Test market for short selling",
+            0, // tier 0
+            false, // fixed deadline
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
+        
         // Setup Permissions
-        governorVault.setAuthorized(address(traderVault), true); // TraderVault needs permission to move funds
-        governorVault.setAuthorized(address(market), true);
-        
-        governorVault.transferOwnership(address(market));
-        
+        liquidityVault.setAuthorized(address(traderVault), true);
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(outcomeToken), true);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
         
         // Fund accounts
-        usdc.mint(alice, 1000e18); // 18 decimals mocked
+        usdc.mint(alice, 1000e18);
         usdc.mint(bob, 1000e18);
         
         vm.startPrank(alice);

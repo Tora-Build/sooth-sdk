@@ -12,8 +12,9 @@ import {LaunchpadMarket} from "../contracts/launchpad/LaunchpadMarket.sol";
 import {MarketLPVault} from "../contracts/launchpad/MarketLPVault.sol";
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
-import {SoothGovernorVault} from "../contracts/core/SoothGovernorVault.sol";
-import {ISoothGovernorVault} from "../contracts/core/SoothInterfaces.sol";
+import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";
+import {ISoothLiquidityVault} from "../contracts/core/SoothInterfaces.sol";
+import {ProtocolConfig} from "../contracts/core/ProtocolConfig.sol";
 
 // Mock ERC20 for Testing
 contract MockERC20 is ERC20 {
@@ -44,7 +45,7 @@ contract LaunchpadTest is Test {
     LaunchpadMarket marketImpl;
     MockERC20 usdc;
     SoothTraderVaultV4 traderVault;
-    SoothGovernorVault globalGovernor; // Unused for launchpad but needed for factory init
+    SoothLiquidityVault globalGovernor; // Unused for launchpad but needed for factory init
     SoothFeeController feeController;
     MockOutcomeToken outcomeTokenImpl;
 
@@ -70,12 +71,13 @@ contract LaunchpadTest is Test {
         // Better to use 1e6 tokens if possible? Or just roll with 1e6 units being small.
         
         // 2. Deploy Protocols
-        globalGovernor = new SoothGovernorVault(IERC20(address(usdc))); // Dummy
+        globalGovernor = new SoothLiquidityVault(IERC20(address(usdc))); // For TraderVault initialization
         feeController = new SoothFeeController(creator);
         outcomeTokenImpl = new MockOutcomeToken();
+        ProtocolConfig protocolConfig = new ProtocolConfig(creator, 0); // 0% liquidation fee for tests
         
-        // TraderVault needs governorVault initially? (V4.7 expects global gov or none?)
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothGovernorVault(address(globalGovernor)));
+        // TraderVault needs liquidityVault for global locked proceeds tracking
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(globalGovernor)));
         
         marketImpl = new LaunchpadMarket();
         
@@ -84,11 +86,11 @@ contract LaunchpadTest is Test {
             address(marketImpl),
             address(usdc),
             address(traderVault),
-            address(globalGovernor),
             address(feeController),
             address(outcomeTokenImpl),
             creator, // treasury
-            creator  // adjudicator
+            creator, // adjudicator
+            address(protocolConfig) // protocolConfig
         );
 
         // 4. Fund Accounts
@@ -125,7 +127,7 @@ contract LaunchpadTest is Test {
         // Checks
         assertEq(market.creator(), creator);
         assertEq(market.liquidityTierIndex(), 0);
-        assertEq(address(market.governorVault()), address(lpVault));
+        assertEq(address(market.liquidityVault()), address(lpVault));
         assertEq(lpVault.market(), address(market));
         assertEq(address(lpVault.asset()), address(usdc));
         
@@ -155,10 +157,10 @@ contract LaunchpadTest is Test {
         // b = 144.27 * 1e18? No, Factory sets bValue in WAD or 6 dec?
         // Factory: tierBValues[0] = 144269504; // 144 * 1e6?
         // V4/PRBMath expects WAD (18 decimals) for b?
-        // If SoothMarketV4 uses CommonMath which might expect WAD.
+        // If SoothMarketBase uses CommonMath which might expect WAD.
         // Let's check Factory bValue passed.
         // initialize(...) takes bBase.
-        // SoothMarketV4 stores bBase.
+        // SoothMarketBase stores bBase.
         // If bBase is small (1e8), cost calc might be weird if V4 logic expects 1e18.
         // V4: `cost = b * ln(...)`. ln returns WAD. b should be WAD to get WAD cost?
         // If USDC is 6 decimals, we might want cost in 6 decimals?
@@ -454,7 +456,7 @@ contract LaunchpadTest is Test {
 
         // Try to re-initialize launchpad
         vm.expectRevert("Launchpad: already init");
-        market.initializeLaunchpad(address(0x999), 1, 9999, address(0x888), 1000);
+        market.initializeLaunchpad(address(0x999), 1, 9999, address(0x888), 1000, address(usdc));
     }
 
     function testOpenEndMarket() public {

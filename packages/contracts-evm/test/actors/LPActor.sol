@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../../contracts/core/SoothGovernorVault.sol";
+import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 
 /// @title LP Actor for Multi-Role Testing
 /// @notice Simulates liquidity provider behavior
 contract LPActor {
-    SoothGovernorVault public governor;
+    SoothLiquidityVault public governor;
     IERC20 public usdc;
     uint256 public depositedShares;
     
-    constructor(SoothGovernorVault _governor, IERC20 _usdc) {
+    constructor(SoothLiquidityVault _governor, IERC20 _usdc) {
         governor = _governor;
         usdc = _usdc;
         usdc.approve(address(_governor), type(uint256).max);

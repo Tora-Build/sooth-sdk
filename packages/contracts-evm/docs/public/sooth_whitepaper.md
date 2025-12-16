@@ -30,7 +30,7 @@ Sooth introduces **Infinite-End Markets**:
 ### 3.2 The Free Option Vulnerability & LVR
 A critical flaw in standard Automated Market Makers (AMMs) and prediction markets is the **"Free Option" attack** (often resulting in **Loss-Versus-Rebalancing** or **LVR**).
 
-* **The Vulnerability:** In standard markets, when a real-world event occurs (e.g., a goal is scored), there is a latency period before the on-chain oracle updates. Informed traders can exploit this lag to trade against stale quotes, effectively taking a "free option" at the expense of Liquidity Providers (LPs).
+* **The Vulnerability:** In prediction markets, when a real-world event occurs (e.g., a goal is scored), there is a latency period before the on-chain oracle updates. Informed traders can exploit this lag to trade against stale quotes, effectively taking a "free option" at the expense of Liquidity Providers (LPs).
 * **The Sooth Solution:** Sooth utilizes **Retroactive Finality**. By determining the precise timestamp ($T^*$) when the event occurred, the protocol economically invalidates any trades executed during the latency period. This structurally eliminates LVR derived from latency arbitrage, protecting LPs without requiring centralized emergency brakes.
 
 ### 3.3 Retroactive Finality ($T^*$)

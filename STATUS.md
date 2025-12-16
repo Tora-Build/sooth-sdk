@@ -1,13 +1,57 @@
 # Project Status
 
-> Last Updated: 2025-12-15 (Session 6 - V5 Frontend Trading)
+> Last Updated: 2025-12-16 (Launchpad-Only Migration Complete)
 
 ## Current Focus
-- **V5 Frontend Trading** — Inline AMM trading on Markets page ✅
-- **V5 Launchpad QA** — Comprehensive test suite complete ✅
-- **Deployment Verification** — Base Sepolia + BNB Testnet verified ✅
+- **Launchpad-Only Architecture** — Migration complete ✅
+- **Naming Refactoring** — All governor/creator confusion resolved ✅
+- **V6 Pre-Graduation Locking** — Architecture design complete, implementation pending ⏳
 
 ## Recent Changes
+
+### ✅ Launchpad-Only Migration Complete (2025-12-16)
+- **Architecture Change**: Removed "standard market" concept entirely — all markets must be Launchpad markets
+  - All markets created via `LaunchpadFactory` (no direct `SoothMarketBase` instantiation)
+  - **Critical**: `SoothMarketBase` is NOT a market type — it's the base contract that `LaunchpadMarket` inherits from
+  - `SoothLiquidityVault` now only used for TraderVault's global locked proceeds tracking
+  - Each Launchpad market is its own vault (implements `ISoothLiquidityVault` directly)
+- **Naming Refactoring**: Resolved governor/creator confusion throughout codebase
+  - `SoothMarketV4` → `SoothMarketBase` (base contract that LaunchpadMarket inherits from, NOT a market type)
+  - `governor` → `marketOperator` in base contract (generic operator role for flexibility)
+  - `governor` → `creator` in Launchpad context (Launchpad-specific ownership)
+  - **Important**: In Launchpad markets, `marketOperator == creator` (same address, set during initialization)
+  - `ISoothGovernorVault` → `ISoothLiquidityVault` (clarifies purpose)
+  - `SoothGovernorVault` → `SoothLiquidityVault` (global vault for locked proceeds)
+  - Abstract `Ownable` → `SoothOwnable` (resolved conflict with OpenZeppelin's Ownable)
+  - Created separate `ISoothLiquidityVault.sol` to avoid Ownable import conflicts
+- **Test Files Converted**: 11 test files updated to use LaunchpadFactory
+  - `V4Integration.t.sol`, `OrderbookShort.t.sol`, `GranularityTest.t.sol`, `CustodialVault.t.sol`
+  - `ReproducePanic.t.sol`, `HybridSell.t.sol`
+  - `scenarios/MultiRoleScenarios.t.sol`, `scenarios/AdversarialScenarios.t.sol`, `scenarios/SettlementScenarios.t.sol`
+  - `invariants/VaultInvariants.t.sol`, `actors/TraderActor.sol`
+- **Deployment Scripts Converted**: 10 scripts updated
+  - `DeployMultiChainV4.s.sol`, `DeployV4Markets.s.sol`, `DeployFreshV4.s.sol` (and duplicate)
+  - `RedeployMarketsOnly.s.sol`, `RedeployMarket2.s.sol`
+  - `Step1_DeployContracts.s.sol`, `DebugMarketState.s.sol` (and duplicate)
+  - `CheckMarket2State.s.sol` (and duplicate)
+- **Documentation**: Updated migration guide, naming proposals, and whitepaper
+- **Build Status**: ✅ All contracts compile successfully, no remaining standard market references
+
+### ✅ V6 Pre-Graduation Locking (2025-12-15 Session 7) - IMPLEMENTED
+- **Architecture**: V6 pre-graduation locking architecture is merged and implemented
+  - All sell proceeds locked during pre-graduation (cannot withdraw)
+  - Locked proceeds can be reinvested via `useLockedProceeds()`
+  - 2-contract architecture: Market implements `ISoothLiquidityVault` (no separate LPVault)
+  - Immutable Factory with `ProtocolConfig` for mutable parameters
+  - Guardian role for liquidation and `forceGraduate()` powers
+- **Implementation Status**: ✅ V6 architecture merged into `LaunchpadMarket.sol` and `LaunchpadFactory.sol`
+  - `LaunchpadMarket` implements `ISoothLiquidityVault` and `ERC20` directly
+  - `LaunchpadFactory` includes `ProtocolConfig` reference
+  - `ProtocolConfig` contract deployed and integrated
+  - Pre-graduation locking with `totalLockedProceeds` tracking
+  - `useLockedProceeds()` function implemented
+- **Test Suite**: 25 V6 tests written (`LaunchpadV6.t.sol`) - ready to run after fixing test compilation issues
+- **Status**: ✅ Architecture merged, implementation complete
 
 ### ✅ V5 Frontend Trading (2025-12-15 Session 6)
 - **MarketCard Inline Trading**: Full AMM trading experience directly on Markets page
@@ -100,7 +144,7 @@
 | Contract | Address |
 |----------|---------|
 | MockUSDC | `0x53d34066A316AE1699d434753B70593A6D59Fec1` |
-| GovernorVault | `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1` |
+| LiquidityVault | `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1` |
 | TraderVaultV4 | `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B` |
 | FeeController | `0x1a646107e7E88aa01Fadff3145Af08156679198e` |
 | Market 1 (Alien) | `0x93AF286C7112dBeCB1e99B67c9E17427dD2ADec8` |
@@ -112,7 +156,7 @@
 | Contract | Address |
 |----------|---------|
 | MockUSDC | `0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c` |
-| GovernorVault | `0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0` |
+| LiquidityVault | `0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0` |
 | TraderVaultV4 | `0x05818C4028ff5c273B45B3c55131Af2Bd9D12322` |
 | FeeController | `0x3152A8cd6CA0C64675C73486B06203a9D8226448` |
 | Market 1 (Alien) | `0x93CD5Cd848af2Af5247Ba132FcAc4B6840531585` |
@@ -124,7 +168,7 @@
 | Contract | Address |
 |----------|---------|
 | MockUSDC | `0x493da6e5c9de67ab50b2fb08d14865614189b5c2` |
-| GovernorVault | `0xdb0063ce93e445ff7a8916f6f5a093f80833494f` |
+| LiquidityVault | `0xdb0063ce93e445ff7a8916f6f5a093f80833494f` |
 | TraderVaultV4 | `0xdc980ac16626211a7c472a94a163440eb68c5bfc` |
 | Market 1 | `0x99CB8c0e3da2604518b8210589edcaB50Cc6f769` |
 | Market 2 | `0x94D02d846a04A751e9e4f93A6684a30e043444Da` |
@@ -133,11 +177,10 @@
 | LaunchpadOutcomeTokenImpl | `0xf2b16B964F0e413EB7c89129aacDf3D7de8096f0` |
 
 ## Pending/Blocked
-- [ ] **Launchpad V5**: Deploy to testnet (contracts ready, 17 tests passing)
 - [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4-6 - uncommitted)
+- [ ] **V6 Tests**: Run full test suite (`LaunchpadV6.t.sol` - compilation issues fixed ✅)
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
-- [ ] Commit + push worktree changes (new market addresses, config v4.10)
 - [ ] QA next: Fuzz tests for LMSR edge cases (large trades, extreme prices)
 - [ ] QA next: E2E happy-path (Synpress) for deposit → trade → claim → withdraw
 - [ ] **Security**: Rotate the private key used for deployments (it was exposed in chat)

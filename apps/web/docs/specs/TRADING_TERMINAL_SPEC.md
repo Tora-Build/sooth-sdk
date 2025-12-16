@@ -238,7 +238,11 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 
 | File | Purpose |
 |------|---------|
-| `AmmMarketCard.tsx` | Main trading card component |
+| File | Purpose |
+|------|---------|
+| `AmmTradingPanel.tsx` | **NEW** Shared trading logic/UI component |
+| `MarketCard.tsx` | Main trading card component (uses Panel) |
+| `MarketDetail.tsx` | Full page view (uses Panel) |
 | `OrderbookForm.tsx` | Drawer wrapper for limit orders |
 | `LimitOrderForm.tsx` | Limit order placement UI |
 | `Orderbook.tsx` | Order book display |

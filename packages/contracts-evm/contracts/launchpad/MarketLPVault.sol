@@ -82,7 +82,7 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
         return (amount * totalAssets()) / supply;
     }
 
-    // ============ ISoothGovernorVault Implementation ============
+    // ============ ISoothLiquidityVault Implementation ============
 
     // --- Asset Tracking (Already implemented totalAssets via override) ---
     
@@ -219,7 +219,7 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
         asset.safeTransfer(recipient, amount);
     }
     
-    // --- Unused/Stubbed Governor Interface ---
+    // --- Unused/Stubbed Liquidity Vault Interface ---
 
     function depositFor(address, uint256) external pure returns (uint256) {
         revert("LPVault: use mint");
@@ -256,7 +256,7 @@ contract MarketLPVault is ERC20, Ownable, IMarketLPVault {
         revert("LPVault: unauthorized");
     }
     
-    // Events (Redeclared from Governor context if needed, but inheriting interface might not be enough)
+    // Events (Redeclared from liquidity vault context if needed, but inheriting interface might not be enough)
     event Locked(address indexed user, uint256 amount, uint64 unlockTime);
     event Unlocked(address indexed user, uint256 amount);
     event Claimed(address indexed user, uint256 amount);

@@ -4,41 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-/// @notice Governor Vault interface for LP liquidity management.
-interface ISoothGovernorVault {
-    function asset() external view returns (IERC20);
-    function totalAssets() external view returns (uint256);
-    function decimalsScale() external view returns (uint256);
-
-    // Lock-on-Sell accounting (proceeds remain in Governor)
-    function lockProceeds(uint256 marketId, address user, uint256 amount) external returns (uint64 unlockTime);
-    function claimUnlocked(address user, address recipient) external returns (uint256 claimed);
-    function lockedBalance(address user) external view returns (uint256);
-    function claimableBalance(address user) external view returns (uint256);
-    function getLockEntries(address user) external view returns (uint256[] memory amounts, uint64[] memory unlockTimes);
-    function nextUnlock(address user) external view returns (uint256 amount, uint64 unlockTime);
-
-    // LP Actions
-    function depositFor(address lp, uint256 assets) external returns (uint256);
-    function withdrawFor(address lp, uint256 assets, address receiver) external returns (uint256);
-
-    // Market Actions
-    function allocateExposure(uint256 marketId, uint256 amount) external;
-    function releaseExposure(uint256 marketId, uint256 amount) external;
-
-    /// @notice Called by Market when it (or TraderVault) sends funds to Governor.
-    function receiveFunds(uint256 marketId, uint256 amount) external;
-
-    /// @notice Called by Market to request payment from Governor to recipient.
-    function sendFunds(uint256 marketId, address recipient, uint256 amount) external;
-
-    function getMarketReserve(uint256 marketId) external view returns (int256);
-
-    // Vault Configuration
-    function defaultBBase() external view returns (uint256);
-    function defaultFeeBps() external view returns (uint256);
-    function reserveFactorBps() external view returns (uint256);
-}
+// ISoothLiquidityVault interface - moved to separate file to avoid Ownable conflicts
+// Import it here for backward compatibility
+import "./ISoothLiquidityVault.sol";
 
 /// @notice AMM interface. Concrete curves (Balanced CFMM, LMSR) implement this.
 /// @notice Fee controller interface - Guardian-controlled global fees.
@@ -57,8 +25,10 @@ interface ISoothAdjudicatorRegistry {
         returns (uint8 cls, address externalContract, bytes memory params, bool enabled);
 }
 
-/// @notice Simple Ownable base used by most Sooth contracts in this reference.
-abstract contract Ownable {
+/// @notice Simple Ownable base used by legacy Sooth contracts.
+/// @dev NOTE: New contracts should use OpenZeppelin's Ownable to avoid conflicts.
+///      This is kept for backward compatibility with existing contracts.
+abstract contract SoothOwnable {
     address public owner;
 
     event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);

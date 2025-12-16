@@ -288,8 +288,8 @@ export const TradingAccountCard: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
                   <span className="text-slate-400 font-medium">Governor</span>
-                  <button onClick={() => copyToClipboard(deployments.SoothGovernorVault!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
-                    <span className="font-mono">{deployments.SoothGovernorVault?.slice(0, 6)}...</span>
+                  <button onClick={() => copyToClipboard(deployments.SoothLiquidityVault!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
+                    <span className="font-mono">{deployments.SoothLiquidityVault?.slice(0, 6)}...</span>
                     <Copy size={10} />
                   </button>
                 </div>

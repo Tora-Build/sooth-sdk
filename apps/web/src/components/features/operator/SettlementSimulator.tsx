@@ -15,8 +15,8 @@ export const SettlementSimulator: React.FC = () => {
   const { config } = useDeployments();
   const deployments = config.contracts;
   const riskManagerAddress = deployments.SoothRiskManager as `0x${string}`;
-  // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
-  const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
+  // LP vault - use SoothLiquidityVault (renamed from SoothGovernorVault), fallback to SoothVault for v1
+  const vaultAddress = (deployments.SoothLiquidityVault || deployments.SoothVault) as `0x${string}`;
 
   // 1. Prepare Data Fetching for Real Mode
   const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real');

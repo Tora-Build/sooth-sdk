@@ -3,32 +3,38 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/core/SoothTraderVaultV4.sol";
-import "../../contracts/core/SoothMarketV4.sol";
+import "../../contracts/launchpad/LaunchpadFactory.sol";
+import "../../contracts/launchpad/LaunchpadMarket.sol";
 import "../../contracts/core/OutcomeToken.sol";
-import "../../contracts/core/SoothGovernorVault.sol";
+import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
+import "../../contracts/core/ProtocolConfig.sol";
 import "../../contracts/core/SoothInterfaces.sol";
+import "../../contracts/interfaces/IOutcomeToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Settlement Scenarios
 /// @notice Exercises market settlement + post-settlement constraints + merge + locked proceeds.
 contract SettlementScenariosTest is Test {
     // Contracts
     MockUSDC usdc;
-    SoothGovernorVault governorVault;
+    SoothLiquidityVault liquidityVault;
     SoothTraderVaultV4 traderVault;
-    SoothMarketV4 market;
-    OutcomeToken outcomeToken;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
 
     // Actors
     address owner = makeAddr("owner");
-    address governor = makeAddr("governor");
+    address creator = makeAddr("creator");
     address alice = makeAddr("alice");
 
     // Constants
     uint256 constant INITIAL_GOVERNOR = 100_000e18;
     uint256 constant INITIAL_TRADER = 10_000e18;
-    uint256 constant B_PARAM = 10_000e18;
     uint256 constant LOCK_DURATION = 24 hours;
 
     function setUp() public {
@@ -38,39 +44,48 @@ contract SettlementScenariosTest is Test {
         feeController = new SoothFeeController(owner);
         feeController.setOrderbookFee(10);
 
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothGovernorVault(address(governorVault)));
-        outcomeToken = new OutcomeToken();
-        market = new SoothMarketV4();
-
-        outcomeToken.initialize(address(market), address(traderVault));
-
-        // Governor is set to `governor` (not owner)
-        market.initialize(
-            1,
-            address(governorVault),
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(owner, 0);
+        
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(traderVault),
             address(feeController),
-            address(outcomeToken),
-            bytes32(0),
-            B_PARAM,
-            governor,
-            0,
-            0
+            address(outcomeTokenImpl),
+            creator,
+            creator,
+            address(protocolConfig)
         );
+        
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Settlement Test",
+            "SETTLE",
+            "Test market for settlement scenarios",
+            0,
+            false,
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
 
         // Auth wiring
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(outcomeToken), true);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
 
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(address(market), true);
-        governorVault.setAuthorized(address(outcomeToken), true);
-        governorVault.setAuthorized(owner, true);
+        liquidityVault.setAuthorized(address(traderVault), true);
+        liquidityVault.setAuthorized(owner, true);
 
-        // Seed governor liquidity
-        usdc.mint(address(governorVault), INITIAL_GOVERNOR);
-        governorVault.receiveFunds(1, INITIAL_GOVERNOR);
+        // Seed liquidity vault (for global operations)
+        usdc.mint(address(liquidityVault), INITIAL_GOVERNOR);
+        liquidityVault.receiveFunds(1, INITIAL_GOVERNOR);
 
         vm.stopPrank();
 
@@ -87,7 +102,7 @@ contract SettlementScenariosTest is Test {
         market.settle(0);
 
         // Governor can settle
-        vm.prank(governor);
+        vm.prank(creator);
         market.settle(0);
         assertTrue(market.isSettled(), "Market should be settled");
         assertFalse(market.isLive(), "Market should not be live after settlement");
@@ -99,7 +114,7 @@ contract SettlementScenariosTest is Test {
         traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
         vm.stopPrank();
 
-        vm.prank(governor);
+        vm.prank(creator);
         market.settle(0);
 
         // Any further AMM trade must revert (onlyLive)
@@ -109,7 +124,7 @@ contract SettlementScenariosTest is Test {
     }
 
     function test_postSettlement_OrderCreationBlocked() public {
-        vm.prank(governor);
+        vm.prank(creator);
         market.settle(1);
 
         vm.startPrank(alice);
@@ -124,13 +139,14 @@ contract SettlementScenariosTest is Test {
 
     function test_mergeStillWorksAfterSettlement_withOrderbookTokens() public {
         // Give alice YES+NO tokens by minting via market
+        IOutcomeToken outcomeToken = market.outcomeToken();
         vm.startPrank(address(market));
         outcomeToken.mint(alice, 0, 100);
         outcomeToken.mint(alice, 1, 100);
         vm.stopPrank();
 
         // Settle market
-        vm.prank(governor);
+        vm.prank(creator);
         market.settle(0);
 
         // Merge should still work (merge is on OutcomeToken, not gated by market liveness)
@@ -156,7 +172,7 @@ contract SettlementScenariosTest is Test {
         vm.stopPrank();
 
         // Settle market
-        vm.prank(governor);
+        vm.prank(creator);
         market.settle(0);
 
         // After lock duration, claimUnlocked should still succeed

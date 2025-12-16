@@ -471,8 +471,31 @@ export function useTraderVault() {
 
         if (available < costAsset) {
           const needed = costAsset - available;
-          const tId = toast.loading(`Depositing ${formatUnits(needed, decimals)} USDC...`);
+          const neededStr = formatUnits(needed, decimals);
 
+          // Check allowance
+          if (currentAllowance < needed) {
+            const toastApprove = toast.loading('Approving USDC for deposit...');
+            try {
+              // Determine approval amount (use needed amount)
+              const hashApprove = await writeContractAsync({
+                address: deployments.MockUSDC as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: 'approve',
+                args: [traderVaultAddress, needed],
+              });
+              await publicClient.waitForTransactionReceipt({ hash: hashApprove });
+              toast.success('Approved!', { id: toastApprove });
+              // Note: We don't explicitly update currentAllowance state here, 
+              // but the chain is updated for the next tx.
+            } catch (e: any) {
+              toast.error('Approval failed', { id: toastApprove });
+              throw e;
+            }
+          }
+
+          // Deposit
+          const tId = toast.loading(`Depositing ${neededStr} USDC...`);
           try {
             const depHash = await writeContractAsync({
               address: traderVaultAddress,
@@ -482,6 +505,8 @@ export function useTraderVault() {
             });
             await publicClient.waitForTransactionReceipt({ hash: depHash });
             toast.success('Deposit successful', { id: tId });
+            // Wait for indexing to prevent "insufficient balance" in next call
+            await new Promise(resolve => setTimeout(resolve, 2000));
           } catch (e) {
             toast.error('Deposit failed', { id: tId });
             throw e;

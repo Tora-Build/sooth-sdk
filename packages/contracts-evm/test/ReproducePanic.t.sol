@@ -3,54 +3,68 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/OutcomeToken.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothInterfaces.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ReproducePanicTest is Test {
     SoothTraderVaultV4 vault;
-    SoothMarketV4 market;
-    OutcomeToken token;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     MockUSDC usdc;
-    SoothGovernorVault governor;
+    SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
 
+    address creator = address(0x10);
     address alice = address(0x1);
     address bob = address(0x2);
 
     function setUp() public {
         usdc = new MockUSDC();
         feeController = new SoothFeeController(address(this));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        vault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(address(this), 0);
         
-        governor = new SoothGovernorVault(IERC20(address(usdc)));
-        vault = new SoothTraderVaultV4(IERC20(address(usdc)), governor);
-        market = new SoothMarketV4();
-        token = new OutcomeToken();
-
-        // Initialize Token
-        token.initialize(address(market), address(vault));
-
-        // Initialize Market
-        market.initialize(
-            1,
-            address(governor),
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(vault),
             address(feeController),
-            address(token),
-            bytes32("adjudicator"),
-            1000 ether,
-            address(this),
-            1000 ether,
-            1000 ether
+            address(outcomeTokenImpl),
+            creator,
+            creator,
+            address(protocolConfig)
         );
+        
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Panic Test",
+            "PANIC",
+            "Test market for panic reproduction",
+            0,
+            false,
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
 
-        // Setup Governor Auth
-        governor.setAuthorized(address(vault), true);
-        governor.setAuthorized(address(market), true);
-
-        // Setup Vault
+        // Setup permissions
+        liquidityVault.setAuthorized(address(vault), true);
         vault.setMarket(address(market), true);
         
         // Fund Users

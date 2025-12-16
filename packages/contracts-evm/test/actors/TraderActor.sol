@@ -2,17 +2,17 @@
 pragma solidity ^0.8.20;
 
 import "../../contracts/core/SoothTraderVaultV4.sol";
-import "../../contracts/core/SoothMarketV4.sol";
+import "../../contracts/launchpad/LaunchpadMarket.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 
 /// @title Trader Actor for Invariant Testing
 /// @notice Simulates trader behavior for fuzz/invariant tests
 contract TraderActor {
     SoothTraderVaultV4 public vault;
-    SoothMarketV4 public market;
+    LaunchpadMarket public market;
     IERC20 public usdc;
     
-    constructor(SoothTraderVaultV4 _vault, SoothMarketV4 _market, IERC20 _usdc) {
+    constructor(SoothTraderVaultV4 _vault, LaunchpadMarket _market, IERC20 _usdc) {
         vault = _vault;
         market = _market;
         usdc = _usdc;

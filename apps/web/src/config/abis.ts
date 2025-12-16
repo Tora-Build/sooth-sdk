@@ -62,7 +62,8 @@ export const SOOTH_TRADER_VAULT_ABI = parseAbi([
   "function asset() view returns (address)",
 ]);
 
-// RENAMED: SoothVault -> SoothGovernorVault (LP liquidity)
+// RENAMED: SoothVault -> SoothLiquidityVault (global vault for TraderVault's locked proceeds)
+// Note: ABI name kept as SOOTH_GOVERNOR_VAULT_ABI for backward compatibility, but contract is now SoothLiquidityVault
 export const SOOTH_GOVERNOR_VAULT_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
@@ -161,7 +162,8 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
 ]);
 
-// V4.6: GovernorVault (ERC4626 + Lock-on-Sell)
+// V4.6: LiquidityVault (ERC4626 + Lock-on-Sell) - Renamed from GovernorVault
+// Note: ABI name kept as GOVERNOR_VAULT_V4_ABI for backward compatibility, but contract is now SoothLiquidityVault
 export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
@@ -234,11 +236,13 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function graduationThreshold() view returns (uint256)",
   "function deadline() view returns (uint40)",
   "function creator() view returns (address)",
+  "function factory() view returns (address)",
   "function lpVault() view returns (address)",
   "function feesAccrued() view returns (uint256)",
+  "function totalCreatorDeposit() view returns (uint256)",
   "function graduate()",
   "function expire()",
-  "function claimRefund()",
+  "function claimCreatorRefund()",
   "event Graduated(uint256 timestamp, uint256 totalLiquidity)",
   "event Expired(uint256 timestamp)",
 ]);

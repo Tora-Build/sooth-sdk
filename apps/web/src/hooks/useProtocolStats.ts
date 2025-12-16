@@ -10,8 +10,8 @@ export function useProtocolStats() {
   const { selectedChainId } = useChainStore();
   const { config } = useDeployments();
   const deployments = config.contracts;
-  // LP vault - use SoothGovernorVault
-  const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
+  // LP vault - use SoothLiquidityVault (renamed from SoothGovernorVault)
+  const vaultAddress = deployments.SoothLiquidityVault as `0x${string}`;
 
   // Fetch totalAssets and totalLockedExposure from vault
   const { data: vaultData, isLoading } = useReadContracts({

@@ -7,7 +7,7 @@ import {LaunchpadMarket} from "../contracts/launchpad/LaunchpadMarket.sol";
 import {LaunchpadOutcomeToken} from "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
-import {SoothGovernorVault} from "../contracts/core/SoothGovernorVault.sol";
+import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";
 
 contract DeployLaunchpad is Script {
     function run() external {

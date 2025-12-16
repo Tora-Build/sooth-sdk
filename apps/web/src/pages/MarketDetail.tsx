@@ -1,23 +1,20 @@
-import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Users, TrendingUp, TrendingDown, Loader2, Zap, BookOpen } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen } from 'lucide-react';
 import { useLaunchpadMarket } from '../hooks/v5/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/v5/useLaunchpadMarkets';
 import { useAmmMarketByAddress } from '../hooks/useAmmMarketByAddress';
-import { useTraderVault } from '../hooks/useTraderVault';
-import { useLaunchpadTradeQuote } from '../hooks/v5/useLaunchpadTradeQuote';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { OrderbookForm } from '../components/features/trader/OrderbookForm';
-import { formatEther, formatUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { useAccount } from 'wagmi';
-import { getLMSRQuote } from '../utils/lmsr';
+import { MarketCard } from '../components/features/market/MarketCard';
 
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
-  
+
   const {
     isGraduated,
     graduationThreshold,
@@ -29,10 +26,10 @@ export const MarketDetail = () => {
     isGraduatePending,
     feesAccrued,
   } = useLaunchpadMarket(address as `0x${string}`);
-  
+
   const { markets: allMarkets } = useLaunchpadMarkets();
   const marketMeta = allMarkets?.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  
+
   const { market, isLoading: marketLoading } = useAmmMarketByAddress(
     address as `0x${string}`,
     marketMeta ? {
@@ -42,24 +39,6 @@ export const MarketDetail = () => {
       isGraduated: marketMeta.isGraduated,
       deadline: marketMeta.deadline,
     } : undefined
-  );
-  
-  const { executeAMMTrade } = useTraderVault();
-
-  // Trade state
-  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
-  const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(0);
-  const [amount, setAmount] = useState('10');
-  const [slippageBps] = useState(100);
-  const [isPending, setIsPending] = useState(false);
-
-  const sharesInput = tradeMode === 'buy' ? amount : `-${amount}`;
-  const { quote } = useLaunchpadTradeQuote(
-    address as `0x${string}`,
-    selectedOutcome,
-    sharesInput,
-    slippageBps,
-    bBase || 0n
   );
 
   if (!address) {
@@ -76,7 +55,7 @@ export const MarketDetail = () => {
   const isExpired = deadline && Date.now() / 1000 > deadline && !isGraduated;
   const priceYes = market?.priceYes ?? 0.5;
   const priceNo = 1 - priceYes;
-  const graduationProgress = bBase && graduationThreshold 
+  const graduationProgress = bBase && graduationThreshold
     ? Math.min(100, Number((bBase * 100n) / graduationThreshold))
     : 0;
 
@@ -85,30 +64,9 @@ export const MarketDetail = () => {
   const qYes = market?.qYes ? parseFloat(formatUnits(BigInt(market.qYes.toString()), 18)) : 0;
   const qNo = market?.qNo ? parseFloat(formatUnits(BigInt(market.qNo.toString()), 18)) : 0;
 
-  // Calculate new prices after trade (for preview)
-  const amountNum = parseFloat(amount) || 0;
-  const tradeQuotePreview = amountNum > 0 && bParamNum > 0 
-    ? getLMSRQuote(qYes, qNo, bParamNum, tradeMode === 'buy' ? amountNum : -amountNum, selectedOutcome)
-    : null;
-
-  const handleTrade = async () => {
-    if (!amount || parseFloat(amount) <= 0 || !quote) return;
-    setIsPending(true);
-    try {
-      const limitParam = tradeMode === 'buy'
-        ? quote.maxWithSlippage.toString()
-        : (-quote.maxWithSlippage).toString();
-      await executeAMMTrade(address as `0x${string}`, selectedOutcome, sharesInput, limitParam);
-      setAmount('10');
-    } catch (err) {
-      console.error('Trade failed:', err);
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  // Calculate new prices after trade (for preview) - Simplified for now, just show current
+  // In future we can bubble up state from TradingPanel if needed for the graphic
+  const tradeQuotePreview = null;
 
   return (
     <div className="space-y-6">
@@ -175,7 +133,7 @@ export const MarketDetail = () => {
                   {graduationProgress.toFixed(1)}%
                 </span>
               </div>
-              
+
               <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden mb-4">
                 <div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-1000 ease-out"
@@ -183,7 +141,7 @@ export const MarketDetail = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
               </div>
-              
+
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">
                   ${bBase ? (Number(bBase) / 1e18).toLocaleString() : '0'} raised
@@ -208,13 +166,9 @@ export const MarketDetail = () => {
           {/* Probability Display */}
           <Card className="p-6">
             <h3 className="font-bold text-white mb-6">Market Probability</h3>
-            
+
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className={`p-6 rounded-xl border-2 transition-all ${
-                selectedOutcome === 0 
-                  ? 'border-emerald-500 bg-emerald-500/10' 
-                  : 'border-slate-700 hover:border-emerald-500/50'
-              }`}>
+              <div className="p-6 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5">
                 <div className="text-sm text-emerald-400 mb-1">YES</div>
                 <div className="text-4xl font-bold text-white tabular-nums">
                   {(priceYes * 100).toFixed(1)}%
@@ -223,12 +177,8 @@ export const MarketDetail = () => {
                   ${priceYes.toFixed(4)} per share
                 </div>
               </div>
-              
-              <div className={`p-6 rounded-xl border-2 transition-all ${
-                selectedOutcome === 1 
-                  ? 'border-rose-500 bg-rose-500/10' 
-                  : 'border-slate-700 hover:border-rose-500/50'
-              }`}>
+
+              <div className="p-6 rounded-xl border-2 border-rose-500/30 bg-rose-500/5">
                 <div className="text-sm text-rose-400 mb-1">NO</div>
                 <div className="text-4xl font-bold text-white tabular-nums">
                   {(priceNo * 100).toFixed(1)}%
@@ -239,34 +189,24 @@ export const MarketDetail = () => {
               </div>
             </div>
 
-            {/* Probability Bar with Transition Preview */}
+            {/* Probability Bar */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">YES Probability</span>
                 <div className="flex items-center gap-2 font-mono">
-                  <span className={`font-bold tabular-nums ${tradeQuotePreview ? 'text-slate-400' : 'text-white'}`}>
+                  <span className="font-bold tabular-nums text-white">
                     {(priceYes * 100).toFixed(1)}%
                   </span>
-                  {tradeQuotePreview && (
-                    <>
-                      <span className="text-slate-600">→</span>
-                      <span className={`font-bold tabular-nums ${
-                        tradeQuotePreview.newPriceYes > priceYes ? 'text-emerald-400' : 'text-rose-400'
-                      }`}>
-                        {(tradeQuotePreview.newPriceYes * 100).toFixed(1)}%
-                      </span>
-                    </>
-                  )}
                 </div>
               </div>
               <div className="h-3 rounded-full overflow-hidden flex">
                 <div
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
-                  style={{ width: `${(tradeQuotePreview?.newPriceYes ?? priceYes) * 100}%` }}
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-400"
+                  style={{ width: `${priceYes * 100}%` }}
                 />
                 <div
-                  className="bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-500"
-                  style={{ width: `${(tradeQuotePreview?.newPriceNo ?? priceNo) * 100}%` }}
+                  className="bg-gradient-to-r from-rose-400 to-rose-500"
+                  style={{ width: `${priceNo * 100}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-slate-600">
@@ -293,155 +233,18 @@ export const MarketDetail = () => {
           )}
         </div>
 
-        {/* Right: Trading Panel */}
+        {/* Right: Trading Panel (Using MarketCard Style) */}
         <div className="lg:col-span-1">
-          <Card className="p-6 sticky top-24 border-slate-700">
-            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-cyan-400" />
-              Trade
-            </h3>
-
-            {/* Buy/Sell Toggle */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button
-                onClick={() => setTradeMode('buy')}
-                className={`py-3 rounded-lg font-bold transition-all ${
-                  tradeMode === 'buy'
-                    ? 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400'
-                    : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => setTradeMode('sell')}
-                className={`py-3 rounded-lg font-bold transition-all ${
-                  tradeMode === 'sell'
-                    ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-400'
-                    : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                Sell
-              </button>
-            </div>
-
-            {/* YES/NO Toggle */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button
-                onClick={() => setSelectedOutcome(0)}
-                className={`py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
-                  selectedOutcome === 0
-                    ? 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400'
-                    : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                <TrendingUp size={16} />
-                YES
-              </button>
-              <button
-                onClick={() => setSelectedOutcome(1)}
-                className={`py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
-                  selectedOutcome === 1
-                    ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-400'
-                    : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                <TrendingDown size={16} />
-                NO
-              </button>
-            </div>
-
-            {/* Amount Input */}
-            <div className="mb-4">
-              <label className="text-xs text-slate-500 mb-2 block">Amount (shares)</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
-                placeholder="10"
-                min="1"
-              />
-            </div>
-
-            {/* Quick Amounts */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {[10, 50, 100, 500].map(val => (
-                <button
-                  key={val}
-                  onClick={() => setAmount(String(val))}
-                  className={`py-2 text-xs font-mono rounded-lg transition-all ${
-                    amount === String(val)
-                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-                      : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                  }`}
-                >
-                  {val}
-                </button>
-              ))}
-            </div>
-
-            {/* Quote Summary */}
-            <div className="p-4 bg-slate-800/50 rounded-lg space-y-2 mb-4 border border-slate-700">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Est. Cost</span>
-                <span className="font-mono text-white">
-                  {quote ? formatCurrency(quote.expectedCost) : '--'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Fee</span>
-                <span className="font-mono text-slate-400">
-                  {quote ? formatCurrency(quote.fee) : '--'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
-                <span className="text-slate-300 font-medium">
-                  {tradeMode === 'buy' ? 'Max Total' : 'Min Received'}
-                </span>
-                <span className="font-mono font-bold text-white">
-                  {quote ? formatCurrency(quote.maxWithSlippage) : '--'}
-                </span>
-              </div>
-            </div>
-
-            {/* Trade Button */}
-            {!userAddress ? (
-              <Button
-                onClick={() => {
-                  // Trigger wallet connect modal
-                  const connectBtn = document.querySelector('appkit-button') as HTMLElement;
-                  connectBtn?.click();
-                }}
-                className="w-full py-4 font-bold bg-cyan-600 hover:bg-cyan-500"
-              >
-                Connect Wallet to Trade
-              </Button>
-            ) : (
-              <Button
-                onClick={handleTrade}
-                disabled={isPending || !quote || parseFloat(amount) <= 0}
-                className={`w-full py-4 font-bold ${
-                  selectedOutcome === 0
-                    ? 'bg-emerald-600 hover:bg-emerald-500'
-                    : 'bg-rose-600 hover:bg-rose-500'
-                }`}
-              >
-                {isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 size={18} className="animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${selectedOutcome === 0 ? 'YES' : 'NO'}`
-                )}
-              </Button>
-            )}
-
-            <div className="mt-3 text-center text-xs text-slate-500 font-mono">
-              slippage: {(slippageBps / 100).toFixed(1)}%
-            </div>
-          </Card>
+          <div className="sticky top-24">
+            <MarketCard
+              address={address as `0x${string}`}
+              name={marketMeta?.name || ''}
+              symbol={marketMeta?.symbol || ''}
+              isGraduated={isGraduated}
+              deadline={marketMeta?.deadline ? Number(marketMeta.deadline) : undefined}
+              disableNavigation={true}
+            />
+          </div>
         </div>
       </div>
     </div>

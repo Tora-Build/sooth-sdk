@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./SoothInterfaces.sol";
+import "./SoothInterfaces.sol"; // Provides SoothOwnable
 
 /// @notice Global fee settings controlled by Protocol Guardian.
 /// @dev Markets reference this contract for unified orderbook fees.
-contract SoothFeeController is Ownable {
+contract SoothFeeController is SoothOwnable {
     /// @notice Unified orderbook fee for all markets (basis points, e.g., 10 = 0.1%)
     uint256 public orderbookFee;
     

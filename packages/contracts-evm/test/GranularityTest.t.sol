@@ -3,58 +3,76 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
-import "../contracts/interfaces/ISoothMarketV4.sol"; // Added import
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/OutcomeToken.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/interfaces/ISoothMarketV4.sol";
 import "../contracts/mocks/MockUSDC.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GranularityTest is Test {
     MockUSDC public usdc;
-    SoothGovernorVault public governorVault;
-    SoothMarketV4 public market;
+    SoothLiquidityVault public liquidityVault;
+    LaunchpadFactory public factory;
+    LaunchpadMarket public market;
+    LaunchpadMarket public marketImpl;
+    OutcomeToken public outcomeTokenImpl;
     SoothTraderVaultV4 public traderVault;
     SoothFeeController public feeController;
+    ProtocolConfig public protocolConfig;
 
-    address public alice = address(0x1);
+    address public creator = address(0x1);
+    address public alice = address(0x2);
 
     function setUp() public {
         usdc = new MockUSDC();
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), governorVault);
-        feeController = new SoothFeeController(address(this)); // Treasury is test contract
-        market = new SoothMarketV4();
-        OutcomeToken outcomeToken = new OutcomeToken();
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        feeController = new SoothFeeController(address(this));
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(address(this), 0);
         
         traderVault.setTimeLock(ITimeLock(address(0))); 
 
-        market.initialize(
-            1, // marketId
-            address(governorVault),
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(traderVault),
             address(feeController),
-            address(outcomeToken),
-            bytes32(0), // adjudicatorId
-            1000 * 1e18, // bBase
-            address(this), // governor
-            0, // initialQYes
-            0  // initialQNo
+            address(outcomeTokenImpl),
+            creator, // treasury
+            creator, // adjudicator
+            address(protocolConfig)
         );
-
-        outcomeToken.initialize(address(market), address(traderVault));
-
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(address(market), true);
-        governorVault.transferOwnership(address(market));
         
-        traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(outcomeToken), true);
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Granularity Test",
+            "GRAN",
+            "Test market for granularity",
+            0, // tier 0
+            false,
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
 
-        // Fund Owner
+        liquidityVault.setAuthorized(address(traderVault), true);
+        traderVault.setMarket(address(market), true);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+
+        // Fund Owner (for liquidity vault if needed)
         usdc.mint(address(this), 10000e18);
-        usdc.approve(address(governorVault), 10000e18);
-        governorVault.depositFor(address(this), 10000e18);
+        usdc.approve(address(liquidityVault), 10000e18);
+        liquidityVault.depositFor(address(this), 10000e18);
 
         // Fund Alice
         usdc.mint(alice, 1000e18);

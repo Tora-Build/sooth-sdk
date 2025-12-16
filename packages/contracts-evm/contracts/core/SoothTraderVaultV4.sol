@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../core/SoothInterfaces.sol";
+import "../core/ISoothLiquidityVault.sol";
+import "../core/SoothInterfaces.sol"; // For Ownable and other interfaces
 import "../interfaces/ISoothMarketV4.sol";
 import "../interfaces/ISoothTraderVaultV4.sol";
 import "../interfaces/IOutcomeToken.sol";
 import "../interfaces/IYieldStrategy.sol";
 import "../interfaces/ITimeLock.sol";
 import "../launchpad/interfaces/ILaunchpadFactory.sol";
+import "../launchpad/interfaces/ILaunchpadMarket.sol";
+import "../launchpad/interfaces/IMarketLPVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,7 +19,7 @@ import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155
 /// @title SoothTraderVaultV4
 /// @notice V4: Dual-venue trading with Lock-on-Sell policy
 /// @dev AMM trades are internal positions. Orderbook uses ERC1155.
-contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
+contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============
@@ -46,7 +49,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     mapping(address => bool) private _isMarket;
     mapping(address => bool) private _isOutcomeToken;
 
-    ISoothGovernorVault public governorVault;
+    ISoothLiquidityVault public liquidityVault;
     IYieldStrategy public yieldStrategy;
     ITimeLock public timeLock;
 
@@ -58,13 +61,13 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     
     constructor(
         IERC20 asset_,
-        ISoothGovernorVault governorVault_
+        ISoothLiquidityVault liquidityVault_
     ) {
         require(address(asset_) != address(0), "TraderVault: zero asset");
-        require(address(governorVault_) != address(0), "TraderVault: zero governor");
+        require(address(liquidityVault_) != address(0), "TraderVault: zero vault");
         
         _asset = asset_;
-        governorVault = governorVault_;
+        liquidityVault = liquidityVault_;
         
         uint8 decimals = 18;
         try IERC20Metadata(address(asset_)).decimals() returns (uint8 d) {
@@ -109,23 +112,29 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         require(amount > 0, "TraderVault: zero amount");
         require(accounts[msg.sender].available >= amount, "TraderVault: insufficient available");
 
+        // Block withdrawals if user has locked proceeds globally
+        // Check all markets for locked proceeds
+        uint256 globalLocked = liquidityVault.lockedBalance(msg.sender);
+        require(globalLocked == 0, "TraderVault: has locked proceeds, cannot withdraw");
+
         accounts[msg.sender].available -= amount;
         require(_asset.transfer(msg.sender, amount), "TraderVault: transfer failed");
         emit Withdraw(msg.sender, amount);
     }
 
     function claimUnlocked() external returns (uint256 amount) {
-        // Default to global governor for backward compatibility or direct user claim
-        amount = _claimUnlockedInternal(governorVault, msg.sender);
+        // Default to global liquidity vault for direct user claim
+        // Note: Launchpad markets are their own vault, but global vault may still be used for legacy/global operations
+        amount = _claimUnlockedInternal(liquidityVault, msg.sender);
     }
     
-    // V4.7: Overload for specific governor
-    function claimUnlocked(ISoothGovernorVault vault) external returns (uint256 amount) {
+    // Overload for specific liquidity vault
+    function claimUnlocked(ISoothLiquidityVault vault) external returns (uint256 amount) {
         amount = _claimUnlockedInternal(vault, msg.sender);
     }
 
-    // Renamed from _lockProceeds to be explicit it targets a specific governor
-    function _lockProceedsOnGovernor(ISoothGovernorVault targetVault, address user, uint256 marketId, uint256 amount) internal {
+    // Lock proceeds on a specific liquidity vault
+    function _lockProceedsOnVault(ISoothLiquidityVault targetVault, address user, uint256 marketId, uint256 amount) internal {
         // Claim any previously unlocked funds from this specific vault
         _claimUnlockedInternal(targetVault, user);
 
@@ -133,7 +142,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         emit Locked(user, amount, unlockTime);
     }
 
-    function _claimUnlockedInternal(ISoothGovernorVault targetVault, address user) internal returns (uint256 claimed) {
+    function _claimUnlockedInternal(ISoothLiquidityVault targetVault, address user) internal returns (uint256 claimed) {
         claimed = targetVault.claimUnlocked(user, address(this));
 
         if (claimed > 0) {
@@ -158,10 +167,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
 
         ISoothMarketV4 mkt = ISoothMarketV4(market);
         
-        // V4.7 CHANGE: Fetch governor vault from the market itself
-        // Supports Launchpad (MarketLPVault) and Standard (Global Governor)
-        ISoothGovernorVault marketGovernor = mkt.governorVault();
-        require(address(marketGovernor) != address(0), "TraderVault: zero governor");
+        // Fetch liquidity vault from the market itself
+        // Launchpad markets are their own vault (implement ISoothLiquidityVault)
+        ISoothLiquidityVault marketVault = mkt.liquidityVault();
+        require(address(marketVault) != address(0), "TraderVault: zero vault");
 
         AMMPosition storage pos = ammPositions[msg.sender][market];
 
@@ -183,14 +192,32 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             uint256 totalCost = assetCost + assetFee;
             
             require(int256(totalCost) <= maxCost, "TraderVault: slippage exceeded");
-            require(accounts[msg.sender].available >= totalCost, "TraderVault: insufficient balance");
             
-            // Debit user
+            // V6: Check if this is a Launchpad pre-grad market and use locked proceeds if available
+            bool isLaunchpadPreGrad = false;
+            uint256 locked = 0;
+            try ILaunchpadMarket(market).isGraduated() returns (bool graduated) {
+                if (!graduated) {
+                    isLaunchpadPreGrad = true;
+                    try ILaunchpadMarket(market).lockedProceeds(msg.sender) returns (uint256 lockedAmount) {
+                        locked = lockedAmount;
+                    } catch {}
+                }
+            } catch {}
+            
+            if (isLaunchpadPreGrad && locked > 0 && totalCost <= locked) {
+                // Use locked proceeds for the entire cost
+                ILaunchpadMarket(market).useLockedProceeds(msg.sender, totalCost);
+                // Funds stay in market (no transfer needed)
+            } else {
+                // Use available balance
+            require(accounts[msg.sender].available >= totalCost, "TraderVault: insufficient balance");
             accounts[msg.sender].available -= totalCost;
             
-            // Pay to governor vault attached to THIS market
-            require(_asset.transfer(address(marketGovernor), totalCost), "TraderVault: transfer failed");
-            marketGovernor.receiveFunds(mkt.marketId(), totalCost);
+            // Pay to liquidity vault attached to THIS market
+            require(_asset.transfer(address(marketVault), totalCost), "TraderVault: transfer failed");
+            marketVault.receiveFunds(mkt.marketId(), totalCost);
+            }
             
             // Credit internal shares
             if (outcome == 0) {
@@ -233,11 +260,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
                 pos.noShares -= shares;
             }
             
-            // Lock proceeds in Governor (funds stay there until claimed)
-            // DO NOT call sendFunds - funds stay in Governor
-            
-            // V4.7 CHANGE: Call lockProceeds on the market-specific Governor
-            _lockProceedsOnGovernor(marketGovernor, msg.sender, mkt.marketId(), netProceeds);
+            // Always lock proceeds (both pre and post-graduation)
+            // Pre-graduation: Proceeds locked, can be used for reinvestment via useLockedProceeds()
+            // Post-graduation: Normal 24h lock-on-sell
+            _lockProceedsOnVault(marketVault, msg.sender, mkt.marketId(), netProceeds);
 
             emit AMMSell(msg.sender, market, outcome, shares, netProceeds);
             emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
@@ -492,7 +518,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
             IOutcomeToken token = ISoothMarketV4(msg.sender).outcomeToken();
             
             // This triggers creditMergeProceeds(address(this), amount)
-            // Which pulls 1.00 USDC from Governor.
+            // Which pulls 1.00 USDC from liquidity vault.
             token.merge(matchedAmount);
             
             // matchedAmount is already WAD (1 share = 1e18)
@@ -588,23 +614,23 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     }
 
     function totalBalance(address user) external view returns (uint256) {
-        return accounts[user].available + accounts[user].pending + governorVault.lockedBalance(user);
+        return accounts[user].available + accounts[user].pending + liquidityVault.lockedBalance(user);
     }
 
     function lockedBalance(address user) public view returns (uint256) {
-        return governorVault.lockedBalance(user);
+        return liquidityVault.lockedBalance(user);
     }
 
     function claimableBalance(address user) public view returns (uint256 claimable) {
-        claimable = governorVault.claimableBalance(user);
+        claimable = liquidityVault.claimableBalance(user);
     }
 
     function getLockEntries(address user) external view returns (uint256[] memory amounts, uint64[] memory unlockTimes) {
-        (amounts, unlockTimes) = governorVault.getLockEntries(user);
+        (amounts, unlockTimes) = liquidityVault.getLockEntries(user);
     }
 
     function nextUnlock(address user) external view returns (uint256 amount, uint64 unlockTime) {
-        (amount, unlockTime) = governorVault.nextUnlock(user);
+        (amount, unlockTime) = liquidityVault.nextUnlock(user);
     }
 
     function isMarket(address market) external view returns (bool) {
@@ -649,8 +675,8 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
 
     address public launchpadFactory;
 
-    function setGovernorVault(ISoothGovernorVault _governorVault) external onlyOwner {
-        governorVault = _governorVault;
+    function setLiquidityVault(ISoothLiquidityVault _liquidityVault) external onlyOwner {
+        liquidityVault = _liquidityVault;
     }
 
     function setLaunchpadFactory(address _launchpadFactory) external onlyOwner {
@@ -684,16 +710,16 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
     function creditMergeProceeds(address user, uint256 amount) external onlyOutcomeToken {
         require(amount > 0, "TraderVault: zero amount");
         
-        // Pull Funds from Governor? 
+        // Pull Funds from liquidity vault? 
         // NO. Orderbook liquidity is held in TraderVault (float).
-        // Only AMM liquidity is in Governor.
+        // Only AMM liquidity is in liquidity vault.
         // If OutcomeToken is strictly Orderbook, we simply release the Float.
         
         // Amount is WAD. Price is 1.0 (WAD). Value is Amount.
         // Convert WAD Amount to Asset Decimals
         uint256 proceeds = amount / scalar;
         
-        // governorVault.sendFunds(marketId, address(this), proceeds); <--- REMOVED
+        // liquidityVault.sendFunds(marketId, address(this), proceeds); <--- REMOVED
         
         // Credit User (unless it's the Vault itself)
         if (user != address(this)) {
@@ -735,7 +761,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, Ownable, ERC1155Holder {
         // Just scale from WAD to asset decimals.
         uint256 payout = shares / scalar;
         
-        governorVault.sendFunds(mkt.marketId(), address(this), payout);
+        liquidityVault.sendFunds(mkt.marketId(), address(this), payout);
         accounts[msg.sender].available += payout;
         
         emit SharesRedeemed(msg.sender, market, winningOutcome, shares);

@@ -15,7 +15,7 @@ export const ActivityListener: React.FC = () => {
   const chainId = useChainId();
 
   // LP vault
-  const vaultAddress = deployments.SoothGovernorVault as `0x${string}`;
+  const vaultAddress = deployments.SoothLiquidityVault as `0x${string}`;
   // Trader Vault
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 

@@ -63,4 +63,7 @@ interface ILaunchpadFactory {
 
     /// @notice Returns all created markets
     function getAllMarkets() external view returns (address[] memory);
+    
+    /// @notice V6: Returns ProtocolConfig address (for immutable Factory)
+    function protocolConfig() external view returns (address);
 }

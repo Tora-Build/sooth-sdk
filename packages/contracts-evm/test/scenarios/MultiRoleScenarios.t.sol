@@ -3,24 +3,30 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/core/SoothTraderVaultV4.sol";
-import "../../contracts/core/SoothMarketV4.sol";
+import "../../contracts/launchpad/LaunchpadFactory.sol";
+import "../../contracts/launchpad/LaunchpadMarket.sol";
 import "../../contracts/core/OutcomeToken.sol";
-import "../../contracts/core/SoothGovernorVault.sol";
+import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
+import "../../contracts/core/ProtocolConfig.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 import "../actors/TraderActor.sol";
 import "../actors/LPActor.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Multi-Role Scenario Tests
 /// @notice Tests concurrent interactions between Traders, LPs, and Markets
 contract MultiRoleScenariosTest is Test {
     // Contracts
     MockUSDC usdc;
-    SoothGovernorVault governorVault;
+    SoothLiquidityVault liquidityVault;
     SoothTraderVaultV4 traderVault;
-    SoothMarketV4 market;
-    OutcomeToken outcomeToken;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
     
     // Actors
     TraderActor[] traders;
@@ -28,11 +34,11 @@ contract MultiRoleScenariosTest is Test {
     
     // Constants
     address owner = makeAddr("owner");
+    address creator = makeAddr("creator");
     uint256 constant NUM_TRADERS = 5;
     uint256 constant NUM_LPS = 3;
     uint256 constant INITIAL_LP_CAPITAL = 50_000e18;
     uint256 constant INITIAL_TRADER_BALANCE = 10_000e18;
-    uint256 constant B_PARAM = 10_000e18;
     
     function setUp() public {
         vm.startPrank(owner);
@@ -42,28 +48,47 @@ contract MultiRoleScenariosTest is Test {
         feeController = new SoothFeeController(owner);
         feeController.setOrderbookFee(10);
         
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothGovernorVault(address(governorVault)));
-        outcomeToken = new OutcomeToken();
-        market = new SoothMarketV4();
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(owner, 0);
         
-        outcomeToken.initialize(address(market), address(traderVault));
-        market.initialize(
-            1, address(governorVault), address(traderVault), address(feeController),
-            address(outcomeToken), bytes32(0), B_PARAM, owner, 0, 0
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
+            address(traderVault),
+            address(feeController),
+            address(outcomeTokenImpl),
+            creator,
+            creator,
+            address(protocolConfig)
         );
+        
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Multi Role Test",
+            "MULTI",
+            "Test market for multi-role scenarios",
+            0,
+            false,
+            30 days
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
         
         // Configure permissions
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(outcomeToken), true);
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(address(market), true);
-        governorVault.setAuthorized(address(outcomeToken), true);
-        governorVault.setAuthorized(owner, true);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+        liquidityVault.setAuthorized(address(traderVault), true);
+        liquidityVault.setAuthorized(owner, true);
         
-        // Initial LP capital via receiveFunds
-        usdc.mint(address(governorVault), INITIAL_LP_CAPITAL);
-        governorVault.receiveFunds(1, INITIAL_LP_CAPITAL);
+        // Initial LP capital via receiveFunds (for global vault operations)
+        usdc.mint(address(liquidityVault), INITIAL_LP_CAPITAL);
+        liquidityVault.receiveFunds(1, INITIAL_LP_CAPITAL);
         
         vm.stopPrank();
         
@@ -76,12 +101,12 @@ contract MultiRoleScenariosTest is Test {
         
         // Create LP actors
         for (uint256 i = 0; i < NUM_LPS; i++) {
-            LPActor lp = new LPActor(governorVault, usdc);
+            LPActor lp = new LPActor(liquidityVault, usdc);
             lpActors.push(lp);
             usdc.mint(address(lp), INITIAL_LP_CAPITAL);
             // Authorize LP to deposit
             vm.prank(owner);
-            governorVault.setAuthorized(address(lp), true);
+            liquidityVault.setAuthorized(address(lp), true);
         }
     }
     
@@ -105,8 +130,8 @@ contract MultiRoleScenariosTest is Test {
         
         // Verify governor solvency maintained
         assertGe(
-            governorVault.totalAssets(),
-            governorVault.totalLockedExposure(),
+            liquidityVault.totalAssets(),
+            liquidityVault.totalLockedExposure(),
             "Governor must remain solvent"
         );
     }
@@ -117,7 +142,7 @@ contract MultiRoleScenariosTest is Test {
         uint256 shares = lpActors[0].deposit(20_000e18);
         assertGt(shares, 0, "LP should receive shares");
         
-        uint256 governorAssetsBefore = governorVault.totalAssets();
+        uint256 governorAssetsBefore = liquidityVault.totalAssets();
         
         // Traders start trading
         for (uint256 i = 0; i < 3; i++) {
@@ -126,7 +151,7 @@ contract MultiRoleScenariosTest is Test {
         }
         
         // Verify trading increased governor assets (fees)
-        assertGt(governorVault.totalAssets(), governorAssetsBefore, "Governor assets should increase from trading");
+        assertGt(liquidityVault.totalAssets(), governorAssetsBefore, "Governor assets should increase from trading");
         
         // LP attempts partial withdrawal
         uint256 lpBalanceBefore = usdc.balanceOf(address(lpActors[0]));
@@ -138,8 +163,8 @@ contract MultiRoleScenariosTest is Test {
         
         // Verify solvency maintained regardless
         assertGe(
-            governorVault.totalAssets(),
-            governorVault.totalLockedExposure(),
+            liquidityVault.totalAssets(),
+            liquidityVault.totalLockedExposure(),
             "Must remain solvent after LP withdrawal attempt"
         );
     }
@@ -175,8 +200,8 @@ contract MultiRoleScenariosTest is Test {
         
         // Verify invariants
         assertGe(
-            governorVault.totalAssets(),
-            governorVault.totalLockedExposure(),
+            liquidityVault.totalAssets(),
+            liquidityVault.totalLockedExposure(),
             "Solvency invariant"
         );
         
@@ -192,7 +217,7 @@ contract MultiRoleScenariosTest is Test {
         uint256 lpShares = lpActors[0].deposit(30_000e18);
         assertGt(lpShares, 0, "LP should have shares");
         
-        uint256 governorAssetsBefore = governorVault.totalAssets();
+        uint256 governorAssetsBefore = liquidityVault.totalAssets();
         
         // Traders trade (consume liquidity)
         for (uint256 i = 0; i < 3; i++) {
@@ -201,7 +226,7 @@ contract MultiRoleScenariosTest is Test {
         }
         
         // Verify liquidity was used (governor received funds)
-        assertGt(governorVault.totalAssets(), governorAssetsBefore, "Governor should receive trade funds");
+        assertGt(liquidityVault.totalAssets(), governorAssetsBefore, "Governor should receive trade funds");
         
         // Verify LP shares still valid
         assertGt(lpActors[0].getShares(), 0, "LP should still have shares");
@@ -234,8 +259,8 @@ contract MultiRoleScenariosTest is Test {
         
         // Verify solvency
         assertGe(
-            governorVault.totalAssets(),
-            governorVault.totalLockedExposure(),
+            liquidityVault.totalAssets(),
+            liquidityVault.totalLockedExposure(),
             "Solvency after mixed trading"
         );
     }
@@ -266,8 +291,8 @@ contract MultiRoleScenariosTest is Test {
         
         // Verify invariants still hold
         assertGe(
-            governorVault.totalAssets(),
-            governorVault.totalLockedExposure(),
+            liquidityVault.totalAssets(),
+            liquidityVault.totalLockedExposure(),
             "Solvency after stress test"
         );
         

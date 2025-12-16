@@ -3,9 +3,9 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {ISoothGovernorVault} from "../../core/SoothInterfaces.sol";
+import {ISoothLiquidityVault} from "../../core/ISoothLiquidityVault.sol";
 
-interface IMarketLPVault is IERC20, ISoothGovernorVault {
+interface IMarketLPVault is IERC20, ISoothLiquidityVault {
     // =========================================================================
     // Events
     // =========================================================================

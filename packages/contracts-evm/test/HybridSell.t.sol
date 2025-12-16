@@ -3,46 +3,71 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/interfaces/IOutcomeToken.sol";
+import "../contracts/interfaces/ISoothMarketV4.sol";
 import "../contracts/mocks/MockUSDC.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract HybridSellTest is Test {
     MockUSDC usdc;
     SoothTraderVaultV4 traderVault;
-    SoothMarketV4 market;
-    OutcomeToken outcomeToken;
-    SoothGovernorVault governorVault;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
+    SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
     
+    address creator = address(0x50);
     address user1 = address(0x100);
     address user2 = address(0x200);
 
     function setUp() public {
         usdc = new MockUSDC();
         feeController = new SoothFeeController(address(this));
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(address(this), 0);
         
-        traderVault = new SoothTraderVaultV4(
-            IERC20(address(usdc)), 
-            ISoothGovernorVault(address(governorVault))
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
+            address(traderVault),
+            address(feeController),
+            address(outcomeTokenImpl),
+            creator,
+            creator,
+            address(protocolConfig)
         );
         
-        outcomeToken = new OutcomeToken();
-        market = new SoothMarketV4();
-        
-        outcomeToken.initialize(address(market), address(traderVault));
-        market.initialize(
-            1, address(governorVault), address(traderVault), address(feeController),
-            address(outcomeToken), bytes32(0), 10_000e18, address(this), 0, 0
+        // Create Launchpad market
+        usdc.mint(creator, 1000 * 1e18);
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Hybrid Sell Test",
+            "HYBRID",
+            "Test market for hybrid sell",
+            0,
+            false,
+            30 days
         );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
         
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(outcomeToken), true);
-        governorVault.setAuthorized(address(market), true);
-        governorVault.setAuthorized(address(traderVault), true);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+        liquidityVault.setAuthorized(address(traderVault), true);
 
         // Fund Users
         usdc.mint(user1, 1000e18);
@@ -77,7 +102,8 @@ contract HybridSellTest is Test {
         // Expected: 10 Spot Sell (closes position), 5 Short Sell (opens short)
         
         vm.startPrank(user1);
-        outcomeToken.setApprovalForAll(address(traderVault), true); // Approve Vault for Spot
+        IOutcomeToken outcomeToken = market.outcomeToken();
+        outcomeToken.setApprovalForAll(address(traderVault), true);
         
         traderVault.executeHybridSell(address(market), 0, 0.5e18, 15);
         vm.stopPrank();
@@ -119,6 +145,7 @@ contract HybridSellTest is Test {
         
         // Sell 5 (Pure Spot)
         vm.startPrank(user1);
+        IOutcomeToken outcomeToken = market.outcomeToken();
         outcomeToken.setApprovalForAll(address(traderVault), true);
         traderVault.executeHybridSell(address(market), 0, 0.5e18, 5);
         vm.stopPrank();
@@ -137,6 +164,7 @@ contract HybridSellTest is Test {
         
         // Sell 10 (Pure Short)
         vm.startPrank(user1);
+        IOutcomeToken outcomeToken = market.outcomeToken();
         outcomeToken.setApprovalForAll(address(traderVault), true);
         traderVault.executeHybridSell(address(market), 0, 0.5e18, 10);
         vm.stopPrank();

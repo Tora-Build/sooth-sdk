@@ -2,10 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/OutcomeToken.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
+import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/ISoothLiquidityVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract RedeployMarket2 is Script {
     // Correct Addresses from deployments.json
@@ -22,41 +27,51 @@ contract RedeployMarket2 is Script {
         console.log("=== Redeploying Market 2 (BTC) ===");
         console.log("  TraderVault:", TRADER_VAULT);
 
-        SoothGovernorVault governorVault = SoothGovernorVault(GOVERNOR_VAULT);
+        SoothLiquidityVault liquidityVault = SoothLiquidityVault(GOVERNOR_VAULT);
         SoothTraderVaultV4 traderVault = SoothTraderVaultV4(TRADER_VAULT);
+        SoothFeeController feeController = SoothFeeController(FEE_CONTROLLER);
+        IERC20 usdc = IERC20(0x2D2Aed066C34523913ab7084B668bFf3529cB176); // Existing USDC
 
-        // ===== MARKET 2: BTC > $100k =====
+        // Deploy Launchpad Factory
+        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadMarket marketImpl = new LaunchpadMarket();
+        ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
         
-        OutcomeToken outcomeToken2 = new OutcomeToken();
-        SoothMarketV4 market2 = new SoothMarketV4();
-        
-        // Init Token with NEW Market and EXISTING Vault
-        outcomeToken2.initialize(address(market2), TRADER_VAULT);
-        
-        // Init Market with EXISTING Vault
-        market2.initialize(
-            2,                          // marketId
-            GOVERNOR_VAULT,
+        LaunchpadFactory factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             TRADER_VAULT,
             FEE_CONTROLLER,
-            address(outcomeToken2),
-            bytes32(0),                 // adjudicatorId
-            15_000 * 1e18,              // bBase = 15k
-            deployer,                   // governor
-            0,                          // initialQYes
-            0                           // initialQNo
+            address(outcomeTokenImpl),
+            deployer, // treasury
+            deployer, // adjudicator
+            address(protocolConfig)
         );
+        console.log("LaunchpadFactory:", address(factory));
+
+        // Fund deployer for market creation
+        usdc.approve(address(factory), type(uint256).max);
+
+        // ===== MARKET 2: BTC 7-day TWAP >= $100k =====
+        
+        (address market2Addr, ) = factory.createMarket(
+            "BTC 7-day TWAP >= $100k",
+            "BTC100K",
+            "Will BTC 7-day TWAP reach $100k?",
+            2, // tier 2
+            false,
+            90 days
+        );
+        LaunchpadMarket market2 = LaunchpadMarket(market2Addr);
         
         // Whitelist New Market in Vault
         traderVault.setMarket(address(market2), true);
-        
-        // Authorize New Market in Governor
-        governorVault.setAuthorized(address(market2), true);
+        traderVault.setOutcomeToken(address(market2.outcomeToken()), true);
         
         console.log("");
-        console.log("NEW Market 2: BTC > $100k");
+        console.log("NEW Market 2: BTC 7-day TWAP >= $100k");
         console.log("  Market:", address(market2));
-        console.log("  OutcomeToken:", address(outcomeToken2));
+        console.log("  OutcomeToken:", address(market2.outcomeToken()));
 
         vm.stopBroadcast();
     }

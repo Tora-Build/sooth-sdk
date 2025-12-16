@@ -4,6 +4,22 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Launchpad-Only Architecture Migration** (2025-12-16):
+  - **BREAKING**: Removed "standard market" concept — all markets must be created via `LaunchpadFactory`
+  - Renamed `SoothMarketV4` → `SoothMarketBase` (base contract that LaunchpadMarket inherits from, NOT a market type)
+  - Renamed `governor` → `marketOperator` in `SoothMarketBase` (generic operator role for flexibility)
+  - **Clarification**: In Launchpad markets, `marketOperator == creator` (same address, set during initialization)
+  - Renamed `ISoothGovernorVault` → `ISoothLiquidityVault` (clarifies purpose)
+  - Renamed `SoothGovernorVault` → `SoothLiquidityVault` (global vault for TraderVault's locked proceeds)
+  - Renamed abstract `Ownable` → `SoothOwnable` in `SoothInterfaces.sol` (resolved conflict with OpenZeppelin)
+  - Created separate `ISoothLiquidityVault.sol` interface file to avoid Ownable import conflicts
+  - Updated 11 test files to use `LaunchpadFactory` instead of direct `SoothMarketBase` instantiation
+  - Updated 10 deployment scripts to use `LaunchpadFactory` for market creation
+  - Clarified `SoothLiquidityVault` role: Only for TraderVault's global locked proceeds tracking, NOT for market liquidity
+  - Each Launchpad market is its own vault (implements `ISoothLiquidityVault` directly)
+  - Updated all documentation to remove standard market references
+
 ### Added
 - **V5 Frontend Trading** (2025-12-15 Session 6):
   - `MarketCard.tsx` — Full inline AMM trading on Markets page

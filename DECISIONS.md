@@ -188,3 +188,71 @@
   - Creates "graduation race" gamification (viral loop mechanic).
   - Requires new contracts: `LaunchpadFactory`, `LaunchpadMarket`, `MarketLPVault`.
   - See `LAUNCHPAD_MODEL_RESEARCH.md` and `LAUNCHPAD_ECONOMICS_V2.md` for full analysis.
+
+## ADR-016: Launchpad-Only Architecture
+
+- **Date**: 2025-12-16
+- **Context**: Previously, Sooth supported two market types: "standard markets" (direct `SoothMarketBase` instantiation with global `SoothLiquidityVault`) and "Launchpad markets" (created via `LaunchpadFactory` with per-market vaults). This dual model created confusion, complexity, and maintenance burden.
+- **Decision**: Remove standard markets entirely. All markets must be Launchpad markets created through `LaunchpadFactory`.
+  - **Critical Clarification**: `SoothMarketBase` is NOT a market type — it's the base contract that `LaunchpadMarket` inherits from. It provides core AMM and orderbook functionality. There are no "standard markets" anymore — only Launchpad markets exist.
+  - **Naming Clarifications**:
+    - `SoothMarketV4` → `SoothMarketBase` (base contract that LaunchpadMarket inherits from, NOT a market type)
+    - `governor` → `marketOperator` in base contract (generic operator role for flexibility)
+    - `governor` → `creator` in Launchpad context (Launchpad-specific ownership)
+    - **Important**: In Launchpad markets, `marketOperator == creator` (same address, set during initialization via Factory)
+    - `ISoothGovernorVault` → `ISoothLiquidityVault` (clarifies purpose)
+    - `SoothGovernorVault` → `SoothLiquidityVault` (global vault for locked proceeds)
+  - **Architecture**:
+    - `SoothLiquidityVault` is now ONLY for TraderVault's global locked proceeds tracking
+    - Each Launchpad market implements `ISoothLiquidityVault` directly (is its own vault)
+    - No separate `MarketLPVault` needed — market manages its own assets
+- **Consequences**:
+  - **Breaking Change**: All test files and deployment scripts must use `LaunchpadFactory`
+  - **Simplification**: Single market creation path reduces complexity
+  - **Clarity**: Clear separation between global vault (locked proceeds) and market vaults (liquidity)
+  - **Migration**: 11 test files and 10 deployment scripts converted
+  - **Ownable Conflict**: Resolved by renaming abstract `Ownable` → `SoothOwnable` and creating separate interface file
+  - See `packages/contracts-evm/docs/MIGRATION_TO_LAUNCHPAD_ONLY.md` for migration guide
+
+## ADR-015: V6 Pre-Graduation Locking
+- **Date**: 2025-12-14
+- **Status**: Accepted (Implementation Pending)
+- **Context**: V5 Launchpad allowed immediate withdrawal of sell proceeds during pre-graduation phase. This created a risk where traders could extract value before markets reached graduation threshold, potentially leaving creators with insufficient liquidity for settlement. Additionally, the 3-contract architecture (Factory, Market, LPVault) added complexity and gas costs.
+- **Decision**: Implement **V6 Pre-Graduation Locking** with the following changes:
+  - **Pre-Graduation Locking**: All sell proceeds are locked (cannot be directly withdrawn) during pre-graduation phase
+  - **Reinvestment Allowed**: Locked proceeds can be used to buy shares via `useLockedProceeds()` function
+  - **Withdrawal Blocked**: `withdraw()` in TraderVault blocks withdrawals if user has any locked proceeds globally
+  - **2-Contract Architecture**: Merge `MarketLPVault` functionality into `LaunchpadMarket`:
+    - Market implements `ISoothGovernorVault` itself (no separate LPVault contract)
+    - Market inherits `ERC20` for LP tokens
+    - Market holds USDC directly (`_asset.balanceOf(address(this))`)
+    - `market.governorVault()` returns `address(this)`
+  - **Immutable Factory**: `LaunchpadFactory` becomes immutable (no `Ownable`, no mutable state)
+    - All mutable protocol config moved to separate `ProtocolConfig` contract
+    - Factory constructor takes `protocolConfig` address as immutable parameter
+  - **ProtocolConfig Contract**: New `Ownable` contract for protocol-wide mutable parameters:
+    - `liquidationFeeBps` (set by Protocol Owner)
+    - `guardian` address (set by Protocol Owner, per-market guardian assignment)
+  - **Guardian Role**: Per-market operator (set by Protocol Owner) with powers:
+    - `liquidate()` - Trigger liquidation for failed-to-graduate markets
+    - `forceGraduate()` - Push stuck markets to graduated state
+  - **Liquidation**: Failed-to-graduate markets can be liquidated:
+    - Protocol takes `liquidationFeeBps` as fee
+    - Remaining funds refunded to users via `claimLiquidationRefund()`
+  - **Lock Queue**: FIFO queue for locked proceeds (24h unlock time per entry)
+    - `lockedProceeds(user)` returns total locked amount
+    - `useLockedProceeds(user, amount)` reduces locks and transfers funds to Market
+    - `claimUnlocked()` available after 24h per entry
+- **Consequences**:
+  - **Liquidity Protection**: Prevents value extraction before graduation, protecting creator incentives
+  - **Capital Efficiency**: Locked proceeds can still be reinvested, maintaining trading flow
+  - **Gas Savings**: 2-contract architecture reduces deployment and interaction costs
+  - **Decentralization**: Immutable Factory enhances security and trustlessness
+  - **Role Clarity**: Guardian role provides safety net for stuck markets
+  - **Breaking Changes**: 
+    - `LaunchpadFactory.createMarket()` signature changes (adjudicator parameter, no lpVault return)
+    - `LaunchpadMarket` now implements `ISoothGovernorVault` and `ERC20`
+    - `TraderVault.tradeAMM()` always locks proceeds (both pre and post-graduation)
+    - `TraderVault.withdraw()` blocks if `globalGovernor.lockedBalance(user) > 0`
+  - **Migration**: Existing V5 markets continue to work (backward compatible), but new markets use V6 architecture
+  - See test files: `LaunchpadV6.t.sol`, `LaunchpadInvariants.t.sol`, `QA_REPORT_V6.md`

@@ -60,7 +60,7 @@ export const ProtocolAddresses: React.FC = () => {
   const addresses = [
 
     { label: 'Trader Vault', address: deployments.SoothTraderVault },
-    { label: 'Governor Vault', address: deployments.SoothGovernorVault },
+    { label: 'Liquidity Vault', address: deployments.SoothLiquidityVault },
     { label: 'Fee Controller', address: deployments.SoothFeeController },
     { label: 'AMM', address: deployments.SoothLMSRReal },
     { label: 'USDC', address: deployments.MockUSDC, canMint: true },

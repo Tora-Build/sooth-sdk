@@ -3,12 +3,15 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadFactory.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/OutcomeToken.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
-import "../contracts/core/SoothInterfaces.sol";
+import "../contracts/interfaces/IOutcomeToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Mock ERC20 for testing
 contract MockUSDC is IERC20 {
@@ -58,19 +61,23 @@ contract MockUSDC is IERC20 {
 
     /// @title V4 Integration Tests
     /// @notice Tests for Lock-on-Sell architecture with dual-venue trading
+    /// @dev All markets are Launchpad markets (created via LaunchpadFactory)
 contract V4IntegrationTest is Test {
     // Contracts
     MockUSDC usdc;
-    SoothGovernorVault governorVault;
+    SoothLiquidityVault liquidityVault; // For TraderVault only
     SoothTraderVaultV4 traderVault;
-    SoothMarketV4 market;
-    OutcomeToken outcomeToken;
+    LaunchpadFactory factory;
+    LaunchpadMarket market;
+    LaunchpadMarket marketImpl;
+    OutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
+    ProtocolConfig protocolConfig;
     // Test accounts
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
     address owner = makeAddr("owner");
-    address governor = makeAddr("governor");
+    address creator = makeAddr("creator");
 
     // Constants
     uint256 constant INITIAL_BALANCE = 10_000e18;
@@ -85,45 +92,49 @@ contract V4IntegrationTest is Test {
         feeController = new SoothFeeController(owner);
         feeController.setOrderbookFee(10); // 0.1%
 
-        // Deploy GovernorVault
-        governorVault = new SoothGovernorVault(IERC20(address(usdc)));
+        // Deploy LiquidityVault (for TraderVault's global locked proceeds tracking)
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
 
         // Deploy TraderVault V4
-        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothGovernorVault(address(governorVault)));
+        traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
 
-        // Deploy OutcomeToken
-        outcomeToken = new OutcomeToken();
+        // Deploy Launchpad components
+        outcomeTokenImpl = new OutcomeToken();
+        marketImpl = new LaunchpadMarket();
+        protocolConfig = new ProtocolConfig(owner, 0); // 0% liquidation fee for tests
 
-        // Deploy Market V4
-        market = new SoothMarketV4();
-
-        // Initialize OutcomeToken
-        outcomeToken.initialize(address(market), address(traderVault));
-
-        // Initialize Market with continuous LMSR (qYes/qNo)
-        market.initialize(
-            1, // marketId
-            address(governorVault),
+        // Deploy LaunchpadFactory
+        factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
             address(traderVault),
             address(feeController),
-            address(outcomeToken),
-            bytes32(0), // adjudicatorId
-            B_PARAM,
-            governor,
-            0, // initialQYes (0 for 50%)
-            0  // initialQNo (0 for 50%)
+            address(outcomeTokenImpl),
+            creator, // treasury
+            creator, // adjudicator
+            address(protocolConfig)
         );
 
-        // Configure permissions - authorize before calling receiveFunds
-        traderVault.setMarket(address(market), true);
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(address(market), true);
-        governorVault.setAuthorized(owner, true); // Authorize owner for setup
+        // Create a Launchpad market
+        // Tier 0: $100 deposit, b ~ 144.27e18
+        usdc.mint(creator, 1000 * 1e18); // Fund creator
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket(
+            "Test Market",
+            "TEST",
+            "Test market for integration tests",
+            0, // tier 0
+            false, // fixed deadline
+            30 days // duration
+        );
+        market = LaunchpadMarket(marketAddr);
+        vm.stopPrank();
 
-        // Fund governor vault - mint directly and use receiveFunds properly
-        usdc.mint(address(governorVault), 100_000e18);
-        // Call receiveFunds with amount to properly track totalAssets
-        governorVault.receiveFunds(1, 100_000e18);
+        // Configure permissions
+        traderVault.setMarket(address(market), true);
+        liquidityVault.setAuthorized(address(traderVault), true);
+        liquidityVault.setAuthorized(owner, true);
 
         vm.stopPrank();
 
@@ -158,7 +169,8 @@ contract V4IntegrationTest is Test {
 
         assertEq(availableAfterSell, availableBeforeSell, "Available should not increase while locked");
         assertGt(locked, 0, "Proceeds should be locked");
-        assertEq(traderBalanceAfterSell, traderBalanceBeforeSell, "Funds should remain in Governor until claimed");
+        // In Launchpad, market is its own vault, so funds stay in market
+        assertGt(usdc.balanceOf(address(market)), 0, "Funds should be in market vault");
 
         vm.stopPrank();
     }
@@ -174,7 +186,7 @@ contract V4IntegrationTest is Test {
 
         uint256 lockedBefore = traderVault.lockedBalance(alice);
         uint256 traderBalanceBeforeClaim = usdc.balanceOf(address(traderVault));
-        uint256 governorAssetsBefore = governorVault.totalAssets();
+        uint256 marketAssetsBefore = market.totalAssets();
 
         // Wait for unlock and claim
         vm.warp(block.timestamp + LOCK_DURATION + 1);
@@ -188,8 +200,8 @@ contract V4IntegrationTest is Test {
         assertLt(lockedAfter, lockedBefore, "Locked balance should decrease after claim");
         assertGt(availableAfter, 0, "Available should increase after claim");
         assertEq(traderBalanceAfterClaim, traderBalanceBeforeClaim + claimed, "Claim should transfer funds to TraderVault");
-        // Funds leave Governor when claimed, so totalAssets decreases
-        assertEq(governorVault.totalAssets(), governorAssetsBefore - claimed, "Governor totalAssets should decrease by claimed amount");
+        // Funds leave market vault when claimed, so totalAssets decreases
+        assertEq(market.totalAssets(), marketAssetsBefore - claimed, "Market totalAssets should decrease by claimed amount");
 
         vm.stopPrank();
     }
@@ -222,6 +234,7 @@ contract V4IntegrationTest is Test {
 
     function testOutcomeToken_Mint() public {
         // Only market can mint
+        IOutcomeToken outcomeToken = market.outcomeToken();
         vm.prank(address(market));
         outcomeToken.mint(alice, 0, 100);
         
@@ -230,16 +243,16 @@ contract V4IntegrationTest is Test {
 
     function testOutcomeToken_Merge() public {
         // Setup: Give alice both YES and NO tokens
+        IOutcomeToken outcomeToken = market.outcomeToken();
         vm.startPrank(address(market));
         outcomeToken.mint(alice, 0, 100); // YES
         outcomeToken.mint(alice, 1, 100); // NO
         vm.stopPrank();
         
-        // Fund governor for merge payout
-        vm.startPrank(owner);
-        governorVault.setAuthorized(address(outcomeToken), true);
+        // Market is its own vault, so merge proceeds go to market
         // OutcomeToken calls traderVault.creditMergeProceeds, so register it
-        traderVault.setOutcomeToken(address(outcomeToken), true);
+        vm.startPrank(owner);
+        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
         vm.stopPrank();
         
         // Record balance before
@@ -318,6 +331,7 @@ contract V4IntegrationTest is Test {
         
         // Check OutcomeToken balances (tokens should be minted on match)
         // Note: Exact matching behavior depends on orderbook implementation
+        IOutcomeToken outcomeToken = market.outcomeToken();
         uint256 aliceYes = outcomeToken.yesBalance(alice);
         uint256 bobNo = outcomeToken.noBalance(bob);
         

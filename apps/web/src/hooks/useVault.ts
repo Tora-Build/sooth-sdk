@@ -16,8 +16,8 @@ export function useVault() {
   const publicClient = usePublicClient();
   const { config } = useDeployments();
   const deployments = config.contracts;
-  // LP vault - use SoothGovernorVault in v2, fallback to SoothVault for v1
-  const vaultAddress = (deployments.SoothGovernorVault || deployments.SoothVault) as `0x${string}`;
+  // LP vault - use SoothLiquidityVault (renamed from SoothGovernorVault), fallback to SoothVault for v1
+  const vaultAddress = (deployments.SoothLiquidityVault || deployments.SoothVault) as `0x${string}`;
   const tokenAddress = deployments.MockUSDC as `0x${string}`;
 
   // Read Data

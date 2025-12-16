@@ -3,9 +3,9 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/core/SoothMarketBase.sol";
 import "../contracts/core/OutcomeToken.sol";
-import "../contracts/core/SoothGovernorVault.sol";
+import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/SoothInterfaces.sol";
 
@@ -61,31 +61,31 @@ contract DeployV4Infra is Script {
         console.log("FeeController:", address(feeController));
 
         // 3. GovernorVault
-        SoothGovernorVault governorVault = new SoothGovernorVault(IERC20(address(usdc)));
-        console.log("GovernorVault:", address(governorVault));
+        SoothLiquidityVault liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        console.log("GovernorVault:", address(liquidityVault));
 
         // 4. TraderVaultV4
         SoothTraderVaultV4 traderVault = new SoothTraderVaultV4(
             IERC20(address(usdc)), 
-            ISoothGovernorVault(address(governorVault))
+            ISoothLiquidityVault(address(liquidityVault))
         );
         console.log("TraderVaultV4:", address(traderVault));
 
         // 5. Setup permissions
-        governorVault.setAuthorized(address(traderVault), true);
-        governorVault.setAuthorized(deployer, true);
+        liquidityVault.setAuthorized(address(traderVault), true);
+        liquidityVault.setAuthorized(deployer, true);
 
         // 6. Fund vault
-        usdc.approve(address(governorVault), 500_000 * 1e18);
-        usdc.transfer(address(governorVault), 500_000 * 1e18);
-        governorVault.receiveFunds(0, 500_000 * 1e18);
+        usdc.approve(address(liquidityVault), 500_000 * 1e18);
+        usdc.transfer(address(liquidityVault), 500_000 * 1e18);
+        liquidityVault.receiveFunds(0, 500_000 * 1e18);
 
         vm.stopBroadcast();
 
         console.log("");
         console.log("Phase 1 Complete! Save these addresses:");
         console.log("  USDC:", address(usdc));
-        console.log("  GovernorVault:", address(governorVault));
+        console.log("  GovernorVault:", address(liquidityVault));
         console.log("  TraderVaultV4:", address(traderVault));
         console.log("  FeeController:", address(feeController));
     }

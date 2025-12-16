@@ -20,9 +20,10 @@ interface CreateMarketDrawerProps {
 
 // Mock adjudicator options
 const ADJUDICATORS = [
-    { id: 'manual', label: 'Manual Resolution', description: 'Market creator resolves', icon: '👤' },
-    { id: 'chainlink', label: 'Chainlink Oracle', description: 'Price feed based', icon: '🔗', disabled: true },
-    { id: 'uma', label: 'UMA Optimistic', description: 'Community verified', icon: '⚖️', disabled: true },
+    { id: 'manual', label: 'Attestation (Manual)', description: 'Creator/Guardian resolves', icon: '👤' },
+    { id: 'brevis_zk', label: 'Brevis ZK-Oracle', description: 'Trustless ZK-proof resolution', icon: '⚡', disabled: true },
+    { id: 'zk_rule', label: 'ZK Rule (Pure On-Chain)', description: 'Math/Storage proof logic', icon: '🧮', disabled: true },
+    { id: 'uma', label: 'UMA / Optimistic', description: 'Community verified', icon: '⚖️', disabled: true },
 ];
 
 export const CreateMarketDrawer: React.FC<CreateMarketDrawerProps> = ({ isOpen, onClose }) => {

@@ -7,7 +7,7 @@ import {LaunchpadMarket} from "../contracts/launchpad/LaunchpadMarket.sol";
 import {LaunchpadOutcomeToken} from "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
-import {SoothGovernorVault} from "../contracts/core/SoothGovernorVault.sol";
+import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployV5Upgrade is Script {
@@ -26,7 +26,7 @@ contract DeployV5Upgrade is Script {
         // 1. Deploy NEW TraderVault V4 (Implementation)
         SoothTraderVaultV4 traderVault = new SoothTraderVaultV4(
             IERC20(usdc),
-            SoothGovernorVault(globalGovernor)
+            SoothLiquidityVault(globalGovernor)
         );
         console.log("New TraderVault:", address(traderVault));
 

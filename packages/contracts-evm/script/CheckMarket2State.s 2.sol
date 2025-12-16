@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
-import "../contracts/core/SoothMarketV4.sol";
+import "../contracts/launchpad/LaunchpadMarket.sol";
+import "../contracts/interfaces/ISoothMarketV4.sol";
 
 contract CheckMarket2State is Script {
     function run() external view {
@@ -11,7 +12,7 @@ contract CheckMarket2State is Script {
         address vaultAddress = 0xAd461C1c55bf552756Ad29Ac96f341A1fC007176;
         address user = 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F;
 
-        SoothMarketV4 market = SoothMarketV4(marketAddress);
+        LaunchpadMarket market = LaunchpadMarket(marketAddress);
         SoothTraderVaultV4 vault = SoothTraderVaultV4(vaultAddress);
         
         uint256 nextId = market.nextOrderId();
@@ -20,7 +21,7 @@ contract CheckMarket2State is Script {
         
         if (nextId > 1) {
             uint256 lastId = nextId - 1;
-            SoothMarketV4.OrderV4 memory o = market.orders(lastId);
+            ISoothMarketV4.OrderV4 memory o = market.orders(lastId);
             console.log("Last Order ID:", lastId);
             console.log("  Maker:", o.maker);
             console.log("  Amount:", o.amount);

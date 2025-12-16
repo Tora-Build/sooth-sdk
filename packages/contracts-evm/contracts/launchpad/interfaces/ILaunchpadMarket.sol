@@ -26,7 +26,8 @@ interface ILaunchpadMarket is ISoothMarketV4 {
         uint8 _liquidityTierIndex,
         uint40 _deadline,
         address _lpVault,
-        uint256 _creatorDeposit
+        uint256 _creatorDeposit,
+        address _assetAddress
     ) external;
 
     /// @notice The market creator's address
@@ -56,4 +57,13 @@ interface ILaunchpadMarket is ISoothMarketV4 {
 
     /// @notice Claim refund for creator if market expired.
     function claimCreatorRefund() external;
+    
+    /// @notice V6: Use locked proceeds for buying
+    function useLockedProceeds(address user, uint256 amount) external;
+    
+    /// @notice V6: Get locked proceeds for a user
+    function lockedProceeds(address user) external view returns (uint256);
+    
+    /// @notice V6: Total locked proceeds
+    function totalLockedProceeds() external view returns (uint256);
 }

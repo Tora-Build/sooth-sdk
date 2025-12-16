@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+import "forge-std/Test.sol";
+import "../../contracts/launchpad/LaunchpadMarket.sol";
+import "../../contracts/launchpad/LaunchpadFactory.sol";
+import "../../contracts/core/SoothTraderVaultV4.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+/// @title LaunchpadInvariants
+/// @notice Invariant tests for Launchpad V6 - properties that must ALWAYS hold
+/// @dev Uses Foundry's invariant testing framework
+contract LaunchpadInvariants is Test {
+    // These invariants are designed for fuzz testing
+    // Run with: forge test --match-contract LaunchpadInvariants --fuzz-runs 10000
+
+    /// @notice INVARIANT: totalAssets >= totalLockedProceeds (Solvency)
+    /// @dev Market must always have enough assets to cover all locked proceeds
+    function invariant_solvency(address market) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        assertGe(
+            mkt.totalAssets(),
+            mkt.totalLockedProceeds(),
+            "INVARIANT VIOLATION: Assets must cover locked proceeds"
+        );
+    }
+
+    /// @notice INVARIANT: bBase never decreases
+    /// @dev Liquidity depth can only increase (from fees) or stay constant
+    function invariant_bBaseNeverDecreases(address market, uint256 previousB) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        assertGe(
+            mkt.bBase(),
+            previousB,
+            "INVARIANT VIOLATION: bBase must never decrease"
+        );
+    }
+
+    /// @notice INVARIANT: LP token supply consistency
+    /// @dev totalSupply should match sum of all balances (requires iteration helper)
+    function invariant_lpSupply(address market) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        // Note: Full verification requires iterating all holders
+        // This is a simplified check
+        assertGe(mkt.totalSupply(), 0, "LP supply should be >= 0");
+    }
+
+    /// @notice INVARIANT: Asset tracking accuracy
+    /// @dev totalAssets() should equal actual USDC balance
+    function invariant_assetTracking(address market, IERC20 asset) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        assertEq(
+            mkt.totalAssets(),
+            asset.balanceOf(address(mkt)),
+            "INVARIANT VIOLATION: totalAssets must equal USDC balance"
+        );
+    }
+
+    /// @notice INVARIANT: Lock consistency
+    /// @dev Individual locked amounts should not exceed total
+    function invariant_lockConsistency(address market, address user) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        assertLe(
+            mkt.lockedProceeds(user),
+            mkt.totalLockedProceeds(),
+            "INVARIANT VIOLATION: User locked cannot exceed total"
+        );
+    }
+
+    /// @notice INVARIANT: Fee rate consistency
+    /// @dev Fee rate must be 5% (pre-grad) or 1% (post-grad), never other values
+    function invariant_feeRate(address market) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        uint256 feeRate = mkt.feeLMSR();
+        
+        if (mkt.isGraduated()) {
+            assertEq(feeRate, 100, "Post-grad fee must be 1%");
+        } else {
+            assertEq(feeRate, 500, "Pre-grad fee must be 5%");
+        }
+    }
+
+    /// @notice INVARIANT: Graduation threshold consistency
+    /// @dev Threshold must always be 2x initial b
+    function invariant_graduationThreshold(address market, address factory) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        LaunchpadFactory fact = LaunchpadFactory(factory);
+        
+        uint256 initialB = fact.getLiquidityB(mkt.liquidityTierIndex());
+        uint256 threshold = mkt.graduationThreshold();
+        
+        assertEq(threshold, initialB * 2, "Threshold must be 2x initial b");
+    }
+
+    /// @notice INVARIANT: No negative balances
+    /// @dev All balances should be >= 0 (enforced by Solidity uint256)
+    function invariant_noNegativeBalances(address market, address user) public view {
+        LaunchpadMarket mkt = LaunchpadMarket(market);
+        
+        assertGe(mkt.balanceOf(user), 0, "LP balance cannot be negative");
+        assertGe(mkt.lockedProceeds(user), 0, "Locked proceeds cannot be negative");
+        assertGe(mkt.totalAssets(), 0, "Total assets cannot be negative");
+    }
+}

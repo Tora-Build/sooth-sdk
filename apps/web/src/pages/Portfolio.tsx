@@ -5,9 +5,19 @@ import { PendingUnlocks } from '../components/features/trader/PendingUnlocks';
 import { Card } from '../components/ui/Card';
 import { useAccount } from 'wagmi';
 import { Link } from 'react-router-dom';
+import { useTraderVault } from '../hooks/useTraderVault';
+import { useLockedFunds } from '../hooks/useLockedFunds';
+import { formatCurrency } from '../utils/format';
+import { formatUnits } from 'viem';
 
 export const Portfolio = () => {
   const { isConnected } = useAccount();
+  const { totalBalance } = useTraderVault();
+  const { locked, lockedFormatted, isLoading } = useLockedFunds();
+
+  // Format total value from bigint (18 decimals)
+  const totalValueNum = Number(formatUnits(totalBalance || 0n, 18));
+  const totalValueFormatted = formatCurrency(totalValueNum);
 
   if (!isConnected) {
     return (
@@ -41,7 +51,9 @@ export const Portfolio = () => {
               <Wallet className="w-6 h-6 text-cyan-400" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-white tabular-nums">$0.00</div>
+              <div className="text-2xl font-bold text-white tabular-nums">
+                {isLoading ? '--' : totalValueFormatted}
+              </div>
               <div className="text-xs text-slate-500 uppercase tracking-wider">Total Value</div>
             </div>
           </div>
@@ -53,9 +65,8 @@ export const Portfolio = () => {
               <TrendingUp className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-emerald-400 tabular-nums flex items-center gap-2">
-                +$0.00
-                <ArrowUpRight className="w-4 h-4" />
+              <div className="text-2xl font-bold text-slate-500 tabular-nums flex items-center gap-2">
+                --
               </div>
               <div className="text-xs text-slate-500 uppercase tracking-wider">Unrealized P&L</div>
             </div>
@@ -68,7 +79,9 @@ export const Portfolio = () => {
               <Clock className="w-6 h-6 text-amber-400" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-white tabular-nums">$0.00</div>
+              <div className="text-2xl font-bold text-white tabular-nums">
+                {isLoading ? '--' : lockedFormatted}
+              </div>
               <div className="text-xs text-slate-500 uppercase tracking-wider">Pending Unlock</div>
             </div>
           </div>

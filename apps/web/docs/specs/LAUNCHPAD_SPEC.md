@@ -3,14 +3,24 @@
 ## 1. Overview
 The **Sooth Launchpad V5** introduces a permissionless market creation flow inspired by "pump.fun", allowing any user to deploy a prediction market. These markets start with a bonding curve liquidity model (accruing fees to liquidity) and "graduate" to standard markets upon reaching a liquidity threshold.
 
-## 2. Core Flows
+
+> **See also**: [MARKETS_PAGE_SPEC.md](./MARKETS_PAGE_SPEC.md) for Markets list and MarketCard inline trading.
+
+## 2. Liquidity Model (Dual Venue)
+The V5 Launchpad uses a **Dual Venue** model.
+1. **Bonding Phase**: Only the **AMM** is active. Users trade "virtual shares" (internal accounting). Fees are high (5%) to grow liquidity.
+2. **Graduation**:
+   - The **AMM** remains active but lowers fees (1%). It acts as a permanent market maker.
+   - The **Orderbook** is activated. Users can trade **ERC1155 OutcomeTokens**.
+   - **Important**: There is **NO** migration of AMM positions to Orderbook tokens. AMM shares remain in the AMM; Orderbook tokens are minted via user matching.
+
 
 ### 2.1 Market Creation
 **Actor**: Any User
 **Contract**: `LaunchpadFactory`
 
 #### UI Components
-- **Create Market Page**: Form to input market details.
+- **Create Market Page** (`/create`): Form to input market details.
   - `Name` (string)
   - `Symbol` (string, e.g. "YES-TRUMP")
   - `Description` (string)
@@ -21,49 +31,35 @@ The **Sooth Launchpad V5** introduces a permissionless market creation flow insp
 #### Interactions
 1. **Approve USDC**: User must approve Factory to spend `tierDeposit`.
 2. **Create Market**: Call `factory.createMarket(...)`.
-   - **Params**:
-     - `name`, `symbol`, `description`
-     - `liquidityTierIndex` (0-3)
-     - `isOpenEnd` (bool)
-     - `durationSeconds` (uint40)
    - **Events**: Listen for `MarketCreated(market, creator, lpVault, ...)` to redirect user to the new market page.
-- [x] Debug Network Fee/Creation Error
-- [x] Fix USDC Approval UX
-- [x] Fix ABI mismatch
-- [x] Fix Circular Dependency in Contract
-- [x] Implement Dynamic Market Indexing
-    - [x] Create `useLaunchpadMarkets` hook
-    - [x] Create/Update Market List UI
-- [x] Refactor Hardcoded Tier Deposits
-- [x] End-to-End Verification
 
 #### Data Requirements
 - `factory.tierDeposits(index)`: Fetch required USDC for selected tier.
-- `factory.tierBValues(index)`: (Optional) Display initial liquidity depth.
+- `factory.tierBValues(index)`: Display initial liquidity depth.
 
 ---
 
-### 2.2 Launchpad Market Page
+### 2.2 Market Detail Page (`/market/:address`)
 **Contract**: `LaunchpadMarket` (Use `LaunchpadMarket` ABI)
 
 #### Header / Status
 Display specialized badges based on state:
-- **"Launchpad Phase"**: When `!isGraduated` and `isLive`.
-- **"Graduated"**: When `isGraduated`.
-- **"Expired / Failed"**: When `!isLive` and `!isGraduated` (Refund mode).
+- **"🔥 Bonding"**: When `!isGraduated` and `isLive`.
+- **"🎓 Graduated"**: When `isGraduated`.
+- **"⏰ Expired"**: When `!isLive` and `!isGraduated` (Refund mode).
 
 #### Bonding Curve Progress
 - **Progress Bar**: Show progress towards graduation.
-  - **Current**: `market.bBase()` (Note: `b()` includes unrealized PnL, `bBase()` is the strict liquidity base).
-  - **Target**: `market.graduationThreshold()`.
-  - **Percentage**: `(bBase / threshold) * 100`.
+  - **Current**: `market.bBase()`
+  - **Target**: `market.graduationThreshold()`
+  - **Percentage**: `(bBase / threshold) * 100`
 
 #### Trading
-- Uses standard **V4 Logic** (`market.tradeAMM`).
+- Uses standard **V4 Logic** (`tradeAMM` via TraderVault).
 - **Fees**: Display correct fee tier.
   - Pre-grad: 5% (LP Fee).
   - Post-grad: 1% (Standard).
-- **Note**: `LaunchpadMarket` inherits `SoothMarketV4`, so the standard `useMarket` hook works for basic data (prices, qYes/qNo). Use `isGraduated` to toggle Launchpad-specific UI.
+- **Orderbook**: Available for graduated markets only.
 
 ---
 
@@ -72,7 +68,7 @@ Display specialized badges based on state:
 #### Graduation (Success)
 - **Trigger**: When bonding curve fills (`bBase >= threshold`).
 - **Action**: Any user can call `market.graduate()`.
-- **UI**: If threshold met but `!isGraduated`, show "Graduate Market" button (gamified moment).
+- **UI**: If threshold met but `!isGraduated`, show "🎓 Graduate Market" button.
 
 #### Expiry (Failure)
 - **Condition**: `block.timestamp > market.deadline()` AND `!isGraduated`.
@@ -82,38 +78,64 @@ Display specialized badges based on state:
 - **UI**:
   - Show "Market Expired" warning.
   - If User == Creator, show "Claim Refund" button.
-  - Traders: Can redeem LP tokens? (Note: Current implementation limits refund to Creator. Traders should sell positions before expiry if possible, or protocol needs `redeem` path for traders. *Audit Note: Check if traders hold LP tokens or just Outcome tokens. Outcome tokens become worthless if expired? Or redeemable for portion of LPVault? Current contract refunds Creator 100%. Traders should treat pre-grad markets as high risk of expiry.*)
 
 ---
 
 ## 3. Data Integration
 
-### 3.1 Factory Hook (`useLaunchpadFactory`)
+### 3.1 useLaunchpadFactory Hook
 ```typescript
-interface LaunchpadConfig {
-  tierDeposits: BigInt[];
-  tierBValues: BigInt[];
-}
-
 function useLaunchpadFactory() {
-  // Read config
-  // Write createMarket
+  return {
+    tierDeposits: bigint[];      // 4 tiers
+    tierBValues: bigint[];       // 4 tiers
+    createMarket: (params) => Promise<void>;
+    isCreatePending: boolean;
+  };
 }
 ```
 
-### 3.2 Market Hook Extensions (`useMarket`)
-Extend existing hook or creating `useLaunchpadMarket(address)`:
-- `isGraduated`: bool
-- `liquidityTier`: int
-- `deadline`: unixtime
-- `bBase`: BigInt
-- `graduationThreshold`: BigInt
-- `creator`: address
+### 3.2 useLaunchpadMarket Hook
+```typescript
+function useLaunchpadMarket(address: `0x${string}`) {
+  return {
+    isGraduated: boolean;
+    graduationThreshold: bigint;
+    bBase: bigint;
+    deadline: number;
+    creator: `0x${string}`;
+    isLive: boolean;
+    feesAccrued: bigint;         // NEW: Track accumulated fees
+    graduate: () => void;
+    expire: () => void;
+    claimRefund: () => void;
+  };
+}
+```
 
-### 3.3 ABIs
-Ensure `LaunchpadFactory.json` and `LaunchpadMarket.json` are exported to `apps/web/src/config/abis.ts`.
+### 3.3 useLaunchpadMarkets Hook
+```typescript
+function useLaunchpadMarkets() {
+  return {
+    markets: LaunchpadMarketData[];
+    isLoading: boolean;
+    refetch: () => void;
+  };
+}
+```
+
+### 3.4 ABIs
+Located in `apps/web/src/config/abis.ts`:
+- `LAUNCHPAD_FACTORY_ABI`
+- `LAUNCHPAD_MARKET_ABI`
+
+---
 
 ## 4. Design Guidelines
-- **Pump.fun Aesthetic**: High energy, clear progress bars, "King of the Hill" style leaderboards for graduating markets.
-- **Risk Warnings**: Clearly label Launchpad markets vs Standard markets. "This market has not graduated yet."
+- **Pump.fun Aesthetic**: High energy, clear progress bars, trending leaderboard.
+- **Risk Warnings**: Clearly label Launchpad markets vs Standard. "This market has not graduated yet."
+- **Gamification**: Celebrate graduation with visual feedback.
 
+---
+
+*Last updated: 2025-12-15*
