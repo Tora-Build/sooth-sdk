@@ -4,6 +4,7 @@ import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_AB
 import { useDeployments } from '../useDeployments';
 import { decodeEventLog, parseAbiItem } from 'viem';
 import { useReadContracts } from 'wagmi';
+import { useMemo } from 'react';
 
 export interface LaunchpadMarketData {
     address: `0x${string}`;
@@ -21,30 +22,63 @@ export function useLaunchpadMarkets() {
     const { config } = useDeployments();
     // @ts-ignore
     const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
-    // 1. Fetch Market Addresses from Factory
+    
+    // V6 Check: Verify factory has protocolConfig (V6 factories have this, V5 don't)
+    const { data: protocolConfigAddress } = useReadContract({
+        address: factoryAddress,
+        abi: LAUNCHPAD_FACTORY_ABI,
+        functionName: 'protocolConfig',
+        query: { enabled: !!factoryAddress }
+    });
+    
+    const isV6Factory = useMemo(() => {
+        return !!protocolConfigAddress && protocolConfigAddress !== '0x0000000000000000000000000000000000000000';
+    }, [protocolConfigAddress]);
+    
+    // 1. Fetch Market Addresses from Factory (only if V6 factory)
     const { data: marketAddresses, refetch } = useReadContract({
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
-        query: { enabled: !!factoryAddress, refetchInterval: 5000 }
+        query: { enabled: !!factoryAddress && isV6Factory, refetchInterval: 5000 }
     });
 
 
     const addresses = (marketAddresses as `0x${string}`[]) || [];
 
-    // 2. Fetch Market Details (OutcomeToken, Graduated, Deadline)
+    // 2. Fetch Market Factory Address (to verify V6)
+    const { data: marketFactoriesData } = useReadContracts({
+        contracts: addresses.map(addr => ({
+            address: addr,
+            abi: LAUNCHPAD_MARKET_ABI,
+            functionName: 'factory'
+        })),
+        query: { enabled: addresses.length > 0 && isV6Factory }
+    });
+
+    // 3. Filter to only V6 markets (markets whose factory has protocolConfig)
+    const v6MarketAddresses = useMemo(() => {
+        if (!marketFactoriesData || !addresses.length) return [];
+        return addresses.filter((addr, i) => {
+            const marketFactory = marketFactoriesData[i]?.result as `0x${string}` | undefined;
+            // Only include markets from the configured V6 factory
+            return marketFactory && marketFactory.toLowerCase() === factoryAddress?.toLowerCase();
+        });
+    }, [addresses, marketFactoriesData, factoryAddress]);
+
+    // 4. Fetch Market Details (OutcomeToken, Graduated, Deadline) - only for V6 markets
     const { data: marketData, isLoading: isLoadingMarketData } = useReadContracts({
-        contracts: addresses.flatMap(addr => [
+        contracts: v6MarketAddresses.flatMap(addr => [
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' },
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' }
         ]),
-        query: { enabled: addresses.length > 0, refetchInterval: 5000 } // Refetch every 5s to catch graduation
+        query: { enabled: v6MarketAddresses.length > 0, refetchInterval: 5000 } // Refetch every 5s to catch graduation
     });
 
-    // 3. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
+    // 5. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
     // LaunchpadOutcomeToken has name/symbol as public state variables, not ERC20 functions
-    const tokenCalls = addresses.flatMap((_, i) => {
+    const tokenCalls = v6MarketAddresses.flatMap((_, i) => {
         const tokenAddr = marketData?.[i * 3]?.result as `0x${string}` | undefined;
         // If tokenAddr is valid (non-zero), use it. Else undefined.
         // Flattening 2 calls per market.
@@ -57,7 +91,7 @@ export function useLaunchpadMarkets() {
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        query: { enabled: !!marketData && addresses.length > 0, refetchInterval: 5000 }
+        query: { enabled: !!marketData && v6MarketAddresses.length > 0, refetchInterval: 5000 }
     });
 
     // DEBUG: Log token data status (commented out for production)
@@ -74,8 +108,8 @@ export function useLaunchpadMarkets() {
     //     error: t.error
     // })));
 
-    // 4. Transform and Merge
-    const markets: LaunchpadMarketData[] = addresses.map((addr, i) => {
+    // 6. Transform and Merge (only V6 markets)
+    const markets: LaunchpadMarketData[] = v6MarketAddresses.map((addr, i) => {
         const isGraduated = marketData?.[i * 3 + 1]?.result as boolean;
         const deadline = marketData?.[i * 3 + 2]?.result as unknown; // Cast unknown first to be safe
 
