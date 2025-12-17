@@ -123,6 +123,28 @@ Explains how LP deposits/withdrawals affect market liquidity depth and the updat
 
 ---
 
+### [ln(2) Constants Reference](./LN2_CONSTANTS_REFERENCE.md)
+
+**Date:** 2025-12-17  
+**Status:** Reference Document
+
+Comprehensive reference for safe Solidity constants for `ln(2)` across different numeric domains (WAD, RAY, PRBMath types).
+
+**Key Insights:**
+
+- Provides standardized constants for `uint256`, `int256`, `sd59x18`, `ud60x18`, and RAY precision
+- Documents usage patterns for max loss, creator deposits, and fee-to-liquidity conversions
+- Includes verification methods and inverse constant (1/ln(2))
+
+**Relevant for:**
+
+- LMSR calculations
+- Launchpad model implementations
+- Max loss calculations
+- Fee-to-liquidity conversions
+
+---
+
 ## Contributing Research
 
 When adding new research documents:

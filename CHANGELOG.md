@@ -4,6 +4,13 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **MarketDetail Market Info Disappearing** (2025-12-17):
+  - Fixed bug where market name and symbol would disappear in `MarketDetail.tsx` page
+  - Added `outcomeToken` to `useLaunchpadMarket` hook return values
+  - Added fallback mechanism: if market not found in markets list, fetch name/symbol directly from outcome token contract
+  - Prevents UI showing "Loading..." indefinitely when markets list is slow to load or market not yet registered
+
 ### Added
 - **V6 Launchpad Deployment on Base Sepolia** (2025-12-17):
   - Deployed V6 `LaunchpadFactory` with `ProtocolConfig` architecture

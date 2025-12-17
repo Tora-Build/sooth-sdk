@@ -1,6 +1,6 @@
 # Project Status
 
-> Last Updated: 2025-12-17 (V6 Launchpad Deployment on Base Sepolia)
+> Last Updated: 2025-12-17 (MarketDetail.tsx Bug Fix)
 
 ## Current Focus
 - **Launchpad-Only Architecture** — Migration complete ✅
@@ -9,6 +9,13 @@
 - **V6 Markets on Base Sepolia** — 2 new markets created via V6 LaunchpadFactory ✅
 
 ## Recent Changes
+
+### ✅ MarketDetail Market Info Fix (2025-12-17)
+- **Bug Fix**: Fixed market info disappearing in `MarketDetail.tsx`
+  - Added `outcomeToken` to `useLaunchpadMarket` hook return values
+  - Added fallback fetching: if market not found in `useLaunchpadMarkets()` list, fetch name/symbol directly from outcome token contract
+  - Prevents market info from disappearing when markets list is loading or market not yet in factory registry
+  - Improved data flow: marketMeta (primary) → direct fetch (fallback) → "Loading..." (final fallback)
 
 ### ✅ V6 Launchpad Deployment on Base Sepolia (2025-12-17)
 - **Deployed V6 LaunchpadFactory** with ProtocolConfig architecture

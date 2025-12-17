@@ -183,3 +183,310 @@ uint256 lpAccrual = (fee * 3000) / 10000;
 4. **How should the 20% protocol fee be handled?**
    - Currently stays in market (increases totalAssets)
    - Should it be separate from LP calculation?
+
+## Detailed Analysis & Recommendations
+
+### Issue 1: Post-Graduation Fee Accrual - Deep Dive
+
+**Mathematical Impact Analysis:**
+
+The current implementation mints new LP tokens post-graduation, which dilutes existing holders. Let's analyze the exchange rate impact:
+
+```
+Scenario: Post-Graduation Trade
+─────────────────────────────────
+Initial State (at graduation):
+  totalAssets = $1,000
+  totalSupply = 1,000 LP tokens
+  exchangeRate = $1.00 per LP token
+
+Trade occurs with $100 fee:
+  Fee split:
+    - 50% ($50) → bBase growth (not in totalAssets)
+    - 30% ($30) → NEW LP tokens minted
+    - 20% ($20) → Protocol (stays in market)
+
+Current Implementation:
+  totalAssets += $100 (fee stays in market)
+  totalSupply += $30 (new LP tokens)
+  
+  New exchangeRate = ($1,000 + $100) / (1,000 + 30)
+                   = $1,100 / 1,030
+                   = $1.068 per LP token
+
+Documented ERC4626-Style (Recommended):
+  totalAssets += $30 (only LP share added)
+  totalSupply unchanged
+  
+  New exchangeRate = ($1,000 + $30) / 1,000
+                   = $1,030 / 1,000
+                   = $1.03 per LP token
+```
+
+**Key Insight:** Current implementation includes protocol fee ($20) in totalAssets calculation, which artificially inflates the exchange rate. The 30% LP share ($30) gets diluted by new token minting, resulting in less benefit per LP token holder compared to the documented design.
+
+**Recommendation:** 
+1. Remove LP token minting post-graduation
+2. Track LP accrual separately: `lpAccrued += (fee * 3000) / 10000`
+3. Update `totalAssets()` to return: `baseAssets + lpAccrued` (exclude protocol fees)
+
+### Issue 2: totalAssets() Calculation - Detailed Breakdown
+
+**Current totalAssets() includes:**
+```
+totalAssets = _asset.balanceOf(address(this))
+            = creatorDeposit
+            + tradingProceeds (temporary, will be paid out)
+            + lockedProceeds (user claims, not LP assets)
+            + protocolFees (20% of fees, should be separate)
+            + lpAccrued (30% of fees, SHOULD be included)
+```
+
+**Problem:** All USDC in the market is counted as "LP assets", but much of it is:
+- **Locked proceeds**: User funds awaiting unlock, not part of LP pool
+- **Protocol fees**: Treasury's share, shouldn't accrue to LP holders
+- **Trading balances**: Temporary inflows from buys, will be paid out on sells
+
+**Recommended Separation:**
+
+```solidity
+struct LPAccounting {
+    uint256 baseAssets;      // Initial creator deposit + pre-grad fees
+    uint256 lpAccrued;       // Post-grad 30% fee accruals
+    uint256 protocolFees;    // Post-grad 20% fee accruals (separate)
+}
+
+// Locked proceeds tracked separately (already implemented)
+uint256 public totalLockedProceeds;
+
+function totalAssets() public view override returns (uint256) {
+    return lpAccounting.baseAssets + lpAccounting.lpAccrued;
+    // Explicitly EXCLUDES:
+    // - lockedProceeds (user funds)
+    // - protocolFees (treasury funds)
+    // - temporary trading balances (handled by TraderVault)
+}
+```
+
+**Implementation Challenge:** The current architecture has all USDC in a single balance. To properly separate, we'd need either:
+1. **Option A (Tracking):** Track accounting separately, but funds still co-mingled
+2. **Option B (Separation):** Transfer protocol fees to separate contract/address
+3. **Option C (Hybrid):** Track separately, validate with assertions
+
+**Recommended:** Option C (Hybrid) - track separately with validation to ensure LP holders can't claim more than their share.
+
+### Issue 3: Exchange Rate Dynamics - Mathematical Model
+
+**Pre-Graduation Exchange Rate:**
+```
+At creation:
+  baseAssets = creatorDeposit = bBase × 0.693
+  totalSupply = creatorDeposit (1:1 initial mint)
+  exchangeRate = 1.0
+
+After pre-grad trade with fee:
+  fee = $100
+  baseAssets += fee (100% compound)
+  totalSupply += fee (1:1 mint)
+  exchangeRate = (baseAssets + fee) / (totalSupply + fee)
+               = 1.0 (unchanged)
+
+Key: Pre-grad maintains 1:1 exchange rate (by design)
+```
+
+**Post-Graduation Exchange Rate (Current vs Recommended):**
+
+**Current Implementation:**
+```
+Trade with $100 fee:
+  totalAssets += $100
+  totalSupply += $30
+  
+  exchangeRate(t+1) = (totalAssets + $100) / (totalSupply + $30)
+  
+  If exchangeRate(t) = 1.0:
+    exchangeRate(t+1) = ($1,000 + $100) / (1,000 + $30)
+                      = 1.068
+  
+  Exchange rate INCREASES, but:
+  - Dilution reduces per-token benefit
+  - Includes protocol fee in numerator (inflated)
+```
+
+**Recommended ERC4626-Style:**
+```
+Trade with $100 fee:
+  lpAccrued += $30
+  totalSupply unchanged
+  
+  exchangeRate(t+1) = (baseAssets + lpAccrued + $30) / totalSupply
+  
+  If exchangeRate(t) = 1.0:
+    exchangeRate(t+1) = ($1,000 + $30) / 1,000
+                      = 1.03
+  
+  Exchange rate increases MORE per dollar of fees
+  (3% vs 6.8%, but no dilution, so existing holders benefit more)
+```
+
+**Mathematical Comparison:**
+
+For a trade with fee `f`:
+- **Current**: `ΔexchangeRate = (f - 0.3f) / (supply + 0.3f) = 0.7f / (supply + 0.3f)`
+- **Recommended**: `ΔexchangeRate = 0.3f / supply`
+
+For small `f` relative to `supply`, recommended approach gives approximately **2.33×** higher exchange rate increase per dollar of fees to existing holders.
+
+### Issue 4: Protocol Fee Handling - Separation Strategy
+
+**Current State:**
+- Protocol fee (20% of post-grad fees) stays in market
+- Included in `totalAssets()`, which increases LP exchange rate
+- No explicit mechanism to claim by treasury
+
+**Problems:**
+1. LP holders benefit from protocol fees (unintended)
+2. No way to withdraw protocol fees without affecting LP redemption
+3. Accounting confusion (what's LP vs protocol money?)
+
+**Recommendations:**
+
+**Option 1: Separate Tracking + Reserve**
+```solidity
+uint256 public protocolFeesAccrued;
+
+function totalAssets() public view override returns (uint256) {
+    // Explicitly exclude protocol fees
+    return _asset.balanceOf(address(this)) 
+         - totalLockedProceeds 
+         - protocolFeesAccrued;
+}
+
+function claimProtocolFees() external onlyProtocol {
+    uint256 amount = protocolFeesAccrued;
+    protocolFeesAccrued = 0;
+    _asset.safeTransfer(protocolTreasury, amount);
+}
+```
+
+**Option 2: Immediate Transfer**
+```solidity
+// On each post-grad trade
+uint256 protocolShare = (fee * 2000) / 10000;
+_asset.safeTransfer(protocolTreasury, protocolShare);
+// Only LP share stays in market
+```
+
+**Option 3: Escrow Contract**
+- Transfer protocol fees to separate `ProtocolFeeEscrow` contract
+- Completely separated from LP accounting
+- Treasury claims periodically
+
+**Recommended:** Option 1 (Separate Tracking) - keeps funds in market for gas efficiency but properly accounts for them separately.
+
+## Proposed Implementation Changes
+
+### Change 1: Post-Graduation Fee Accrual (ERC4626-Style)
+
+```solidity
+// Add to state
+uint256 public lpAccrued;  // Post-graduation LP fee accruals
+
+// Modify executeAMMTrade post-graduation logic
+else {
+    // 50% to liquidity
+    uint256 deltaB = (fee * 1442695040888963407) / 1e18 / 2;
+    bBase += deltaB;
+    
+    // 30% to LP (accrue, don't mint)
+    uint256 lpShare = (fee * 3000) / 10000;
+    lpAccrued += lpShare;
+    emit LpTokensAccrued(address(0), lpShare);  // address(0) indicates accrual, not mint
+    
+    // 20% to protocol
+    protocolFeesAccrued += (fee * 2000) / 10000;
+}
+```
+
+### Change 2: Updated totalAssets() Calculation
+
+```solidity
+function totalAssets() public view override returns (uint256) {
+    // Base assets (creator deposit + pre-grad fees)
+    uint256 base = totalCreatorDeposit + (feesAccrued - lpAccrued);  // Pre-grad fees only
+    
+    // Post-grad LP accruals
+    uint256 lp = lpAccrued;
+    
+    // Explicitly exclude:
+    // - totalLockedProceeds (user funds)
+    // - protocolFeesAccrued (treasury funds)
+    
+    return base + lp;
+}
+```
+
+### Change 3: Protocol Fee Claims
+
+```solidity
+address public protocolTreasury;
+
+function claimProtocolFees() external {
+    require(msg.sender == protocolTreasury || msg.sender == factory, "Unauthorized");
+    uint256 amount = protocolFeesAccrued;
+    require(amount > 0, "No fees");
+    protocolFeesAccrued = 0;
+    _asset.safeTransfer(protocolTreasury, amount);
+    emit ProtocolFeesClaimed(amount);
+}
+```
+
+## Questions Resolved
+
+### Q1: Should post-graduation fees mint new LP tokens or accrue to existing?
+
+**Answer: ACCRUE (ERC4626-style)**
+- Benefits existing LP holders (no dilution)
+- Matches documented design
+- Standard practice in DeFi (like ERC4626 vaults)
+- Provides better incentive alignment (holders benefit from volume)
+
+### Q2: How should totalAssets() be calculated?
+
+**Answer: Separate accounting with explicit exclusions**
+```
+totalAssets = baseAssets (creator + pre-grad fees) + lpAccrued (post-grad 30%)
+EXCLUDES: lockedProceeds, protocolFees, temporary trading balances
+```
+
+### Q3: When should LP tokens be redeemable?
+
+**Answer: Current implementation is correct**
+- Only redeemable after settlement/liquidation (`!isLive`)
+- Tokens are tradeable ERC20 before settlement (secondary market)
+- Redemption requires market to be inactive (prevents accounting issues)
+
+**Rationale:** Allows LP holders to exit via DEX while market is active, but formal redemption only after outcome is known (prevents front-running settlement).
+
+### Q4: How should the 20% protocol fee be handled?
+
+**Answer: Separate tracking + claimable by treasury**
+- Track separately: `protocolFeesAccrued`
+- Exclude from `totalAssets()` calculation
+- Provide `claimProtocolFees()` function for treasury
+- Funds stay in market until claimed (gas efficient)
+
+## Implementation Priority
+
+1. **HIGH**: Fix post-graduation LP minting → accrual (Issue #1)
+2. **HIGH**: Separate protocol fees from totalAssets (Issue #4)
+3. **MEDIUM**: Refine totalAssets calculation (Issue #2)
+4. **LOW**: Exchange rate optimization (Issue #3) - current works, but recommended is better
+
+## Testing Recommendations
+
+1. **Exchange Rate Test**: Verify exchange rate increases correctly post-graduation
+2. **Protocol Fee Test**: Ensure protocol fees don't affect LP exchange rate
+3. **Locked Proceeds Test**: Verify locked proceeds don't inflate totalAssets
+4. **Redemption Test**: Verify LP holders can only redeem their proportional share
+5. **Invariant Test**: `totalAssets() <= _asset.balanceOf(address(this)) - totalLockedProceeds - protocolFeesAccrued`
