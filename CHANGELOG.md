@@ -4,7 +4,22 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **V6 Launchpad Deployment on Base Sepolia** (2025-12-17):
+  - Deployed V6 `LaunchpadFactory` with `ProtocolConfig` architecture
+  - Factory address: `0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F`
+  - ProtocolConfig: `0x22565a06050a5031a02885263ebb106ec8595a8a`
+  - Created 2 new V6 Launchpad markets via factory:
+    - Market 1 (Alien Life): `0x69b073721c552eBac6c42e934EA6684d78727c67` (Tier 1: $1k deposit)
+    - Market 2 (BTC 7-day TWAP): `0x3A5E80578933aa92644D4ee7192CD744600d6A2f` (Tier 2: $10k deposit)
+  - Updated `deployments.json` (version 4.11) and `markets.json` with new addresses
+  - Markets verified on-chain: all contracts registered, links correct ✅
+
 ### Changed
+- **Deployment Script Fix** (2025-12-17):
+  - Fixed `DeployV4Markets.s.sol` to use `LaunchpadOutcomeToken` instead of `OutcomeToken`
+  - Updated `verify-deployment.sh` to use `SoothLiquidityVault` instead of deprecated `SoothGovernorVault`
+  - Script now correctly deploys V6 Launchpad markets via factory
 - **Launchpad-Only Architecture Migration** (2025-12-16):
   - **BREAKING**: Removed "standard market" concept — all markets must be created via `LaunchpadFactory`
   - Renamed `SoothMarketV4` → `SoothMarketBase` (base contract that LaunchpadMarket inherits from, NOT a market type)

@@ -151,10 +151,18 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         console.error('Buy Order Error', e);
       }
     } else {
-      // Sell Side - Use single-transaction hybrid sell
-      // The contract handles spot/short split atomically
+      // Sell Side - Route to correct function based on sell type
       try {
-        await executeHybridSell(outcome, price, amount);
+        if (isSpotSell) {
+          // Pure spot sell - use placeSpotOrder
+          await placeSpotOrder(outcome, price, amount);
+        } else if (isHybridSell) {
+          // Hybrid sell (partial spot + partial short)
+          await executeHybridSell(outcome, price, amount);
+        } else {
+          // Pure short sell - use placeOrder with isBuy=false
+          await placeOrder(outcome, price, amount, false);
+        }
       } catch (e) {
         console.error('Sell Order Error', e);
       }

@@ -148,6 +148,7 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function cancelSpotOrder(address market, uint256 orderId)",
   "function onOrderMatched(uint256 orderId, uint256 matchedAmount)",
   "function claimUnlocked() returns (uint256)",
+  "function claimUnlocked(address vault) returns (uint256)", // V6: Overload for Launchpad markets (market is vault)
   "function redeem(address market)",
   "function collateralToken() view returns (address)",
   "function asset() view returns (address)",
@@ -206,17 +207,18 @@ export const MARKET_V4_ABI = parseAbi([
   "function merge(uint256 amount) returns (uint256 proceeds)",
 ]);
 
-// V5: Launchpad Factory
+// V6: Launchpad Factory (immutable with ProtocolConfig)
 export const LAUNCHPAD_FACTORY_ABI = parseAbi([
   "function createMarket(string name, string symbol, string description, uint8 liquidityTierIndex, bool isOpenEnd, uint40 durationSeconds) returns (address market, address lpVault)",
   "function tierDeposits(uint256) view returns (uint256)",
   "function tierBValues(uint256) view returns (uint256)",
   "function usdc() view returns (address)",
   "function getAllMarkets() view returns (address[])",
+  "function protocolConfig() view returns (address)", // V6: ProtocolConfig reference
   "event MarketCreated(address indexed market, address indexed creator, address indexed lpVault, string name, string symbol, uint256 liquidityTier, uint256 depositAmount)",
 ]);
 
-// V5: Launchpad Market (inherits MarketV4)
+// V6: Launchpad Market (inherits MarketV4, implements ISoothLiquidityVault, ERC20)
 export const LAUNCHPAD_MARKET_ABI = parseAbi([
   // Inherits V4 functions...
   "function qYes() view returns (int256)",
@@ -237,20 +239,47 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function deadline() view returns (uint40)",
   "function creator() view returns (address)",
   "function factory() view returns (address)",
-  "function lpVault() view returns (address)",
+  "function lpVault() view returns (address)", // V6: Returns address(0)
   "function feesAccrued() view returns (uint256)",
   "function totalCreatorDeposit() view returns (uint256)",
+  // V6: Pre-graduation locking
+  "function lockedProceeds(address user) view returns (uint256)",
+  "function totalLockedProceeds() view returns (uint256)",
+  "function useLockedProceeds(address user, uint256 amount)",
+  "function claimUnlocked(address user, address recipient) returns (uint256)",
+  // V6: ISoothLiquidityVault (market is its own vault)
+  "function asset() view returns (address)",
+  "function totalAssets() view returns (uint256)",
+  // Actions
   "function graduate()",
   "function expire()",
   "function claimCreatorRefund()",
   "event Graduated(uint256 timestamp, uint256 totalLiquidity)",
   "event Expired(uint256 timestamp)",
+  "event Locked(address indexed user, uint256 amount, uint64 unlockTime)", // V6
+  "event Unlocked(address indexed user, uint256 amount)", // V6
+  "event Claimed(address indexed user, uint256 amount)", // V6
 ]);
 
-// V5: Market LP Vault (Per-market Governor)
+// V5: Market LP Vault (Per-market Governor) - DEPRECATED in V6 (market is its own vault)
 export const MARKET_LP_VAULT_ABI = parseAbi([
   "function totalAssets() view returns (uint256)",
   "function market() view returns (address)",
   "function asset() view returns (address)",
+]);
+
+// V6: LaunchpadOutcomeToken (has name/symbol as public state variables, not ERC20)
+export const LAUNCHPAD_OUTCOME_TOKEN_ABI = parseAbi([
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function market() view returns (address)",
+]);
+
+// V6: ProtocolConfig (mutable protocol parameters)
+export const PROTOCOL_CONFIG_ABI = parseAbi([
+  "function liquidationFeeBps() view returns (uint256)",
+  "function guardian() view returns (address)",
+  "function setLiquidationFeeBps(uint256)",
+  "function setGuardian(address)",
 ]);
 

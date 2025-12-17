@@ -216,14 +216,14 @@
 
 ## ADR-015: V6 Pre-Graduation Locking
 - **Date**: 2025-12-14
-- **Status**: Accepted (Implementation Pending)
+- **Status**: Accepted (Deployed on Base Sepolia 2025-12-17)
 - **Context**: V5 Launchpad allowed immediate withdrawal of sell proceeds during pre-graduation phase. This created a risk where traders could extract value before markets reached graduation threshold, potentially leaving creators with insufficient liquidity for settlement. Additionally, the 3-contract architecture (Factory, Market, LPVault) added complexity and gas costs.
 - **Decision**: Implement **V6 Pre-Graduation Locking** with the following changes:
   - **Pre-Graduation Locking**: All sell proceeds are locked (cannot be directly withdrawn) during pre-graduation phase
   - **Reinvestment Allowed**: Locked proceeds can be used to buy shares via `useLockedProceeds()` function
   - **Withdrawal Blocked**: `withdraw()` in TraderVault blocks withdrawals if user has any locked proceeds globally
   - **2-Contract Architecture**: Merge `MarketLPVault` functionality into `LaunchpadMarket`:
-    - Market implements `ISoothGovernorVault` itself (no separate LPVault contract)
+    - Market implements `ISoothLiquidityVault` itself (no separate LPVault contract)
     - Market inherits `ERC20` for LP tokens
     - Market holds USDC directly (`_asset.balanceOf(address(this))`)
     - `market.governorVault()` returns `address(this)`
@@ -251,7 +251,7 @@
   - **Role Clarity**: Guardian role provides safety net for stuck markets
   - **Breaking Changes**: 
     - `LaunchpadFactory.createMarket()` signature changes (adjudicator parameter, no lpVault return)
-    - `LaunchpadMarket` now implements `ISoothGovernorVault` and `ERC20`
+    - `LaunchpadMarket` now implements `ISoothLiquidityVault` and `ERC20`
     - `TraderVault.tradeAMM()` always locks proceeds (both pre and post-graduation)
     - `TraderVault.withdraw()` blocks if `globalGovernor.lockedBalance(user) > 0`
   - **Migration**: Existing V5 markets continue to work (backward compatible), but new markets use V6 architecture

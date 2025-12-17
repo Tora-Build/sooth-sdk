@@ -69,7 +69,7 @@ export const ActivePositionsCard: React.FC = () => {
                                         </li>
                                         <li className="flex items-center gap-2 text-teal-300/80">
                                             <Lock size={10} />
-                                            24h Lock-on-Buy
+                                            Sell proceeds locked 24h
                                         </li>
                                     </ul>
                                 </div>

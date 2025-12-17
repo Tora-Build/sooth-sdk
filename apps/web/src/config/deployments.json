@@ -1,27 +1,39 @@
 {
-  "version": "4.10",
-  "lastUpdated": "2025-12-15",
+  "version": "4.11",
+  "lastUpdated": "2025-12-17",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "status": "✅ Live - V4.6 Lock-on-Sell",
       "contracts": {
         "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
-        "SoothTraderVault": "0x80dbb5604579b9d23e6ff092a97eea05b176c528",
+        "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
         "SoothLiquidityVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
         "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e",
-        "LaunchpadOutcomeToken": "0xe270f685e7e58d39d02f98b9dc8338c9ee751b07",
-        "LaunchpadMarketImpl": "0x3fbe7eff234a11fbe09252b69fde934099568d4f",
-        "LaunchpadFactory": "0xb1c17d6607de6e3a3579ce4d85275ab252b06328"
+        "LaunchpadOutcomeToken": "0x6b3f017d58874badb7dd14ce74219ad83335dd54",
+        "LaunchpadMarketImpl": "0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10",
+        "LaunchpadFactory": "0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F",
+        "ProtocolConfig": "0x22565a06050a5031a02885263ebb106ec8595a8a"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0x69b073721c552eBac6c42e934EA6684d78727c67",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8"
+        },
+        "market2": {
+          "address": "0x3A5E80578933aa92644D4ee7192CD744600d6A2f",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8"
+        }
       },
       "notes": {
-        "version": "V4.7 - Pre-Graduation Unlock",
-        "date": "2025-12-16",
+        "version": "V4.6 - Lock-on-Sell with Launchpad Markets",
+        "date": "2025-12-17",
         "changes": [
-          "SoothTraderVaultV4: Linked to new Factory 0xb1c1...6328",
-          "Ungraduated Sales -> Instant Transfer via IMarketLPVault.sendFunds() (V4.7 Fix)",
-          "Graduated/Standard Sales -> Still 24h Lock (Lock-on-Sell)",
-          "NOTE: EXISTING MARKETS from before 12-16 are broken/deprecated. Must create NEW MARKET."
+          "Deployed new LaunchpadFactory with ProtocolConfig",
+          "Created 2 new Launchpad markets (Alien Life, BTC 7-day TWAP)",
+          "TraderVault address corrected to match script deployment"
         ]
       }
     },

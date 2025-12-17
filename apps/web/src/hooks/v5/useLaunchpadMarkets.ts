@@ -1,6 +1,6 @@
 import { usePublicClient, useReadContract } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
-import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
+import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../../config/abis';
 import { useDeployments } from '../useDeployments';
 import { decodeEventLog, parseAbiItem } from 'viem';
 import { useReadContracts } from 'wagmi';
@@ -39,40 +39,40 @@ export function useLaunchpadMarkets() {
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' }
         ]),
-        query: { enabled: addresses.length > 0 }
+        query: { enabled: addresses.length > 0, refetchInterval: 5000 } // Refetch every 5s to catch graduation
     });
 
-    // 3. Extract Token Addresses to fetch Name/Symbol
-    // We map to preserve index alignment. If no token, we pass undefined (Wagmi handles it).
+    // 3. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
+    // LaunchpadOutcomeToken has name/symbol as public state variables, not ERC20 functions
     const tokenCalls = addresses.flatMap((_, i) => {
         const tokenAddr = marketData?.[i * 3]?.result as `0x${string}` | undefined;
         // If tokenAddr is valid (non-zero), use it. Else undefined.
         // Flattening 2 calls per market.
         const effectiveAddr = (tokenAddr && tokenAddr !== '0x0000000000000000000000000000000000000000') ? tokenAddr : undefined;
         return [
-            { address: effectiveAddr, abi: ERC20_ABI, functionName: 'name' },
-            { address: effectiveAddr, abi: ERC20_ABI, functionName: 'symbol' }
+            { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'name' },
+            { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol' }
         ];
     });
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        query: { enabled: !!marketData && addresses.length > 0 }
+        query: { enabled: !!marketData && addresses.length > 0, refetchInterval: 5000 }
     });
 
-    // DEBUG: Log token data status
-    console.log('[useLaunchpadMarkets] addresses:', addresses.length);
-    console.log('[useLaunchpadMarkets] marketData:', marketData?.map((m, i) => ({
-        idx: i,
-        fn: i % 3 === 0 ? 'outcomeToken' : i % 3 === 1 ? 'isGraduated' : 'deadline',
-        result: m.result
-    })));
-    console.log('[useLaunchpadMarkets] tokenData:', tokenData?.map((t, i) => ({
-        idx: i,
-        fn: i % 2 === 0 ? 'name' : 'symbol',
-        result: t.result,
-        error: t.error
-    })));
+    // DEBUG: Log token data status (commented out for production)
+    // console.log('[useLaunchpadMarkets] addresses:', addresses.length);
+    // console.log('[useLaunchpadMarkets] marketData:', marketData?.map((m, i) => ({
+    //     idx: i,
+    //     fn: i % 3 === 0 ? 'outcomeToken' : i % 3 === 1 ? 'isGraduated' : 'deadline',
+    //     result: m.result
+    // })));
+    // console.log('[useLaunchpadMarkets] tokenData:', tokenData?.map((t, i) => ({
+    //     idx: i,
+    //     fn: i % 2 === 0 ? 'name' : 'symbol',
+    //     result: t.result,
+    //     error: t.error
+    // })));
 
     // 4. Transform and Merge
     const markets: LaunchpadMarketData[] = addresses.map((addr, i) => {

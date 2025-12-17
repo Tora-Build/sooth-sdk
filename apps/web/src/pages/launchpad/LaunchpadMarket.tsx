@@ -1,6 +1,6 @@
 // LaunchpadMarket.tsx - Redesigned market detail page for V5 Launchpad
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigationStore } from '../../store/useNavigationStore';
 import { useLaunchpadMarket } from '../../hooks/v5/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../../hooks/v5/useLaunchpadMarkets';
@@ -13,6 +13,7 @@ import { useAccount } from 'wagmi';
 // Components
 import { MarketHeader } from '../../components/features/launchpad/MarketHeader';
 import { GraduationProgress } from '../../components/features/launchpad/GraduationProgress';
+import { LaunchpadLockedProceeds } from '../../components/features/trader/LaunchpadLockedProceeds';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -32,15 +33,17 @@ export const LaunchpadMarket = () => {
         isLive,
         graduate,
         expire,
-        claimRefund,
+        claimCreatorRefund: claimRefund,
         isGraduatePending,
         isExpirePending,
         isRefundPending,
-        feesAccrued
+        feesAccrued,
+        lockedProceeds,
+        totalLockedProceeds
     } = useLaunchpadMarket(activeMarketAddress as `0x${string}`);
 
     // Get market name from launchpad markets
-    const { markets: allLaunchpadMarkets } = useLaunchpadMarkets();
+    const { markets: allLaunchpadMarkets, refetch: refetchMarkets } = useLaunchpadMarkets();
     const marketMeta = allLaunchpadMarkets?.find(m => m.address.toLowerCase() === activeMarketAddress?.toLowerCase());
 
     // Trading data
@@ -180,6 +183,11 @@ export const LaunchpadMarket = () => {
                         </div>
                     </Card>
 
+                    {/* V6: Locked Proceeds */}
+                    {activeMarketAddress && (
+                        <LaunchpadLockedProceeds marketAddress={activeMarketAddress as `0x${string}`} />
+                    )}
+
                     {/* Expired Actions */}
                     {isExpired && isCreator && (
                         <Card className="p-6 border-red-500/30 bg-red-500/5">
@@ -266,6 +274,36 @@ export const LaunchpadMarket = () => {
                                 step="0.1"
                             />
                         </div>
+
+                        {/* V6: Locked Proceeds Info (when buying and locked proceeds available) */}
+                        {tradeMode === 'buy' && lockedProceeds && lockedProceeds > 0n && quote && (
+                            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                    <Info className="text-amber-400 mt-0.5" size={14} />
+                                    <div className="flex-1 text-xs text-amber-300">
+                                        <p className="font-medium mb-1">Locked Proceeds Available</p>
+                                        <p className="text-amber-400/80">
+                                            If your locked proceeds (${Number(formatEther(lockedProceeds)).toFixed(2)}) cover the trade cost, they will be used automatically.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* V6: Sell Locking Warning */}
+                        {tradeMode === 'sell' && (
+                            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                    <Info className="text-amber-400 mt-0.5" size={14} />
+                                    <div className="flex-1 text-xs text-amber-300">
+                                        <p className="font-medium mb-1">V6: Proceeds Will Be Locked</p>
+                                        <p className="text-amber-400/80">
+                                            Sell proceeds are locked for 24 hours. You can reinvest them immediately or claim after unlock.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Quote Summary */}
                         <div className="p-4 bg-slate-800/50 rounded-lg space-y-2 mb-4">

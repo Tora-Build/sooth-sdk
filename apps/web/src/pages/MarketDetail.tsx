@@ -8,8 +8,9 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { OrderbookForm } from '../components/features/trader/OrderbookForm';
 import { formatUnits } from 'viem';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContracts } from 'wagmi';
 import { MarketCard } from '../components/features/market/MarketCard';
+import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
@@ -25,19 +26,38 @@ export const MarketDetail = () => {
     graduate,
     isGraduatePending,
     feesAccrued,
+    outcomeToken,
   } = useLaunchpadMarket(address as `0x${string}`);
 
-  const { markets: allMarkets } = useLaunchpadMarkets();
+  const { markets: allMarkets, isLoading: marketsLoading } = useLaunchpadMarkets();
   const marketMeta = allMarkets?.find(m => m.address.toLowerCase() === address?.toLowerCase());
+
+  // Fallback: Fetch name/symbol directly from outcome token if not in markets list
+  const { data: directTokenData } = useReadContracts({
+    contracts: outcomeToken ? [
+      { address: outcomeToken, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'name' },
+      { address: outcomeToken, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol' },
+    ] : [],
+    query: {
+      enabled: !!outcomeToken && !marketMeta && !marketsLoading,
+    },
+  });
+
+  const directName = directTokenData?.[0]?.result as string | undefined;
+  const directSymbol = directTokenData?.[1]?.result as string | undefined;
+
+  // Use marketMeta if available, otherwise use direct fetch, otherwise fallback
+  const displayName = marketMeta?.name || directName || 'Loading...';
+  const displaySymbol = marketMeta?.symbol || directSymbol || '???';
 
   const { market, isLoading: marketLoading } = useAmmMarketByAddress(
     address as `0x${string}`,
-    marketMeta ? {
-      address: marketMeta.address,
-      name: marketMeta.name,
-      symbol: marketMeta.symbol,
-      isGraduated: marketMeta.isGraduated,
-      deadline: marketMeta.deadline,
+    marketMeta || (directName || directSymbol) ? {
+      address: address as `0x${string}`,
+      name: displayName,
+      symbol: displaySymbol,
+      isGraduated: isGraduated || false,
+      deadline: deadline ? Number(deadline) : undefined,
     } : undefined
   );
 
@@ -81,7 +101,7 @@ export const MarketDetail = () => {
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold text-white">
-              {marketMeta?.name || 'Loading...'}
+              {displayName}
             </h1>
             {isGraduated ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
@@ -216,7 +236,7 @@ export const MarketDetail = () => {
             </div>
           </Card>
 
-          {/* Orderbook Trading for Graduated Markets */}
+          {/* Orderbook Trading (Post-Graduation Only) */}
           {isGraduated && address && (
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -238,10 +258,10 @@ export const MarketDetail = () => {
           <div className="sticky top-24">
             <MarketCard
               address={address as `0x${string}`}
-              name={marketMeta?.name || ''}
-              symbol={marketMeta?.symbol || ''}
+              name={displayName}
+              symbol={displaySymbol}
               isGraduated={isGraduated}
-              deadline={marketMeta?.deadline ? Number(marketMeta.deadline) : undefined}
+              deadline={marketMeta?.deadline ? Number(marketMeta.deadline) : (deadline ? Number(deadline) : undefined)}
               disableNavigation={true}
             />
           </div>

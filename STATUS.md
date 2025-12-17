@@ -1,11 +1,31 @@
 # Project Status
 
-> Last Updated: 2025-12-16 (Launchpad-Only Migration Complete)
+> Last Updated: 2025-12-17 (V6 Launchpad Deployment on Base Sepolia)
 
 ## Current Focus
 - **Launchpad-Only Architecture** — Migration complete ✅
 - **Naming Refactoring** — All governor/creator confusion resolved ✅
-- **V6 Pre-Graduation Locking** — Architecture design complete, implementation pending ⏳
+- **V6 Pre-Graduation Locking** — Architecture implemented and deployed ✅
+- **V6 Markets on Base Sepolia** — 2 new markets created via V6 LaunchpadFactory ✅
+
+## Recent Changes
+
+### ✅ V6 Launchpad Deployment on Base Sepolia (2025-12-17)
+- **Deployed V6 LaunchpadFactory** with ProtocolConfig architecture
+  - Factory: `0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F`
+  - ProtocolConfig: `0x22565a06050a5031a02885263ebb106ec8595a8a`
+  - LaunchpadMarketImpl: `0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10`
+  - LaunchpadOutcomeToken: `0x6b3f017d58874badb7dd14ce74219ad83335dd54`
+- **Created 2 V6 Launchpad Markets**:
+  - Market 1 (Alien Life): `0x69b073721c552eBac6c42e934EA6684d78727c67` (Tier 1: $1k)
+  - Market 2 (BTC 7-day TWAP): `0x3A5E80578933aa92644D4ee7192CD744600d6A2f` (Tier 2: $10k)
+- **Config Updates**:
+  - Updated `deployments.json` with new V6 contract addresses (version bumped to 4.11)
+  - Added markets to `markets.json` with mode: "real", chainId: 84532
+  - Fixed `verify-deployment.sh` to use `SoothLiquidityVault` instead of deprecated `SoothGovernorVault`
+  - Synced configs to all packages via `sync-deployments.sh`
+- **Deployment Script Fix**: Fixed `DeployV4Markets.s.sol` to use `LaunchpadOutcomeToken` instead of `OutcomeToken`
+- **Verification**: All on-chain checks passed ✅ (contracts have code, markets registered, links verified)
 
 ## Recent Changes
 
@@ -37,8 +57,8 @@
 - **Documentation**: Updated migration guide, naming proposals, and whitepaper
 - **Build Status**: ✅ All contracts compile successfully, no remaining standard market references
 
-### ✅ V6 Pre-Graduation Locking (2025-12-15 Session 7) - IMPLEMENTED
-- **Architecture**: V6 pre-graduation locking architecture is merged and implemented
+### ✅ V6 Pre-Graduation Locking (2025-12-15 Session 7) - DEPLOYED
+- **Architecture**: V6 pre-graduation locking architecture is merged, implemented, and deployed
   - All sell proceeds locked during pre-graduation (cannot withdraw)
   - Locked proceeds can be reinvested via `useLockedProceeds()`
   - 2-contract architecture: Market implements `ISoothLiquidityVault` (no separate LPVault)
@@ -50,8 +70,12 @@
   - `ProtocolConfig` contract deployed and integrated
   - Pre-graduation locking with `totalLockedProceeds` tracking
   - `useLockedProceeds()` function implemented
+- **Deployment Status**: ✅ Deployed on Base Sepolia (2025-12-17)
+  - Factory and ProtocolConfig deployed
+  - 2 V6 markets created via factory
+  - All on-chain verification checks passed
 - **Test Suite**: 25 V6 tests written (`LaunchpadV6.t.sol`) - ready to run after fixing test compilation issues
-- **Status**: ✅ Architecture merged, implementation complete
+- **Status**: ✅ Architecture merged, implemented, and deployed
 
 ### ✅ V5 Frontend Trading (2025-12-15 Session 6)
 - **MarketCard Inline Trading**: Full AMM trading experience directly on Markets page
@@ -140,17 +164,21 @@
 
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V4.6 (Lock-on-Sell)
+### Base Sepolia (Chain 84532) - V6 Launchpad Markets ✅
 | Contract | Address |
 |----------|---------|
 | MockUSDC | `0x53d34066A316AE1699d434753B70593A6D59Fec1` |
 | LiquidityVault | `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1` |
 | TraderVaultV4 | `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B` |
 | FeeController | `0x1a646107e7E88aa01Fadff3145Af08156679198e` |
-| Market 1 (Alien) | `0x93AF286C7112dBeCB1e99B67c9E17427dD2ADec8` |
-| OutcomeToken 1 | `0x0359d69Fc421a68b6Ee818F84EA7575f5073E21c` |
-| Market 2 (BTC) | `0xaF3638175C66bA5B4aEd255A1d266504D3df31a3` |
-| OutcomeToken 2 | `0x9D84d61C9e6eb38bd4227F0Dd3b9Bd8ac13F792A` |
+| **LaunchpadFactory (V6)** | `0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F` |
+| **ProtocolConfig** | `0x22565a06050a5031a02885263ebb106ec8595a8a` |
+| LaunchpadMarketImpl | `0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10` |
+| LaunchpadOutcomeToken | `0x6b3f017d58874badb7dd14ce74219ad83335dd54` |
+| Market 1 (Alien Life) | `0x69b073721c552eBac6c42e934EA6684d78727c67` |
+| OutcomeToken 1 | `0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8` |
+| Market 2 (BTC 7-day TWAP) | `0x3A5E80578933aa92644D4ee7192CD744600d6A2f` |
+| OutcomeToken 2 | `0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8` |
 
 ### BNB Testnet (Chain 97) - V4.6 (Lock-on-Sell)
 | Contract | Address |
@@ -177,8 +205,9 @@
 | LaunchpadOutcomeTokenImpl | `0xf2b16B964F0e413EB7c89129aacDf3D7de8096f0` |
 
 ## Pending/Blocked
-- [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4-6 - uncommitted)
 - [ ] **V6 Tests**: Run full test suite (`LaunchpadV6.t.sol` - compilation issues fixed ✅)
+- [ ] **Frontend Integration**: Test V6 markets in UI (create, trade, graduate flows)
+- [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4-6 - uncommitted)
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
 - [ ] QA next: Fuzz tests for LMSR edge cases (large trades, extreme prices)
