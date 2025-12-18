@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3 } from 'lucide-react';
+import { useState } from 'react';
 import { useLaunchpadMarket } from '../hooks/v5/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/v5/useLaunchpadMarkets';
 import { useAmmMarketByAddress } from '../hooks/useAmmMarketByAddress';
@@ -10,7 +11,359 @@ import { OrderbookForm } from '../components/features/trader/OrderbookForm';
 import { formatUnits } from 'viem';
 import { useAccount, useReadContracts } from 'wagmi';
 import { MarketCard } from '../components/features/market/MarketCard';
+import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
 import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
+import { formatCurrency } from '../utils/format';
+
+// Compact Market Info Card Component with Help Button
+const MarketInfoCard = ({
+  priceYes,
+  priceNo,
+  totalAssets,
+  totalSupply,
+  totalCreatorDeposit,
+  feesAccrued,
+  bParamNum,
+  qYes,
+  qNo,
+  totalLockedProceeds,
+  lockedProceeds,
+  address,
+  creator,
+  outcomeToken,
+}: {
+  priceYes: number;
+  priceNo: number;
+  totalAssets?: bigint;
+  totalSupply?: bigint;
+  totalCreatorDeposit?: bigint;
+  feesAccrued?: bigint;
+  bParamNum: number;
+  qYes: number;
+  qNo: number;
+  totalLockedProceeds?: bigint;
+  lockedProceeds?: bigint;
+  address: string;
+  creator?: `0x${string}`;
+  outcomeToken?: `0x${string}`;
+}) => {
+  const [showHelp, setShowHelp] = useState(false);
+  
+  // LP tokens and assets match USDC decimals (6 for real USDC and new MockUSDC)
+  const ASSET_DECIMALS = 6;
+  const tvl = totalAssets ? parseFloat(formatUnits(totalAssets, ASSET_DECIMALS)) : 0;
+  const creatorDeposit = totalCreatorDeposit ? parseFloat(formatUnits(totalCreatorDeposit, ASSET_DECIMALS)) : 0;
+  const fees = feesAccrued ? parseFloat(formatUnits(feesAccrued, ASSET_DECIMALS)) : 0;
+  const lpSupply = totalSupply ? parseFloat(formatUnits(totalSupply, ASSET_DECIMALS)) : 0;
+  const exchangeRate = lpSupply > 0 ? tvl / lpSupply : 1; // USDC per LP token
+  const maxLoss = bParamNum * 0.693; // b × ln(2)
+  const lpPayoutYes = Math.max(0, tvl - qYes);
+  const lpPayoutNo = Math.max(0, tvl - qNo);
+  const expectedPayout = priceYes * lpPayoutYes + priceNo * lpPayoutNo;
+
+  return (
+    <Card className="p-4">
+      {/* Header with Help Button */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+          <BarChart3 className="w-4 h-4 text-cyan-400" />
+          Market Stats
+        </h3>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className={`p-1 rounded transition-colors ${showHelp ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-500 hover:text-cyan-400'}`}
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Education Panel (toggleable) */}
+      {showHelp && (
+        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-1">
+          <p>• <strong>TVL</strong> = Creator Deposit + Fees Accrued</p>
+          <p>• <strong>LP Rate</strong> = TVL ÷ LP Supply (USDC per LP token)</p>
+          <p>• <strong>Depth (b)</strong> = LMSR liquidity parameter</p>
+          <p>• <strong>qYes/qNo</strong> = Shares outstanding per outcome</p>
+          <p>• <strong>Max Loss</strong> = b × ln(2) ≈ 69.3% of depth</p>
+          <p>• <strong>Settlement</strong> = TVL minus winning shares paid out</p>
+        </div>
+      )}
+
+      {/* Probability Display */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold text-emerald-400 tabular-nums">{(priceYes * 100).toFixed(1)}%</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-2xl font-bold text-rose-400 tabular-nums">{(priceNo * 100).toFixed(1)}%</span>
+        </div>
+        <span className="text-[10px] text-slate-500">YES / NO</span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden flex mb-3">
+        <div className="bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${priceYes * 100}%` }} />
+        <div className="bg-gradient-to-r from-rose-400 to-rose-500" style={{ width: `${priceNo * 100}%` }} />
+      </div>
+
+      {/* TVL Breakdown */}
+      <div className="py-2 border-y border-slate-800 text-xs">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-slate-500">Creator Deposit</span>
+          <span className="font-mono text-slate-400">{formatCurrency(creatorDeposit)}</span>
+        </div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-slate-500">Fees Accrued</span>
+          <span className="font-mono text-emerald-400">+{formatCurrency(fees)}</span>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-slate-700">
+          <span className="text-white font-medium">Total Value Locked</span>
+          <span className="font-mono font-bold text-cyan-400">{formatCurrency(tvl)}</span>
+        </div>
+      </div>
+
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-4 gap-2 py-2 border-b border-slate-800 text-xs">
+        <div className="text-center">
+          <div className="text-[9px] text-slate-500">Depth (b)</div>
+          <div className="font-mono font-bold text-white">${bParamNum.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-slate-500">LP Supply</div>
+          <div className="font-mono font-bold text-white">{lpSupply.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-purple-400/70">LP Rate</div>
+          <div className="font-mono font-bold text-purple-400">${exchangeRate.toFixed(4)}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-amber-400/70">Max Loss</div>
+          <div className="font-mono font-bold text-amber-400">${maxLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+      </div>
+
+      {/* LMSR Inventory */}
+      <div className="grid grid-cols-2 gap-2 py-2 border-b border-slate-800 text-xs">
+        <div className="text-center">
+          <div className="text-[9px] text-emerald-400/70">qYes (outstanding)</div>
+          <div className="font-mono font-bold text-emerald-400">{qYes.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-rose-400/70">qNo (outstanding)</div>
+          <div className="font-mono font-bold text-rose-400">{qNo.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+      </div>
+
+      {/* Settlement Simulation */}
+      <div className="grid grid-cols-3 gap-2 py-2 border-b border-slate-800 text-xs">
+        <div className="text-center">
+          <div className="text-[9px] text-emerald-400/70">IF YES</div>
+          <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutYes)}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-rose-400/70">IF NO</div>
+          <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutNo)}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-cyan-400/70">EXPECTED</div>
+          <div className="font-mono font-bold text-cyan-400">{formatCurrency(expectedPayout)}</div>
+        </div>
+      </div>
+
+      {/* Locked Proceeds (if any) */}
+      {totalLockedProceeds && totalLockedProceeds > 0n && (
+        <div className="flex items-center justify-between py-2 text-xs border-b border-slate-800">
+          <span className="text-amber-400 flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
+          <div className="flex gap-3">
+            <span className="text-slate-400">Total: <span className="font-mono font-bold text-white">{formatCurrency(parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)))}</span></span>
+            {lockedProceeds && lockedProceeds > 0n && (
+              <span className="text-slate-400">Yours: <span className="font-mono font-bold text-amber-400">{formatCurrency(parseFloat(formatUnits(lockedProceeds, ASSET_DECIMALS)))}</span></span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Addresses - Inline */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-[10px]">
+        <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
+          Market: <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
+        </a>
+        {creator && (
+          <a href={`https://sepolia.basescan.org/address/${creator}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
+            Creator: <span className="font-mono">{creator.slice(0,6)}...{creator.slice(-4)}</span>
+          </a>
+        )}
+        {outcomeToken && (
+          <a href={`https://sepolia.basescan.org/address/${outcomeToken}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
+            Token: <span className="font-mono">{outcomeToken.slice(0,6)}...{outcomeToken.slice(-4)}</span>
+          </a>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+// Bonding Progress Card Component with Help Button
+const BondingProgressCard = ({
+  graduationProgress,
+  bBase,
+  graduationThreshold,
+  graduate,
+  isGraduatePending,
+}: {
+  graduationProgress: number;
+  bBase?: bigint;
+  graduationThreshold?: bigint;
+  graduate: () => void;
+  isGraduatePending: boolean;
+}) => {
+  const [showHelp, setShowHelp] = useState(false);
+
+  return (
+    <Card className="p-5 border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/20 relative overflow-hidden">
+      {/* Animated background glow */}
+      <div 
+        className="absolute inset-0 opacity-30 blur-2xl transition-all duration-1000"
+        style={{
+          background: `radial-gradient(circle at ${graduationProgress}% 50%, rgba(34, 211, 238, 0.4), transparent 60%)`
+        }}
+      />
+      
+      <div className="relative z-10">
+        {/* Header with circular progress + help button */}
+        <div className="flex items-center gap-4 mb-4">
+          {/* Circular Progress Indicator */}
+          <div className="relative w-14 h-14 flex-shrink-0">
+            <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="4" className="text-slate-800" />
+              <circle
+                cx="32" cy="32" r="28"
+                fill="none"
+                stroke="url(#bondingGradient)"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray={`${graduationProgress * 1.76} 176`}
+                className="transition-all duration-1000 ease-out"
+                style={{ filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.5))' }}
+              />
+              <defs>
+                <linearGradient id="bondingGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#22d3ee" />
+                  <stop offset="100%" stopColor="#10b981" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-bold text-cyan-400 tabular-nums">
+                {graduationProgress.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                Bonding Phase
+              </h3>
+              <button
+                onClick={() => setShowHelp(!showHelp)}
+                className={`p-1 rounded transition-colors ${showHelp ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-500 hover:text-cyan-400'}`}
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-sm text-slate-400">
+              ${bBase ? (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}
+              <span className="text-slate-600 mx-1">/</span>
+              ${graduationThreshold ? (Number(graduationThreshold) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'}
+            </div>
+          </div>
+        </div>
+
+        {/* Education Panel (toggleable) */}
+        {showHelp && (
+          <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-1">
+            <p>• Trading fees grow the <strong>liquidity pool</strong></p>
+            <p>• At <strong>100%</strong>, market graduates to full AMM</p>
+            <p>• Early traders earn more <strong>LP tokens</strong></p>
+            <p>• Pre-graduation fee: <strong>5%</strong> (vs 1% post-grad)</p>
+          </div>
+        )}
+
+        {/* Linear progress bar */}
+        <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
+          <div
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-400 transition-all duration-1000 ease-out rounded-full"
+            style={{ 
+              width: `${graduationProgress}%`,
+              boxShadow: '0 0 12px rgba(34, 211, 238, 0.6)'
+            }}
+          />
+        </div>
+
+        {graduationProgress >= 100 && (
+          <Button
+            onClick={graduate}
+            disabled={isGraduatePending}
+            className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-black font-bold shadow-lg shadow-cyan-500/25"
+          >
+            {isGraduatePending ? 'Graduating...' : '🎓 Graduate Market'}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+// Helper component for address display with copy functionality
+const AddressRow = ({ label, address, isCreator }: { label: string; address: string; isCreator?: boolean }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-800/30 transition-colors group">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{label}</span>
+        {isCreator && (
+          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1">
+            Creator
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <a
+          href={`https://sepolia.basescan.org/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors"
+        >
+          {address.slice(0, 6)}...{address.slice(-4)}
+        </a>
+        <button
+          onClick={handleCopy}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-700"
+        >
+          {copied ? (
+            <CheckCircle className="w-3 h-3 text-emerald-400" />
+          ) : (
+            <Copy className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+          )}
+        </button>
+        <a
+          href={`https://sepolia.basescan.org/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-700"
+        >
+          <ExternalLink className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+        </a>
+      </div>
+    </div>
+  );
+};
 
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
@@ -27,6 +380,18 @@ export const MarketDetail = () => {
     isGraduatePending,
     feesAccrued,
     outcomeToken,
+    totalCreatorDeposit,
+    // V6: LP Token data
+    totalSupply,
+    totalAssets,
+    userLpBalance,
+    userLpValue,
+    userSharePercent,
+    totalLockedProceeds,
+    lockedProceeds,
+    // V6: LP actions
+    redeemLP,
+    isRedeemLPPending,
   } = useLaunchpadMarket(address as `0x${string}`);
 
   const { markets: allMarkets, isLoading: marketsLoading } = useLaunchpadMarkets();
@@ -42,6 +407,18 @@ export const MarketDetail = () => {
       enabled: !!outcomeToken && !marketMeta && !marketsLoading,
     },
   });
+
+  // Fetch creator's LP balance (for leaderboard)
+  const { data: creatorLpData } = useReadContracts({
+    contracts: creator && address ? [
+      { address: address as `0x${string}`, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [creator] },
+    ] : [],
+    query: {
+      enabled: !!creator && !!address,
+      refetchInterval: 5000,
+    },
+  });
+  const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;
 
   const directName = directTokenData?.[0]?.result as string | undefined;
   const directSymbol = directTokenData?.[1]?.result as string | undefined;
@@ -141,100 +518,34 @@ export const MarketDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Market Info */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Graduation Progress */}
+          {/* Bonding Progress Card */}
           {!isGraduated && (
-            <Card className="p-6 border-cyan-500/20">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-cyan-400" />
-                  Bonding Progress
-                </h3>
-                <span className="text-2xl font-bold text-cyan-400 tabular-nums">
-                  {graduationProgress.toFixed(1)}%
-                </span>
-              </div>
-
-              <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden mb-4">
-                <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-1000 ease-out"
-                  style={{ width: `${graduationProgress}%` }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">
-                  ${bBase ? (Number(bBase) / 1e18).toLocaleString() : '0'} raised
-                </span>
-                <span className="text-slate-400">
-                  ${graduationThreshold ? (Number(graduationThreshold) / 1e18).toLocaleString() : '0'} target
-                </span>
-              </div>
-
-              {graduationProgress >= 100 && (
-                <Button
-                  onClick={graduate}
-                  disabled={isGraduatePending}
-                  className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-black font-bold"
-                >
-                  {isGraduatePending ? 'Graduating...' : '🎓 Graduate Market'}
-                </Button>
-              )}
-            </Card>
+            <BondingProgressCard
+              graduationProgress={graduationProgress}
+              bBase={bBase}
+              graduationThreshold={graduationThreshold}
+              graduate={graduate}
+              isGraduatePending={isGraduatePending}
+            />
           )}
 
-          {/* Probability Display */}
-          <Card className="p-6">
-            <h3 className="font-bold text-white mb-6">Market Probability</h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-6 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5">
-                <div className="text-sm text-emerald-400 mb-1">YES</div>
-                <div className="text-4xl font-bold text-white tabular-nums">
-                  {(priceYes * 100).toFixed(1)}%
-                </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  ${priceYes.toFixed(4)} per share
-                </div>
-              </div>
-
-              <div className="p-6 rounded-xl border-2 border-rose-500/30 bg-rose-500/5">
-                <div className="text-sm text-rose-400 mb-1">NO</div>
-                <div className="text-4xl font-bold text-white tabular-nums">
-                  {(priceNo * 100).toFixed(1)}%
-                </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  ${priceNo.toFixed(4)} per share
-                </div>
-              </div>
-            </div>
-
-            {/* Probability Bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">YES Probability</span>
-                <div className="flex items-center gap-2 font-mono">
-                  <span className="font-bold tabular-nums text-white">
-                    {(priceYes * 100).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden flex">
-                <div
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-400"
-                  style={{ width: `${priceYes * 100}%` }}
-                />
-                <div
-                  className="bg-gradient-to-r from-rose-400 to-rose-500"
-                  style={{ width: `${priceNo * 100}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>Liquidity: ${bParamNum.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                <span>qYes: {qYes.toFixed(0)} | qNo: {qNo.toFixed(0)}</span>
-              </div>
-            </div>
-          </Card>
+          {/* Combined Market Info Card - Redesigned */}
+          <MarketInfoCard
+            priceYes={priceYes}
+            priceNo={priceNo}
+            totalAssets={totalAssets}
+            totalSupply={totalSupply}
+            totalCreatorDeposit={totalCreatorDeposit}
+            feesAccrued={feesAccrued}
+            bParamNum={bParamNum}
+            qYes={qYes}
+            qNo={qNo}
+            totalLockedProceeds={totalLockedProceeds}
+            lockedProceeds={lockedProceeds}
+            address={address}
+            creator={creator}
+            outcomeToken={outcomeToken}
+          />
 
           {/* Orderbook Trading (Post-Graduation Only) */}
           {isGraduated && address && (
@@ -251,11 +562,28 @@ export const MarketDetail = () => {
               <OrderbookForm marketId={address} />
             </Card>
           )}
+
         </div>
 
-        {/* Right: Trading Panel (Using MarketCard Style) */}
+        {/* Right: LP Position + Trading Panel */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24">
+          <div className="sticky top-24 space-y-4">
+            {/* LP Leaderboard Card */}
+            <LPLeaderboardCard
+              userAddress={userAddress}
+              userLpBalance={userLpBalance}
+              userLpValue={userLpValue || 0n}
+              userSharePercent={userSharePercent || 0}
+              isLive={isLive}
+              redeemLP={redeemLP}
+              isRedeemLPPending={isRedeemLPPending}
+              creatorAddress={creator}
+              creatorLpBalance={creatorLpBalance}
+              totalSupply={totalSupply}
+              totalAssets={totalAssets}
+            />
+
+            {/* Trading Panel */}
             <MarketCard
               address={address as `0x${string}`}
               name={displayName}

@@ -66,14 +66,12 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
     // Events
     // =========================================================================
     
-    // Events are inherited from ILaunchpadMarket interface and SoothMarketBase
+    // V6 events are declared in ILaunchpadMarket interface
+    // Additional events for locking (inherited from ISoothLiquidityVault)
     event Locked(address indexed user, uint256 amount, uint64 unlockTime);
     event Unlocked(address indexed user, uint256 amount);
     event Claimed(address indexed user, uint256 amount);
     event LpTokensAccrued(address indexed to, uint256 amount);
-    event LpTokensRedeemed(address indexed from, uint256 amount, uint256 assets);
-    event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount);
-    event LiquidationRefundClaimed(address indexed user, uint256 amount);
 
     // =========================================================================
     // Constructor

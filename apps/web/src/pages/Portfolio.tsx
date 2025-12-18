@@ -1,12 +1,13 @@
-import { Wallet, TrendingUp, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Wallet, TrendingUp, Clock, Coins } from 'lucide-react';
 import { TradingAccountCard } from '../components/features/portfolio/TradingAccountCard';
 import { ActivePositionsCard } from '../components/features/portfolio/ActivePositionsCard';
+import { LPPositionsCard } from '../components/features/portfolio/LPPositionsCard';
 import { PendingUnlocks } from '../components/features/trader/PendingUnlocks';
 import { Card } from '../components/ui/Card';
 import { useAccount } from 'wagmi';
-import { Link } from 'react-router-dom';
 import { useTraderVault } from '../hooks/useTraderVault';
 import { useLockedFunds } from '../hooks/useLockedFunds';
+import { useLPPositions } from '../hooks/useLPPositions';
 import { formatCurrency } from '../utils/format';
 import { formatUnits } from 'viem';
 
@@ -14,10 +15,13 @@ export const Portfolio = () => {
   const { isConnected } = useAccount();
   const { totalBalance } = useTraderVault();
   const { locked, lockedFormatted, isLoading } = useLockedFunds();
+  const { totalLPValue, totalLPValueFormatted, isLoading: lpLoading } = useLPPositions();
 
   // Format total value from bigint (18 decimals)
   const totalValueNum = Number(formatUnits(totalBalance || 0n, 18));
-  const totalValueFormatted = formatCurrency(totalValueNum);
+  const lpValueNum = parseFloat(totalLPValueFormatted);
+  const combinedTotalValue = totalValueNum + lpValueNum;
+  const totalValueFormatted = formatCurrency(combinedTotalValue);
 
   if (!isConnected) {
     return (
@@ -44,7 +48,7 @@ export const Portfolio = () => {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6 border-cyan-500/20">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
@@ -52,9 +56,23 @@ export const Portfolio = () => {
             </div>
             <div>
               <div className="text-2xl font-bold text-white tabular-nums">
-                {isLoading ? '--' : totalValueFormatted}
+                {isLoading || lpLoading ? '--' : totalValueFormatted}
               </div>
               <div className="text-xs text-slate-500 uppercase tracking-wider">Total Value</div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-purple-500/20">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
+              <Coins className="w-6 h-6 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-purple-400 tabular-nums">
+                {lpLoading ? '--' : formatCurrency(lpValueNum)}
+              </div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider">LP Holdings</div>
             </div>
           </div>
         </Card>
@@ -97,6 +115,9 @@ export const Portfolio = () => {
           <ActivePositionsCard />
         </div>
       </div>
+
+      {/* LP Positions */}
+      <LPPositionsCard />
 
       {/* Pending Unlocks */}
       <Card className="p-6">

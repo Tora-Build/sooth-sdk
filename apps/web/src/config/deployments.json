@@ -1,39 +1,41 @@
 {
-  "version": "4.11",
+  "version": "2025-12-17-v2",
   "lastUpdated": "2025-12-17",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V4.6 Lock-on-Sell",
+      "status": "✅ Live - V6 with 6-decimal USDC",
       "contracts": {
-        "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
-        "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
-        "SoothLiquidityVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
-        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e",
-        "LaunchpadOutcomeToken": "0x6b3f017d58874badb7dd14ce74219ad83335dd54",
-        "LaunchpadMarketImpl": "0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10",
-        "LaunchpadFactory": "0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F",
-        "ProtocolConfig": "0x22565a06050a5031a02885263ebb106ec8595a8a"
+        "MockUSDC": "0x5568FFe0c12775c94b0B3d2BAe738E8b16ab0096",
+        "SoothTraderVault": "0x65Dc88A2AaA41a45AC1Cf00E19c172336215023B",
+        "SoothLiquidityVault": "0x89F4234d3DB8DF2A603472FB9c217387178851dd",
+        "SoothFeeController": "0x31694C439927c703E5E27EB5CF61898A0D6bC0a1",
+        "LaunchpadFactory": "0x8bfc416B45f2B29B9aFBfc73eFbdeab6a30d74E0"
       },
       "marketInfo": {
         "market1": {
-          "address": "0x69b073721c552eBac6c42e934EA6684d78727c67",
+          "address": "0xE131C593810a916CA78199de9c4E717DdC6B8985",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8"
+          "outcomeToken": "0x47E22C30488c7709D5ceb8675A741Ec1ed60794B"
         },
         "market2": {
-          "address": "0x3A5E80578933aa92644D4ee7192CD744600d6A2f",
+          "address": "0x03Dbb3c0fE913DF6099544B129f605324E10420c",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8"
+          "outcomeToken": "0x8a2631c388095194CC70342830153cDc796Bb31e"
         }
       },
       "notes": {
-        "version": "V4.6 - Lock-on-Sell with Launchpad Markets",
+        "version": "V6 - Fresh deployment with correct 6-decimal MockUSDC",
         "date": "2025-12-17",
         "changes": [
-          "Deployed new LaunchpadFactory with ProtocolConfig",
-          "Created 2 new Launchpad markets (Alien Life, BTC 7-day TWAP)",
-          "TraderVault address corrected to match script deployment"
+          "FIXED: MockUSDC now uses 6 decimals (matches real USDC)",
+          "New MockUSDC: 0x5568FFe0c12775c94b0B3d2BAe738E8b16ab0096",
+          "New TraderVault: 0x65Dc88A2AaA41a45AC1Cf00E19c172336215023B",
+          "New LiquidityVault: 0x89F4234d3DB8DF2A603472FB9c217387178851dd",
+          "New FeeController: 0x31694C439927c703E5E27EB5CF61898A0D6bC0a1",
+          "New LaunchpadFactory: 0x8bfc416B45f2B29B9aFBfc73eFbdeab6a30d74E0",
+          "Market 1 (Alien): $1,000 TVL (tier 1)",
+          "Market 2 (BTC): $10,000 TVL (tier 2)"
         ]
       }
     },
@@ -74,7 +76,7 @@
     }
   },
   "architecture": {
-    "version": "V4.6",
+    "version": "V6",
     "entryPoint": "TraderVaultV4 - Dual-venue trading",
     "features": [
       "AMM trading with 24h lock-on-sell (proceeds locked)",
@@ -82,9 +84,12 @@
       "ERC1155 outcome tokens",
       "Continuous LMSR (qYes/qNo) - No ticks",
       "Dynamic liquidity (b parameter)",
-      "Dynamic liquidity (b parameter)",
       "claimUnlocked() to claim expired proceeds",
-      "Launchpad V5: Permissionless market creation + graduation"
+      "Launchpad V6: 2-contract architecture (Market implements ISoothLiquidityVault)",
+      "Launchpad V6: Immutable factory with ProtocolConfig",
+      "Launchpad V6: Pre-graduation locking (can reinvest, cannot withdraw)",
+      "Launchpad V6: Guardian role for liquidation and forceGraduate",
+      "MockUSDC: 6 decimals (matches real USDC)"
     ]
   }
 }

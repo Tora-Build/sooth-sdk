@@ -1,84 +1,142 @@
-import { usePublicClient, useReadContract } from 'wagmi';
+import React, { useMemo, useEffect } from 'react';
+import { usePublicClient, useReadContract, useChainId } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../../config/abis';
 import { useDeployments } from '../useDeployments';
 import { decodeEventLog, parseAbiItem } from 'viem';
 import { useReadContracts } from 'wagmi';
-import { useMemo } from 'react';
 
 export interface LaunchpadMarketData {
     address: `0x${string}`;
     name: string;
     symbol: string;
+    outcomeToken?: `0x${string}`;
     bValue: bigint;
     creator: `0x${string}`;
     // Dynamic data
     isGraduated?: boolean;
     deadline?: number;
     liquidityB?: bigint;
+    chainId?: number;
 }
 
 export function useLaunchpadMarkets() {
     const { config } = useDeployments();
+    const chainId = useChainId(); // Get chainId from wagmi (top-level hook call)
     // @ts-ignore
     const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
     
-    // V6 Check: Verify factory has protocolConfig (V6 factories have this, V5 don't)
-    const { data: protocolConfigAddress } = useReadContract({
-        address: factoryAddress,
-        abi: LAUNCHPAD_FACTORY_ABI,
-        functionName: 'protocolConfig',
-        query: { enabled: !!factoryAddress }
-    });
-    
-    const isV6Factory = useMemo(() => {
-        return !!protocolConfigAddress && protocolConfigAddress !== '0x0000000000000000000000000000000000000000';
-    }, [protocolConfigAddress]);
-    
-    // 1. Fetch Market Addresses from Factory (only if V6 factory)
+    // 1. Fetch Market Addresses from Factory
     const { data: marketAddresses, refetch } = useReadContract({
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
-        query: { enabled: !!factoryAddress && isV6Factory, refetchInterval: 5000 }
+        query: { enabled: !!factoryAddress, refetchInterval: 5000 }
     });
+    
+    // Debug: Log factory address and markets being returned
+    useEffect(() => {
+        if (factoryAddress) {
+            console.log('[useLaunchpadMarkets] Using factory:', factoryAddress);
+            console.log('[useLaunchpadMarkets] Expected factory: 0xd7380d0f22d54B81648F297a07e352045b66a49c');
+        } else {
+            console.warn('[useLaunchpadMarkets] No factory address found in deployments');
+        }
+        if (marketAddresses) {
+            console.log('[useLaunchpadMarkets] Markets from factory:', marketAddresses);
+        }
+    }, [factoryAddress, marketAddresses]);
 
 
     const addresses = (marketAddresses as `0x${string}`[]) || [];
 
-    // 2. Fetch Market Factory Address (to verify V6)
-    const { data: marketFactoriesData } = useReadContracts({
-        contracts: addresses.map(addr => ({
+    // 2. V6 Check: Verify each market is V6 by checking for V6-only functions
+    // Always call useMemo hooks - they're hooks themselves and must be called unconditionally
+    const v6CheckContracts = useMemo(() => {
+        if (!addresses.length) return [];
+        return addresses.map(addr => ({
             address: addr,
             abi: LAUNCHPAD_MARKET_ABI,
-            functionName: 'factory'
-        })),
-        query: { enabled: addresses.length > 0 && isV6Factory }
+            functionName: 'totalLockedProceeds' as const // V6-only function
+        }));
+    }, [addresses]);
+    
+    const { data: v6CheckData } = useReadContracts({
+        contracts: v6CheckContracts,
+        query: { enabled: addresses.length > 0 }
+    });
+    
+    // Also check lpVault as backup
+    const lpVaultContracts = useMemo(() => {
+        if (!addresses.length) return [];
+        return addresses.map(addr => ({
+            address: addr,
+            abi: LAUNCHPAD_MARKET_ABI,
+            functionName: 'lpVault' as const
+        }));
+    }, [addresses]);
+    
+    const { data: lpVaultData } = useReadContracts({
+        contracts: lpVaultContracts,
+        query: { enabled: addresses.length > 0 }
     });
 
-    // 3. Filter to only V6 markets (markets whose factory has protocolConfig)
+    // Filter to only V6 markets
+    // V6 markets have totalLockedProceeds() function (V5 don't) AND lpVault() returns address(0)
     const v6MarketAddresses = useMemo(() => {
-        if (!marketFactoriesData || !addresses.length) return [];
-        return addresses.filter((addr, i) => {
-            const marketFactory = marketFactoriesData[i]?.result as `0x${string}` | undefined;
-            // Only include markets from the configured V6 factory
-            return marketFactory && marketFactory.toLowerCase() === factoryAddress?.toLowerCase();
+        if (!addresses.length) return [];
+        
+        const filtered = addresses.filter((addr, i) => {
+            // Primary check: V6 markets have totalLockedProceeds() function
+            const v6CheckResult = v6CheckData?.[i];
+            if (v6CheckResult?.error) {
+                // Function doesn't exist = V5 market
+                return false;
+            }
+            if (v6CheckResult?.result === undefined && v6CheckResult?.status !== 'success') {
+                // Still loading or failed
+                return false;
+            }
+            
+            // Secondary check: V6 markets have lpVault() returning address(0)
+            const lpVaultResult = lpVaultData?.[i];
+            if (lpVaultResult?.error) {
+                // lpVault() call failed, might be V5
+                return false;
+            }
+            const zeroAddress = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+            const lpVault = lpVaultResult?.result as `0x${string}` | undefined;
+            if (lpVault && lpVault.toLowerCase() !== zeroAddress.toLowerCase()) {
+                // lpVault returns non-zero = V5 market
+                return false;
+            }
+            
+            // Both checks passed = V6 market
+            return true;
         });
-    }, [addresses, marketFactoriesData, factoryAddress]);
+        
+        return filtered;
+    }, [addresses, v6CheckData, lpVaultData]);
 
-    // 4. Fetch Market Details (OutcomeToken, Graduated, Deadline) - only for V6 markets
+    // 3. Fetch Market Details (OutcomeToken, Graduated, Deadline) - only V6 markets
+    const marketDetailContracts = useMemo(() => {
+        return v6MarketAddresses.flatMap(addr => [
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' as const },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' as const },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' as const }
+        ]);
+    }, [v6MarketAddresses]);
+    
     const { data: marketData, isLoading: isLoadingMarketData } = useReadContracts({
-        contracts: v6MarketAddresses.flatMap(addr => [
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' }
-        ]),
+        contracts: marketDetailContracts,
         query: { enabled: v6MarketAddresses.length > 0, refetchInterval: 5000 } // Refetch every 5s to catch graduation
     });
 
-    // 5. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
+    // 4. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
     // LaunchpadOutcomeToken has name/symbol as public state variables, not ERC20 functions
-    const tokenCalls = v6MarketAddresses.flatMap((_, i) => {
+    const tokenCalls = useMemo(() => {
+        if (!v6MarketAddresses.length || !marketData) return [];
+        return v6MarketAddresses.flatMap((_, i) => {
         const tokenAddr = marketData?.[i * 3]?.result as `0x${string}` | undefined;
         // If tokenAddr is valid (non-zero), use it. Else undefined.
         // Flattening 2 calls per market.
@@ -88,10 +146,11 @@ export function useLaunchpadMarkets() {
             { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol' }
         ];
     });
+    }, [v6MarketAddresses, marketData]);
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        query: { enabled: !!marketData && v6MarketAddresses.length > 0, refetchInterval: 5000 }
+        query: { enabled: tokenCalls.length > 0, refetchInterval: 5000 }
     });
 
     // DEBUG: Log token data status (commented out for production)
@@ -108,8 +167,9 @@ export function useLaunchpadMarkets() {
     //     error: t.error
     // })));
 
-    // 6. Transform and Merge (only V6 markets)
+    // 5. Transform and Merge (only V6 markets)
     const markets: LaunchpadMarketData[] = v6MarketAddresses.map((addr, i) => {
+        const outcomeTokenAddr = marketData?.[i * 3]?.result as `0x${string}` | undefined;
         const isGraduated = marketData?.[i * 3 + 1]?.result as boolean;
         const deadline = marketData?.[i * 3 + 2]?.result as unknown; // Cast unknown first to be safe
 
@@ -126,10 +186,12 @@ export function useLaunchpadMarkets() {
             address: addr,
             name: name,
             symbol: symbol,
+            outcomeToken: outcomeTokenAddr || '0x0000000000000000000000000000000000000000' as `0x${string}`,
             bValue: 0n,
             creator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
             isGraduated: !!isGraduated,
-            deadline: typeof deadline === 'bigint' ? Number(deadline) : Number(deadline || 0)
+            deadline: typeof deadline === 'bigint' ? Number(deadline) : Number(deadline || 0),
+            chainId: chainId
         };
     }).reverse(); // Show newest first
 

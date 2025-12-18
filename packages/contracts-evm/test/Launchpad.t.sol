@@ -9,7 +9,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {LaunchpadFactory} from "../contracts/launchpad/LaunchpadFactory.sol";
 import {LaunchpadMarket} from "../contracts/launchpad/LaunchpadMarket.sol";
-import {MarketLPVault} from "../contracts/launchpad/MarketLPVault.sol";
+import {MarketLPVault} from "../contracts/launchpad/MarketLPVault_V5.sol";
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
 import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";

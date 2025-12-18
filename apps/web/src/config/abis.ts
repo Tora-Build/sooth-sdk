@@ -250,12 +250,29 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   // V6: ISoothLiquidityVault (market is its own vault)
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
+  // V6: ERC20 LP Token (market IS the LP token)
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
   // Actions
   "function graduate()",
   "function expire()",
   "function claimCreatorRefund()",
-  "event Graduated(uint256 timestamp, uint256 totalLiquidity)",
-  "event Expired(uint256 timestamp)",
+  // V6: Guardian actions
+  "function liquidate()",
+  "function forceGraduate()",
+  "function isLiquidated() view returns (bool)",
+  // V6: Liquidation refunds
+  "function claimLiquidationRefund(address user)",
+  // V6: LP token redemption
+  "function redeemLP(uint256 amount)",
+  "function previewRedeemLP(uint256 amount) view returns (uint256)",
+  // Events
+  "event MarketGraduated(uint256 totalFeesAccrued, uint256 graduationTimestamp)",
+  "event MarketExpired(uint256 feesRefunded, uint256 creatorDepositRefunded)",
+  "event CreatorRefunded(address indexed creator, uint256 amount)",
+  "event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount)", // V6
+  "event LiquidationRefundClaimed(address indexed user, uint256 amount)", // V6
+  "event LpTokensRedeemed(address indexed from, uint256 amount, uint256 assets)", // V6
   "event Locked(address indexed user, uint256 amount, uint64 unlockTime)", // V6
   "event Unlocked(address indexed user, uint256 amount)", // V6
   "event Claimed(address indexed user, uint256 amount)", // V6

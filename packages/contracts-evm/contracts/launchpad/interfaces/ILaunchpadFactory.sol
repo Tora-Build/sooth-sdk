@@ -42,7 +42,7 @@ interface ILaunchpadFactory {
     /// @param isOpenEnd Whether the market is open-ended (no expiry) or fixed expiry
     /// @param durationSeconds Duration in seconds (only for fixed-expiry markets)
     /// @return market The address of the deployed LaunchpadMarket
-    /// @return lpVault The address of the deployed MarketLPVault
+    /// @return lpVault V6: Always returns address(0). Market implements ISoothLiquidityVault itself.
     function createMarket(
         string memory name,
         string memory symbol,

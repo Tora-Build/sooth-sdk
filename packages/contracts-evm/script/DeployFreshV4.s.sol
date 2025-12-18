@@ -8,7 +8,7 @@ import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/ISoothLiquidityVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -20,11 +20,11 @@ contract DeployFreshV4 is Script {
         
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Deploying Fresh V4 System ===");
+        console.log("=== Deploying Fresh V4 System (6-decimal USDC) ===");
         
-        // 1. Use Existing USDC
-        MockUSDC usdc = MockUSDC(0x2D2Aed066C34523913ab7084B668bFf3529cB176);
-        console.log("Using Existing USDC:", address(usdc));
+        // 1. Deploy NEW MockUSDC with 6 decimals (like real USDC)
+        MockUSDC usdc = new MockUSDC();
+        console.log("NEW MockUSDC (6 decimals):", address(usdc));
 
         // 2. Deploy FeeController
         SoothFeeController feeController = new SoothFeeController(deployer);
@@ -43,7 +43,7 @@ contract DeployFreshV4 is Script {
         console.log("TraderVaultV4:", address(traderVault));
 
         // 5. Deploy Launchpad Factory
-        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
         
@@ -60,8 +60,8 @@ contract DeployFreshV4 is Script {
         console.log("LaunchpadFactory:", address(factory));
 
         // 6. Create Launchpad Markets
-        // Fund deployer
-        usdc.mint(deployer, 20_000 * 1e18);
+        // Fund deployer with USDC (6 decimals: 20,000 USDC = 20_000 * 1e6)
+        usdc.mint(deployer, 20_000 * 1e6);
         usdc.approve(address(factory), type(uint256).max);
         
         // Market 1

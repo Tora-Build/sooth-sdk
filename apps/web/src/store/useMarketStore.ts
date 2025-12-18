@@ -15,7 +15,10 @@ interface MarketState {
 import marketOverrides from '../config/marketOverrides.json';
 
 // Initial Demo Data
-const initialDemoMarkets: Market[] = marketsConfig.markets.map(m => {
+// Filter out real markets - they should come from LaunchpadFactory dynamically
+const initialDemoMarkets: Market[] = marketsConfig.markets
+  .filter(m => (m as any).mode === 'demo') // Only include demo markets
+  .map(m => {
   // Apply overrides if they exist for this market ID
   const override = (marketOverrides.overrides as Record<string, any>)[m.id] || {};
   const mergedMarket = { ...m, ...override };

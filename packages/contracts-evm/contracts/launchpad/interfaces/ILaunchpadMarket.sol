@@ -16,6 +16,15 @@ interface ILaunchpadMarket is ISoothMarketV4 {
 
     /// @notice Emitted when creator claims refund after expiry
     event CreatorRefunded(address indexed creator, uint256 amount);
+    
+    /// @notice V6: Emitted when market is liquidated (failed to graduate)
+    event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount);
+    
+    /// @notice V6: Emitted when user claims liquidation refund
+    event LiquidationRefundClaimed(address indexed user, uint256 amount);
+    
+    /// @notice V6: Emitted when LP tokens are redeemed
+    event LpTokensRedeemed(address indexed from, uint256 amount, uint256 assets);
 
     // =========================================================================
     // Core Functions
@@ -46,7 +55,7 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     /// @notice Whether the market has successfully graduated
     function isGraduated() external view returns (bool);
 
-    /// @notice The associated LP Vault address
+    /// @notice V6: Returns address(0) - market is its own vault (no separate LPVault)
     function lpVault() external view returns (address);
 
     /// @notice Triggers graduation if criteria are met. Permissionless.
@@ -66,4 +75,22 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     
     /// @notice V6: Total locked proceeds
     function totalLockedProceeds() external view returns (uint256);
+    
+    /// @notice V6: Whether market has been liquidated
+    function isLiquidated() external view returns (bool);
+    
+    /// @notice V6: Guardian liquidates failed market (only guardian)
+    function liquidate() external;
+    
+    /// @notice V6: Guardian forces graduation (only guardian)
+    function forceGraduate() external;
+    
+    /// @notice V6: User claims liquidation refund
+    function claimLiquidationRefund(address user) external;
+    
+    /// @notice V6: Redeem LP tokens for USDC (only after settlement)
+    function redeemLP(uint256 amount) external;
+    
+    /// @notice V6: Preview redeem amount for LP tokens
+    function previewRedeemLP(uint256 amount) external view returns (uint256);
 }

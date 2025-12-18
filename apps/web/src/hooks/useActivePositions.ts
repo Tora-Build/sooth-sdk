@@ -4,7 +4,7 @@ import { TRADER_VAULT_V4_ABI, MARKET_V4_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useChainStore } from '../store/useChainStore';
-import marketsConfig from '../config/markets.json';
+import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
 
 export interface ActivePosition {
     id: string;
@@ -27,8 +27,22 @@ export const useActivePositions = () => {
 
     const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
-    // Chain Filter (Real Mode only)
-    const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real' && m.chainId === selectedChainId);
+    // Get real markets from LaunchpadFactory (on-chain)
+    const { markets: launchpadMarkets } = useLaunchpadMarkets();
+    
+    // Filter by chain ID (default to selectedChainId if market doesn't have chainId set)
+    // For now, assume all markets from factory are on the selected chain
+    const realMarkets = (launchpadMarkets || [])
+        .filter(m => !m.chainId || m.chainId === selectedChainId)
+        .map(m => ({
+            id: m.address, // Use address as ID
+            contractAddress: m.address,
+            outcomeTokenAddress: m.outcomeToken || '0x0000000000000000000000000000000000000000' as `0x${string}`,
+            question: m.name || 'Unknown Market', // Add question field for display
+            name: m.name || 'Unknown Market',
+            mode: 'real' as const,
+            chainId: m.chainId || selectedChainId
+        }));
 
     // Batch Contract Calls
     const marketContracts = realMarkets.flatMap(m => [
@@ -117,8 +131,8 @@ export const useActivePositions = () => {
                 const val = (totalYes * priceYes) + (totalNo * priceNo);
                 totalPositionValue += val;
                 activePositions.push({
-                    id: market.id,
-                    question: market.question,
+                    id: market.id || market.contractAddress, // Use address as ID if no ID field
+                    question: (market as any).question || (market as any).name || 'Unknown Market',
                     liquidYes: liqYes,
                     liquidNo: liqNo,
                     lockedYes: lockYes,

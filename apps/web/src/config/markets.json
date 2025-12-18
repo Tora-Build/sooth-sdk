@@ -1,46 +1,6 @@
 {
   "markets": [
     {
-      "id": "alien-life-base-sepolia",
-      "id_numeric": 1,
-      "mode": "real",
-      "chainId": 84532,
-      "name": "UN Confirms Alien Life",
-      "question": "Will the UN confirm the existence of alien life?",
-      "adjudicatorKind": "MANUAL",
-      "adjudicatorLabel": "Manual",
-      "openEnded": false,
-      "contractAddress": "0x69b073721c552eBac6c42e934EA6684d78727c67",
-      "outcomeTokenAddress": "0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8",
-      "initialStatus": "trading",
-      "initialYes": 0.5,
-      "riskLevel": "MEDIUM",
-      "outcomes": [
-        "YES",
-        "NO"
-      ]
-    },
-    {
-      "id": "btc-100k-base-sepolia",
-      "id_numeric": 2,
-      "mode": "real",
-      "chainId": 84532,
-      "name": "BTC 7-day TWAP >= $100k",
-      "question": "Will BTC 7-day TWAP reach $100k?",
-      "adjudicatorKind": "MANUAL",
-      "adjudicatorLabel": "Manual",
-      "openEnded": false,
-      "contractAddress": "0x3A5E80578933aa92644D4ee7192CD744600d6A2f",
-      "outcomeTokenAddress": "0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8",
-      "initialStatus": "trading",
-      "initialYes": 0.5,
-      "riskLevel": "LOW",
-      "outcomes": [
-        "YES",
-        "NO"
-      ]
-    },
-    {
       "id": "m1",
       "id_numeric": 1,
       "mode": "demo",

@@ -26,8 +26,6 @@ contract DeployV4Markets is Script {
     address constant FEE_CONTROLLER = 0x1a646107e7E88aa01Fadff3145Af08156679198e;
     
     function run() external {
-        require(TICK_REGISTRY != address(0), "Set TICK_REGISTRY address first");
-        
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
@@ -38,9 +36,8 @@ contract DeployV4Markets is Script {
         console.log("  LiquidityVault:", GOVERNOR_VAULT);
         console.log("  TraderVault:", TRADER_VAULT);
 
-        SoothLiquidityVault liquidityVault = SoothLiquidityVault(GOVERNOR_VAULT);
+        // Get contracts (used for market registration)
         SoothTraderVaultV4 traderVault = SoothTraderVaultV4(TRADER_VAULT);
-        SoothFeeController feeController = SoothFeeController(FEE_CONTROLLER);
         
         // Get USDC contract
         IERC20 usdc = IERC20(USDC);
@@ -113,5 +110,7 @@ contract DeployV4Markets is Script {
         console.log("=== Launchpad Markets Deployed ===");
         console.log("1. Alien Life:", address(market1));
         console.log("2. BTC 7-day TWAP >= $100k:", address(market2));
+        console.log("");
+        console.log("NOTE: Do NOT create test markets with names like 'aaa' or 'AAA' in production deployments.");
     }
 }

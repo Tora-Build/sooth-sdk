@@ -63,11 +63,21 @@ export function useDeployments() {
       const storedVersion = localStorage.getItem('sooth_config_version');
       if (storedVersion && storedVersion !== configVersion) {
         console.warn(`[useDeployments] Config version updated: ${storedVersion} → ${configVersion}`);
+        console.warn('[useDeployments] Clearing cache - please hard refresh (Cmd+Shift+R / Ctrl+Shift+R)');
+        // Clear versioned cache keys if version changed
+        if (storedVersion !== configVersion) {
+          localStorage.removeItem('sooth_config_version');
+          localStorage.setItem('sooth_config_version', configVersion);
+        }
       }
       // Always update to latest version
       localStorage.setItem('sooth_config_version', configVersion);
+      // Debug: Log factory address
+      console.log('[useDeployments] Factory address:', chainDeployments?.LaunchpadFactory);
+      console.log('[useDeployments] Expected factory: 0xd7380d0f22d54B81648F297a07e352045b66a49c');
+      console.log('[useDeployments] Config version:', configVersion);
     }
-  }, [configVersion]);
+  }, [configVersion, chainDeployments]);
 
 
   if (!chainDeployments) {

@@ -11,6 +11,7 @@ import { ArrowRightLeft, Wallet, Vault } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useMarketStore } from '../../../store/useMarketStore';
+import { useLaunchpadMarkets } from '../../../hooks/v5/useLaunchpadMarkets';
 import { useChainStore } from '../../../store/useChainStore';
 
 interface AssetRowProps {
@@ -83,8 +84,20 @@ export const AssetManager: React.FC<{ isOpen: boolean; onClose: () => void }> = 
     const { depositShares, withdrawShares, isPending } = useTraderVault();
     const { writeContractAsync } = useWriteContract();
 
-    // Filter markets by mode AND selected chain to prevent cross-chain errors
-    const realMarkets = marketsConfig.markets.filter(m => m.mode === 'real' && m.chainId === selectedChainId);
+    // Get real markets from LaunchpadFactory (on-chain)
+    const { markets: launchpadMarkets } = useLaunchpadMarkets();
+    
+    // Filter by chain ID (default to selectedChainId if market doesn't have chainId set)
+    const realMarkets = (launchpadMarkets || [])
+        .filter(m => !m.chainId || m.chainId === selectedChainId)
+        .map(m => ({
+            id: m.address,
+            contractAddress: m.address,
+            outcomeTokenAddress: (m.outcomeToken || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+            name: m.name || 'Unknown Market',
+            mode: 'real' as const,
+            chainId: m.chainId || selectedChainId
+        }));
     const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
     // Build contract reads

@@ -6,10 +6,11 @@ import "../core/SoothInterfaces.sol";
 /// @title MockUSDC
 /// @notice Test ERC20 token for development/testnets
 /// @dev Deploys separately from protocol; address stored in config
+/// @dev Uses 6 decimals to match real USDC
 contract MockUSDC is IERC20 {
     string public constant name = "Mock USDC";
     string public constant symbol = "mUSDC";
-    uint8 public constant decimals = 18;
+    uint8 public constant decimals = 6;
     
     uint256 public override totalSupply;
     mapping(address => uint256) public override balanceOf;
