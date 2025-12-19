@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../interfaces/IOutcomeToken.sol";
 import "../interfaces/ISoothMarketV4.sol";
 import "../interfaces/ISoothTraderVaultV4.sol";
 
 /// @title LaunchpadOutcomeToken
 /// @notice ERC1155 outcome tokens for Launchpad markets
-contract LaunchpadOutcomeToken is ERC1155, IOutcomeToken {
+contract LaunchpadOutcomeToken is ERC1155Supply, IOutcomeToken {
     // ============ Constants ============
     
     uint256 public constant override YES_TOKEN_ID = 0;
@@ -127,5 +127,10 @@ contract LaunchpadOutcomeToken is ERC1155, IOutcomeToken {
     /// @notice Check interface support
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Get total supply of a specific token ID
+    function totalSupply(uint256 id) public view virtual override(ERC1155Supply, IOutcomeToken) returns (uint256) {
+        return super.totalSupply(id);
     }
 }

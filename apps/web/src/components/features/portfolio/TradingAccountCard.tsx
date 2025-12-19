@@ -24,7 +24,7 @@ export const TradingAccountCard: React.FC = () => {
   const { selectedChainId } = useChainStore();
 
   // Trading Account data
-  const { availableBalance, pendingBalance, totalBalance, deposit, withdraw, isPending, refetch, userUsdcBalance, decimals, allowance, approveUSDC, traderVaultAddress } = useTraderVault();
+  const { availableBalance, pendingBalance, totalBalance, deposit, withdraw, isPending, refetch, userUsdcBalance, decimals, allowance, approveUSDC, traderVaultAddress, isApproving } = useTraderVault();
   const { totalPositionValue, refetch: refetchPositions } = useActivePositions();
   const { locked, lockedFormatted, claimableFormatted, hasClaimable, isClaiming, claim, refetch: refetchLocked, nextUnlockFormatted, timeRemaining } = useLockedFunds();
 
@@ -370,8 +370,8 @@ export const TradingAccountCard: React.FC = () => {
 
 
 
-          <Button onClick={onDeposit} disabled={isPending || !depositAmount} className="w-full">
-            {isPending ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
+          <Button onClick={onDeposit} disabled={isPending || isApproving || !depositAmount} className="w-full">
+            {isPending || isApproving ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
           </Button>
         </div>
       </Dialog>

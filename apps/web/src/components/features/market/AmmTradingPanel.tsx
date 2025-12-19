@@ -119,8 +119,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             const success = await swap(selectedOutcome, sharesInput, maxCostUsdc);
             if (success) {
-                setAmount('10');
-                onTradeSuccess?.();
+            setAmount('10');
+            onTradeSuccess?.();
             }
         } catch (err) {
             console.error('Trade failed:', err);
@@ -278,15 +278,9 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
             {/* Quote Summary */}
             <div className="p-2 bg-slate-800/30 rounded-lg space-y-1 text-xs">
                 <div className="flex justify-between">
-                    <span className="text-slate-500">Cost / Share</span>
+                    <span className="text-slate-500">Price (Net)</span>
                     <span className="font-mono text-white">
-                        {costPerShare !== null ? formatCurrency(costPerShare) : '--'}
-                    </span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-500">{tradeMode === 'buy' ? 'Est. Total' : 'Est. Return'}</span>
-                    <span className="font-mono text-white">
-                        {quote && Math.abs(quote.inputAmount) === amountNum ? formatCurrency(quote.totalCost) : '--'}
+                        {costPerShare !== null ? formatCurrency(costPerShare - (quote?.fee || 0) / (amountNum || 1)) : '--'}
                     </span>
                 </div>
                 <div className="flex justify-between">
@@ -300,7 +294,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     </span>
                 </div>
                 <div className="flex justify-between border-t border-slate-700/50 pt-1">
-                    <span className="text-slate-400 font-medium">{tradeMode === 'buy' ? 'Max Total' : 'Min Received'}</span>
+                    <span className="text-slate-400 font-medium">{tradeMode === 'buy' ? 'Total Cost' : 'Min Received'}</span>
                     <span className="font-mono font-bold text-white">
                         {quote && Math.abs(quote.inputAmount) === amountNum ? formatCurrency(quote.maxWithSlippage) : '--'}
                     </span>

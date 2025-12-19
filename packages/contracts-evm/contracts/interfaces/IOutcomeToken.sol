@@ -51,6 +51,9 @@ interface IOutcomeToken is IERC1155 {
     /// @notice Get NO token balance for user
     function noBalance(address user) external view returns (uint256);
 
+    /// @notice Get total supply of a specific token ID
+    function totalSupply(uint256 id) external view returns (uint256);
+
     // ============ Events ============
     
     event Merged(address indexed user, uint256 amount);

@@ -15,6 +15,7 @@ export function useTraderVault() {
   const { address } = useAccount();
   const { mode } = useMarketStore();
   const [isPending, setIsPending] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const { config } = useDeployments();
@@ -63,31 +64,55 @@ export function useTraderVault() {
    * Approve USDC for Vault
    */
   const approveUSDC = async (amount: string) => {
-    setIsPending(true);
+    if (isApproving) return;
+    setIsApproving(true);
+    const toastId = toast.loading('Checking allowance...');
     try {
-      if (mode === 'demo') { await new Promise(r => setTimeout(r, 1000)); toast.success('Demo: Approved'); return; }
+      if (mode === 'demo') { 
+        await new Promise(r => setTimeout(r, 1000)); 
+        toast.success('Demo: Approved', { id: toastId }); 
+        return true; 
+      }
       if (!publicClient) throw new Error('Public Client not initialized');
+      if (!address) throw new Error('Wallet not connected');
 
       const amountBig = parseUnits(amount, decimals);
+
+      // Fresh check before sending
+      const currentAllowance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [address, traderVaultAddress]
+      }) as bigint;
+
+      if (currentAllowance >= amountBig) {
+        toast.success('Already approved!', { id: toastId });
+        return true;
+      }
+
+      toast.loading('Approving USDC...', { id: toastId });
       const hash = await writeContractAsync({
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [traderVaultAddress, amountBig],
       });
-      const toastId = toast.loading('Approving USDC...');
       await publicClient?.waitForTransactionReceipt({ hash });
       toast.success('Approved!', { id: toastId });
       refetch();
+      return true;
     } catch (e: any) {
-      toast.error(e.message || 'Approval failed');
-    } finally { setIsPending(false); }
+      toast.error(e.message || 'Approval failed', { id: toastId });
+      return false;
+    } finally { setIsApproving(false); }
   };
 
   /**
    * Deposit USDC to trading vault
    */
   const deposit = async (amount: string) => {
+    if (isPending || isApproving) return;
     setIsPending(true);
     try {
       if (mode === 'demo') {
@@ -103,11 +128,11 @@ export function useTraderVault() {
 
       // Explicit check: UI should prefer calling approveUSDC first, but we keep this safety
       if (currentAllowance < amountBig) {
-        await approveUSDC(amount);
-        // Re-check after approve (or just let user click again, but let's try to proceed)
-        // But refetch might not be fast enough.
-        // Better to throw "Please approve first" or let UI handle it.
-        // For now, let's keep the existing flow but rely on the new UI to prevent this path.
+        const approved = await approveUSDC(amount);
+        if (!approved) {
+          setIsPending(false);
+          return;
+        }
       }
 
       console.log('Sending Deposit to:', traderVaultAddress);
@@ -119,7 +144,6 @@ export function useTraderVault() {
       });
 
       const toastId = toast.loading('Deposit submitted...');
-      // ... rest of function
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {

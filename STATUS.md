@@ -1,30 +1,35 @@
 # Project Status
 
-> Last Updated: 2025-12-19 (LMSR Price Cap & Deployment V6.1.4)
+> Last Updated: 2025-12-20 (V6.1.8 Safe Parity Minting)
 
 ## Current Focus
-- **Launchpad-Only Architecture** — Migration complete ✅
-- **V6.1.4 Security Reinforcement** — Price Cap Guardrail implemented and deployed ✅
-- **Anti-Dilution Fair Minting** — LP tokens for traders now minted at pool exchange rate ✅
-- **UI Economic Realignment** — All labels synced with Preseed/Trade Delta terminology ✅
+- **Safe Parity LP Minting** — Prevented LP supply explosions by capping rewards at initial par value ✅
+- **Honest Floor Economics** — LP ExRate is now stable, risk-adjusted, and non-dilutive ✅
+- **UI UX Polish** — Clear separation of price vs fees and human-readable LP metrics ✅
 
 ## Recent Changes
+
+### ✅ Safe Parity Minting & V6.1.8 Deployment (2025-12-20)
+- **Fixed Fair Minting Explosion**:
+  - Implemented **Parity Floor Protection**: LP tokens for fees are now minted at `max(Current ExRate, 1.0)`.
+  - Prevents the "division-by-near-zero" feedback loop that caused trillion-LP explosions in thin pools.
+  - Ensures traders always earn a minimum of 1 LP per $1 in fees, even if the pool floor is zero.
+- **UI Metrics Alignment**:
+  - Fixed LP Supply and Leaderboard formatting to show WAD decimals (human readable).
+  - Split **Price (Net)** and **Fee** in the trading panel to clearly distinguish the $1.00 base cap.
+- **Final Deployment (V6.1.8)**:
+  - Deployed fresh system on Base Sepolia.
+  - Factory: `0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7`
+  - MockUSDC: `0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587`
 
 ### ✅ LMSR Price Cap & V6.1.4 Deployment (2025-12-19)
 - **Implemented Price Cap Guardrail**:
   - Added strict `require` in `LaunchpadMarket.swap()` to prevent cost basis exceeding $1.00 per share.
   - Fixes "Math Paradox" where thin liquidity ($b$) + large trades + fixed-point precision loss could result in >$1 cost.
-- **Fair LP Minting**:
-  - LP tokens for fees are now minted at the **current pool exchange rate** instead of 1:1.
-  - Prevents dilution of Creator Preseed by high-volume traders.
 - **Frontend Realignment**:
   - Renamed "Profit" to **AMM Trade Delta** and "Deposit" to **Creator Preseed**.
   - Updated LP ExRate to multiplier format (e.g., `1.1231x`).
   - Added detailed **Vault Breakdown** and **Settlement Simulation** to market detail pages.
-- **Final Deployment (V6.1.4)**:
-  - Deployed fresh system on Base Sepolia with 6-decimal MockUSDC.
-  - Factory: `0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D`
-  - MockUSDC: `0x861174F2eedc67D838518106eE3d75BFD9a3f63c`
 
 ### ✅ MarketDetail Market Info Fix (2025-12-17)
 - **Bug Fix**: Fixed market info disappearing in `MarketDetail.tsx`
@@ -187,21 +192,21 @@
 
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V6.1.4 Final Safety ✅
+### Base Sepolia (Chain 84532) - V6.1.8 Safe Parity ✅
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0x861174F2eedc67D838518106eE3d75BFD9a3f63c` |
-| LiquidityVault | `0xe1b915765a34cEe6E3b1489E6eA24a9266c91Ca1` |
-| TraderVaultV4 | `0xD65F02f75f7F81Ddb982be6Df220682aFeEe4b3C` |
-| FeeController | `0xE0b059daA564DD79BEFC508d7740D04972E42b1c` |
-| **LaunchpadFactory (V6)** | `0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D` |
-| **ProtocolConfig** | `0xE0b059daA564DD79BEFC508d7740D04972E42b1c` (same as FeeController) |
+| MockUSDC | `0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587` |
+| LiquidityVault | `0xb85B11d5480a40955a907CF8a8d03a1319231637` |
+| TraderVaultV4 | `0x587dFaF63e4286A7a91b157A3f40d55D0c3D3048` |
+| FeeController | `0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03` |
+| **LaunchpadFactory (V6)** | `0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7` |
+| **ProtocolConfig** | `0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03` (same as FeeController) |
 | LaunchpadMarketImpl | `0x0000...` (see factory) |
 | LaunchpadOutcomeToken | `0x0000...` (see factory) |
-| Market 1 (Alien Life) | `0xaAEa32392C60E12511bbF71fa06659037693C7Ec` |
-| OutcomeToken 1 | `0x5a8145DE101512Cbb7D52f9e398aF1eA8C43558F` |
-| Market 2 (BTC 7-day TWAP) | `0x773A4AFf5871674DFDEd937B5BA4ba781606947A` |
-| OutcomeToken 2 | `0x2a02ADD361eAc97049761ce7254B8bF32b63e46C` |
+| Market 1 (Alien Life) | `0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F` |
+| OutcomeToken 1 | `0x6c0065b539355C74D529ECb490c178BF9b0148C2` |
+| Market 2 (BTC 7-day TWAP) | `0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C` |
+| OutcomeToken 2 | `0xb7B000AA17FBf000f124DF315A340DAF3Ea2E522` |
 
 ### BNB Testnet (Chain 97) - V4.6 (Lock-on-Sell)
 | Contract | Address |
@@ -228,14 +233,40 @@
 | LaunchpadOutcomeTokenImpl | `0xf2b16B964F0e413EB7c89129aacDf3D7de8096f0` |
 
 ## Pending/Blocked
-- [ ] **V6 Tests**: Run full test suite (`LaunchpadV6.t.sol` - compilation issues fixed ✅)
+- [x] **V6 Tests**: Run full test suite (`LaunchpadV6.t.sol` - ✅ 24/24 passing after Mock fixes)
 - [ ] **Frontend Integration**: Test V6 markets in UI (create, trade, graduate flows)
 - [ ] **V5 Frontend**: Commit frontend overhaul changes (Session 4-6 - uncommitted)
+- [ ] **Git Commit**: V6.1.8 changes uncommitted (contract + frontend + docs)
 - [ ] Monad testnet deployment (awaiting funds)
 - [ ] MegaETH frontend verification on mobile
 - [ ] QA next: Fuzz tests for LMSR edge cases (large trades, extreme prices)
 - [ ] QA next: E2E happy-path (Synpress) for deposit → trade → claim → withdraw
 - [ ] **Security**: Rotate the private key used for deployments (it was exposed in chat)
+
+## Session Summary (2025-12-20)
+
+**V6.1.8 Safe Parity Minting** — Critical fix for LP supply explosion bug.
+
+### Changes Made:
+1. **Contract Fix** (`LaunchpadMarket.sol`):
+   - `_handlePostTradeFees`: Implemented Parity Floor Protection
+   - LP tokens minted at `max(Current ExRate, 1.0)` to prevent trillion-LP explosions
+   - Added detailed comments explaining the Safe Parity logic
+
+2. **Frontend UI Polish**:
+   - `AmmTradingPanel.tsx`: Split "Price (Net)" and "Fee" in quote display
+   - `MarketDetail.tsx`: Fixed LP Supply formatting with `toLocaleString()`
+   - `LPLeaderboardCard.tsx`: Renamed "Your Value" → "Protected Equity"
+
+3. **Documentation**:
+   - `LAUNCHPAD_SPEC.md`: Complete V6.1.8 overhaul (LP Economics, Fair Minting, Direct Swap)
+   - `TRADING_TERMINAL_SPEC.md`: Updated quote summary format
+   - `DECISIONS.md`: Added ADR-017 (Safe Parity LP Minting)
+   - `CHANGELOG.md`: Documented all V6.1.8 changes
+
+4. **Deployment**:
+   - Fresh Base Sepolia deployment with corrected LP math
+   - Verified: LP supply stable at ~3,456 (not trillions), ExRate 1.7171x
 
 ## Branch Status
 | Branch | Status | Description |

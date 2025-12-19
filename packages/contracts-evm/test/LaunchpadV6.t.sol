@@ -42,10 +42,19 @@ contract MockERC20 is ERC20 {
 
 // Mock OutcomeToken
 contract MockOutcomeToken is ERC20 {
+    mapping(uint256 => uint256) private _totalSupplyById;
+    
     constructor() ERC20("Mock", "MCK") {}
     function initialize(string memory name, string memory symbol, address market) external {}
-    function mint(address to, uint256 id, uint256 amount) external {}
-    function burn(address from, uint256 id, uint256 amount) external {}
+    function mint(address to, uint256 id, uint256 amount) external {
+        _totalSupplyById[id] += amount;
+    }
+    function burn(address from, uint256 id, uint256 amount) external {
+        _totalSupplyById[id] -= amount;
+    }
+    function totalSupply(uint256 id) external view returns (uint256) {
+        return _totalSupplyById[id];
+    }
 }
 
 /// @title LaunchpadV6Test
@@ -473,9 +482,11 @@ contract LaunchpadV6Test is Test {
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
-        // Creator should have LP tokens equal to deposit
+        // Creator should have LP tokens equal to deposit (scaled to 18 decimals)
+        // Deposit = 100 USDC (6 decimals) = 100 * 1e6
+        // LP tokens are 18 decimals, so creator gets 100 * 1e18 LP tokens
         uint256 lpBalance = market.balanceOf(creator);
-        assertEq(lpBalance, 100 * 1e6, "Creator should have LP tokens equal to deposit");
+        assertEq(lpBalance, 100 * 1e18, "Creator should have LP tokens equal to deposit (scaled to 18 decimals)");
     }
 
     function testTradersReceiveLPTokensFromFees() public {

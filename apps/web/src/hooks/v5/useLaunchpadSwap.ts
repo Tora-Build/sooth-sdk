@@ -13,6 +13,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const publicClient = usePublicClient();
     const [isPending, setIsPending] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
 
     // Get USDC address from market
     const { data: usdcAddress } = useReadContract({
@@ -56,14 +57,33 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
      * Approve USDC for market (one-time or per-trade)
      */
     const approve = useCallback(async (amount?: bigint) => {
-        if (!marketAddress || !usdcAddress) {
+        if (!marketAddress || !usdcAddress || !publicClient || !userAddress) {
             toast.error('Market not ready');
             return;
         }
 
-        const toastId = toast.loading('Approving USDC...');
+        if (isApproving) return;
+        setIsApproving(true);
+
+        const toastId = toast.loading('Checking allowance...');
         try {
             const approveAmount = amount || maxUint256;
+
+            // Fresh check before sending
+            const currentAllowance = await publicClient.readContract({
+                address: usdcAddress as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: 'allowance',
+                args: [userAddress, marketAddress]
+            }) as bigint;
+
+            if (currentAllowance >= (amount || 1n)) {
+                toast.success('Already approved!', { id: toastId });
+                setIsApproving(false); // Make sure to reset this!
+                return true;
+            }
+
+            toast.loading('Approving USDC...', { id: toastId });
             const hash = await writeContractAsync({
                 address: usdcAddress as `0x${string}`,
                 abi: ERC20_ABI,
@@ -71,9 +91,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 args: [marketAddress, approveAmount]
             });
 
-            if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash });
-            }
+            await publicClient.waitForTransactionReceipt({ hash });
             
             toast.success('Approved!', { id: toastId });
             await refetchAllowance();
@@ -81,8 +99,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } catch (error: any) {
             toast.error(error.message?.split('\n')[0] || 'Approval failed', { id: toastId });
             return false;
+        } finally {
+            setIsApproving(false);
         }
-    }, [marketAddress, usdcAddress, writeContractAsync, publicClient, refetchAllowance]);
+    }, [marketAddress, usdcAddress, userAddress, writeContractAsync, publicClient, refetchAllowance, isApproving]);
 
     /**
      * Execute direct swap on market
@@ -100,6 +120,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             return;
         }
 
+        if (isPending || isApproving) return;
         setIsPending(true);
         const isBuy = !shares.startsWith('-');
         const absShares = shares.replace('-', '');
@@ -115,7 +136,6 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             if (isBuy) {
                 const currentAllowance = (allowance as bigint) || 0n;
                 if (currentAllowance < maxCost) {
-                    // Approve unlimited to avoid repeated approvals
                     const approved = await approve();
                     if (!approved) {
                         setIsPending(false);
@@ -152,7 +172,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } finally {
             setIsPending(false);
         }
-    }, [marketAddress, userAddress, publicClient, decimals, allowance, approve, writeContractAsync, refetchBalance]);
+    }, [marketAddress, userAddress, publicClient, decimals, allowance, approve, writeContractAsync, refetchBalance, isPending, isApproving]);
 
     /**
      * Claim unlocked proceeds from sells

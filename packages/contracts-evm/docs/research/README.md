@@ -145,6 +145,34 @@ Comprehensive reference for safe Solidity constants for `ln(2)` across different
 
 ---
 
+### [Global Liability Accounting (Honest Floor)](./GLOBAL_LIABILITY_ACCOUNTING.md)
+
+**Date:** 2025-12-19  
+**Status:** Architecture Design (V6.1.6)
+
+Ensures LP token valuation reflects the guaranteed floor equity by tracking all outstanding outcome token liabilities across AMM and Orderbook.
+
+**Key Insights:**
+- Formula: `Net Assets = Cash - Locked - Max(YES Supply, NO Supply)`
+- Uses `ERC1155Supply` for global share tracking
+- Eliminates "Settlement Shock" where LP value drops after market expiry
+
+---
+
+### [LMSR Pricing Guardrails](./LMSR_PRICING_GUARDRAILS.md)
+
+**Date:** 2025-12-19  
+**Status:** Safety Rail (V6.1.4)
+
+Addresses the "Math Paradox" in fixed-point LMSR implementations where prices could exceed $1.00 in thin pools.
+
+**Key Insights:**
+- Implements a hard $1.00 cost-per-share cap in the contract level
+- Protects traders from irrational pricing due to math precision loss
+- Comparative analysis with Gnosis and Augur guardrails
+
+---
+
 ## Contributing Research
 
 When adding new research documents:

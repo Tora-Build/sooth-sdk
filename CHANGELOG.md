@@ -4,12 +4,47 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **V6.1.8 Safe Parity LP Minting** (2025-12-20):
+  - Implemented **Parity Floor Protection**: LP tokens for fees minted at `max(Current ExRate, 1.0)`
+  - Prevents "division-by-near-zero" feedback loop that caused trillion-LP explosions in thin pools
+  - Ensures traders always earn minimum of 1 LP per $1 in fees, even if pool floor is zero
+  - Added detailed comments to `_handlePostTradeFees` explaining the Safe Parity logic
+- **Frontend Specs Overhaul** (2025-12-20):
+  - Complete rewrite of `LAUNCHPAD_SPEC.md` for V6.1.8 (Floor Equity, Fair Minting, Direct Swap)
+  - New sections: LP Economics (§2.5), useLaunchpadSwap Hook (§3.4), useLPHolders Hook (§3.5)
+  - Updated `TRADING_TERMINAL_SPEC.md` with V6.1.8 Quote Summary (Price Net + Fee split)
+  - Updated `MARKETS_PAGE_SPEC.md` and `README.md` index
+  - Added V6 reference note to `LIQUIDITY_METRICS_EXPLAINED.md`
+
+### Changed
+- **Trading Panel Quote Display** (2025-12-20):
+  - Split "Cost per share" into **"Price (Net)"** and **"Fee"** to clarify $1.00 LMSR price cap
+  - Renamed "Max Total" to "Total Cost" for consistency
+- **LP Leaderboard Polish** (2025-12-20):
+  - Renamed "Your Value" to **"Protected Equity"** to match Floor Equity model
+  - Fixed LP Supply and Balance formatting to use `toLocaleString()` with 2 decimal places
+  - Added hover tooltip showing full precision LP values
+
+### Deployed
+- **Base Sepolia V6.1.8** (2025-12-20):
+  - MockUSDC: `0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587`
+  - LaunchpadFactory: `0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7`
+  - Market 1 (Alien Life): `0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F`
+  - Market 2 (BTC 7-day TWAP): `0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C`
+
 ### Fixed
+- **LP Supply Explosion in Fair Minting** (2025-12-20):
+  - Fixed precision bug where thin pools caused division-by-near-zero in `_handlePostTradeFees`.
+  - Implemented Parity Floor Protection (capped at 1:1 reward rate).
 - **MarketDetail Market Info Disappearing** (2025-12-17):
   - Fixed bug where market name and symbol would disappear in `MarketDetail.tsx` page
   - Added `outcomeToken` to `useLaunchpadMarket` hook return values
   - Added fallback mechanism: if market not found in markets list, fetch name/symbol directly from outcome token contract
-  - Prevents UI showing "Loading..." indefinitely when markets list is slow to load or market not yet registered
+- **V6 Test Suite Failures** (2025-12-20):
+  - Updated `MockOutcomeToken` in tests to include `totalSupply(uint256 id)` (required for liability tracking).
+  - Fixed `testCreatorReceivesLPTokens` to correctly expect 18-decimal LP tokens.
+  - Result: **24/24 tests passing** in `LaunchpadV6.t.sol`. ✅
 
 ### Added
 - **V6 Launchpad Deployment on Base Sepolia** (2025-12-17):

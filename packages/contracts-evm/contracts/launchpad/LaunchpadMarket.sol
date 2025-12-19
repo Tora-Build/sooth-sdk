@@ -138,7 +138,7 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         }
     }
 
-    /// @notice Override executeAMMTrade to handle fee splits, LP tokens, and check graduation
+    /// @notice Override executeAMMTrade to handle fee splits and check graduation
     function executeAMMTrade(
         address trader,
         uint8 outcome,
@@ -147,44 +147,8 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         // Execute base logic (from SoothMarketBase)
         (cost, fee) = super.executeAMMTrade(trader, outcome, deltaShares);
         
-        if (!isGraduated) {
-            // Track fees for graduation
-            feesAccrued += fee;
-            
-            // Auto-compound liquidity (Increase B)
-            // delta_b = fee / 0.693 (1/ln(2) in WAD)
-            uint256 deltaB = (fee * 1442695040888963407) / 1e18; // 1/ln(2) in WAD
-            bBase += deltaB;
-            emit BBaseIncrease(bBase - deltaB, bBase);
-            
-            // Mint LP tokens to trader (proportional to fee paid)
-            // Exchange rate: 1 fee = 1 LP token (1:1 initially, adjusts with totalAssets/totalSupply)
-            if (fee > 0) {
-                _mint(trader, fee);
-                emit LpTokensAccrued(trader, fee);
-            }
-            
-            // Check Graduation
-            if (bBase >= graduationThreshold()) {
-                graduate();
-            }
-        } else {
-            // Post Graduation: Fee split handled by standard vault logic
-            // For V6, we're the vault, so we handle it here
-            // 50% liquidity (b growth), 30% LP tokens (exchangeRate), 20% protocol
-            // But for simplicity in V6, we'll just grow b and mint LP tokens
-            uint256 deltaB = (fee * 1442695040888963407) / 1e18 / 2; // 50% to liquidity
-            bBase += deltaB;
-            
-            // 30% to LP tokens (mint to trader)
-            uint256 lpAmount = (fee * 3000) / 10000;
-            if (lpAmount > 0) {
-                _mint(trader, lpAmount);
-                emit LpTokensAccrued(trader, lpAmount);
-            }
-            
-            // 20% to protocol (stays in market, can be claimed by treasury)
-        }
+        // V6.1.4: Use shared fee handler (no LP minting for fees)
+        _handlePostTradeFees(trader, fee, deltaShares > 0);
     }
 
     // =========================================================================
@@ -268,29 +232,36 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         uint256 assets = totalNetAssets(); // current net assets (includes this fee)
         
         uint256 lpToMint;
-        if (supply == 0 || assets <= (fee / (10 ** (18 - IERC20Metadata(address(_asset)).decimals())))) {
-            // Initial state or edge case: 1:1
+        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+        uint256 assetsWad = assets * scale;
+
+        // Fair Minting (Anti-dilution) with "Par Floor" protection:
+        // We want to mint tokens at the current floor price: Price = (Assets - Fee) / Supply
+        // To avoid division-by-near-zero explosions when pool equity is thin:
+        // We ensure the minting price is at least 1.0 (initial parity).
+        
+        uint256 preFeeAssetsWad = assetsWad > fee ? assetsWad - fee : 0;
+        
+        if (supply == 0 || preFeeAssetsWad < supply) {
+            // Fallback: If pool is "underwater" or equity is less than 1:1 parity,
+            // mint at the initial 1:1 rate (1 unit of fee = 1 LP unit).
             lpToMint = fee;
         } else {
-            // Mint at current exchange rate (pre-fee) to avoid dilution
-            // Rate = (assetsWad - fee) / supply
-            // lpToMint = fee / Rate = (fee * supply) / (assetsWad - fee)
-            
-            uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
-            uint256 assetsWad = assets * scale;
-            lpToMint = (fee * supply) / (assetsWad - fee);
+            // Current Price > 1.0: Mint at the fair market rate to avoid diluting existing LPs.
+            // lpToMint = fee / Price = (fee * supply) / preFeeAssetsWad
+            lpToMint = (fee * supply) / preFeeAssetsWad;
         }
 
         if (!isGraduated) {
             // Track fees for graduation
             feesAccrued += fee;
             
-            // Auto-compound liquidity
+            // Auto-compound liquidity (benefit existing LPs)
             uint256 deltaB = (fee * 1442695040888963407) / 1e18;
             bBase += deltaB;
             emit BBaseIncrease(bBase - deltaB, bBase);
             
-            // Mint LP tokens to trader
+            // Distribute fair LP rewards to traders
             if (lpToMint > 0) {
                 _mint(trader, lpToMint);
                 emit LpTokensAccrued(trader, lpToMint);
@@ -301,15 +272,18 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
                 graduate();
             }
         } else {
-            // Post-graduation fee handling
+            // Post-graduation fee handling: 50% to liquidity depth
             uint256 deltaB = (fee * 1442695040888963407) / 1e18 / 2;
             bBase += deltaB;
             
+            // 30% to LP tokens (Fair rewards)
             uint256 lpFromFee = (lpToMint * 3000) / 10000;
             if (lpFromFee > 0) {
                 _mint(trader, lpFromFee);
                 emit LpTokensAccrued(trader, lpFromFee);
             }
+            
+            // 20% to protocol stays in market
         }
     }
     
@@ -373,10 +347,25 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         return _asset.balanceOf(address(this));
     }
     
-    /// @notice Net assets available for LPs (Gross - Locked Proceeds)
+    /// @notice Net assets available for LPs (Gross - Locked Proceeds - Outstanding Liability)
+    /// @dev Liability is max(Total YES shares, Total NO shares), representing the worst-case payout.
+    ///      This ensures the LP ExRate reflects a guaranteed floor value.
     function totalNetAssets() public view returns (uint256) {
         uint256 gross = totalAssets();
-        return gross > totalLockedProceeds ? gross - totalLockedProceeds : 0;
+        uint256 locked = totalLockedProceeds;
+        
+        // AMM Liability: The maximum amount the vault must pay out at settlement
+        // across BOTH AMM and Orderbook positions.
+        uint256 qYes_ = outcomeToken.totalSupply(0);
+        uint256 qNo_ = outcomeToken.totalSupply(1);
+        uint256 liability = qYes_ > qNo_ ? qYes_ : qNo_;
+        
+        // Convert liability (18 decimals) to asset decimals (6 for USDC)
+        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+        uint256 liabilityAsset = (liability + scale - 1) / scale; // Round up liability
+        
+        uint256 totalDebt = locked + liabilityAsset;
+        return gross > totalDebt ? gross - totalDebt : 0;
     }
     
     function decimalsScale() external view override returns (uint256) {

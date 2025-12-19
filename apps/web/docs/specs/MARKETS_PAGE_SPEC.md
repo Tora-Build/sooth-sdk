@@ -97,7 +97,7 @@ Markets (page)
 - YES/NO toggle
 - Amount input with +/- buttons
 - Quick amount buttons: 10, 50, 100, 500
-- Quote summary: Cost/Share, Est. Total, Fee, Max Total
+- Quote summary (V6.1.8): Price (Net), Fee (%), Total Cost
 - Slippage selector: 0.1%, 0.5%, 1%, 2%
 - Execute button
 
@@ -153,4 +153,4 @@ interface Quote {
 
 ---
 
-*Last updated: 2025-12-15*
+*Last updated: 2025-12-20 (V6.1.8)*

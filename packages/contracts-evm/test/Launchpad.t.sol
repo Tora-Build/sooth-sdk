@@ -34,10 +34,19 @@ contract MockERC20 is ERC20 {
 
 // We need a dummy OutcomeToken implementation for cloning
 contract MockOutcomeToken is ERC20 {
+    mapping(uint256 => uint256) private _totalSupplyById;
+    
     constructor() ERC20("Mock", "MCK") {}
     function initialize(string memory name, string memory symbol, address market) external {}
-    function mint(address to, uint256 id, uint256 amount) external {}
-    function burn(address from, uint256 id, uint256 amount) external {}
+    function mint(address to, uint256 id, uint256 amount) external {
+        _totalSupplyById[id] += amount;
+    }
+    function burn(address from, uint256 id, uint256 amount) external {
+        _totalSupplyById[id] -= amount;
+    }
+    function totalSupply(uint256 id) external view returns (uint256) {
+        return _totalSupplyById[id];
+    }
 }
 
 contract LaunchpadTest is Test {

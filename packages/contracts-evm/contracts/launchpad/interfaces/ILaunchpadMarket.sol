@@ -16,7 +16,7 @@ interface ILaunchpadMarket is ISoothMarketV4 {
 
     /// @notice Emitted when creator claims refund after expiry
     event CreatorRefunded(address indexed creator, uint256 amount);
-    
+
     /// @notice V6: Emitted when market is liquidated (failed to graduate)
     event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount);
     

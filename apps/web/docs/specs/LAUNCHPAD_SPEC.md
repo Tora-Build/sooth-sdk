@@ -1,13 +1,16 @@
-# Launchpad V6 Frontend Specification
+# Launchpad V6.1.8 Frontend Specification
 
 ## 1. Overview
 The **Sooth Launchpad V6** introduces a permissionless market creation flow inspired by "pump.fun", allowing any user to deploy a prediction market. These markets start with a bonding curve liquidity model (accruing fees to liquidity) and "graduate" to post-graduation phase upon reaching a liquidity threshold. All markets are Launchpad markets—there are no separate "standard markets" (see ADR-016).
 
-**V6 Key Features**:
+**V6.1.8 Key Features**:
 - **Pre-Graduation Locking**: All sell proceeds are locked (24h) during pre-graduation phase
 - **Reinvestment**: Locked proceeds can be used to buy shares via `useLockedProceeds()`
 - **2-Contract Architecture**: Market implements `ISoothLiquidityVault` itself (market is its own vault)
-- **Immutable Factory**: Factory with `ProtocolConfig` for mutable parameters
+- **Direct AMM Trading**: Users call `market.swap()` directly (no TraderVault for AMM)
+- **Honest Floor Accounting**: LP ExRate based on `totalNetAssets()` (cash - locked - liability)
+- **Safe Parity Minting**: LP tokens minted at `max(Current ExRate, 1.0)` to prevent dilution
+- **Price Cap Guardrail**: AMM enforces max $1.00 per share (LMSR precision protection)
 - **Guardian Role**: Protocol-managed guardian for liquidation and forced graduation
 
 > **See also**: [MARKETS_PAGE_SPEC.md](./MARKETS_PAGE_SPEC.md) for Markets list and MarketCard inline trading.
@@ -65,10 +68,18 @@ Display specialized badges based on state:
   - **Target**: `market.graduationThreshold()`
   - **Percentage**: `(bBase / threshold) * 100`
 
-#### Trading
-- Uses standard **V4 Logic** (`tradeAMM` via TraderVault).
+#### Trading (V6.1.8 Direct Swap)
+- **AMM Trading**: Uses `market.swap()` directly (NOT via TraderVault)
+  - Users approve USDC to `LaunchpadMarket` contract directly
+  - Call `market.swap(deltaShares, maxCost)` for buys
+  - Call `market.swap(-deltaShares, -minProceeds)` for sells
+  - Returns ERC1155 OutcomeToken shares to user
+- **Quote Display (Price Net + Fee)**:
+  - **Price (Net)**: Base cost per share from LMSR (capped at $1.00)
+  - **Fee**: Separate line showing fee amount and percentage
+  - **Total Cost**: Sum of net cost + fee + slippage buffer
 - **Fees**: Display correct fee tier.
-  - Pre-grad: 5% (LP Fee).
+  - Pre-grad: 5% (LP Fee → grows liquidity depth).
   - Post-grad: 1% (Standard).
 - **V6 Locking**: All sell proceeds are locked for 24h
   - Display locked proceeds balance: `market.lockedProceeds(user)`
@@ -129,6 +140,62 @@ Display specialized badges based on state:
 
 ---
 
+## 2.5 LP Economics (V6.1.8 Honest Floor)
+
+### Floor Equity Model
+LP token value is based on **guaranteed floor equity**, not raw TVL:
+
+```
+Floor Equity = Gross Cash - Locked Proceeds - Max(qYES, qNO)
+```
+
+| Component | Source | Description |
+|-----------|--------|-------------|
+| **Gross Cash** | `market.totalAssets()` | Total USDC in vault |
+| **Locked Proceeds** | `market.totalLockedProceeds()` | Locked sell proceeds (24h) |
+| **Market Liability** | `max(totalSupply(0), totalSupply(1))` | Worst-case payout |
+
+### LP ExRate Calculation
+```
+LP ExRate = Floor Equity / LP Supply
+```
+- Displayed as a multiplier (e.g., `1.7171x`)
+- Represents guaranteed floor value per LP token
+- Stable through settlement (no "paper profits")
+
+### Fair Minting (Anti-Dilution)
+When traders pay fees, they receive LP tokens at the **current floor price**:
+
+```solidity
+// If ExRate >= 1.0 (healthy pool):
+lpToMint = (fee * supply) / preFeeAssets
+
+// If ExRate < 1.0 (underwater pool):
+lpToMint = fee  // 1:1 parity fallback
+```
+
+### Market Detail Metrics
+
+| Metric | Label | Calculation |
+|--------|-------|-------------|
+| **TVL (Floor Equity)** | Main headline | `totalNetAssets()` |
+| **Gross Assets** | Vault Breakdown | `totalAssets()` |
+| **Market Liability** | Vault Breakdown | `max(qYES, qNO)` (red) |
+| **LP Supply** | Stats card | `market.totalSupply()` (LP tokens) |
+| **LP ExRate** | Stats card | `Floor Equity / LP Supply` (displayed as Xx) |
+| **Max Loss** | Stats card | `b × ln(2)` ≈ `b × 0.693` |
+| **Protected Equity** | LP Leaderboard | `Your LP × ExRate` |
+
+### LP Payout Simulation
+
+| Scenario | Calculation |
+|----------|-------------|
+| **If YES Wins** | `Gross Cash - Locked - qYES` |
+| **If NO Wins** | `Gross Cash - Locked - qNO` |
+| **Expected** | `P(YES) × PayoutYES + P(NO) × PayoutNO` |
+
+---
+
 ## 3. Data Integration
 
 ### 3.1 useLaunchpadFactory Hook
@@ -153,13 +220,23 @@ function useLaunchpadMarket(address: `0x${string}`) {
     deadline: number;
     creator: `0x${string}`;
     isLive: boolean;
-    feesAccrued: bigint;         // Track accumulated fees
-    totalLockedProceeds: bigint; // V6: Total locked proceeds in market
+    feesAccrued: bigint;         // Track accumulated fees (18 decimals)
+    totalAssets: bigint;         // Gross USDC in vault (6 decimals)
+    totalNetAssets: bigint;      // V6.1.8: Floor Equity (6 decimals)
+    totalLockedProceeds: bigint; // V6: Total locked proceeds (6 decimals)
+    totalSupply: bigint;         // LP token supply (18 decimals)
+    totalCreatorDeposit: bigint; // Creator's initial deposit (6 decimals)
+    // Outcome Token Supplies (for liability calculation)
+    qYes: number;                // Total YES shares outstanding
+    qNo: number;                 // Total NO shares outstanding
     // V6 Locking
-    lockedProceeds: bigint;      // V6: User's locked proceeds
-    nextUnlockTime: number | null; // V6: Next unlock timestamp
-    useLockedProceeds: (amount: bigint) => Promise<void>; // V6: Reinvest locked proceeds
-    claimUnlocked: () => Promise<void>; // V6: Claim unlocked proceeds
+    lockedProceeds: bigint;      // User's locked proceeds
+    nextUnlockTime: number | null;
+    useLockedProceeds: (amount: bigint) => Promise<void>;
+    claimUnlocked: () => Promise<void>;
+    // LP Value
+    userLpBalance: bigint;       // User's LP token balance
+    userLpValue: bigint;         // User's Protected Equity (floor value)
     // Actions
     graduate: () => void;
     expire: () => void;
@@ -193,16 +270,73 @@ function useLaunchpadMarkets() {
 }
 ```
 
-### 3.4 ABIs
+### 3.4 useLaunchpadSwap Hook (V6.1.8)
+```typescript
+function useLaunchpadSwap(marketAddress: `0x${string}`) {
+  return {
+    // Approval
+    allowance: bigint;
+    needsApproval: boolean;
+    isApproving: boolean;
+    approve: (amount?: bigint) => Promise<boolean>; // Checks existing allowance first
+    
+    // Trading
+    swap: (deltaShares: number, isBuy: boolean, maxCost: bigint) => Promise<void>;
+    isPending: boolean;
+    
+    // Locked Proceeds
+    claimUnlocked: () => Promise<void>;
+    
+    // Refetch
+    refetchAllowance: () => void;
+  };
+}
+```
+
+### 3.5 useLPHolders Hook (V6.1.8)
+```typescript
+function useLPHolders(marketAddress: `0x${string}`) {
+  return {
+    holders: {
+      address: `0x${string}`;
+      balance: bigint;           // LP token balance (18 decimals)
+      isCreator: boolean;
+    }[];
+    totalSupply: bigint;
+    isLoading: boolean;
+  };
+}
+```
+
+### 3.6 ABIs
 Located in `apps/web/src/config/abis.ts`:
 - `LAUNCHPAD_FACTORY_ABI` - V6: Includes `protocolConfig()` view
-- `LAUNCHPAD_MARKET_ABI` - V6: Includes `lockedProceeds()`, `totalLockedProceeds()`, `useLockedProceeds()`, `claimUnlocked()`
+- `LAUNCHPAD_MARKET_ABI` - V6.1.8: Includes:
+  - `swap(int128, int256)` - Direct AMM trading
+  - `totalNetAssets()` - Floor Equity
+  - `totalAssets()` - Gross USDC
+  - `totalSupply()` - LP token supply
+  - `lockedProceeds()`, `totalLockedProceeds()`, `claimUnlocked()`
+- `OUTCOME_TOKEN_ABI` - V6.1.8: Includes `totalSupply(uint256)` for liability tracking
 - `PROTOCOL_CONFIG_ABI` - V6: For guardian and liquidation fee configuration
 
-### 3.5 V6 Architecture Changes
+### 3.7 V6.1.8 Architecture Changes
 - **Market as Vault**: Market implements `ISoothLiquidityVault` itself
   - `market.lpVault()` returns `address(0)` (no separate contract)
   - `market.totalAssets()` returns `_asset.balanceOf(address(market))`
+- **Direct Swap**: Users call `market.swap()` directly (TraderVault only for Orderbook)
+  - Approve USDC to market contract, not TraderVault
+  - 2 transactions max: Approve + Swap
+- **Honest Accounting**: `totalNetAssets()` returns Floor Equity
+  - Formula: `Cash - Locked - Max(qYES, qNO)`
+  - Used for LP ExRate and redemption value
+- **Safe Parity Minting**: LP rewards capped at 1:1 when pool is thin
+  - Prevents trillion-LP explosions from precision gaps
+- **Price Cap Guardrail**: `require(cost <= shares)` in `swap()`
+  - Prevents LMSR from charging >$1.00 per share
+- **Global Liability Tracking**: OutcomeToken extends `ERC1155Supply`
+  - `outcomeToken.totalSupply(0)` = Total YES shares (AMM + Orderbook)
+  - `outcomeToken.totalSupply(1)` = Total NO shares
 - **Factory**: Immutable with `ProtocolConfig` reference
   - `factory.protocolConfig()` returns ProtocolConfig address
 - **Locking**: All sell proceeds locked during both pre and post-graduation
@@ -218,15 +352,54 @@ Located in `apps/web/src/config/abis.ts`:
   - Show clear distinction between locked and available balances
 - **Gamification**: Celebrate graduation with visual feedback.
 
-## 5. V6 UI Components
+## 5. V6.1.8 UI Components
 
-### 5.1 Locked Proceeds Display
+### 5.1 Market Stats Card (MarketInfoCard)
+
+| Section | Contents |
+|---------|----------|
+| **Vault Breakdown** | Creator Preseed, Fees Collected, AMM Floor Delta |
+| **TVL (Floor Equity)** | Headline metric with breakdown (Gross - Liability) |
+| **Stats Grid** | Depth (b), LP Supply, LP ExRate, Max Loss |
+| **Outstanding Shares** | qYES, qNO with color coding |
+| **LP Payout Simulation** | If YES Wins, If NO Wins, Expected |
+
+### 5.2 LP Holders Card (LPLeaderboardCard)
+
+| Element | Description |
+|---------|-------------|
+| **Holder List** | Address, Balance (formatted), Share % |
+| **You Badge** | Highlights connected user's position |
+| **Creator Badge** | Marks the market creator |
+| **Protected Equity** | User's floor-adjusted LP value |
+| **Help Panel** | Explains LP tokens, earning, valuation, redemption |
+
+### 5.3 Trading Panel (AmmTradingPanel)
+
+| Section | Elements |
+|---------|----------|
+| **Mode Toggle** | Buy / Sell |
+| **Outcome Toggle** | YES / NO with probability display |
+| **Shares Input** | +/- buttons, quick amounts (10, 50, 100, 500) |
+| **Quote Summary** | Price (Net), Fee (%), Total Cost |
+| **Slippage Selector** | 0.1%, 0.5%, 1%, 2% |
+| **Execute Button** | "Buy YES/NO" or "Sell YES/NO" |
+
+### 5.4 Quote Summary Display (V6.1.8)
+
+| Label | Calculation | Notes |
+|-------|-------------|-------|
+| **Price (Net)** | `(totalCost - fee) / shares` | Base LMSR cost |
+| **Fee** | `totalCost × feeRate` | 5% pre-grad, 1% post-grad |
+| **Total Cost** | `netCost + fee + slippage` | Final amount |
+
+### 5.5 Locked Proceeds Display
 - **Trading Account Card**: Show locked proceeds balance
 - **Market Detail Page**: Display total locked proceeds for market
 - **Buy Flow**: Toggle to "Use Locked Proceeds" when user has locked balance
 - **Countdown Timer**: Show time until next unlock
 
-### 5.2 Reinvestment Flow
+### 5.6 Reinvestment Flow
 1. User initiates buy
 2. Check if `lockedProceeds > 0`
 3. If yes, show toggle: "Use Locked Proceeds ($X.XX available)"
@@ -234,12 +407,26 @@ Located in `apps/web/src/config/abis.ts`:
 5. Call `useLockedProceeds(user, useAmount)` before trade
 6. Remaining cost from available balance
 
-### 5.3 Claim Unlocked Flow
+### 5.7 Claim Unlocked Flow
 1. Check `nextUnlockTime <= block.timestamp`
 2. Show "Claim Unlocked Proceeds" button
 3. Display available amount
-4. Call `claimUnlocked()` via TraderVault
+4. Call `market.claimUnlocked()` directly
 
 ---
 
-*Last updated: 2025-12-17 (V6)*
+## 6. Files (V6.1.8)
+
+| File | Purpose |
+|------|---------|
+| `pages/MarketDetail.tsx` | Full market page with stats, trading, LP leaderboard |
+| `components/features/market/AmmTradingPanel.tsx` | Unified trading UI component |
+| `components/features/market/LPLeaderboardCard.tsx` | LP holders display |
+| `hooks/v5/useLaunchpadMarket.ts` | Market data fetching (includes `totalNetAssets`) |
+| `hooks/v5/useLaunchpadSwap.ts` | Direct swap execution with approval management |
+| `hooks/v5/useLPHolders.ts` | LP holder discovery via event logs |
+| `hooks/v5/useLaunchpadTradeQuote.ts` | Quote calculation with fee split |
+
+---
+
+*Last updated: 2025-12-20 (V6.1.8 Safe Parity Minting)*

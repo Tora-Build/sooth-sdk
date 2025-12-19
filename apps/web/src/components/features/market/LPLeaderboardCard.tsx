@@ -95,7 +95,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         </div>
         <div className="flex items-center gap-3 text-xs flex-shrink-0">
           <span className="font-mono text-slate-500">
-            {parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} LP
+            {parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP
           </span>
           <span className="font-mono font-bold text-white w-16 text-right">
             {share.toFixed(1)}%
@@ -131,10 +131,10 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
       {/* Education Panel (toggleable) */}
       {showHelp && (
         <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 mb-3 text-xs text-slate-300 space-y-1">
-          <p>• <strong>LP tokens</strong> = your share of trading fees</p>
-          <p>• Earned automatically when you trade</p>
-          <p>• Creator gets initial LP equal to deposit</p>
-          <p>• Redeemable for USDC after market settles</p>
+          <p>• <strong>LP Tokens</strong>: Represent your share of the pool's guaranteed floor assets.</p>
+          <p>• <strong>Earn Rewards</strong>: Minted at the current ExRate when you trade (Fair Minting).</p>
+          <p>• <strong>Safe Valuation</strong>: Your equity accounts for all potential winner payouts up-front.</p>
+          <p>• <strong>Redeem</strong>: Claim your USDC floor equity once the market is settled.</p>
         </div>
       )}
 
@@ -178,7 +178,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
       {hasUserPosition && (
         <div className="pt-3 border-t border-slate-800 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">{isUserCreator ? 'Your Value (Creator)' : 'Your Value'}</span>
+            <span className="text-slate-500">{isUserCreator ? 'Protected Equity (Creator)' : 'Protected Equity'}</span>
             <span className="font-mono font-bold text-purple-400">
               {formatCurrency(parseFloat(formatUnits(userLpValue, USDC_DECIMALS)))}
             </span>

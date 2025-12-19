@@ -214,6 +214,22 @@
   - **Ownable Conflict**: Resolved by renaming abstract `Ownable` → `SoothOwnable` and creating separate interface file
   - See `packages/contracts-evm/docs/MIGRATION_TO_LAUNCHPAD_ONLY.md` for migration guide
 
+## ADR-017: Safe Parity LP Minting
+- **Date**: 2025-12-20
+- **Status**: Accepted (Deployed V6.1.8)
+- **Context**: The "Fair Minting" formula for LP token rewards had a critical precision bug. When the pool's Floor Equity approached zero (due to high liability relative to assets), the formula `lpToMint = (fee * supply) / preFeeAssets` would divide by a near-zero value, causing LP supply to explode to trillions. This diluted existing LPs to effectively zero and corrupted the ExRate metric.
+- **Decision**: Implement **Safe Parity LP Minting** with a floor of 1.0 ExRate:
+  - **Formula Change**: `lpToMint = (fee * supply) / max(preFeeAssets, supply)` (effectively capping at 1:1)
+  - **Condition**: If `preFeeAssetsWad < supply` (ExRate < 1.0), fall back to `lpToMint = fee` (1:1 minting)
+  - **Rationale**: When the pool is "underwater" (Floor Equity < LP Supply), minting more LP at the current rate would further dilute. Instead, mint at the initial par rate to ensure traders still earn rewards without exploding supply.
+  - **Code Location**: `LaunchpadMarket._handlePostTradeFees()`
+- **Consequences**:
+  - **Prevents Explosion**: LP supply remains bounded even with extreme liability scenarios
+  - **Fair Rewards**: Traders still earn LP tokens, but at a capped rate when pool is thin
+  - **ExRate Stability**: LP ExRate remains meaningful and doesn't collapse to 0.0000x
+  - **Edge Case**: In severely underwater pools, new traders get 1:1 LP tokens (favoring new entrants slightly)
+  - **Testing**: Verified on testnet with $55k gross assets, $50k liability → 3,456 LP (not trillions)
+
 ## ADR-015: V6 Pre-Graduation Locking
 - **Date**: 2025-12-14
 - **Status**: Accepted (Deployed on Base Sepolia 2025-12-17)

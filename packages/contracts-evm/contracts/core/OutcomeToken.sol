@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../interfaces/IOutcomeToken.sol";
 import "../interfaces/ISoothTraderVaultV4.sol";
 
 /// @title OutcomeToken
 /// @notice ERC1155 tokens representing outcome shares for orderbook trading
 /// @dev Separate from AMM - only orderbook matches mint/burn these tokens
-contract OutcomeToken is ERC1155, IOutcomeToken {
+contract OutcomeToken is ERC1155Supply, IOutcomeToken {
     // ============ Constants ============
     
     uint256 public constant override YES_TOKEN_ID = 0;
@@ -29,9 +29,7 @@ contract OutcomeToken is ERC1155, IOutcomeToken {
 
     // ============ Constructor ============
     
-    constructor() ERC1155("") {
-        // Empty URI - metadata handled off-chain or via market
-    }
+    constructor() ERC1155("") {}
 
     // ============ Initialization ============
     
@@ -113,5 +111,10 @@ contract OutcomeToken is ERC1155, IOutcomeToken {
     /// @notice Check interface support
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Get total supply of a specific token ID
+    function totalSupply(uint256 id) public view virtual override(ERC1155Supply, IOutcomeToken) returns (uint256) {
+        return super.totalSupply(id);
     }
 }

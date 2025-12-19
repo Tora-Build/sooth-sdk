@@ -61,17 +61,26 @@ const MarketInfoCard = ({
   const creatorDeposit = totalCreatorDeposit ? parseFloat(formatUnits(totalCreatorDeposit, ASSET_DECIMALS)) : 0;
   const fees = feesAccrued ? parseFloat(formatUnits(feesAccrued, WAD_DECIMALS)) : 0;
   
-  // Net cash flow from AMM trades (unrealized until settlement)
+  // V6.1.4: Risk-Adjusted AMM Delta
+  // Represents net liquid profit/loss if market settled at worst outcome right now.
   const ammDelta = tvl - creatorDeposit - fees;
   
   const lpSupply = totalSupply ? parseFloat(formatUnits(totalSupply, WAD_DECIMALS)) : 0;
   const exchangeRate = lpSupply > 0 ? tvl / lpSupply : 1; // Multiplier (e.g. 1.2x)
+  
+  const qYesNum = qYes;
+  const qNoNum = qNo;
+  const maxLiability = Math.max(qYesNum, qNoNum);
   const maxLoss = bParamNum * 0.693; // b × ln(2)
-  const lpPayoutYes = Math.max(0, tvl - qYes);
-  const lpPayoutNo = Math.max(0, tvl - qNo);
+  
+  // Upside Potential: Assets - Locked - Fees - Creator (The pure "unrealized" AMM trade cashflow)
+  const totalLocked = totalLockedProceeds ? parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)) : 0;
+  const cashTVL = grossAssets - totalLocked;
+  const lpPayoutYes = Math.max(0, cashTVL - qYesNum);
+  const lpPayoutNo = Math.max(0, cashTVL - qNoNum);
   const expectedPayout = priceYes * lpPayoutYes + priceNo * lpPayoutNo;
   
-  const totalLocked = totalLockedProceeds ? parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)) : 0;
+  const unrealizedPnL = grossAssets - totalLocked - creatorDeposit - fees;
 
   return (
     <Card className="p-4">
@@ -92,11 +101,10 @@ const MarketInfoCard = ({
       {/* Education Panel (toggleable) */}
       {showHelp && (
         <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-1">
-          <p>• <strong>TVL</strong> = Net liquid assets in the vault (Gross - Locked)</p>
-          <p>• <strong>Creator Deposit</strong> = Initial preseed capital from the creator</p>
-          <p>• <strong>Max Loss</strong> = {bParamNum.toFixed(0)} × ln(2) ≈ {maxLoss.toFixed(0)}. The total capital at risk for LPs.</p>
-          <p>• <strong>LP ExRate</strong> = Growth multiplier for LP tokens (TVL ÷ LP Supply)</p>
-          <p>• <strong>Settlement</strong> = If a result wins, the AMM pays out its outcome shares. The remaining TVL belongs to LPs.</p>
+          <p>• <strong>Floor Equity</strong>: The net USDC value owned by LPs after accounting for all debt and potential winner payouts.</p>
+          <p>• <strong>AMM Floor Delta</strong>: The net profit/loss realized by the pool from AMM inventory pricing shifts.</p>
+          <p>• <strong>LP ExRate</strong>: Guaranteed growth multiplier. This value can never crash at settlement because liabilities are already priced in.</p>
+          <p>• <strong>Market Liability</strong>: The maximum possible USDC payout if the majority outcome wins right now.</p>
         </div>
       )}
 
@@ -127,20 +135,20 @@ const MarketInfoCard = ({
             <span className="font-mono text-emerald-400">+{formatCurrency(fees)}</span>
           </div>
           <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
-            <span className="text-slate-400">AMM Trade Delta</span>
+            <span className="text-slate-400">AMM Floor Delta</span>
             <span className="font-mono text-cyan-400/70">{ammDelta >= 0 ? '+' : ''}{formatCurrency(ammDelta)}</span>
           </div>
           
           <div className="pt-2 mt-1 border-t border-slate-700">
             <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
-              <span className="text-white font-bold">TVL (Net Assets)</span>
+              <span className="text-white font-bold">TVL (Floor Equity)</span>
               <span className="font-mono font-bold text-cyan-400 text-sm">{formatCurrency(tvl)}</span>
             </div>
           </div>
 
           <div className="pt-2 mt-1 border-t border-slate-800/50 space-y-1">
             <div className="grid grid-cols-[1fr_auto] items-baseline gap-4 text-[10px]">
-              <span className="text-slate-500 italic ml-2">Gross Assets</span>
+              <span className="text-slate-500 italic ml-2">Gross Assets (Cash)</span>
               <span className="font-mono text-slate-500">{formatCurrency(grossAssets)}</span>
             </div>
             {totalLocked > 0 && (
@@ -149,6 +157,10 @@ const MarketInfoCard = ({
                 <span className="font-mono text-amber-500/70">{formatCurrency(totalLocked)}</span>
               </div>
             )}
+            <div className="grid grid-cols-[1fr_auto] items-baseline gap-4 text-[10px]">
+              <span className="text-rose-500/70 italic ml-2">- Market Liability (Max)</span>
+              <span className="font-mono text-rose-500/70">-{formatCurrency(maxLiability)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -161,7 +173,9 @@ const MarketInfoCard = ({
         </div>
         <div className="p-2 rounded-lg bg-slate-800/30 text-center">
           <div className="text-[9px] text-slate-500 mb-1">LP Supply</div>
-          <div className="font-mono font-bold text-white">{lpSupply.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          <div className="font-mono font-bold text-white truncate px-1" title={lpSupply.toString()}>
+            {lpSupply.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
         </div>
         <div className="p-2 rounded-lg bg-purple-500/10 text-center border border-purple-500/20">
           <div className="text-[9px] text-purple-400 mb-1 font-semibold uppercase tracking-wider">LP ExRate</div>
@@ -416,7 +430,7 @@ export const MarketDetail = () => {
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
   console.log('[MarketDetail Debug] marketData:', marketData);
-  
+
   const {
     isGraduated,
     graduationThreshold,

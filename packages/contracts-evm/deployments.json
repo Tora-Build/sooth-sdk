@@ -1,47 +1,47 @@
 {
-  "version": "2025-12-19-v2",
-  "lastUpdated": "2025-12-19",
+  "version": "2025-12-20-v2",
+  "lastUpdated": "2025-12-20",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V6.1.4 Final Safety Rails",
+      "status": "✅ Live - V6.1.8 Safe Parity LP Minting",
       "contracts": {
-        "MockUSDC": "0x861174F2eedc67D838518106eE3d75BFD9a3f63c",
-        "SoothTraderVault": "0xD65F02f75f7F81Ddb982be6Df220682aFeEe4b3C",
-        "SoothLiquidityVault": "0xe1b915765a34cEe6E3b1489E6eA24a9266c91Ca1",
-        "SoothFeeController": "0xE0b059daA564DD79BEFC508d7740D04972E42b1c",
-        "LaunchpadFactory": "0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D"
+        "MockUSDC": "0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587",
+        "SoothTraderVault": "0x587dFaF63e4286A7a91b157A3f40d55D0c3D3048",
+        "SoothLiquidityVault": "0xb85B11d5480a40955a907CF8a8d03a1319231637",
+        "SoothFeeController": "0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03",
+        "LaunchpadFactory": "0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7"
       },
       "marketInfo": {
         "market1": {
-          "address": "0xaAEa32392C60E12511bbF71fa06659037693C7Ec",
+          "address": "0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x5a8145DE101512Cbb7D52f9e398aF1eA8C43558F"
+          "outcomeToken": "0x6c0065b539355C74D529ECb490c178BF9b0148C2"
         },
         "market2": {
-          "address": "0x773A4AFf5871674DFDEd937B5BA4ba781606947A",
+          "address": "0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x2a02ADD361eAc97049761ce7254B8bF32b63e46C"
+          "outcomeToken": "0xb7B000AA17FBf000f124DF315A340DAF3Ea2E522"
         }
       },
       "notes": {
-        "version": "V6.1.4 - Final Safety Rails",
-        "date": "2025-12-19",
+        "version": "V6.1.8 - Safe Parity LP Minting",
+        "date": "2025-12-20",
         "changes": [
-          "FIXED: Added Price Cap Guardrail ($1.00 max cost per share) to prevent irrational trade costs in thin pools",
-          "FIXED: UI terminology updated to 'AMM Trade Delta' and 'Creator Preseed'",
-          "MockUSDC: 0x8611...b63c (6 decimals)"
+          "FIXED: Safe Parity Floor for LP Minting (prevents supply explosion when pool is thin)",
+          "FIXED: UI Decimal formatting for LP Supply and Holders leaderboard",
+          "FIXED: Split 'Price (Net)' and 'Fee' in the trading panel for clarity"
         ]
       }
     }
   },
   "architecture": {
-    "version": "V6.1.4",
+    "version": "V6.1.8",
     "features": [
-      "Price Cap Guardrail ($1.00 max cost basis)",
-      "Fair LP minting (anti-dilution logic)",
-      "Net Assets valuation for LP tokens",
-      "Direct swap() bypassing TraderVault"
+      "Parity-Capped Fair Minting",
+      "Honest Floor Accounting",
+      "Total Liability Tracking",
+      "Strict $1.00 Price Cap"
     ]
   }
 }
