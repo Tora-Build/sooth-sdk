@@ -150,7 +150,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
       {/* Leaderboard - Show all holders sorted by balance */}
       <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
         {isLoadingHolders ? (
-          <div className="text-center py-4 text-xs text-slate-500 animate-pulse">
+          <div className="text-center py-4 text-xs text-slate-500">
             Loading LP holders...
           </div>
         ) : holders.length > 0 ? (

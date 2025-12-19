@@ -16,6 +16,7 @@ import { Markets } from './pages/Markets';
 import { MarketDetail } from './pages/MarketDetail';
 import { Portfolio } from './pages/Portfolio';
 import { CreateMarket } from './pages/CreateMarket';
+import { Faucet } from './pages/Faucet';
 
 import './index.css';
 
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/market/:address" element={<MarketDetail />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/create" element={<CreateMarket />} />
+              <Route path="/faucet" element={<Faucet />} />
             </Route>
           </Routes>
         </BrowserRouter>

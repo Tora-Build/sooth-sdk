@@ -15,11 +15,13 @@ interface MarketCardProps {
   isGraduated: boolean;
   deadline?: number;
   disableNavigation?: boolean;
+  market?: any; // Optional pre-fetched market data
 }
 
-export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disableNavigation }: MarketCardProps) => {
-  const { bBase, graduationThreshold } = useLaunchpadMarket(address);
-  const { market } = useAmmMarketByAddress(address);
+export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disableNavigation, market: prefetchedMarket }: MarketCardProps) => {
+  const { bBase, graduationThreshold } = useLaunchpadMarket(prefetchedMarket ? undefined : address);
+  const { market: hookMarket } = useAmmMarketByAddress(prefetchedMarket ? undefined : address);
+  const market = prefetchedMarket || hookMarket;
 
   const priceYes = market?.priceYes ?? 0.5;
   const priceNo = 1 - priceYes;
@@ -46,14 +48,14 @@ export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disab
                 {name}
               </h3>
             ) : (
-              <div className="h-6 w-3/4 bg-slate-700/50 rounded animate-pulse" />
+              <div className="h-6 w-3/4 bg-slate-700/50 rounded" />
             )}
           </Link>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {symbol ? (
               <span className="font-mono text-xs text-slate-500">{symbol}</span>
             ) : (
-              <div className="h-4 w-12 bg-slate-700/30 rounded animate-pulse" />
+              <div className="h-4 w-12 bg-slate-700/30 rounded" />
             )}
             {isGraduated ? (
               <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
@@ -107,6 +109,7 @@ export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disab
           address={address}
           isGraduated={isGraduated}
           bParam={bBase || 0n}
+          market={market}
         />
       </div>
 

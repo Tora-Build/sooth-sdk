@@ -31,23 +31,9 @@ export function useLaunchpadMarkets() {
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
-        query: { enabled: !!factoryAddress, refetchInterval: 5000 }
+        query: { enabled: !!factoryAddress, refetchInterval: 30000 } // Reduced frequency to 30s
     });
     
-    // Debug: Log factory address and markets being returned
-    useEffect(() => {
-        if (factoryAddress) {
-            console.log('[useLaunchpadMarkets] Using factory:', factoryAddress);
-            console.log('[useLaunchpadMarkets] Expected factory: 0xd7380d0f22d54B81648F297a07e352045b66a49c');
-        } else {
-            console.warn('[useLaunchpadMarkets] No factory address found in deployments');
-        }
-        if (marketAddresses) {
-            console.log('[useLaunchpadMarkets] Markets from factory:', marketAddresses);
-        }
-    }, [factoryAddress, marketAddresses]);
-
-
     const addresses = (marketAddresses as `0x${string}`[]) || [];
 
     // 2. V6 Check: Verify each market is V6 by checking for V6-only functions
@@ -129,7 +115,7 @@ export function useLaunchpadMarkets() {
     
     const { data: marketData, isLoading: isLoadingMarketData } = useReadContracts({
         contracts: marketDetailContracts,
-        query: { enabled: v6MarketAddresses.length > 0, refetchInterval: 5000 } // Refetch every 5s to catch graduation
+        query: { enabled: v6MarketAddresses.length > 0, refetchInterval: 20000 } // Refetch every 20s to catch graduation
     });
 
     // 4. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
@@ -150,22 +136,8 @@ export function useLaunchpadMarkets() {
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        query: { enabled: tokenCalls.length > 0, refetchInterval: 5000 }
+        query: { enabled: tokenCalls.length > 0, refetchInterval: 60000 } // Metadata like name/symbol doesn't change
     });
-
-    // DEBUG: Log token data status (commented out for production)
-    // console.log('[useLaunchpadMarkets] addresses:', addresses.length);
-    // console.log('[useLaunchpadMarkets] marketData:', marketData?.map((m, i) => ({
-    //     idx: i,
-    //     fn: i % 3 === 0 ? 'outcomeToken' : i % 3 === 1 ? 'isGraduated' : 'deadline',
-    //     result: m.result
-    // })));
-    // console.log('[useLaunchpadMarkets] tokenData:', tokenData?.map((t, i) => ({
-    //     idx: i,
-    //     fn: i % 2 === 0 ? 'name' : 'symbol',
-    //     result: t.result,
-    //     error: t.error
-    // })));
 
     // 5. Transform and Merge (only V6 markets)
     const markets: LaunchpadMarketData[] = v6MarketAddresses.map((addr, i) => {

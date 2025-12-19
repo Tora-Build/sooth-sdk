@@ -5,22 +5,26 @@ import { defineChain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config({ path: path.join(process.cwd(), '../../packages/contracts-evm/.env') });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// MegaETH Testnet chain definition
-const megaethTestnet = defineChain({
-    id: 6343,
-    name: 'MegaETH Testnet',
+// MegaETH Frontier Net chain definition
+const megaethFrontier = defineChain({
+    id: 4326,
+    name: 'MegaETH Frontier',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-        default: { http: ['https://timothy.megaeth.com/rpc'] },
+        default: { http: [process.env.MEGAETH_FRONTIER_RPC_URL || 'https://mainnet.megaeth.com/rpc'] },
     },
     blockExplorers: {
-        default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+        default: { name: 'MegaExplorer', url: 'https://explorer.megaeth.com' },
     },
-    testnet: true,
+    testnet: false,
 });
 
 // Load contract ABIs and bytecode from forge output
@@ -68,7 +72,7 @@ async function callContract(
 ) {
     const { abi } = loadArtifact(contractName);
 
-    console.log(`  Calling ${functionName}...`);
+    console.log(`  Calling ${functionName} on ${contractName} at ${contractAddress}...`);
 
     const hash = await walletClient.writeContract({
         address: contractAddress,
@@ -92,19 +96,19 @@ async function main() {
     const account = privateKeyToAccount(`0x${privateKey.replace('0x', '')}`);
 
     const publicClient = createPublicClient({
-        chain: megaethTestnet,
+        chain: megaethFrontier,
         transport: http(),
     });
 
     const walletClient = createWalletClient({
         account,
-        chain: megaethTestnet,
+        chain: megaethFrontier,
         transport: http(),
     });
 
-    console.log('=== MegaETH V4.5 Deployment ===');
+    console.log('=== MegaETH V6.1.8 Frontier Deployment ===');
     console.log(`Deployer: ${account.address}`);
-    console.log(`Chain ID: ${megaethTestnet.id}`);
+    console.log(`Chain ID: ${megaethFrontier.id}`);
     console.log('');
 
     // Check balance
@@ -112,131 +116,146 @@ async function main() {
     console.log(`Balance: ${Number(balance) / 1e18} ETH`);
     console.log('');
 
-    // Deploy infrastructure
+    // 1. Deploy Infrastructure
     console.log('=== Infrastructure ===');
-
-    // MockUSDC - no constructor args
+    
     const mockUSDC = await deployContract(walletClient, publicClient, 'MockUSDC', []);
-
-    // SoothFeeController - constructor(address _treasury)
+    
     const feeController = await deployContract(walletClient, publicClient, 'SoothFeeController', [
         account.address, // treasury
     ]);
+    await callContract(walletClient, publicClient, feeController, 'SoothFeeController', 'setOrderbookFee', [10n]);
 
-    // SoothGovernorVault - constructor(IERC20 _asset)
-    const governorVault = await deployContract(walletClient, publicClient, 'SoothGovernorVault', [
+    const liquidityVault = await deployContract(walletClient, publicClient, 'SoothLiquidityVault', [
         mockUSDC,
     ]);
 
-    // SoothTraderVaultV4 - constructor(IERC20 asset_, ISoothGovernorVault governorVault_)
     const traderVault = await deployContract(walletClient, publicClient, 'SoothTraderVaultV4', [
         mockUSDC,
-        governorVault,
+        liquidityVault,
     ]);
 
-    console.log('');
-    console.log('=== Markets ===');
-
-    // Deploy OutcomeToken for Market 1
-    const token1 = await deployContract(walletClient, publicClient, 'OutcomeToken', []);
-
-    // Deploy SoothMarketV4 (no constructor args)
-    const market1 = await deployContract(walletClient, publicClient, 'SoothMarketV4', []);
-
-    // Initialize Market 1
-    console.log('Initializing Market 1...');
-    await callContract(walletClient, publicClient, market1, 'SoothMarketV4', 'initialize', [
-        1n,                    // marketId
-        governorVault,         // governorVault
-        traderVault,           // traderVault
-        feeController,         // feeController
-        token1,                // outcomeToken
-        '0x0000000000000000000000000000000000000000000000000000000000000001', // adjudicatorId
-        parseUnits('10000', 18), // bBase (10k USDC)
-        account.address,       // governor
-        0n,                    // initialQYes
-        0n,                    // initialQNo
+    // 2. Deploy Launchpad System
+    console.log('\n=== Launchpad System ===');
+    
+    const outcomeTokenImpl = await deployContract(walletClient, publicClient, 'LaunchpadOutcomeToken', []);
+    const marketImpl = await deployContract(walletClient, publicClient, 'LaunchpadMarket', []);
+    const protocolConfig = await deployContract(walletClient, publicClient, 'ProtocolConfig', [
+        account.address, // owner
+        0n               // initial version
     ]);
 
-    // Initialize OutcomeToken 1
-    console.log('Initializing OutcomeToken 1...');
-    await callContract(walletClient, publicClient, token1, 'OutcomeToken', 'initialize', [
-        market1,
+    const factory = await deployContract(walletClient, publicClient, 'LaunchpadFactory', [
+        marketImpl,
+        mockUSDC,
         traderVault,
+        feeController,
+        outcomeTokenImpl,
+        account.address, // treasury
+        account.address, // adjudicator
+        protocolConfig
     ]);
 
-    // Deploy OutcomeToken for Market 2
-    const token2 = await deployContract(walletClient, publicClient, 'OutcomeToken', []);
+    // 3. Setup Permissions
+    console.log('\n=== Setting Permissions ===');
+    await callContract(walletClient, publicClient, liquidityVault, 'SoothLiquidityVault', 'setAuthorized', [traderVault, true]);
 
-    // Deploy SoothMarketV4 (no constructor args)
-    const market2 = await deployContract(walletClient, publicClient, 'SoothMarketV4', []);
+    // 4. Create Demo Markets
+    console.log('\n=== Creating Demo Markets ===');
+    
+    // Mint USDC for market creation
+    await callContract(walletClient, publicClient, mockUSDC, 'MockUSDC', 'mint', [account.address, 20000n * 1000000n]); // 20k USDC
+    await callContract(walletClient, publicClient, mockUSDC, 'MockUSDC', 'approve', [factory, 115792089237316195423570985008687907853269984665640564039457584007913129639935n]); // max uint
 
-    // Initialize Market 2
-    console.log('Initializing Market 2...');
-    await callContract(walletClient, publicClient, market2, 'SoothMarketV4', 'initialize', [
-        2n,                    // marketId
-        governorVault,         // governorVault
-        traderVault,           // traderVault
-        feeController,         // feeController
-        token2,                // outcomeToken
-        '0x0000000000000000000000000000000000000000000000000000000000000002', // adjudicatorId
-        parseUnits('10000', 18), // bBase (10k USDC)
-        account.address,       // governor
-        0n,                    // initialQYes
-        0n,                    // initialQNo
-    ]);
+    // Market 1: Alien Life
+    console.log('Creating Market 1...');
+    const hash1 = await walletClient.writeContract({
+        address: factory,
+        abi: loadArtifact('LaunchpadFactory').abi,
+        functionName: 'createMarket',
+        args: [
+            "UN Confirms Alien Life",
+            "ALIEN",
+            "Will the UN confirm the existence of alien life?",
+            1, // Tier 1 ($1k)
+            false,
+            BigInt(90 * 24 * 60 * 60)
+        ],
+        gas: 999999999n
+    });
+    const receipt1 = await publicClient.waitForTransactionReceipt({ hash: hash1 });
+    // In V6, createMarket emits MarketCreated(address market, uint256 marketId, address creator, uint256 tier)
+    // We need to extract the market address from logs. 
+    // For simplicity in this script, we can call factory.allMarkets(0)
+    const market1Addr = await publicClient.readContract({
+        address: factory,
+        abi: loadArtifact('LaunchpadFactory').abi,
+        functionName: 'allMarkets',
+        args: [0n]
+    });
+    console.log(`  Market 1: ${market1Addr}`);
 
-    // Initialize OutcomeToken 2
-    console.log('Initializing OutcomeToken 2...');
-    await callContract(walletClient, publicClient, token2, 'OutcomeToken', 'initialize', [
-        market2,
-        traderVault,
-    ]);
+    // Market 2: BTC $100k
+    console.log('Creating Market 2...');
+    const hash2 = await walletClient.writeContract({
+        address: factory,
+        abi: loadArtifact('LaunchpadFactory').abi,
+        functionName: 'createMarket',
+        args: [
+            "BTC 7-day TWAP >= $100k",
+            "BTC100K",
+            "Will BTC 7-day TWAP reach $100k?",
+            2, // Tier 2 ($10k)
+            false,
+            BigInt(90 * 24 * 60 * 60)
+        ],
+        gas: 999999999n
+    });
+    await publicClient.waitForTransactionReceipt({ hash: hash2 });
+    const market2Addr = await publicClient.readContract({
+        address: factory,
+        abi: loadArtifact('LaunchpadFactory').abi,
+        functionName: 'allMarkets',
+        args: [1n]
+    });
+    console.log(`  Market 2: ${market2Addr}`);
 
-    // Set permissions
-    console.log('');
-    console.log('=== Setting Permissions ===');
+    // Authorize markets in TraderVault
+    console.log('\n=== Finalizing TraderVault ===');
+    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setMarket', [market1Addr, true]);
+    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setMarket', [market2Addr, true]);
 
-    // TraderVault: setMarket
-    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setMarket', [market1, true]);
-    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setMarket', [market2, true]);
+    const market1Contract = { address: market1Addr, abi: loadArtifact('LaunchpadMarket').abi };
+    const market2Contract = { address: market2Addr, abi: loadArtifact('LaunchpadMarket').abi };
+    
+    const token1Addr = await publicClient.readContract({ ...market1Contract, functionName: 'outcomeToken' });
+    const token2Addr = await publicClient.readContract({ ...market2Contract, functionName: 'outcomeToken' });
 
-    // TraderVault: setOutcomeToken
-    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setOutcomeToken', [token1, true]);
-    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setOutcomeToken', [token2, true]);
+    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setOutcomeToken', [token1Addr, true]);
+    await callContract(walletClient, publicClient, traderVault, 'SoothTraderVaultV4', 'setOutcomeToken', [token2Addr, true]);
 
-    // GovernorVault: setAuthorized
-    await callContract(walletClient, publicClient, governorVault, 'SoothGovernorVault', 'setAuthorized', [traderVault, true]);
-    await callContract(walletClient, publicClient, governorVault, 'SoothGovernorVault', 'setAuthorized', [market1, true]);
-    await callContract(walletClient, publicClient, governorVault, 'SoothGovernorVault', 'setAuthorized', [market2, true]);
-    await callContract(walletClient, publicClient, governorVault, 'SoothGovernorVault', 'setAuthorized', [token1, true]);
-    await callContract(walletClient, publicClient, governorVault, 'SoothGovernorVault', 'setAuthorized', [token2, true]);
-
-    // Mint initial USDC to GovernorVault
-    console.log('');
-    console.log('=== Funding GovernorVault ===');
-    await callContract(walletClient, publicClient, mockUSDC, 'MockUSDC', 'mint', [
-        governorVault,
-        parseUnits('100000', 18), // 100k USDC
-    ]);
-
-    console.log('');
-    console.log('========================================');
+    console.log('\n========================================');
     console.log('=== DEPLOYMENT COMPLETE ===');
     console.log('========================================');
-    console.log(`Chain ID: ${megaethTestnet.id}`);
+    console.log(`Chain ID: ${megaethFrontier.id}`);
     console.log('');
     console.log('Infrastructure:');
     console.log(`  MockUSDC:       ${mockUSDC}`);
     console.log(`  FeeController:  ${feeController}`);
-    console.log(`  GovernorVault:  ${governorVault}`);
+    console.log(`  LiquidityVault: ${liquidityVault}`);
     console.log(`  TraderVaultV4:  ${traderVault}`);
+    console.log(`  ProtocolConfig: ${protocolConfig}`);
     console.log('');
-    console.log('Markets:');
-    console.log(`  Market1 (Alien): ${market1}`);
-    console.log(`  Token1:          ${token1}`);
-    console.log(`  Market2 (BTC):   ${market2}`);
-    console.log(`  Token2:          ${token2}`);
+    console.log('Launchpad:');
+    console.log(`  Factory:        ${factory}`);
+    console.log(`  MarketImpl:     ${marketImpl}`);
+    console.log(`  TokenImpl:      ${outcomeTokenImpl}`);
+    console.log('');
+    console.log('Demo Markets:');
+    console.log(`  Market 1:       ${market1Addr}`);
+    console.log(`  Token 1:        ${token1Addr}`);
+    console.log(`  Market 2:       ${market2Addr}`);
+    console.log(`  Token 2:        ${token2Addr}`);
     console.log('========================================');
 }
 

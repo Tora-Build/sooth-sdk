@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOrderbookTrade } from '../../../hooks/useOrderbookTrade';
-import { useAmmTrade } from '../../../hooks/useAmmTrade';
 import { useContent } from '../../../hooks/useContent';
 import { Button } from '../../ui/Button';
 import { cn } from '../../../lib/utils';
@@ -42,8 +41,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     availableBalance,
     // internalYesShares/NoShares removed from hook
   } = useOrderbookTrade(marketId);
-  const { trade, isPending: isTradePending } = useAmmTrade(marketId); // Keeping for Trade connection if needed, though OrderbookForm separates them?
-  const isPending = isLimitPending || isTradePending;
+  const isPending = isLimitPending;
 
   // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
   const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);

@@ -4,7 +4,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
-import { Wallet, TrendingUp, Briefcase, Menu } from 'lucide-react';
+import { Wallet, TrendingUp, Briefcase, Menu, Droplets } from 'lucide-react';
 
 export const Navbar = () => {
   const location = useLocation();
@@ -48,6 +48,10 @@ export const Navbar = () => {
               <Briefcase className="w-4 h-4" />
               Portfolio
             </NavLink>
+            <NavLink to="/faucet" active={isActive('/faucet')}>
+              <Droplets className="w-4 h-4" />
+              Faucet
+            </NavLink>
             <NavLink to="/about" active={isActive('/about')}>
               About
             </NavLink>
@@ -73,7 +77,7 @@ export const Navbar = () => {
               onClick={() => open({ view: 'Account' })}
               className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 border border-slate-700 hover:border-cyan-500/50 rounded-lg transition-all"
             >
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400" />
               <span className="hidden sm:inline font-mono text-sm text-white">{displayAddress}</span>
             </button>
           )}
@@ -111,6 +115,14 @@ export const Navbar = () => {
           >
             <Briefcase className="w-5 h-5" />
             <span>Portfolio</span>
+          </MobileNavLink>
+          <MobileNavLink
+            to="/faucet"
+            active={isActive('/faucet')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <Droplets className="w-5 h-5" />
+            <span>Faucet</span>
           </MobileNavLink>
           <MobileNavLink
             to="/about"

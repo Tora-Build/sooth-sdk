@@ -8,7 +8,7 @@ import { TrendingUp, Copy, ExternalLink, RefreshCw, Wallet, ArrowDownLeft, Arrow
 import { cn } from '../../../lib/utils';
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { ERC20_ABI, MOCK_ERC20_ABI } from '../../../config/abis';
+import { ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { useActivePositions } from '../../../hooks/useActivePositions';
@@ -35,15 +35,9 @@ export const TradingAccountCard: React.FC = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isClaimOpen, setIsClaimOpen] = useState(false);
 
-  // Faucet Logic
+  // Blockchain interaction
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
-  const [isMinting, setIsMinting] = useState(false);
-  const { data: contractDecimals } = useReadContract({
-    address: deployments.MockUSDC as `0x${string}`,
-    abi: ERC20_ABI,
-    functionName: 'decimals',
-  });
 
   const chain = getChainById(selectedChainId);
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
@@ -73,31 +67,6 @@ export const TradingAccountCard: React.FC = () => {
     refetch();
     refetchPositions();
     refetchLocked();
-  };
-
-  const handleMint = async () => {
-    if (!address) { toast.error('Connect wallet first'); return; }
-    setIsMinting(true);
-    try {
-      const tokenDecimals = contractDecimals || 18;
-      const mintAmount = parseUnits('100000', Number(tokenDecimals));
-      const hash = await writeContractAsync({
-        address: deployments.MockUSDC as `0x${string}`,
-        abi: MOCK_ERC20_ABI,
-        functionName: 'mint',
-        args: [address, mintAmount],
-      });
-      const toastId = toast.loading('Fauceting 100,000 USDC...');
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash });
-        toast.success('Received 100,000 USDC!', { id: toastId });
-        refetch();
-      } else {
-        toast.success('Transaction sent', { id: toastId });
-      }
-    } catch (err: any) {
-      toast.error('Faucet failed');
-    } finally { setIsMinting(false); }
   };
 
   const onDeposit = async () => {
@@ -172,9 +141,9 @@ export const TradingAccountCard: React.FC = () => {
                 variant="secondary"
                 onClick={() => setIsWithdrawOpen(true)}
                 disabled={isPending}
-                className="h-9 text-xs font-semibold border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 shadow-lg shadow-black/20"
+                className="group h-9 text-xs font-semibold border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 shadow-lg shadow-black/20"
               >
-                <ArrowUpRight size={14} className="mr-1.5 opacity-70" /> Withdraw
+                <ArrowUpRight size={14} className="mr-1.5 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Withdraw
               </Button>
 
               <Button
@@ -182,9 +151,9 @@ export const TradingAccountCard: React.FC = () => {
                 variant="primary"
                 onClick={() => setIsDepositOpen(true)}
                 disabled={isPending}
-                className="h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 border-none shadow-lg shadow-indigo-900/20"
+                className="group h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 border-none shadow-lg shadow-indigo-900/20"
               >
-                <ArrowDownLeft size={14} className="mr-1.5 opacity-70" /> Deposit
+                <ArrowDownLeft size={14} className="mr-1.5 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Deposit
               </Button>
             </div>
           </div>
@@ -243,7 +212,7 @@ export const TradingAccountCard: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setIsClaimOpen(true)}
-                  className={cn("px-3 py-1.5 text-xs font-bold rounded-lg transition-all border",
+                  className={cn("px-3 py-1.5 text-xs font-bold rounded-lg transition-all border hover:scale-[1.02] active:scale-95 group",
                     hasClaimable
                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50"
                       : "bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700 hover:text-white"
@@ -269,7 +238,7 @@ export const TradingAccountCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer: Protocol Hover & Faucet */}
+        {/* Footer: Protocol Hover */}
         <div className="mt-auto pt-4 border-t border-slate-800/30 flex items-center justify-between">
           {/* Protocol Contracts Hover */}
           <div className="group relative">
@@ -311,16 +280,6 @@ export const TradingAccountCard: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Faucet Button */}
-          <button
-            onClick={handleMint}
-            disabled={isMinting}
-            className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors flex items-center gap-1.5"
-          >
-            {isMinting ? <RefreshCw size={10} className="animate-spin" /> : <TrendingUp size={10} />}
-            USDC Faucet
-          </button>
         </div>
 
       </div>
@@ -360,7 +319,7 @@ export const TradingAccountCard: React.FC = () => {
             />
             <button
               onClick={() => setDepositAmount(walletAvailable.toString())}
-              className="absolute right-2 top-2 px-2 py-1 bg-slate-800 text-xs text-indigo-400 rounded hover:bg-slate-700 font-bold"
+              className="absolute right-2 top-2 px-2 py-1 bg-slate-800 text-xs text-indigo-400 rounded hover:bg-slate-700 font-bold transition-colors"
             >
               MAX
             </button>
@@ -378,7 +337,7 @@ export const TradingAccountCard: React.FC = () => {
 
       <Dialog isOpen={isClaimOpen} onClose={() => setIsClaimOpen(false)} title="Locked Proceeds">
         <div className="space-y-4 pt-4">
-          <div className="p-3 bg-slate-950/50 rounded-lg space-y-3">
+          <div className="p-3 bg-slate-950/50 rounded-lg space-y-3 border border-slate-800">
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-400">Total Locked</span>
               <span className="font-mono font-bold text-white">{lockedFormatted}</span>

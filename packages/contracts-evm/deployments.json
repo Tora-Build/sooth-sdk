@@ -33,6 +33,38 @@
           "FIXED: Split 'Price (Net)' and 'Fee' in the trading panel for clarity"
         ]
       }
+    },
+    "megaethFrontier": {
+      "chainId": 4326,
+      "status": "✅ Live - V6.1.8 Frontier Net",
+      "contracts": {
+        "MockUSDC": "0x58f35be6a5e3d2be4c3575853043322b02feed84",
+        "SoothTraderVault": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
+        "SoothLiquidityVault": "0x1af3cb8b270db3e71fc979543c32b87709ea191f",
+        "SoothFeeController": "0x3c06e44bd4d09328a4c374174b8e325c0c674b6e",
+        "LaunchpadFactory": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
+        "ProtocolConfig": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0x13D233B5D83A24a3090780738E4AC82Be3305cee",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0x9897945B8AA37B7C7Da113307A42f6e4D3C9BD8D"
+        },
+        "market2": {
+          "address": "0xc5DF627fa7d51d75B3EF179c156AceF9801B927E",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0x78f04576a0E90d8aBeE5af2F6aB561A49cAbE753"
+        }
+      },
+      "notes": {
+        "version": "V6.1.8",
+        "date": "2025-12-20",
+        "changes": [
+          "Deployed V6.1.8 to MegaETH Frontier Net",
+          "2 Demo Markets created"
+        ]
+      }
     }
   },
   "architecture": {

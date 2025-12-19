@@ -1,7 +1,7 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { type AppKitNetwork, baseSepolia } from '@reown/appkit/networks';
 import { http } from 'viem';
-import { bnbTestnet } from './chains';
+import { megaethFrontier } from './chains';
 
 // Reown AppKit Project ID
 export const projectId = '01ecc3f4925fa2e6a5f3f82b74487317';
@@ -14,8 +14,11 @@ export const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
-// Networks for AppKit (MegaETH hidden - RPC rate limiting)
-export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [baseSepolia, bnbTestnet];
+// Networks for AppKit
+export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
+  baseSepolia, 
+  megaethFrontier as unknown as AppKitNetwork
+];
 
 // Create Wagmi Adapter with custom RPC
 export const wagmiAdapter = new WagmiAdapter({
@@ -24,7 +27,7 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: false,
   transports: {
     [baseSepolia.id]: http('https://sepolia.base.org'),
-    [bnbTestnet.id]: http('https://data-seed-prebsc-1-s1.bnbchain.org:8545'),
+    [megaethFrontier.id]: http('https://mainnet.megaeth.com/rpc'),
   },
 });
 

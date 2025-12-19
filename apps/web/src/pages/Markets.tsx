@@ -93,7 +93,7 @@ export const Markets = () => {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="h-80 rounded-xl bg-slate-900/50 border border-slate-800 animate-pulse" />
+            <div key={i} className="h-80 rounded-xl bg-slate-900/50 border border-slate-800" />
           ))}
         </div>
       ) : filteredMarkets.length === 0 ? (

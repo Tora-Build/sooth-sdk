@@ -54,7 +54,6 @@ function useEVMMarket(marketId: string) {
 
   // Debug Logs
   if (mode === 'real' && !onChainData && !isHookLoading) {
-    console.log('UseMarket: Addresses', { traderVaultAddress, marketAddress, outcomeTokenAddr: (marketConfig as any)?.outcomeTokenAddress });
   }
 
   // 3. Process Data

@@ -45,7 +45,7 @@ export const PendingUnlocks: React.FC = () => {
         <button
           onClick={claim}
           disabled={!hasClaimable || isClaiming || mode === 'demo'}
-          className="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 font-medium text-sm hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 font-bold text-sm hover:bg-amber-400 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           title={mode === 'demo' ? 'Demo mode - no actual claiming' : (hasClaimable ? 'Claim unlocked funds' : 'No funds ready to claim yet')}
         >
           <TrendingUp size={14} />

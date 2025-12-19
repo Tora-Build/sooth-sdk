@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { MARKET_V4_ABI } from '../../config/abis';
+import { useChainStore } from '../../store/useChainStore';
 
 export interface LaunchpadTradeQuote {
     expectedCost: number;
@@ -21,7 +22,8 @@ export function useLaunchpadTradeQuote(
     slippageBps: number = 50,
     currentB: bigint = 0n // Needed for price impact calc
 ) {
-    const publicClient = usePublicClient();
+    const { selectedChainId } = useChainStore();
+    const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
     const [quote, setQuote] = useState<LaunchpadTradeQuote | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

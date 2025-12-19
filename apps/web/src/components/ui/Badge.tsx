@@ -13,7 +13,7 @@ export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
       warning: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
       danger: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
       outline: 'border border-slate-700 text-slate-400',
-      live: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 pulse-glow-success',
+      live: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
     };
 
     return (

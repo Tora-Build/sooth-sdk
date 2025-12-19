@@ -6,6 +6,7 @@ import { useReadContracts, useAccount } from 'wagmi';
 import { formatUnits } from 'viem';
 import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
+import { useChainStore } from '../store/useChainStore';
 import { Market } from '../types';
 
 export interface DynamicMarketData {
@@ -19,6 +20,7 @@ export interface DynamicMarketData {
 export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?: DynamicMarketData) {
     const { address: userAddress } = useAccount();
     const { config } = useDeployments();
+    const { selectedChainId } = useChainStore();
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}`;
 
     // Fetch on-chain market data
@@ -43,7 +45,8 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
         ],
         query: {
             enabled: !!marketAddress && !!traderVaultAddress,
-            refetchInterval: 3000,
+            refetchInterval: 15000, // Reduced frequency to 15s to prevent flickering
+            chainId: Number(selectedChainId)
         }
     });
 
@@ -58,7 +61,8 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
         ] : [],
         query: {
             enabled: !!outcomeTokenAddress && !!userAddress,
-            refetchInterval: 3000,
+            refetchInterval: 15000,
+            chainId: Number(selectedChainId)
         }
     });
 

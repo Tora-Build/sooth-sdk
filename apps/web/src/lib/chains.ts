@@ -47,6 +47,20 @@ export const bnbTestnet = defineChain({
   testnet: true,
 });
 
+// Define MegaETH Frontier using viem
+export const megaethFrontier = defineChain({
+  id: 4326,
+  name: 'MegaETH Frontier',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://mainnet.megaeth.com/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'MegaExplorer', url: 'https://explorer.megaeth.com' },
+  },
+  testnet: false, // It's "Mainnet" but Frontier phase
+});
+
 // Canonical list of allowed chains with metadata
 export const allowedChains: AllowedChain[] = [
   {
@@ -64,7 +78,8 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
-  // BNB Testnet
+  // BNB Testnet - HIDDEN
+  /*
   {
     id: 97,
     type: 'evm',
@@ -77,6 +92,23 @@ export const allowedChains: AllowedChain[] = [
     nativeCurrency: {
       name: 'tBNB',
       symbol: 'tBNB',
+      decimals: 18,
+    },
+  },
+  */
+  // MegaETH Frontier Net (Mainnet)
+  {
+    id: 4326,
+    type: 'evm',
+    name: 'MegaETH Frontier',
+    displayName: 'MegaETH',
+    shortName: 'Mega',
+    rpcUrl: 'https://mainnet.megaeth.com/rpc',
+    explorerUrl: 'https://explorer.megaeth.com',
+    icon: '⚡',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
       decimals: 18,
     },
   },
@@ -116,7 +148,7 @@ export const megaethTestnet = defineChain({
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
 // Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, bnbTestnet];
+export const wagmiChains: Chain[] = [baseSepolia, megaethFrontier];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

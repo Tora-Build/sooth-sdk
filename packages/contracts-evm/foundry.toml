@@ -9,6 +9,7 @@ via_ir = true
 remappings = ["prb-math/=lib/prb-math/src/"]
 
 [rpc_endpoints]
+megaethMainnet = "https://mainnet.megaeth.com/rpc"
 megaethTestnet = "https://timothy.megaeth.com/rpc"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
 baseSepolia = "https://sepolia.base.org"

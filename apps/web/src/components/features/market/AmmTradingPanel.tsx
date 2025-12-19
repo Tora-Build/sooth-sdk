@@ -11,6 +11,7 @@ interface AmmTradingPanelProps {
     address: `0x${string}`;
     isGraduated: boolean;
     bParam?: bigint;
+    market?: any; // Allow passing pre-fetched market data to prevent duplicate hooks
     onTradeSuccess?: () => void;
 }
 
@@ -20,6 +21,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     address,
     isGraduated,
     bParam,
+    market: prefetchedMarket,
     onTradeSuccess
 }) => {
     const { isConnected } = useAccount();
@@ -34,8 +36,9 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const [showSlippageSelector, setShowSlippageSelector] = useState(false);
     const [isPending, setIsPending] = useState(false);
 
-    // Fetch market data for balances/shares check
-    const { market } = useAmmMarketByAddress(address);
+    // Fetch market data for balances/shares check only if not prefetched
+    const { market: hookMarket } = useAmmMarketByAddress(prefetchedMarket ? undefined : address);
+    const market = prefetchedMarket || hookMarket;
 
     // Increment/Decrement refs
     const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);

@@ -9,7 +9,7 @@ import { useMarketStore } from '../../store/useMarketStore';
 
 export const ActivityListener: React.FC = () => {
   const { addActivity } = useActivityStore();
-  const { mode, triggerRefresh } = useMarketStore();
+  const { mode } = useMarketStore();
   const { config } = useDeployments();
   const deployments = config.contracts;
   const chainId = useChainId();
@@ -37,7 +37,6 @@ export const ActivityListener: React.FC = () => {
           chainId,
         });
       });
-      triggerRefresh();
     },
     enabled: mode === 'real',
   });
@@ -60,7 +59,6 @@ export const ActivityListener: React.FC = () => {
           chainId,
         });
       });
-      triggerRefresh();
     },
     enabled: mode === 'real',
   });
@@ -94,7 +92,6 @@ export const ActivityListener: React.FC = () => {
           chainId,
         });
       });
-      triggerRefresh();
     },
     enabled: mode === 'real',
   });

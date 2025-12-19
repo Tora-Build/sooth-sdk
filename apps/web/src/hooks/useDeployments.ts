@@ -17,13 +17,6 @@ export interface ChainDeployments {
   // Markets (optional; many flows use markets.json instead)
   SoothMarket?: string;
 
-  // Optional/legacy infra (used by OperatorConsole or older deployments)
-  SoothLMSRReal?: string;
-  SoothAdjudicatorRegistry?: string;
-  SoothSettlement?: string;
-  SoothMarketFactory?: string;
-  SoothVault?: string;
-  SoothRiskManager?: string;
   [key: string]: string | undefined;
 }
 
@@ -45,7 +38,8 @@ const CHAIN_ID_MAP: Record<number, string> = {
   84532: 'baseSepolia',
   97: 'bnbTestnet',
   10143: 'monadTestnet',
-  6343: 'megaethTestnet'
+  6343: 'megaethTestnet',
+  4326: 'megaethFrontier'
 };
 
 export function useDeployments() {
@@ -57,19 +51,10 @@ export function useDeployments() {
   const chainDeployments = deploymentsConfig.networks[networkName]?.contracts;
   const configVersion = deploymentsConfig.version;
 
-  // Runtime guard: Detect stale browser cache (just log, don't reload)
+  // Runtime guard: Detect stale browser cache
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedVersion = localStorage.getItem('sooth_config_version');
-      if (storedVersion && storedVersion !== configVersion) {
-        console.warn(`[useDeployments] Config version updated: ${storedVersion} → ${configVersion}`);
-        console.warn('[useDeployments] Clearing cache - please hard refresh (Cmd+Shift+R / Ctrl+Shift+R)');
-        // Clear versioned cache keys if version changed
-        if (storedVersion !== configVersion) {
-          localStorage.removeItem('sooth_config_version');
-          localStorage.setItem('sooth_config_version', configVersion);
-        }
-      }
       // Always update to latest version
       localStorage.setItem('sooth_config_version', configVersion);
     }

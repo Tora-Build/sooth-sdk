@@ -272,3 +272,34 @@
     - `TraderVault.withdraw()` blocks if `globalGovernor.lockedBalance(user) > 0`
   - **Migration**: Existing V5 markets continue to work (backward compatible), but new markets use V6 architecture
   - See test files: `LaunchpadV6.t.sol`, `LaunchpadInvariants.t.sol`, `QA_REPORT_V6.md`
+
+## ADR-018: Layered Architecture Branding Motif
+- **Date**: 2025-12-20
+- **Status**: Accepted
+- **Context**: The protocol lacked a cohesive visual identity. Existing logo exploration was fragmented across several motifs (Prism, Helix, Knot). There was a need for a mark that communicates the structural complexity and modular nature of the Sooth Protocol stack.
+- **Decision**: Adopt the **Layered Architecture** motif as the primary brand identity:
+  - **Visual Logic**: Three vertically stacked semi-transparent prisms intersected by a central "Truth Beam".
+  - **Symbolism**:
+    - **Top (Cyan)**: Market Layer — Expressive, user-facing truth.
+    - **Middle (Purple)**: Liquidity Layer — The vAMM engine and vault backing.
+    - **Bottom (Indigo)**: Settlement Layer — ZK-verified finality and accounting.
+    - **Vertical Beam (White)**: The data flow connecting T* (truth point) down through the entire stack.
+  - **Implementation**:
+    - Primary `sooth-logo.svg` uses this design with high scale (minimal margins) for dapp visibility.
+    - Social banners use a "Blueprint" expansion of this geometry to evoke technical depth.
+- **ADR-019: MegaETH Frontier Net Multi-Dimensional Gas Handling**
+  - **Date**: 2025-12-20
+  - **Status**: Accepted
+  - **Context**: MegaETH Frontier Net uses a custom MegaEVM with a multi-dimensional gas model (Compute + Storage) and higher intrinsic gas minimums (60,000). Standard Foundry scripts and Viem defaults often fail with "intrinsic gas too low" or incorrect estimates.
+  - **Decision**: Adopt explicit gas management for MegaETH deployments:
+    - **Deployment Script**: Use Viem's `deployContract` with a high hardcoded gas limit (`999,999,999n`) to bypass estimate failures.
+    - **Chain Config**: Define `megaethFrontier` with dedicated RPC and unique chain ID (4326).
+    - **Whitelisting**: Only whitelisted addresses can submit transactions; deployer must be funded via the official bridge.
+  - **Consequences**:
+    - **Reliability**: Successful deployment of the full V6.1.8 stack to MegaETH Mainnet.
+    - **Manual Effort**: Requires specific scripts for MegaETH vs standard EVM chains.
+- **Consequences**:
+  - **Consistency**: Unified dapp, social, and mediakit branding.
+  - **Clarity**: Explains the "Retroactive Finality" architecture through visual layers.
+  - **Maintenance**: All Prism-based and Helix-based variants deprecated to prevent brand drift.
+  - **Media Kit**: Established a `/mediakit` folder as the source of truth for all ecosystem assets.

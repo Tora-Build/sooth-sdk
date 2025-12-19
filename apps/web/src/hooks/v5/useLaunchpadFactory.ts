@@ -62,15 +62,6 @@ export function useLaunchpadFactory() {
     // 1. Get USDC Address from Config (Single Source of Truth)
     const usdcAddress = config?.contracts?.MockUSDC as `0x${string}` | undefined;
 
-    useEffect(() => {
-        if (factoryAddress && usdcAddress) {
-            console.log('[useLaunchpadFactory] Address Check:', {
-                configFactory: factoryAddress,
-                configUSDC: usdcAddress,
-                expectedSpender: factoryAddress
-            });
-        }
-    }, [factoryAddress, usdcAddress]);
 
 
     // 2. Get Allowance & Balance
@@ -112,11 +103,6 @@ export function useLaunchpadFactory() {
             console.error("Missing address:", { usdcAddress, factoryAddress });
             return;
         }
-        console.log("Approving USDC:", {
-            token: usdcAddress,
-            spender: factoryAddress,
-            amount: maxUint256.toString()
-        });
         writeApprove({
             address: usdcAddress,
             abi: ERC20_ABI,

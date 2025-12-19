@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useReadContract, useReadContracts } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { TRADER_VAULT_V4_ABI } from '../config/abis';
+import { TRADER_VAULT_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useAmmMarket } from './useAmmMarket';
 import { useAmmMarketByAddress } from './useAmmMarketByAddress';
@@ -41,19 +41,24 @@ export function useOrderbookTrade(marketId: string) {
   // v4: Check accounts (available, pending) in TraderVaultV4
   const { data: vaultData, refetch: refetchBalance } = useReadContracts({
     contracts: [
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'accounts', args: [address || '0x0'] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'] },
       { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 0] },
       { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 1] },
+      { address: deployments.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' },
     ],
     query: {
-      enabled: !!address && !!marketContractAddress,
+      enabled: !!address && !!marketContractAddress && !!traderVaultAddress,
       refetchInterval: 3000,
     },
   });
 
-  const availableBalance = vaultData?.[0]?.result?.[0]; // available
-  const internalYesShares = vaultData?.[1]?.result || 0n;
-  const internalNoShares = vaultData?.[2]?.result || 0n;
+  const rawBalance = vaultData?.[0]?.result as bigint || 0n;
+  const internalYesShares = vaultData?.[1]?.result as bigint || 0n;
+  const internalNoShares = vaultData?.[2]?.result as bigint || 0n;
+  const decimals = Number(vaultData?.[3]?.result || 18);
+
+  // Normalize balance to 18 decimals for consistent frontend comparison
+  const availableBalance = decimals === 18 ? rawBalance : rawBalance * BigInt(10 ** (18 - decimals));
 
 
 
@@ -92,8 +97,10 @@ export function useOrderbookTrade(marketId: string) {
       }
 
       // Check available balance (Frontend Check)
-      await refetchBalance();
-      const balance = (availableBalance) as bigint || 0n;
+      const { data: latestData } = await refetchBalance();
+      const rawBalanceLatest = (latestData?.[0]?.result as bigint) || 0n;
+      const latestDecimals = Number(latestData?.[3]?.result || 18);
+      const balance = latestDecimals === 18 ? rawBalanceLatest : rawBalanceLatest * BigInt(10 ** (18 - latestDecimals));
 
       if (balance < collateralRequired) {
         throw new Error(`Insufficient balance. Need ${(Number(collateralRequired) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
@@ -323,8 +330,11 @@ export function useOrderbookTrade(marketId: string) {
 
       // v3: Check available balance for Buys
       if (isBuy) {
-        const { data: latestBalance } = await refetchBalance();
-        const balance = (latestBalance || availableBalance) as bigint || 0n;
+        const { data: latestData } = await refetchBalance();
+        const rawBalanceLatest = (latestData?.[0]?.result as bigint) || 0n;
+        const latestDecimals = Number(latestData?.[3]?.result || 18);
+        const balance = latestDecimals === 18 ? rawBalanceLatest : rawBalanceLatest * BigInt(10 ** (18 - latestDecimals));
+        
         if (balance < limitValue) {
           throw new Error(`Insufficient balance. Need ${(Number(limitValue) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
         }

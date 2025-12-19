@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Zap, Shield, TrendingUp } from 'lucide-react';
 
 export const About = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Simple Header */}
-      <header className="h-16 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-xl sticky top-0 z-40">
+      <header className="h-16 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-md sticky top-0 z-40">
         <div className="container mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="p-2 rounded-lg border border-slate-700 hover:border-cyan-500/50 transition-all">
@@ -30,23 +30,23 @@ export const About = () => {
       <div className="min-h-screen pb-16">
         {/* Hero Section */}
         <section className="relative py-20 overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/10 blur-[80px] rounded-full pointer-events-none" />
 
           <div className="container mx-auto max-w-7xl px-6 relative z-10">
             <div className="grid lg:grid-cols-2 gap-12 items-start">
               {/* Left Column - Main Content */}
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-6">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span className="text-xs font-medium text-emerald-300 tracking-wide uppercase">Open-End, Truth-Driven Prediction Protocol</span>
                 </div>
 
                 <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">
-                  Prediction markets that <span className="text-emerald-400">terminate on truth</span>, not on time.
+                  Markets that <span className="text-emerald-400">can live forever</span>, or settle on a choice.
                 </h1>
 
                 <p className="text-lg text-slate-300 leading-relaxed mb-8">
-                  Sooth is a fully on-chain protocol for <strong className="text-white">open-end prediction markets</strong> that use <strong className="text-indigo-400">retroactive finality</strong> to neutralize latency arbitrage and protect LPs, backed by a unified vault and <strong className="text-amber-400">multi-class adjudication</strong>.
+                  Sooth is a fully on-chain protocol for <strong className="text-white">flexible-end prediction markets</strong>. While traditional markets force an expiry, Sooth allows for <strong className="text-indigo-400">retroactive finality</strong>—neutralizing latency arbitrage and protecting LPs via the <strong className="text-cyan-400">Dual DEX Engine</strong>.
                 </p>
 
                 <div className="flex flex-wrap gap-4 mb-8">
@@ -83,6 +83,11 @@ export const About = () => {
                       <div className="text-slate-500 text-xs mb-1">Market</div>
                       <div className="font-medium text-white">BTC 7-day TWAP &gt; $100k</div>
                       <div className="text-xs text-emerald-400 mt-1">Open-End</div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800">
+                      <div className="text-slate-500 text-xs mb-1">Execution: High-Performance EVM</div>
+                      <div className="text-xs text-cyan-400">Hyper-throughput CLOB</div>
                     </div>
 
                     <div className="pt-3 border-t border-slate-800">
@@ -246,9 +251,9 @@ export const About = () => {
                   </div>
 
                   <div className="pt-4 border-t border-slate-800 mb-6">
-                    <h4 className="text-sm font-medium text-white mb-3">Open-End behavior</h4>
+                    <h4 className="text-sm font-medium text-white mb-3">Optional Open-End behavior</h4>
                     <p className="text-xs text-slate-400">
-                      Markets do not expire on a fixed date. They remain live until an adjudicator reports a truth and a termination time T*. Settlement is computed back from T*, rewinding any latency-driven trades.
+                      Market creators can choose to omit a fixed expiry. These "Open-End" markets remain live until an adjudicator reports a truth and a termination time T*. Settlement is computed back from T*, rewinding any latency-driven trades.
                     </p>
                   </div>
 
@@ -260,6 +265,69 @@ export const About = () => {
                   </div>
                 </Card>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Launchpad & Roles */}
+        <section className="py-16 bg-slate-900/20">
+          <div className="container mx-auto max-w-7xl px-6">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-3xl font-bold text-white mb-6">The Launchpad</h2>
+                <p className="text-slate-400 mb-6">
+                  Sooth Launchpad is a permissionless factory for creating and scaling prediction markets. It abstracts the complexity of liquidity provisioning and adjudication, allowing creators to focus on the signal.
+                </p>
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                      <Zap className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-white font-semibold">Instant Liquidity</h4>
+                      <p className="text-sm text-slate-500">New markets pull from the unified vault, ensuring deep liquidity from block zero.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                      <Shield className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-white font-semibold">Configurable Adjudication</h4>
+                      <p className="text-sm text-slate-500">Choose from Optimistic, ZK-Rule, or Oracle-backed resolution classes.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Card className="bg-slate-950/40 border-slate-800">
+                <h3 className="text-white font-bold mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-400" />
+                  Ecosystem Roles
+                </h3>
+                <div className="space-y-6">
+                  <div className="relative pl-6 border-l-2 border-slate-800">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-cyan-500" />
+                    <h4 className="text-sm font-bold text-white">Creators</h4>
+                    <p className="text-xs text-slate-500">Deploy markets via the Launchpad, setting resolution rules and initial parameters.</p>
+                  </div>
+                  <div className="relative pl-6 border-l-2 border-slate-800">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-purple-500" />
+                    <h4 className="text-sm font-bold text-white">Adjudicators</h4>
+                    <p className="text-xs text-slate-500">The "Guardians" of truth. They provide the final signal (and T*) that triggers settlement.</p>
+                  </div>
+                  <div className="relative pl-6 border-l-2 border-slate-800">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-emerald-500" />
+                    <h4 className="text-sm font-bold text-white">Liquidity Providers</h4>
+                    <p className="text-xs text-slate-500">Deposit into the unified vaults to back the Dual DEX Engine and earn protocol fees.</p>
+                  </div>
+                  <div className="relative pl-6 border-l-2 border-slate-800">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-indigo-500" />
+                    <h4 className="text-sm font-bold text-white">Traders</h4>
+                    <p className="text-xs text-slate-500">Execute on the Orderbook or vAMM to express views on future events with retroactive protection.</p>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         </section>
@@ -293,20 +361,20 @@ export const About = () => {
               </Card>
 
               <Card>
-                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">2 · Liquidity Layer</div>
-                <h3 className="font-semibold text-white mb-3">Singleton Vault + LMSR vAMM</h3>
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">2 · Execution Layer</div>
+                <h3 className="font-semibold text-white mb-3">Dual DEX Engine</h3>
                 <p className="text-sm text-slate-400 mb-4">
-                  A unified vault per (chain, adjudicator class) powers an LMSR vAMM that prices outcome exposure. Virtual liquidity can be weighted per market while preserving bounded vault loss.
+                  Sooth leverages a hybrid execution model: a high-throughput on-chain CLOB (Orderbook) for active price discovery, and a vault-backed LMSR vAMM for deep, guaranteed tail liquidity.
                 </p>
                 <ul className="text-xs text-slate-500 space-y-1">
-                  <li>• Unified LP exposure</li>
-                  <li>• Virtual liquidity routing</li>
-                  <li>• Bounded-loss LMSR curve</li>
+                  <li>• Hyper-throughput Orderbook</li>
+                  <li>• Guaranteed vAMM Liquidity</li>
+                  <li>• Optimized for high-throughput L2s</li>
                 </ul>
               </Card>
 
               <Card>
-                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">3 · Settlement & Account Layer</div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">3 · Settlement Layer</div>
                 <h3 className="font-semibold text-white mb-3">ZK-Verified PnL</h3>
                 <p className="text-sm text-slate-400 mb-4">
                   Trades, positions, and T* feed into an off-chain ZK engine (e.g. Brevis) that computes per-account delta-PnL. A settlement batch with proof is posted on-chain and applied to Smart Accounts.
@@ -354,7 +422,7 @@ export const About = () => {
                     </tr>
                     <tr className="border-b border-slate-800/50">
                       <td className="py-3 pr-4 text-slate-500">Liquidity</td>
-                      <td className="py-3 px-4 text-white">Vault + LMSR vAMM</td>
+                      <td className="py-3 px-4 text-white">Dual Engine (CLOB + vAMM)</td>
                       <td className="py-3 px-4">Hybrid CLOB / on-chain</td>
                       <td className="py-3 px-4">Centralized CLOB</td>
                       <td className="py-3 px-4">Per-market AMM pools</td>

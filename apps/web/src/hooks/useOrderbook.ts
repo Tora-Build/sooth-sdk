@@ -69,7 +69,7 @@ export function useOrderbook(marketId: string) {
         functionName: 'shareBalances',
         args: [address || '0x0000000000000000000000000000000000000000', contractAddress, 1] // NO
       }
-    ] as any,
+    ],
     query: {
       enabled: !!address && !!contractAddress && !!traderVaultAddress,
       refetchInterval: 5000
@@ -185,11 +185,6 @@ export function useOrderbook(marketId: string) {
     } catch (err: any) {
       console.error('Failed to fetch orderbook:', err);
       // Detailed error logging
-      console.log('--- Orderbook Fetch Error ---');
-      console.log('Contract:', contractAddress);
-      console.log('Error Message:', err.message);
-      console.log('Error Cause:', err.cause);
-      console.log('-----------------------------');
 
       if (err.message?.includes('reverted') || err.message?.includes('function selector')) {
         setIsSupported(false);

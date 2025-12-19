@@ -64,7 +64,7 @@ export const LPPositionsCard: React.FC = () => {
                     <Link
                         key={position.marketAddress}
                         to={`/market/${position.marketAddress}`}
-                        className="block p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-purple-500/30 transition-all group"
+                        className="block p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-purple-500/30 transition-all group hover:scale-[1.01] active:scale-[0.99]"
                     >
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">

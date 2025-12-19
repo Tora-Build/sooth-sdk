@@ -149,4 +149,33 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-12*
+## Orderbook Balance & Decimal Precision
+
+### ❌ Pattern: Comparing 6-decimal USDC with 18-decimal WAD
+- **Date**: 2025-12-20
+- **Root Cause**: `useOrderbookTrade` was comparing `availableBalance` (returned as 6-decimal integer by some RPC providers or due to `MockUSDC` decimals) directly against `totalCost` (WAD 1e18).
+- **Symptom**: "Insufficient balance" errors despite having thousands of dollars in the vault.
+- **Fix**: Normalize ALL balances to WAD (18 decimals) before comparison.
+- **Rule**: Never compare raw contract balances directly. Use a normalization helper to ensure 1e18 scale parity.
+
+### ❌ Pattern: Struct Return-Type Inconsistency (Viem)
+- **Date**: 2025-12-20
+- **Root Cause**: Reading `TraderVault` balances via a struct returned an object that sometimes failed to parse or was stale during async race conditions.
+- **Fix**: Switched to explicit, dedicated getter calls (`availableBalance()`, `pendingBalance()`) instead of reading the full balance struct.
+- **Lesson**: If a complex read fails intermittently, switch to simple explicit getters for critical state.
+
+---
+
+## UI Performance & Scrolling
+
+### ✅ Fix: Full-Page Flickering on Scroll
+- **Symptom**: Background gradients and glass cards "flicker" or disappear during fast scrolling on macOS Safari/Chrome.
+- **Cause**: Browser layout engine recalculating complex radial gradients and glass filters on every scroll frame.
+- **Fix**: 
+  1. `background-attachment: fixed` on the body to stabilize the background layer.
+  2. `will-change: transform` on sticky/complex elements to promote them to GPU layers.
+  3. `contain: paint` on cards to isolate paint invalidation.
+
+---
+
+*Last updated: 2025-12-20*

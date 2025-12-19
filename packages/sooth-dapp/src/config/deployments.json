@@ -1,90 +1,79 @@
 {
-  "version": "4.11",
-  "lastUpdated": "2025-12-17",
+  "version": "2025-12-20-v2",
+  "lastUpdated": "2025-12-20",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V4.6 Lock-on-Sell",
+      "status": "✅ Live - V6.1.8 Safe Parity LP Minting",
       "contracts": {
-        "MockUSDC": "0x53d34066A316AE1699d434753B70593A6D59Fec1",
-        "SoothTraderVault": "0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B",
-        "SoothLiquidityVault": "0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1",
-        "SoothFeeController": "0x1a646107e7E88aa01Fadff3145Af08156679198e",
-        "LaunchpadOutcomeToken": "0x6b3f017d58874badb7dd14ce74219ad83335dd54",
-        "LaunchpadMarketImpl": "0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10",
-        "LaunchpadFactory": "0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F",
-        "ProtocolConfig": "0x22565a06050a5031a02885263ebb106ec8595a8a"
+        "MockUSDC": "0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587",
+        "SoothTraderVault": "0x587dFaF63e4286A7a91b157A3f40d55D0c3D3048",
+        "SoothLiquidityVault": "0xb85B11d5480a40955a907CF8a8d03a1319231637",
+        "SoothFeeController": "0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03",
+        "LaunchpadFactory": "0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7"
       },
       "marketInfo": {
         "market1": {
-          "address": "0x69b073721c552eBac6c42e934EA6684d78727c67",
+          "address": "0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8"
+          "outcomeToken": "0x6c0065b539355C74D529ECb490c178BF9b0148C2"
         },
         "market2": {
-          "address": "0x3A5E80578933aa92644D4ee7192CD744600d6A2f",
+          "address": "0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8"
+          "outcomeToken": "0xb7B000AA17FBf000f124DF315A340DAF3Ea2E522"
         }
       },
       "notes": {
-        "version": "V4.6 - Lock-on-Sell with Launchpad Markets",
-        "date": "2025-12-17",
+        "version": "V6.1.8 - Safe Parity LP Minting",
+        "date": "2025-12-20",
         "changes": [
-          "Deployed new LaunchpadFactory with ProtocolConfig",
-          "Created 2 new Launchpad markets (Alien Life, BTC 7-day TWAP)",
-          "TraderVault address corrected to match script deployment"
+          "FIXED: Safe Parity Floor for LP Minting (prevents supply explosion when pool is thin)",
+          "FIXED: UI Decimal formatting for LP Supply and Holders leaderboard",
+          "FIXED: Split 'Price (Net)' and 'Fee' in the trading panel for clarity"
         ]
       }
     },
-    "bnbTestnet": {
-      "chainId": 97,
-      "status": "✅ Live - V4.6 Lock-on-Sell",
+    "megaethFrontier": {
+      "chainId": 4326,
+      "status": "✅ Live - V6.1.8 Frontier Net",
       "contracts": {
-        "MockUSDC": "0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c",
-        "SoothTraderVault": "0x05818C4028ff5c273B45B3c55131Af2Bd9D12322",
-        "SoothLiquidityVault": "0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0",
-        "SoothFeeController": "0x3152A8cd6CA0C64675C73486B06203a9D8226448"
+        "MockUSDC": "0x58f35be6a5e3d2be4c3575853043322b02feed84",
+        "SoothTraderVault": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
+        "SoothLiquidityVault": "0x1af3cb8b270db3e71fc979543c32b87709ea191f",
+        "SoothFeeController": "0x3c06e44bd4d09328a4c374174b8e325c0c674b6e",
+        "LaunchpadFactory": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
+        "ProtocolConfig": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50"
+      },
+      "marketInfo": {
+        "market1": {
+          "address": "0x13D233B5D83A24a3090780738E4AC82Be3305cee",
+          "name": "UN Confirms Alien Life",
+          "outcomeToken": "0x9897945B8AA37B7C7Da113307A42f6e4D3C9BD8D"
+        },
+        "market2": {
+          "address": "0xc5DF627fa7d51d75B3EF179c156AceF9801B927E",
+          "name": "BTC 7-day TWAP >= $100k",
+          "outcomeToken": "0x78f04576a0E90d8aBeE5af2F6aB561A49cAbE753"
+        }
       },
       "notes": {
-        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
-        "date": "2025-12-14"
+        "version": "V6.1.8",
+        "date": "2025-12-20",
+        "changes": [
+          "Deployed V6.1.8 to MegaETH Frontier Net",
+          "2 Demo Markets created"
+        ]
       }
-    },
-    "megaethTestnet": {
-      "chainId": 6343,
-      "status": "✅ Live - V4.5",
-      "contracts": {
-        "MockUSDC": "0x493da6e5c9de67ab50b2fb08d14865614189b5c2",
-        "SoothTraderVault": "0xdc980ac16626211a7c472a94a163440eb68c5bfc",
-        "SoothLiquidityVault": "0xdb0063ce93e445ff7a8916f6f5a093f80833494f",
-        "SoothFeeController": "0x9dbdfe94e596262dff5d91c007bae2ba4d80a8f7"
-      },
-      "notes": {
-        "version": "V4.5 - MegaETH Testnet Launch",
-        "date": "2025-12-12",
-        "deployMethod": "viem script with gas: 999999999n"
-      }
-    },
-    "monadTestnet": {
-      "chainId": 10143,
-      "status": "⏸️ Paused - Awaiting Funds",
-      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "contracts": {}
     }
   },
   "architecture": {
-    "version": "V4.6",
-    "entryPoint": "TraderVaultV4 - Dual-venue trading",
+    "version": "V6.1.8",
     "features": [
-      "AMM trading with 24h lock-on-sell (proceeds locked)",
-      "Orderbook limit orders (no locks)",
-      "ERC1155 outcome tokens",
-      "Continuous LMSR (qYes/qNo) - No ticks",
-      "Dynamic liquidity (b parameter)",
-      "Dynamic liquidity (b parameter)",
-      "claimUnlocked() to claim expired proceeds",
-      "Launchpad V5: Permissionless market creation + graduation"
+      "Parity-Capped Fair Minting",
+      "Honest Floor Accounting",
+      "Total Liability Tracking",
+      "Strict $1.00 Price Cap"
     ]
   }
 }

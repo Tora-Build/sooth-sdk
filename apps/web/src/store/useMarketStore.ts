@@ -6,8 +6,6 @@ interface MarketState {
   mode: 'demo' | 'real';
   markets: Market[];
 
-  refreshKey: number;
-  triggerRefresh: () => void;
   setMode: (mode: 'demo' | 'real') => void;
   updateMarket: (marketId: string, updates: Partial<Market>) => void;
 }
@@ -79,8 +77,6 @@ const initialDemoMarkets: Market[] = marketsConfig.markets
 export const useMarketStore = create<MarketState>((set) => ({
   markets: initialDemoMarkets, // Assuming INITIAL_MARKETS was a typo and should be initialDemoMarkets
   mode: 'real', // Default to Real Mode for V4
-  refreshKey: 0,
-  triggerRefresh: () => set(state => ({ refreshKey: state.refreshKey + 1 })),
   setMode: (mode) => set({ mode }),
 
   updateMarket: (marketId, updates) => set((state) => ({

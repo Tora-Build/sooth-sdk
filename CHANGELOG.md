@@ -5,6 +5,20 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **MegaETH Frontier Net Integration** (2025-12-20):
+  - **Dapp Deployment**: Full V6.1.8 protocol stack deployed to MegaETH Mainnet (Frontier Net - Chain 4326).
+  - **Protocol Faucet**: New standalone Faucet page (`/faucet`) for minting test mUSDC and ETH gas guidance.
+  - **Landing Page Redesign**: Modular "blueprint" motif with MegaETH performance highlights and network badges.
+  - **Chain Configuration**: Added `megaethFrontier` to `chains.ts`, `wagmi.ts`, and `deployments.json`.
+- **Branding & Media Kit Overhaul** (2025-12-20):
+  - **New Visual Identity**: "Layered Architecture" motif representing the vertical protocol stack.
+  - **Dapp Assets**: Official `sooth-logo.svg` (high-scale) and `sooth-social-banner.svg`.
+  - **Media Kit (`/mediakit`)**:
+    - `sooth-logo-layered-light.svg` - High contrast for light themes.
+    - `sooth-logo-layered-mono.svg` - Black & white for print/minimal use.
+    - `sooth-logo-layered-no-bg.svg` - Transparent variant.
+    - `sooth-social-bg-no-text.svg` - Blueprint-style abstract background.
+    - `BRAND_GUIDE.md` - Documentation for colors and typography.
 - **V6.1.8 Safe Parity LP Minting** (2025-12-20):
   - Implemented **Parity Floor Protection**: LP tokens for fees minted at `max(Current ExRate, 1.0)`
   - Prevents "division-by-near-zero" feedback loop that caused trillion-LP explosions in thin pools
@@ -18,6 +32,8 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Added V6 reference note to `LIQUIDITY_METRICS_EXPLAINED.md`
 
 ### Changed
+- **SEO & Meta Tags**: Updated `index.html` to use new SVG branding and high-resolution social banners.
+- **Favicon Integration**: Removed legacy `favicon.png` in favor of official `sooth-logo.svg`.
 - **Trading Panel Quote Display** (2025-12-20):
   - Split "Cost per share" into **"Price (Net)"** and **"Fee"** to clarify $1.00 LMSR price cap
   - Renamed "Max Total" to "Total Cost" for consistency
@@ -25,8 +41,19 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Renamed "Your Value" to **"Protected Equity"** to match Floor Equity model
   - Fixed LP Supply and Balance formatting to use `toLocaleString()` with 2 decimal places
   - Added hover tooltip showing full precision LP values
+- **Performance & Stability Optimization** (2025-12-20):
+  - Removed decorative scanline overlay to eliminate high-frequency flickering.
+  - De-coupled `triggerRefresh` from event listeners to prevent excessive re-renders during high chain activity.
+  - Switched loading placeholders from pulsing animations to static blocks for better visual stability.
+  - Removed all `animate-pulse` classes from production UI (status badges, wallet indicators).
 
 ### Deployed
+- **MegaETH Frontier Net V6.1.8** (2025-12-20):
+  - MockUSDC: `0x58f35be6a5e3d2be4c3575853043322b02feed84`
+  - LaunchpadFactory: `0xaa3ffae62a8af00d08ac395e9551776b0a01e492`
+  - ProtocolConfig: `0xbe566c267a0d350e1d647ccb621cc657fa3a1d50`
+  - Market 1 (Alien Life): `0x13D233B5D83A24a3090780738E4AC82Be3305cee`
+  - Market 2 (BTC TWAP): `0xc5DF627fa7d51d75B3EF179c156AceF9801B927E`
 - **Base Sepolia V6.1.8** (2025-12-20):
   - MockUSDC: `0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587`
   - LaunchpadFactory: `0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7`
@@ -34,6 +61,20 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Market 2 (BTC 7-day TWAP): `0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C`
 
 ### Fixed
+- **Orderbook Balance Detection & Precision** (2025-12-20):
+  - Fixed a critical bug in `useOrderbookTrade` where `availableBalance` was not detected due to struct return-type inconsistencies.
+  - Resolved a precision mismatch where 6-decimal USDC vault balances were compared against 18-decimal WAD costs, leading to false "Insufficient balance" errors.
+  - Added decimal normalization to `useOrderbookTrade` to ensure all balance comparisons are performed at WAD (18-decimal) precision.
+  - Resolved an async race condition in `placeOrder` and `executeTakerOrder` where stale balance state was used instead of refetched data.
+  - Switched to explicit `availableBalance()` and `pendingBalance()` calls in `useTraderVault` and `useOrderbookTrade` for better robustness.
+- **UI/UX Stabilization & Performance** (2025-12-20):
+  - **Scrolling Stability**: Fixed full-page flickering by applying `background-attachment: fixed` to the global body background.
+  - **Anti-Flicker Engineering**: Implemented `contain: paint` on `.glass-card` and `will-change: transform` on sticky elements to prevent browser layout thrashing during scroll.
+  - **Render Optimization**: Consolidated market data fetching in `MarketDetail.tsx` to prevent cascading re-renders across sub-components.
+  - **Hook Throttling**: Increased `refetchInterval` for all market hooks (10s–60s) to reduce background thread congestion.
+  - **Animation Purge**: Replaced the dynamic "Bonding Curve" radial glow with a static version to reduce GPU load.
+  - **Visual Unification**: Standardized "Launch App" button styles and text across Landing, About, and Navbar components.
+- **Logo Merge Conflict**: Resolved `<<<<<<<` markers in `sooth-logo.svg`.
 - **LP Supply Explosion in Fair Minting** (2025-12-20):
   - Fixed precision bug where thin pools caused division-by-near-zero in `_handlePostTradeFees`.
   - Implemented Parity Floor Protection (capped at 1:1 reward rate).
@@ -45,6 +86,17 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Updated `MockOutcomeToken` in tests to include `totalSupply(uint256 id)` (required for liability tracking).
   - Fixed `testCreatorReceivesLPTokens` to correctly expect 18-decimal LP tokens.
   - Result: **24/24 tests passing** in `LaunchpadV6.t.sol`. ✅
+
+### Removed
+- **Alpha Codebase Purge** (2025-12-20):
+  - Deleted over 30 unused files and legacy artifacts to reduce bundle size and complexity.
+  - Removed legacy interfaces: `TraderTerminal.tsx`, `LPDashboard.tsx`, `OperatorConsole.tsx`.
+  - Removed duplicate component: `TradingAccountCard.tsx`.
+  - Removed unused features: `operator/` and `liquidity/` directories.
+  - Purged dead hooks: `useProtocolStats`, `useSettlement`, `useTradeQuote`, `useVault`, `useV4Quote`, `useAmmTrade`, `useGuardian`.
+- **Documentation Cleanup**:
+  - Archived legacy V4 and V5 documentation to `docs_archive/`.
+  - Hid BNB Testnet from dApp visibility (official hidden status in `STATUS.md`).
 
 ### Added
 - **V6 Launchpad Deployment on Base Sepolia** (2025-12-17):

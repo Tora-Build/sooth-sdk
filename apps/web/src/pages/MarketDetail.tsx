@@ -118,8 +118,8 @@ const MarketInfoCard = ({
         <span className="text-[10px] text-slate-500">YES / NO</span>
       </div>
       <div className="h-1.5 rounded-full overflow-hidden flex mb-3">
-        <div className="bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${priceYes * 100}%` }} />
-        <div className="bg-gradient-to-r from-rose-400 to-rose-500" style={{ width: `${priceNo * 100}%` }} />
+        <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-700 ease-out" style={{ width: `${priceYes * 100}%` }} />
+        <div className="bg-gradient-to-r from-rose-400 to-rose-500 transition-[width] duration-700 ease-out" style={{ width: `${priceNo * 100}%` }} />
       </div>
 
       {/* TVL Breakdown */}
@@ -276,13 +276,10 @@ const BondingProgressCard = ({
   const [showHelp, setShowHelp] = useState(false);
 
   return (
-    <Card className="p-5 border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/20 relative overflow-hidden">
-      {/* Animated background glow */}
+    <Card className="p-5 border-cyan-500/30 bg-slate-900/60 relative overflow-hidden">
+      {/* Static background glow */}
       <div 
-        className="absolute inset-0 opacity-30 blur-2xl transition-all duration-1000"
-        style={{
-          background: `radial-gradient(circle at ${graduationProgress}% 50%, rgba(34, 211, 238, 0.4), transparent 60%)`
-        }}
+        className="absolute inset-0 opacity-10 bg-cyan-500/20"
       />
       
       <div className="relative z-10">
@@ -299,8 +296,7 @@ const BondingProgressCard = ({
                 strokeWidth="4"
                 strokeLinecap="round"
                 strokeDasharray={`${graduationProgress * 1.76} 176`}
-                className="transition-all duration-1000 ease-out"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.5))' }}
+                className="transition-[stroke-dasharray] duration-500 ease-out"
               />
               <defs>
                 <linearGradient id="bondingGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -350,10 +346,9 @@ const BondingProgressCard = ({
         {/* Linear progress bar */}
         <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
           <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-400 transition-all duration-1000 ease-out rounded-full"
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-400 transition-[width] duration-500 ease-out rounded-full"
             style={{ 
               width: `${graduationProgress}%`,
-              boxShadow: '0 0 12px rgba(34, 211, 238, 0.6)'
             }}
           />
         </div>
@@ -429,7 +424,6 @@ export const MarketDetail = () => {
   const { address: userAddress } = useAccount();
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
-  console.log('[MarketDetail Debug] marketData:', marketData);
 
   const {
     isGraduated,
@@ -479,7 +473,7 @@ export const MarketDetail = () => {
     ] : [],
     query: {
       enabled: !!creator && !!address,
-      refetchInterval: 5000,
+      refetchInterval: 15000,
     },
   });
   const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;
@@ -553,7 +547,7 @@ export const MarketDetail = () => {
                 ⏰ Expired
               </Badge>
             ) : (
-              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50 animate-pulse">
+              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
                 🔥 Bonding
               </Badge>
             )}
@@ -633,7 +627,7 @@ export const MarketDetail = () => {
 
         {/* Right: LP Position + Trading Panel */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-4">
+          <div className="sticky top-24 space-y-4 will-change-transform">
             {/* LP Leaderboard Card */}
             <LPLeaderboardCard
               marketAddress={address as `0x${string}`}
@@ -659,6 +653,7 @@ export const MarketDetail = () => {
               isGraduated={isGraduated}
               deadline={marketMeta?.deadline ? Number(marketMeta.deadline) : (deadline ? Number(deadline) : undefined)}
               disableNavigation={true}
+              market={market}
             />
           </div>
         </div>

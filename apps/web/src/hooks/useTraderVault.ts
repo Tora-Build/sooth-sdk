@@ -27,25 +27,22 @@ export function useTraderVault() {
   // Read user balances and vault data
   const { data, refetch } = useReadContracts({
     contracts: [
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'accounts', args: [address || '0x0'] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'] },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'pendingBalance', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress] },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals' },
     ],
     query: {
-      enabled: mode === 'real' && !!address,
+      enabled: mode === 'real' && !!address && !!traderVaultAddress,
       refetchInterval: 3000 // Sync with other hooks (3s)
     }
   });
 
-  const [accountsStruct, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
+  const [availableBalance, pendingBalance, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
   const decimals = Number(rawDecimals || 18);
 
-  // V4 returns a tuple/struct for accounts: [available, pending]
-  // Note: Wagmi/Viem might return it as an array or object depending on config. Assuming array for now based on ABI.
-  const availableBalance = (accountsStruct as [bigint, bigint])?.[0] || 0n;
-  const pendingBalance = (accountsStruct as [bigint, bigint])?.[1] || 0n;
-  const totalBalance = availableBalance + pendingBalance;
+  const totalBalance = (availableBalance as bigint || 0n) + (pendingBalance as bigint || 0n);
 
   // Demo mode data
   const demoAvailableBalance = 500n * 10n ** 18n;

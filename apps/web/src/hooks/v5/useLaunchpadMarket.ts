@@ -2,11 +2,14 @@ import { useReadContract, useReadContracts, useWriteContract, useWaitForTransact
 import { LAUNCHPAD_MARKET_ABI } from '../../config/abis';
 import { useAccount } from 'wagmi';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useChainStore } from '../../store/useChainStore';
 
 export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
+    const { selectedChainId } = useChainStore();
 
     // Writes
+    // ... rest of the hook stays same, but add chainId to useReadContracts ...
     const { writeContract: graduateWrite, data: graduateTxHash, isPending: isGraduatePending } = useWriteContract();
     const { writeContract: expireWrite, data: expireTxHash, isPending: isExpirePending } = useWriteContract();
     const { writeContract: refundWrite, data: refundTxHash, isPending: isRefundPending } = useWriteContract();
@@ -49,7 +52,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         ],
         query: {
             enabled: !!marketAddress,
-            refetchInterval: 5000
+            refetchInterval: 10000, // Reduced frequency to 10s to prevent flickering
+            chainId: Number(selectedChainId)
         }
     });
 
@@ -80,7 +84,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         ] : [],
         query: {
             enabled: !!marketAddress && !!creatorAddress,
-            refetchInterval: 5000
+            refetchInterval: 5000,
+            chainId: Number(selectedChainId)
         }
     });
     const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;
