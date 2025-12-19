@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, Info, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useLaunchpadTradeQuote } from '../../../hooks/v5/useLaunchpadTradeQuote';
-import { useTraderVault } from '../../../hooks/useTraderVault';
+import { useLaunchpadSwap } from '../../../hooks/v5/useLaunchpadSwap';
 import { useAccount } from 'wagmi';
 import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { formatUnits } from 'viem';
@@ -23,7 +23,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     onTradeSuccess
 }) => {
     const { isConnected } = useAccount();
-    const { executeAMMTrade, availableBalance, isPending: isVaultPending } = useTraderVault();
+    // V6.1: Use direct swap (bypasses TraderVault, reduces to 2 TX max)
+    const { swap, usdcBalance, isPending: isSwapPending, decimals } = useLaunchpadSwap(address);
 
     // Determine trade mode and outcome
     const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
@@ -113,13 +114,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
         if (!amount || parseFloat(amount) <= 0 || !quote) return;
         setIsPending(true);
         try {
-            const limitParam = tradeMode === 'buy'
-                ? quote.maxWithSlippage.toString()
-                : (-quote.maxWithSlippage).toString();
+            // V6.1: Direct swap - maxCost in USDC
+            const maxCostUsdc = quote.maxWithSlippage.toFixed(decimals);
 
-            await executeAMMTrade(address, selectedOutcome, sharesInput, limitParam);
-            setAmount('10');
-            onTradeSuccess?.();
+            const success = await swap(selectedOutcome, sharesInput, maxCostUsdc);
+            if (success) {
+                setAmount('10');
+                onTradeSuccess?.();
+            }
         } catch (err) {
             console.error('Trade failed:', err);
         } finally {
@@ -132,6 +134,10 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
     // Check if sell amount exceeds holdings
     const exceedsHoldings = tradeMode === 'sell' && amountNum > maxSellAmount;
+
+    // Check if buy amount exceeds balance
+    const usdcBalanceNum = parseFloat(formatUnits(usdcBalance, decimals));
+    const insufficientBalance = tradeMode === 'buy' && quote && usdcBalanceNum < quote.maxWithSlippage;
 
     // Helper for Connect Wallet
     const handleConnect = () => {
@@ -205,7 +211,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         </button>
                     ) : (
                         <span className="text-xs text-slate-500 font-mono">
-                            Bal: ${(Number(availableBalance || 0n) / 1e18).toFixed(0)}
+                            Bal: ${parseFloat(formatUnits(usdcBalance || 0n, decimals)).toFixed(0)}
                         </span>
                     )}
                 </div>
@@ -347,18 +353,19 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     onClick={handleTrade}
                     disabled={
                         isPending ||
-                        isVaultPending ||
+                        isSwapPending ||
                         !quote ||
                         parseFloat(amount) <= 0 ||
                         exceedsHoldings ||
+                        insufficientBalance ||
                         (tradeMode === 'sell' && !canSell)
                     }
                     className={`w-full py-2 text-sm font-bold shadow-lg ${selectedOutcome === 0
                         ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
                         : 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/20'
-                        } ${(exceedsHoldings || (tradeMode === 'sell' && !canSell)) ? 'opacity-50' : ''}`}
+                        } ${(exceedsHoldings || insufficientBalance || (tradeMode === 'sell' && !canSell)) ? 'opacity-50' : ''}`}
                 >
-                    {isPending || isVaultPending ? (
+                    {isPending || isSwapPending ? (
                         <span className="flex items-center justify-center gap-2">
                             <Loader2 size={14} className="animate-spin" />
                             Processing...
@@ -367,6 +374,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         `No ${selectedOutcome === 0 ? 'YES' : 'NO'} shares`
                     ) : exceedsHoldings ? (
                         'Insufficient shares'
+                    ) : insufficientBalance ? (
+                        'Insufficient USDC'
                     ) : (
                         `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${selectedOutcome === 0 ? 'YES' : 'NO'}`
                     )}

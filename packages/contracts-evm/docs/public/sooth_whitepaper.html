@@ -95,11 +95,11 @@ window.MathJax = {
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
-<h1 id="sooth-protocol-the-infinite-end-decentralized-prediction-market">Sooth Protocol: The Infinite-End Decentralized Prediction Market</h1>
+<h1 id="sooth-protocol-the-open-end-decentralized-prediction-market">Sooth Protocol: The Open-End Decentralized Prediction Market</h1>
 <h3 id="official-whitepaper">Official Whitepaper</h3>
 <hr />
 <h2 id="1-abstract">1. Abstract</h2>
-<p>Sooth Protocol is a decentralized prediction market platform designed for institutional-grade reliability and on-chain transparency. It introduces <strong>Infinite-End Markets</strong>, a novel market structure that eliminates rigid expiration dates, allowing markets to remain open until a verifiable event condition is met.</p>
+<p>Sooth Protocol is a decentralized prediction market platform designed for institutional-grade reliability and on-chain transparency. It introduces <strong>Open-End Markets</strong>, a novel market structure that eliminates rigid expiration dates, allowing markets to remain open until a verifiable event condition is met.</p>
 <p>By combining a <strong>Singleton Vault</strong> liquidity model with trust-minimized <strong>Zero-Knowledge (ZK) Settlement</strong>, Sooth addresses the key limitations of existing platforms: fragmented liquidity, settlement latency, and the "Free Option" vulnerability that drains liquidity providers. The protocol leverages Account Abstraction to offer a seamless, non-custodial user experience while providing robust compliance hooks for institutional participants.</p>
 <hr />
 <h2 id="2-introduction">2. Introduction</h2>
@@ -114,10 +114,10 @@ window.MathJax = {
 </ul>
 <p>Sooth Protocol is designed to bridge this gap. It blends the continuous trading efficiency of perpetual futures with the discrete settlement of event contracts. Sooth’s mission is to deliver a fully on-chain, non-custodial infrastructure with deep liquidity, fast settlements, and a user experience on par with centralized exchanges.</p>
 <hr />
-<h2 id="3-market-philosophy-the-infinite-end-model">3. Market Philosophy: The Infinite-End Model</h2>
+<h2 id="3-market-philosophy-the-open-end-model">3. Market Philosophy: The Open-End Model</h2>
 <h3 id="31-beyond-fixed-expiries">3.1 Beyond Fixed Expiries</h3>
 <p>Traditional prediction markets are "periodical"—they rely on fixed end dates. If an event happens early, liquidity dries up; if it is delayed, the contract expires unresolved.</p>
-<p>Sooth introduces <strong>Infinite-End Markets</strong>:</p>
+<p>Sooth introduces <strong>Open-End Markets</strong>:</p>
 <ul>
 <li>
 <p><strong>Continuous Trading:</strong> Markets have no preset trading rounds or intervals. Trading stops only when the outcome is finalized.</p>
@@ -376,7 +376,7 @@ $$</p>
 <tbody>
 <tr>
 <td style="text-align: left;"><strong>Market Type</strong></td>
-<td style="text-align: left;"><strong>Infinite-End</strong> (Terminates at $T^*$)</td>
+<td style="text-align: left;"><strong>Open-End</strong> (Terminates at $T^*$)</td>
 <td style="text-align: left;">Event-based (Fixed End)</td>
 <td style="text-align: left;">Event Contracts (Fixed End)</td>
 <td style="text-align: left;">Event-based (Fixed End)</td>
@@ -413,7 +413,7 @@ $$</p>
 </table>
 <hr />
 <h2 id="12-implementation-status-q4-2025">12. Implementation Status (Q4 2025)</h2>
-<p>The reference implementation now mirrors the full protocol design: infinite-end markets, singleton liquidity, dynamic LMSR pricing, on-chain slippage guards, and retroactive settlement sinks are all live on Base Sepolia and mirrored on Monad testnet.</p>
+<p>The reference implementation now mirrors the full protocol design: open-end markets, singleton liquidity, dynamic LMSR pricing, on-chain slippage guards, and retroactive settlement sinks are all live on Base Sepolia and mirrored on Monad testnet.</p>
 <h3 id="121-reference-stack-progress">12.1 Reference Stack Progress</h3>
 <ul>
 <li>
@@ -536,6 +536,6 @@ $$</p>
 <hr />
 <h2 id="14-conclusion">14. Conclusion</h2>
 <p>Sooth Protocol advances the state of the art in information markets. It marries the institutional rigor of traditional exchanges with the innovation of Web3.</p>
-<p>By replacing fixed expirations with <strong>Infinite-End Markets</strong>, and fragmented pools with <strong>Singleton Vaults</strong>, Sooth ensures that markets remain liquid and information-rich from inception until resolution. Its integration of <strong>Retroactive ZK Settlement</strong> specifically targets the "Free Option" vulnerability, creating the first AMM design that is fundamentally resistant to latency arbitrage. With Sooth, we move toward a future where prediction markets are reliable, widely used instruments for global risk management.</p>
+<p>By replacing fixed expirations with <strong>Open-End Markets</strong>, and fragmented pools with <strong>Singleton Vaults</strong>, Sooth ensures that markets remain liquid and information-rich from inception until resolution. Its integration of <strong>Retroactive ZK Settlement</strong> specifically targets the "Free Option" vulnerability, creating the first AMM design that is fundamentally resistant to latency arbitrage. With Sooth, we move toward a future where prediction markets are reliable, widely used instruments for global risk management.</p>
 </body>
 </html>

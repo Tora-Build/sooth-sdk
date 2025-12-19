@@ -22,7 +22,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         hash: redeemLPTxHash,
     });
 
-    // Reads
+    // Reads - Phase 1: Get market data including creator address
     const { data: marketData, refetch } = useReadContracts({
         contracts: [
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
@@ -39,6 +39,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             // V6: LP Token (market IS the LP token)
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalSupply' },
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalAssets' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalNetAssets' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'reserve' },
             // User-specific reads
             ...(userAddress ? [
                 { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: [userAddress] },
@@ -64,18 +66,33 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         totalLockedProceeds,
         totalSupply,
         totalAssets,
+        totalNetAssets,
+        ammReserve,
         lockedProceeds,
         userLpBalance
     ] = marketData?.map(r => r.result) || [];
 
-    // Calculate user's LP value: (userLpBalance * totalAssets) / totalSupply
+    // Phase 2: Fetch creator's LP balance (separate query since we need creator address first)
+    const creatorAddress = creator as `0x${string}` | undefined;
+    const { data: creatorLpData } = useReadContracts({
+        contracts: creatorAddress ? [
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [creatorAddress] },
+        ] : [],
+        query: {
+            enabled: !!marketAddress && !!creatorAddress,
+            refetchInterval: 5000
+        }
+    });
+    const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;
+
+    // Calculate user's LP value: (userLpBalance * totalNetAssets) / totalSupply
     const userLpValue = useMemo(() => {
         const balance = userLpBalance as bigint | undefined;
         const supply = totalSupply as bigint | undefined;
-        const assets = totalAssets as bigint | undefined;
-        if (!balance || !supply || supply === 0n || !assets) return 0n;
-        return (balance * assets) / supply;
-    }, [userLpBalance, totalSupply, totalAssets]);
+        const netAssets = totalNetAssets as bigint | undefined;
+        if (!balance || !supply || supply === 0n || !netAssets) return 0n;
+        return (balance * netAssets) / supply;
+    }, [userLpBalance, totalSupply, totalNetAssets]);
 
     // Calculate user's share percent
     const userSharePercent = useMemo(() => {
@@ -140,7 +157,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         graduationThreshold: graduationThreshold as bigint | undefined,
         bBase: bBase as bigint | undefined,
         deadline: deadline ? Number(deadline) : undefined,
-        creator: creator as `0x${string}` | undefined,
+        creator: creatorAddress,
         isLive: !!isLive,
         feesAccrued: feesAccrued as bigint | undefined,
         outcomeToken: outcomeToken as `0x${string}` | undefined,
@@ -151,9 +168,13 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         // V6: LP Token
         totalSupply: totalSupply as bigint | undefined,
         totalAssets: totalAssets as bigint | undefined,
+        totalNetAssets: totalNetAssets as bigint | undefined,
+        ammReserve: ammReserve as bigint | undefined,
         userLpBalance: userLpBalance as bigint | undefined,
         userLpValue,
         userSharePercent,
+        // V6: Creator LP (for leaderboard)
+        creatorLpBalance,
 
         // Actions
         graduate,

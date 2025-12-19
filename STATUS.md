@@ -1,14 +1,30 @@
 # Project Status
 
-> Last Updated: 2025-12-17 (MarketDetail.tsx Bug Fix)
+> Last Updated: 2025-12-19 (LMSR Price Cap & Deployment V6.1.4)
 
 ## Current Focus
 - **Launchpad-Only Architecture** — Migration complete ✅
-- **Naming Refactoring** — All governor/creator confusion resolved ✅
-- **V6 Pre-Graduation Locking** — Architecture implemented and deployed ✅
-- **V6 Markets on Base Sepolia** — 2 new markets created via V6 LaunchpadFactory ✅
+- **V6.1.4 Security Reinforcement** — Price Cap Guardrail implemented and deployed ✅
+- **Anti-Dilution Fair Minting** — LP tokens for traders now minted at pool exchange rate ✅
+- **UI Economic Realignment** — All labels synced with Preseed/Trade Delta terminology ✅
 
 ## Recent Changes
+
+### ✅ LMSR Price Cap & V6.1.4 Deployment (2025-12-19)
+- **Implemented Price Cap Guardrail**:
+  - Added strict `require` in `LaunchpadMarket.swap()` to prevent cost basis exceeding $1.00 per share.
+  - Fixes "Math Paradox" where thin liquidity ($b$) + large trades + fixed-point precision loss could result in >$1 cost.
+- **Fair LP Minting**:
+  - LP tokens for fees are now minted at the **current pool exchange rate** instead of 1:1.
+  - Prevents dilution of Creator Preseed by high-volume traders.
+- **Frontend Realignment**:
+  - Renamed "Profit" to **AMM Trade Delta** and "Deposit" to **Creator Preseed**.
+  - Updated LP ExRate to multiplier format (e.g., `1.1231x`).
+  - Added detailed **Vault Breakdown** and **Settlement Simulation** to market detail pages.
+- **Final Deployment (V6.1.4)**:
+  - Deployed fresh system on Base Sepolia with 6-decimal MockUSDC.
+  - Factory: `0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D`
+  - MockUSDC: `0x861174F2eedc67D838518106eE3d75BFD9a3f63c`
 
 ### ✅ MarketDetail Market Info Fix (2025-12-17)
 - **Bug Fix**: Fixed market info disappearing in `MarketDetail.tsx`
@@ -171,21 +187,21 @@
 
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V6 Launchpad Markets ✅
+### Base Sepolia (Chain 84532) - V6.1.4 Final Safety ✅
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0x53d34066A316AE1699d434753B70593A6D59Fec1` |
-| LiquidityVault | `0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1` |
-| TraderVaultV4 | `0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B` |
-| FeeController | `0x1a646107e7E88aa01Fadff3145Af08156679198e` |
-| **LaunchpadFactory (V6)** | `0x5fe83532e061353ADe5D604DfB4239aE7c8B9d2F` |
-| **ProtocolConfig** | `0x22565a06050a5031a02885263ebb106ec8595a8a` |
-| LaunchpadMarketImpl | `0xfd4c2a7ba5801122aa2070a7b965e733b4f4ca10` |
-| LaunchpadOutcomeToken | `0x6b3f017d58874badb7dd14ce74219ad83335dd54` |
-| Market 1 (Alien Life) | `0x69b073721c552eBac6c42e934EA6684d78727c67` |
-| OutcomeToken 1 | `0x62445F1138CFf4cE29d7e04cf3f54d6D04249BA8` |
-| Market 2 (BTC 7-day TWAP) | `0x3A5E80578933aa92644D4ee7192CD744600d6A2f` |
-| OutcomeToken 2 | `0x83C0CD98A2744ac3159DCbE69633c76dc09F05F8` |
+| MockUSDC | `0x861174F2eedc67D838518106eE3d75BFD9a3f63c` |
+| LiquidityVault | `0xe1b915765a34cEe6E3b1489E6eA24a9266c91Ca1` |
+| TraderVaultV4 | `0xD65F02f75f7F81Ddb982be6Df220682aFeEe4b3C` |
+| FeeController | `0xE0b059daA564DD79BEFC508d7740D04972E42b1c` |
+| **LaunchpadFactory (V6)** | `0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D` |
+| **ProtocolConfig** | `0xE0b059daA564DD79BEFC508d7740D04972E42b1c` (same as FeeController) |
+| LaunchpadMarketImpl | `0x0000...` (see factory) |
+| LaunchpadOutcomeToken | `0x0000...` (see factory) |
+| Market 1 (Alien Life) | `0xaAEa32392C60E12511bbF71fa06659037693C7Ec` |
+| OutcomeToken 1 | `0x5a8145DE101512Cbb7D52f9e398aF1eA8C43558F` |
+| Market 2 (BTC 7-day TWAP) | `0x773A4AFf5871674DFDEd937B5BA4ba781606947A` |
+| OutcomeToken 2 | `0x2a02ADD361eAc97049761ce7254B8bF32b63e46C` |
 
 ### BNB Testnet (Chain 97) - V4.6 (Lock-on-Sell)
 | Contract | Address |

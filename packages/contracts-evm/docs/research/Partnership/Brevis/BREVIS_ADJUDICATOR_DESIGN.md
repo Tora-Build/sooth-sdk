@@ -4,7 +4,7 @@
 
 This document outlines the architecture for integrating **Brevis** into the Sooth Protocol. The integration serves two distinct purposes:
 1.  **Adjudication (The Truth)**: Using **zkTLS** or **ZK-Rules** to trustlessly resolve markets based on on-chain or web data.
-2.  **Settlement (The Accounting)**: Using the **ZK Data Coprocessor** to compute retroactive PnL for Infinite-End Markets.
+2.  **Settlement (The Accounting)**: Using the **ZK Data Coprocessor** to compute retroactive PnL for Open-End Markets.
 
 ## 2. Adjudication Flow (ZK-Oracle)
 

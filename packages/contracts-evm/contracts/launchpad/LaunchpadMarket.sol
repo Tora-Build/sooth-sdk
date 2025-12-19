@@ -110,8 +110,11 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         factory = msg.sender;
         _asset = IERC20(_assetAddress);
         
-        // V6: Mint initial LP tokens to creator (equal to deposit)
-        _mint(_creator, _creatorDeposit);
+        // V6: Mint initial LP tokens to creator
+        // Scale from USDC decimals (6) to LP decimals (18)
+        uint8 assetDecimals = IERC20Metadata(_assetAddress).decimals();
+        uint256 scaledDeposit = _creatorDeposit * (10 ** (18 - assetDecimals));
+        _mint(_creator, scaledDeposit);
     }
 
     // =========================================================================
@@ -184,6 +187,172 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         }
     }
 
+    // =========================================================================
+    // Direct AMM Trading (V6.1 - Bypass TraderVault)
+    // =========================================================================
+
+    /// @notice Direct swap: buy/sell outcome tokens without going through TraderVault
+    /// @dev Reduces transactions: 1 approve + 1 swap (vs 3 txs via TraderVault)
+    /// @param outcome 0 = YES, 1 = NO
+    /// @param deltaShares Positive = buy, negative = sell (in 18 decimals)
+    /// @param maxCost For buys: max USDC to spend. For sells: min USDC to receive (in USDC decimals)
+    function swap(
+        uint8 outcome,
+        int256 deltaShares,
+        int256 maxCost
+    ) external onlyLive returns (int256 cost, uint256 fee) {
+        require(deltaShares != 0, "Launchpad: zero trade");
+        require(outcome < 2, "Launchpad: invalid outcome");
+        
+        address trader = msg.sender;
+        bool isBuy = deltaShares > 0;
+        uint256 absShares = uint256(isBuy ? deltaShares : -deltaShares);
+        
+        // Calculate trade cost using LMSR
+        uint256 bVal = b();
+        int256 newQYes;
+        int256 newQNo;
+        (cost, newQYes, newQNo) = _costDelta(qYes, qNo, outcome, deltaShares, bVal);
+        
+        // Apply fee
+        uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
+        fee = (absCost * feeLMSR()) / MAX_BPS;
+        
+        // Scale cost from WAD to USDC decimals
+        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+        uint256 costAsset = (absCost + scale - 1) / scale; // Round up for buys
+        uint256 feeAsset = (fee + scale - 1) / scale;
+        
+        if (isBuy) {
+            // BUY: Pull USDC from user, mint outcome tokens
+            uint256 totalCost = costAsset + feeAsset;
+            require(int256(totalCost) <= maxCost, "Launchpad: cost exceeds limit");
+            
+            // SAFETY: Price cap guardrail ($1.00 per share max cost basis)
+            // costAsset (6 decimals) should not exceed absShares (18 decimals) / 1e12
+            require(costAsset <= (absShares / 1e12) + 1, "Launchpad: price exceeds $1 cap");
+            
+            _asset.safeTransferFrom(trader, address(this), totalCost);
+            outcomeToken.mint(trader, outcome, absShares);
+        } else {
+            // SELL: Burn outcome tokens, lock proceeds (24h)
+            uint256 proceeds = costAsset > feeAsset ? costAsset - feeAsset : 0;
+            // maxCost is negative for sells (min to receive), so check: proceeds >= |maxCost|
+            require(int256(proceeds) >= -maxCost, "Launchpad: proceeds below minimum");
+            
+            // Safety check: ensure contract has enough gross assets to cover new total lock
+            require(totalAssets() >= totalLockedProceeds + proceeds, "Launchpad: insufficient assets to lock");
+            
+            outcomeToken.burn(trader, outcome, absShares);
+            
+            // Lock proceeds for 24 hours (V6 lock-on-sell)
+            _lockProceeds(trader, proceeds);
+        }
+        
+        // Update LMSR state
+        qYes = newQYes;
+        qNo = newQNo;
+        reserve += int256(fee);
+        
+        // Handle graduation logic (fees, LP tokens, etc.)
+        _handlePostTradeFees(trader, fee, isBuy);
+        
+        emit TradeAMM(trader, outcome, deltaShares, cost, fee);
+    }
+    
+    /// @dev Internal helper to handle post-trade fee logic (LP tokens, graduation check)
+    function _handlePostTradeFees(address trader, uint256 fee, bool /* isBuy */) internal {
+        if (fee == 0) return;
+        
+        uint256 supply = totalSupply();
+        uint256 assets = totalNetAssets(); // current net assets (includes this fee)
+        
+        uint256 lpToMint;
+        if (supply == 0 || assets <= (fee / (10 ** (18 - IERC20Metadata(address(_asset)).decimals())))) {
+            // Initial state or edge case: 1:1
+            lpToMint = fee;
+        } else {
+            // Mint at current exchange rate (pre-fee) to avoid dilution
+            // Rate = (assetsWad - fee) / supply
+            // lpToMint = fee / Rate = (fee * supply) / (assetsWad - fee)
+            
+            uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+            uint256 assetsWad = assets * scale;
+            lpToMint = (fee * supply) / (assetsWad - fee);
+        }
+
+        if (!isGraduated) {
+            // Track fees for graduation
+            feesAccrued += fee;
+            
+            // Auto-compound liquidity
+            uint256 deltaB = (fee * 1442695040888963407) / 1e18;
+            bBase += deltaB;
+            emit BBaseIncrease(bBase - deltaB, bBase);
+            
+            // Mint LP tokens to trader
+            if (lpToMint > 0) {
+                _mint(trader, lpToMint);
+                emit LpTokensAccrued(trader, lpToMint);
+            }
+            
+            // Check Graduation
+            if (bBase >= graduationThreshold()) {
+                graduate();
+            }
+        } else {
+            // Post-graduation fee handling
+            uint256 deltaB = (fee * 1442695040888963407) / 1e18 / 2;
+            bBase += deltaB;
+            
+            uint256 lpFromFee = (lpToMint * 3000) / 10000;
+            if (lpFromFee > 0) {
+                _mint(trader, lpFromFee);
+                emit LpTokensAccrued(trader, lpFromFee);
+            }
+        }
+    }
+    
+    /// @dev Internal helper to lock proceeds with 24h unlock
+    function _lockProceeds(address user, uint256 amount) internal {
+        if (amount == 0) return;
+        
+        UserLockState storage state = _lockStates[user];
+        uint64 unlockTime = uint64(block.timestamp + LOCK_DURATION);
+        
+        state.locks.push(LockEntry({
+            amount: amount,
+            unlockTime: unlockTime
+        }));
+        state.totalLocked += amount;
+        totalLockedProceeds += amount;
+        
+        emit Locked(user, amount, unlockTime);
+    }
+    
+    /// @notice Claim unlocked proceeds (called by user directly)
+    function claimUnlocked() external returns (uint256 claimed) {
+        UserLockState storage state = _lockStates[msg.sender];
+        
+        uint256 len = state.locks.length;
+        for (uint256 i = state.headIndex; i < len; i++) {
+            if (state.locks[i].unlockTime <= block.timestamp) {
+                claimed += state.locks[i].amount;
+                delete state.locks[i];
+                state.headIndex = i + 1;
+            } else {
+                break; // Locks are ordered by time
+            }
+        }
+        
+        if (claimed > 0) {
+            state.totalLocked -= claimed;
+            totalLockedProceeds -= claimed;
+            _asset.safeTransfer(msg.sender, claimed);
+            emit Claimed(msg.sender, claimed);
+        }
+    }
+
     /// @notice Target b = 2 * initial_b (Doubled liquidity)
     function graduationThreshold() public view override returns (uint256) {
         return ILaunchpadFactory(factory).getLiquidityB(liquidityTierIndex) * 2; 
@@ -202,6 +371,12 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
     
     function totalAssets() public view override returns (uint256) {
         return _asset.balanceOf(address(this));
+    }
+    
+    /// @notice Net assets available for LPs (Gross - Locked Proceeds)
+    function totalNetAssets() public view returns (uint256) {
+        uint256 gross = totalAssets();
+        return gross > totalLockedProceeds ? gross - totalLockedProceeds : 0;
     }
     
     function decimalsScale() external view override returns (uint256) {
@@ -475,6 +650,7 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
     function previewRedeemLP(uint256 amount) public view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0) return 0;
-        return (amount * totalAssets()) / supply;
+        uint256 netAssets = totalAssets() > totalLockedProceeds ? totalAssets() - totalLockedProceeds : 0;
+        return (amount * netAssets) / supply;
     }
 }

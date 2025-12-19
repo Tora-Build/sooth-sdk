@@ -28,7 +28,7 @@ This is the single source of truth for all content, terminology, and messaging u
 
 ### Core Value Proposition
 
-Sooth is a fully on-chain protocol for infinite-end prediction markets that use retroactive finality to neutralize latency arbitrage and protect LPs, backed by a unified vault and multi-class adjudication.
+Sooth is a fully on-chain protocol for open-end prediction markets that use retroactive finality to neutralize latency arbitrage and protect LPs, backed by a unified vault and multi-class adjudication.
 
 ### Brand Attributes
 
@@ -50,9 +50,9 @@ A prediction market that terminates based on adjudicated truth rather than a pre
 
 **Usage:** Can be used as a subtitle or descriptor for Sooth Protocol
 
-### Infinite-End Markets
+### Open-End Markets
 
-Markets that do not have a fixed expiration date. They remain active until truth is determined by an adjudicator. Unlike traditional prediction markets that close on a predetermined date, infinite-end markets close only when truth is established.
+Markets that do not have a fixed expiration date. They remain active until truth is determined by an adjudicator. Unlike traditional prediction markets that close on a predetermined date, open-end markets close only when truth is established.
 
 **Key phrase:** "Markets do not expire on a fixed date. They remain live until an adjudicator reports a truth and a termination time T\*."
 
@@ -310,7 +310,7 @@ The system supporting multiple adjudicator types within the protocol.
 
 **Live**
 Market is actively trading and accepting new positions.
-**Display:** "Live · Infinite-End"
+**Display:** "Live · Open-End"
 
 **Cooldown**
 Waiting period after truth is reported, before final settlement.
@@ -337,7 +337,7 @@ Final settlement computed backwards from the truth time.
 
 ### Layer 1: Market Layer
 
-**Title:** Infinite-End Markets
+**Title:** Open-End Markets
 
 **Description:** Markets are not tied to an expiry timestamp. They terminate solely on adjudicated truth, using a precise T\* to define when an event became true. This structurally removes free-option attacks and latency arbitrage around resolution.
 
@@ -377,17 +377,17 @@ Final settlement computed backwards from the truth time.
 
 ### Positioning Statement
 
-"Sooth complements existing platforms like Polymarket, Kalshi, Omen, and HIP-4 by focusing on infinite-end, vault-backed, ZK-verifiable markets."
+"Sooth complements existing platforms like Polymarket, Kalshi, Omen, and HIP-4 by focusing on open-end, vault-backed, ZK-verifiable markets."
 
 ### Context Statement
 
-"Sooth is deliberately narrow: it aims to be the most expressive and secure base layer for truth-terminated, infinite-end markets, while remaining neutral infrastructure for any front-end or ecosystem that wants to build on top."
+"Sooth is deliberately narrow: it aims to be the most expressive and secure base layer for truth-terminated, open-end markets, while remaining neutral infrastructure for any front-end or ecosystem that wants to build on top."
 
 ### Comparison Framework
 
 | Platform       | Market Type              | Liquidity Model        | Resolution Method           | Decentralization              |
 | -------------- | ------------------------ | ---------------------- | --------------------------- | ----------------------------- |
-| **Sooth**      | Infinite-End, T\*-driven | Vault + LMSR vAMM      | Multi-class + ZK settlement | Fully on-chain protocol       |
+| **Sooth**      | Open-End, T\*-driven | Vault + LMSR vAMM      | Multi-class + ZK settlement | Fully on-chain protocol       |
 | **Polymarket** | Fixed event markets      | Hybrid CLOB / on-chain | Oracle + optimistic         | Hybrid infra                  |
 | **Kalshi**     | Fixed event contracts    | Centralized CLOB       | Centralized oracle          | Centralized exchange          |
 | **Omen**       | Fixed Q&A markets        | Per-market AMM pools   | Reality.eth + arbitration   | Fully on-chain                |
@@ -406,7 +406,7 @@ Final settlement computed backwards from the truth time.
 1. **BTC 7-day TWAP > $100k**
 
    - Adjudicator: Oracle+ZK
-   - Status: Live · Infinite-End
+   - Status: Live · Open-End
    - Implied YES: 62%
 
 2. **"Protocol X hacked > $1M?"**
@@ -418,7 +418,7 @@ Final settlement computed backwards from the truth time.
 3. **"UN Announces Confirmation of Alien Life"**
 
    - Adjudicator: Optimistic
-   - Status: Live · Infinite-End
+   - Status: Live · Open-End
    - Implied YES: 54%
 
 4. **"Stablecoin Z depegs < 0.90"**
@@ -478,18 +478,18 @@ Final settlement computed backwards from the truth time.
 
 ### Capitalization Rules
 
-- **Capitalize:** Sooth Protocol, Truth Time, Smart Accounts, Infinite-End (when used as adjective)
+- **Capitalize:** Sooth Protocol, Truth Time, Smart Accounts, Open-End (when used as adjective)
 - **Lowercase:** adjudicator, vault, settlement, oracle
 - **Acronyms:** LMSR, vAMM, ZK (always caps)
 
 ### Hyphenation
 
-- **Hyphenate:** infinite-end, event-driven, truth-driven, on-chain, off-chain, ZK-verified, vault-backed
+- **Hyphenate:** open-end, event-driven, truth-driven, on-chain, off-chain, ZK-verified, vault-backed
 - **No hyphen:** truth time (when used as noun), smart accounts
 
 ### Preferred Terms
 
-- Use "infinite-end" not "infinite end" or "infiniteEnd"
+- Use "open-end" not "infinite end" or "infiniteEnd"
 - Use "T*" not "T-star" or "t*" (except in explanatory text)
 - Use "adjudicator" not "oracle" (unless specifically referring to oracle-type adjudicators)
 - Use "retroactive finality" not "retroactive funding"
@@ -499,7 +499,7 @@ Final settlement computed backwards from the truth time.
 
 - "Expiry" or "expiration date" (markets don't have these)
 - "Close" or "closing" (use "settle" or "terminate")
-- "Prediction market" alone (always qualify as "infinite-end prediction market")
+- "Prediction market" alone (always qualify as "open-end prediction market")
 
 ---
 
@@ -550,7 +550,7 @@ Final settlement computed backwards from the truth time.
 
 ### Icon/Symbol Usage
 
-- **∞** - Infinite-end markets
+- **∞** - Open-end markets
 - **ZK** - Zero-knowledge features
 - **T\*** - Truth time
 - **4** - Number of adjudicator classes

@@ -72,10 +72,6 @@ export function useDeployments() {
       }
       // Always update to latest version
       localStorage.setItem('sooth_config_version', configVersion);
-      // Debug: Log factory address
-      console.log('[useDeployments] Factory address:', chainDeployments?.LaunchpadFactory);
-      console.log('[useDeployments] Expected factory: 0xd7380d0f22d54B81648F297a07e352045b66a49c');
-      console.log('[useDeployments] Config version:', configVersion);
     }
   }, [configVersion, chainDeployments]);
 

@@ -17,7 +17,7 @@ This document provides the complete, unified specification of the Sooth protocol
 - Mathematical PnL model  
 - Maker profitability simulator  
 
-Sooth is an infinite-end prediction market protocol where markets end when the truth becomes known (**truth time T\***), not on a fixed timestamp.  
+Sooth is an open-end prediction market protocol where markets end when the truth becomes known (**truth time T\***), not on a fixed timestamp.  
 
 This architecture eliminates:
 - Latency arbitrage  
@@ -291,5 +291,5 @@ if __name__=='__main__':
 ### Vault → Unified liquidity per adjudicator class  
 ### SmartAccount → Safe margin container  
 
-This architecture is **complete, scalable, and economically optimal** for infinite-end prediction markets.
+This architecture is **complete, scalable, and economically optimal** for open-end prediction markets.
 

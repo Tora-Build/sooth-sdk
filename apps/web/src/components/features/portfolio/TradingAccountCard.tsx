@@ -51,13 +51,14 @@ export const TradingAccountCard: React.FC = () => {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
 
-  // Vault stores USDC in 18 decimals (WAD), regardless of orderbook share decimals
-  const USDC_DECIMALS = 18;
-  const available = parseFloat(formatUnits(availableBalance, USDC_DECIMALS));
-  const reserved = parseFloat(formatUnits(pendingBalance, USDC_DECIMALS));
-  const cashValue = parseFloat(formatUnits(totalBalance, USDC_DECIMALS));
+  // Vault stores balances in USDC decimals (6 for real USDC)
+  // Use the decimals read from the contract
+  const DISPLAY_DECIMALS = decimals || 6;
+  const available = parseFloat(formatUnits(availableBalance, DISPLAY_DECIMALS));
+  const reserved = parseFloat(formatUnits(pendingBalance, DISPLAY_DECIMALS));
+  const cashValue = parseFloat(formatUnits(totalBalance, DISPLAY_DECIMALS));
   const totalAccountValue = cashValue + totalPositionValue;
-  const walletAvailable = parseFloat(formatUnits(userUsdcBalance || 0n, USDC_DECIMALS));
+  const walletAvailable = parseFloat(formatUnits(userUsdcBalance || 0n, DISPLAY_DECIMALS));
 
   // Checking Allowance for Deposit
   const depositAmountBig = depositAmount ? parseUnits(depositAmount, decimals || 18) : 0n;

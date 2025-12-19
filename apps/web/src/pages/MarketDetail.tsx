@@ -20,9 +20,11 @@ const MarketInfoCard = ({
   priceYes,
   priceNo,
   totalAssets,
+  totalNetAssets,
   totalSupply,
   totalCreatorDeposit,
   feesAccrued,
+  ammReserve,
   bParamNum,
   qYes,
   qNo,
@@ -35,9 +37,11 @@ const MarketInfoCard = ({
   priceYes: number;
   priceNo: number;
   totalAssets?: bigint;
+  totalNetAssets?: bigint;
   totalSupply?: bigint;
   totalCreatorDeposit?: bigint;
   feesAccrued?: bigint;
+  ammReserve?: bigint;
   bParamNum: number;
   qYes: number;
   qNo: number;
@@ -49,17 +53,25 @@ const MarketInfoCard = ({
 }) => {
   const [showHelp, setShowHelp] = useState(false);
   
-  // LP tokens and assets match USDC decimals (6 for real USDC and new MockUSDC)
+  // USDC amounts are in 6 decimals, but feesAccrued and LP tokens are in 18 decimals (WAD)
   const ASSET_DECIMALS = 6;
-  const tvl = totalAssets ? parseFloat(formatUnits(totalAssets, ASSET_DECIMALS)) : 0;
+  const WAD_DECIMALS = 18;
+  const grossAssets = totalAssets ? parseFloat(formatUnits(totalAssets, ASSET_DECIMALS)) : 0;
+  const tvl = totalNetAssets ? parseFloat(formatUnits(totalNetAssets, ASSET_DECIMALS)) : 0;
   const creatorDeposit = totalCreatorDeposit ? parseFloat(formatUnits(totalCreatorDeposit, ASSET_DECIMALS)) : 0;
-  const fees = feesAccrued ? parseFloat(formatUnits(feesAccrued, ASSET_DECIMALS)) : 0;
-  const lpSupply = totalSupply ? parseFloat(formatUnits(totalSupply, ASSET_DECIMALS)) : 0;
-  const exchangeRate = lpSupply > 0 ? tvl / lpSupply : 1; // USDC per LP token
+  const fees = feesAccrued ? parseFloat(formatUnits(feesAccrued, WAD_DECIMALS)) : 0;
+  
+  // Net cash flow from AMM trades (unrealized until settlement)
+  const ammDelta = tvl - creatorDeposit - fees;
+  
+  const lpSupply = totalSupply ? parseFloat(formatUnits(totalSupply, WAD_DECIMALS)) : 0;
+  const exchangeRate = lpSupply > 0 ? tvl / lpSupply : 1; // Multiplier (e.g. 1.2x)
   const maxLoss = bParamNum * 0.693; // b × ln(2)
   const lpPayoutYes = Math.max(0, tvl - qYes);
   const lpPayoutNo = Math.max(0, tvl - qNo);
   const expectedPayout = priceYes * lpPayoutYes + priceNo * lpPayoutNo;
+  
+  const totalLocked = totalLockedProceeds ? parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)) : 0;
 
   return (
     <Card className="p-4">
@@ -80,12 +92,11 @@ const MarketInfoCard = ({
       {/* Education Panel (toggleable) */}
       {showHelp && (
         <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-1">
-          <p>• <strong>TVL</strong> = Creator Deposit + Fees Accrued</p>
-          <p>• <strong>LP Rate</strong> = TVL ÷ LP Supply (USDC per LP token)</p>
-          <p>• <strong>Depth (b)</strong> = LMSR liquidity parameter</p>
-          <p>• <strong>qYes/qNo</strong> = Shares outstanding per outcome</p>
-          <p>• <strong>Max Loss</strong> = b × ln(2) ≈ 69.3% of depth</p>
-          <p>• <strong>Settlement</strong> = TVL minus winning shares paid out</p>
+          <p>• <strong>TVL</strong> = Net liquid assets in the vault (Gross - Locked)</p>
+          <p>• <strong>Creator Deposit</strong> = Initial preseed capital from the creator</p>
+          <p>• <strong>Max Loss</strong> = {bParamNum.toFixed(0)} × ln(2) ≈ {maxLoss.toFixed(0)}. The total capital at risk for LPs.</p>
+          <p>• <strong>LP ExRate</strong> = Growth multiplier for LP tokens (TVL ÷ LP Supply)</p>
+          <p>• <strong>Settlement</strong> = If a result wins, the AMM pays out its outcome shares. The remaining TVL belongs to LPs.</p>
         </div>
       )}
 
@@ -104,97 +115,131 @@ const MarketInfoCard = ({
       </div>
 
       {/* TVL Breakdown */}
-      <div className="py-2 border-y border-slate-800 text-xs">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-slate-500">Creator Deposit</span>
-          <span className="font-mono text-slate-400">{formatCurrency(creatorDeposit)}</span>
-        </div>
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-slate-500">Fees Accrued</span>
-          <span className="font-mono text-emerald-400">+{formatCurrency(fees)}</span>
-        </div>
-        <div className="flex items-center justify-between pt-1 border-t border-slate-700">
-          <span className="text-white font-medium">Total Value Locked</span>
-          <span className="font-mono font-bold text-cyan-400">{formatCurrency(tvl)}</span>
+      <div className="p-3 rounded-lg bg-slate-800/30 mb-3">
+        <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-2 font-semibold">Vault Breakdown</div>
+        <div className="space-y-2 text-xs">
+          <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
+            <span className="text-slate-400">Creator Preseed</span>
+            <span className="font-mono text-slate-300">{formatCurrency(creatorDeposit)}</span>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
+            <span className="text-slate-400">Fees Collected</span>
+            <span className="font-mono text-emerald-400">+{formatCurrency(fees)}</span>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
+            <span className="text-slate-400">AMM Trade Delta</span>
+            <span className="font-mono text-cyan-400/70">{ammDelta >= 0 ? '+' : ''}{formatCurrency(ammDelta)}</span>
+          </div>
+          
+          <div className="pt-2 mt-1 border-t border-slate-700">
+            <div className="grid grid-cols-[1fr_auto] items-baseline gap-4">
+              <span className="text-white font-bold">TVL (Net Assets)</span>
+              <span className="font-mono font-bold text-cyan-400 text-sm">{formatCurrency(tvl)}</span>
+            </div>
+          </div>
+
+          <div className="pt-2 mt-1 border-t border-slate-800/50 space-y-1">
+            <div className="grid grid-cols-[1fr_auto] items-baseline gap-4 text-[10px]">
+              <span className="text-slate-500 italic ml-2">Gross Assets</span>
+              <span className="font-mono text-slate-500">{formatCurrency(grossAssets)}</span>
+            </div>
+            {totalLocked > 0 && (
+              <div className="grid grid-cols-[1fr_auto] items-baseline gap-4 text-[10px]">
+                <span className="text-amber-500/70 italic ml-2">- Locked Proceeds</span>
+                <span className="font-mono text-amber-500/70">{formatCurrency(totalLocked)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Key Metrics Grid */}
-      <div className="grid grid-cols-4 gap-2 py-2 border-b border-slate-800 text-xs">
-        <div className="text-center">
-          <div className="text-[9px] text-slate-500">Depth (b)</div>
+      {/* Key Metrics - 2x2 Grid */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="p-2 rounded-lg bg-slate-800/30 text-center">
+          <div className="text-[9px] text-slate-500 mb-1">Depth (b)</div>
           <div className="font-mono font-bold text-white">${bParamNum.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
-        <div className="text-center">
-          <div className="text-[9px] text-slate-500">LP Supply</div>
+        <div className="p-2 rounded-lg bg-slate-800/30 text-center">
+          <div className="text-[9px] text-slate-500 mb-1">LP Supply</div>
           <div className="font-mono font-bold text-white">{lpSupply.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
-        <div className="text-center">
-          <div className="text-[9px] text-purple-400/70">LP Rate</div>
-          <div className="font-mono font-bold text-purple-400">${exchangeRate.toFixed(4)}</div>
+        <div className="p-2 rounded-lg bg-purple-500/10 text-center border border-purple-500/20">
+          <div className="text-[9px] text-purple-400 mb-1 font-semibold uppercase tracking-wider">LP ExRate</div>
+          <div className="font-mono font-bold text-purple-400 text-lg">{exchangeRate.toFixed(4)}x</div>
         </div>
-        <div className="text-center">
-          <div className="text-[9px] text-amber-400/70">Max Loss</div>
+        <div className="p-2 rounded-lg bg-amber-500/10 text-center">
+          <div className="text-[9px] text-amber-400 mb-1">Max Loss</div>
           <div className="font-mono font-bold text-amber-400">${maxLoss.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
       </div>
 
       {/* LMSR Inventory */}
-      <div className="grid grid-cols-2 gap-2 py-2 border-b border-slate-800 text-xs">
-        <div className="text-center">
-          <div className="text-[9px] text-emerald-400/70">qYes (outstanding)</div>
+      <div className="flex gap-2 mb-3">
+        <div className="flex-1 p-2 rounded-lg bg-emerald-500/10 text-center">
+          <div className="text-[9px] text-emerald-400 mb-1">qYes Outstanding</div>
           <div className="font-mono font-bold text-emerald-400">{qYes.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
-        <div className="text-center">
-          <div className="text-[9px] text-rose-400/70">qNo (outstanding)</div>
+        <div className="flex-1 p-2 rounded-lg bg-rose-500/10 text-center">
+          <div className="text-[9px] text-rose-400 mb-1">qNo Outstanding</div>
           <div className="font-mono font-bold text-rose-400">{qNo.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
       </div>
 
       {/* Settlement Simulation */}
-      <div className="grid grid-cols-3 gap-2 py-2 border-b border-slate-800 text-xs">
-        <div className="text-center">
-          <div className="text-[9px] text-emerald-400/70">IF YES</div>
-          <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutYes)}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-rose-400/70">IF NO</div>
-          <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutNo)}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-cyan-400/70">EXPECTED</div>
-          <div className="font-mono font-bold text-cyan-400">{formatCurrency(expectedPayout)}</div>
+      <div className="p-3 rounded-lg bg-slate-800/30 mb-3">
+        <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-2">LP Payout Simulation</div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="text-center">
+            <div className="text-[9px] text-emerald-400 mb-1">If YES Wins</div>
+            <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutYes)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-rose-400 mb-1">If NO Wins</div>
+            <div className="font-mono font-bold text-white">{formatCurrency(lpPayoutNo)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-cyan-400 mb-1">Expected</div>
+            <div className="font-mono font-bold text-cyan-400">{formatCurrency(expectedPayout)}</div>
+          </div>
         </div>
       </div>
 
       {/* Locked Proceeds (if any) */}
       {totalLockedProceeds && totalLockedProceeds > 0n && (
-        <div className="flex items-center justify-between py-2 text-xs border-b border-slate-800">
-          <span className="text-amber-400 flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>
-          <div className="flex gap-3">
-            <span className="text-slate-400">Total: <span className="font-mono font-bold text-white">{formatCurrency(parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)))}</span></span>
-            {lockedProceeds && lockedProceeds > 0n && (
-              <span className="text-slate-400">Yours: <span className="font-mono font-bold text-amber-400">{formatCurrency(parseFloat(formatUnits(lockedProceeds, ASSET_DECIMALS)))}</span></span>
-            )}
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-amber-400 flex items-center gap-2">
+              <Lock className="w-3 h-3" />
+              <span className="font-medium">Locked Proceeds</span>
+            </span>
+            <div className="flex gap-4">
+              <span className="text-slate-400">Total: <span className="font-mono font-bold text-white">{formatCurrency(parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)))}</span></span>
+              {lockedProceeds && lockedProceeds > 0n && (
+                <span className="text-slate-400">Yours: <span className="font-mono font-bold text-amber-400">{formatCurrency(parseFloat(formatUnits(lockedProceeds, ASSET_DECIMALS)))}</span></span>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Addresses - Inline */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-[10px]">
-        <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
-          Market: <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
-        </a>
-        {creator && (
-          <a href={`https://sepolia.basescan.org/address/${creator}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
-            Creator: <span className="font-mono">{creator.slice(0,6)}...{creator.slice(-4)}</span>
+      {/* Contract Addresses */}
+      <div className="pt-2 border-t border-slate-800">
+        <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+          <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+            Market <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
           </a>
-        )}
-        {outcomeToken && (
-          <a href={`https://sepolia.basescan.org/address/${outcomeToken}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
-            Token: <span className="font-mono">{outcomeToken.slice(0,6)}...{outcomeToken.slice(-4)}</span>
-          </a>
-        )}
+          {creator && (
+            <a href={`https://sepolia.basescan.org/address/${creator}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+              Creator <span className="font-mono">{creator.slice(0,6)}...{creator.slice(-4)}</span>
+            </a>
+          )}
+          {outcomeToken && (
+            <a href={`https://sepolia.basescan.org/address/${outcomeToken}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+              Token <span className="font-mono">{outcomeToken.slice(0,6)}...{outcomeToken.slice(-4)}</span>
+            </a>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -369,6 +414,9 @@ export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
 
+  const marketData = useLaunchpadMarket(address as `0x${string}`);
+  console.log('[MarketDetail Debug] marketData:', marketData);
+  
   const {
     isGraduated,
     graduationThreshold,
@@ -384,6 +432,8 @@ export const MarketDetail = () => {
     // V6: LP Token data
     totalSupply,
     totalAssets,
+    totalNetAssets,
+    ammReserve,
     userLpBalance,
     userLpValue,
     userSharePercent,
@@ -392,7 +442,7 @@ export const MarketDetail = () => {
     // V6: LP actions
     redeemLP,
     isRedeemLPPending,
-  } = useLaunchpadMarket(address as `0x${string}`);
+  } = marketData;
 
   const { markets: allMarkets, isLoading: marketsLoading } = useLaunchpadMarkets();
   const marketMeta = allMarkets?.find(m => m.address.toLowerCase() === address?.toLowerCase());
@@ -534,9 +584,11 @@ export const MarketDetail = () => {
             priceYes={priceYes}
             priceNo={priceNo}
             totalAssets={totalAssets}
+            totalNetAssets={totalNetAssets}
             totalSupply={totalSupply}
             totalCreatorDeposit={totalCreatorDeposit}
             feesAccrued={feesAccrued}
+            ammReserve={ammReserve}
             bParamNum={bParamNum}
             qYes={qYes}
             qNo={qNo}
@@ -570,6 +622,7 @@ export const MarketDetail = () => {
           <div className="sticky top-24 space-y-4">
             {/* LP Leaderboard Card */}
             <LPLeaderboardCard
+              marketAddress={address as `0x${string}`}
               userAddress={userAddress}
               userLpBalance={userLpBalance}
               userLpValue={userLpValue || 0n}
@@ -581,6 +634,7 @@ export const MarketDetail = () => {
               creatorLpBalance={creatorLpBalance}
               totalSupply={totalSupply}
               totalAssets={totalAssets}
+              totalNetAssets={totalNetAssets}
             />
 
             {/* Trading Panel */}

@@ -1,4 +1,4 @@
-// LPLeaderboardCard.tsx - Shows LP leaderboard with creator and user positions
+// LPLeaderboardCard.tsx - Shows LP leaderboard with all LP holders
 import React, { useState } from 'react';
 import { Coins, HelpCircle, Crown } from 'lucide-react';
 import { Card } from '../../ui/Card';
@@ -6,8 +6,10 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { formatUnits } from 'viem';
 import { formatCurrency } from '../../../utils/format';
+import { useLPHolders } from '../../../hooks/v5/useLPHolders';
 
 interface LPLeaderboardCardProps {
+  marketAddress?: `0x${string}`;
   userAddress?: `0x${string}`;
   userLpBalance?: bigint;
   userLpValue: bigint;
@@ -20,9 +22,11 @@ interface LPLeaderboardCardProps {
   creatorLpBalance?: bigint;
   totalSupply?: bigint;
   totalAssets?: bigint;
+  totalNetAssets?: bigint;
 }
 
 export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
+  marketAddress,
   userAddress,
   userLpBalance,
   userLpValue,
@@ -34,69 +38,72 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
   creatorLpBalance,
   totalSupply,
   totalAssets,
+  totalNetAssets,
 }) => {
   const [showHelp, setShowHelp] = useState(false);
   
+  // Fetch all LP holders from Transfer events
+  const { holders, isLoading: isLoadingHolders } = useLPHolders(marketAddress, creatorAddress);
+  
   const hasUserPosition = userAddress && userLpBalance !== undefined && userLpBalance > 0n;
-  // Show creator if we have their address (even if balance is still loading or 0)
-  const creatorBalance = creatorLpBalance ?? 0n;
-  const hasCreatorToShow = !!creatorAddress;
   const isUserCreator = userAddress && creatorAddress && userAddress.toLowerCase() === creatorAddress.toLowerCase();
 
-  // Calculate creator's share and value
-  const creatorSharePercent = (totalSupply && totalSupply > 0n && creatorBalance > 0n) 
-    ? Number((creatorBalance * 10000n) / totalSupply) / 100 
-    : 0;
-  const creatorLpValue = (totalSupply && totalSupply > 0n && totalAssets && creatorBalance > 0n)
-    ? (creatorBalance * totalAssets) / totalSupply
-    : 0n;
+  // LP tokens are ERC20 with 18 decimals, but LP *value* is in USDC (6 decimals)
+  const LP_TOKEN_DECIMALS = 18;
+  const USDC_DECIMALS = 6;
 
-  // LP tokens match USDC decimals (6 for real USDC and new MockUSDC)
-  const LP_DECIMALS = 6;
+  // Calculate value and share for any holder (uses Net Assets)
+  const calcValue = (balance: bigint) => {
+    if (!totalSupply || totalSupply === 0n || !totalNetAssets) return 0n;
+    return (balance * totalNetAssets) / totalSupply;
+  };
+  const calcShare = (balance: bigint) => {
+    if (!totalSupply || totalSupply === 0n) return 0;
+    return Number((balance * 10000n) / totalSupply) / 100;
+  };
   
   // Helper to render a leaderboard row
   const LeaderboardRow = ({ 
     address, 
     balance, 
-    value, 
-    share, 
     isCreatorRow, 
     isYou 
   }: { 
     address: string; 
     balance: bigint; 
-    value: bigint; 
-    share: number; 
     isCreatorRow?: boolean;
     isYou?: boolean;
-  }) => (
-    <div className={`flex items-center justify-between py-2 px-2 rounded-lg ${isYou ? 'bg-purple-500/10' : 'bg-slate-800/30'}`}>
-      <div className="flex items-center gap-2 min-w-0">
-        {isCreatorRow && <Crown className="w-3 h-3 text-amber-400 flex-shrink-0" />}
-        <span className="text-xs font-mono text-slate-400 truncate">
-          {address.slice(0, 6)}...{address.slice(-4)}
-        </span>
-        {isCreatorRow && (
-          <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1 flex-shrink-0">
-            Creator
-          </Badge>
-        )}
-        {isYou && !isCreatorRow && (
-          <Badge className="text-[8px] bg-purple-500/20 text-purple-400 border-purple-500/50 py-0 px-1 flex-shrink-0">
-            You
-          </Badge>
-        )}
+  }) => {
+    const share = calcShare(balance);
+    return (
+      <div className={`flex items-center justify-between py-2 px-2 rounded-lg ${isYou ? 'bg-purple-500/10' : 'bg-slate-800/30'}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          {isCreatorRow && <Crown className="w-3 h-3 text-amber-400 flex-shrink-0" />}
+          <span className="text-xs font-mono text-slate-400 truncate">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </span>
+          {isCreatorRow && (
+            <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1 flex-shrink-0">
+              Creator
+            </Badge>
+          )}
+          {isYou && (
+            <Badge className="text-[8px] bg-purple-500/20 text-purple-400 border-purple-500/50 py-0 px-1 flex-shrink-0">
+              You
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-xs flex-shrink-0">
+          <span className="font-mono text-slate-500">
+            {parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} LP
+          </span>
+          <span className="font-mono font-bold text-white w-16 text-right">
+            {share.toFixed(1)}%
+          </span>
+        </div>
       </div>
-      <div className="flex items-center gap-3 text-xs flex-shrink-0">
-        <span className="font-mono text-slate-500">
-          {parseFloat(formatUnits(balance, LP_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} LP
-        </span>
-        <span className="font-mono font-bold text-white w-16 text-right">
-          {share.toFixed(1)}%
-        </span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Card className="p-4 border-purple-500/20">
@@ -131,46 +138,49 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         </div>
       )}
 
-      {/* Leaderboard */}
-      <div className="space-y-1 mb-3">
-        {/* Creator Row (always show if we have creator address, and they're not the connected user) */}
-        {hasCreatorToShow && !isUserCreator && (
-          <LeaderboardRow
-            address={creatorAddress!}
-            balance={creatorBalance}
-            value={creatorLpValue}
-            share={creatorSharePercent}
-            isCreatorRow
-          />
-        )}
+      {/* Leaderboard Header */}
+      <div className="flex items-center justify-between px-2 pb-1 mb-1 text-[9px] text-slate-600 uppercase tracking-wider">
+        <span>Holder</span>
+        <div className="flex items-center gap-3">
+          <span>Balance</span>
+          <span className="w-16 text-right">Share</span>
+        </div>
+      </div>
 
-        {/* User Row */}
-        {hasUserPosition && (
-          <LeaderboardRow
-            address={userAddress!}
-            balance={userLpBalance!}
-            value={userLpValue}
-            share={userSharePercent}
-            isCreatorRow={isUserCreator}
-            isYou
-          />
-        )}
-
-        {/* Empty state if no positions and no creator */}
-        {!hasUserPosition && !hasCreatorToShow && (
-          <div className="text-center py-3 text-xs text-slate-500">
+      {/* Leaderboard - Show all holders sorted by balance */}
+      <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
+        {isLoadingHolders ? (
+          <div className="text-center py-4 text-xs text-slate-500 animate-pulse">
+            Loading LP holders...
+          </div>
+        ) : holders.length > 0 ? (
+          holders.map((holder) => {
+            const isCreator = creatorAddress?.toLowerCase() === holder.address.toLowerCase();
+            const isYou = userAddress?.toLowerCase() === holder.address.toLowerCase();
+            return (
+              <LeaderboardRow
+                key={holder.address}
+                address={holder.address}
+                balance={holder.balance}
+                isCreatorRow={isCreator}
+                isYou={isYou}
+              />
+            );
+          })
+        ) : (
+          <div className="text-center py-4 text-xs text-slate-500">
             No LP holders yet
           </div>
         )}
       </div>
 
-      {/* User's detailed stats + redeem (if they have LP) */}
+      {/* Value Summary - Show user's LP value and redeem button */}
       {hasUserPosition && (
-        <div className="pt-2 border-t border-slate-800">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="text-slate-500">Your Value</span>
+        <div className="pt-3 border-t border-slate-800 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">{isUserCreator ? 'Your Value (Creator)' : 'Your Value'}</span>
             <span className="font-mono font-bold text-purple-400">
-              {formatCurrency(parseFloat(formatUnits(userLpValue, LP_DECIMALS)))}
+              {formatCurrency(parseFloat(formatUnits(userLpValue, USDC_DECIMALS)))}
             </span>
           </div>
           {!isLive && (

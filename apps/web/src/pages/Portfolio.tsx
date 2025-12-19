@@ -17,8 +17,9 @@ export const Portfolio = () => {
   const { locked, lockedFormatted, isLoading } = useLockedFunds();
   const { totalLPValue, totalLPValueFormatted, isLoading: lpLoading } = useLPPositions();
 
-  // Format total value from bigint (18 decimals)
-  const totalValueNum = Number(formatUnits(totalBalance || 0n, 18));
+  // Format total value from bigint (USDC has 6 decimals)
+  const USDC_DECIMALS = 6;
+  const totalValueNum = Number(formatUnits(totalBalance || 0n, USDC_DECIMALS));
   const lpValueNum = parseFloat(totalLPValueFormatted);
   const combinedTotalValue = totalValueNum + lpValueNum;
   const totalValueFormatted = formatCurrency(combinedTotalValue);

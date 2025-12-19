@@ -126,9 +126,10 @@ export function useLockedFunds(): UseLockedFundsResult {
         return `${hours}h ${minutes}m`;
     };
 
-    // Format values (18 decimals for MockUSDC)
+    // Format values (6 decimals for USDC)
+    const USDC_DECIMALS = 6;
     const formatUSD = (value: bigint) => {
-        const num = parseFloat(formatUnits(value, 18));
+        const num = parseFloat(formatUnits(value, USDC_DECIMALS));
         return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     };
 

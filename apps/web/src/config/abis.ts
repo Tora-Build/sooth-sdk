@@ -250,6 +250,8 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   // V6: ISoothLiquidityVault (market is its own vault)
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
+  "function totalNetAssets() view returns (uint256)",
+  "function reserve() view returns (int256)",
   // V6: ERC20 LP Token (market IS the LP token)
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
@@ -266,6 +268,9 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   // V6: LP token redemption
   "function redeemLP(uint256 amount)",
   "function previewRedeemLP(uint256 amount) view returns (uint256)",
+  // V6.1: Direct swap (bypass TraderVault)
+  "function swap(uint8 outcome, int256 deltaShares, int256 maxCost) returns (int256 cost, uint256 fee)",
+  "function claimUnlocked() returns (uint256 claimed)",
   // Events
   "event MarketGraduated(uint256 totalFeesAccrued, uint256 graduationTimestamp)",
   "event MarketExpired(uint256 feesRefunded, uint256 creatorDepositRefunded)",
@@ -285,11 +290,13 @@ export const MARKET_LP_VAULT_ABI = parseAbi([
   "function asset() view returns (address)",
 ]);
 
-// V6: LaunchpadOutcomeToken (has name/symbol as public state variables, not ERC20)
+// V6: LaunchpadOutcomeToken (ERC1155 - has name/symbol as public state variables)
 export const LAUNCHPAD_OUTCOME_TOKEN_ABI = parseAbi([
   "function name() view returns (string)",
   "function symbol() view returns (string)",
   "function market() view returns (address)",
+  // ERC1155 balanceOf (id: 0 = YES, 1 = NO)
+  "function balanceOf(address account, uint256 id) view returns (uint256)",
 ]);
 
 // V6: ProtocolConfig (mutable protocol parameters)

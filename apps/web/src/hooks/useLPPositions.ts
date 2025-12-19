@@ -46,8 +46,9 @@ export function useLPPositions() {
         }
     });
 
-    // LP tokens and assets match USDC decimals (6 for real USDC and new MockUSDC)
-    const ASSET_DECIMALS = 6;
+    // LP tokens are 18 decimals (ERC20), USDC values are 6 decimals
+    const LP_TOKEN_DECIMALS = 18;
+    const USDC_DECIMALS = 6;
     
     // Process LP positions
     const positions: LPPosition[] = useMemo(() => {
@@ -74,9 +75,9 @@ export function useLPPositions() {
                 marketAddress: market.address,
                 marketName: market.name || 'Unknown Market',
                 lpBalance,
-                lpBalanceFormatted: formatUnits(lpBalance, ASSET_DECIMALS),
+                lpBalanceFormatted: formatUnits(lpBalance, LP_TOKEN_DECIMALS),
                 estimatedValue,
-                estimatedValueFormatted: formatUnits(estimatedValue, ASSET_DECIMALS),
+                estimatedValueFormatted: formatUnits(estimatedValue, USDC_DECIMALS),
                 totalSupply,
                 sharePercent,
                 totalAssets,
@@ -91,7 +92,7 @@ export function useLPPositions() {
         return positions.reduce((acc, p) => acc + p.estimatedValue, 0n);
     }, [positions]);
 
-    const totalLPValueFormatted = formatUnits(totalLPValue, ASSET_DECIMALS);
+    const totalLPValueFormatted = formatUnits(totalLPValue, USDC_DECIMALS);
 
     return {
         positions,

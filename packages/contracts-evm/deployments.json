@@ -1,95 +1,47 @@
 {
-  "version": "2025-12-17-v2",
-  "lastUpdated": "2025-12-17",
+  "version": "2025-12-19-v2",
+  "lastUpdated": "2025-12-19",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V6 with 6-decimal USDC",
+      "status": "✅ Live - V6.1.4 Final Safety Rails",
       "contracts": {
-        "MockUSDC": "0x5568FFe0c12775c94b0B3d2BAe738E8b16ab0096",
-        "SoothTraderVault": "0x65Dc88A2AaA41a45AC1Cf00E19c172336215023B",
-        "SoothLiquidityVault": "0x89F4234d3DB8DF2A603472FB9c217387178851dd",
-        "SoothFeeController": "0x31694C439927c703E5E27EB5CF61898A0D6bC0a1",
-        "LaunchpadFactory": "0x8bfc416B45f2B29B9aFBfc73eFbdeab6a30d74E0"
+        "MockUSDC": "0x861174F2eedc67D838518106eE3d75BFD9a3f63c",
+        "SoothTraderVault": "0xD65F02f75f7F81Ddb982be6Df220682aFeEe4b3C",
+        "SoothLiquidityVault": "0xe1b915765a34cEe6E3b1489E6eA24a9266c91Ca1",
+        "SoothFeeController": "0xE0b059daA564DD79BEFC508d7740D04972E42b1c",
+        "LaunchpadFactory": "0x60Bc8e20E32086Ddf33ccCa729C2Ace1a423136D"
       },
       "marketInfo": {
         "market1": {
-          "address": "0xE131C593810a916CA78199de9c4E717DdC6B8985",
+          "address": "0xaAEa32392C60E12511bbF71fa06659037693C7Ec",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x47E22C30488c7709D5ceb8675A741Ec1ed60794B"
+          "outcomeToken": "0x5a8145DE101512Cbb7D52f9e398aF1eA8C43558F"
         },
         "market2": {
-          "address": "0x03Dbb3c0fE913DF6099544B129f605324E10420c",
+          "address": "0x773A4AFf5871674DFDEd937B5BA4ba781606947A",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x8a2631c388095194CC70342830153cDc796Bb31e"
+          "outcomeToken": "0x2a02ADD361eAc97049761ce7254B8bF32b63e46C"
         }
       },
       "notes": {
-        "version": "V6 - Fresh deployment with correct 6-decimal MockUSDC",
-        "date": "2025-12-17",
+        "version": "V6.1.4 - Final Safety Rails",
+        "date": "2025-12-19",
         "changes": [
-          "FIXED: MockUSDC now uses 6 decimals (matches real USDC)",
-          "New MockUSDC: 0x5568FFe0c12775c94b0B3d2BAe738E8b16ab0096",
-          "New TraderVault: 0x65Dc88A2AaA41a45AC1Cf00E19c172336215023B",
-          "New LiquidityVault: 0x89F4234d3DB8DF2A603472FB9c217387178851dd",
-          "New FeeController: 0x31694C439927c703E5E27EB5CF61898A0D6bC0a1",
-          "New LaunchpadFactory: 0x8bfc416B45f2B29B9aFBfc73eFbdeab6a30d74E0",
-          "Market 1 (Alien): $1,000 TVL (tier 1)",
-          "Market 2 (BTC): $10,000 TVL (tier 2)"
+          "FIXED: Added Price Cap Guardrail ($1.00 max cost per share) to prevent irrational trade costs in thin pools",
+          "FIXED: UI terminology updated to 'AMM Trade Delta' and 'Creator Preseed'",
+          "MockUSDC: 0x8611...b63c (6 decimals)"
         ]
       }
-    },
-    "bnbTestnet": {
-      "chainId": 97,
-      "status": "✅ Live - V4.6 Lock-on-Sell",
-      "contracts": {
-        "MockUSDC": "0x89BA3FEe2FB764Ec297DC91bb874aa5bF88F204c",
-        "SoothTraderVault": "0x05818C4028ff5c273B45B3c55131Af2Bd9D12322",
-        "SoothLiquidityVault": "0xEB33E2f815306D936d4bDD2b33b2b68C16b62Fa0",
-        "SoothFeeController": "0x3152A8cd6CA0C64675C73486B06203a9D8226448"
-      },
-      "notes": {
-        "version": "V4.6 - Lock-on-Sell (proceeds locked 24h, shares tradable)",
-        "date": "2025-12-14"
-      }
-    },
-    "megaethTestnet": {
-      "chainId": 6343,
-      "status": "✅ Live - V4.5",
-      "contracts": {
-        "MockUSDC": "0x493da6e5c9de67ab50b2fb08d14865614189b5c2",
-        "SoothTraderVault": "0xdc980ac16626211a7c472a94a163440eb68c5bfc",
-        "SoothLiquidityVault": "0xdb0063ce93e445ff7a8916f6f5a093f80833494f",
-        "SoothFeeController": "0x9dbdfe94e596262dff5d91c007bae2ba4d80a8f7"
-      },
-      "notes": {
-        "version": "V4.5 - MegaETH Testnet Launch",
-        "date": "2025-12-12",
-        "deployMethod": "viem script with gas: 999999999n"
-      }
-    },
-    "monadTestnet": {
-      "chainId": 10143,
-      "status": "⏸️ Paused - Awaiting Funds",
-      "note": "Deployment paused due to insufficient MON. Deployer address: 0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "contracts": {}
     }
   },
   "architecture": {
-    "version": "V6",
-    "entryPoint": "TraderVaultV4 - Dual-venue trading",
+    "version": "V6.1.4",
     "features": [
-      "AMM trading with 24h lock-on-sell (proceeds locked)",
-      "Orderbook limit orders (no locks)",
-      "ERC1155 outcome tokens",
-      "Continuous LMSR (qYes/qNo) - No ticks",
-      "Dynamic liquidity (b parameter)",
-      "claimUnlocked() to claim expired proceeds",
-      "Launchpad V6: 2-contract architecture (Market implements ISoothLiquidityVault)",
-      "Launchpad V6: Immutable factory with ProtocolConfig",
-      "Launchpad V6: Pre-graduation locking (can reinvest, cannot withdraw)",
-      "Launchpad V6: Guardian role for liquidation and forceGraduate",
-      "MockUSDC: 6 decimals (matches real USDC)"
+      "Price Cap Guardrail ($1.00 max cost basis)",
+      "Fair LP minting (anti-dilution logic)",
+      "Net Assets valuation for LP tokens",
+      "Direct swap() bypassing TraderVault"
     ]
   }
 }

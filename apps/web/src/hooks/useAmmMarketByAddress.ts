@@ -4,7 +4,7 @@
 import React from 'react';
 import { useReadContracts, useAccount } from 'wagmi';
 import { formatUnits } from 'viem';
-import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
+import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { Market } from '../types';
 
@@ -31,7 +31,9 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes' },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo' },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR' },
-            // User positions
+            // Get outcome token address for ERC1155 balance check
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' },
+            // User positions via TraderVault (legacy/OB)
             {
                 address: traderVaultAddress,
                 abi: TRADER_VAULT_V4_ABI,
@@ -45,12 +47,33 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
         }
     });
 
-    const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition] = onChainData?.map(r => r.result) || [];
+    const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, outcomeTokenAddr, ammPosition] = onChainData?.map(r => r.result) || [];
 
-    // Extract AMM position
+    // Fetch ERC1155 balances (direct swap positions)
+    const outcomeTokenAddress = outcomeTokenAddr as `0x${string}` | undefined;
+    const { data: erc1155Data } = useReadContracts({
+        contracts: outcomeTokenAddress && userAddress ? [
+            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 0n] }, // YES
+            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 1n] }, // NO
+        ] : [],
+        query: {
+            enabled: !!outcomeTokenAddress && !!userAddress,
+            refetchInterval: 3000,
+        }
+    });
+
+    // Extract AMM position (TraderVault - legacy)
     const ammPos = ammPosition as [bigint, bigint] | undefined;
-    const ammYesShares = ammPos?.[0] || 0n;
-    const ammNoShares = ammPos?.[1] || 0n;
+    const vaultYesShares = ammPos?.[0] || 0n;
+    const vaultNoShares = ammPos?.[1] || 0n;
+    
+    // Extract ERC1155 balances (direct swap)
+    const directYesShares = (erc1155Data?.[0]?.result as bigint) || 0n;
+    const directNoShares = (erc1155Data?.[1]?.result as bigint) || 0n;
+    
+    // Total shares = TraderVault + Direct (ERC1155)
+    const ammYesShares = vaultYesShares + directYesShares;
+    const ammNoShares = vaultNoShares + directNoShares;
 
     const market: Market | undefined = React.useMemo(() => {
         if (!marketAddress) return undefined;
