@@ -156,14 +156,29 @@ export function useOrderbook(marketId: string) {
               // Lookup real owner from TraderVault (market maker is always vault)
               let realOwner = maker;
               try {
+                // Try orderOwners first (Buy/Short orders)
                 const owner = await publicClient.readContract({
                   address: traderVaultAddress,
                   abi: TRADER_VAULT_V4_ABI,
                   functionName: 'orderOwners',
                   args: [currentId]
                 }) as `0x${string}`;
+                
                 if (owner && owner !== '0x0000000000000000000000000000000000000000') {
                   realOwner = owner;
+                } else {
+                  // Try spotOrders (Spot Sell orders)
+                  // SpotOrder struct: [address user, address market, uint8 outcome, uint256 amount]
+                  const spotData = await publicClient.readContract({
+                    address: traderVaultAddress,
+                    abi: TRADER_VAULT_V4_ABI,
+                    functionName: 'spotOrders',
+                    args: [currentId]
+                  }) as [string, string, number, bigint];
+                  
+                  if (spotData && spotData[0] && spotData[0] !== '0x0000000000000000000000000000000000000000') {
+                    realOwner = spotData[0];
+                  }
                 }
               } catch (e) {
                 // Fallback to maker if lookup fails
