@@ -44,8 +44,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
   // Filter My Orders (from the raw bids/asks)
   const myOrders = [
-    ...bids.map(o => ({ ...o, outcomeLabel: 'YES' as const, priceDisplay: o.displayPrice })),
-    ...asks.map(o => ({ ...o, outcomeLabel: 'NO' as const, priceDisplay: o.displayPrice }))
+    ...bids.map(o => ({ ...o, typeLabel: 'BUY' as const, outcomeLabel: 'YES' as const, priceDisplay: o.displayPrice })),
+    ...asks.map(o => ({ ...o, typeLabel: 'SELL' as const, outcomeLabel: 'YES' as const, priceDisplay: o.displayPrice }))
   ].filter(o => o.maker.toLowerCase() === address?.toLowerCase());
 
   // Derived Bids/Asks for display based on selected outcome
@@ -61,7 +61,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
       orders.forEach(o => {
         if (!o || !o.displayPrice || !o.amount) return; // Safety check
-        const priceKey = Number(o.displayPrice).toFixed(2);
+        const priceKey = Number(o.displayPrice).toFixed(4);
         if (!map.has(priceKey)) {
           map.set(priceKey, {
             ...o,
@@ -122,7 +122,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               )}
             >
               <span className={cn("font-mono font-medium", colorClass)}>
-                {Number(order.displayPrice).toFixed(2)}
+                {Number(order.displayPrice).toFixed(4)}
               </span>
               <span className="text-right font-mono text-slate-300">
                 {Number(order.amount).toFixed(2)}
@@ -154,12 +154,12 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
           >
             <span className={cn(
               "font-bold text-[10px]",
-              order.outcomeLabel === 'YES' ? "text-emerald-400" : "text-rose-400"
+              order.typeLabel === 'BUY' ? "text-emerald-400" : "text-rose-400"
             )}>
-              SELL {order.outcomeLabel}
+              {order.typeLabel} {order.outcomeLabel}
             </span>
             <span className="font-mono text-slate-300">
-              {Number(order.priceDisplay).toFixed(2)}
+              {Number(order.priceDisplay).toFixed(4)}
             </span>
             <span className="text-right font-mono text-slate-300">
               {Number(order.amount).toFixed(2)}

@@ -145,6 +145,7 @@ export const TRADER_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function isMarket(address market) view returns (bool)",
   "function orderOwners(uint256 orderId) view returns (address)",
+  "function spotOrders(uint256 orderId) view returns (address user, address market, uint8 outcome, uint256 amount)",
   "function lockedBalance(address user) view returns (uint256)",
   "function claimableBalance(address user) view returns (uint256)",
   "function availableBalance(address user) view returns (uint256)",

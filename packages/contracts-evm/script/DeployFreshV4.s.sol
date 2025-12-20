@@ -59,10 +59,16 @@ contract DeployFreshV4 is Script {
         );
         console.log("LaunchpadFactory:", address(factory));
 
+        // Set factory on TraderVault
+        traderVault.setLaunchpadFactory(address(factory));
+
         // 6. Create Launchpad Markets
-        // Fund deployer with USDC (6 decimals: 20,000 USDC = 20_000 * 1e6)
-        usdc.mint(deployer, 20_000 * 1e6);
+        // Fund deployer with USDC (6 decimals: 100,000 USDC for testing)
+        usdc.mint(deployer, 100_000 * 1e6);
         usdc.approve(address(factory), type(uint256).max);
+        
+        // Also approve TraderVault for deposits
+        usdc.approve(address(traderVault), type(uint256).max);
         
         // Market 1
         (address market1Addr, ) = factory.createMarket(

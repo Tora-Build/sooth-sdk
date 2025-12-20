@@ -656,11 +656,11 @@ export const MarketDetail = () => {
                 </div>
                 <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
                   <div className="text-[8px] text-emerald-400/60 uppercase tracking-wider font-bold mb-0.5">YES</div>
-                  <div className="text-xs font-mono font-bold text-emerald-400">{vaultYesShares.toFixed(2)}</div>
+                  <div className="text-xs font-mono font-bold text-emerald-400">{Math.floor(vaultYesShares).toLocaleString()}</div>
                 </div>
                 <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
                   <div className="text-[8px] text-rose-400/60 uppercase tracking-wider font-bold mb-0.5">NO</div>
-                  <div className="text-xs font-mono font-bold text-rose-400">{vaultNoShares.toFixed(2)}</div>
+                  <div className="text-xs font-mono font-bold text-rose-400">{Math.floor(vaultNoShares).toLocaleString()}</div>
                 </div>
               </div>
               

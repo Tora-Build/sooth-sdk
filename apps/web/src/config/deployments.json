@@ -1,27 +1,27 @@
 {
-  "version": "2025-12-21-v1",
+  "version": "2025-12-21-v4",
   "lastUpdated": "2025-12-21",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V6.2.0 Atomic Split/Merge",
+      "status": "✅ Live - V6.2.3 Integer Shares + Order ID Fix",
       "contracts": {
-        "MockUSDC": "0xAb052EB6964A0E1D46b968f8Cb654EAa0aB9ada3",
-        "SoothTraderVault": "0x343F3cAD9236c3D7e323b2eAeCDdCF34c4f26265",
-        "SoothLiquidityVault": "0xe240E696d2fb9F915A3d0D14E8Ba7A49AEbD5f2B",
-        "SoothFeeController": "0x6AB3a4E196509d4d73fCf2550378de7568a43A66",
-        "LaunchpadFactory": "0xE968C6DaC998158cF9D4a650c7b313bfFbE412aA"
+        "MockUSDC": "0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd",
+        "SoothTraderVault": "0x1364d5CCc14251C73823e0291EF57e9EA4b9E673",
+        "SoothLiquidityVault": "0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB",
+        "SoothFeeController": "0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9",
+        "LaunchpadFactory": "0xCd22e3D92E6f958562F5CE3596ae3e6EDb61aAa5"
       },
       "marketInfo": {
         "market1": {
-          "address": "0x2D0b0d2F7807B51b3eAAd19B5a180D88700FC1ab",
+          "address": "0x04ce93ca917cb909668FB782A4A64199e3835B99",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x7FAe7e77Bc8F19BABE618c806f8fA76E74F10313"
+          "outcomeToken": "0xBA56aBF13E66c4f3ECaACdbC2051F942A85C3614"
         },
         "market2": {
-          "address": "0x2C5cbce97497d6Ec13E601e7a8954FaBB7285657",
+          "address": "0x7D08DCb2c33f9317217E7779FDbb06143e72Ad22",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x49A1fd9E6737658E663095B740Dc33ccB168d534"
+          "outcomeToken": "0x9b8b1CBbDEefF0bD414e774BaFC299515964c527"
         }
       }
       },

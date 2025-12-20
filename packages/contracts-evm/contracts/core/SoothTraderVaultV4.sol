@@ -323,10 +323,11 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
 
     /// @notice Split USDC into YES+NO shares, depositing directly to vault (1 tx instead of 3)
     /// @param market The market address
-    /// @param amount Amount in WAD (18 decimals) - shares to mint
+    /// @param amount Amount in WAD (18 decimals) - must be whole shares (divisible by 1e18)
     function splitAndDeposit(address market, uint256 amount) external {
         require(_isValidMarket(market), "TraderVault: invalid market");
         require(amount > 0, "TraderVault: zero amount");
+        require(amount % 1e18 == 0, "TraderVault: must be whole shares");
         
         IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
         
@@ -348,10 +349,11 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
 
     /// @notice Merge YES+NO shares from vault into USDC (1 tx instead of 3)
     /// @param market The market address
-    /// @param amount Amount in WAD (18 decimals) - shares to burn
+    /// @param amount Amount in WAD (18 decimals) - must be whole shares (divisible by 1e18)
     function mergeFromVault(address market, uint256 amount) external {
         require(_isValidMarket(market), "TraderVault: invalid market");
         require(amount > 0, "TraderVault: zero amount");
+        require(amount % 1e18 == 0, "TraderVault: must be whole shares");
         require(shareBalances[msg.sender][market][0] >= amount, "TraderVault: insufficient YES");
         require(shareBalances[msg.sender][market][1] >= amount, "TraderVault: insufficient NO");
         

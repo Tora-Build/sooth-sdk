@@ -1,39 +1,30 @@
 {
-  "version": "2025-12-20-v2",
-  "lastUpdated": "2025-12-20",
+  "version": "2025-12-21-v2",
+  "lastUpdated": "2025-12-21",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V6.1.8 Safe Parity LP Minting",
+      "status": "✅ Live - V6.2.1 Order ID 0 Fix",
       "contracts": {
-        "MockUSDC": "0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587",
-        "SoothTraderVault": "0x587dFaF63e4286A7a91b157A3f40d55D0c3D3048",
-        "SoothLiquidityVault": "0xb85B11d5480a40955a907CF8a8d03a1319231637",
-        "SoothFeeController": "0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03",
-        "LaunchpadFactory": "0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7"
+        "MockUSDC": "0xB11EE3FC6c71b7432487d6790Eb8b2d286d8Bd20",
+        "SoothTraderVault": "0xCedAA11C17eb0BB9C5a4eb6ae08346b2A58099E6",
+        "SoothLiquidityVault": "0x918802f23Edd4451e6E20619b222615D4D866290",
+        "SoothFeeController": "0x75C02910f33Dd658A20b342900bdBAc9dB61c36d",
+        "LaunchpadFactory": "0xF9F415FABf40aF523B78d196332c9560D1f0304B"
       },
       "marketInfo": {
         "market1": {
-          "address": "0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F",
+          "address": "0x313657aEf210150206Cb86d9dfDD0c84f5b4Db98",
           "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x6c0065b539355C74D529ECb490c178BF9b0148C2"
+          "outcomeToken": "0x5A72De4282f20D75040e79c13BB98A196a8EF5c8"
         },
         "market2": {
-          "address": "0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C",
+          "address": "0x2159Ea8Fe5D3a4A74428cbF004dA755a8C98d145",
           "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0xb7B000AA17FBf000f124DF315A340DAF3Ea2E522"
+          "outcomeToken": "0xa5eB504E3ba0E3558B360a000B368D8f07D43235"
         }
-      },
-      "notes": {
-        "version": "V6.1.8 - Safe Parity LP Minting",
-        "date": "2025-12-20",
-        "changes": [
-          "FIXED: Safe Parity Floor for LP Minting (prevents supply explosion when pool is thin)",
-          "FIXED: UI Decimal formatting for LP Supply and Holders leaderboard",
-          "FIXED: Split 'Price (Net)' and 'Fee' in the trading panel for clarity"
-        ]
       }
-    },
+      },
     "megaethFrontier": {
       "chainId": 4326,
       "status": "✅ Live - V6.1.8 Frontier Net",
@@ -56,14 +47,6 @@
           "name": "BTC 7-day TWAP >= $100k",
           "outcomeToken": "0x78f04576a0E90d8aBeE5af2F6aB561A49cAbE753"
         }
-      },
-      "notes": {
-        "version": "V6.1.8",
-        "date": "2025-12-20",
-        "changes": [
-          "Deployed V6.1.8 to MegaETH Frontier Net",
-          "2 Demo Markets created"
-        ]
       }
     }
   },

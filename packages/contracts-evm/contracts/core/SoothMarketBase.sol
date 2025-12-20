@@ -94,6 +94,9 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         bBase = _bBase;
         marketOperator = _marketOperator;
         
+        // Initialize orderbook state
+        nextOrderId = 1;
+        
         // Initialize LMSR state (default: equal quantities for 50% probability)
         qYes = _initialQYes;
         qNo = _initialQNo;

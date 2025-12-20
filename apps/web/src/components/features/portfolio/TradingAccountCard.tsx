@@ -28,7 +28,7 @@ export const TradingAccountCard: React.FC = () => {
     deposit,
     withdraw
   } = useTraderVault();
-  const { vaultValue, walletValue, refetch: refetchPositions } = useActivePositions();
+  const { vaultValue, refetch: refetchPositions } = useActivePositions();
   const { refetch: refetchLocked } = useLockedFunds();
 
   // Dialog State
@@ -46,7 +46,7 @@ export const TradingAccountCard: React.FC = () => {
   const available = parseFloat(formatUnits(availableBalance, DISPLAY_DECIMALS));
   const reserved = parseFloat(formatUnits(pendingBalance, DISPLAY_DECIMALS));
   const cashValue = parseFloat(formatUnits(totalBalance, DISPLAY_DECIMALS));
-  const totalAccountValue = cashValue + vaultValue + walletValue;
+  const totalAccountValue = cashValue + vaultValue;
   const walletAvailable = parseFloat(formatUnits(userUsdcBalance || 0n, DISPLAY_DECIMALS));
 
   // Checking Allowance for Deposit
@@ -186,15 +186,6 @@ export const TradingAccountCard: React.FC = () => {
             </div>
           </div>
 
-          {/* Token Value */}
-          <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-md flex justify-between items-center">
-            <div className="text-[9px] text-indigo-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
-              <Coins size={9} /> OB Tokens
-            </div>
-            <div className="text-base font-mono font-bold text-indigo-400 leading-none">
-              {formatCurrency(walletValue)}
-            </div>
-          </div>
         </div>
 
       </div>

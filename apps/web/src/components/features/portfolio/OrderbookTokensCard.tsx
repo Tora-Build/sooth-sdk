@@ -213,10 +213,15 @@ export const PositionActionsModal: React.FC<{
                 <div className="space-y-1.5">
                     <div className="relative">
                         <Input
-                            placeholder="0.00"
+                            placeholder="0"
                             value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
+                            onChange={(e) => {
+                                // Enforce integer-only for both split and merge (shares are integers)
+                                const intVal = Math.floor(parseFloat(e.target.value) || 0);
+                                setAmount(intVal > 0 ? intVal.toString() : '');
+                            }}
                             type="number"
+                            step="1"
                             className={cn(
                                 "pr-16 font-mono",
                                 mode === 'merge' ? "focus:border-emerald-500/50" : "focus:border-indigo-500/50"
@@ -224,7 +229,7 @@ export const PositionActionsModal: React.FC<{
                             disabled={!activeMarket}
                         />
                         <button
-                            onClick={() => setAmount(available.toString())}
+                            onClick={() => setAmount(Math.floor(available).toString())}
                             className={cn(
                                 "absolute right-2 top-2 px-2 py-1 bg-slate-800 text-[10px] rounded hover:bg-slate-700 font-bold transition-colors disabled:opacity-50",
                                 mode === 'merge' ? "text-emerald-400" : "text-indigo-400"
@@ -242,7 +247,7 @@ export const PositionActionsModal: React.FC<{
                             "text-[10px] font-mono font-bold",
                             mode === 'merge' ? "text-emerald-400" : "text-indigo-400"
                         )}>
-                            {mode === 'merge' ? `${available.toFixed(2)} SETS` : formatCurrency(available)}
+                            {mode === 'merge' ? `${Math.floor(available)} SETS` : `$${Math.floor(available).toLocaleString()}`}
                         </span>
                     </div>
                 </div>

@@ -179,8 +179,8 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 
   const priceIncRef = useRef<NodeJS.Timeout | null>(null);
   const priceDecRef = useRef<NodeJS.Timeout | null>(null);
-  const handlePriceInc = () => setPrice(p => Math.min(0.99, (parseFloat(p || '0.5') + 0.01)).toFixed(2));
-  const handlePriceDec = () => setPrice(p => Math.max(0.01, (parseFloat(p || '0.5') - 0.01)).toFixed(2));
+  const handlePriceInc = () => setPrice(p => Math.min(0.99, (parseFloat(p || '0.5') + 0.01)).toFixed(4));
+  const handlePriceDec = () => setPrice(p => Math.max(0.01, (parseFloat(p || '0.5') - 0.01)).toFixed(4));
   const startPriceInc = () => { handlePriceInc(); priceIncRef.current = setInterval(handlePriceInc, 100); };
   const startPriceDec = () => { handlePriceDec(); priceDecRef.current = setInterval(handlePriceDec, 100); };
   const stopPriceInc = () => { if (priceIncRef.current) clearInterval(priceIncRef.current); };
@@ -214,7 +214,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   // Default price logic
   useEffect(() => {
     if (currentHandicap) {
-      setPrice(currentHandicap.toFixed(2));
+      setPrice(currentHandicap.toFixed(4));
     }
   }, [currentHandicap, orderType, outcome]);
 
@@ -307,13 +307,13 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div>
           <div className="text-xs text-slate-500">{t('trading.marketPrice')}</div>
           <div className="text-lg font-bold text-white font-mono">
-            {(currentMarketPrice ?? 0.5).toFixed(2)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
+            {(currentMarketPrice ?? 0.5).toFixed(4)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
           </div>
         </div>
         <div className="text-right">
           <div className="text-xs text-slate-500">{t('trading.bestPrice')}</div>
           <div className="text-lg font-bold text-emerald-400 font-mono">
-            {currentHandicap?.toFixed(2) || '—'} <span className="text-sm text-emerald-600/70">{t('common.usdc')}</span>
+            {currentHandicap?.toFixed(4) || '—'} <span className="text-sm text-emerald-600/70">{t('common.usdc')}</span>
           </div>
         </div>
         <div className="col-span-2 flex justify-between pt-2 border-t border-slate-800/50 text-[10px] text-slate-500 font-mono">
@@ -444,7 +444,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           <span className="text-slate-500">
             {orderType === 'buy' ? t('trading.costPerShare') : 'Collateral / Share'}
           </span>
-          <span className="font-mono text-white">{costPerShare.toFixed(2)} {t('common.usdc')}</span>
+          <span className="font-mono text-white">{costPerShare.toFixed(4)} {t('common.usdc')}</span>
         </div>
         <div className="flex justify-between text-sm border-t border-slate-800 pt-1.5">
           <span className="text-slate-400 font-medium">
