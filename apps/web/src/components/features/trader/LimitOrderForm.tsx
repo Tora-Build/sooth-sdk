@@ -127,37 +127,6 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     orderType === 'buy' ? priceNum >= bestBookPrice : priceNum <= bestBookPrice
   );
 
-  // Check for duplicate price orders (to prevent contract revert/collision)
-  const hasExistingOrderAtPrice = React.useMemo(() => {
-    if (!price || !address) return false;
-    
-    // In our orderbook (YES view):
-    // - bids are Buy YES orders
-    // - asks are Sell YES orders (which are Buy NO orders)
-    
-    const myBids = bids.filter(o => o.maker.toLowerCase() === address.toLowerCase());
-    const myAsks = asks.filter(o => o.maker.toLowerCase() === address.toLowerCase());
-
-    if (outcome === 0) { // YES
-      if (orderType === 'buy') {
-        // Checking for duplicate Buy YES
-        return myBids.some(o => parseFloat(o.yesPrice).toFixed(2) === priceNum.toFixed(2));
-      } else {
-        // Checking for duplicate Sell YES
-        return myAsks.some(o => parseFloat(o.yesPrice).toFixed(2) === priceNum.toFixed(2));
-      }
-    } else { // NO
-      const internalYesPrice = (1 - priceNum).toFixed(2);
-      if (orderType === 'buy') {
-        // Buying NO is internally Selling YES
-        return myAsks.some(o => parseFloat(o.yesPrice).toFixed(2) === internalYesPrice);
-      } else {
-        // Selling NO is internally Buying YES
-        return myBids.some(o => parseFloat(o.yesPrice).toFixed(2) === internalYesPrice);
-      }
-    }
-  }, [price, bids, asks, address, orderType, outcome, priceNum]);
-
   const handlePlaceOrder = async () => {
     // Check Internal Balance
     const requiredCost = parseUnits(totalCost.toFixed(6), 18);
@@ -165,11 +134,6 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 
     if (totalCost > 0 && !hasEnough) {
       toast.error("Insufficient USDC in Trading Vault. Please Deposit.");
-      return;
-    }
-
-    if (hasExistingOrderAtPrice) {
-      toast.error(`You already have an order at ${price} USDC. Please cancel it first or use a different price.`);
       return;
     }
 

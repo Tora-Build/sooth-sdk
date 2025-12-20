@@ -1,15 +1,27 @@
 # Project Status
 
-> Last Updated: 2025-12-20 (MegaETH Frontier & UI Stabilization)
+> Last Updated: 2025-12-20 (MegaETH Chain-Aware Stability)
 
 ## Current Focus
+- **Cross-Chain Consistency** — Resolved cross-chain RPC state leakage and fixed multi-chain hook routing ✅
+- **MegaETH Frontier Stability** — Optimized for high-throughput RPC behavior and addressed IP rate limiting ✅
 - **UI/UX Stabilization** — Resolved flickering, scrolling jank, and redundant renders ✅
 - **Finalizing Visual Identity** — Unified "Layered Architecture" motif for dapp, socials, and mediakit ✅
-- **Safe Parity LP Minting** — Prevented LP supply explosions by capping rewards at initial par value ✅
-- **MegaETH Frontier Net** — Full protocol stack live on high-throughput L2 ✅
 - **Codebase Cleanliness** — Purged legacy V4/V5 debt and unlinked hooks/components ✅
 
 ## Recent Changes
+
+### ✅ Multi-Chain Stability & MegaETH Fixes (2025-12-20)
+- **🌍 Chain-Aware Hooks**:
+  - **Fixed Cross-Chain Call Leaks**: Updated all core hooks (`useLaunchpadTradeQuote`, `useOrderbook`, `useOrderbookTrade`, etc.) to explicitly use the `selectedChainId`. This prevents markets on MegaETH from trying to call Base RPCs, which was causing `0x` zero-data returns and IP rate limiting.
+  - **Selected Chain Persistence**: Integrated `useChainStore` across the protocol layer to ensure the dApp state always matches the network the user is viewing, regardless of wallet connection.
+- **⚡ MegaETH RPC Optimizations**:
+  - **Resource Unavailable Handling**: Added specific error detection for MegaETH's "Requested resource not available" RPC error (often caused by nonce/timing under high load). The UI now suggests a brief wait rather than a hard crash.
+  - **Nonce Guarding**: Switched to `publicClient.getChainId()` checks during simulation to ensure the wallet is properly aligned before broadcasting high-throughput transactions.
+- **🐛 Orderbook Refinements**:
+  - **Duplicate Order Support**: Removed the artificial restriction on identical price orders. The orderbook now correctly supports FIFO queuing for multiple orders at the same price level.
+  - **TypeScript Safety**: Fixed type mismatches in `useOrderbookTrade` where addresses were being treated as raw strings, causing compilation warnings.
+- **🚀 Markets Page Restoration**: Fixed a `ReferenceError` in `useLaunchpadMarkets` that was crashing the main market grid during chain transitions.
 
 ### ✅ Visual Polish & OB Balance Fix (2025-12-20)
 - **⚡ Performance & Anti-Flicker**:
@@ -86,9 +98,10 @@
 - [ ] **Mobile Optimization**: Verify MegaETH frontend layouts on smaller devices.
 - [ ] **Security**: Rotate deployment keys (exposed in session history).
 - [ ] **QA next**: Fuzz tests for LMSR edge cases (large trades, extreme prices).
+- [ ] **Stress Test**: High-frequency orderbook stacking on MegaETH.
 
 ## Session Summary (2025-12-20)
-**MegaETH Integration & Visual Polish** — Successfully ported the protocol to MegaETH Frontier Net, purged 30+ legacy files, and stabilized the UI/UX by resolving critical scrolling flickering and unifying the brand's visual language across all pages.
+**MegaETH Chain-Aware Stability** — Resolved cross-chain RPC leakage by making all hooks explicitly chain-aware, fixed MegaETH-specific "resource unavailable" errors through improved simulation logic, and restored orderbook flexibility by allowing multiple orders at the same price.
 
 ## Deployment Notes
 - **MegaETH RPC**: Use viem `deployContract` with `gas: 999999999n` to bypass intrinsic gas errors.

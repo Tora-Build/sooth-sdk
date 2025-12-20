@@ -298,6 +298,19 @@
   - **Consequences**:
     - **Reliability**: Successful deployment of the full V6.1.8 stack to MegaETH Mainnet.
     - **Manual Effort**: Requires specific scripts for MegaETH vs standard EVM chains.
+
+## ADR-020: Chain-Aware Hook Architecture
+- **Date**: 2025-12-20
+- **Status**: Accepted
+- **Context**: As Sooth expands to multiple high-performance L2s (Base, MegaETH), the frontend began experiencing "Cross-Chain State Leakage." Hooks were calling market addresses from Chain A using the RPC of Chain B, resulting in `0x` zero-data returns and IP rate limiting due to invalid traffic.
+- **Decision**: Transition to **Strict Chain-Aware Hooks**:
+  - **Forced Chain ID**: Every `useReadContract`, `useReadContracts`, and `useWriteContract` call MUST explicitly pass the `chainId` derived from the user's current view (via `useChainStore`).
+  - **Public Client Routing**: The `publicClient` is initialized with the `selectedChainId` rather than the default wallet client to ensure background polling always hits the correct RPC.
+  - **Graceful RPC Failover**: For high-throughput chains like MegaETH, implement custom error handling for "Requested resource not available" to suggest retry-on-busy rather than hard-failing the UI.
+- **Consequences**:
+  - **Stability**: Eliminates `ContractFunctionExecutionError: returned no data ("0x")` during chain switching.
+  - **Performance**: Reduces IP rate limiting by stopping invalid cross-chain RPC spam.
+  - **Flexibility**: Users can browse and quote markets on Chain A while their wallet is still connected to Chain B.
 - **Consequences**:
   - **Consistency**: Unified dapp, social, and mediakit branding.
   - **Clarity**: Explains the "Retroactive Finality" architecture through visual layers.

@@ -5,6 +5,23 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Multi-Chain Hook Stability** (2025-12-20):
+  - **🌍 Chain-Aware Logic**: Updated 7 core protocol hooks (`useLaunchpadTradeQuote`, `useOrderbook`, `useOrderbookTrade`, etc.) to be explicitly chain-aware.
+  - **Fixed Cross-Chain State Leakage**: Prevented hooks from calling contract addresses on the wrong network by forcing the `chainId` in all Viem/Wagmi read/write operations.
+  - **MegaETH RPC Optimizations**: Added custom error handling for MegaETH "resource unavailable" errors, suggesting a retry rather than failing.
+  - **Flexible Orderbook Stacking**: Restored the ability to place multiple orders at the same price level, improving orderbook depth.
+
+### Fixed
+- **MegaETH Frontier RPC Issues** (2025-12-20):
+  - Fixed `0x` zero-data returns caused by wallet/network mismatches during market viewing.
+  - Resolved `ReferenceError: selectedChainId` that was crashing the Markets page during chain switching.
+- **TypeScript & ABI Consistency** (2025-12-20):
+  - Fixed various "string not assignable to 0x${string}" errors in orderbook trade logic.
+  - Ensured all background polling uses the currently viewed chain rather than the wallet's active chain.
+
+### Removed
+- **Duplicate Price Guard** (2025-12-20): Removed the over-correction that blocked identical price orders after determining it was not a protocol limitation.
+
 - **MegaETH Frontier Net Integration** (2025-12-20):
   - **Dapp Deployment**: Full V6.1.8 protocol stack deployed to MegaETH Mainnet (Frontier Net - Chain 4326).
   - **Protocol Faucet**: New standalone Faucet page (`/faucet`) for minting test mUSDC and ETH gas guidance.
