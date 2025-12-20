@@ -24,3 +24,4 @@ Sooth is built on the concept of **Retroactive Finality**. Our visual identity e
 - **Finality (Settlement):** `#818CF8` (Indigo)
 - **Core (Void):** `#020617` (Deep Slate)
 
+
