@@ -83,6 +83,20 @@ contract OutcomeToken is ERC1155Supply, IOutcomeToken {
         emit Merged(msg.sender, amount);
     }
 
+    /// @inheritdoc IOutcomeToken
+    function split(uint256 amount) external override {
+        require(amount > 0, "OutcomeToken: zero amount");
+        
+        // Debit USDC from user via TraderVault
+        ISoothTraderVaultV4(traderVault).debitSplitProceeds(msg.sender, amount);
+        
+        // Mint both tokens
+        _mint(msg.sender, YES_TOKEN_ID, amount, "");
+        _mint(msg.sender, NO_TOKEN_ID, amount, "");
+        
+        emit Split(msg.sender, amount);
+    }
+
     // ============ View Functions ============
     
     /// @inheritdoc IOutcomeToken

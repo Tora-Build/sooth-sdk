@@ -5,6 +5,89 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **V6.2.0 Atomic Inventory Functions** (2025-12-21):
+  - `splitAndDeposit(address market, uint256 amount)`: Split USDC into YES+NO shares directly in vault (1 tx instead of 3)
+  - `mergeFromVault(address market, uint256 amount)`: Merge vault shares back to USDC (1 tx instead of 3)
+  - Modified `debitSplitProceeds` to handle self-calls from vault during atomic split
+  - Updated `ISoothTraderVaultV4` interface and frontend ABIs
+- **Inventory Management UI** (2025-12-21):
+  - Moved Merge/Split from Portfolio to Market Detail page (market-sensitive operations)
+  - Added balance display (USDC, YES, NO shares) in Inventory Management card
+  - Dynamic button disabling based on available balances
+- **Fresh Base Sepolia Deployment** (2025-12-21):
+  - Deployed complete V6.2.0 stack with atomic functions
+  - Updated `deployments.json` (version: `2025-12-21-v1`)
+  - Verified 100% config-to-chain parity
+
+### Fixed
+- **Order ID 0 Bug** (2025-12-21):
+  - Fixed `useOrderbook` hook incorrectly treating Order ID 0 as end-of-list sentinel
+  - Refactored order fetching to use visited ID tracking and explicit termination checks
+  - Corrected `orderOwners` ABI call signature (was passing wrong args)
+- **UI Consistency** (2025-12-21):
+  - Unified button heights for Deposit/Withdraw/Merge/Split to match AMM Buy/Sell (`py-2 text-sm`)
+  - Renamed "In Orders" → "Reserved" with tooltip explaining on-chain collateral
+  - Removed overly restrictive client-side `isOutcomeToken` authorization check
+
+### Changed
+- **MegaETH Deployment Strategy** (2025-12-21):
+  - Documented MegaETH's multidimensional gas model (60k intrinsic, 10M estimation limit)
+  - Keeping V6.1.8 deployment on MegaETH Frontier (V6.2.0 atomic functions not available there)
+  - Added deployment lessons to `LESSONS_LEARNED.md`
+
+### Added
+- **Protocol Upgrade: Dynamic Token Authorization** (2025-12-20):
+  - Refactored `SoothTraderVaultV4` with a dynamic authorization modifier. The vault now automatically trusts any OutcomeToken proven to belong to a valid market registered in the Factory.
+  - Eliminated the manual `setOutcomeToken` admin bottleneck for new market deployments.
+  - Updated `DeployFreshV4.s.sol` and `deployments.json` with the new V6.1.9 core infrastructure.
+- **Unified Market Sync** (2025-12-20):
+  - Synced `markets.json` with the fresh Base Sepolia deployment.
+  - Curated a clean "Real Mode" list of live on-chain markets for the Trading Terminal.
+  - Verified 100% config-to-chain parity using `verify-deployment.sh`.
+
+### Added
+- **Portfolio Domain Architecture** (2025-12-20):
+  - Split Portfolio into two distinct visual and logical domains: **Trading Account** (Indigo/Custodial) and **Wallet Portfolio** (Emerald/Direct).
+  - Created `PortfolioCard` component with color variants and inset header styling.
+  - Added support for "folding" long lists of items in portfolio cards to maintain a compact UI.
+  - Added domain-specific background gradients and `CUSTODIAL` / `DIRECT` badges to differentiate custody levels.
+
+### Added
+- **Share Splitting & Merging UI** (2025-12-20):
+  - Implemented **SPLIT** function: Allows users to convert USDC directly into equal amounts of YES and NO tokens (complete sets).
+  - Created `PositionActionsModal`: A standardized modal for Merging and Splitting shares with numeric input and MAX support.
+  - Added visual descriptions in the modal to clarify the economic purpose of each action.
+  - Added a "Quick Claim" button for settled markets to instantly merge winning shares.
+
+### Fixed
+- **Contract Parity**:
+  - Added `split()` to `OutcomeToken`, `SoothMarketBase`, and `LaunchpadMarket`.
+  - Added `debitSplitProceeds()` to `SoothTraderVaultV4` to handle the USDC cost of splitting.
+  - Updated frontend ABIs to reflect new split capabilities.
+
+### Fixed
+- **UI Flickering & Stability** (2025-12-20):
+  - Standardized `refetchInterval` (30s) and `staleTime` (10s) across core hooks (`useActivePositions`, `useLockedFunds`, `useLPPositions`) to prevent re-render jumps.
+  - Fixed `PortfolioCard` slicing logic to work correctly with wrapped children components.
+  - Removed "0x" data return errors by forcing chain-awareness in all background polling calls.
+- **Visual Branding Inconsistencies** (2025-12-20):
+  - Unified logo scale, glow effects, and typography across Navbar, Landing, and About pages.
+  - Standardized empty state padding, icons, and font sizes across all portfolio modules.
+- **Codebase Cleanliness** (2025-12-20):
+  - Removed over 20 unused imports and variables in `TradingAccountCard`, `WalletPositionsCard`, and `Portfolio` main page.
+  - Standardized font weights and sizes for high-density data display.
+
+### Changed
+- **User-Facing Terminology** (2025-12-20):
+  - Renamed "Direct Escrow" → **"Pending Unlocks"**.
+  - Renamed "Custodial Positions" → **"Trading Positions"**.
+  - Renamed "On-Chain Tokens" → **"Wallet Tokens"**.
+  - Renamed "Open Orders" → **"Limit Orders"**.
+- **Branding Cleanup**: Removed "protocol" subtitle from the logo text for a cleaner, high-scale look.
+- **Header Optimization**: Removed back button from About page and unified "Launch App" button styles.
+- **LP Positions Theme**: Changed LP Positions color theme from purple to emerald to align with the "Direct Wallet" domain.
+
+### Added
 - **Multi-Chain Hook Stability** (2025-12-20):
   - **🌍 Chain-Aware Logic**: Updated 7 core protocol hooks (`useLaunchpadTradeQuote`, `useOrderbook`, `useOrderbookTrade`, etc.) to be explicitly chain-aware.
   - **Fixed Cross-Chain State Leakage**: Prevented hooks from calling contract addresses on the wrong network by forcing the `chainId` in all Viem/Wagmi read/write operations.

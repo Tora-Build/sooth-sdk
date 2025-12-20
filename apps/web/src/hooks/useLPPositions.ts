@@ -42,7 +42,8 @@ export function useLPPositions() {
         contracts: lpContracts,
         query: {
             enabled: lpContracts.length > 0,
-            refetchInterval: 10000,
+            refetchInterval: 30000,
+            staleTime: 10000,
         }
     });
 

@@ -1,108 +1,95 @@
 # Project Status
 
-> Last Updated: 2025-12-20 (MegaETH Chain-Aware Stability)
+> Last Updated: 2025-12-21 (V6.2.0 Atomic Functions & MegaETH Deployment)
 
 ## Current Focus
-- **Cross-Chain Consistency** — Resolved cross-chain RPC state leakage and fixed multi-chain hook routing ✅
-- **MegaETH Frontier Stability** — Optimized for high-throughput RPC behavior and addressed IP rate limiting ✅
-- **UI/UX Stabilization** — Resolved flickering, scrolling jank, and redundant renders ✅
-- **Finalizing Visual Identity** — Unified "Layered Architecture" motif for dapp, socials, and mediakit ✅
-- **Codebase Cleanliness** — Purged legacy V4/V5 debt and unlinked hooks/components ✅
+- **V6.2.0 Atomic Split/Merge** — Added `splitAndDeposit` and `mergeFromVault` to TraderVaultV4 for 1-click inventory management ✅
+- **Base Sepolia Fresh Deploy** — Complete V6.2.0 stack with atomic functions deployed and verified ✅
+- **MegaETH Deployment Attempt** — Partial success; documented gas model challenges ⚠️
+- **Inventory Management UI** — Moved Merge/Split to Market Detail page with balance display ✅
+- **Order ID 0 Fix** — Fixed orderbook hook to correctly handle Order ID 0 as valid order ✅
 
 ## Recent Changes
 
+### ✅ V6.2.0 Atomic Inventory Functions (2025-12-21)
+- **🔗 Contract Upgrades**:
+  - Added `splitAndDeposit(market, amount)` to TraderVaultV4: Split USDC→YES+NO in 1 tx (was 3)
+  - Added `mergeFromVault(market, amount)` to TraderVaultV4: Merge vault shares→USDC in 1 tx (was 3)
+  - Modified `debitSplitProceeds` to skip self-debit when vault calls split internally
+- **🎯 UI Improvements**:
+  - Moved Merge/Split from Portfolio to Market Detail's "Inventory Management" section
+  - Added balance display (USDC, YES, NO) to Inventory Management card
+  - Unified button heights across Deposit/Withdraw/Merge/Split to match AMM buttons
+  - Renamed "In Orders" → "Reserved" with tooltip explaining on-chain collateral
+- **🐛 Bug Fixes**:
+  - Fixed Order ID 0 not displaying in orderbook (was treated as sentinel instead of valid order)
+  - Removed overly restrictive client-side `isOutcomeToken` check that blocked valid operations
+
+### ⚠️ MegaETH Deployment Challenges (2025-12-21)
+- **Partial Deployment**:
+  - ✅ MockUSDC: `0x493DA6e5C9de67Ab50B2fb08d14865614189b5c2`
+  - ✅ FeeController: `0xDB0063Ce93e445Ff7a8916f6F5A093f80833494f`
+  - ❌ LiquidityVault: Constructor reverts (67M gas used, status=0)
+- **Root Causes**:
+  - MegaETH RPC has 10M gas estimation limit (blocks multi-contract deploys)
+  - Intrinsic gas is 60,000 (vs Ethereum's 21,000)
+  - Storage-heavy contracts may fail due to multidimensional gas model
+- **Decision**: Keep existing V6.1.8 deployment on MegaETH Frontier
+
+### ✅ Portfolio Architecture & UI Overhaul (2025-12-20)
+- **🏗️ Domain Separation**:
+  - Split the Portfolio page into two primary columns: **Trading Account** (Orderbook/Vault) and **Wallet Portfolio** (AMM/On-chain tokens).
+  - Added distinct color-coded backgrounds (Indigo for Custodial, Emerald for Direct) and domain-specific badges.
+- **🧩 Reusable UI Components**:
+  - Created `PortfolioCard.tsx`: A standardized container for all portfolio data with support for variants (`indigo`, `emerald`, `default`), header badges, and contextual actions.
+  - **Dynamic Length Management**: Implemented automatic folding/unfolding for long lists of positions or orders, saving vertical space.
+  - **Stale-While-Revalidate**: Refined loading states to prevent page flickering during background data refreshes.
+- **🎨 Visual Identity & UX**:
+  - **User-Friendly Naming**: Renamed technical terms (e.g., "Custodial Positions" → "Trading Positions", "Direct Escrow" → "Pending Unlocks").
+  - **Logo Unification**: Standardized the logo style across Navbar, Landing, and About pages; removed the "protocol" subtitle for a cleaner look.
+  - **Header Cleanup**: Removed redundant back buttons and unified "Launch App" CTAs.
+  - **Audit & Purge**: Removed dozens of unused imports and dead variables across the core portfolio components.
+
 ### ✅ Multi-Chain Stability & MegaETH Fixes (2025-12-20)
 - **🌍 Chain-Aware Hooks**:
-  - **Fixed Cross-Chain Call Leaks**: Updated all core hooks (`useLaunchpadTradeQuote`, `useOrderbook`, `useOrderbookTrade`, etc.) to explicitly use the `selectedChainId`. This prevents markets on MegaETH from trying to call Base RPCs, which was causing `0x` zero-data returns and IP rate limiting.
-  - **Selected Chain Persistence**: Integrated `useChainStore` across the protocol layer to ensure the dApp state always matches the network the user is viewing, regardless of wallet connection.
+  - **Fixed Cross-Chain Call Leaks**: Updated core hooks to explicitly use `selectedChainId`.
+  - **Selected Chain Persistence**: Integrated `useChainStore` across the protocol layer.
 - **⚡ MegaETH RPC Optimizations**:
-  - **Resource Unavailable Handling**: Added specific error detection for MegaETH's "Requested resource not available" RPC error (often caused by nonce/timing under high load). The UI now suggests a brief wait rather than a hard crash.
-  - **Nonce Guarding**: Switched to `publicClient.getChainId()` checks during simulation to ensure the wallet is properly aligned before broadcasting high-throughput transactions.
-- **🐛 Orderbook Refinements**:
-  - **Duplicate Order Support**: Removed the artificial restriction on identical price orders. The orderbook now correctly supports FIFO queuing for multiple orders at the same price level.
-  - **TypeScript Safety**: Fixed type mismatches in `useOrderbookTrade` where addresses were being treated as raw strings, causing compilation warnings.
-- **🚀 Markets Page Restoration**: Fixed a `ReferenceError` in `useLaunchpadMarkets` that was crashing the main market grid during chain transitions.
-
-### ✅ Visual Polish & OB Balance Fix (2025-12-20)
-- **⚡ Performance & Anti-Flicker**:
-  - **Fixed Full-Page Flickering**: Stabilized `body` background with `background-attachment: fixed` and simplified radial gradients.
-  - **GPU Layer Promotion**: Added `will-change: transform` to sticky sidebars to isolate them during high-frequency scrolling.
-  - **Paint Containment**: Implemented `contain: paint` on `.glass-card` elements to skip redundant layout/paint calculations.
-  - **Render Consolidation**: Propagated prefetched `market` objects from `MarketDetail` to sub-components (`MarketCard`, `AmmTradingPanel`) to eliminate redundant RPC calls and re-render flashes.
-  - **Aggressive Throttling**: Increased hook `refetchIntervals` to 10s–60s to reduce background state updates that were interrupting the UI thread.
-- **🎨 UI Unification**:
-  - **Header & Navbar**: Unified the "Launch App" button style across Landing and About pages (removed redundant shadows, standardized icons).
-  - **Hero CTAs**: Standardized "Launch App" and "About" buttons with consistent hover states and typography.
-  - **Terms Alignment**: Standardized terminology (e.g., "Modular Market", "Dual DEX Engine") and removed branding inconsistencies.
-- **🐛 Orderbook Balance Fix**:
-  - **Resolved "0 Balance" Bug**: Fixed a critical issue in `useOrderbookTrade` and `useTraderVault` where vault balances were not being detected due to ABI return-type mismatches and async race conditions in `refetchBalance()`.
-  - **Decimal Normalization**: Fixed a precision bug in `useOrderbookTrade` where 6-decimal USDC vault balances were being compared against 18-decimal WAD costs, causing false "Insufficient balance" errors.
-  - **Robustness**: Switched to explicit `availableBalance()` and `pendingBalance()` calls to bypass struct-to-object parsing inconsistencies in Viem.
-
-### ✅ MegaETH Frontier Net Integration (2025-12-20)
-- **Full V6.1.8 Deployment**: Deployed the complete protocol stack to MegaETH Mainnet (Chain 4326).
-  - Infrastructure: MockUSDC, FeeController, LiquidityVault, TraderVaultV4, ProtocolConfig.
-  - Launchpad: Factory, Market/Token Implementations + 2 Demo Markets.
-- **Frontend Chain Support**: Integrated Chain 4326 into `chains.ts`, `wagmi.ts`, and `deployments.json`.
-- **Standalone Faucet**: Created `/faucet` page for minting test mUSDC and navigating Frontier gas requirements.
-- **Landing Page Redesign**: Modular branding overhaul with MegaETH performance highlights and blueprint aesthetics.
+  - **Resource Unavailable Handling**: Added specific error detection for MegaETH RPC errors.
+  - **Nonce Guarding**: Switched to `publicClient.getChainId()` checks during simulation.
 
 ### ✅ Alpha Codebase Purge & Stabilization (2025-12-20)
-- **🗑️ Dead Code Removal**: Deleted over 30 unused files, including legacy interfaces (`TraderTerminal.tsx`, `OperatorConsole.tsx`) and purged redundant hooks.
-- **⚡ Performance Optimization**: Removed flickering scanline overlays and excessive re-renders by de-coupling activity listeners from global refresh keys.
-- **🌑 Visual Stability**: Switched to static loading blocks instead of pulsing skeletons to prevent page flashing.
-- **📚 Documentation Archiving**: Moved legacy V4 and V5 technical guides/research to `docs_archive/` to prevent developer confusion.
-
-### ✅ Safe Parity Minting & V6.1.8 Deployment (2025-12-20)
-- **Fixed Fair Minting Explosion**:
-  - Implemented **Parity Floor Protection**: LP tokens for fees are now minted at `max(Current ExRate, 1.0)`.
-  - Prevents the "division-by-near-zero" feedback loop that caused trillion-LP explosions in thin pools.
-- **UI Metrics Alignment**:
-  - Fixed LP Supply and Leaderboard formatting to show WAD decimals (human readable).
-  - Split **Price (Net)** and **Fee** in the trading panel to clearly distinguish the $1.00 base cap.
-
-### ✅ MarketDetail Market Info Fix (2025-12-17)
-- **Bug Fix**: Fixed market info disappearing in `MarketDetail.tsx`
-  - Added fallback fetching: if market not found in `useLaunchpadMarkets()` list, fetch name/symbol directly from outcome token contract.
+- **🗑️ Dead Code Removal**: Deleted over 30 unused files and legacy interfaces.
+- **⚡ Performance Optimization**: Throttled `refetchIntervals` (15s–30s) and increased `staleTime` to eliminate background re-render flashes.
 
 ## Active Deployments
 
 ### MegaETH Mainnet (Chain 4326) - Frontier Net ✅
-|| Contract | Address |
-|---|----------|---------|
-|| MockUSDC | `0x58f35be6a5e3d2be4c3575853043322b02feed84` |
-|| FeeController | `0x3c06e44bd4d09328a4c374174b8e325c0c674b6e` |
-|| LiquidityVault | `0x1af3cb8b270db3e71fc979543c32b87709ea191f` |
-|| TraderVaultV4 | `0x8629b9ca457f4088ec8346faed61da858fdb498d` |
-|| **LaunchpadFactory (V6)** | `0xaa3ffae62a8af00d08ac395e9551776b0a01e492` |
-|| **ProtocolConfig** | `0xbe566c267a0d350e1d647ccb621cc657fa3a1d50` |
-|| Market 1 (Alien Life) | `0x13D233B5D83A24a3090780738E4AC82Be3305cee` |
-|| Market 2 (BTC TWAP) | `0xc5DF627fa7d51d75B3EF179c156AceF9801B927E` |
+| Contract | Address |
+|----------|---------|
+| MockUSDC | `0x58f35be6a5e3d2be4c3575853043322b02feed84` |
+| FeeController | `0x3c06e44bd4d09328a4c374174b8e325c0c674b6e` |
+| LiquidityVault | `0x1af3cb8b270db3e71fc979543c32b87709ea191f` |
+| TraderVaultV4 | `0x8629b9ca457f4088ec8346faed61da858fdb498d` |
+| **LaunchpadFactory (V6)** | `0xaa3ffae62a8af00d08ac395e9551776b0a01e492` |
+| Market 1 (Alien Life) | `0x13D233B5D83A24a3090780738E4AC82Be3305cee` |
+| Market 2 (BTC TWAP) | `0xc5DF627fa7d51d75B3EF179c156AceF9801B927E` |
 
-### Base Sepolia (Chain 84532) - V6.1.8 Safe Parity ✅
-|| Contract | Address |
-|---|----------|---------|
-|| MockUSDC | `0x4Dc928Cc772c178fdDba395F8549b0Ebd8B30587` |
-|| LiquidityVault | `0xb85B11d5480a40955a907CF8a8d03a1319231637` |
-|| TraderVaultV4 | `0x587dFaF63e4286A7a91b157A3f40d55D0c3D3048` |
-|| FeeController | `0xDaa0D770bbD2eC79585078a602a5Ce31D341Fe03` |
-|| **LaunchpadFactory (V6)** | `0x0Edd298Ce0A1D7E97f1837C4a1Be058e88A21af7` |
-|| Market 1 (Alien Life) | `0x6972A5a6Ca36bD59A86088B031DEE8a2972E6A6F` |
-|| Market 2 (BTC 7-day TWAP) | `0xaF551Ab033E1CC7F423EB29d60E65d8725711a7C` |
-
-### BNB Testnet (Chain 97) - V4.6 (Lock-on-Sell) - HIDDEN 🙈
-- Official status: Hidden from dApp to focus on V6 Launchpad deployments.
+### Base Sepolia (Chain 84532) - V6.2.0 Atomic Split/Merge ✅
+| Contract | Address |
+|----------|---------|
+| MockUSDC | `0xAb052EB6964A0E1D46b968f8Cb654EAa0aB9ada3` |
+| LiquidityVault | `0xe240E696d2fb9F915A3d0D14E8Ba7A49AEbD5f2B` |
+| TraderVaultV4 | `0x343F3cAD9236c3D7e323b2eAeCDdCF34c4f26265` |
+| FeeController | `0x6AB3a4E196509d4d73fCf2550378de7568a43A66` |
+| **LaunchpadFactory (V6)** | `0xE968C6DaC998158cF9D4a650c7b313bfFbE412aA` |
+| Market 1 (Alien Life) | `0x2D0b0d2F7807B51b3eAAd19B5a180D88700FC1ab` |
+| Market 2 (BTC TWAP) | `0x2C5cbce97497d6Ec13E601e7a8954FaBB7285657` |
 
 ## Pending/Blocked
-- [x] **V6 Tests**: Run full test suite (`LaunchpadV6.t.sol` - ✅ 24/24 passing)
-- [ ] **Mobile Optimization**: Verify MegaETH frontend layouts on smaller devices.
-- [ ] **Security**: Rotate deployment keys (exposed in session history).
-- [ ] **QA next**: Fuzz tests for LMSR edge cases (large trades, extreme prices).
+- [ ] **Mobile Optimization**: Finalize MegaETH frontend responsive layouts.
 - [ ] **Stress Test**: High-frequency orderbook stacking on MegaETH.
+- [ ] **QA next**: Fuzz tests for LMSR edge cases (large trades, extreme prices).
 
-## Session Summary (2025-12-20)
-**MegaETH Chain-Aware Stability** — Resolved cross-chain RPC leakage by making all hooks explicitly chain-aware, fixed MegaETH-specific "resource unavailable" errors through improved simulation logic, and restored orderbook flexibility by allowing multiple orders at the same price.
-
-## Deployment Notes
-- **MegaETH RPC**: Use viem `deployContract` with `gas: 999999999n` to bypass intrinsic gas errors.
-- **Foundry**: `prb-math` must be present in `lib/` for compilation.
+## Session Summary (2025-12-21)
+**V6.2.0 Atomic Inventory Management** — Added atomic `splitAndDeposit` and `mergeFromVault` functions to TraderVaultV4, reducing multi-step transactions to single clicks. Deployed fresh V6.2.0 stack to Base Sepolia. Attempted MegaETH Frontier deployment but encountered gas model limitations; documented learnings and retained V6.1.8 deployment. Fixed Order ID 0 bug in orderbook display and unified UI button heights across portfolio/market pages.

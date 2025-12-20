@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Info, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { Loader2, Info, TrendingUp, TrendingDown, Wallet, Clock } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useLaunchpadTradeQuote } from '../../../hooks/v5/useLaunchpadTradeQuote';
 import { useLaunchpadSwap } from '../../../hooks/v5/useLaunchpadSwap';
@@ -337,6 +337,13 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
             </div>
 
             {/* Trade Button */}
+            {tradeMode === 'sell' && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[10px] text-amber-400/80">
+                    <Clock size={12} />
+                    <span>Proceeds will be locked for 24h before they can be withdrawn.</span>
+                </div>
+            )}
+
             {!isConnected ? (
                 <Button
                     onClick={handleConnect}

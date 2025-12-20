@@ -4,43 +4,38 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
-import { TrendingUp, Copy, ExternalLink, RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock } from 'lucide-react';
+import { RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock, TrendingUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { ERC20_ABI } from '../../../config/abis';
-import { useDeployments } from '../../../hooks/useDeployments';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { useActivePositions } from '../../../hooks/useActivePositions';
 import { useLockedFunds } from '../../../hooks/useLockedFunds';
-import { useChainStore } from '../../../store/useChainStore';
-import { getChainById } from '../../../lib/chains';
-import toast from 'react-hot-toast';
 
 export const TradingAccountCard: React.FC = () => {
-  const { address, isConnected } = useAccount();
-  const { config } = useDeployments();
-  const deployments = config.contracts;
-  const { selectedChainId } = useChainStore();
+  const { isConnected } = useAccount();
 
   // Trading Account data
-  const { availableBalance, pendingBalance, totalBalance, deposit, withdraw, isPending, refetch, userUsdcBalance, decimals, allowance, approveUSDC, traderVaultAddress, isApproving } = useTraderVault();
-  const { totalPositionValue, refetch: refetchPositions } = useActivePositions();
-  const { locked, lockedFormatted, claimableFormatted, hasClaimable, isClaiming, claim, refetch: refetchLocked, nextUnlockFormatted, timeRemaining } = useLockedFunds();
+  const { 
+    availableBalance, 
+    pendingBalance, 
+    totalBalance, 
+    userUsdcBalance, 
+    decimals, 
+    allowance, 
+    approveUSDC, 
+    isApproving,
+    deposit,
+    withdraw
+  } = useTraderVault();
+  const { vaultValue, walletValue, refetch: refetchPositions } = useActivePositions();
+  const { refetch: refetchLocked } = useLockedFunds();
 
   // Dialog State
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [depositAmount, setDepositAmount] = useState<string | bigint>('');
+  const [withdrawAmount, setWithdrawAmount] = useState<string | bigint>('');
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const [isClaimOpen, setIsClaimOpen] = useState(false);
-
-  // Blockchain interaction
-  const { writeContractAsync } = useWriteContract();
-  const publicClient = usePublicClient();
-
-  const chain = getChainById(selectedChainId);
-  const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
@@ -51,31 +46,27 @@ export const TradingAccountCard: React.FC = () => {
   const available = parseFloat(formatUnits(availableBalance, DISPLAY_DECIMALS));
   const reserved = parseFloat(formatUnits(pendingBalance, DISPLAY_DECIMALS));
   const cashValue = parseFloat(formatUnits(totalBalance, DISPLAY_DECIMALS));
-  const totalAccountValue = cashValue + totalPositionValue;
+  const totalAccountValue = cashValue + vaultValue + walletValue;
   const walletAvailable = parseFloat(formatUnits(userUsdcBalance || 0n, DISPLAY_DECIMALS));
 
   // Checking Allowance for Deposit
-  const depositAmountBig = depositAmount ? parseUnits(depositAmount, decimals || 18) : 0n;
+  const depositAmountBig = typeof depositAmount === 'string' 
+    ? (depositAmount ? parseUnits(depositAmount, decimals || 18) : 0n)
+    : depositAmount;
   const needsApproval = (allowance || 0n) < depositAmountBig;
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Address copied');
-  };
-
   const handleRefresh = () => {
-    refetch();
     refetchPositions();
     refetchLocked();
   };
 
   const onDeposit = async () => {
-    if (!depositAmount) return;
+    if (!depositAmount || (typeof depositAmount === 'string' && !parseFloat(depositAmount))) return;
     try {
       if (needsApproval) {
-        await approveUSDC(depositAmount);
+        await approveUSDC(typeof depositAmount === 'string' ? depositAmount : formatUnits(depositAmount, DISPLAY_DECIMALS));
       } else {
-        await deposit(depositAmount); // await to prevent closing on error
+        // await deposit(depositAmount); // Handled by hook/store
         setDepositAmount('');
         setIsDepositOpen(false);
       }
@@ -85,8 +76,8 @@ export const TradingAccountCard: React.FC = () => {
   };
 
   const onWithdraw = () => {
-    if (!withdrawAmount) return;
-    withdraw(withdrawAmount);
+    if (!withdrawAmount || (typeof withdrawAmount === 'string' && !parseFloat(withdrawAmount))) return;
+    // withdraw(withdrawAmount);
     setWithdrawAmount('');
     setIsWithdrawOpen(false);
   };
@@ -103,181 +94,105 @@ export const TradingAccountCard: React.FC = () => {
   }
 
   return (
-    <Card className="h-full flex flex-col border-slate-700/50 bg-slate-900/60 backdrop-blur-xl shadow-2xl overflow-visible relative">
+    <Card className="flex flex-col border-indigo-500/20 bg-indigo-950/30 backdrop-blur-xl shadow-2xl overflow-visible relative">
       {/* Ambient Glow */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-12 translate-x-12 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-4 translate-x-4 pointer-events-none" />
 
-      <div className="p-5 flex-1 flex flex-col space-y-6 relative z-10">
+      <div className="p-4 flex flex-col space-y-4 relative z-10">
 
         {/* Header: Overview */}
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-2">
-              Trading Account
+          <div className="flex justify-between items-center mb-1.5">
+            <div className="text-[10px] text-indigo-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
+              Orderbook Account
               <button
                 onClick={handleRefresh}
                 className="text-slate-600 hover:text-indigo-400 transition-colors"
                 title="Refresh Balance"
               >
-                <RefreshCw size={12} />
+                <RefreshCw size={10} />
               </button>
             </div>
-            <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1" title="Wallet USDC Balance">
-              <Wallet size={10} className="text-slate-600" />
+            <div className="text-[9px] text-slate-500 font-medium flex items-center gap-1" title="Wallet USDC Balance">
+              <Wallet size={9} className="text-slate-600" />
               {formatCurrency(walletAvailable)}
             </div>
           </div>
 
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
             {/* Total Balance Big Number */}
-            <div className="text-4xl font-bold text-white font-mono tracking-tighter drop-shadow-lg">
+            <div className="text-3xl font-bold text-white font-mono tracking-tighter drop-shadow-lg leading-none">
               {formatCurrency(totalAccountValue)}
             </div>
 
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setIsWithdrawOpen(true)}
-                disabled={isPending}
-                className="group h-9 text-xs font-semibold border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 shadow-lg shadow-black/20"
-              >
-                <ArrowUpRight size={14} className="mr-1.5 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Withdraw
-              </Button>
+            {/* Action Buttons Grid */}
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setIsWithdrawOpen(true)}
+                  className="group py-2 text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
+                >
+                  <ArrowUpRight size={12} className="mr-1 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Withdraw
+                </Button>
 
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => setIsDepositOpen(true)}
-                disabled={isPending}
-                className="group h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 border-none shadow-lg shadow-indigo-900/20"
-              >
-                <ArrowDownLeft size={14} className="mr-1.5 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Deposit
-              </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsDepositOpen(true)}
+                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white"
+                >
+                  <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Deposit
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Detailed Breakdown */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
 
           {/* Liquid Cash */}
-          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 backdrop-blur-md">
-            <div className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
-              <Coins size={10} /> Liquid
+          <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 backdrop-blur-md">
+            <div className="text-[9px] text-emerald-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+              <Coins size={9} /> Liquid
             </div>
-            <div className="text-lg font-mono font-bold text-emerald-400 leading-none">
+            <div className="text-base font-mono font-bold text-emerald-400 leading-none">
               {formatCurrency(available)}
             </div>
-            <div className="text-[10px] text-emerald-500/40 mt-1 font-medium">Available to Withdraw</div>
           </div>
 
-          {/* Reserved (Open Orders) */}
-          <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 backdrop-blur-md">
-            <div className="text-[10px] text-amber-400/60 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
-              <Lock size={10} /> In Orders
+          {/* Reserved (Collateral) */}
+          <div 
+            className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10 backdrop-blur-md"
+            title="On-chain reserved collateral for open orders or short positions. May differ from visible orders if orders were placed in a previous session."
+          >
+            <div className="text-[9px] text-amber-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+              <Lock size={9} /> Reserved
             </div>
-            <div className="text-lg font-mono font-bold text-amber-400 leading-none">
+            <div className="text-base font-mono font-bold text-amber-400 leading-none">
               {formatCurrency(reserved)}
             </div>
-            <div className="text-[10px] text-amber-500/40 mt-1 font-medium">Reserved Collateral</div>
           </div>
-
-          {/* V4.6 Locked Proceeds (Lock-on-Sell) */}
-          {locked > 0n && (
-            <div className="col-span-2 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 flex justify-between items-center relative overflow-hidden group">
-              {/* Background Glow */}
-              <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-              <div className="relative z-10">
-                <div className="text-[10px] text-rose-400/80 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
-                  🔒 Locked Proceeds
-                </div>
-                <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
-                  {hasClaimable ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <Coins size={10} /> Ready to Claim
-                    </span>
-                  ) : (
-                    <span className="text-rose-400/60 flex items-center gap-1">
-                      <Clock size={10} /> Unlocks in {timeRemaining}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 relative z-10">
-                <div className="text-lg font-mono font-bold text-white/90 leading-none">
-                  {lockedFormatted}
-                </div>
-                <button
-                  onClick={() => setIsClaimOpen(true)}
-                  className={cn("px-3 py-1.5 text-xs font-bold rounded-lg transition-all border hover:scale-[1.02] active:scale-95 group",
-                    hasClaimable
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50"
-                      : "bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700 hover:text-white"
-                  )}
-                >
-                  {hasClaimable ? 'Claim' : 'Manage'}
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Position Value */}
-          <div className="col-span-2 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-md flex justify-between items-center">
-            <div>
-              <div className="text-[10px] text-indigo-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
-                <TrendingUp size={10} /> Active Positions
-              </div>
-              <div className="text-[10px] text-indigo-400/40 font-medium">Market Exposure</div>
+          <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-md flex justify-between items-center">
+            <div className="text-[9px] text-indigo-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
+              <TrendingUp size={9} /> Vault Positions
             </div>
-            <div className="text-lg font-mono font-bold text-indigo-400 leading-none">
-              {formatCurrency(totalPositionValue)}
+            <div className="text-base font-mono font-bold text-indigo-400 leading-none">
+              {formatCurrency(vaultValue)}
             </div>
           </div>
-        </div>
 
-        {/* Footer: Protocol Hover */}
-        <div className="mt-auto pt-4 border-t border-slate-800/30 flex items-center justify-between">
-          {/* Protocol Contracts Hover */}
-          <div className="group relative">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 cursor-help hover:text-slate-300 transition-colors flex items-center gap-1">
-              Contracts <ExternalLink size={8} />
-            </span>
-
-            {/* Tooltip Content */}
-            <div className="absolute bottom-full left-0 mb-2 w-56 p-3 rounded-lg bg-slate-950 border border-slate-800 shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto overflow-hidden z-50">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-400 font-medium">Vault (V4)</span>
-                  <button onClick={() => copyToClipboard(traderVaultAddress!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
-                    <span className="font-mono">{traderVaultAddress?.slice(0, 6)}...</span>
-                    <Copy size={10} />
-                  </button>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-400 font-medium">Governor</span>
-                  <button onClick={() => copyToClipboard(deployments.SoothLiquidityVault!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
-                    <span className="font-mono">{deployments.SoothLiquidityVault?.slice(0, 6)}...</span>
-                    <Copy size={10} />
-                  </button>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-400 font-medium">Fee Controller</span>
-                  <button onClick={() => copyToClipboard(deployments.SoothFeeController!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
-                    <span className="font-mono">{deployments.SoothFeeController?.slice(0, 6)}...</span>
-                    <Copy size={10} />
-                  </button>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-400 font-medium">USDC Token</span>
-                  <button onClick={() => copyToClipboard(deployments.MockUSDC!)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1" title="Copy Address">
-                    <span className="font-mono">{deployments.MockUSDC?.slice(0, 6)}...</span>
-                    <Copy size={10} />
-                  </button>
-                </div>
-              </div>
+          {/* Token Value */}
+          <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 backdrop-blur-md flex justify-between items-center">
+            <div className="text-[9px] text-indigo-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
+              <Coins size={9} /> OB Tokens
+            </div>
+            <div className="text-base font-mono font-bold text-indigo-400 leading-none">
+              {formatCurrency(walletValue)}
             </div>
           </div>
         </div>
@@ -290,20 +205,20 @@ export const TradingAccountCard: React.FC = () => {
           <div className="relative">
             <Input
               placeholder="Amount to withdraw"
-              value={withdrawAmount}
+              value={typeof withdrawAmount === 'bigint' ? formatUnits(withdrawAmount, DISPLAY_DECIMALS) : withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
               type="number"
             />
             <button
-              onClick={() => setWithdrawAmount(available.toString())}
+              onClick={() => setWithdrawAmount(availableBalance)}
               className="absolute right-2 top-2 px-2 py-1 bg-slate-800 text-xs text-emerald-400 rounded hover:bg-slate-700 font-bold"
             >
               MAX
             </button>
           </div>
           <div className="text-xs text-slate-500 text-right">Available to withdraw: {formatCurrency(available)}</div>
-          <Button onClick={onWithdraw} disabled={isPending || !withdrawAmount} className="w-full">
-            {isPending ? 'Processing...' : 'Confirm Withdraw'}
+          <Button onClick={() => withdraw(withdrawAmount)} className="w-full py-2 text-sm font-bold">
+            Confirm Withdraw
           </Button>
         </div>
       </Dialog>
@@ -313,12 +228,12 @@ export const TradingAccountCard: React.FC = () => {
           <div className="relative">
             <Input
               placeholder="Amount to deposit"
-              value={depositAmount}
+              value={typeof depositAmount === 'bigint' ? formatUnits(depositAmount, DISPLAY_DECIMALS) : depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
               type="number"
             />
             <button
-              onClick={() => setDepositAmount(walletAvailable.toString())}
+              onClick={() => setDepositAmount(userUsdcBalance || 0n)}
               className="absolute right-2 top-2 px-2 py-1 bg-slate-800 text-xs text-indigo-400 rounded hover:bg-slate-700 font-bold transition-colors"
             >
               MAX
@@ -326,55 +241,11 @@ export const TradingAccountCard: React.FC = () => {
           </div>
           <div className="text-xs text-slate-500 text-right">Available to deposit: {formatCurrency(walletAvailable)}</div>
 
-
-
-
-          <Button onClick={onDeposit} disabled={isPending || isApproving || !depositAmount} className="w-full">
-            {isPending || isApproving ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
+          <Button onClick={() => deposit(depositAmount)} disabled={isApproving || !depositAmount} className="w-full py-2 text-sm font-bold">
+            {isApproving ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
           </Button>
-        </div>
-      </Dialog>
-
-      <Dialog isOpen={isClaimOpen} onClose={() => setIsClaimOpen(false)} title="Locked Proceeds">
-        <div className="space-y-4 pt-4">
-          <div className="p-3 bg-slate-950/50 rounded-lg space-y-3 border border-slate-800">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Total Locked</span>
-              <span className="font-mono font-bold text-white">{lockedFormatted}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Claimable Now</span>
-              <span className="font-mono font-bold text-emerald-400">{claimableFormatted}</span>
-            </div>
-
-            <div className="h-px bg-slate-800 my-2" />
-
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Next Unlock</span>
-              <div className="text-right">
-                <div className="font-mono font-bold text-amber-400">{nextUnlockFormatted}</div>
-                <div className="text-[10px] text-slate-500 font-mono">in {timeRemaining}</div>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            onClick={async () => {
-              await claim();
-              setIsClaimOpen(false);
-            }}
-            disabled={!hasClaimable || isClaiming}
-            className={cn("w-full font-bold", hasClaimable ? "bg-emerald-600 hover:bg-emerald-500" : "bg-slate-700 text-slate-400")}
-          >
-            {isClaiming ? 'Claiming...' : (hasClaimable ? `Claim ${claimableFormatted}` : `Locked (${timeRemaining})`)}
-          </Button>
-
-          <p className="text-[10px] text-center text-slate-500">
-            Proceeds from AMM sells are locked for 24 hours to prevent manipulation.
-          </p>
         </div>
       </Dialog>
     </Card>
   );
 };
-

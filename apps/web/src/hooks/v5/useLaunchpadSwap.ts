@@ -3,6 +3,8 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadCont
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
 import { useChainStore } from '../../store/useChainStore';
+import { useActivityStore } from '../../store/useActivityStore';
+import marketsConfig from '../../config/markets.json';
 import toast from 'react-hot-toast';
 
 /**
@@ -173,6 +175,36 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             if (receipt.status === 'success') {
                 const action = isBuy ? 'Bought' : 'Sold';
                 toast.success(`${action} ${absShares} ${outcome === 0 ? 'YES' : 'NO'} shares!`, { id: toastId });
+                
+                // Add to Activity Log
+                const marketConfig = marketsConfig.markets.find(m =>
+                    m.contractAddress?.toLowerCase() === marketAddress?.toLowerCase()
+                );
+                const marketName = marketConfig?.name || 'Launchpad Market';
+
+                useActivityStore.getState().addActivity({
+                    type: 'trade',
+                    market: marketName,
+                    description: `${action} ${parseFloat(absShares).toFixed(2)} ${outcome === 0 ? 'YES' : 'NO'} shares`,
+                    hash: hash,
+                    mode: 'real',
+                    timestamp: Date.now(),
+                    chainId: Number(selectedChainId),
+                });
+
+                // If it was a sell, add a lock activity too
+                if (!isBuy) {
+                    useActivityStore.getState().addActivity({
+                        type: 'liquidity',
+                        market: 'Trading Vault',
+                        description: `Proceeds locked (24h): ${maxCostUsdc} USDC`,
+                        hash: hash,
+                        mode: 'real',
+                        timestamp: Date.now() + 1, // Slight offset to keep order
+                        chainId: Number(selectedChainId),
+                    });
+                }
+
                 await refetchBalance();
                 return true;
             } else {

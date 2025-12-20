@@ -30,10 +30,13 @@ message SettlementProof {
       {/* Navbar */}
       <header className="relative z-10 h-16 border-b border-slate-800/30 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/sooth-logo.svg" alt="Sooth" className="w-8 h-8" />
-            <span className="font-heading font-bold text-xl text-white tracking-widest">SOOTH</span>
-          </div>
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="relative">
+              <img src="/sooth-logo.svg" alt="Sooth" className="w-8 h-8" />
+              <div className="absolute inset-0 bg-cyan-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <span className="font-heading font-bold text-lg text-white tracking-tight">SOOTH</span>
+          </Link>
           <div className="flex items-center gap-6">
             <Link
               to="/markets"

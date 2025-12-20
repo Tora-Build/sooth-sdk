@@ -11,20 +11,17 @@ export const SOOTH_MARKET_ABI = parseAbi([
   "function winningOutcome() view returns (uint8)",
   "function feeLMSR() view returns (uint256)",
   "function governor() view returns (address)",
-  // V3 Unified Orderbook
   "function bestAsk() view returns (uint256)",
   "function bestBid() view returns (uint256)",
-  "function bestOrder(uint256 outcome) view returns (uint256)", // Compatibility shim
-  "function orders(uint256) view returns (uint256 id, address maker, uint256 yesPrice, uint256 amount, uint256 timestamp, bool isBuySide)",
-  "function nextOrder(uint256) view returns (uint256)",
-  // Events
+  "function bestOrder(uint256 outcome) view returns (uint256)",
+  "function orders(uint256 id) view returns (uint256 orderId, address maker, uint256 yesPrice, uint256 amount, uint256 timestamp, bool isBuySide)",
+  "function nextOrder(uint256 id) view returns (uint256)",
   "event OrderCreated(uint256 indexed orderId, address indexed maker, uint8 outcome, uint256 price, uint256 amount)",
   "event OrderMatched(uint256 indexed buyOrderId, uint256 indexed sellOrderId, uint256 amount, uint256 yesPrice)",
   "event OrderCancelled(uint256 indexed orderId)",
   "event BBaseIncrease(uint256 amount, uint256 newBBase)",
 ]);
 
-// V3: TraderVaultV3 for user fund management
 export const TRADER_VAULT_V3_ABI = parseAbi([
   "function deposit(uint256 amount)",
   "function withdraw(uint256 amount)",
@@ -53,22 +50,19 @@ export const TRADER_VAULT_V3_ABI = parseAbi([
   "event UnlockClaimed(address indexed user, uint256 amount)",
 ]);
 
-// DEPRECATED: V2 TraderVault (kept for reference)
 export const SOOTH_TRADER_VAULT_ABI = parseAbi([
   "function deposit(uint256 amount) returns (uint256)",
   "function withdraw(uint256 amount) returns (uint256)",
-  "function freeBalance(address) view returns (uint256)",
-  "function lockedBalance(address) view returns (uint256)",
+  "function freeBalance(address user) view returns (uint256)",
+  "function lockedBalance(address user) view returns (uint256)",
   "function asset() view returns (address)",
 ]);
 
-// RENAMED: SoothVault -> SoothLiquidityVault (global vault for TraderVault's locked proceeds)
-// Note: ABI name kept as SOOTH_GOVERNOR_VAULT_ABI for backward compatibility, but contract is now SoothLiquidityVault
 export const SOOTH_GOVERNOR_VAULT_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
+  "function balanceOf(address user) view returns (uint256)",
   "function totalLockedExposure() view returns (uint256)",
   "function lockedExposure(uint256 marketId) view returns (uint256)",
   "function marketReserves(uint256 marketId) view returns (int256)",
@@ -85,10 +79,8 @@ export const SOOTH_GOVERNOR_VAULT_ABI = parseAbi([
   "event VaultConfigSet(uint256 bBase, uint256 feeBps, uint256 reserveFactorBps)",
 ]);
 
-// DEPRECATED: Keep for backward compatibility
 export const SOOTH_VAULT_ABI = SOOTH_GOVERNOR_VAULT_ABI;
 
-// NEW: SoothFeeController for fee settings
 export const SOOTH_FEE_CONTROLLER_ABI = parseAbi([
   "function orderbookFee() view returns (uint256)",
   "function lpSplitBps() view returns (uint256)",
@@ -96,9 +88,9 @@ export const SOOTH_FEE_CONTROLLER_ABI = parseAbi([
 ]);
 
 export const SOOTH_SETTLEMENT_ABI = parseAbi([
-  "function results(uint256) view returns (bool exists, bool settled, bytes32 adjudicatorId, uint64 truthTime, uint8 winningOutcome)",
-  "function settlementRoots(bytes32) view returns (bytes32)",
-  "function claimed(bytes32, address) view returns (bool)",
+  "function results(uint256 marketId) view returns (bool exists, bool settled, bytes32 adjudicatorId, uint64 truthTime, uint8 winningOutcome)",
+  "function settlementRoots(bytes32 batchId) view returns (bytes32)",
+  "function claimed(bytes32 batchId, address user) view returns (bool)",
   "function storeResult(uint256 marketId, bytes32 adjudicatorId, uint8 winningOutcome, uint64 truthTime)",
   "function storeSettlementRoot(uint256 marketId, bytes32 batchId, bytes32 root, bytes proofMeta)",
   "function claimSettlement(uint256 marketId, bytes32 batchId, int256 pnlDelta, bytes32[] merkleProof)",
@@ -112,14 +104,13 @@ export const SOOTH_BALANCED_AMM_ABI = parseAbi([
   "function costDelta((int256 qYes, int256 qNo) s, uint8 outcomeIndex, int256 deltaShares, uint256 b) pure returns (int256 cost, (int256 qYes, int256 qNo) newState)",
 ]);
 
-// DEPRECATED: RiskManager removed in v2
 export const SOOTH_RISK_MANAGER_ABI = parseAbi([
   "function getBForMarket(uint256 marketId) view returns (uint256 b)",
   "function reserveMultiplierBps() view returns (uint256)",
 ]);
 
 export const ERC20_ABI = parseAbi([
-  "function balanceOf(address) view returns (uint256)",
+  "function balanceOf(address owner) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
   "function decimals() view returns (uint8)",
@@ -130,53 +121,50 @@ export const MOCK_ERC20_ABI = parseAbi([
   "function _mint(address to, uint256 amount)",
 ]);
 
-// V4.6: TraderVaultV4 with dual-venue trading + Lock-on-Sell
 export const TRADER_VAULT_V4_ABI = parseAbi([
   "function deposit(uint256 amount)",
   "function withdraw(uint256 amount)",
   "function accounts(address user) view returns (uint256 available, uint256 pending)",
   "function shareBalances(address user, address market, uint8 outcome) view returns (uint256)",
-  // V4.6: ammPositions now returns only 2 fields (Lock-on-Sell - no unlockTime)
   "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares)",
   "function tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)",
   "function depositShares(address market, uint8 outcome, uint256 amount)",
   "function withdrawShares(address market, uint8 outcome, uint256 amount)",
+  "function splitAndDeposit(address market, uint256 amount)",
+  "function mergeFromVault(address market, uint256 amount)",
   "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount, bool isBuy) returns (uint256)",
   "function placeSpotOrder(address market, uint8 outcome, uint256 price, uint256 amount) returns (uint256)",
   "function executeHybridSell(address market, uint8 outcome, uint256 price, uint256 totalAmount)",
   "function cancelOrder(address market, uint256 orderId)",
   "function cancelSpotOrder(address market, uint256 orderId)",
-  "function onOrderMatched(uint256 orderId, uint256 matchedAmount)",
+  "function onOrderMatched(uint256 orderId, uint256 matchedAmount, uint256 matchedValue)",
   "function claimUnlocked() returns (uint256)",
-  "function claimUnlocked(address vault) returns (uint256)", // V6: Overload for Launchpad markets (market is vault)
+  "function claimUnlocked(address vault) returns (uint256)",
   "function redeem(address market)",
   "function collateralToken() view returns (address)",
   "function asset() view returns (address)",
   "function isMarket(address market) view returns (bool)",
   "function orderOwners(uint256 orderId) view returns (address)",
-  // V4.6 Lock-on-Sell additions
   "function lockedBalance(address user) view returns (uint256)",
   "function claimableBalance(address user) view returns (uint256)",
   "function availableBalance(address user) view returns (uint256)",
   "function pendingBalance(address user) view returns (uint256)",
   "function totalBalance(address user) view returns (uint256)",
   "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
+  "function getLockEntries(address user) view returns (uint256[] amounts, uint64[] unlockTimes)",
 ]);
 
-// V4.6: LiquidityVault (ERC4626 + Lock-on-Sell) - Renamed from GovernorVault
-// Note: ABI name kept as GOVERNOR_VAULT_V4_ABI for backward compatibility, but contract is now SoothLiquidityVault
 export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
+  "function balanceOf(address user) view returns (uint256)",
   "function totalLockedExposure() view returns (uint256)",
   "function totalLockedProceeds() view returns (uint256)",
   "function convertToShares(uint256 assets) view returns (uint256)",
   "function convertToAssets(uint256 shares) view returns (uint256)",
   "function deposit(uint256 assets, address receiver) returns (uint256)",
   "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
-  // V4.6 Lock-on-Sell additions
   "function lockedBalance(address user) view returns (uint256)",
   "function claimableBalance(address user) view returns (uint256)",
   "event Deposit(address indexed user, address indexed receiver, uint256 assets, uint256 shares)",
@@ -186,7 +174,6 @@ export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "event Claimed(address indexed user, uint256 amount)",
 ]);
 
-// V4: MarketV4 with continuous LMSR (qYes/qNo)
 export const MARKET_V4_ABI = parseAbi([
   "function qYes() view returns (int256)",
   "function qNo() view returns (int256)",
@@ -205,22 +192,20 @@ export const MARKET_V4_ABI = parseAbi([
   "function nextOrder(uint256 id) view returns (uint256)",
   "function outcomeToken() view returns (address)",
   "function merge(uint256 amount) returns (uint256 proceeds)",
+  "function split(uint256 amount)",
 ]);
 
-// V6: Launchpad Factory (immutable with ProtocolConfig)
 export const LAUNCHPAD_FACTORY_ABI = parseAbi([
   "function createMarket(string name, string symbol, string description, uint8 liquidityTierIndex, bool isOpenEnd, uint40 durationSeconds) returns (address market, address lpVault)",
-  "function tierDeposits(uint256) view returns (uint256)",
-  "function tierBValues(uint256) view returns (uint256)",
+  "function tierDeposits(uint256 tier) view returns (uint256)",
+  "function tierBValues(uint256 tier) view returns (uint256)",
   "function usdc() view returns (address)",
   "function getAllMarkets() view returns (address[])",
-  "function protocolConfig() view returns (address)", // V6: ProtocolConfig reference
+  "function protocolConfig() view returns (address)",
   "event MarketCreated(address indexed market, address indexed creator, address indexed lpVault, string name, string symbol, uint256 liquidityTier, uint256 depositAmount)",
 ]);
 
-// V6: Launchpad Market (inherits MarketV4, implements ISoothLiquidityVault, ERC20)
 export const LAUNCHPAD_MARKET_ABI = parseAbi([
-  // Inherits V4 functions...
   "function qYes() view returns (int256)",
   "function qNo() view returns (int256)",
   "function b() view returns (uint256)",
@@ -233,77 +218,75 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function noBalance(address user) view returns (uint256)",
   "function outcomeToken() view returns (address)",
   "function merge(uint256 amount) returns (uint256 proceeds)",
-  // Launchpad specifics
+  "function split(uint256 amount)",
   "function isGraduated() view returns (bool)",
   "function graduationThreshold() view returns (uint256)",
   "function deadline() view returns (uint40)",
   "function creator() view returns (address)",
   "function factory() view returns (address)",
-  "function lpVault() view returns (address)", // V6: Returns address(0)
+  "function lpVault() view returns (address)",
   "function feesAccrued() view returns (uint256)",
   "function totalCreatorDeposit() view returns (uint256)",
-  // V6: Pre-graduation locking
+  "function lockedBalance(address user) view returns (uint256)",
+  "function claimableBalance(address user) view returns (uint256)",
+  "function getLockEntries(address user) view returns (uint256[] amounts, uint64[] unlockTimes)",
+  "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
   "function lockedProceeds(address user) view returns (uint256)",
   "function totalLockedProceeds() view returns (uint256)",
   "function useLockedProceeds(address user, uint256 amount)",
   "function claimUnlocked(address user, address recipient) returns (uint256)",
-  // V6: ISoothLiquidityVault (market is its own vault)
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function totalNetAssets() view returns (uint256)",
   "function reserve() view returns (int256)",
-  // V6: ERC20 LP Token (market IS the LP token)
   "function totalSupply() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
-  // Actions
+  "function balanceOf(address account) view returns (uint256)",
   "function graduate()",
   "function expire()",
   "function claimCreatorRefund()",
-  // V6: Guardian actions
   "function liquidate()",
   "function forceGraduate()",
   "function isLiquidated() view returns (bool)",
-  // V6: Liquidation refunds
   "function claimLiquidationRefund(address user)",
-  // V6: LP token redemption
   "function redeemLP(uint256 amount)",
   "function previewRedeemLP(uint256 amount) view returns (uint256)",
-  // V6.1: Direct swap (bypass TraderVault)
   "function swap(uint8 outcome, int256 deltaShares, int256 maxCost) returns (int256 cost, uint256 fee)",
   "function claimUnlocked() returns (uint256 claimed)",
-  // Events
   "event MarketGraduated(uint256 totalFeesAccrued, uint256 graduationTimestamp)",
   "event MarketExpired(uint256 feesRefunded, uint256 creatorDepositRefunded)",
   "event CreatorRefunded(address indexed creator, uint256 amount)",
-  "event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount)", // V6
-  "event LiquidationRefundClaimed(address indexed user, uint256 amount)", // V6
-  "event LpTokensRedeemed(address indexed from, uint256 amount, uint256 assets)", // V6
-  "event Locked(address indexed user, uint256 amount, uint64 unlockTime)", // V6
-  "event Unlocked(address indexed user, uint256 amount)", // V6
-  "event Claimed(address indexed user, uint256 amount)", // V6
+  "event MarketLiquidated(uint256 liquidationFee, uint256 refundAmount)",
+  "event LiquidationRefundClaimed(address indexed user, uint256 amount)",
+  "event LpTokensRedeemed(address indexed from, uint256 amount, uint256 assets)",
+  "event Locked(address indexed user, uint256 amount, uint64 unlockTime)",
+  "event Unlocked(address indexed user, uint256 amount)",
+  "event Claimed(address indexed user, uint256 amount)",
+  "event TradeAMM(address indexed user, uint8 outcome, int256 deltaShares, int256 cost, uint256 fee)",
 ]);
 
-// V5: Market LP Vault (Per-market Governor) - DEPRECATED in V6 (market is its own vault)
 export const MARKET_LP_VAULT_ABI = parseAbi([
   "function totalAssets() view returns (uint256)",
   "function market() view returns (address)",
   "function asset() view returns (address)",
 ]);
 
-// V6: LaunchpadOutcomeToken (ERC1155 - has name/symbol as public state variables)
 export const LAUNCHPAD_OUTCOME_TOKEN_ABI = parseAbi([
   "function name() view returns (string)",
   "function symbol() view returns (string)",
   "function market() view returns (address)",
-  // ERC1155 balanceOf (id: 0 = YES, 1 = NO)
   "function balanceOf(address account, uint256 id) view returns (uint256)",
+  "function merge(uint256 amount)",
+  "function split(uint256 amount)",
+  "function yesBalance(address user) view returns (uint256)",
+  "function noBalance(address user) view returns (uint256)",
+  // ERC1155 approval
+  "function isApprovedForAll(address account, address operator) view returns (bool)",
+  "function setApprovalForAll(address operator, bool approved)",
 ]);
 
-// V6: ProtocolConfig (mutable protocol parameters)
 export const PROTOCOL_CONFIG_ABI = parseAbi([
   "function liquidationFeeBps() view returns (uint256)",
   "function guardian() view returns (address)",
-  "function setLiquidationFeeBps(uint256)",
-  "function setGuardian(address)",
+  "function setLiquidationFeeBps(uint256 bps)",
+  "function setGuardian(address guardian)",
 ]);
-

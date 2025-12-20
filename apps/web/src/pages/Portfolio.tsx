@@ -1,28 +1,16 @@
-import { Wallet, TrendingUp, Clock, Coins } from 'lucide-react';
+import { Wallet, History, ShieldCheck } from 'lucide-react';
 import { TradingAccountCard } from '../components/features/portfolio/TradingAccountCard';
-import { ActivePositionsCard } from '../components/features/portfolio/ActivePositionsCard';
+import { WalletSummaryCard } from '../components/features/portfolio/WalletSummaryCard';
 import { LPPositionsCard } from '../components/features/portfolio/LPPositionsCard';
+import { VaultPositionsCard } from '../components/features/portfolio/VaultPositionsCard';
+// OrderbookTokensCard removed - wallet ERC1155 tokens ignored for now (OB uses Trading Account)
+import { ActiveOrdersCard } from '../components/features/portfolio/ActiveOrdersCard';
 import { PendingUnlocks } from '../components/features/trader/PendingUnlocks';
-import { Card } from '../components/ui/Card';
+import { ActivityLog } from '../components/features/ActivityLog';
 import { useAccount } from 'wagmi';
-import { useTraderVault } from '../hooks/useTraderVault';
-import { useLockedFunds } from '../hooks/useLockedFunds';
-import { useLPPositions } from '../hooks/useLPPositions';
-import { formatCurrency } from '../utils/format';
-import { formatUnits } from 'viem';
 
 export const Portfolio = () => {
   const { isConnected } = useAccount();
-  const { totalBalance } = useTraderVault();
-  const { locked, lockedFormatted, isLoading } = useLockedFunds();
-  const { totalLPValue, totalLPValueFormatted, isLoading: lpLoading } = useLPPositions();
-
-  // Format total value from bigint (USDC has 6 decimals)
-  const USDC_DECIMALS = 6;
-  const totalValueNum = Number(formatUnits(totalBalance || 0n, USDC_DECIMALS));
-  const lpValueNum = parseFloat(totalLPValueFormatted);
-  const combinedTotalValue = totalValueNum + lpValueNum;
-  const totalValueFormatted = formatCurrency(combinedTotalValue);
 
   if (!isConnected) {
     return (
@@ -39,104 +27,90 @@ export const Portfolio = () => {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Portfolio</h1>
-          <p className="text-slate-400 text-sm">Manage your positions and funds</p>
+    <div className="space-y-12 pb-24 max-w-6xl mx-auto pt-8 px-4">
+      {/* Domain Split Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+        
+        {/* Domain A: Orderbook Account (Custodial) */}
+        <div className="flex flex-col gap-6 animate-fade-in-up">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                <ShieldCheck size={16} className="text-indigo-400" />
+            </div>
+            <div>
+                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Orderbook Account</h2>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">Custodial Vault</p>
+                  <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
+                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">Isolated Margin</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">System Online</span>
+            </div>
+          </div>
+          
+          <div className="space-y-5">
+            <TradingAccountCard />
+            <VaultPositionsCard />
+            <ActiveOrdersCard />
+          </div>
+            </div>
+
+        {/* Domain B: Wallet & AMM (Direct) */}
+        <div className="flex flex-col gap-6 animate-fade-in-up stagger-1">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+                <Wallet size={16} className="text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Wallet & AMM</h2>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">Direct Ownership</p>
+                  <span className="w-1 h-1 rounded-full bg-emerald-500/30" />
+                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">LP Provisioning</p>
+            </div>
+          </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Mainnet Assets</span>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <WalletSummaryCard />
+            <LPPositionsCard />
+            <PendingUnlocks />
+          </div>
         </div>
+
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6 border-cyan-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-              <Wallet className="w-6 h-6 text-cyan-400" />
+      {/* Global History */}
+      <div className="pt-12 mt-8 border-t border-slate-800/50 animate-fade-in-up stagger-2">
+        <div className="flex items-center justify-between px-1 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/50">
+              <History size={16} className="text-slate-400" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-white tabular-nums">
-                {isLoading || lpLoading ? '--' : totalValueFormatted}
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Total Value</div>
+              <h2 className="font-black text-slate-200 uppercase tracking-[0.25em] text-[11px] leading-none">Activity History</h2>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1.5">Global Transaction & Trade Log</p>
             </div>
           </div>
-        </Card>
-
-        <Card className="p-6 border-purple-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
-              <Coins className="w-6 h-6 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-400 tabular-nums">
-                {lpLoading ? '--' : formatCurrency(lpValueNum)}
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">LP Holdings</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-emerald-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-              <TrendingUp className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-500 tabular-nums flex items-center gap-2">
-                --
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Unrealized P&L</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-amber-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-              <Clock className="w-6 h-6 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white tabular-nums">
-                {isLoading ? '--' : lockedFormatted}
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Pending Unlock</div>
-            </div>
-          </div>
-        </Card>
+          <div className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">
+            Last 50 Events
       </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2">
-          <TradingAccountCard />
         </div>
-        <div className="lg:col-span-3">
-          <ActivePositionsCard />
+        <div className="max-w-4xl mx-auto">
+          <ActivityLog />
         </div>
       </div>
-
-      {/* LP Positions */}
-      <LPPositionsCard />
-
-      {/* Pending Unlocks */}
-      <Card className="p-6">
-        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-amber-400" />
-          Pending Unlocks
-        </h3>
-        <PendingUnlocks />
-      </Card>
-
-      {/* Activity */}
-      <Card className="p-6">
-        <h3 className="font-bold text-white mb-4">Recent Activity</h3>
-        <div className="text-center py-12 text-slate-500 font-mono text-sm">
-          // activity_log.fetch()
-        </div>
-      </Card>
     </div>
   );
 };
-

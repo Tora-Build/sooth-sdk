@@ -311,8 +311,19 @@
   - **Stability**: Eliminates `ContractFunctionExecutionError: returned no data ("0x")` during chain switching.
   - **Performance**: Reduces IP rate limiting by stopping invalid cross-chain RPC spam.
   - **Flexibility**: Users can browse and quote markets on Chain A while their wallet is still connected to Chain B.
+
+## ADR-021: Portfolio Domain Separation
+- **Date**: 2025-12-20
+- **Status**: Accepted
+- **Context**: The previous Portfolio page mixed custodial (TraderVault) and direct (Wallet) positions, creating confusion about where funds were held and which actions were required for settlement.
+- **Decision**: Explicitly split the Portfolio into two logical and visual domains:
+  - **Domain A (Trading Account)**: Indigo-themed. Handles Custodial Vault balances, Trading Positions, and Orderbook Limit Orders.
+  - **Domain B (Wallet Portfolio)**: Emerald-themed. Handles Direct On-chain tokens (ERC1155), LP positions, and Pending Unlocks.
+- **Visual Implementation**:
+  - Use `indigo-950/20` and `emerald-950/20` background tints for the columns.
+  - Standardized `PortfolioCard` component with `variant` prop to enforce color consistency.
+  - User-friendly renaming of technical terms to improve accessibility for non-power users.
 - **Consequences**:
-  - **Consistency**: Unified dapp, social, and mediakit branding.
-  - **Clarity**: Explains the "Retroactive Finality" architecture through visual layers.
-  - **Maintenance**: All Prism-based and Helix-based variants deprecated to prevent brand drift.
-  - **Media Kit**: Established a `/mediakit` folder as the source of truth for all ecosystem assets.
+  - **Clarity**: Users immediately understand the custody status of their assets based on position and color.
+  - **Scalability**: New position types (e.g. Social, Options) can be categorized into existing domains.
+  - **UX**: Unified card behavior (folding, loading states) provides a more professional, "Command Center" feel.

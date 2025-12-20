@@ -1,123 +1,77 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Coins, ExternalLink, TrendingUp, Percent } from 'lucide-react';
-import { Card } from '../../ui/Card';
-import { Badge } from '../../ui/Badge';
+import { Coins, ExternalLink, Sparkles } from 'lucide-react';
 import { useLPPositions } from '../../../hooks/useLPPositions';
 import { formatCurrency } from '../../../utils/format';
+import { PortfolioCard } from './PortfolioCard';
 
 export const LPPositionsCard: React.FC = () => {
-    const { positions, totalLPValue, totalLPValueFormatted, isLoading } = useLPPositions();
-
-    const totalValueNum = parseFloat(totalLPValueFormatted);
-
-    if (isLoading) {
-        return (
-            <Card className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Coins className="w-5 h-5 text-purple-400" />
-                    <h3 className="font-bold text-white">LP Positions</h3>
-                </div>
-                <div className="animate-pulse space-y-3">
-                    <div className="h-12 bg-slate-800 rounded-lg" />
-                    <div className="h-12 bg-slate-800 rounded-lg" />
-                </div>
-            </Card>
-        );
-    }
-
-    if (positions.length === 0) {
-        return (
-            <Card className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Coins className="w-5 h-5 text-purple-400" />
-                    <h3 className="font-bold text-white">LP Positions</h3>
-                </div>
-                <div className="text-center py-8">
-                    <Coins className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400 text-sm">No LP positions yet</p>
-                    <p className="text-slate-500 text-xs mt-1">
-                        Trade on Launchpad markets to earn LP tokens
-                    </p>
-                </div>
-            </Card>
-        );
-    }
+    const { positions, totalLPValueFormatted, isLoading } = useLPPositions();
+    const totalValueNum = parseFloat(totalLPValueFormatted || '0');
 
     return (
-        <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <Coins className="w-5 h-5 text-purple-400" />
-                    <h3 className="font-bold text-white">LP Positions</h3>
+        <PortfolioCard
+            title="LP Positions"
+            icon={<Coins size={16} className="text-emerald-400" />}
+            variant="emerald"
+            badge={
+                <div className="text-xs font-black text-emerald-400 font-mono">
+                    {isLoading && positions.length === 0 ? '--' : formatCurrency(totalValueNum)}
                 </div>
-                <div className="text-right">
-                    <div className="text-lg font-bold text-purple-400">
-                        {formatCurrency(totalValueNum)}
-                    </div>
-                    <div className="text-xs text-slate-500">Total LP Value</div>
+            }
+            itemCount={positions.length}
+            isLoading={isLoading && positions.length === 0}
+            emptyState={
+                <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
+                    <Sparkles size={24} className="text-slate-600 mb-1" />
+                    <p className="text-[10px] font-mono">// no_lp_positions</p>
                 </div>
-            </div>
-
-            <div className="space-y-3">
+            }
+        >
                 {positions.map((position) => (
                     <Link
                         key={position.marketAddress}
                         to={`/market/${position.marketAddress}`}
-                        className="block p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-purple-500/30 transition-all group hover:scale-[1.01] active:scale-[0.99]"
+                    className="block p-2.5 rounded-lg bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/40 transition-all group"
                     >
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-white group-hover:text-purple-300 transition-colors">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-[11px] text-white group-hover:text-emerald-300 transition-colors truncate">
                                     {position.marketName}
                                 </span>
-                                <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                            <ExternalLink size={8} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 shrink-0">
                                 {position.isGraduated ? (
-                                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-xs">
-                                        Graduated
-                                    </Badge>
+                                <div className="text-[7px] px-1 py-0 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase">Grad</div>
                                 ) : (
-                                    <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50 text-xs">
-                                        Bonding
-                                    </Badge>
-                                )}
-                                {!position.isLive && (
-                                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/50 text-xs">
-                                        Redeemable
-                                    </Badge>
+                                <div className="text-[7px] px-1 py-0 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-black uppercase">Bond</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-3 gap-1.5 border-t border-slate-700/20 pt-1.5">
                             <div>
-                                <div className="text-slate-500 text-xs mb-0.5">LP Tokens</div>
-                                <div className="font-mono text-white">
-                                    {parseFloat(position.lpBalanceFormatted).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">LP</div>
+                            <div className="font-mono text-[9px] text-white leading-none">
+                                {parseFloat(position.lpBalanceFormatted).toFixed(2)}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
-                                    <TrendingUp className="w-3 h-3" /> Value
-                                </div>
-                                <div className="font-mono text-purple-400">
+                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">Val</div>
+                            <div className="font-mono text-[9px] text-emerald-400 font-bold leading-none">
                                     {formatCurrency(parseFloat(position.estimatedValueFormatted))}
-                                </div>
                             </div>
-                            <div>
-                                <div className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
-                                    <Percent className="w-3 h-3" /> Share
                                 </div>
-                                <div className="font-mono text-white">
-                                    {position.sharePercent.toFixed(2)}%
+                        <div className="text-right">
+                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">Own</div>
+                            <div className="font-mono text-[9px] text-white font-bold leading-none">
+                                {position.sharePercent.toFixed(1)}%
                                 </div>
                             </div>
                         </div>
                     </Link>
                 ))}
-            </div>
-        </Card>
+        </PortfolioCard>
     );
 };

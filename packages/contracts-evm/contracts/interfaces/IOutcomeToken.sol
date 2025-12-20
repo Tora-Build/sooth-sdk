@@ -43,6 +43,11 @@ interface IOutcomeToken is IERC1155 {
     /// @param amount Amount of complete sets to merge (in WAD)
     function merge(uint256 amount) external;
 
+    /// @notice Split USDC into equal amounts of YES and NO tokens
+    /// @dev Pulls USDC from sender via TraderVault, mints both tokens
+    /// @param amount Amount of complete sets to split (in WAD)
+    function split(uint256 amount) external;
+
     // ============ View Functions ============
     
     /// @notice Get YES token balance for user
@@ -57,4 +62,5 @@ interface IOutcomeToken is IERC1155 {
     // ============ Events ============
     
     event Merged(address indexed user, uint256 amount);
+    event Split(address indexed user, uint256 amount);
 }

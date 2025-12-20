@@ -54,6 +54,7 @@ interface ISoothTraderVaultV4 {
     function setOutcomeToken(address token, bool enabled) external;
     function transferShares(address market, address to, uint8 outcome, uint256 amount) external;
     function creditMergeProceeds(address user, uint256 amount) external;
+    function debitSplitProceeds(address user, uint256 amount) external;
     function isOutcomeToken(address token) external view returns (bool);
     
     /// @notice Place a Spot Sell order (uses owned shares as collateral)
@@ -77,4 +78,12 @@ interface ISoothTraderVaultV4 {
     /// @param matchedAmount The amount of shares matched
     /// @param matchedValue The total value (price * amount) of the match in WAD
     function onOrderMatched(uint256 orderId, uint256 matchedAmount, uint256 matchedValue) external;
+
+    // ============ Atomic Split/Merge (Convenience) ============
+    
+    /// @notice Split USDC into YES+NO shares, depositing directly to vault (1 tx instead of 3)
+    function splitAndDeposit(address market, uint256 amount) external;
+    
+    /// @notice Merge YES+NO shares from vault into USDC (1 tx instead of 3)
+    function mergeFromVault(address market, uint256 amount) external;
 }

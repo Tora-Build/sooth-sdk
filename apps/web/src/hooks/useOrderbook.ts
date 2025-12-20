@@ -101,16 +101,35 @@ export function useOrderbook(marketId: string) {
         const sideOrders: Order[] = [];
 
         try {
-          let currentId = await publicClient.readContract({
-            address: contractAddress as `0x${string}`,
-            abi: MARKET_V4_ABI,
-            functionName: startFn,
-          }).catch(() => 0n);
+          // Note: Order ID 0 is a valid order! Can't use 0n as sentinel.
+          // Instead, we use null to indicate "no orders" from the catch.
+          let currentIdResult: bigint | null = null;
+          try {
+            currentIdResult = await publicClient.readContract({
+              address: contractAddress as `0x${string}`,
+              abi: MARKET_V4_ABI,
+              functionName: startFn,
+            }) as bigint;
+          } catch {
+            // No orders on this side
+            return sideOrders;
+          }
 
+          // Check if there are actually orders by verifying the order exists
+          let currentId = currentIdResult;
           let depth = 0;
           const MAX_DEPTH = 20;
+          const visitedIds = new Set<string>();
 
-          while (currentId && currentId !== 0n && depth < MAX_DEPTH) {
+          while (depth < MAX_DEPTH) {
+            // Prevent infinite loops by tracking visited IDs
+            const idKey = currentId.toString();
+            if (visitedIds.has(idKey)) {
+              console.warn(`[Orderbook] Cycle detected at ID ${currentId}`);
+              break;
+            }
+            visitedIds.add(idKey);
+
             const orderData = await publicClient.readContract({
               address: contractAddress as `0x${string}`,
               abi: MARKET_V4_ABI,
@@ -118,57 +137,70 @@ export function useOrderbook(marketId: string) {
               args: [currentId]
             }).catch(() => null) as [string, number, bigint, bigint, boolean] | undefined | null;
 
-            if (orderData) {
-              // OrderV4: [maker, outcome, yesPrice, amount, isBuySide]
-              if (Array.isArray(orderData) && orderData.length >= 5) {
-                const [maker, outcome, yesPrice, amount, isBuySide] = orderData;
-
-                // Only include orders with non-zero amount
-                if (amount > 0n) {
-                  const yesPriceFormatted = formatUnits(yesPrice, 18);
-
-                  // Lookup real owner from TraderVault (market maker is always vault)
-                  let realOwner = maker;
-                  try {
-                    const owner = await publicClient.readContract({
-                      address: traderVaultAddress,
-                      abi: TRADER_VAULT_V4_ABI,
-                      functionName: 'orderOwners',
-                      args: [currentId]
-                    }) as `0x${string}`;
-                    if (owner && owner !== '0x0000000000000000000000000000000000000000') {
-                      realOwner = owner;
-                    }
-                  } catch (e) {
-                    // Fallback to maker if lookup fails
-                  }
-
-                  sideOrders.push({
-                    id: currentId.toString(),
-                    maker: realOwner,
-                    yesPrice: yesPriceFormatted,
-                    displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
-                    amount: formatUnits(amount, 18), // Normalize to 18 decimals
-                    timestamp: 0, // V4 doesn't store timestamp
-                    isBuySide,
-                    side,
-                  });
-                }
-              }
+            // If order doesn't exist or has no maker, we've reached the end
+            if (!orderData || !Array.isArray(orderData) || orderData.length < 5) {
+              break;
             }
 
+            const [maker, outcome, yesPrice, amount, isBuySide] = orderData;
+
+            // Check if this is a valid order (non-zero maker)
+            if (maker === '0x0000000000000000000000000000000000000000') {
+              break; // Empty/cancelled order slot, end of list
+            }
+
+            // Only include orders with non-zero amount
+            if (amount > 0n) {
+              const yesPriceFormatted = formatUnits(yesPrice, 18);
+
+              // Lookup real owner from TraderVault (market maker is always vault)
+              let realOwner = maker;
+              try {
+                const owner = await publicClient.readContract({
+                  address: traderVaultAddress,
+                  abi: TRADER_VAULT_V4_ABI,
+                  functionName: 'orderOwners',
+                  args: [currentId]
+                }) as `0x${string}`;
+                if (owner && owner !== '0x0000000000000000000000000000000000000000') {
+                  realOwner = owner;
+                }
+              } catch (e) {
+                // Fallback to maker if lookup fails
+              }
+
+              sideOrders.push({
+                id: currentId.toString(),
+                maker: realOwner,
+                yesPrice: yesPriceFormatted,
+                displayPrice: yesPriceFormatted, // For YES view; caller can convert for NO view
+                amount: formatUnits(amount, 18), // Normalize to 18 decimals
+                timestamp: 0, // V4 doesn't store timestamp
+                isBuySide,
+                side,
+              });
+            }
+
+            // Get next order
             const nextId = await publicClient.readContract({
               address: contractAddress as `0x${string}`,
               abi: MARKET_V4_ABI,
               functionName: 'nextOrder',
               args: [currentId]
-            }).catch(() => 0n);
+            }).catch(() => null) as bigint | null;
 
-            // Prevent infinite loop
-            if (nextId === currentId) {
-              console.warn(`[Orderbook] Infinite loop detected at ID ${currentId}`);
-              break;
+            // End of list: nextOrder returns 0 and current order was ID 0,
+            // or nextOrder returns same ID, or nextOrder fails
+            if (nextId === null) break;
+            
+            // Check for termination: if next points to a visited ID or returns 0 when we're not at ID 0
+            if (nextId === 0n && currentId !== 0n) {
+              break; // End of list (0 means no next order when current isn't 0)
             }
+            if (nextId === 0n && currentId === 0n) {
+              break; // Only one order (ID 0), and no next
+            }
+
             currentId = nextId;
             depth++;
           }

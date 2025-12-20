@@ -32,7 +32,9 @@ export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disab
     ? Math.min(100, Number((bBase * 100n) / graduationThreshold))
     : 0;
 
-  const liquidity = bBase ? Number(bBase) / 1e18 : 0;
+  // Use bParam from market object as fallback for liquidity display
+  const effectiveB = bBase || (market?.bParam ? BigInt(market.bParam.toString()) : 0n);
+  const liquidity = effectiveB ? Number(effectiveB) / 1e18 : 0;
 
   return (
     <Card className="group flex flex-col h-full p-5 hover:border-cyan-500/50 transition-all duration-300 relative overflow-hidden">
@@ -108,7 +110,7 @@ export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disab
         <AmmTradingPanel
           address={address}
           isGraduated={isGraduated}
-          bParam={bBase || 0n}
+          bParam={effectiveB}
           market={market}
         />
       </div>

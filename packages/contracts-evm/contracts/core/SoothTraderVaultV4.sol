@@ -93,8 +93,17 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
     }
 
     modifier onlyOutcomeToken() {
-        require(_isOutcomeToken[msg.sender], "TraderVault: not outcomeToken");
-        _;
+        if (_isOutcomeToken[msg.sender]) {
+            _;
+            return;
+        }
+        // Try to see if this is an outcome token of a valid market
+        try IOutcomeToken(msg.sender).market() returns (address market) {
+            require(_isValidMarket(market), "TraderVault: not authorized market token");
+            _;
+        } catch {
+            revert("TraderVault: not outcomeToken");
+        }
     }
 
     // ============ User Actions ============
@@ -306,6 +315,61 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         // Transfer VAULT -> USER (ERC1155)
         IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
         token.safeTransferFrom(address(this), msg.sender, outcome, amount, "");
+        
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // ============ Atomic Split/Merge (Convenience) ============
+
+    /// @notice Split USDC into YES+NO shares, depositing directly to vault (1 tx instead of 3)
+    /// @param market The market address
+    /// @param amount Amount in WAD (18 decimals) - shares to mint
+    function splitAndDeposit(address market, uint256 amount) external {
+        require(_isValidMarket(market), "TraderVault: invalid market");
+        require(amount > 0, "TraderVault: zero amount");
+        
+        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
+        
+        // 1. Debit USDC from user's available balance (same as debitSplitProceeds)
+        uint256 cost = amount / scalar;
+        require(accounts[msg.sender].available >= cost, "TraderVault: insufficient balance");
+        accounts[msg.sender].available -= cost;
+        
+        // 2. Call split on OutcomeToken - mints to THIS contract (vault)
+        //    This requires the vault to call split, which will mint tokens to msg.sender (vault)
+        token.split(amount);
+        
+        // 3. Credit shares to user's internal ledger
+        shareBalances[msg.sender][market][0] += amount; // YES
+        shareBalances[msg.sender][market][1] += amount; // NO
+        
+        emit Deposit(msg.sender, amount);
+    }
+
+    /// @notice Merge YES+NO shares from vault into USDC (1 tx instead of 3)
+    /// @param market The market address
+    /// @param amount Amount in WAD (18 decimals) - shares to burn
+    function mergeFromVault(address market, uint256 amount) external {
+        require(_isValidMarket(market), "TraderVault: invalid market");
+        require(amount > 0, "TraderVault: zero amount");
+        require(shareBalances[msg.sender][market][0] >= amount, "TraderVault: insufficient YES");
+        require(shareBalances[msg.sender][market][1] >= amount, "TraderVault: insufficient NO");
+        
+        IOutcomeToken token = ISoothMarketV4(market).outcomeToken();
+        
+        // 1. Debit shares from user's internal ledger
+        shareBalances[msg.sender][market][0] -= amount; // YES
+        shareBalances[msg.sender][market][1] -= amount; // NO
+        
+        // 2. Call merge on OutcomeToken - burns from THIS contract (vault)
+        //    This will call creditMergeProceeds back to vault, crediting the user
+        token.merge(amount);
+        
+        // Note: creditMergeProceeds is called by OutcomeToken.merge(), 
+        // but it credits msg.sender (the vault), not the user.
+        // We need to manually credit the user here.
+        uint256 proceeds = amount / scalar;
+        accounts[msg.sender].available += proceeds;
         
         emit Withdraw(msg.sender, amount);
     }
@@ -725,6 +789,21 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             accounts[user].available += proceeds;
             emit MergeCredit(user, proceeds);
         }
+    }
+
+    function debitSplitProceeds(address user, uint256 amount) external onlyOutcomeToken {
+        require(amount > 0, "TraderVault: zero amount");
+        
+        // Skip if vault is the user (splitAndDeposit handles debit separately)
+        if (user == address(this)) return;
+        
+        // Convert WAD Amount to Asset Decimals
+        uint256 cost = amount / scalar;
+        
+        require(accounts[user].available >= cost, "TraderVault: insufficient balance");
+        accounts[user].available -= cost;
+        
+        // Note: USDC stays in TraderVault as float
     }
 
     /// @notice Redeem winning shares after market settlement

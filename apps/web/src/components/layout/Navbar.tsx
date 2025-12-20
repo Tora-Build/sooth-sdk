@@ -28,14 +28,9 @@ export const Navbar = () => {
               <img src="/sooth-logo.svg" alt="Sooth" className="w-8 h-8" />
               <div className="absolute inset-0 bg-cyan-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="hidden sm:block">
-              <div className="font-heading font-bold text-lg text-white tracking-tight">
+            <span className="hidden sm:block font-heading font-bold text-lg text-white tracking-tight">
                 SOOTH
-              </div>
-              <div className="text-[9px] font-mono text-cyan-500/70 tracking-[0.25em] uppercase">
-                protocol
-              </div>
-            </div>
+            </span>
           </Link>
 
           {/* Nav Links */}

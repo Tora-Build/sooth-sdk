@@ -35,17 +35,19 @@ export function useTraderVault() {
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'], chainId: Number(selectedChainId) },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress], chainId: Number(selectedChainId) },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals', chainId: Number(selectedChainId) },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'totalBalance', args: [address || '0x0'], chainId: Number(selectedChainId) },
     ],
     query: {
       enabled: mode === 'real' && !!address && !!traderVaultAddress,
-      refetchInterval: 3000 // Sync with other hooks (3s)
+      refetchInterval: 15000,
+      staleTime: 5000,
     }
   });
 
-  const [availableBalance, pendingBalance, userUsdcBalance, allowance, rawDecimals] = data?.map(r => r.result) || [];
+  const [availableBalance, pendingBalance, userUsdcBalance, allowance, rawDecimals, totalBalanceRes] = data?.map(r => r.result) || [];
   const decimals = Number(rawDecimals || 18);
 
-  const totalBalance = (availableBalance as bigint || 0n) + (pendingBalance as bigint || 0n);
+  const totalBalance = totalBalanceRes as bigint || (availableBalance as bigint || 0n) + (pendingBalance as bigint || 0n);
 
   // Demo mode data
   const demoAvailableBalance = 500n * 10n ** 18n;
@@ -111,24 +113,24 @@ export function useTraderVault() {
   /**
    * Deposit USDC to trading vault
    */
-  const deposit = async (amount: string) => {
+  const deposit = async (amount: string | bigint) => {
     if (isPending || isApproving) return;
     setIsPending(true);
     try {
       if (mode === 'demo') {
-        // ... demo logic ...
+        const amtStr = typeof amount === 'string' ? amount : formatUnits(amount, decimals);
         await new Promise(r => setTimeout(r, 1000));
-        toast.success(`Demo: Deposited ${amount} USDC`);
+        toast.success(`Demo: Deposited ${amtStr} USDC`);
         return;
       }
 
       if (!publicClient) throw new Error('Public Client not initialized');
 
-      const amountBig = parseUnits(amount, decimals);
+      const amountBig = typeof amount === 'string' ? parseUnits(amount, decimals) : amount;
 
       // Explicit check: UI should prefer calling approveUSDC first, but we keep this safety
       if (currentAllowance < amountBig) {
-        const approved = await approveUSDC(amount);
+        const approved = await approveUSDC(typeof amount === 'string' ? amount : formatUnits(amount, decimals));
         if (!approved) {
           setIsPending(false);
           return;
@@ -147,11 +149,12 @@ export function useTraderVault() {
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {
+        const amtStr = typeof amount === 'string' ? amount : formatUnits(amount, decimals);
         toast.success('Deposit successful!', { id: toastId });
         useActivityStore.getState().addActivity({
           type: 'deposit',
           market: 'Trading Vault',
-          description: `Deposited ${amount} USDC`,
+          description: `Deposited ${amtStr} USDC`,
           hash: hash,
           mode: mode,
           timestamp: Date.now(),
@@ -172,16 +175,17 @@ export function useTraderVault() {
   /**
    * Withdraw available balance from trading vault
    */
-  const withdraw = async (amount: string) => {
+  const withdraw = async (amount: string | bigint) => {
     setIsPending(true);
     try {
       if (mode === 'demo') {
+        const amtStr = typeof amount === 'string' ? amount : formatUnits(amount, decimals);
         await new Promise(r => setTimeout(r, 1000));
-        toast.success(`Demo: Withdrew ${amount} USDC`);
+        toast.success(`Demo: Withdrew ${amtStr} USDC`);
         useActivityStore.getState().addActivity({
           type: 'withdraw',
           market: 'Trading Vault',
-          description: `Withdrew ${amount} USDC`,
+          description: `Withdrew ${amtStr} USDC`,
           mode: 'demo',
           timestamp: Date.now()
         });
@@ -190,7 +194,7 @@ export function useTraderVault() {
 
       if (!publicClient) throw new Error('Public Client not initialized');
 
-      const amountBig = parseUnits(amount, decimals);
+      const amountBig = typeof amount === 'string' ? parseUnits(amount, decimals) : amount;
 
       const hash = await writeContractAsync({
         address: traderVaultAddress,
@@ -203,11 +207,12 @@ export function useTraderVault() {
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
       if (receipt.status === 'success') {
+        const amtStr = typeof amount === 'string' ? amount : formatUnits(amount, decimals);
         toast.success('Withdraw successful!', { id: toastId });
         useActivityStore.getState().addActivity({
           type: 'withdraw',
           market: 'Trading Vault',
-          description: `Withdrew ${amount} USDC`,
+          description: `Withdrew ${amtStr} USDC`,
           hash: hash,
           mode: mode,
           timestamp: Date.now(),

@@ -115,6 +115,7 @@ interface ISoothMarketV4 {
     function noBalance(address user) external view returns (uint256);
     function outcomeToken() external view returns (IOutcomeToken);
     function merge(uint256 amount) external returns (uint256 proceeds);
+    function split(uint256 amount) external;
     
     function nextOrderId() external view returns (uint256);
     function orders(uint256 orderId) external view returns (OrderV4 memory);

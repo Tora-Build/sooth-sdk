@@ -559,6 +559,10 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         return amount;
     }
 
+    function split(uint256 amount) external {
+        outcomeToken.split(amount);
+    }
+
     // V4: Remove tick-related functions since we use qYes/qNo
     // currentTick() is removed - use price() instead
 }

@@ -12,8 +12,11 @@ import { formatUnits } from 'viem';
 import { useAccount, useReadContracts } from 'wagmi';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
-import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
+import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { formatCurrency } from '../utils/format';
+import { PositionActionsModal } from '../components/features/portfolio/OrderbookTokensCard';
+import { useTraderVault } from '../hooks/useTraderVault';
+import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 
 // Compact Market Info Card Component with Help Button
 const MarketInfoCard = ({
@@ -422,6 +425,32 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
+  const { refetch: refetchVault, availableBalance, decimals, traderVaultAddress } = useTraderVault();
+  const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
+  
+  // Fetch vault share balances for this market
+  const { data: vaultShareData } = useReadContracts({
+    contracts: [
+      {
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'shareBalances',
+        args: [userAddress || '0x0', address as `0x${string}`, 0], // YES
+      },
+      {
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'shareBalances',
+        args: [userAddress || '0x0', address as `0x${string}`, 1], // NO
+      },
+    ],
+    query: { enabled: !!userAddress && !!address && !!traderVaultAddress, refetchInterval: 5000 }
+  });
+  
+  const vaultYesShares = vaultShareData?.[0]?.result ? parseFloat(formatUnits(vaultShareData[0].result as bigint, 18)) : 0;
+  const vaultNoShares = vaultShareData?.[1]?.result ? parseFloat(formatUnits(vaultShareData[1].result as bigint, 18)) : 0;
+  const usdcAvailable = parseFloat(formatUnits(availableBalance || 0n, decimals || 6));
+  const mergeableAmount = Math.min(vaultYesShares, vaultNoShares);
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
 
@@ -607,6 +636,58 @@ export const MarketDetail = () => {
             outcomeToken={outcomeToken}
           />
 
+          {/* Inventory Management - Move from Portfolio to Market Detail (Market Sensitive) */}
+          {address && (
+            <Card className="p-4 border-indigo-500/20 bg-indigo-950/10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[10px] text-indigo-400 font-black uppercase tracking-widest flex items-center gap-2">
+                  <GitMerge size={12} /> Inventory Management
+                </div>
+                <div className="text-[9px] text-slate-500 font-medium">
+                  Direct mint/burn sets for this market
+                </div>
+              </div>
+              
+              {/* Balance Display */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="p-2 rounded-lg bg-slate-900/50 border border-slate-800/50">
+                  <div className="text-[8px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">USDC</div>
+                  <div className="text-xs font-mono font-bold text-white">{formatCurrency(usdcAvailable)}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                  <div className="text-[8px] text-emerald-400/60 uppercase tracking-wider font-bold mb-0.5">YES</div>
+                  <div className="text-xs font-mono font-bold text-emerald-400">{vaultYesShares.toFixed(2)}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+                  <div className="text-[8px] text-rose-400/60 uppercase tracking-wider font-bold mb-0.5">NO</div>
+                  <div className="text-xs font-mono font-bold text-rose-400">{vaultNoShares.toFixed(2)}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setModalMode('merge')}
+                  disabled={mergeableAmount <= 0}
+                  className="group py-2 text-[10px] font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
+                >
+                  <ArrowUpRight size={12} className="mr-1 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Merge {mergeableAmount > 0 ? `(${mergeableAmount.toFixed(0)})` : ''}
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setModalMode('split')}
+                  disabled={usdcAvailable <= 0}
+                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white disabled:opacity-50"
+                >
+                  <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Split
+                </Button>
+              </div>
+            </Card>
+          )}
+
           {/* Orderbook Trading (Post-Graduation Only) */}
           {isGraduated && address && (
             <Card className="p-6">
@@ -658,6 +739,17 @@ export const MarketDetail = () => {
           </div>
         </div>
       </div>
+
+      <PositionActionsModal
+        isOpen={modalMode !== null}
+        onClose={() => setModalMode(null)}
+        marketId={address}
+        mode={modalMode || 'merge'}
+        refetch={() => {
+          marketData.refetch();
+          refetchVault();
+        }}
+      />
     </div>
   );
 };

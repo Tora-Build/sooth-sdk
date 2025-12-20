@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { ArrowLeft, Zap, Shield, TrendingUp } from 'lucide-react';
+import { Zap, Shield, TrendingUp } from 'lucide-react';
 
 export const About = () => {
   return (
@@ -9,15 +9,13 @@ export const About = () => {
       {/* Simple Header */}
       <header className="h-16 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-md sticky top-0 z-40">
         <div className="container mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 rounded-lg border border-slate-700 hover:border-cyan-500/50 transition-all">
-              <ArrowLeft className="w-5 h-5 text-slate-400" />
-            </Link>
-            <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="relative">
               <img src="/sooth-logo.svg" alt="Sooth" className="w-8 h-8" />
-              <span className="font-heading font-bold text-xl text-white">SOOTH</span>
+              <div className="absolute inset-0 bg-cyan-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-          </div>
+            <span className="font-heading font-bold text-lg text-white tracking-tight">SOOTH</span>
+          </Link>
           <Link
             to="/markets"
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"

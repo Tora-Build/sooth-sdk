@@ -1,8 +1,10 @@
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContracts, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useChainId } from 'wagmi';
 import { useState, useCallback, useMemo } from 'react';
-import { TRADER_VAULT_V4_ABI } from '../config/abis';
+import { TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
+import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
 import { formatUnits } from 'viem';
+import toast from 'react-hot-toast';
 
 export interface UseLockedFundsResult {
     // Raw values (wei)
@@ -11,10 +13,13 @@ export interface UseLockedFundsResult {
     available: bigint;
     pending: bigint;
     total: bigint;
+    vaultLocked: bigint;
+    marketLocked: bigint;
 
     // State
     nextUnlockAmount: bigint;
     nextUnlockTimestamp: number;
+    entries: LockEntry[];
 
     // Formatted values (USD string)
     lockedFormatted: string;
@@ -35,96 +40,256 @@ export interface UseLockedFundsResult {
     refetch: () => void;
 }
 
+export interface LockEntry {
+    amount: bigint;
+    unlockTime: number;
+    isClaimable: boolean;
+    timeRemaining: number;
+    marketAddress?: `0x${string}`;
+    marketName?: string;
+}
+
 export function useLockedFunds(): UseLockedFundsResult {
     const { address } = useAccount();
     const { config } = useDeployments();
+    const chainId = useChainId();
     const contracts = config.contracts;
     const [isClaiming, setIsClaiming] = useState(false);
+    const publicClient = usePublicClient({ chainId });
 
     const traderVault = contracts?.SoothTraderVault as `0x${string}` | undefined;
+    const { markets, isLoading: marketsLoading } = useLaunchpadMarkets();
 
-    // Fetch locked balance
-    const { data: lockedData, isLoading: lockedLoading, refetch: refetchLocked } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'lockedBalance',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
+    // 1. Build unique market list from both factory and static config
+    const uniqueMarkets = useMemo(() => {
+        const list: { address: `0x${string}`, name: string }[] = [];
+        const seen = new Set<string>();
+
+        // From deployments.json (Static)
+        if (config.marketInfo) {
+            Object.values(config.marketInfo).forEach((m: any) => {
+                if (m.address && !seen.has(m.address.toLowerCase())) {
+                    seen.add(m.address.toLowerCase());
+                    list.push({ address: m.address, name: m.name });
+                }
+            });
+        }
+
+        // From LaunchpadFactory (Dynamic)
+        if (markets) {
+            markets.forEach(m => {
+                if (m.address && !seen.has(m.address.toLowerCase())) {
+                    seen.add(m.address.toLowerCase());
+                    list.push({ address: m.address, name: m.name });
+                }
+            });
+        }
+
+        return list;
+    }, [config.marketInfo, markets]);
+
+    // 2. Build contract calls
+    const lockContracts = useMemo(() => {
+        if (!address) return [];
+        
+        const calls: any[] = [];
+        
+        // TraderVault calls (Global / Legacy)
+        if (traderVault) {
+            calls.push(
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'lockedBalance', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'claimableBalance', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'pendingBalance', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'totalBalance', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'nextUnlock', args: [address], chainId },
+                { address: traderVault, abi: TRADER_VAULT_V4_ABI, functionName: 'getLockEntries', args: [address], chainId }
+            );
+        }
+
+        // Individual Market calls
+        uniqueMarkets.forEach(market => {
+            calls.push(
+                { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedBalance', args: [address], chainId },
+                { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'claimableBalance', args: [address], chainId },
+                { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'nextUnlock', args: [address], chainId },
+                { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'getLockEntries', args: [address], chainId }
+            );
+        });
+
+        return calls;
+    }, [address, traderVault, uniqueMarkets, chainId]);
+
+    const { data: lockData, isLoading: lockDataLoading, refetch } = useReadContracts({
+        contracts: lockContracts,
+        chainId,
+        query: { 
+            enabled: !!address && lockContracts.length > 0,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        }
     });
 
-    // Fetch claimable balance
-    const { data: claimableData, isLoading: claimableLoading, refetch: refetchClaimable } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'claimableBalance',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
-    });
+    const { writeContractAsync } = useWriteContract();
 
-    // Fetch available balance
-    const { data: availableData, isLoading: availableLoading, refetch: refetchAvailable } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'availableBalance',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
-    });
+    // 3. Aggregate Results
+    const aggregated = useMemo(() => {
+        let totalLocked = 0n;
+        let totalClaimable = 0n;
+        let available = 0n;
+        let pending = 0n;
+        let total = 0n;
+        let vaultLocked = 0n;
+        let marketLocked = 0n;
+        let allEntries: LockEntry[] = [];
+        
+        // Basic safety check for array existence and length
+        if (!lockData || !address) return { 
+            locked: 0n, claimable: 0n, available: 0n, pending: 0n, total: 0n, 
+            vaultLocked: 0n, marketLocked: 0n,
+            nextUnlockAmount: 0n, nextUnlockTimestamp: 0, entries: [] 
+        };
 
-    // Fetch pending balance
-    const { data: pendingData, isLoading: pendingLoading, refetch: refetchPending } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'pendingBalance',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
-    });
+        let cursor = 0;
+        const now = Math.floor(Date.now() / 1000);
 
-    // Fetch total balance
-    const { data: totalData, isLoading: totalLoading, refetch: refetchTotal } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'totalBalance',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
-    });
+        // Process TraderVault results
+        if (traderVault && lockData.length >= 7) {
+            vaultLocked = (lockData[cursor++]?.result as bigint) || 0n;
+            const vaultClaimable = (lockData[cursor++]?.result as bigint) || 0n;
+            available = (lockData[cursor++]?.result as bigint) || 0n;
+            pending = (lockData[cursor++]?.result as bigint) || 0n;
+            total = (lockData[cursor++]?.result as bigint) || 0n;
+            
+            totalLocked += vaultLocked;
+            totalClaimable += vaultClaimable;
+            
+            // Skip Next Unlock result
+            cursor++;
+            
+            // Entries
+            const entriesRes = lockData[cursor++]?.result as [bigint[], bigint[]] | undefined;
+            if (entriesRes && Array.isArray(entriesRes[0])) {
+                entriesRes[0].forEach((amt, i) => {
+                    const time = Number(entriesRes[1][i]);
+                    allEntries.push({
+                        amount: amt,
+                        unlockTime: time,
+                        isClaimable: time <= now,
+                        timeRemaining: Math.max(0, time - now),
+                        marketName: 'Global Vault'
+                    });
+                });
+            }
+        }
 
-    // Fetch next unlock (amount, timestamp)
-    const { data: nextUnlockData, refetch: refetchUnlock } = useReadContract({
-        address: traderVault,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'nextUnlock',
-        args: address ? [address] : undefined,
-        query: { enabled: !!address && !!traderVault },
-    });
+        // Process Market results
+        uniqueMarkets.forEach(market => {
+            // Check if we have enough data left in array
+            if (cursor + 4 > lockData.length) return;
 
-    // Claim transaction
-    const { writeContractAsync, data: claimTxHash } = useWriteContract();
+            const mLocked = (lockData[cursor++]?.result as bigint) || 0n;
+            const marketClaimable = (lockData[cursor++]?.result as bigint) || 0n;
 
-    const { isLoading: isConfirming } = useWaitForTransactionReceipt({
-        hash: claimTxHash,
-    });
+            // Skip Next Unlock
+            cursor++;
+            
+            const marketEntries = lockData[cursor++]?.result as [bigint[], bigint[]] | undefined;
 
-    // Parse values
-    const locked = (lockedData as bigint) ?? 0n;
-    const claimable = (claimableData as bigint) ?? 0n;
-    const available = (availableData as bigint) ?? 0n;
-    const pending = (pendingData as bigint) ?? 0n;
-    const total = (totalData as bigint) ?? 0n;
+            totalLocked += mLocked;
+            marketLocked += mLocked;
+            totalClaimable += marketClaimable;
 
-    // Parse Next Unlock
-    const nextUnlockAmount = nextUnlockData ? (nextUnlockData as [bigint, bigint])[0] : 0n;
-    const nextUnlockTimestamp = nextUnlockData ? Number((nextUnlockData as [bigint, bigint])[1]) : 0;
+            if (marketEntries && Array.isArray(marketEntries[0])) {
+                marketEntries[0].forEach((amt, i) => {
+                    const time = Number(marketEntries[1][i]);
+                    allEntries.push({
+                        amount: amt,
+                        unlockTime: time,
+                        isClaimable: time <= now,
+                        timeRemaining: Math.max(0, time - now),
+                        marketAddress: market.address,
+                        marketName: market.name
+                    });
+                });
+            }
+        });
 
-    // Calculate time remaining
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const secondsRemaining = Math.max(0, nextUnlockTimestamp - nowSeconds);
+        // Final sort and find next unlock
+        allEntries.sort((a, b) => a.unlockTime - b.unlockTime);
+        const nextEntry = allEntries.find(e => !e.isClaimable);
 
-    const formatTimeRemaining = () => {
-        if (secondsRemaining <= 0) return 'Ready';
-        const hours = Math.floor(secondsRemaining / 3600);
-        const minutes = Math.floor((secondsRemaining % 3600) / 60);
-        return `${hours}h ${minutes}m`;
-    };
+        // Adjusted total balance: Vault (Available+Pending) + All Locked Proceeds (Vault + Market)
+        return {
+            locked: totalLocked,
+            claimable: totalClaimable,
+            available,
+            pending,
+            total: total + vaultLocked + marketLocked,
+            vaultLocked,
+            marketLocked,
+            nextUnlockAmount: nextEntry?.amount || 0n,
+            nextUnlockTimestamp: nextEntry?.unlockTime || 0,
+            entries: allEntries
+        };
+    }, [lockData, address, traderVault, uniqueMarkets]);
+
+    // 4. Claim Action (Aggregated)
+    const claim = useCallback(async () => {
+        if (!address || !publicClient) return;
+        setIsClaiming(true);
+
+        const toastId = toast.loading('Claiming unlocked proceeds...');
+        try {
+            // Find all targets with claimable funds
+            const targets: { address: `0x${string}`, abi: any, name: string }[] = [];
+            
+            // Check TraderVault
+            const tvClaimable = aggregated.entries
+                .filter(e => e.marketName === 'Global Vault' && e.isClaimable)
+                .reduce((sum, e) => sum + e.amount, 0n);
+            
+            if (tvClaimable > 0n && traderVault) {
+                targets.push({ address: traderVault, abi: TRADER_VAULT_V4_ABI, name: 'Global Vault' });
+            }
+
+            // Check Markets
+            uniqueMarkets.forEach(market => {
+                const mClaimable = aggregated.entries
+                    .filter(e => e.marketAddress === market.address && e.isClaimable)
+                    .reduce((sum, e) => sum + e.amount, 0n);
+                
+                if (mClaimable > 0n) {
+                    targets.push({ address: market.address, abi: LAUNCHPAD_MARKET_ABI, name: market.name });
+                }
+            });
+
+            if (targets.length === 0) {
+                toast.error('Nothing to claim yet', { id: toastId });
+                setIsClaiming(false);
+                return;
+            }
+
+            // Execute claims sequentially
+            for (const target of targets) {
+                toast.loading(`Claiming from ${target.name}...`, { id: toastId });
+                const hash = await writeContractAsync({
+                    address: target.address,
+                    abi: target.abi,
+                    functionName: 'claimUnlocked',
+                });
+                await publicClient.waitForTransactionReceipt({ hash });
+            }
+
+            toast.success('All claimable proceeds collected!', { id: toastId });
+            setTimeout(() => refetch(), 2000);
+        } catch (error: any) {
+            console.error('Claim failed:', error);
+            toast.error(error.message?.split('\n')[0] || 'Claim failed', { id: toastId });
+        } finally {
+            setIsClaiming(false);
+        }
+    }, [address, traderVault, uniqueMarkets, aggregated.entries, writeContractAsync, publicClient, refetch]);
 
     // Format values (6 decimals for USDC)
     const USDC_DECIMALS = 6;
@@ -133,56 +298,20 @@ export function useLockedFunds(): UseLockedFundsResult {
         return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     };
 
-    const lockedFormatted = formatUSD(locked);
-    const claimableFormatted = formatUSD(claimable);
-    const availableFormatted = formatUSD(available);
-    const pendingFormatted = formatUSD(pending);
-    const totalFormatted = formatUSD(total);
-    const nextUnlockFormatted = formatUSD(nextUnlockAmount);
-    const timeRemaining = formatTimeRemaining();
-
-    const hasClaimable = claimable > 0n;
-    const isLoading = lockedLoading || claimableLoading || availableLoading || pendingLoading || totalLoading;
-
-    // Refetch all balances
-    const refetch = useCallback(() => {
-        refetchLocked();
-        refetchClaimable();
-        refetchAvailable();
-        refetchPending();
-        refetchTotal();
-        refetchUnlock();
-    }, [refetchLocked, refetchClaimable, refetchAvailable, refetchPending, refetchTotal, refetchUnlock]);
-
-    // Claim action
-    const claim = useCallback(async () => {
-        if (!traderVault || !address) return;
-
-        setIsClaiming(true);
-        try {
-            await writeContractAsync({
-                address: traderVault,
-                abi: TRADER_VAULT_V4_ABI,
-                functionName: 'claimUnlocked',
-            });
-            // Refetch after successful claim
-            setTimeout(() => refetch(), 2000);
-        } catch (error) {
-            console.error('Claim failed:', error);
-            throw error;
-        } finally {
-            setIsClaiming(false);
-        }
-    }, [traderVault, address, writeContractAsync, refetch]);
+    const lockedFormatted = formatUSD(aggregated.locked);
+    const claimableFormatted = formatUSD(aggregated.claimable);
+    const availableFormatted = formatUSD(aggregated.available);
+    const pendingFormatted = formatUSD(aggregated.pending);
+    const totalFormatted = formatUSD(aggregated.total);
+    const nextUnlockFormatted = formatUSD(aggregated.nextUnlockAmount);
+    
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const secondsRemaining = Math.max(0, aggregated.nextUnlockTimestamp - nowSeconds);
+    const timeRemaining = secondsRemaining <= 0 ? 'Ready' : 
+        `${Math.floor(secondsRemaining / 3600)}h ${Math.floor((secondsRemaining % 3600) / 60)}m`;
 
     return useMemo(() => ({
-        locked,
-        claimable,
-        available,
-        pending,
-        total,
-        nextUnlockAmount,
-        nextUnlockTimestamp,
+        ...aggregated,
         lockedFormatted,
         claimableFormatted,
         availableFormatted,
@@ -190,14 +319,14 @@ export function useLockedFunds(): UseLockedFundsResult {
         totalFormatted,
         nextUnlockFormatted,
         timeRemaining,
-        isLoading,
-        isClaiming: isClaiming || isConfirming,
-        hasClaimable,
+        isLoading: marketsLoading || lockDataLoading,
+        isClaiming,
+        hasClaimable: aggregated.claimable > 0n,
         claim,
         refetch,
     }), [
-        locked, claimable, available, pending, total, nextUnlockAmount, nextUnlockTimestamp,
-        lockedFormatted, claimableFormatted, availableFormatted, pendingFormatted, totalFormatted, nextUnlockFormatted, timeRemaining,
-        isLoading, isClaiming, isConfirming, hasClaimable, claim, refetch
+        aggregated, lockedFormatted, claimableFormatted, availableFormatted, 
+        pendingFormatted, totalFormatted, nextUnlockFormatted, timeRemaining,
+        marketsLoading, lockDataLoading, isClaiming, claim, refetch
     ]);
 }
