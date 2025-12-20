@@ -24,7 +24,7 @@
           "outcomeToken": "0xb7B000AA17FBf000f124DF315A340DAF3Ea2E522"
         }
       }
-    },
+      },
     "megaethFrontier": {
       "chainId": 4326,
       "status": "✅ Live - V6.1.8 Frontier Net",

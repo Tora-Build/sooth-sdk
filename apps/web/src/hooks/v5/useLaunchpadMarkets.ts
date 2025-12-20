@@ -5,6 +5,7 @@ import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_AB
 import { useDeployments } from '../useDeployments';
 import { decodeEventLog, parseAbiItem } from 'viem';
 import { useReadContracts } from 'wagmi';
+import { useChainStore } from '../../store/useChainStore';
 
 export interface LaunchpadMarketData {
     address: `0x${string}`;
@@ -22,6 +23,7 @@ export interface LaunchpadMarketData {
 
 export function useLaunchpadMarkets() {
     const { config } = useDeployments();
+    const { selectedChainId } = useChainStore();
     const chainId = useChainId(); // Get chainId from wagmi (top-level hook call)
     // @ts-ignore
     const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
@@ -31,6 +33,7 @@ export function useLaunchpadMarkets() {
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
+        chainId: Number(selectedChainId),
         query: { enabled: !!factoryAddress, refetchInterval: 30000 } // Reduced frequency to 30s
     });
     
@@ -49,6 +52,7 @@ export function useLaunchpadMarkets() {
     
     const { data: v6CheckData } = useReadContracts({
         contracts: v6CheckContracts,
+        chainId: Number(selectedChainId),
         query: { enabled: addresses.length > 0 }
     });
     
@@ -64,6 +68,7 @@ export function useLaunchpadMarkets() {
     
     const { data: lpVaultData } = useReadContracts({
         contracts: lpVaultContracts,
+        chainId: Number(selectedChainId),
         query: { enabled: addresses.length > 0 }
     });
 
@@ -115,6 +120,7 @@ export function useLaunchpadMarkets() {
     
     const { data: marketData, isLoading: isLoadingMarketData } = useReadContracts({
         contracts: marketDetailContracts,
+        chainId: Number(selectedChainId),
         query: { enabled: v6MarketAddresses.length > 0, refetchInterval: 20000 } // Refetch every 20s to catch graduation
     });
 
@@ -136,6 +142,7 @@ export function useLaunchpadMarkets() {
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
+        chainId: Number(selectedChainId),
         query: { enabled: tokenCalls.length > 0, refetchInterval: 60000 } // Metadata like name/symbol doesn't change
     });
 

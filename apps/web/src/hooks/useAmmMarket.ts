@@ -28,19 +28,20 @@ function useEVMMarket(marketId: string) {
   // 2. On-Chain Data Fetching (Only if Real Mode AND on correct chain)
   const { data: onChainData, refetch, isLoading: isHookLoading, error: hookError } = useReadContracts({
     contracts: [
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0] }, // V4: fetch price(0) for YES probability
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo' },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR' },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive', chainId: Number(selectedChainId) },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0], chainId: Number(selectedChainId) }, // V4: fetch price(0) for YES probability
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b', chainId: Number(selectedChainId) },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes', chainId: Number(selectedChainId) },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo', chainId: Number(selectedChainId) },
+      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR', chainId: Number(selectedChainId) },
       // V4: AMM positions (TraderVault)
       {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'ammPositions',
-        args: [address || '0x0000000000000000000000000000000000000000', marketAddress]
+        args: [address || '0x0000000000000000000000000000000000000000', marketAddress],
+        chainId: Number(selectedChainId)
       }
     ],
     query: {

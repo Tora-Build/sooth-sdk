@@ -26,27 +26,27 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
     // Fetch on-chain market data
     const { data: onChainData, refetch, isLoading } = useReadContracts({
         contracts: [
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive' },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled' },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0] },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b' },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes' },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo' },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR' },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0], chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR', chainId: Number(selectedChainId) },
             // Get outcome token address for ERC1155 balance check
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken', chainId: Number(selectedChainId) },
             // User positions via TraderVault (legacy/OB)
             {
                 address: traderVaultAddress,
                 abi: TRADER_VAULT_V4_ABI,
                 functionName: 'ammPositions',
-                args: [userAddress || '0x0000000000000000000000000000000000000000', marketAddress || '0x0000000000000000000000000000000000000000']
+                args: [userAddress || '0x0000000000000000000000000000000000000000', marketAddress || '0x0000000000000000000000000000000000000000'],
+                chainId: Number(selectedChainId)
             }
         ],
         query: {
             enabled: !!marketAddress && !!traderVaultAddress,
             refetchInterval: 15000, // Reduced frequency to 15s to prevent flickering
-            chainId: Number(selectedChainId)
         }
     });
 
@@ -56,13 +56,12 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
     const outcomeTokenAddress = outcomeTokenAddr as `0x${string}` | undefined;
     const { data: erc1155Data } = useReadContracts({
         contracts: outcomeTokenAddress && userAddress ? [
-            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 0n] }, // YES
-            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 1n] }, // NO
+            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 0n], chainId: Number(selectedChainId) }, // YES
+            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 1n], chainId: Number(selectedChainId) }, // NO
         ] : [],
         query: {
             enabled: !!outcomeTokenAddress && !!userAddress,
             refetchInterval: 15000,
-            chainId: Number(selectedChainId)
         }
     });
 

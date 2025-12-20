@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
+import { useChainStore } from '../../store/useChainStore';
 import toast from 'react-hot-toast';
 
 /**
@@ -11,7 +12,8 @@ import toast from 'react-hot-toast';
  */
 export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
-    const publicClient = usePublicClient();
+    const { selectedChainId } = useChainStore();
+    const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
     const [isPending, setIsPending] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
 
@@ -20,7 +22,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         address: marketAddress,
         abi: LAUNCHPAD_MARKET_ABI,
         functionName: 'asset',
-        query: { enabled: !!marketAddress }
+        chainId: Number(selectedChainId),
+        query: { 
+            enabled: !!marketAddress,
+        }
     });
 
     // Get USDC decimals
@@ -28,7 +33,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         address: usdcAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'decimals',
-        query: { enabled: !!usdcAddress }
+        chainId: Number(selectedChainId),
+        query: { 
+            enabled: !!usdcAddress,
+        }
     });
 
     // Get user's USDC balance
@@ -37,7 +45,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: userAddress ? [userAddress] : undefined,
-        query: { enabled: !!usdcAddress && !!userAddress }
+        chainId: Number(selectedChainId),
+        query: { 
+            enabled: !!usdcAddress && !!userAddress,
+        }
     });
 
     // Get user's USDC allowance for market
@@ -46,7 +57,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         abi: ERC20_ABI,
         functionName: 'allowance',
         args: userAddress && marketAddress ? [userAddress, marketAddress] : undefined,
-        query: { enabled: !!usdcAddress && !!userAddress && !!marketAddress }
+        chainId: Number(selectedChainId),
+        query: { 
+            enabled: !!usdcAddress && !!userAddress && !!marketAddress,
+        }
     });
 
     const { writeContractAsync } = useWriteContract();

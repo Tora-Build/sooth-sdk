@@ -6,6 +6,7 @@ import { useDeployments } from './useDeployments';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatUnits } from 'viem';
 import marketsConfig from '../config/markets.json';
+import { useChainStore } from '../store/useChainStore';
 
 /**
  * V3 Unified Orderbook Order
@@ -30,6 +31,7 @@ export interface OrderbookState {
 }
 
 export function useOrderbook(marketId: string) {
+  const { selectedChainId } = useChainStore();
   // Detect if marketId is an address (0x...) or a config ID
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
 
@@ -44,7 +46,7 @@ export function useOrderbook(marketId: string) {
   const { config } = useDeployments();
   const deployments = config.contracts;
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
 
   const [orderbook, setOrderbook] = useState<OrderbookState>({ bids: [], asks: [] });
   const [isLoading, setIsLoading] = useState(false);
@@ -61,13 +63,15 @@ export function useOrderbook(marketId: string) {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'shareBalances',
-        args: [address || '0x0000000000000000000000000000000000000000', contractAddress, 0] // YES
+        args: [address || '0x0000000000000000000000000000000000000000', contractAddress, 0], // YES
+        chainId: Number(selectedChainId)
       },
       {
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
         functionName: 'shareBalances',
-        args: [address || '0x0000000000000000000000000000000000000000', contractAddress, 1] // NO
+        args: [address || '0x0000000000000000000000000000000000000000', contractAddress, 1], // NO
+        chainId: Number(selectedChainId)
       }
     ],
     query: {
@@ -101,7 +105,7 @@ export function useOrderbook(marketId: string) {
             address: contractAddress as `0x${string}`,
             abi: MARKET_V4_ABI,
             functionName: startFn,
-          });
+          }).catch(() => 0n);
 
           let depth = 0;
           const MAX_DEPTH = 20;
@@ -112,7 +116,7 @@ export function useOrderbook(marketId: string) {
               abi: MARKET_V4_ABI,
               functionName: 'orders',
               args: [currentId]
-            }) as [string, number, bigint, bigint, boolean] | undefined;
+            }).catch(() => null) as [string, number, bigint, bigint, boolean] | undefined | null;
 
             if (orderData) {
               // OrderV4: [maker, outcome, yesPrice, amount, isBuySide]
@@ -158,7 +162,7 @@ export function useOrderbook(marketId: string) {
               abi: MARKET_V4_ABI,
               functionName: 'nextOrder',
               args: [currentId]
-            });
+            }).catch(() => 0n);
 
             // Prevent infinite loop
             if (nextId === currentId) {

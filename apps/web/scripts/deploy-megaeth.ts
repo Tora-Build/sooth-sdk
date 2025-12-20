@@ -118,9 +118,9 @@ async function main() {
 
     // 1. Deploy Infrastructure
     console.log('=== Infrastructure ===');
-    
+
     const mockUSDC = await deployContract(walletClient, publicClient, 'MockUSDC', []);
-    
+
     const feeController = await deployContract(walletClient, publicClient, 'SoothFeeController', [
         account.address, // treasury
     ]);
@@ -137,7 +137,7 @@ async function main() {
 
     // 2. Deploy Launchpad System
     console.log('\n=== Launchpad System ===');
-    
+
     const outcomeTokenImpl = await deployContract(walletClient, publicClient, 'LaunchpadOutcomeToken', []);
     const marketImpl = await deployContract(walletClient, publicClient, 'LaunchpadMarket', []);
     const protocolConfig = await deployContract(walletClient, publicClient, 'ProtocolConfig', [

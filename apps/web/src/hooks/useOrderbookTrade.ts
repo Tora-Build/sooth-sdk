@@ -24,12 +24,12 @@ export function useOrderbookTrade(marketId: string) {
   const market = isAddressFormat ? addressMarket : configMarket;
 
   // For address-format markets, use the marketId directly as the contract address
-  const marketContractAddress = isAddressFormat ? (marketId as `0x${string}`) : market?.contractAddress;
+  const marketContractAddress = (isAddressFormat ? marketId : market?.contractAddress) as `0x${string}`;
 
   const { config } = useDeployments();
   const deployments = config.contracts;
-  const publicClient = usePublicClient();
   const { selectedChainId } = useChainStore();
+  const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
   const { mode } = useMarketStore();
   const { writeContractAsync } = useWriteContract();
 
@@ -41,10 +41,10 @@ export function useOrderbookTrade(marketId: string) {
   // v4: Check accounts (available, pending) in TraderVaultV4
   const { data: vaultData, refetch: refetchBalance } = useReadContracts({
     contracts: [
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 0] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 1] },
-      { address: deployments.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'], chainId: Number(selectedChainId) },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 0], chainId: Number(selectedChainId) },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [address || '0x0', marketContractAddress as `0x${string}`, 1], chainId: Number(selectedChainId) },
+      { address: deployments.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals', chainId: Number(selectedChainId) },
     ],
     query: {
       enabled: !!address && !!marketContractAddress && !!traderVaultAddress,
@@ -118,6 +118,12 @@ export function useOrderbookTrade(marketId: string) {
           });
         } catch (simError: any) {
           console.error('Simulation Failed:', simError);
+          
+          // Detect RPC resource errors (common on MegaETH)
+          if (simError.message?.includes('Requested resource not available')) {
+             throw new Error('MegaETH RPC is temporarily busy. Please wait a few seconds and try again.');
+          }
+
           const reason = simError.reason || simError.shortMessage || simError.message || 'Transaction would fail';
           throw new Error(`Simulation failed: ${reason}`);
         }

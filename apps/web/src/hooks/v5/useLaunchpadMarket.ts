@@ -28,32 +28,31 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     // Reads - Phase 1: Get market data including creator address
     const { data: marketData, refetch } = useReadContracts({
         contracts: [
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'graduationThreshold' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'bBase' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'creator' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'feesAccrued' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalCreatorDeposit' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'graduationThreshold', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'bBase', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'creator', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'feesAccrued', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalCreatorDeposit', chainId: Number(selectedChainId) },
             // V6: Locking
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalLockedProceeds' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalLockedProceeds', chainId: Number(selectedChainId) },
             // V6: LP Token (market IS the LP token)
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalSupply' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalAssets' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalNetAssets' },
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'reserve' },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalSupply', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalAssets', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalNetAssets', chainId: Number(selectedChainId) },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'reserve', chainId: Number(selectedChainId) },
             // User-specific reads
             ...(userAddress ? [
-                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: [userAddress] },
-                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [userAddress] },
+                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: [userAddress], chainId: Number(selectedChainId) },
+                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [userAddress], chainId: Number(selectedChainId) },
             ] : []),
         ],
         query: {
             enabled: !!marketAddress,
-            refetchInterval: 10000, // Reduced frequency to 10s to prevent flickering
-            chainId: Number(selectedChainId)
+            refetchInterval: 10000 // Reduced frequency to 10s to prevent flickering
         }
     });
 
@@ -80,12 +79,11 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const creatorAddress = creator as `0x${string}` | undefined;
     const { data: creatorLpData } = useReadContracts({
         contracts: creatorAddress ? [
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [creatorAddress] },
+            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [creatorAddress], chainId: Number(selectedChainId) },
         ] : [],
         query: {
             enabled: !!marketAddress && !!creatorAddress,
-            refetchInterval: 5000,
-            chainId: Number(selectedChainId)
+            refetchInterval: 5000
         }
     });
     const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;

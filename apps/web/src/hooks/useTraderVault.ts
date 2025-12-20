@@ -5,6 +5,7 @@ import { TRADER_VAULT_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useActivityStore } from '../store/useActivityStore';
+import { useChainStore } from '../store/useChainStore';
 import toast from 'react-hot-toast';
 
 /**
@@ -14,7 +15,9 @@ import toast from 'react-hot-toast';
 export function useTraderVault() {
   const { address } = useAccount();
   const { mode } = useMarketStore();
+  const { selectedChainId } = useChainStore();
   const [isPending, setIsPending] = useState(false);
+  // ... rest of the code ...
   const [isApproving, setIsApproving] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
@@ -27,11 +30,11 @@ export function useTraderVault() {
   // Read user balances and vault data
   const { data, refetch } = useReadContracts({
     contracts: [
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'] },
-      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'pendingBalance', args: [address || '0x0'] },
-      { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'] },
-      { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress] },
-      { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals' },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'availableBalance', args: [address || '0x0'], chainId: Number(selectedChainId) },
+      { address: traderVaultAddress, abi: TRADER_VAULT_V4_ABI, functionName: 'pendingBalance', args: [address || '0x0'], chainId: Number(selectedChainId) },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0'], chainId: Number(selectedChainId) },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0', traderVaultAddress], chainId: Number(selectedChainId) },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals', chainId: Number(selectedChainId) },
     ],
     query: {
       enabled: mode === 'real' && !!address && !!traderVaultAddress,

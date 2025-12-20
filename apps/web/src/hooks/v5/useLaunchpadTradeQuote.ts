@@ -47,12 +47,24 @@ export function useLaunchpadTradeQuote(
                 const isBuy = !isSell;
 
                 // 1. Calculate Cost via Contract
+                // V6.1: Direct swap - uses calculateAMMTradeCost on the market itself
                 const result = await publicClient.readContract({
                     address: marketAddress,
                     abi: MARKET_V4_ABI,
                     functionName: 'calculateAMMTradeCost',
                     args: [outcomeIndex, shareAmountBig, isBuy]
-                }) as [bigint, bigint, bigint, bigint];
+                }).catch(err => {
+                    // Gracefully handle "no data" or "0x" errors which happen on wrong chain
+                    if (err.message?.includes('returned no data') || err.message?.includes('0x')) {
+                        return null;
+                    }
+                    throw err;
+                }) as [bigint, bigint, bigint, bigint] | null;
+
+                if (!result) {
+                    if (!cancelled) setQuote(null);
+                    return;
+                }
 
                 const [rawCost, rawFee, newQYes, newQNo] = result;
 
