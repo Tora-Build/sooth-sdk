@@ -7,6 +7,7 @@
       "contractAddress": "0x5D9a6a9AbcE5e2c0Af9ec22a246E713b3975959b",
       "description": "Will the UN confirm the existence of alien life?",
       "outcomeToken": "0x5db0707FD9161dc5B01c61d030c08E06310A9d96",
+      "outcomes": ["YES", "NO"],
       "tier": 1,
       "mode": "real",
       "chainId": 84532
@@ -18,6 +19,7 @@
       "contractAddress": "0xBB1cC536EaFeCC2e74BA68fE9428129f732C2Bc2",
       "description": "Will BTC 7-day TWAP reach $100k?",
       "outcomeToken": "0x7627E0e35280cE4C653a62BA09619b428B1c9eB2",
+      "outcomes": ["YES", "NO"],
       "tier": 2,
       "mode": "real",
       "chainId": 84532
