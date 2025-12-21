@@ -111,12 +111,50 @@
 | Market 1 (Alien Life) | `0x582c652Bcc324c5EFCeF3a53DCe30856d0df77c7` |
 | Market 2 (BTC TWAP) | `0x50b66378764D9837F87d6b5C6d15728B8cF91693` |
 
-## Pending/Blocked
-- [ ] **Quoter Integration**: Hook up `LaunchpadQuoter` to the Swap UI for real-time Floor/Ceiling impact simulation.
-- [ ] **LP Health UI**: Implement "Underwater" banners and Realized P&L charts using new on-chain views.
-- [ ] **Mobile Optimization**: Finalize MegaETH frontend responsive layouts.
-- [ ] **Stress Test**: High-frequency orderbook stacking on MegaETH.
-- [ ] **QA next**: Fuzz tests for LMSR edge cases (large trades, extreme prices).
+## Short-Term Dev Plan (Alpha Sprint)
+
+### 🎯 Priority 1: Trading UX Polish
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Price Impact Display** | Show price impact (BPS) in AmmTradingPanel quote summary | S |
+| **Slippage Warning** | Yellow/red indicator when impact > 1% / 5% | S |
+| **Trade Confirmation** | Summary modal before executing large trades | M |
+
+### 🛡️ Priority 2: LP Health & Transparency
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Underwater Banner** | Red alert banner when `isUnderwater()` is true | S |
+| **Realized P&L Display** | Show `lpRealizedPnL()` in Market Stats card | S |
+| **LP ExRate History** | Simple chart showing ExRate over time (optional) | L |
+
+### 📱 Priority 3: Mobile & Responsive
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Trading Panel Mobile** | Stack Buy/Sell vertically, larger touch targets | M |
+| **Portfolio Mobile** | Single-column layout for position cards | M |
+| **Navigation Mobile** | Collapsible nav drawer or bottom tabs | M |
+
+### 🔬 Priority 4: QA & Stress Testing
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Orderbook Stacking** | Test 50+ orders at same price level on MegaETH | M |
+| **LMSR Edge Cases** | Fuzz tests for large trades (>50% of liquidity) | M |
+| **Multi-User Simulation** | 10 concurrent traders script | L |
+
+### 🚀 Priority 5: Launch Prep
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Fresh Mainnet Deploy** | Deploy to Base/MegaETH with 5-day deadline markets | M |
+| **Faucet Polish** | Auto-detect chain, show correct gas guidance | S |
+| **Analytics Events** | Add basic event tracking for trades/deposits | M |
+
+**Effort Key**: S = Small (< 2 hrs), M = Medium (2-6 hrs), L = Large (> 6 hrs)
+
+---
+
+## Blocked/Deferred
+- **Next Floor/Ceiling in Swap UI**: Decided against — too technical for traders, doesn't add value.
+- **LP ExRate History Chart**: Requires event indexing or subgraph — defer to post-alpha.
 
 ## Session Summary (2025-12-21 Evening)
 **V6.2.6 UI Polish Session** — Fixed critical MarketCard bug where `totalLockedProceeds` displayed `$0` due to wrong decimal division (`/1e18` instead of `/1e6`). Cleaned up Markets page by removing the placeholder Hero Stats Bar and adding badge counts to filter tabs. Redesigned TrendingLeaderboard as 3 horizontal cards instead of a vertical list. Made formula hints always visible in MarketDetail. Removed unnecessary status indicators from Portfolio. Updated deployment script deadlines to 5 days for faster testing cycles.
