@@ -21,9 +21,41 @@ tierDeposits[1] = 1000 * 1e6;  // 1,000,000,000 tokens
 
 ---
 
-## Market Vault Accounting Model
+## Market Vault Accounting Model (V6.1.9 Pure AMM Ledger)
 
-### Key Concepts
+### Key Concepts: Liability Isolation
+The V6 architecture separates **AMM Virtual Inventory** from **Physical Token Collateral**. LPs are counterparties ONLY to the AMM.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        AMM LEDGER (Pure LP Equity)                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  THEORETICAL CASH (AMM Bucket)                                      │
+│  ├── Initial Seed (Creator Deposit)                                 │
+│  ├── Collected Fees ( captured spreads )                            │
+│  └── Swap Flow ( C(q) - C(0) )                                      │
+│                                                                     │
+│  ISOLATED LIABILITIES                                               │
+│  ├── Virtual YES shares (qYes) - LP owes if YES wins                │
+│  └── Virtual NO shares (qNo) - LP owes if NO wins                   │
+│                                                                     │
+│  Note: Orderbook tokens are ignored here as they are self-backed.   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Theoretical Formulas
+To enforce liability isolation, LP value is calculated purely from the AMM's internal state variables:
+
+1.  **Current LMSR Cost C(q)**:
+    \[ C(q) = b \times \ln(e^{q_{\text{YES}}/b} + e^{q_{\text{NO}}/b}) \]
+2.  **Initial LMSR Cost C(0)**:
+    \[ C(0) = b \times \ln(2) \]
+3.  **AMM Theoretical Cash**:
+    \[ \text{Cash}_{\text{AMM}} = \text{Seed} + \text{Fees} + (C(q) - C(0)) \]
+4.  **LP Floor (Worst-Case)**:
+    \[ \text{Floor} = \text{Cash}_{\text{AMM}} - \max(q_{\text{YES}}, q_{\text{NO}}) \]
+5.  **LP Ceiling (Best-Case)**:
+    \[ \text{Ceiling} = \text{Cash}_{\text{AMM}} - \min(q_{\text{YES}}, q_{\text{NO}}) \]
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐

@@ -2,7 +2,7 @@
 // Used for dynamic V5 Launchpad markets that aren't in the static config
 
 import React from 'react';
-import { useReadContracts, useAccount } from 'wagmi';
+import { useReadContracts, useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
@@ -23,66 +23,101 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
     const { selectedChainId } = useChainStore();
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}`;
 
-    // Fetch on-chain market data
+    // 1. Fetch outcome token address first (Dependency for balances)
+    const { data: outcomeTokenAddr } = useReadContract({
+        address: marketAddress,
+        abi: LAUNCHPAD_MARKET_ABI,
+        functionName: 'outcomeToken',
+        chainId: Number(selectedChainId),
+        query: { enabled: !!marketAddress }
+    });
+
+    // 2. Fetch on-chain market data & All balance types (Vault vs Wallet)
     const { data: onChainData, refetch, isLoading } = useReadContracts({
         contracts: [
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive', chainId: Number(selectedChainId) },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
-            { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0], chainId: Number(selectedChainId) },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b', chainId: Number(selectedChainId) },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes', chainId: Number(selectedChainId) },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo', chainId: Number(selectedChainId) },
             { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR', chainId: Number(selectedChainId) },
-            // Get outcome token address for ERC1155 balance check
-            { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken', chainId: Number(selectedChainId) },
-            // User positions via TraderVault (legacy/OB)
+            // Wallet positions (ERC1155) - AMM IS WALLET ONLY
+            {
+                address: outcomeTokenAddr as `0x${string}`,
+                abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
+                functionName: 'balanceOf',
+                args: [userAddress || '0x0000000000000000000000000000000000000000', 0n], // YES
+                chainId: Number(selectedChainId)
+            },
+            {
+                address: outcomeTokenAddr as `0x${string}`,
+                abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
+                functionName: 'balanceOf',
+                args: [userAddress || '0x0000000000000000000000000000000000000000', 1n], // NO
+                chainId: Number(selectedChainId)
+            },
+            // Orderbook YES (Liquid in Vault)
+            {
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'shareBalances',
+                args: [userAddress || '0x0', marketAddress || '0x0', 0], // YES
+                chainId: Number(selectedChainId)
+            },
+            // Orderbook NO (Liquid in Vault)
+            {
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'shareBalances',
+                args: [userAddress || '0x0', marketAddress || '0x0', 1], // NO
+                chainId: Number(selectedChainId)
+            },
+            // AMM Positions (Locked in Vault - Legacy)
             {
                 address: traderVaultAddress,
                 abi: TRADER_VAULT_V4_ABI,
                 functionName: 'ammPositions',
-                args: [userAddress || '0x0000000000000000000000000000000000000000', marketAddress || '0x0000000000000000000000000000000000000000'],
+                args: [userAddress || '0x0', marketAddress || '0x0'],
                 chainId: Number(selectedChainId)
             }
         ],
         query: {
-            enabled: !!marketAddress && !!traderVaultAddress,
-            refetchInterval: 15000, // Reduced frequency to 15s to prevent flickering
+            enabled: !!marketAddress && !!outcomeTokenAddr && !!traderVaultAddress,
+            refetchInterval: 5000, 
         }
     });
 
-    const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, outcomeTokenAddr, ammPosition] = onChainData?.map(r => r.result) || [];
+    const results = onChainData?.map(r => r.result) || [];
+    const [isLive, isSettled, bParam, qYes, qNo, feeData, walletYes, walletNo, liqYes, liqNo, ammPos] = results;
 
-    // Fetch ERC1155 balances (direct swap positions)
-    const outcomeTokenAddress = outcomeTokenAddr as `0x${string}` | undefined;
-    const { data: erc1155Data } = useReadContracts({
-        contracts: outcomeTokenAddress && userAddress ? [
-            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 0n], chainId: Number(selectedChainId) }, // YES
-            { address: outcomeTokenAddress, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'balanceOf', args: [userAddress, 1n], chainId: Number(selectedChainId) }, // NO
-        ] : [],
-        query: {
-            enabled: !!outcomeTokenAddress && !!userAddress,
-            refetchInterval: 15000,
-        }
-    });
+    // Extract AMM position (TraderVault - legacy locked positions)
+    const ammPosTyped = ammPos as [bigint, bigint] | undefined;
+    const lockYes = ammPosTyped?.[0] || 0n;
+    const lockNo = ammPosTyped?.[1] || 0n;
+    
+    // Extract Orderbook balances (TraderVault - liquid positions)
+    const liquidYes = (liqYes as bigint) || 0n;
+    const liquidNo = (liqNo as bigint) || 0n;
 
-    // Extract AMM position (TraderVault - legacy)
-    const ammPos = ammPosition as [bigint, bigint] | undefined;
-    const vaultYesShares = ammPos?.[0] || 0n;
-    const vaultNoShares = ammPos?.[1] || 0n;
-    
-    // Extract ERC1155 balances (direct swap)
-    const directYesShares = (erc1155Data?.[0]?.result as bigint) || 0n;
-    const directNoShares = (erc1155Data?.[1]?.result as bigint) || 0n;
-    
-    // Total shares = TraderVault + Direct (ERC1155)
-    const ammYesShares = vaultYesShares + directYesShares;
-    const ammNoShares = vaultNoShares + directNoShares;
+    // Extract Wallet balances (AMM is wallet only)
+    const walletYesShares = (walletYes as bigint) || 0n;
+    const walletNoShares = (walletNo as bigint) || 0n;
 
     const market: Market | undefined = React.useMemo(() => {
         if (!marketAddress) return undefined;
 
-        const priceYesRaw = priceYesWad ? BigInt(priceYesWad as bigint) : undefined;
-        const calculatedPriceYes = priceYesRaw ? parseFloat(formatUnits(priceYesRaw, 18)) : 0.5;
+        // V6.2.5: Calculate prices on frontend using quantities to avoid heavy RPC/on-chain math
+        const qY = qYes ? Number(formatUnits(qYes as bigint, 18)) : 0;
+        const qN = qNo ? Number(formatUnits(qNo as bigint, 18)) : 0;
+        const b = bParam ? Number(formatUnits(bParam as bigint, 18)) : 1000;
+
+        let calculatedPriceYes = 0.5;
+        if (b > 0) {
+            const maxQ = Math.max(qY, qN);
+            const expY = Math.exp((qY - maxQ) / b);
+            const expN = Math.exp((qN - maxQ) / b);
+            calculatedPriceYes = expY / (expY + expN);
+        }
         const calculatedPriceNo = 1 - calculatedPriceYes;
 
         return {
@@ -93,7 +128,7 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
             question: marketMeta?.name || 'Launchpad Market',
             description: `Symbol: ${marketMeta?.symbol || 'N/A'}`,
             contractAddress: marketAddress,
-            outcomeTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+            outcomeTokenAddress: (outcomeTokenAddr as `0x${string}`) || '0x0000000000000000000000000000000000000000',
             chainId: 84532, // Base Sepolia - should be dynamic
             mode: 'real' as const,
             adjudicatorKind: 'manual',
@@ -112,14 +147,26 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
             qNo: (qNo as bigint) || 0n,
             bParam: (bParam as bigint) || 0n,
 
-            // User positions
-            userYesShares: parseFloat(formatUnits(ammYesShares, 18)),
-            userNoShares: parseFloat(formatUnits(ammNoShares, 18)),
-            userYesLocked: 0,
-            userNoLocked: 0,
+            // AMM IS WALLET ONLY (Use Wallet Shares)
+            userYesWallet: parseFloat(formatUnits(walletYesShares, 18)),
+            userNoWallet: parseFloat(formatUnits(walletNoShares, 18)),
+
+            // OB IS TRADING ACCOUNT ONLY (Use Liquid Vault Shares)
+            userYesShares: parseFloat(formatUnits(liquidYes, 18)),
+            userNoShares: parseFloat(formatUnits(liquidNo, 18)),
+
+            // Legacy Locked
+            userYesLocked: parseFloat(formatUnits(lockYes, 18)),
+            userNoLocked: parseFloat(formatUnits(lockNo, 18)),
+
+            userYesOutcomeTokens: parseFloat(formatUnits(walletYesShares, 18)), 
+            userNoOutcomeTokens: parseFloat(formatUnits(walletNoShares, 18)),  
+            
+            // Combined views
+            userYesTotal: parseFloat(formatUnits(walletYesShares + liquidYes + lockYes, 18)),
+            userNoTotal: parseFloat(formatUnits(walletNoShares + liquidNo + lockNo, 18)),
+
             unlockTime: 0,
-            userYesOutcomeTokens: 0,
-            userNoOutcomeTokens: 0,
             userAvgEntryYes: null,
             userAvgEntryNo: null,
 
@@ -133,7 +180,7 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
             isGraduated: marketMeta?.isGraduated || false,
             deadline: marketMeta?.deadline,
         } as Market;
-    }, [marketAddress, marketMeta, isSettled, isLive, priceYesWad, bParam, qYes, qNo, ammYesShares, ammNoShares, feeData]);
+    }, [marketAddress, marketMeta, isSettled, isLive, bParam, qYes, qNo, walletYesShares, walletNoShares, liquidYes, liquidNo, lockYes, lockNo, feeData, outcomeTokenAddr]);
 
     return {
         market,

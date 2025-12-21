@@ -177,7 +177,8 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 toast.success(`${action} ${absShares} ${outcome === 0 ? 'YES' : 'NO'} shares!`, { id: toastId });
                 
                 // Add to Activity Log
-                const marketConfig = marketsConfig.markets.find(m =>
+                const markets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
+                const marketConfig = markets.find((m: any) =>
                     m.contractAddress?.toLowerCase() === marketAddress?.toLowerCase()
                 );
                 const marketName = marketConfig?.name || 'Launchpad Market';

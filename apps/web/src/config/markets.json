@@ -1,46 +1,26 @@
 {
   "markets": [
     {
-      "id": "m1",
-      "id_numeric": 1,
+      "id": "alien-life",
+      "name": "UN Confirms Alien Life",
+      "symbol": "ALIEN",
+      "contractAddress": "0x5D9a6a9AbcE5e2c0Af9ec22a246E713b3975959b",
+      "description": "Will the UN confirm the existence of alien life?",
+      "outcomeToken": "0x5db0707FD9161dc5B01c61d030c08E06310A9d96",
+      "tier": 1,
       "mode": "real",
-      "chainId": 84532,
-      "name": "BTC 7-day TWAP >= $100k",
-      "question": "BTC 7-day TWAP >= $100k",
-      "adjudicatorKind": "CHAINLINK_ZK",
-      "adjudicatorLabel": "Oracle + ZK",
-      "openEnded": true,
-      "contractAddress": "0x7D08DCb2c33f9317217E7779FDbb06143e72Ad22",
-      "adjudicatorId": "0xoracle_zk_btc_twap",
-      "eventId": "0xevent_btc_100k",
-      "initialStatus": "trading",
-      "initialYes": 0.5,
-      "riskLevel": "LOW",
-      "outcomes": [
-        "YES",
-        "NO"
-      ]
+      "chainId": 84532
     },
     {
-      "id": "m3",
-      "id_numeric": 3,
+      "id": "btc-100k",
+      "name": "BTC 7-day TWAP >= $100k",
+      "symbol": "BTC100K",
+      "contractAddress": "0xBB1cC536EaFeCC2e74BA68fE9428129f732C2Bc2",
+      "description": "Will BTC 7-day TWAP reach $100k?",
+      "outcomeToken": "0x7627E0e35280cE4C653a62BA09619b428B1c9eB2",
+      "tier": 2,
       "mode": "real",
-      "chainId": 84532,
-      "name": "UN confirms alien life",
-      "question": "UN confirms alien life",
-      "adjudicatorKind": "UMA_REALITY",
-      "adjudicatorLabel": "Optimistic",
-      "openEnded": true,
-      "contractAddress": "0x04ce93ca917cb909668FB782A4A64199e3835B99",
-      "adjudicatorId": "0xoptimistic_un_aliens",
-      "eventId": "0xevent_un_aliens",
-      "initialStatus": "trading",
-      "initialYes": 0.5,
-      "riskLevel": "MEDIUM",
-      "outcomes": [
-        "YES",
-        "NO"
-      ]
+      "chainId": 84532
     }
   ]
 }

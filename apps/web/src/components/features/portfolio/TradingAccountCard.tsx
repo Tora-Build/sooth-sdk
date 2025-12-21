@@ -4,13 +4,14 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
-import { RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock, TrendingUp } from 'lucide-react';
+import { RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock, TrendingUp, Scissors, GitMerge } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { useActivePositions } from '../../../hooks/useActivePositions';
 import { useLockedFunds } from '../../../hooks/useLockedFunds';
+import { PositionActionsModal } from './PositionActionsModal';
 
 export const TradingAccountCard: React.FC = () => {
   const { isConnected } = useAccount();
@@ -36,6 +37,7 @@ export const TradingAccountCard: React.FC = () => {
   const [withdrawAmount, setWithdrawAmount] = useState<string | bigint>('');
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
@@ -237,6 +239,16 @@ export const TradingAccountCard: React.FC = () => {
           </Button>
         </div>
       </Dialog>
+
+      <PositionActionsModal
+        isOpen={modalMode !== null}
+        onClose={() => setModalMode(null)}
+        mode={modalMode || 'merge'}
+        refetch={() => {
+          refetchPositions();
+          refetchLocked();
+        }}
+      />
     </Card>
   );
 };

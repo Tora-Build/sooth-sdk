@@ -1,7 +1,7 @@
 // MarketCard.tsx - Full AMM trading experience inline (V5 Launchpad style)
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, TrendingUp, Zap, ArrowRight, BookOpen } from 'lucide-react';
+import { Clock, TrendingUp, Zap, ArrowRight, BookOpen, Shield, Lock } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { useLaunchpadMarket } from '../../../hooks/v5/useLaunchpadMarket';
@@ -16,12 +16,34 @@ interface MarketCardProps {
   deadline?: number;
   disableNavigation?: boolean;
   market?: any; // Optional pre-fetched market data
+  bBase?: bigint;
+  graduationThreshold?: bigint;
 }
 
-export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disableNavigation, market: prefetchedMarket }: MarketCardProps) => {
-  const { bBase, graduationThreshold } = useLaunchpadMarket(prefetchedMarket ? undefined : address);
+export const MarketCard = ({ 
+  address, 
+  name, 
+  symbol, 
+  isGraduated, 
+  deadline, 
+  disableNavigation, 
+  market: prefetchedMarket,
+  bBase: propBBase,
+  graduationThreshold: propGraduationThreshold
+}: MarketCardProps) => {
+  const { 
+    bBase: hookBBase, 
+    graduationThreshold: hookGraduationThreshold,
+    pureFloor,
+    totalLockedProceeds
+  } = useLaunchpadMarket(
+    (prefetchedMarket || propBBase) ? undefined : address
+  );
   const { market: hookMarket } = useAmmMarketByAddress(prefetchedMarket ? undefined : address);
+  
   const market = prefetchedMarket || hookMarket;
+  const bBase = propBBase ?? hookBBase;
+  const graduationThreshold = propGraduationThreshold ?? hookGraduationThreshold;
 
   const priceYes = market?.priceYes ?? 0.5;
   const priceNo = 1 - priceYes;
@@ -116,27 +138,38 @@ export const MarketCard = ({ address, name, symbol, isGraduated, deadline, disab
       </div>
 
       {/* Footer Stats & Navigation */}
-      <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-800/50">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-xs text-slate-400">
-            <Zap className="w-3 h-3 text-cyan-400" />
-            <span className="font-mono">${liquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-          </div>
-          {deadline && !isGraduated && (
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              <Clock className="w-3 h-3" />
-              <span>{new Date(Number(deadline) * 1000).toLocaleDateString()}</span>
+      <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-slate-800/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Liquidity Depth: LMSR parameter controlling price impact">
+              <Zap className="w-3 h-3 text-cyan-400" />
+              <span className="font-mono">${liquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
+            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Floor Equity: Guaranteed minimum LP value (worst-case)">
+              <Shield className="w-3 h-3 text-emerald-400" />
+              <span className="font-mono">${(Number(pureFloor || 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Locked Proceeds: User funds in 24h cooling period">
+              <Lock className="w-3 h-3 text-amber-400" />
+              <span className="font-mono">${(Number(totalLockedProceeds || 0n) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </div>
+          </div>
+
+          {!disableNavigation && (
+            <Link
+              to={`/market/${address}`}
+              className="text-[10px] font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
+            >
+              Details <ArrowRight size={10} />
+            </Link>
           )}
         </div>
-
-        {!disableNavigation && (
-          <Link
-            to={`/market/${address}`}
-            className="text-xs font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
-          >
-            Details {isGraduated && '& Orders'} <ArrowRight size={12} />
-          </Link>
+        
+        {deadline && !isGraduated && (
+          <div className="flex items-center gap-1 text-[10px] text-slate-500">
+            <Clock className="w-3 h-3" />
+            <span>Deadline: {new Date(Number(deadline) * 1000).toLocaleDateString()}</span>
+          </div>
         )}
       </div>
     </Card>

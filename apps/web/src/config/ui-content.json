@@ -4,7 +4,10 @@
     "error": "Something went wrong",
     "usdc": "USDC",
     "yes": "YES",
-    "no": "NO"
+    "no": "NO",
+    "noHolders": "// no_holders_found",
+    "loadingHolders": "// loading_holders",
+    "noPositions": "// no_lp_positions"
   },
   "trading": {
     "buy": "Buy",
@@ -78,7 +81,30 @@
     "hybridLiquidity": "Hybrid Liquidity (Dynamic)",
     "formula": "Formula",
     "components": "Components",
-    "worstCasePayout": "Worst-Case Payout"
+    "worstCasePayout": "Worst-Case Payout",
+    "floorValue": "Floor Value",
+    "ceilingValue": "Ceiling Value",
+    "protectedEquity": "Protected Equity",
+    "floorTotal": "Floor Total",
+    "ceilingTotal": "Ceiling Total",
+    "netAssets": "Net Assets",
+    "floor": "Floor",
+    "ceiling": "Ceiling",
+    "yourFloor": "Your Floor",
+    "creatorFloor": "Creator Floor",
+    "floorDescription": "Your guaranteed payout if the worst outcome wins.",
+    "ceilingDescription": "Your share of all cash in the vault (Potential upside).",
+    "fairMintingDescription": "Rewards accrue when traders pay fees to the pool.",
+    "floorEquity": "Floor Equity",
+    "ceilingAssets": "Ceiling Assets",
+    "floorDelta": "Floor Delta",
+    "floorEquityDescription": "The net USDC value owned by LPs after accounting for all debt and potential winner payouts.",
+    "floorDeltaDescription": "The net profit/loss realized by the pool from AMM inventory pricing shifts.",
+    "exRateDescription": "Guaranteed growth (Floor) vs potential upside (Ceiling) multiplier. This value represents your USDC return per LP token.",
+    "floorExRate": "Floor ExRate",
+    "ceilingExRate": "Ceiling ExRate",
+    "liabilityDescription": "The maximum possible USDC payout if the majority outcome wins right now.",
+    "holders": "LP Holders"
   },
   "operator": {
     "title": "Adjudicator Console",

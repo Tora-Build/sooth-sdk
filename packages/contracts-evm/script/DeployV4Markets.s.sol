@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
+import "../contracts/launchpad/LaunchpadQuoter.sol";
 import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
@@ -19,11 +20,11 @@ contract DeployV4Markets is Script {
     address constant TICK_REGISTRY = 0xF8928d461BB54F5B8473A133DF1d77BC043Af605;
     address constant NEW_USDC = 0xa0eEa05Cc350Ac218683815e85Cac4A1a1eF36dd;
     
-    // Phase 1 addresses (infrastructure - deployed 2025-12-12 V4.6 Lock-on-Sell)
-    address constant USDC = 0x53d34066A316AE1699d434753B70593A6D59Fec1;
-    address constant GOVERNOR_VAULT = 0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1;
-    address constant TRADER_VAULT = 0xa8aDE73124B3256F98f510F6A9E7C1e3Aa71d20B;
-    address constant FEE_CONTROLLER = 0x1a646107e7E88aa01Fadff3145Af08156679198e;
+    // Phase 1 addresses (infrastructure - updated 2025-12-21 for V6.1.9)
+    address constant USDC = 0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd;
+    address constant GOVERNOR_VAULT = 0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB;
+    address constant TRADER_VAULT = 0x1364d5CCc14251C73823e0291EF57e9EA4b9E673;
+    address constant FEE_CONTROLLER = 0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9;
     
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -39,6 +40,11 @@ contract DeployV4Markets is Script {
         // Get contracts (used for market registration)
         SoothTraderVaultV4 traderVault = SoothTraderVaultV4(TRADER_VAULT);
         
+        // Mint USDC for deployer if needed (MockUSDC only)
+        // Need to import MockUSDC or use low-level call
+        (bool mintSuccess, ) = USDC.call(abi.encodeWithSignature("mint(address,uint256)", deployer, 1000000 * 1e6));
+        require(mintSuccess, "USDC mint failed");
+        
         // Get USDC contract
         IERC20 usdc = IERC20(USDC);
 
@@ -46,7 +52,10 @@ contract DeployV4Markets is Script {
         LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
+        LaunchpadQuoter quoter = new LaunchpadQuoter();
         
+        console.log("\n[Quoter] LaunchpadQuoter:", address(quoter));
+
         LaunchpadFactory factory = new LaunchpadFactory(
             address(marketImpl),
             USDC,

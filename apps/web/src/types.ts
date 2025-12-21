@@ -48,15 +48,20 @@ export interface Market {
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
 
   // User Position
-  userYesShares: number;
-  userNoShares: number;
-  // Locked Shares (AMM)
+  userYesShares: number; // Liquid in Vault (Orderbook Ready)
+  userNoShares: number;  // Liquid in Vault (Orderbook Ready)
+  
+  // Wallet Position (ERC1155) - AMM Ready
+  userYesWallet?: number;
+  userNoWallet?: number;
+
+  // Locked Shares (AMM legacy)
   userYesLocked?: number;
   userNoLocked?: number;
   unlockTime?: number;
 
-  userYesOutcomeTokens: number; // Integer (ERC1155)
-  userNoOutcomeTokens: number; // Integer (ERC1155)
+  userYesOutcomeTokens: number; // Integer (ERC1155) - Legacy field
+  userNoOutcomeTokens: number; // Integer (ERC1155) - Legacy field
   userAvgEntryYes: number | null;
   userAvgEntryNo: number | null;
 

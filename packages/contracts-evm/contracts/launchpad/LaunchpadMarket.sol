@@ -92,17 +92,16 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         address _creator,
         uint8 _liquidityTierIndex,
         uint40 _deadline,
-        address /* _lpVault - not used, market is its own vault */,
+        address,
         uint256 _creatorDeposit,
         address _assetAddress
     ) external {
-        require(creator == address(0), "Launchpad: already init");
-        require(_creator != address(0), "Launchpad: zero creator");
-        require(_assetAddress != address(0), "Launchpad: zero asset");
+        require(creator == address(0), "INIT");
+        require(_creator != address(0), "ZERO");
+        require(_assetAddress != address(0), "ZERO");
 
         creator = _creator;
-        // Ensure base's marketOperator matches creator (set during base.initialize())
-        require(marketOperator == _creator, "Launchpad: operator mismatch");
+        require(marketOperator == _creator, "OP");
         
         liquidityTierIndex = _liquidityTierIndex;
         deadline = _deadline;
@@ -110,11 +109,8 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         factory = msg.sender;
         _asset = IERC20(_assetAddress);
         
-        // V6: Mint initial LP tokens to creator
-        // Scale from USDC decimals (6) to LP decimals (18)
         uint8 assetDecimals = IERC20Metadata(_assetAddress).decimals();
-        uint256 scaledDeposit = _creatorDeposit * (10 ** (18 - assetDecimals));
-        _mint(_creator, scaledDeposit);
+        _mint(_creator, _creatorDeposit * (10 ** (18 - assetDecimals)));
     }
 
     // =========================================================================
@@ -232,24 +228,21 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         uint256 assets = totalNetAssets(); // current net assets (includes this fee)
         
         uint256 lpToMint;
-        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
-        uint256 assetsWad = assets * scale;
 
+        // V6.2.4: Everything is WAD (18 decimals). No scale factor needed for logic.
         // Fair Minting (Anti-dilution) with "Par Floor" protection:
         // We want to mint tokens at the current floor price: Price = (Assets - Fee) / Supply
-        // To avoid division-by-near-zero explosions when pool equity is thin:
-        // We ensure the minting price is at least 1.0 (initial parity).
         
-        uint256 preFeeAssetsWad = assetsWad > fee ? assetsWad - fee : 0;
+        uint256 preFeeAssets = assets > fee ? assets - fee : 0;
         
-        if (supply == 0 || preFeeAssetsWad < supply) {
+        if (supply == 0 || preFeeAssets < supply) {
             // Fallback: If pool is "underwater" or equity is less than 1:1 parity,
             // mint at the initial 1:1 rate (1 unit of fee = 1 LP unit).
             lpToMint = fee;
         } else {
             // Current Price > 1.0: Mint at the fair market rate to avoid diluting existing LPs.
-            // lpToMint = fee / Price = (fee * supply) / preFeeAssetsWad
-            lpToMint = (fee * supply) / preFeeAssetsWad;
+            // lpToMint = fee / Price = (fee * supply) / preFeeAssets
+            lpToMint = (fee * supply) / preFeeAssets;
         }
 
         if (!isGraduated) {
@@ -347,29 +340,68 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         return _asset.balanceOf(address(this));
     }
     
-    /// @notice Net assets available for LPs (Gross - Locked Proceeds - Outstanding Liability)
-    /// @dev Liability is max(Total YES shares, Total NO shares), representing the worst-case payout.
-    ///      This ensures the LP ExRate reflects a guaranteed floor value.
-    function totalNetAssets() public view returns (uint256) {
-        uint256 gross = totalAssets();
-        uint256 locked = totalLockedProceeds;
-        
-        // AMM Liability: The maximum amount the vault must pay out at settlement
-        // across BOTH AMM and Orderbook positions.
-        uint256 qYes_ = outcomeToken.totalSupply(0);
-        uint256 qNo_ = outcomeToken.totalSupply(1);
-        uint256 liability = qYes_ > qNo_ ? qYes_ : qNo_;
-        
-        // Convert liability (18 decimals) to asset decimals (6 for USDC)
-        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
-        uint256 liabilityAsset = (liability + scale - 1) / scale; // Round up liability
-        
-        uint256 totalDebt = locked + liabilityAsset;
-        return gross > totalDebt ? gross - totalDebt : 0;
+    // =========================================================================
+    // Pure AMM Accounting (V6.1.9)
+    // =========================================================================
+
+    function ammAssets() public view returns (uint256) {
+        uint256 bv = b();
+        if (bv == 0) return 0;
+        int256 delta = _cost(qYes, qNo, bv) - _cost(0, 0, bv);
+        uint256 s = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+        int256 total = int256(totalCreatorDeposit * s) + int256(feesAccrued) + delta;
+        return total > 0 ? uint256(total) : 0;
     }
-    
+
+    function totalNetAssets() public view override returns (uint256) {
+        uint256 assets = ammAssets();
+        uint256 qY_ = uint256(qYes >= 0 ? qYes : int256(0));
+        uint256 qN_ = uint256(qNo >= 0 ? qNo : int256(0));
+        uint256 liability = (qY_ > qN_ ? qY_ : qN_);
+        return assets > liability ? assets - liability : 0;
+    }
+
+    function pureCeilingAssets() public view returns (uint256) {
+        uint256 assets = ammAssets();
+        uint256 qY_ = uint256(qYes >= 0 ? qYes : int256(0));
+        uint256 qN_ = uint256(qNo >= 0 ? qNo : int256(0));
+        uint256 liability = (qY_ < qN_ ? qY_ : qN_);
+        return assets > liability ? assets - liability : 0;
+    }
+
+    function convertSharesToFloor(uint256 shares) external view returns (uint256) {
+        uint256 supply = totalSupply();
+        if (supply == 0) return shares;
+        return (shares * totalNetAssets()) / supply;
+    }
+
+    function lpRealizedPnL() external view returns (int256) {
+        uint256 bVal = b();
+        if (bVal == 0) return 0;
+        return _cost(qYes, qNo, bVal) - _cost(0, 0, bVal);
+    }
+
+    function isUnderwater() external view returns (bool) {
+        return totalNetAssets() == 0;
+    }
+
     function decimalsScale() external view override returns (uint256) {
         return 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
+    }
+
+    /// @notice ERC-4626 standard conversion (Floor-based)
+    function convertToAssets(uint256 shares) public view override returns (uint256) {
+        uint256 supply = totalSupply();
+        if (supply == 0) return shares;
+        return (shares * totalNetAssets()) / supply;
+    }
+
+    /// @notice ERC-4626 standard conversion (Floor-based)
+    function convertToShares(uint256 assets) public view override returns (uint256) {
+        uint256 supply = totalSupply();
+        uint256 netAssets = totalNetAssets();
+        if (netAssets == 0 || supply == 0) return assets;
+        return (assets * supply) / netAssets;
     }
     
     // Lock-on-Sell implementation

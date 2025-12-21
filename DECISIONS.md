@@ -327,3 +327,76 @@
   - **Clarity**: Users immediately understand the custody status of their assets based on position and color.
   - **Scalability**: New position types (e.g. Social, Options) can be categorized into existing domains.
   - **UX**: Unified card behavior (folding, loading states) provides a more professional, "Command Center" feel.
+
+## ADR-022: Isolated AMM Accounting & Liability Separation
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in V6.1.9)
+- **Context**: V6 markets are hybrid venues where Orderbook (OB) tokens and AMM shares exist in the same vault. Initial accounting hybridized these liabilities, incorrectly subtracting OB collateral from LP equity. This violated the principle that LPs are only counterparties to the AMM.
+- **Decision**: Enforce **Pure AMM Accounting** for all LP valuations:
+    - **Principle**: Liability is NOT shared. LPs own the AMM ledger, not the hybrid vault cash.
+    - **Theoretical AMM Cash**: Derived purely from AMM state: `AMM_Cash = Initial_Seed + Fees + (Current_LMSR_Cost - Initial_LMSR_Cost)`.
+    - **Isolated Floor**: `AMM_Cash - max(qYes, qNo)`.
+    - **Isolated Ceiling**: `AMM_Cash - min(qYes, qNo)`.
+- **Consequences**:
+    - **Integrity**: LP value remains stable regardless of Orderbook volume or Direct Splits.
+    - **Transparency**: Market Stats now explicitly show the "AMM Ledger" as a distinct theoretical pool.
+    - **Math**: Requires frontend implementation of Log-Sum-Exp to calculate `currentCost` without RPC calls.
+    - **Verification**: UI must clearly label these as "Theoretical" or "Pure" metrics to avoid confusion with the physical contract balance.
+    - **Implementation**:
+        - `MarketDetail.tsx`: Refactored `MarketInfoCard` to use isolated ledger math.
+        - `.agent/LESSONS_LEARNED.md`: Added mandatory rules for liability isolation.
+
+## ADR-023: Enforced On-Chain Liability Isolation
+- **Date**: 2025-12-21
+- **Status**: Accepted
+- **Context**: ADR-022 implemented Isolated AMM Accounting on the frontend, but the smart contracts still provided a hybrid `totalNetAssets()` view. This created a discrepancy between what the UI showed and what on-chain tools (Etherscan, aggregators) would report.
+- **Decision**: Move the "Isolated Ledger" logic directly into the `LaunchpadMarket` contract:
+    - **Contract Views**: Add `ammAssets()`, `pureCeilingAssets()`, and refactor `totalNetAssets()` to use internal AMM state (`qYes`, `qNo`, `bBase`).
+    - **Standardization**: Implement ERC-4626 `convertToAssets` and `convertToShares` using the Pure Floor as the exchange rate source of truth.
+    - **Logic Split**:
+        - **On-Chain**: Source of truth for guaranteed Floor value (Honest Floor) and actual cash ledger.
+        - **Off-Chain (Frontend)**: Optimistic price simulations, "what-if" scenarios, and sub-second price updates.
+- **Consequences**:
+    - **Uniformity**: All tools (UI and block explorers) now see the same "Honest Floor" valuation.
+    - **Interoperability**: LP tokens become standard-compliant and can be safely used as collateral in other protocols.
+    - **Gas/Complexity**: Minor increase in view function complexity due to LMSR math (log/exp) on-chain, but `SoothMarketBase` already provides these via `prb-math`.
+
+## ADR-024: On-Chain Quoting & Health Checks
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in V6.2.3)
+- **Context**: The `LaunchpadMarket` was becoming too large for EIP-170 limits due to the addition of complex trade simulation and health metrics.
+- **Decision**: Extract intensive simulation logic into a dedicated helper contract:
+    - **LaunchpadQuoter**: A standalone contract responsible for `calculateAMMTradeQuote`. It returns `(cost, fee, nextFloor, nextCeiling)` in a single call.
+    - **Health Views**: Kept light metrics like `isUnderwater()` and `lpRealizedPnL()` in the main market contract for immediate protocol-level guards.
+- **Consequences**:
+    - **Compliance**: `LaunchpadMarket` bytecode remains safely below 24KB.
+    - **Precision**: Frontend can now simulate exactly how a trade will impact the pool floor and ceiling without manual JS math replication.
+    - **Cost**: Minor increase in frontend logic complexity to handle optional quoter addresses on legacy chains.
+
+## ADR-025: Pure WAD Architecture
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in V6.2.4)
+- **Context**: The integration of `LaunchpadQuoter` and new AMM views introduced a scaling bug. Smart contracts were returning 18-decimal (WAD) values for metrics like `ammAssets` and `cost`, but the frontend was treating them as 6-decimal (USDC) values. This resulted in "trillion-dollar" display errors (e.g., $5.3T instead of $5.30).
+- **Decision**: Establish **Pure WAD Architecture** for all AMM internal accounting:
+    - **Contract Level**: All AMM views (`ammAssets`, `totalNetAssets`, `cost`, `fee`) MUST return 18-decimal precision regardless of the underlying asset's native decimals.
+    - **Quoter Level**: `LaunchpadQuoter` must simulate and return values in 18-decimal WAD to maintain consistency with `LaunchpadMarket`.
+    - **Frontend Layer**: Hooks (`useLaunchpadTradeQuote`, `useLaunchpadMarket`, `useLPPositions`) must assume 100% of AMM-derived values are WAD. Scaling to native asset decimals (e.g., 6 for USDC) should only happen at the final display layer or when submitting transactions.
+- **Consequences**:
+    - **Robustness**: Eliminates the class of "trillion-dollar display" bugs caused by decimal mismatch.
+    - **Precision**: Maintains maximal mathematical precision throughout the calculation chain.
+    - **Simplified Logic**: Hooks no longer need to check `decimals()` for every AMM metric; they treat the AMM as a purely 18-decimal virtual ledger.
+    - **Verification**: Verified on Base Sepolia with correct decimal formatting for both Portfolio and Swap UIs.
+
+## ADR-026: Pure Trading Account Model
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in V6.2.5)
+- **Context**: Sooth uses a dual-layer inventory system (Custodial Shares in Vault vs Direct Tokens in Wallet). Supporting both in the dApp created significant UI clutter, redundant RPC calls, and UX confusion regarding where Merge/Split operations should occur.
+- **Decision**: **Abandon wallet token support** in the current dApp version:
+    - **Visuals**: Removed all displays of ERC1155 tokens from the Portfolio and trade forms.
+    - **Actions**: Strictly restricted Merge and Split operations to the **Trading Account (Vault)** context.
+    - **Inventory Hub**: Centralized inventory management into a single hub within the Trading Account card.
+- **Consequences**:
+    - **Focus**: The dApp now has a singular, clear path for trading and settlement via the Trading Account.
+    - **Performance**: Removed background polling for on-chain token balances, improving page load and responsiveness.
+    - **Security**: Reduces risk of users accidentally burning wallet tokens when they intended to manage vault inventory.
+    - **Technical Debt**: Cleaned up hooks and deleted `OrderbookTokensCard.tsx`.

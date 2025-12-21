@@ -1,18 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useActivePositions, ActivePosition } from '../../../hooks/useActivePositions';
-import { Wallet, Coins, Trophy, Loader2, GitMerge, Scissors, ArrowUpRight, ArrowDownLeft, ChevronDown } from 'lucide-react';
-import { formatCurrency } from '../../../utils/format';
-import { cn } from '../../../lib/utils';
+import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft, ChevronDown } from 'lucide-react';
 import { useWriteContract, usePublicClient, useAccount } from 'wagmi';
 import { TRADER_VAULT_V4_ABI } from '../../../config/abis';
 import toast from 'react-hot-toast';
-import { PortfolioCard } from './PortfolioCard';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { parseUnits, formatUnits } from 'viem';
 import { useLaunchpadMarkets } from '../../../hooks/v5/useLaunchpadMarkets';
+import { cn } from '../../../lib/utils';
 
 export const PositionActionsModal: React.FC<{
     isOpen: boolean;
@@ -58,10 +56,6 @@ export const PositionActionsModal: React.FC<{
         liquidNo: 0,
         question: markets.find(m => m.address === selectedMarketAddr)?.name || 'Selected Market'
     } : null));
-
-    // Note: Contract has dynamic token authorization via onlyOutcomeToken modifier
-    // It checks if the caller's market() is a valid market in LaunchpadFactory
-    // No client-side safeguard needed - let the contract handle authorization
 
     // For Merge: Use vault (custodial) shares - liquidYes/liquidNo
     // For Split: Use vault USDC balance
@@ -270,150 +264,3 @@ export const PositionActionsModal: React.FC<{
     );
 };
 
-const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ pos, refetch }) => {
-    const { writeContractAsync } = useWriteContract();
-    const publicClient = usePublicClient();
-    const { refetch: refetchVault } = useTraderVault();
-    const [isRedeeming, setIsRedeeming] = useState(false);
-    const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
-
-    const hasYes = pos.walletYes > 0.001;
-    const hasNo = pos.walletNo > 0.001;
-    const priceYes = pos.priceYes || 0.5;
-    const priceNo = 1 - priceYes;
-
-    const handleQuickClaim = async () => {
-        if (!pos.isSettled) return;
-        setIsRedeeming(true);
-        try {
-            const yesBig = pos.walletYesBig || 0n;
-            const noBig = pos.walletNoBig || 0n;
-            const claimAmountBig = yesBig > noBig ? yesBig : noBig;
-            if (claimAmountBig === 0n) return;
-            const hash = await writeContractAsync({
-                address: pos.outcomeTokenAddress || pos.marketAddress,
-                abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
-                functionName: 'merge',
-                args: [claimAmountBig],
-            });
-            toast.loading('Claiming winnings...', { id: 'claim' });
-            if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash });
-                toast.success('Winnings claimed!', { id: 'claim' });
-                refetch();
-                refetchVault();
-            }
-        } catch (e: any) {
-            toast.error(e.message?.split('\n')[0] || 'Claim failed', { id: 'claim' });
-        } finally {
-            setIsRedeeming(false);
-        }
-    };
-
-    return (
-        <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/40 transition-all group space-y-2 relative overflow-hidden">
-            {pos.isSettled && (
-                <div className="absolute top-0 right-0 p-1 bg-amber-500/10 border-b border-l border-amber-500/20 rounded-bl-lg">
-                    <Trophy size={8} className="text-amber-400" />
-                </div>
-            )}
-
-            <h4 className="font-bold text-[11px] text-white leading-tight truncate pr-4" title={pos.question}>
-                {pos.question}
-            </h4>
-
-            <div className="flex flex-col gap-1">
-                {hasYes && (
-                    <div className="flex items-center justify-between p-1 rounded bg-emerald-500/5 border border-emerald-500/10">
-                        <div className="flex items-center gap-1">
-                            <span className="text-[8px] font-black px-1 py-0 rounded bg-emerald-500 text-emerald-950">YES</span>
-                            <span className="text-[10px] text-white font-mono">{pos.walletYes.toFixed(2)}</span>
-                        </div>
-                        <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency(pos.walletYes * priceYes)}</div>
-                    </div>
-                )}
-                {hasNo && (
-                    <div className="flex items-center justify-between p-1 rounded bg-rose-500/5 border border-rose-500/10">
-                        <div className="flex items-center gap-1">
-                            <span className="text-[8px] font-black px-1 py-0 rounded bg-rose-500 text-rose-950">NO</span>
-                            <span className="text-[10px] text-white font-mono">{pos.walletNo.toFixed(2)}</span>
-                        </div>
-                        <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency(pos.walletNo * priceNo)}</div>
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
-                {pos.isSettled ? (
-                    <Button
-                        size="xs"
-                        variant="glow"
-                        onClick={handleQuickClaim}
-                        isLoading={isRedeeming}
-                        className="col-span-2 h-7 text-[9px] font-black uppercase tracking-widest border border-amber-500/30"
-                    >
-                        <Trophy size={10} className="mr-1.5" />
-                        CLAIM WINNINGS
-                    </Button>
-                ) : (
-                    <>
-                        <Button
-                            size="xs"
-                            variant="secondary"
-                            onClick={() => setModalMode('merge')}
-                            disabled={pos.walletYes < 0.001 || pos.walletNo < 0.001}
-                            className="group h-7 text-[9px] font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
-                        >
-                            <ArrowUpRight size={10} className="mr-1 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> MERGE
-                        </Button>
-                        <Button
-                            size="xs"
-                            variant="primary"
-                            onClick={() => setModalMode('split')}
-                            className="group h-7 text-[9px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white"
-                        >
-                            <ArrowDownLeft size={10} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> SPLIT
-                        </Button>
-                    </>
-                )}
-            </div>
-
-            <PositionActionsModal
-                isOpen={modalMode !== null}
-                onClose={() => setModalMode(null)}
-                pos={pos}
-                mode={modalMode || 'merge'}
-                refetch={refetch}
-            />
-        </div>
-    );
-};
-
-export const OrderbookTokensCard: React.FC = () => {
-    const { walletPositions, walletValue, isLoading, refetch } = useActivePositions();
-
-    return (
-        <PortfolioCard
-            title="Orderbook Tokens"
-            icon={<Coins size={16} className="text-indigo-400" />}
-            variant="indigo"
-            badge={
-                <div className="text-xs font-black text-indigo-400 font-mono">
-                    {isLoading && walletPositions.length === 0 ? '--' : formatCurrency(walletValue)}
-                </div>
-            }
-            itemCount={walletPositions.length}
-            isLoading={isLoading && walletPositions.length === 0}
-            emptyState={
-                <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
-                    <Coins size={24} className="text-slate-600 mb-1" />
-                    <p className="text-[10px] font-mono">// no_onchain_tokens</p>
-                </div>
-            }
-        >
-            <div className="grid gap-2">
-                {walletPositions.map(pos => <PositionItem key={pos.id} pos={pos} refetch={refetch} />)}
-            </div>
-        </PortfolioCard>
-    );
-};

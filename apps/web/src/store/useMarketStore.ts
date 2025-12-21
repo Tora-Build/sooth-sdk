@@ -14,7 +14,9 @@ import marketOverrides from '../config/marketOverrides.json';
 
 // Initial Demo Data
 // Filter out real markets - they should come from LaunchpadFactory dynamically
-const initialDemoMarkets: Market[] = marketsConfig.markets
+const configMarkets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
+
+const initialDemoMarkets: Market[] = configMarkets
   .filter(m => (m as any).mode === 'demo') // Only include demo markets
   .map(m => {
   // Apply overrides if they exist for this market ID

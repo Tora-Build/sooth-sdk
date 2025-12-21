@@ -9,11 +9,14 @@ export interface LPPosition {
     marketName: string;
     lpBalance: bigint;
     lpBalanceFormatted: string;
-    estimatedValue: bigint;
-    estimatedValueFormatted: string;
+    ceilingValue: bigint;
+    ceilingValueFormatted: string;
+    floorValue: bigint;
+    floorValueFormatted: string;
     totalSupply: bigint;
     sharePercent: number;
     totalAssets: bigint;
+    totalNetAssets: bigint;
     isGraduated: boolean;
     isLive: boolean;
 }
@@ -31,10 +34,16 @@ export function useLPPositions() {
             { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf' as const, args: [userAddress] },
             // Total supply
             { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalSupply' as const },
-            // Total assets (TVL)
+            // Total assets (Gross TVL)
             { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalAssets' as const },
+            // Net assets (Floor TVL)
+            { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalNetAssets' as const },
             // isLive
             { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive' as const },
+            // Pure AMM Accounting (V6.1.9)
+            { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'ammAssets' as const },
+            { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalNetAssets' as const },
+            { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'pureCeilingAssets' as const },
         ]);
     }, [markets, userAddress]);
 
@@ -56,15 +65,24 @@ export function useLPPositions() {
         if (!markets?.length || !lpData) return [];
 
         return markets.map((market, i) => {
-            const baseIdx = i * 4;
+            const baseIdx = i * 8; // 8 contract calls per market
             const lpBalance = (lpData[baseIdx]?.result as bigint) || 0n;
             const totalSupply = (lpData[baseIdx + 1]?.result as bigint) || 0n;
             const totalAssets = (lpData[baseIdx + 2]?.result as bigint) || 0n;
-            const isLive = lpData[baseIdx + 3]?.result as boolean;
+            const totalNetAssets = (lpData[baseIdx + 3]?.result as bigint) || 0n;
+            const isLive = lpData[baseIdx + 4]?.result as boolean;
+            
+            // On-Chain Pure Ledger (V6.1.9)
+            const ammCash = (lpData[baseIdx + 5]?.result as bigint) || 0n;
+            const floorTVL = (lpData[baseIdx + 6]?.result as bigint) || 0n;
+            const ceilingTVL = (lpData[baseIdx + 7]?.result as bigint) || 0n;
 
-            // Calculate estimated value: (lpBalance * totalAssets) / totalSupply
-            const estimatedValue = totalSupply > 0n
-                ? (lpBalance * totalAssets) / totalSupply
+            const floorValue = totalSupply > 0n
+                ? (lpBalance * floorTVL) / totalSupply
+                : 0n;
+
+            const ceilingValue = totalSupply > 0n
+                ? (lpBalance * ceilingTVL) / totalSupply
                 : 0n;
 
             // Calculate share percent
@@ -77,28 +95,42 @@ export function useLPPositions() {
                 marketName: market.name || 'Unknown Market',
                 lpBalance,
                 lpBalanceFormatted: formatUnits(lpBalance, LP_TOKEN_DECIMALS),
-                estimatedValue,
-                estimatedValueFormatted: formatUnits(estimatedValue, USDC_DECIMALS),
+                ceilingValue,
+                ceilingValueFormatted: formatUnits(ceilingValue, LP_TOKEN_DECIMALS),
+                floorValue,
+                floorValueFormatted: formatUnits(floorValue, LP_TOKEN_DECIMALS),
+                // Legacy support
+                estimatedValue: floorValue, 
+                estimatedValueFormatted: formatUnits(floorValue, LP_TOKEN_DECIMALS),
                 totalSupply,
                 sharePercent,
                 totalAssets,
+                totalNetAssets,
                 isGraduated: market.isGraduated || false,
                 isLive: !!isLive,
             };
         }).filter(p => p.lpBalance > 0n); // Only show positions with LP tokens
     }, [markets, lpData]);
 
-    // Total LP value across all markets
+    // Total LP value across all markets (Using Floor Value for total)
     const totalLPValue = useMemo(() => {
-        return positions.reduce((acc, p) => acc + p.estimatedValue, 0n);
+        return positions.reduce((acc, p) => acc + p.floorValue, 0n);
     }, [positions]);
 
-    const totalLPValueFormatted = formatUnits(totalLPValue, USDC_DECIMALS);
+    // Total Ceiling value
+    const totalCeilingValue = useMemo(() => {
+        return positions.reduce((acc, p) => acc + p.ceilingValue, 0n);
+    }, [positions]);
+
+    const totalLPValueFormatted = formatUnits(totalLPValue, LP_TOKEN_DECIMALS);
+    const totalCeilingValueFormatted = formatUnits(totalCeilingValue, LP_TOKEN_DECIMALS);
 
     return {
         positions,
         totalLPValue,
         totalLPValueFormatted,
+        totalCeilingValue,
+        totalCeilingValueFormatted,
         isLoading: marketsLoading || lpDataLoading,
         refetch,
     };

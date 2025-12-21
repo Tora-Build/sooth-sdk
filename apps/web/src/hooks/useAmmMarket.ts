@@ -1,7 +1,7 @@
 import React from 'react';
 import { useReadContracts, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
+import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
@@ -21,7 +21,8 @@ function useEVMMarket(marketId: string) {
   const deployments = config.contracts;
 
   // 1. Config Lookup
-  const marketConfig = marketsConfig.markets.find(m => m.id === marketId);
+  const markets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
+  const marketConfig = markets.find((m: any) => m.id === marketId);
   const marketAddress = (marketConfig as any)?.contractAddress as `0x${string}`;
   const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
@@ -42,7 +43,7 @@ function useEVMMarket(marketId: string) {
         functionName: 'ammPositions',
         args: [address || '0x0000000000000000000000000000000000000000', marketAddress],
         chainId: Number(selectedChainId)
-      }
+      },
     ],
     query: {
       // Relaxed check: Fetch if real mode and we have a valid market address.
@@ -53,10 +54,6 @@ function useEVMMarket(marketId: string) {
     }
   });
 
-  // Debug Logs
-  if (mode === 'real' && !onChainData && !isHookLoading) {
-  }
-
   // 3. Process Data
   const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition] = onChainData?.map(r => r.result) || [];
 
@@ -64,8 +61,9 @@ function useEVMMarket(marketId: string) {
 
   // Extract AMM position - V4.6: only 2 fields (yesShares, noShares) - no unlockTime
   const ammPos = ammPosition as [bigint, bigint] | undefined;
-  const ammYesShares = ammPos?.[0] || 0n;
-  const ammNoShares = ammPos?.[1] || 0n;
+  const vaultYesShares = ammPos?.[0] || 0n;
+  const vaultNoShares = ammPos?.[1] || 0n;
+
   const ammUnlockTime = 0n; // V4.6 Lock-on-Sell: always 0
 
   // Real Mode Construction
@@ -102,12 +100,12 @@ function useEVMMarket(marketId: string) {
       qYes: (qYes as bigint) || 0n,
       qNo: (qNo as bigint) || 0n,
       bParam: (bParam as bigint) || configBParam || 0n,
-      userYesShares: parseFloat(formatUnits(ammYesShares, 18)),
-      userNoShares: parseFloat(formatUnits(ammNoShares, 18)),
+      userYesShares: parseFloat(formatUnits(vaultYesShares, 18)),
+      userNoShares: parseFloat(formatUnits(vaultNoShares, 18)),
 
       // Breakdown for Locked Shares Logic
-      userYesLocked: parseFloat(formatUnits(ammYesShares, 18)),
-      userNoLocked: parseFloat(formatUnits(ammNoShares, 18)),
+      userYesLocked: parseFloat(formatUnits(vaultYesShares, 18)),
+      userNoLocked: parseFloat(formatUnits(vaultNoShares, 18)),
       unlockTime: Number(ammUnlockTime),
 
       // Orderbook tokens handled in useOrderbook now
@@ -118,7 +116,7 @@ function useEVMMarket(marketId: string) {
       mode: 'real',
       fee: feeData ? Number(feeData) / 10000 : 0.005, // Default to 0.5% if missing
     } as Market;
-  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, ammYesShares, ammNoShares, ammUnlockTime, feeData]);
+  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, vaultYesShares, vaultNoShares, ammUnlockTime, feeData]);
 
   // React to global refresh events
   React.useEffect(() => {

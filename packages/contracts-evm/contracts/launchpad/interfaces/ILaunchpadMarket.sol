@@ -93,4 +93,48 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     
     /// @notice V6: Preview redeem amount for LP tokens
     function previewRedeemLP(uint256 amount) external view returns (uint256);
+
+    // =========================================================================
+    // Pure AMM Accounting (V6.1.9)
+    // =========================================================================
+
+    /// @notice Theoretical cash bucket owned by LPs (creatorDeposit + fees + LMSR delta)
+    function ammAssets() external view returns (uint256);
+
+    /// @notice Pure Floor: ammAssets - max(qYes, qNo)
+    function totalNetAssets() external view returns (uint256);
+
+    /// @notice Pure Ceiling: ammAssets - min(qYes, qNo)
+    function pureCeilingAssets() external view returns (uint256);
+
+    /// @notice ERC-4626: Floor assets per share
+    function convertToAssets(uint256 shares) external view returns (uint256);
+
+    /// @notice ERC-4626: Shares per asset (Floor-based)
+    function convertToShares(uint256 assets) external view returns (uint256);
+
+    /// @notice Explicitly convert shares to Floor Value
+    function convertSharesToFloor(uint256 shares) external view returns (uint256);
+
+    /// @notice Pure AMM realized P&L from trading (currentCost - initialCost)
+    function lpRealizedPnL() external view returns (int256);
+
+    /// @notice Check if the AMM is underwater (Floor Equity == 0)
+    function isUnderwater() external view returns (bool);
+}
+
+
+interface ILaunchpadQuoter {
+    function calculateAMMTradeQuote(
+        address market,
+        uint8 outcome,
+        uint256 shares,
+        bool isBuy
+    ) external view returns (
+        int256 cost,
+        uint256 fee,
+        uint256 nextFloor,
+        uint256 nextCeiling,
+        uint256 priceImpactBps
+    );
 }

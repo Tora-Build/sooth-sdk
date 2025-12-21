@@ -5,23 +5,36 @@ In prediction market AMMs like LMSR, the pool (the LP) is always the counterpart
 
 In earlier versions (V6.1.3 and below), LP token valuation was based on "Gross Assets" (the total USDC in the contract). This was misleading because it ignored the outstanding "debt" (the potential payouts to winning traders). This led to an **Exchange Rate Paradox** where the LP price would look very high until settlement, at which point it would crash as winners claimed their USDC.
 
-## The Solution: Global Liability Tracking
-Introduced in **V6.1.6**, Global Liability Tracking implements "Honest Accounting" for LP tokens. The value of an LP token now reflects its **Guaranteed Floor Equity**.
+## The Solution: Isolated AMM Accounting (Pure LP Ledger)
+Introduced in **V6.1.9**, the protocol enforces **Liability Isolation**. LPs are counterparties ONLY to the AMM. Orderbook tokens and Direct Splits are self-collateralized and neutral to LP equity.
 
-### 1. The Formula
-The "Net Assets" of the pool are calculated as:
+### 1. The Pure AMM Formula
+The "Net Assets" owned by the LPs are derived purely from the AMM's internal ledger, ignoring Orderbook collateral:
 
-\[ \text{Net Assets} = \text{Total Cash} - \text{Locked Proceeds} - \text{Maximum Potential Payout} \]
+\[ \text{LP Equity} = \text{Initial Seed} + \text{Fees} + (\text{Current Cost} - \text{Initial Cost}) - \text{AMM Max Liability} \]
 
 Where:
-*   **Total Cash**: Current USDC balance of the market contract.
-*   **Locked Proceeds**: USDC owed to users who have sold shares but are waiting for the 24h cooldown.
-*   **Maximum Potential Payout**: \(\max(\text{Total YES Supply}, \text{Total NO Supply})\).
+*   **Initial Seed**: Creator's deposit (\(b \times \ln(2)\)).
+*   **Fees**: Cumulative trading spreads captured by the AMM.
+*   **Current Cost**: The LMSR cost \(C(q)\) based on virtual inventory.
+*   **AMM Max Liability**: \(\max(q_{\text{YES}}, q_{\text{NO}})\).
 
-### 2. Unified AMM + Orderbook Scope
-Sooth uses a hybrid model with both an AMM and a Limit Orderbook. Traditional accounting often only tracks AMM inventory. Global Liability Tracking utilizes `ERC1155Supply` to track the **Global Total Supply** of outcome tokens.
+### 2. Why Liability is NOT Shared
+Sooth uses a hybrid model with both an AMM and a Limit Orderbook. 
+*   **AMM Liability**: Uncollateralized debt where the LP is the short counterparty. This is the only risk the LPs actually "own."
+*   **Orderbook Liability**: Fully collateralized by users at mint time (1 YES + 1 NO = 1 USDC). This cash sits in the vault as **Reserved Collateral** and does not contribute to LP upside or floor.
 
-This ensures that whether a share was minted via a swap or matched on the orderbook, the LP exchange rate accounts for it. The LPs are protected from "paper profit" inflation regardless of how users acquire their positions.
+By isolating these ledgers, the LP exchange rate remains stable through Orderbook volume spikes or massive Direct Splits, which would otherwise "dilute" the apparent floor if treated as a single hybrid pool.
+
+### 3. Implementation Logic
+While the `LaunchpadMarket.sol` contract uses a global `totalNetAssets()` view for high-level solvency checks, the **LP Dashboard** and **ExRate** logic utilize the Pure AMM Ledger to provide an accurate representation of LP wealth.
+
+```typescript
+// Frontend Implementation (MarketDetail.tsx)
+const ammCash = initialSeed + fees + (currentCost - initialCost);
+const lpFloor = ammCash - Math.max(qYes, qNo);
+const lpCeiling = ammCash - Math.min(qYes, qNo);
+```
 
 ### 3. Non-Dilutive Fair Rewards
 To maintain this floor, fees are handled differently:

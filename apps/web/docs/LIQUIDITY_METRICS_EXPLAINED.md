@@ -4,13 +4,13 @@
 **Audience:** Users, LPs, and Developers  
 **Purpose:** Understanding the Hybrid Liquidity Model and key vault metrics
 
-> ⚠️ **Note for V6 Launchpad Markets**: Launchpad markets use a different **Floor Equity Model**.
-> See [LAUNCHPAD_SPEC.md](./specs/LAUNCHPAD_SPEC.md) Section 2.5 for LP economics.
+> ⚠️ **Note for V6 Launchpad Markets**: Launchpad markets use an **Isolated Ledger Model**.
+> See [LAUNCHPAD_SPEC.md](./specs/LAUNCHPAD_SPEC.md) Section 2.5 for the V6 formulas.
 > Key differences:
-> - LP value = **Floor Equity** (Cash - Locked - Max Liability)
-> - LP ExRate = Multiplier (e.g., 1.7171x)
-> - Traders earn LP tokens via **Fair Minting** (at current ExRate)
-> - Max Liability = `max(qYES, qNO)` (total outstanding shares)
+> - **Pure AMM Accounting**: LP value is derived purely from AMM state variables.
+> - **Liability Isolation**: LP liability is NOT shared with Orderbook/Direct Splits.
+> - **Floor Equity**: `AMM_Cash - max(qYes, qNo)`
+> - **LP ExRate Range**: Displayed as `(Floor ExRate - Ceiling ExRate)`
 
 ---
 

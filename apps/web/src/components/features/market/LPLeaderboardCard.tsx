@@ -1,18 +1,20 @@
 // LPLeaderboardCard.tsx - Shows LP leaderboard with all LP holders
 import React, { useState } from 'react';
-import { Coins, HelpCircle, Crown } from 'lucide-react';
+import { Coins, HelpCircle } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { formatUnits } from 'viem';
 import { formatCurrency } from '../../../utils/format';
 import { useLPHolders } from '../../../hooks/v5/useLPHolders';
+import uiContent from '../../../config/ui-content.json';
 
 interface LPLeaderboardCardProps {
   marketAddress?: `0x${string}`;
   userAddress?: `0x${string}`;
   userLpBalance?: bigint;
-  userLpValue: bigint;
+  userLpNetValue: bigint;
+  userLpCeilingValue: bigint;
   userSharePercent: number;
   isLive?: boolean;
   redeemLP: (amount: bigint) => void;
@@ -23,13 +25,18 @@ interface LPLeaderboardCardProps {
   totalSupply?: bigint;
   totalAssets?: bigint;
   totalNetAssets?: bigint;
+  totalLockedProceeds?: bigint;
+  ammCashProp?: bigint;
+  pureFloorProp?: bigint;
+  pureCeilingProp?: bigint;
 }
 
 export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
   marketAddress,
   userAddress,
   userLpBalance,
-  userLpValue,
+  userLpNetValue,
+  userLpCeilingValue,
   userSharePercent,
   isLive,
   redeemLP,
@@ -39,8 +46,13 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
   totalSupply,
   totalAssets,
   totalNetAssets,
+  totalLockedProceeds,
+  ammCashProp,
+  pureFloorProp,
+  pureCeilingProp,
 }) => {
   const [showHelp, setShowHelp] = useState(false);
+  const t = uiContent.lp;
   
   // Fetch all LP holders from Transfer events
   const { holders, isLoading: isLoadingHolders } = useLPHolders(marketAddress, creatorAddress);
@@ -48,14 +60,18 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
   const hasUserPosition = userAddress && userLpBalance !== undefined && userLpBalance > 0n;
   const isUserCreator = userAddress && creatorAddress && userAddress.toLowerCase() === creatorAddress.toLowerCase();
 
-  // LP tokens are ERC20 with 18 decimals, but LP *value* is in USDC (6 decimals)
+  // V6.2.4: Pure WAD Architecture - All AMM metrics are 18 decimals
+  const WAD_DECIMALS = 18;
   const LP_TOKEN_DECIMALS = 18;
-  const USDC_DECIMALS = 6;
 
-  // Calculate value and share for any holder (uses Net Assets)
-  const calcValue = (balance: bigint) => {
-    if (!totalSupply || totalSupply === 0n || !totalNetAssets) return 0n;
-    return (balance * totalNetAssets) / totalSupply;
+  // Calculate values for any holder using Isolated Ledger
+  const calcNetValue = (balance: bigint) => {
+    if (!totalSupply || totalSupply === 0n || !pureFloorProp) return 0n;
+    return (balance * pureFloorProp) / totalSupply;
+  };
+  const calcCeilingValue = (balance: bigint) => {
+    if (!totalSupply || totalSupply === 0n || !pureCeilingProp) return 0n;
+    return (balance * pureCeilingProp) / totalSupply;
   };
   const calcShare = (balance: bigint) => {
     if (!totalSupply || totalSupply === 0n) return 0;
@@ -71,47 +87,56 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
   }: { 
     address: string; 
     balance: bigint; 
-    isCreatorRow?: boolean;
-    isYou?: boolean;
+    isCreatorRow?: boolean; 
+    isYou?: boolean; 
   }) => {
     const share = calcShare(balance);
+    const netVal = calcNetValue(balance);
+    const ceilingVal = calcCeilingValue(balance);
+    
     return (
-      <div className={`flex items-center justify-between py-2 px-2 rounded-lg ${isYou ? 'bg-purple-500/10' : 'bg-slate-800/30'}`}>
-        <div className="flex items-center gap-2 min-w-0">
-          {isCreatorRow && <Crown className="w-3 h-3 text-amber-400 flex-shrink-0" />}
-          <span className="text-xs font-mono text-slate-400 truncate">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </span>
-          {isCreatorRow && (
-            <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1 flex-shrink-0">
-              Creator
-            </Badge>
-          )}
-          {isYou && (
-            <Badge className="text-[8px] bg-purple-500/20 text-purple-400 border-purple-500/50 py-0 px-1 flex-shrink-0">
-              You
-            </Badge>
-          )}
+      <div className={`flex items-center justify-between py-2.5 px-3 rounded-lg border transition-colors ${isYou ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800/30 border-slate-700/30'}`}>
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-mono text-slate-300 truncate font-medium">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </span>
+            {isCreatorRow && (
+              <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1.5 flex-shrink-0 h-4">
+                Creator
+              </Badge>
+            )}
+            {isYou && (
+              <Badge className="text-[8px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50 py-0 px-1.5 flex-shrink-0 h-4">
+                You
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+            <span className="text-slate-400">{parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP</span>
+            <span className="opacity-30">•</span>
+            <span className="text-emerald-500/70 font-bold">{share.toFixed(1)}%</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-xs flex-shrink-0">
-          <span className="font-mono text-slate-500">
-            {parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP
-          </span>
-          <span className="font-mono font-bold text-white w-16 text-right">
-            {share.toFixed(1)}%
-          </span>
+        <div className="flex flex-col items-end text-right min-w-[100px]">
+          <div className="text-[11px] font-mono font-bold text-emerald-400">
+            {formatCurrency(parseFloat(formatUnits(netVal, WAD_DECIMALS)))}
+          </div>
+          <div className="text-[9px] font-mono text-slate-500 mt-0.5">
+            {formatCurrency(parseFloat(formatUnits(ceilingVal, WAD_DECIMALS)))}
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <Card className="p-4 border-purple-500/20">
+    <Card className="p-4 border-emerald-500/20 bg-slate-900/40">
       {/* Header with Help Button */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-bold text-white flex items-center gap-2 text-sm">
-          <Coins className="w-4 h-4 text-purple-400" />
-          LP Holders
+          <Coins className="w-4 h-4 text-emerald-400" />
+          {t.holders || 'LP Holders'}
         </h3>
         <div className="flex items-center gap-2">
           {hasUserPosition && !isLive && (
@@ -121,7 +146,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
           )}
           <button
             onClick={() => setShowHelp(!showHelp)}
-            className={`p-1 rounded transition-colors ${showHelp ? 'bg-purple-500/20 text-purple-400' : 'text-slate-500 hover:text-purple-400'}`}
+            className={`p-1 rounded transition-colors ${showHelp ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 hover:text-emerald-400'}`}
           >
             <HelpCircle className="w-4 h-4" />
           </button>
@@ -130,28 +155,26 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
 
       {/* Education Panel (toggleable) */}
       {showHelp && (
-        <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 mb-3 text-xs text-slate-300 space-y-1">
-          <p>• <strong>LP Tokens</strong>: Represent your share of the pool's guaranteed floor assets.</p>
-          <p>• <strong>Earn Rewards</strong>: Minted at the current ExRate when you trade (Fair Minting).</p>
-          <p>• <strong>Safe Valuation</strong>: Your equity accounts for all potential winner payouts up-front.</p>
-          <p>• <strong>Redeem</strong>: Claim your USDC floor equity once the market is settled.</p>
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-3 text-xs text-slate-300 space-y-1">
+          <p>• <strong>{t.floor}</strong>: {t.floorDescription}</p>
+          <p>• <strong>{t.ceiling}</strong>: {t.ceilingDescription}</p>
+          <p>• <strong>Fair Minting</strong>: {t.fairMintingDescription}</p>
         </div>
       )}
 
       {/* Leaderboard Header */}
-      <div className="flex items-center justify-between px-2 pb-1 mb-1 text-[9px] text-slate-600 uppercase tracking-wider">
-        <span>Holder</span>
-        <div className="flex items-center gap-3">
-          <span>Balance</span>
-          <span className="w-16 text-right">Share</span>
+      <div className="flex items-center justify-between px-3 pb-2 mb-1 text-[10px] text-slate-500 font-bold uppercase tracking-widest border-b border-slate-800/50">
+        <span>LP Holder / Share</span>
+        <div className="text-right">
+          <span>{t.floor} / {t.ceiling}</span>
         </div>
       </div>
 
       {/* Leaderboard - Show all holders sorted by balance */}
       <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
         {isLoadingHolders ? (
-          <div className="text-center py-4 text-xs text-slate-500">
-            Loading LP holders...
+          <div className="text-center py-4 text-xs text-slate-500 font-mono">
+            {uiContent.common.loadingHolders}
           </div>
         ) : holders.length > 0 ? (
           holders.map((holder) => {
@@ -168,28 +191,47 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
             );
           })
         ) : (
-          <div className="text-center py-4 text-xs text-slate-500">
-            No LP holders yet
+          <div className="text-center py-4 text-xs text-slate-500 font-mono">
+            {uiContent.common.noHolders}
           </div>
         )}
       </div>
 
       {/* Value Summary - Show user's LP value and redeem button */}
       {hasUserPosition && (
-        <div className="pt-3 border-t border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">{isUserCreator ? 'Protected Equity (Creator)' : 'Protected Equity'}</span>
-            <span className="font-mono font-bold text-purple-400">
-              {formatCurrency(parseFloat(formatUnits(userLpValue, USDC_DECIMALS)))}
-            </span>
+        <div className="pt-4 border-t border-slate-800 space-y-4">
+          <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-emerald-500/70 font-black uppercase tracking-widest leading-none mb-1.5">
+                  {isUserCreator ? t.creatorFloor : t.yourFloor}
+                </span>
+                <span className="font-mono font-bold text-emerald-400 text-xl leading-none">
+                  {formatCurrency(parseFloat(formatUnits(userLpNetValue, WAD_DECIMALS)))}
+                </span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1.5">
+                  {t.ceilingValue}
+                </span>
+                <span className="font-mono font-bold text-slate-300 text-base leading-none">
+                  {formatCurrency(parseFloat(formatUnits(userLpCeilingValue, WAD_DECIMALS)))}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-2 border-t border-slate-800/50">
+              <span>Position: {parseFloat(formatUnits(userLpBalance || 0n, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP</span>
+              <span className="text-emerald-500/50 font-bold">{userSharePercent.toFixed(1)}% Share</span>
+            </div>
           </div>
+          
           {!isLive && (
             <Button
               onClick={() => redeemLP(userLpBalance!)}
               disabled={isRedeemLPPending}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold text-xs py-2"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] py-2.5 shadow-lg shadow-emerald-900/20"
             >
-              {isRedeemLPPending ? 'Redeeming...' : 'Redeem LP'}
+              {isRedeemLPPending ? 'Redeeming...' : `Redeem LP ${t.floor}`}
             </Button>
           )}
         </div>

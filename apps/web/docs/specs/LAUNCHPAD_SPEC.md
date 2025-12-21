@@ -140,28 +140,35 @@ Display specialized badges based on state:
 
 ---
 
-## 2.5 LP Economics (V6.1.8 Honest Floor)
+## 2.5 LP Economics (V6.1.9 Pure AMM Accounting)
 
-### Floor Equity Model
-LP token value is based on **guaranteed floor equity**, not raw TVL:
+### Isolated Ledger Model
+LP token value is based on a **Pure AMM Ledger**, derived entirely from AMM state variables. This enforces the principle that **Liability is not shared** between the AMM and the Orderbook.
 
+#### 1. AMM Cash Bucket
+The theoretical cash owned by LPs is calculated as:
 ```
-Floor Equity = Gross Cash - Locked Proceeds - Max(qYES, qNO)
+AMM_Cash = Initial_Seed + Fees + (Current_LMSR_Cost - Initial_LMSR_Cost)
 ```
+- **Initial_Seed**: Creator's deposit (`b * ln(2)`).
+- **Fees**: Cumulative spreads captured by the AMM.
+- **Cost Delta**: The net cash flow from trader swaps.
 
-| Component | Source | Description |
-|-----------|--------|-------------|
-| **Gross Cash** | `market.totalAssets()` | Total USDC in vault |
-| **Locked Proceeds** | `market.totalLockedProceeds()` | Locked sell proceeds (24h) |
-| **Market Liability** | `max(totalSupply(0), totalSupply(1))` | Worst-case payout |
+#### 2. Isolated Floor & Ceiling
+```
+LP Floor = AMM_Cash - Max(qYES, qNO)
+LP Ceiling = AMM_Cash - Min(qYES, qNO)
+```
+- **Max Liability**: The maximum payout the AMM must make at settlement.
+- **Self-Collateralization**: Orderbook tokens are ignored in this ledger because they are fully backed by their own user deposits.
 
 ### LP ExRate Calculation
 ```
-LP ExRate = Floor Equity / LP Supply
+LP ExRate = Pure Floor / LP Supply
 ```
-- Displayed as a multiplier (e.g., `1.7171x`)
-- Represents guaranteed floor value per LP token
-- Stable through settlement (no "paper profits")
+- Displayed as a multiplier (e.g., `1.717x`)
+- Represents guaranteed floor value per LP token.
+- Stable through Orderbook volume spikes.
 
 ### Fair Minting (Anti-Dilution)
 When traders pay fees, they receive LP tokens at the **current floor price**:
@@ -176,23 +183,22 @@ lpToMint = fee  // 1:1 parity fallback
 
 ### Market Detail Metrics
 
-| Metric | Label | Calculation |
-|--------|-------|-------------|
-| **TVL (Floor Equity)** | Main headline | `totalNetAssets()` |
-| **Gross Assets** | Vault Breakdown | `totalAssets()` |
-| **Market Liability** | Vault Breakdown | `max(qYES, qNO)` (red) |
-| **LP Supply** | Stats card | `market.totalSupply()` (LP tokens) |
-| **LP ExRate** | Stats card | `Floor Equity / LP Supply` (displayed as Xx) |
-| **Max Loss** | Stats card | `b × ln(2)` ≈ `b × 0.693` |
-| **Protected Equity** | LP Leaderboard | `Your LP × ExRate` |
+| Metric | Label | Calculation | Notes |
+|--------|-------|-------------|-------|
+| **TVL (Floor Equity)** | Main headline | `Isolated Floor` | Derived from AMM state |
+| **AMM Ledger** | Stats Breakdown | `AMM_Cash` | Theoretical cash position |
+| **AMM Liability** | Stats Breakdown | `Max(qYES, qNO)` | LP's isolated debt |
+| **LP Supply** | Stats Grid | `totalSupply()` | LP tokens in existence |
+| **LP ExRate** | Stats Grid | `Floor / Supply` | Range: (Floor - Ceiling) |
+| **Max Loss** | Stats Grid | `b * ln(2)` | AMM solvency limit |
 
 ### LP Payout Simulation
 
-| Scenario | Calculation |
-|----------|-------------|
-| **If YES Wins** | `Gross Cash - Locked - qYES` |
-| **If NO Wins** | `Gross Cash - Locked - qNO` |
-| **Expected** | `P(YES) × PayoutYES + P(NO) × PayoutNO` |
+| Scenario | Calculation | Description |
+|----------|-------------|-------------|
+| **If YES Wins** | `AMM_Cash - qYES` | Residual cash if YES wins |
+| **If NO Wins** | `AMM_Cash - qNO` | Residual cash if NO wins |
+| **Expected** | `P(YES) * PayoutYES + P(NO) * PayoutNO` | Probability-weighted payout |
 
 ---
 

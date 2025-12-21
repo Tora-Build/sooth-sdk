@@ -16,11 +16,10 @@ export interface ActivePosition {
     liquidNo: number;
     lockedYes: number;
     lockedNo: number;
-    // Wallet portions (Direct ERC1155)
+    
+    // Wallet portions (Direct) - AMM IS WALLET ONLY
     walletYes: number;
     walletNo: number;
-    walletYesBig?: bigint;
-    walletNoBig?: bigint;
     
     unlockTime: number;
     value: number;
@@ -84,30 +83,30 @@ export const useActivePositions = () => {
         if (!address || mode !== 'real') return [];
         return uniqueMarkets.flatMap(m => [
             // 0: AMM Positions (Locked in Vault)
-        {
-            address: traderVaultAddress,
-            abi: TRADER_VAULT_V4_ABI,
-            functionName: 'ammPositions',
+            {
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'ammPositions',
                 args: [address, m.address],
                 chainId: chainId
-        },
+            },
             // 1: Orderbook YES (Liquid in Vault)
-        {
-            address: traderVaultAddress,
-            abi: TRADER_VAULT_V4_ABI,
-            functionName: 'shareBalances',
+            {
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'shareBalances',
                 args: [address, m.address, 0],
                 chainId: chainId
-        },
+            },
             // 2: Orderbook NO (Liquid in Vault)
-        {
-            address: traderVaultAddress,
-            abi: TRADER_VAULT_V4_ABI,
-            functionName: 'shareBalances',
+            {
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'shareBalances',
                 args: [address, m.address, 1],
                 chainId: chainId
             },
-            // 3: Wallet YES (ERC1155)
+            // 3: Wallet YES (ERC1155) - AMM IS WALLET ONLY
             {
                 address: m.outcomeToken,
                 abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
@@ -115,14 +114,14 @@ export const useActivePositions = () => {
                 args: [address, 0n],
                 chainId: chainId
             },
-            // 4: Wallet NO (ERC1155)
+            // 4: Wallet NO (ERC1155) - AMM IS WALLET ONLY
             {
                 address: m.outcomeToken,
                 abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
                 functionName: 'balanceOf',
                 args: [address, 1n],
                 chainId: chainId
-        },
+            },
             // 5: Current Price (YES)
             { 
                 address: m.address, 
@@ -152,79 +151,79 @@ export const useActivePositions = () => {
     // Process results into Categories
     return useMemo(() => {
         let vaultPositions: ActivePosition[] = [];
-        let walletPositions: ActivePosition[] = [];
         let vaultValue = 0;
-        let walletValue = 0;
 
-    if (mode === 'demo') {
-        Object.entries(demoMarkets).forEach(([, market]) => {
-            const yes = market.userYesShares || 0;
-            const no = market.userNoShares || 0;
-            if (yes > 0 || no > 0) {
-                const val = (yes * (market.priceYes || 0.5)) + (no * (market.priceNo || 0.5));
+        if (mode === 'demo') {
+            Object.entries(demoMarkets).forEach(([, market]) => {
+                const yes = market.userYesShares || 0;
+                const no = market.userNoShares || 0;
+                if (yes > 0 || no > 0) {
+                    const val = (yes * (market.priceYes || 0.5)) + (no * (market.priceNo || 0.5));
                     vaultValue += val;
                     vaultPositions.push({
-                    id: market.id,
-// ... rest of demo logic ...
+                        id: market.id,
+                        question: market.name,
+                        marketAddress: market.contractAddress as `0x${string}`,
+                        liquidYes: yes,
+                        liquidNo: no,
+                        lockedYes: 0,
+                        lockedNo: 0,
+                        unlockTime: 0,
+                        value: val,
+                        priceYes: market.priceYes || 0.5,
+                        isSettled: false,
                         winningOutcome: null
-                });
-            }
-        });
-    } else if (positionData) {
+                    });
+                }
+            });
+        } else if (positionData) {
             uniqueMarkets.forEach((market, idx) => {
-                const baseIdx = idx * 7;
+                const baseIdx = idx * 7; // Updated to 7 calls per market
                 if (baseIdx + 6 >= positionData.length) return;
 
                 const [ammPosRes, obYesRes, obNoRes, walletYesRes, walletNoRes, priceRes, settledRes] = [0, 1, 2, 3, 4, 5, 6].map(i => positionData[baseIdx + i]);
 
-            // Parse Price
-            let priceYes = 0.5;
-            if (priceRes?.result) priceYes = parseFloat(formatUnits(priceRes.result as bigint, 18));
-            const priceNo = 1 - priceYes;
+                // Parse Price
+                let priceYes = 0.5;
+                if (priceRes?.result) priceYes = parseFloat(formatUnits(priceRes.result as bigint, 18));
+                const priceNo = 1 - priceYes;
 
                 // Vault portions
                 let lockYes = 0, lockNo = 0;
-            if (ammPosRes?.result) {
-                const pos = ammPosRes.result as [bigint, bigint];
-                lockYes = parseFloat(formatUnits(pos[0], 18));
-                lockNo = parseFloat(formatUnits(pos[1], 18));
-            }
-            let liqYes = 0, liqNo = 0;
-            if (obYesRes?.result) liqYes = parseFloat(formatUnits(obYesRes.result as bigint, 18));
-            if (obNoRes?.result) liqNo = parseFloat(formatUnits(obNoRes.result as bigint, 18));
+                if (ammPosRes?.result) {
+                    const pos = ammPosRes.result as [bigint, bigint];
+                    lockYes = parseFloat(formatUnits(pos[0], 18));
+                    lockNo = parseFloat(formatUnits(pos[1], 18));
+                }
+                let liqYes = 0, liqNo = 0;
+                if (obYesRes?.result) liqYes = parseFloat(formatUnits(obYesRes.result as bigint, 18));
+                if (obNoRes?.result) liqNo = parseFloat(formatUnits(obNoRes.result as bigint, 18));
 
-                // Wallet portions
-                let walYes = 0, walNo = 0;
-                let walYesBig = 0n, walNoBig = 0n;
-                if (walletYesRes?.result) {
-                    walYesBig = walletYesRes.result as bigint;
-                    walYes = parseFloat(formatUnits(walYesBig, 18));
-                }
-                if (walletNoRes?.result) {
-                    walNoBig = walletNoRes.result as bigint;
-                    walNo = parseFloat(formatUnits(walNoBig, 18));
-                }
+                // Wallet portions - AMM IS WALLET ONLY
+                let walletYes = 0, walletNo = 0;
+                if (walletYesRes?.result) walletYes = parseFloat(formatUnits(walletYesRes.result as bigint, 18));
+                if (walletNoRes?.result) walletNo = parseFloat(formatUnits(walletNoRes.result as bigint, 18));
 
                 const isSettled = settledRes?.result as boolean || false;
 
-                const vaultTotalYes = liqYes + lockYes;
-                const vaultTotalNo = liqNo + lockNo;
+                const totalYes = liqYes + lockYes + walletYes;
+                const totalNo = liqNo + lockNo + walletNo;
 
-                // Add to Vault Positions
-                if (vaultTotalYes > 0.001 || vaultTotalNo > 0.001) {
-                    const val = (vaultTotalYes * priceYes) + (vaultTotalNo * priceNo);
+                // Add to Global Positions
+                if (totalYes > 0.001 || totalNo > 0.001) {
+                    const val = (totalYes * priceYes) + (totalNo * priceNo);
                     vaultValue += val;
                     vaultPositions.push({
                         id: market.address,
                         question: market.name,
                         marketAddress: market.address,
                         outcomeTokenAddress: market.outcomeToken,
-                    liquidYes: liqYes,
-                    liquidNo: liqNo,
-                    lockedYes: lockYes,
-                    lockedNo: lockNo,
-                        walletYes: 0,
-                        walletNo: 0,
+                        liquidYes: liqYes,
+                        liquidNo: liqNo,
+                        lockedYes: lockYes,
+                        lockedNo: lockNo,
+                        walletYes: walletYes,
+                        walletNo: walletNo,
                         unlockTime: 0,
                         value: val,
                         priceYes,
@@ -232,40 +231,13 @@ export const useActivePositions = () => {
                         winningOutcome: null
                     });
                 }
-
-                // Add to Wallet Positions
-                if (walYes > 0.001 || walNo > 0.001) {
-                    const val = (walYes * priceYes) + (walNo * priceNo);
-                    walletValue += val;
-                    walletPositions.push({
-                        id: market.address + '-wallet',
-                        question: market.name,
-                        marketAddress: market.address,
-                        outcomeTokenAddress: market.outcomeToken,
-                        liquidYes: 0,
-                        liquidNo: 0,
-                        lockedYes: 0,
-                        lockedNo: 0,
-                        walletYes: walYes,
-                        walletNo: walNo,
-                        walletYesBig: walYesBig,
-                        walletNoBig: walNoBig,
-                        unlockTime: 0,
-                    value: val,
-                        priceYes,
-                        isSettled,
-                        winningOutcome: null
-                });
-            }
-        });
-    }
+            });
+        }
 
         return { 
             vaultPositions, 
-            walletPositions, 
             vaultValue, 
-            walletValue, 
-            totalPositionValue: vaultValue + walletValue, 
+            totalPositionValue: vaultValue, 
             refetch, 
             isLoading 
         };

@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { useActivePositions, ActivePosition } from '../../../hooks/useActivePositions';
-import { Sparkles, Lock, ArrowRightLeft, ShieldCheck, Trophy, Loader2 } from 'lucide-react';
+import { Sparkles, Lock, ArrowRightLeft, ShieldCheck, Trophy, Loader2, ArrowUpRight, ArrowDownLeft, GitMerge, Scissors, Wallet } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import { useWriteContract, usePublicClient } from 'wagmi';
 import { TRADER_VAULT_V4_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 import toast from 'react-hot-toast';
 import { PortfolioCard } from './PortfolioCard';
+import { PositionActionsModal } from './PositionActionsModal';
+import { Button } from '../../ui/Button';
 
-const PositionItem: React.FC<{ pos: ActivePosition }> = ({ pos }) => {
+const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ pos, refetch }) => {
     const { config } = useDeployments();
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
     const [isRedeeming, setIsRedeeming] = useState(false);
+    const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
     
-    const hasYes = (pos.liquidYes + pos.lockedYes) > 0.001;
-    const hasNo = (pos.liquidNo + pos.lockedNo) > 0.001;
+    const hasYes = (pos.liquidYes + pos.lockedYes + pos.walletYes) > 0.001;
+    const hasNo = (pos.liquidNo + pos.lockedNo + pos.walletNo) > 0.001;
     const priceYes = pos.priceYes || 0.5;
     const priceNo = 1 - priceYes;
 
@@ -32,6 +35,7 @@ const PositionItem: React.FC<{ pos: ActivePosition }> = ({ pos }) => {
             if (publicClient) {
                 await publicClient.waitForTransactionReceipt({ hash });
                 toast.success('Shares redeemed!', { id: 'redeem' });
+                refetch();
             }
         } catch (e: any) {
             toast.error(e.message?.split('\n')[0] || 'Redeem failed', { id: 'redeem' });
@@ -59,13 +63,14 @@ const PositionItem: React.FC<{ pos: ActivePosition }> = ({ pos }) => {
                     <div className="flex items-center justify-between p-1 rounded bg-emerald-500/5 border border-emerald-500/10">
                         <div className="flex items-center gap-1">
                             <span className="text-[8px] font-black px-1 py-0 rounded bg-emerald-500 text-emerald-950">YES</span>
-                            <span className="text-[10px] text-white font-mono">{(pos.liquidYes + pos.lockedYes).toFixed(2)}</span>
+                            <span className="text-[10px] text-white font-mono">{(pos.liquidYes + pos.lockedYes + pos.walletYes).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes) * priceYes)}</div>
+                            <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes + pos.walletYes) * priceYes)}</div>
                             <div className="flex gap-0.5 opacity-40">
-                                {pos.lockedYes > 0 && <Lock size={7} className="text-amber-400" />}
-                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
+                                {pos.walletYes > 0 && <Wallet size={7} className="text-emerald-400" title="AMM Shares (Wallet)" />}
+                                {pos.lockedYes > 0 && <Lock size={7} className="text-amber-400" title="Locked (Vault)" />}
+                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-indigo-400" title="Orderbook (Vault)" />}
                             </div>
                         </div>
                     </div>
@@ -74,35 +79,67 @@ const PositionItem: React.FC<{ pos: ActivePosition }> = ({ pos }) => {
                     <div className="flex items-center justify-between p-1 rounded bg-rose-500/5 border border-rose-500/10">
                         <div className="flex items-center gap-1">
                             <span className="text-[8px] font-black px-1 py-0 rounded bg-rose-500 text-rose-950">NO</span>
-                            <span className="text-[10px] text-white font-mono">{(pos.liquidNo + pos.lockedNo).toFixed(2)}</span>
+                            <span className="text-[10px] text-white font-mono">{(pos.liquidNo + pos.lockedNo + pos.walletNo).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo) * priceNo)}</div>
+                            <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo + pos.walletNo) * priceNo)}</div>
                             <div className="flex gap-0.5 opacity-40">
-                                {pos.lockedNo > 0 && <Lock size={7} className="text-amber-400" />}
-                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
+                                {pos.walletNo > 0 && <Wallet size={7} className="text-rose-400" title="AMM Shares (Wallet)" />}
+                                {pos.lockedNo > 0 && <Lock size={7} className="text-amber-400" title="Locked (Vault)" />}
+                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-indigo-400" title="Orderbook (Vault)" />}
                             </div>
                         </div>
                     </div>
                 )}
             </div>
 
-            {pos.isSettled && (
-                <button
-                    onClick={handleRedeem}
-                    disabled={isRedeeming}
-                    className="w-full py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-[9px] font-bold text-indigo-400 transition-all flex items-center justify-center gap-1.5"
-                >
-                    {isRedeeming ? <Loader2 size={8} className="animate-spin" /> : <Sparkles size={8} />}
-                    REDEEM SETTLED SHARES
-                </button>
-            )}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+                {pos.isSettled ? (
+                    <Button
+                        onClick={handleRedeem}
+                        disabled={isRedeeming}
+                        variant="glow"
+                        className="col-span-2 w-full py-2 text-[10px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-400 transition-all flex items-center justify-center gap-1.5"
+                    >
+                        {isRedeeming ? <Loader2 size={10} className="animate-spin" /> : <Trophy size={10} />}
+                        REDEEM WINNINGS
+                    </Button>
+                ) : (
+                    <>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setModalMode('merge')}
+                            disabled={pos.liquidYes < 0.001 || pos.liquidNo < 0.001}
+                            className="group py-2 text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
+                        >
+                            <GitMerge size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> MERGE
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => setModalMode('split')}
+                            className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white"
+                        >
+                            <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> SPLIT
+                        </Button>
+                    </>
+                )}
+            </div>
+
+            <PositionActionsModal
+                isOpen={modalMode !== null}
+                onClose={() => setModalMode(null)}
+                pos={pos}
+                mode={modalMode || 'merge'}
+                refetch={refetch}
+            />
         </div>
     );
 };
 
 export const VaultPositionsCard: React.FC = () => {
-    const { vaultPositions, isLoading } = useActivePositions();
+    const { vaultPositions, isLoading, refetch } = useActivePositions();
 
     return (
         <PortfolioCard
@@ -123,7 +160,9 @@ export const VaultPositionsCard: React.FC = () => {
                 </div>
             }
         >
-            {vaultPositions.map(pos => <PositionItem key={pos.id} pos={pos} />)}
+            <div className="grid gap-2">
+                {vaultPositions.map(pos => <PositionItem key={pos.id} pos={pos} refetch={refetch} />)}
+            </div>
         </PortfolioCard>
     );
 };

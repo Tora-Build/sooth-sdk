@@ -178,6 +178,7 @@ export const GOVERNOR_VAULT_V4_ABI = parseAbi([
 export const MARKET_V4_ABI = parseAbi([
   "function qYes() view returns (int256)",
   "function qNo() view returns (int256)",
+  "function _cost(int256 qYes, int256 qNo, uint256 b) view returns (int256)",
   "function b() view returns (uint256)",
   "function bBase() view returns (uint256)",
   "function feeLMSR() view returns (uint256)",
@@ -209,6 +210,7 @@ export const LAUNCHPAD_FACTORY_ABI = parseAbi([
 export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function qYes() view returns (int256)",
   "function qNo() view returns (int256)",
+  "function _cost(int256 qYes, int256 qNo, uint256 b) view returns (int256)",
   "function b() view returns (uint256)",
   "function bBase() view returns (uint256)",
   "function price(uint8 outcome) view returns (uint256)",
@@ -237,6 +239,11 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "function useLockedProceeds(address user, uint256 amount)",
   "function claimUnlocked(address user, address recipient) returns (uint256)",
   "function asset() view returns (address)",
+  "function ammAssets() view returns (uint256)",
+  "function pureCeilingAssets() view returns (uint256)",
+  "function lpRealizedPnL() view returns (int256)",
+  "function isUnderwater() view returns (bool)",
+  "function decimalsScale() view returns (uint256)",
   "function totalAssets() view returns (uint256)",
   "function totalNetAssets() view returns (uint256)",
   "function reserve() view returns (int256)",
@@ -263,6 +270,10 @@ export const LAUNCHPAD_MARKET_ABI = parseAbi([
   "event Unlocked(address indexed user, uint256 amount)",
   "event Claimed(address indexed user, uint256 amount)",
   "event TradeAMM(address indexed user, uint8 outcome, int256 deltaShares, int256 cost, uint256 fee)",
+]);
+
+export const LAUNCHPAD_QUOTER_ABI = parseAbi([
+  "function calculateAMMTradeQuote(address market, uint8 outcome, uint256 shares, bool isBuy) view returns (int256 cost, uint256 fee, uint256 nextFloor, uint256 nextCeiling, uint256 priceImpactBps)",
 ]);
 
 export const MARKET_LP_VAULT_ABI = parseAbi([

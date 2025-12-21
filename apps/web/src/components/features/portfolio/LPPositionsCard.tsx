@@ -4,19 +4,26 @@ import { Coins, ExternalLink, Sparkles } from 'lucide-react';
 import { useLPPositions } from '../../../hooks/useLPPositions';
 import { formatCurrency } from '../../../utils/format';
 import { PortfolioCard } from './PortfolioCard';
+import uiContent from '../../../config/ui-content.json';
 
 export const LPPositionsCard: React.FC = () => {
     const { positions, totalLPValueFormatted, isLoading } = useLPPositions();
     const totalValueNum = parseFloat(totalLPValueFormatted || '0');
+    const t = uiContent.lp;
 
     return (
         <PortfolioCard
-            title="LP Positions"
+            title={t.title}
             icon={<Coins size={16} className="text-emerald-400" />}
             variant="emerald"
             badge={
-                <div className="text-xs font-black text-emerald-400 font-mono">
-                    {isLoading && positions.length === 0 ? '--' : formatCurrency(totalValueNum)}
+                <div className="flex flex-col items-end">
+                    <div className="text-xs font-black text-emerald-400 font-mono">
+                        {isLoading && positions.length === 0 ? '--' : formatCurrency(totalValueNum)}
+                    </div>
+                    <div className="text-[7px] text-slate-500 font-black uppercase tracking-tighter leading-none mt-0.5">
+                        {t.floorTotal}
+                    </div>
                 </div>
             }
             itemCount={positions.length}
@@ -24,7 +31,7 @@ export const LPPositionsCard: React.FC = () => {
             emptyState={
                 <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
                     <Sparkles size={24} className="text-slate-600 mb-1" />
-                    <p className="text-[10px] font-mono">// no_lp_positions</p>
+                    <p className="text-[10px] font-mono">{uiContent.common.noPositions}</p>
                 </div>
             }
         >
@@ -50,7 +57,7 @@ export const LPPositionsCard: React.FC = () => {
                             </div>
                         </div>
 
-                    <div className="grid grid-cols-3 gap-1.5 border-t border-slate-700/20 pt-1.5">
+                    <div className="grid grid-cols-4 gap-1.5 border-t border-slate-700/20 pt-1.5">
                             <div>
                             <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">LP</div>
                             <div className="font-mono text-[9px] text-white leading-none">
@@ -58,9 +65,15 @@ export const LPPositionsCard: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">Val</div>
+                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">{t.floor}</div>
                             <div className="font-mono text-[9px] text-emerald-400 font-bold leading-none">
-                                    {formatCurrency(parseFloat(position.estimatedValueFormatted))}
+                                    {formatCurrency(parseFloat(position.floorValueFormatted))}
+                            </div>
+                                </div>
+                            <div>
+                            <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">{t.ceiling}</div>
+                            <div className="font-mono text-[9px] text-slate-400 leading-none">
+                                    {formatCurrency(parseFloat(position.ceilingValueFormatted))}
                             </div>
                                 </div>
                         <div className="text-right">

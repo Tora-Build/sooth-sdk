@@ -1,15 +1,39 @@
 # Project Status
 
-> Last Updated: 2025-12-21 (V6.2.0 Atomic Functions & MegaETH Deployment)
+> Last Updated: 2025-12-21 (V6.2.6 UI Polish Session)
 
 ## Current Focus
-- **V6.2.0 Atomic Split/Merge** — Added `splitAndDeposit` and `mergeFromVault` to TraderVaultV4 for 1-click inventory management ✅
-- **Base Sepolia Fresh Deploy** — Complete V6.2.0 stack with atomic functions deployed and verified ✅
-- **MegaETH Deployment Attempt** — Partial success; documented gas model challenges ⚠️
-- **Inventory Management UI** — Moved Merge/Split to Market Detail page with balance display ✅
-- **Order ID 0 Fix** — Fixed orderbook hook to correctly handle Order ID 0 as valid order ✅
+- **V6.2.6 UI Polish** — Markets page cleanup, formula visibility, metrics bug fixes. ✅
+- **V6.2.5 Pure Trading Account Model** — Abandoned wallet-held token support to focus strictly on custodial inventory management. ✅
+- **V6.2.4 Pure WAD Architecture** — Standardized 100% of accounting views to 18 decimals to fix trillion-dollar scaling bugs. ✅
 
 ## Recent Changes
+
+### ✅ V6.2.6 UI Polish Session (2025-12-21)
+- **🐛 Bug Fixes**:
+  - Fixed `totalLockedProceeds` decimal bug in MarketCard (was `/1e18`, now `/1e6` for USDC)
+  - Fixed JSX syntax error in MarketDetail.tsx (extra `</div>` tag)
+- **🎨 UI Improvements**:
+  - Formula hints now always visible (removed hover-only behavior)
+  - Removed "System Online" and "Mainnet Assets" status badges from Portfolio
+  - Removed Hero Stats Bar from Markets page (was showing placeholder data)
+  - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`
+  - TrendingLeaderboard: 3 horizontal cards instead of vertical list, removed placeholder volume
+  - Improved tooltip hints for MarketCard metrics (Liquidity Depth, Floor Equity, Locked Proceeds)
+- **⚙️ Config Changes**:
+  - Deployment script deadline changed from 90 days → 5 days
+
+### ✅ V6.2.5 Pure Vault Architecture (2025-12-21)
+- **🧹 Token Support Abandoned**:
+  - Deleted `OrderbookTokensCard.tsx`. On-chain ERC1155 tokens are no longer displayed or managed by the current dApp version.
+  - Removed all "wallet-aware" logic from hooks and the trade form. The dApp now treats the Trading Account (Vault) as the sole source of truth for inventory.
+- **🔄 Inventory Management Hub**:
+  - Restored Merge and Split actions, strictly restricted to custodial shares.
+  - Added a global management hub to the **Trading Account** card in the Portfolio.
+- **⚡ Performance & Scalability**:
+  - **Frontend LMSR Prices**: Derivatives prices instantly from quantities, eliminating high-latency on-chain price calls.
+  - **Mega-Batch Discovery**: Consolidated market status and metadata fetching into a single RPC request per session.
+  - **Hook Pruning**: Stopped background polling for wallet token balances to save bandwidth.
 
 ### ✅ V6.2.0 Atomic Inventory Functions (2025-12-21)
 - **🔗 Contract Upgrades**:
@@ -75,21 +99,24 @@
 | Market 1 (Alien Life) | `0x13D233B5D83A24a3090780738E4AC82Be3305cee` |
 | Market 2 (BTC TWAP) | `0xc5DF627fa7d51d75B3EF179c156AceF9801B927E` |
 
-### Base Sepolia (Chain 84532) - V6.2.0 Atomic Split/Merge ✅
+### Base Sepolia (Chain 84532) - V6.2.3 Quoter ✅
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0xAb052EB6964A0E1D46b968f8Cb654EAa0aB9ada3` |
-| LiquidityVault | `0xe240E696d2fb9F915A3d0D14E8Ba7A49AEbD5f2B` |
-| TraderVaultV4 | `0x343F3cAD9236c3D7e323b2eAeCDdCF34c4f26265` |
-| FeeController | `0x6AB3a4E196509d4d73fCf2550378de7568a43A66` |
-| **LaunchpadFactory (V6)** | `0xE968C6DaC998158cF9D4a650c7b313bfFbE412aA` |
-| Market 1 (Alien Life) | `0x2D0b0d2F7807B51b3eAAd19B5a180D88700FC1ab` |
-| Market 2 (BTC TWAP) | `0x2C5cbce97497d6Ec13E601e7a8954FaBB7285657` |
+| MockUSDC | `0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd` |
+| LiquidityVault | `0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB` |
+| TraderVaultV4 | `0x1364d5CCc14251C73823e0291EF57e9EA4b9E673` |
+| FeeController | `0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9` |
+| **LaunchpadFactory (V6)** | `0xDF4Fca6dfA27eAcf1A73a6603A0C7aFA3e1A9a8a` |
+| **LaunchpadQuoter** | `0x862Acd130411060Eb0A1B4cf9212f0D863774200` |
+| Market 1 (Alien Life) | `0x582c652Bcc324c5EFCeF3a53DCe30856d0df77c7` |
+| Market 2 (BTC TWAP) | `0x50b66378764D9837F87d6b5C6d15728B8cF91693` |
 
 ## Pending/Blocked
+- [ ] **Quoter Integration**: Hook up `LaunchpadQuoter` to the Swap UI for real-time Floor/Ceiling impact simulation.
+- [ ] **LP Health UI**: Implement "Underwater" banners and Realized P&L charts using new on-chain views.
 - [ ] **Mobile Optimization**: Finalize MegaETH frontend responsive layouts.
 - [ ] **Stress Test**: High-frequency orderbook stacking on MegaETH.
 - [ ] **QA next**: Fuzz tests for LMSR edge cases (large trades, extreme prices).
 
-## Session Summary (2025-12-21)
-**V6.2.0 Atomic Inventory Management** — Added atomic `splitAndDeposit` and `mergeFromVault` functions to TraderVaultV4, reducing multi-step transactions to single clicks. Deployed fresh V6.2.0 stack to Base Sepolia. Attempted MegaETH Frontier deployment but encountered gas model limitations; documented learnings and retained V6.1.8 deployment. Fixed Order ID 0 bug in orderbook display and unified UI button heights across portfolio/market pages.
+## Session Summary (2025-12-21 Evening)
+**V6.2.6 UI Polish Session** — Fixed critical MarketCard bug where `totalLockedProceeds` displayed `$0` due to wrong decimal division (`/1e18` instead of `/1e6`). Cleaned up Markets page by removing the placeholder Hero Stats Bar and adding badge counts to filter tabs. Redesigned TrendingLeaderboard as 3 horizontal cards instead of a vertical list. Made formula hints always visible in MarketDetail. Removed unnecessary status indicators from Portfolio. Updated deployment script deadlines to 5 days for faster testing cycles.

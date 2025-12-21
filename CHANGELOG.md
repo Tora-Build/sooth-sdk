@@ -4,6 +4,66 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **MarketCard Locked Proceeds Bug** (2025-12-21):
+  - `totalLockedProceeds` was divided by `1e18` instead of `1e6` (USDC decimals), showing `$0` incorrectly
+- **MarketDetail JSX Syntax Error** (2025-12-21):
+  - Removed extra `</div>` tag causing "Expected corresponding JSX closing tag for `<Card>`" error
+
+### Changed
+- **Markets Page Cleanup** (2025-12-21):
+  - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
+  - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`
+  - Cleaned up unused imports (`TrendingUp`, `Clock`, `Card`, `useChainStore`)
+- **TrendingLeaderboard Redesign** (2025-12-21):
+  - Changed from vertical list to 3 horizontal cards (`grid-cols-3`)
+  - Removed placeholder volume display
+  - Simplified to rank, name, symbol, and "Bonding" badge
+- **Formula Visibility** (2025-12-21):
+  - AMM Ledger formula hints now always visible (was hover-only)
+  - Updated colors for better readability (`slate-500`, `cyan-600/60`, etc.)
+- **Portfolio Cleanup** (2025-12-21):
+  - Removed "System Online" and "Mainnet Assets" status indicators
+- **MarketCard Tooltips** (2025-12-21):
+  - Improved tooltip hints for metrics:
+    - ⚡ "Liquidity Depth: LMSR parameter controlling price impact"
+    - 🛡️ "Floor Equity: Guaranteed minimum LP value (worst-case)"
+    - 🔒 "Locked Proceeds: User funds in 24h cooling period"
+- **Deployment Script** (2025-12-21):
+  - Changed market deadline from `90 days` → `5 days` in `DeployMultiChainV4.s.sol`
+
+### Added
+- **V6.2.5 Pure Trading Account Model** (2025-12-21):
+  - **Abandoned Wallet Token Support**: Completely removed all UI and logic for wallet-held ERC1155 tokens in the current dApp version. The dApp now ignores on-chain tokens to focus on the custodial Trading Account.
+  - **Inventory Management Hub**: Restored the Merge/Split interface, strictly anchored to the **Trading Account (Vault)** context. Added a dedicated management hub in the Portfolio card.
+  - **Hook Optimization**: Updated `useActivePositions` and `useAmmMarketByAddress` to stop fetching ERC1155 balances, reducing RPC overhead.
+  - **Frontend LMSR Price Calculation**: Implemented instant price derivation from `qYes`/`qNo`/`b` quantities in the frontend, removing expensive on-chain math calls and improving UI responsiveness.
+  - **Mega-Batch Strategy**: Optimized market discovery in `useLaunchpadMarkets` by batching V6 status, graduation state, and outcome tokens into a single request.
+- **V6.2.4 Pure WAD Architecture** (2025-12-21):
+  - Standardized all AMM accounting views (`ammAssets`, `totalNetAssets`, `cost`, `fee`) to return 18-decimal WAD values.
+  - Eliminated scaling mismatches that caused "trillion-dollar" UI display bugs.
+  - Updated `LaunchpadQuoter` to return full 18-decimal precision for trade simulations.
+- **V6.2.3 Isolated Ledger & Quoter** (2025-12-21):
+  - `LaunchpadQuoter.sol`: New standalone quoter contract for simulating trade impact on LP Floor/Ceiling and calculating price impact (BPS).
+  - `lpRealizedPnL()`: On-chain view isolating trading performance from initial seed and fees.
+  - `isUnderwater()`: Real-time safety signal indicating if the pool floor has hit zero.
+  - `convertSharesToFloor()`: Explicit helper for floor-based share valuation.
+- **UI Terminology & Precision** (2025-12-21):
+  - Standardized **"Floor"** and **"Ceiling"** terminology across Portfolio and Market Detail pages.
+  - Standardized LP Exchange Rate as a range (e.g. "0.8x - 1.2x") to reflect guaranteed vs. potential value.
+  - Updated `MarketCard` with live graduation progress ring and percentage.
+- **Fresh Base Sepolia Deployment (V6.2.3)**:
+  - Deployed complete stack with quoter and isolated ledger logic.
+  - Updated `deployments.json` (version: `2025-12-21-v6-quoter`).
+
+### Fixed
+- **Trillion-Dollar Valuation Bug** (2025-12-21):
+  - Fixed a WAD/USDC scale mismatch in `LaunchpadMarket.sol` where `feesAccrued` (18 decimals) was being added directly to assets (6 decimals).
+- **Graduation Progress Indicator**:
+  - Fixed bug in `MarketCard.tsx` where progress was stuck at 0% due to missing `bBase` props.
+- **Protocol-Enforced Liability Isolation**:
+  - Moved "Pure AMM Accounting" logic from frontend to smart contracts. LP equity is now derived solely from AMM internal state, guaranteed independent of Orderbook collateral.
+
 ### Added
 - **V6.2.0 Atomic Inventory Functions** (2025-12-21):
   - `splitAndDeposit(address market, uint256 amount)`: Split USDC into YES+NO shares directly in vault (1 tx instead of 3)

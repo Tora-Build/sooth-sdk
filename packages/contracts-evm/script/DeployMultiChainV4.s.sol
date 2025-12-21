@@ -128,7 +128,7 @@ contract DeployMultiChainV4 is Script {
             "Will the UN confirm the existence of alien life?",
             1, // tier 1
             false, // fixed deadline
-            90 days // duration
+            5 days // duration
         );
         LaunchpadMarket market1 = LaunchpadMarket(market1Addr);
         
@@ -147,7 +147,7 @@ contract DeployMultiChainV4 is Script {
             "Will BTC 7-day TWAP reach $100k?",
             2, // tier 2
             false, // fixed deadline
-            90 days // duration
+            5 days // duration
         );
         LaunchpadMarket market2 = LaunchpadMarket(market2Addr);
         

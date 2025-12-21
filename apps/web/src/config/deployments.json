@@ -1,62 +1,22 @@
 {
-  "version": "2025-12-21-v4",
-  "lastUpdated": "2025-12-21",
+  "version": "6.2.4",
+  "lastUpdated": "2025-12-21T10:50:00Z",
+  "status": "Pure WAD Architecture (V6.2.4) - Fixed LP Scaling & Polish",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
-      "status": "✅ Live - V6.2.3 Integer Shares + Order ID Fix",
       "contracts": {
         "MockUSDC": "0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd",
+        "LaunchpadFactory": "0x7D4f70a4A8E5dD888e1F4b36E632F6b704f8ADd9",
+        "LaunchpadQuoter": "0xc2B5665F4B3f89770de2e74EEb3073EF87c59ED9",
+        "market1": "0x5D9a6a9AbcE5e2c0Af9ec22a246E713b3975959b",
+        "market1OutcomeToken": "0x5db0707FD9161dc5B01c61d030c08E06310A9d96",
+        "market2": "0xBB1cC536EaFeCC2e74BA68fE9428129f732C2Bc2",
+        "market2OutcomeToken": "0x7627E0e35280cE4C653a62BA09619b428B1c9eB2",
         "SoothTraderVault": "0x1364d5CCc14251C73823e0291EF57e9EA4b9E673",
         "SoothLiquidityVault": "0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB",
-        "SoothFeeController": "0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9",
-        "LaunchpadFactory": "0xCd22e3D92E6f958562F5CE3596ae3e6EDb61aAa5"
-      },
-      "marketInfo": {
-        "market1": {
-          "address": "0x04ce93ca917cb909668FB782A4A64199e3835B99",
-          "name": "UN Confirms Alien Life",
-          "outcomeToken": "0xBA56aBF13E66c4f3ECaACdbC2051F942A85C3614"
-        },
-        "market2": {
-          "address": "0x7D08DCb2c33f9317217E7779FDbb06143e72Ad22",
-          "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x9b8b1CBbDEefF0bD414e774BaFC299515964c527"
-        }
-      }
-      },
-    "megaethFrontier": {
-      "chainId": 4326,
-      "status": "✅ Live - V6.1.8 Frontier Net",
-      "contracts": {
-        "MockUSDC": "0x58f35be6a5e3d2be4c3575853043322b02feed84",
-        "SoothTraderVault": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
-        "SoothLiquidityVault": "0x1af3cb8b270db3e71fc979543c32b87709ea191f",
-        "SoothFeeController": "0x3c06e44bd4d09328a4c374174b8e325c0c674b6e",
-        "LaunchpadFactory": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
-        "ProtocolConfig": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50"
-      },
-      "marketInfo": {
-        "market1": {
-          "address": "0x13D233B5D83A24a3090780738E4AC82Be3305cee",
-          "name": "UN Confirms Alien Life",
-          "outcomeToken": "0x9897945B8AA37B7C7Da113307A42f6e4D3C9BD8D"
-        },
-        "market2": {
-          "address": "0xc5DF627fa7d51d75B3EF179c156AceF9801B927E",
-          "name": "BTC 7-day TWAP >= $100k",
-          "outcomeToken": "0x78f04576a0E90d8aBeE5af2F6aB561A49cAbE753"
-        }
+        "SoothFeeController": "0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9"
       }
     }
-  },
-  "architecture": {
-    "version": "V6.1.8",
-    "features": [
-      "Parity-Capped Fair Minting",
-      "Honest Floor Accounting",
-      "Total Liability Tracking",
-      "Strict $1.00 Price Cap"
-    ]
   }
 }

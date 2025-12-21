@@ -75,38 +75,40 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 
   // Determine Sell Mode
 
-  // AMM Shares (Source: useAmmMarket) - Internal locked positions
-  const ammShares = outcome === 0 ? (market?.userYesLocked || 0) : (market?.userNoLocked || 0);
+  // AMM Shares (Source: market object) - NOT USED FOR ORDERBOOK
+  const ammShares = 0;
 
-  // Orderbook Shares (Source: useOrderbook) - Custodial liquid shares
-  const obShares = outcome === 0 ? obYes : obNo;
+  // Orderbook Shares (Source: useOrderbook hook) - TRADING ACCOUNT ONLY
+  const userVaultShares = outcome === 0 ? obYes : obNo;
 
-  // Lock Status - V4.6: shares are NEVER locked (Lock-on-Sell)
-  const isLocked = false;  // V4.6: Lock-on-Sell means shares always tradable
-  const hoursRemaining = '0';
-
-  // Available for Spot Sell: Orderbook Shares (these are ALWAYS liquid, separate from AMM)
-  // FIX: OB shares and AMM shares are in different pools, don't subtract!
-  const userTokenShares = obShares;
+  // Only count vault shares for trading
+  const userTokenShares = userVaultShares;
 
   // Display Locked Amount - V4.6: Always 0 (no locked shares)
   const userLockedShares = 0;
 
-  // Spot Sell Availability: Can only Spot Sell UNLOCKED shares
+  // Spot Sell Availability: Can only Spot Sell shares in the Vault
   const isSpotSell = orderType === 'sell' && userTokenShares >= amountNum;
   const isHybridSell = orderType === 'sell' && userTokenShares > 0 && userTokenShares < amountNum;
 
   const sharesToSpotSell = isHybridSell ? userTokenShares : (isSpotSell ? amountNum : 0);
   const sharesToShortSell = isHybridSell ? (amountNum - userTokenShares) : (!isSpotSell && orderType === 'sell' ? amountNum : 0);
 
-  // Cost Per Share Display
+  // Buy Max: How many shares can user afford with vault USDC?
+  const usdcBalanceNum = parseFloat(formatUnits(availableBalance || 0n, 18));
+  const buyMax = priceNum > 0 ? (usdcBalanceNum / priceNum) : 0;
+
+  // Cost & Proceeds Display
   let totalCost = 0;
+  let totalProceeds = 0;
   if (orderType === 'buy') {
     totalCost = priceNum * amountNum;
   } else {
     // Sell Side: Only Short/Hybrid portion costs USDC (Collateral)
     const shortCost = (1 - priceNum) * sharesToShortSell;
     totalCost = shortCost;
+    // For Spot Sell: user receives price * shares
+    totalProceeds = priceNum * amountNum;
   }
 
   const costPerShare = amountNum > 0 ? (totalCost / amountNum) : 0;
@@ -232,7 +234,9 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     if (!totalCost && !amountNum) return false;
 
     // Spot Sell: Check Shares (already checked via isSpotSell flag logic)
-    if (isSpotSell) return false;
+    if (isSpotSell) {
+      return false;
+    }
 
     // Buy / Short Sell / Hybrid: Require Vault USDC for the UNCOVERED portion
     const requiredCollateral = parseUnits(totalCost.toFixed(6), 18);
@@ -249,14 +253,14 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   // Helper text for badge
   let badgeText = isCrossingBook
     ? "⚡ Executing against Orderbook. You will be refunded any price improvement."
-    : "⏳ Limit orders wait in orderbook until filled.";
+    : t('trading.passiveOrder');
 
   let badgeColor = isCrossingBook ? "text-emerald-400 bg-emerald-500/10" : "text-slate-500 bg-slate-500/10";
 
   // Info badges for Sell orders
   if (orderType === 'sell') {
     if (isSpotSell) {
-      // Fully covered by OB shares
+      // Fully covered by OB shares (Vault)
       badgeText = `✅ Spot Sell: Using your ${amountNum} orderbook shares. No collateral needed.`;
       badgeColor = "text-emerald-400 bg-emerald-500/10";
     } else if (isHybridSell) {
@@ -322,34 +326,62 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         </div>
       </div>
 
-      {/* Buttons */}
+      {/* Buy/Sell Selector */}
       <div className="grid grid-cols-2 gap-2" >
         <button
           onClick={() => setOrderType('buy')}
-          className={cn("h-11 rounded-lg border-2 font-bold text-white transition-all",
-            orderType === 'buy' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 hover:border-emerald-500/30'
+          className={cn(
+            "py-2 rounded-lg font-bold text-sm transition-all",
+            orderType === 'buy'
+              ? 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400'
+              : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
           )}
-        >{t('trading.buy').toUpperCase()}</button>
+        >
+          {t('trading.buy')}
+        </button>
         <button
           onClick={() => setOrderType('sell')}
-          className={cn("h-11 rounded-lg border-2 font-bold text-white transition-all",
-            orderType === 'sell' ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 hover:border-rose-500/30'
+          className={cn(
+            "py-2 rounded-lg font-bold text-sm transition-all",
+            orderType === 'sell'
+              ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-400'
+              : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
           )}
-        >{t('trading.sell').toUpperCase()}</button>
+        >
+          {t('trading.sell')}
+        </button>
       </div>
+
+      {/* Outcome Selector */}
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => handleOutcomeChange(0)}
-          className={cn("h-11 rounded-lg border-2 font-bold text-white transition-all",
-            outcome === 0 ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 hover:border-emerald-500/30'
+          className={cn(
+            "p-2 rounded-lg border-2 text-center transition-all",
+            outcome === 0
+              ? 'border-emerald-500 bg-emerald-500/10'
+              : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50'
           )}
-        >{t('common.yes')}</button>
+        >
+          <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.yes')}</div>
+          <div className="text-sm font-medium text-white tabular-nums">
+            {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
+          </div>
+        </button>
         <button
           onClick={() => handleOutcomeChange(1)}
-          className={cn("h-11 rounded-lg border-2 font-bold text-white transition-all",
-            outcome === 1 ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 hover:border-rose-500/30'
+          className={cn(
+            "p-2 rounded-lg border-2 text-center transition-all",
+            outcome === 1
+              ? 'border-rose-500 bg-rose-500/10'
+              : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50'
           )}
-        >{t('common.no')}</button>
+        >
+          <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.no')}</div>
+          <div className="text-sm font-medium text-white tabular-nums">
+            {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
+          </div>
+        </button>
       </div>
 
       {/* Price Input (Limit Order) */}
@@ -426,14 +458,16 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
 
         {/* Balance / Locked Display */}
         <div className="flex flex-col items-end mt-1.5 gap-0.5">
-          {/* Unlocked Balance (Clickable Max) */}
+          {/* Context-aware Max Display */}
           <div
             className="text-[10px] text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
-            onClick={() => setAmount(userTokenShares.toString())}
-            title="Click to set max"
+            onClick={() => setAmount(orderType === 'buy' ? Math.floor(buyMax).toString() : userTokenShares.toString())}
+            title={orderType === 'buy' ? "Max affordable with USDC" : "Max shares you own"}
           >
             <span>Max:</span>
-            <span className="font-mono text-emerald-400 font-bold">{userTokenShares.toFixed(2)}</span>
+            <span className={cn("font-mono font-bold", orderType === 'buy' ? "text-indigo-400" : "text-emerald-400")}>
+              {orderType === 'buy' ? buyMax.toLocaleString(undefined, { maximumFractionDigits: 0 }) : userTokenShares.toFixed(2)}
+            </span>
           </div>
         </div>
       </div>
@@ -442,15 +476,17 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-1.5">
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">
-            {orderType === 'buy' ? t('trading.costPerShare') : 'Collateral / Share'}
+            {orderType === 'buy' ? t('trading.costPerShare') : (isSpotSell ? 'Price per Share' : 'Collateral / Share')}
           </span>
-          <span className="font-mono text-white">{costPerShare.toFixed(4)} {t('common.usdc')}</span>
+          <span className="font-mono text-white">{ (orderType === 'sell' && isSpotSell) ? priceNum.toFixed(4) : costPerShare.toFixed(4)} {t('common.usdc')}</span>
         </div>
         <div className="flex justify-between text-sm border-t border-slate-800 pt-1.5">
           <span className="text-slate-400 font-medium">
-            {orderType === 'buy' ? t('trading.totalCost') : 'Required Collateral'}
+            {orderType === 'buy' ? t('trading.totalCost') : (isSpotSell ? 'Est. Proceeds' : 'Required Collateral')}
           </span>
-          <span className="font-mono font-bold text-white">{totalCost.toFixed(2)} {t('common.usdc')}</span>
+          <span className={cn("font-mono font-bold", (orderType === 'sell' && isSpotSell) ? "text-emerald-400" : "text-white")}>
+            {(orderType === 'sell' && isSpotSell) ? totalProceeds.toFixed(2) : totalCost.toFixed(2)} {t('common.usdc')}
+          </span>
         </div>
       </div>
 

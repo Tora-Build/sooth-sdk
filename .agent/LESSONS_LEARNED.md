@@ -152,17 +152,28 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 ## Orderbook Balance & Decimal Precision
 
 ### ❌ Pattern: Comparing 6-decimal USDC with 18-decimal WAD
-- **Date**: 2025-12-20
-- **Root Cause**: `useOrderbookTrade` was comparing `availableBalance` (returned as 6-decimal integer by some RPC providers or due to `MockUSDC` decimals) directly against `totalCost` (WAD 1e18).
-- **Symptom**: "Insufficient balance" errors despite having thousands of dollars in the vault.
-- **Fix**: Normalize ALL balances to WAD (18 decimals) before comparison.
-- **Rule**: Never compare raw contract balances directly. Use a normalization helper to ensure 1e18 scale parity.
+- **Date:** 2025-12-20
+- **Root Cause:** `useOrderbookTrade` was comparing `availableBalance` (returned as 6-decimal integer by some RPC providers or due to `MockUSDC` decimals) directly against `totalCost` (WAD 1e18).
+- **Symptom:** "Insufficient balance" errors despite having thousands of dollars in the vault.
+- **Fix:** Normalize ALL balances to WAD (18 decimals) before comparison.
+- **Rule:** Never compare raw contract balances directly. Use a normalization helper to ensure 1e18 scale parity.
 
-### ❌ Pattern: Struct Return-Type Inconsistency (Viem)
-- **Date**: 2025-12-20
-- **Root Cause**: Reading `TraderVault` balances via a struct returned an object that sometimes failed to parse or was stale during async race conditions.
-- **Fix**: Switched to explicit, dedicated getter calls (`availableBalance()`, `pendingBalance()`) instead of reading the full balance struct.
-- **Lesson**: If a complex read fails intermittently, switch to simple explicit getters for critical state.
+---
+
+## V6 LP Accounting (Honest Floor Model)
+
+### ❌ Pattern: Including Locked Proceeds in Ceiling Value
+- **Date:** 2025-12-21
+- **Mistake:** Calculating Ceiling Value using raw `totalAssets`.
+- **Root Cause:** Locked proceeds represent funds already paid out to traders (sell transactions) that are merely awaiting a timelock. They are no longer part of LP equity even in a best-case scenario.
+- **Rule:** `Ceiling Assets = Gross Assets - Locked Proceeds`.
+
+### ❌ Pattern: Hybridizing AMM Liability and Orderbook Collateral
+- **Date:** 2025-12-21
+- **Mistake:** Treating total token supply as a single "Market Liability" line item.
+- **Root Cause:** AMM liability is a "short" position where the LP is the counterparty (uncollateralized debt). Orderbook/Direct-Split tokens are fully collateralized by users at mint time (self-backed).
+- **Principle:** Liability is NOT shared. The LP floor is only hit by the AMM's virtual inventory (`qYes/qNo`). Orderbook tokens are "neutral" to the LP because their USDC backing is already in the vault.
+- **UI Rule:** Always display `AMM Liability` and `OB Collateral` as separate deductions from the Ceiling to reach the Floor.
 
 ---
 
@@ -178,4 +189,4 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-20*
+*Last updated: 2025-12-21*

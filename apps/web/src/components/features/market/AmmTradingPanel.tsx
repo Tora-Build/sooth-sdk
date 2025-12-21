@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Info, TrendingUp, TrendingDown, Wallet, Clock } from 'lucide-react';
+import { Loader2, Info, TrendingUp, TrendingDown, Wallet, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useLaunchpadTradeQuote } from '../../../hooks/v5/useLaunchpadTradeQuote';
 import { useLaunchpadSwap } from '../../../hooks/v5/useLaunchpadSwap';
+import { useLaunchpadMarket } from '../../../hooks/v5/useLaunchpadMarket';
 import { useAccount } from 'wagmi';
 import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { formatUnits } from 'viem';
+import uiContent from '../../../config/ui-content.json';
 
 interface AmmTradingPanelProps {
     address: `0x${string}`;
@@ -25,6 +27,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     onTradeSuccess
 }) => {
     const { isConnected } = useAccount();
+    const t = uiContent.trading;
+    const c = uiContent.common;
     // V6.1: Use direct swap (bypasses TraderVault, reduces to 2 TX max)
     const { swap, usdcBalance, isPending: isSwapPending, decimals } = useLaunchpadSwap(address);
 
@@ -51,12 +55,12 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
         selectedOutcome,
         sharesInput,
         slippageBps,
-        bParam || 0n
+        decimals
     );
 
-    // User's shares for sell mode
-    const userYesShares = market?.userYesShares || 0;
-    const userNoShares = market?.userNoShares || 0;
+    // User's shares for sell mode (AMM IS WALLET ONLY)
+    const userYesShares = market?.userYesWallet || 0;
+    const userNoShares = market?.userNoWallet || 0;
     const maxSellAmount = selectedOutcome === 0 ? userYesShares : userNoShares;
     const canSell = maxSellAmount > 0;
 
@@ -142,6 +146,9 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const usdcBalanceNum = parseFloat(formatUnits(usdcBalance, decimals));
     const insufficientBalance = tradeMode === 'buy' && quote && usdcBalanceNum < quote.maxWithSlippage;
 
+    // LP Health Check (for info)
+    const { isUnderwater } = useLaunchpadMarket(address);
+
     // Helper for Connect Wallet
     const handleConnect = () => {
         const connectBtn = document.querySelector('appkit-button') as HTMLElement;
@@ -159,7 +166,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
                         }`}
                 >
-                    Buy
+                    {t.buy}
                 </button>
                 <button
                     onClick={() => setTradeMode('sell')}
@@ -168,7 +175,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
                         }`}
                 >
-                    Sell
+                    {t.sell}
                 </button>
             </div>
 
@@ -181,7 +188,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50'
                         }`}
                 >
-                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">YES</div>
+                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{c.yes}</div>
                     <div className="text-sm font-medium text-white tabular-nums">
                         {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
                     </div>
@@ -193,7 +200,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50'
                         }`}
                 >
-                    <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">NO</div>
+                    <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{c.no}</div>
                     <div className="text-sm font-medium text-white tabular-nums">
                         {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
                     </div>
@@ -303,6 +310,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     </span>
                 </div>
             </div>
+
+            {/* Underwater Warning */}
+            {isUnderwater && (
+                <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
+                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <span>Pool is underwater. LP Floor is currently $0.00.</span>
+                </div>
+            )}
 
             {/* Slippage & Info */}
             <div className="flex items-center justify-between">

@@ -47,10 +47,6 @@ export const Portfolio = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-              <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">System Online</span>
-            </div>
           </div>
           
           <div className="space-y-5">
@@ -75,10 +71,6 @@ export const Portfolio = () => {
                   <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">LP Provisioning</p>
             </div>
           </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Mainnet Assets</span>
             </div>
           </div>
 

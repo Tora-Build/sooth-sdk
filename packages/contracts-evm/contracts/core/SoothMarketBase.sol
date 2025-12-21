@@ -124,7 +124,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
     }
 
     /// @dev LMSR cost function C(q) = b * ln( exp(qY/b) + exp(qN/b) )
-    function _cost(int256 _qYes, int256 _qNo, uint256 bVal) internal pure returns (int256) {
+    function _cost(int256 _qYes, int256 _qNo, uint256 bVal) public pure returns (int256) {
         require(bVal > 0, "LMSR: b = 0");
         int256 bWad = int256(bVal);
 
@@ -177,7 +177,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
     }
 
     /// @notice Get price of outcome (0=YES, 1=NO)
-    function price(uint8 outcome) external view returns (uint256 priceWad) {
+    function price(uint8 outcome) public view returns (uint256 priceWad) {
         require(outcome < 2, "Market: invalid outcome");
         uint256 bVal = b();
         require(bVal > 0, "LMSR: b = 0");
@@ -278,7 +278,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         uint8 outcome,
         uint256 shares,
         bool isBuy
-    ) external view override returns (int256 cost, uint256 fee, int256 newQYes_, int256 newQNo_) {
+    ) public view override returns (int256 cost, uint256 fee, int256 newQYes_, int256 newQNo_) {
         require(outcome < 2, "Market: invalid outcome");
         
         uint256 bVal = b();

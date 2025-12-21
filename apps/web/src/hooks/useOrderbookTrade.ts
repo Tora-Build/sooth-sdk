@@ -376,12 +376,38 @@ export function useOrderbookTrade(marketId: string) {
     }
   };
 
+  const depositShares = async (outcome: number, amount: string) => {
+    setIsPending(true);
+    try {
+      if (!marketContractAddress) throw new Error('Market not found');
+      const amountBig = parseUnits(amount, 18);
+      const hash = await writeContractAsync({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'depositShares',
+        args: [marketContractAddress, outcome, amountBig],
+      });
+      const toastId = toast.loading('Depositing shares...');
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+        toast.success('Shares deposited!', { id: toastId });
+        refetchBalance();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Deposit failed');
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   return {
     placeOrder,
     placeSpotOrder,
     executeHybridSell,
     cancelOrder,
     executeTakerOrder,
+    depositShares,
     isPending,
     availableBalance: (availableBalance as bigint || 0n),
     internalYesShares,

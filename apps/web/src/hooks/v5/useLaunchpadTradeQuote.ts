@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { MARKET_V4_ABI } from '../../config/abis';
+import { LAUNCHPAD_QUOTER_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
 import { useChainStore } from '../../store/useChainStore';
+import { getDeployments } from '../useDeployments';
 
 export interface LaunchpadTradeQuote {
     expectedCost: number;
@@ -13,6 +14,9 @@ export interface LaunchpadTradeQuote {
     fee: number;
     totalCost: number;
     inputAmount: number;
+    // V6.2.3: Hypothetical next ledger state
+    nextFloor: number;
+    nextCeiling: number;
 }
 
 export function useLaunchpadTradeQuote(
@@ -20,10 +24,13 @@ export function useLaunchpadTradeQuote(
     outcomeIndex: 0 | 1,
     shares: string,
     slippageBps: number = 50,
-    currentB: bigint = 0n // Needed for price impact calc
+    decimals: number = 6 // Pass decimals from parent to avoid extra RPC calls
 ) {
     const { selectedChainId } = useChainStore();
     const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
+    const deployments = getDeployments(Number(selectedChainId));
+    const quoterAddress = deployments?.LaunchpadQuoter as `0x${string}` | undefined;
+
     const [quote, setQuote] = useState<LaunchpadTradeQuote | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -37,6 +44,7 @@ export function useLaunchpadTradeQuote(
                 return;
             }
 
+            console.log(`[Quote] Requesting for ${marketAddress}, shares: ${shares}, quoter: ${quoterAddress}`);
             setIsLoading(true);
             setError(null);
 
@@ -46,71 +54,78 @@ export function useLaunchpadTradeQuote(
                 const shareAmountBig = parseUnits(absSharesStr, 18);
                 const isBuy = !isSell;
 
-                // 1. Calculate Cost via Contract
-                // V6.1: Direct swap - uses calculateAMMTradeCost on the market itself
-                const result = await publicClient.readContract({
-                    address: marketAddress,
-                    abi: MARKET_V4_ABI,
-                    functionName: 'calculateAMMTradeCost',
-                    args: [outcomeIndex, shareAmountBig, isBuy]
-                }).catch(err => {
-                    // Gracefully handle "no data" or "0x" errors which happen on wrong chain
-                    if (err.message?.includes('returned no data') || err.message?.includes('0x')) {
-                        return null;
-                    }
-                    throw err;
-                }) as [bigint, bigint, bigint, bigint] | null;
+                let rawCost: bigint;
+                let rawFee: bigint;
+                let rawNextFloor = 0n;
+                let rawNextCeiling = 0n;
+                let rawPriceImpact = 0n;
+                let newQYes = 0n;
+                let newQNo = 0n;
 
-                if (!result) {
-                    if (!cancelled) setQuote(null);
-                    return;
+                if (quoterAddress) {
+                    console.log(`[Quote] Using On-Chain Quoter...`);
+                    // V6.2.3: Use On-Chain Quoter for full simulation
+                    const quoterResult = await publicClient.readContract({
+                        address: quoterAddress,
+                        abi: LAUNCHPAD_QUOTER_ABI,
+                        functionName: 'calculateAMMTradeQuote',
+                        args: [marketAddress, outcomeIndex, shareAmountBig, isBuy]
+                    }).catch(err => {
+                        console.warn("[Quote] Quoter failed, falling back to basic cost check", err);
+                        return null;
+                    }) as [bigint, bigint, bigint, bigint, bigint] | null;
+
+                    if (quoterResult) {
+                        [rawCost, rawFee, rawNextFloor, rawNextCeiling, rawPriceImpact] = quoterResult;
+                    } else {
+                        console.log(`[Quote] Falling back to direct market call (Quoter result null)`);
+                        const marketResult = await publicClient.readContract({
+                            address: marketAddress,
+                            abi: LAUNCHPAD_MARKET_ABI,
+                            functionName: 'calculateAMMTradeCost',
+                            args: [outcomeIndex, shareAmountBig, isBuy]
+                        }) as [bigint, bigint, bigint, bigint];
+                        [rawCost, rawFee, newQYes, newQNo] = marketResult;
+                    }
+                } else {
+                    console.log(`[Quote] Using Direct Market Call (No quoter address)`);
+                    // V6.1 Fallback: Use market directly if no quoter deployed on this chain
+                    const marketResult = await publicClient.readContract({
+                        address: marketAddress,
+                        abi: LAUNCHPAD_MARKET_ABI,
+                        functionName: 'calculateAMMTradeCost',
+                        args: [outcomeIndex, shareAmountBig, isBuy]
+                    }) as [bigint, bigint, bigint, bigint];
+                    [rawCost, rawFee, newQYes, newQNo] = marketResult;
                 }
 
-                const [rawCost, rawFee, newQYes, newQNo] = result;
+                console.log(`[Quote] Result: cost=${rawCost}, fee=${rawFee}`);
 
-                const costFloat = parseFloat(formatUnits(rawCost, 18));
-                const feeFloat = parseFloat(formatUnits(rawFee, 18));
+                // V6.2.4: Always use 18 decimals for AMM Accounting metrics (Pure WAD Architecture)
+                const WAD_DECIMALS = 18;
+                const costFloat = parseFloat(formatUnits(rawCost, WAD_DECIMALS));
+                const feeFloat = parseFloat(formatUnits(rawFee, WAD_DECIMALS));
+                const nextFloorFloat = rawNextFloor > 0n ? parseFloat(formatUnits(rawNextFloor, WAD_DECIMALS)) : 0;
+                const nextCeilingFloat = rawNextCeiling > 0n ? parseFloat(formatUnits(rawNextCeiling, WAD_DECIMALS)) : 0;
+                
                 const expectedCost = Math.abs(costFloat);
                 const fee = feeFloat;
+                const priceImpact = Number(rawPriceImpact) / 100; // bps to percent
 
-                // 2. Calculate Prices & Impact
-                // Current Price is implied from PREVIOUS state. But we only have NEXT state (newQYes/No).
-                // Or we assume 50/50 initially if we don't fetch current state.
-                // Better: Use newQ to get NEW price.
-                const bVal = Number(formatUnits(currentB || 1000000000000000000n, 18)); // Default 1 if 0
-                const qYesNum = parseFloat(formatUnits(newQYes, 18));
-                const qNoNum = parseFloat(formatUnits(newQNo, 18));
+                // Estimate next prices (approximate until we add nextQ to quoter return or fetch separately)
+                const newPriceYes = 0.5; // TODO: Refine quoter to return next prices
+                const newPriceNo = 0.5;
 
-                let newPriceYes = 0.5;
-                if (bVal > 0) {
-                    const expYes = Math.exp(qYesNum / bVal);
-                    const expNo = Math.exp(qNoNum / bVal);
-                    newPriceYes = expYes / (expYes + expNo);
-                }
-                const newPriceNo = 1 - newPriceYes;
-
-                // Impact is rough diff from 0.5 (if uniform) or previous. 
-                // Getting pure previous price requires fetching qYes/qNo BEFORE trade which adds RPC load.
-                // We'll skip precise impact for now or approximate.
-                const priceImpact = 0; // TODO: Fetch current Qs for accurate impact
-
-                // 3. Slippage Params - MUST include fee in the calculation!
+                // Slippage Params
                 const BPS = 10000;
                 let maxCostParam = 0;
-                let minReceivedParam = undefined;
 
                 if (costFloat > 0) { // Buy
-                    // Total cost = cost + fee (for buys)
                     const totalCostWithFee = costFloat + feeFloat;
-                    // maxCost must cover cost + fee + slippage tolerance
                     maxCostParam = totalCostWithFee * (1 + (slippageBps + 10) / BPS);
                 } else { // Sell
-                    // For sells: cost is negative (we receive money)
-                    // Net proceeds = abs(cost) - fee
                     const netProceeds = Math.abs(costFloat) - feeFloat;
-                    // Apply slippage: we accept (netProceeds * (1 - slippage))
-                    minReceivedParam = netProceeds * (1 - (slippageBps + 10) / BPS);
-                    // maxCost is negative for sells (min we accept)
+                    const minReceivedParam = netProceeds * (1 - (slippageBps + 10) / BPS);
                     maxCostParam = -minReceivedParam;
                 }
 
@@ -123,7 +138,9 @@ export function useLaunchpadTradeQuote(
                         newPriceNo,
                         fee,
                         totalCost: expectedCost + fee,
-                        inputAmount: parseFloat(shares)
+                        inputAmount: parseFloat(shares),
+                        nextFloor: nextFloorFloat,
+                        nextCeiling: nextCeilingFloat
                     });
                 }
             } catch (err: any) {
@@ -137,7 +154,7 @@ export function useLaunchpadTradeQuote(
         run();
 
         return () => { cancelled = true; };
-    }, [marketAddress, outcomeIndex, shares, publicClient, slippageBps, currentB]);
+    }, [marketAddress, outcomeIndex, shares, publicClient, quoterAddress, slippageBps, decimals]);
 
     return { quote, isLoading, error };
 }
