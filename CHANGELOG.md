@@ -23,6 +23,10 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Restored Guardian controls on `LaunchpadMarket`: `liquidate()` (routes liquidation fee to treasury) and `forceGraduate()`.
   - Added `SoothSettlementRootSink` (Merkle root storage + claim verification events; transfer logic deferred).
   - Added `SoothTraderVaultV4.depositAndTradeAMM(...)` for one-call “approve + trade” UX without ERC1155 mint/burn.
+ - **Contracts (Stage 3 Adjudicator Classes + Settlement Root Payout Wiring)** (2025-12-21):
+  - Added `SoothManualAdjudicator` and `SoothOptimisticAdjudicator` (simple optimistic window).
+  - Added `SoothTraderVaultV4.claimSettlementRoot(...)` to apply settlement-root PnL to the Trading Account and move USDC to/from the market vault.
+  - Added/updated tests: `AdjudicatorFlowsTest`, extended `SettlementRootSinkTest` payout path.
 - **Markets Page Cleanup** (2025-12-21):
   - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
   - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`

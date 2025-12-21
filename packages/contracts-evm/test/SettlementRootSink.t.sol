@@ -97,5 +97,29 @@ contract SettlementRootSinkTest is Test {
 
         assertTrue(sink.claimed(marketAddr, batchId, user), "Should be marked claimed");
     }
+
+    function test_traderVault_claimSettlementRoot_paysUser() public {
+        // Settle market via adjudicator
+        address marketAddr = factory.getAllMarkets()[0];
+        vm.prank(adjudicator);
+        LaunchpadMarket(marketAddr).finalizeResolution(0, uint64(block.timestamp));
+
+        bytes32 batchId = keccak256("batch-pay");
+        int256 pnl = int256(12e18); // 12 USDC (WAD)
+        bytes32 leaf = keccak256(abi.encodePacked(marketAddr, user, pnl, batchId));
+        bytes32 root = leaf;
+
+        vm.prank(adjudicator);
+        sink.submitRoot(marketAddr, batchId, root);
+
+        bytes32[] memory proof = new bytes32[](0);
+        uint256 beforeAvail = traderVault.availableBalance(user);
+
+        vm.prank(user);
+        traderVault.claimSettlementRoot(address(sink), marketAddr, batchId, pnl, proof);
+
+        uint256 afterAvail = traderVault.availableBalance(user);
+        assertEq(afterAvail - beforeAvail, 12e6, "Should credit 12 USDC (6 decimals)");
+    }
 }
 

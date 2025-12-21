@@ -102,6 +102,9 @@ interface ISoothMarketV4 {
     function feeLMSR() external view returns (uint256); // Added for Launchpad override visibility
     function adjudicator() external view returns (address);
     function tStar() external view returns (uint64);
+
+    /// @notice Finalize market resolution (Adjudicator-only).
+    function finalizeResolution(uint8 winningOutcome, uint64 tStar) external;
     
     function bBase() external view returns (uint256);
     function isLive() external view returns (bool);

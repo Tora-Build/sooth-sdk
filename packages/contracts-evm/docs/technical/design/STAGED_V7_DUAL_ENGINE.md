@@ -89,6 +89,32 @@ It is intentionally implementation-forward: each stage ends with code, tests, an
   - `SettlementRootSinkTest` (submit root + claim verification)
   - `DirectAmmTradeTest` (deposit+trade in one call)
 
+---
+
+## Stage 3 (Implemented)
+
+### Goals
+
+1. Add concrete **Adjudicator classes** (manual + optimistic) under a shared interface.
+2. Turn settlement roots into **real payout wiring** (credit/debit Trading Account + move USDC to/from the market vault).
+
+### Delivered changes
+
+- **Adjudicator classes**
+  - Added `SoothManualAdjudicator` (owner resolves).
+  - Added `SoothOptimisticAdjudicator` (propose + dispute window + finalize; simplified dispute flag).
+
+- **Settlement root payout wiring**
+  - Added `SoothTraderVaultV4.claimSettlementRoot(...)`:
+    - Verifies the Merkle proof against `SoothSettlementRootSink`.
+    - For positive PnL: pulls USDC from the market vault via `sendFunds` and credits `accounts[user].available`.
+    - For negative PnL: debits `accounts[user].available`, pushes USDC to the market vault, and calls `receiveFunds`.
+
+### Tests
+
+- Added `AdjudicatorFlowsTest` (manual + optimistic resolution).
+- Extended `SettlementRootSinkTest` with a payout-path test through `TraderVault`.
+
 - Re-introduce Guardian liquidation/force-graduate with correct fee routing and race-free accounting.
 - Introduce formal `IAdjudicator` interface and registry enforcement at market creation.
 - Add retroactive settlement root plumbing (SettlementSink/Merkle claims) per Brevis docs.

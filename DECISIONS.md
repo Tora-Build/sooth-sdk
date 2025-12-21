@@ -437,3 +437,20 @@
   - **Breaking changes** to factory ABI (constructor + `createMarket` signature).
   - Settlement root claims are verifiable on-chain, but **payout wiring is deferred** to a later stage (adjudicator class-specific).
   - Direct trading UX is restored without ERC1155 mint/burn paths.
+
+## ADR-029: Settlement Root Payout Wiring + Adjudicator Classes (Stage 3)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - Stage 2 added settlement root publication and proof verification, but claims were “event-only” and not applied to balances.
+  - Markets need concrete adjudicator implementations to support multiple truth classes under a unified abstraction.
+- **Decision**:
+  - Add concrete adjudicators:
+    - `SoothManualAdjudicator`: owner resolves a market by calling `finalizeResolution`.
+    - `SoothOptimisticAdjudicator`: anyone proposes; after a dispute window, anyone can finalize (simplified dispute flag).
+  - Wire settlement-root claims into real accounting via `SoothTraderVaultV4.claimSettlementRoot(...)`:
+    - Proof verification against `SoothSettlementRootSink`.
+    - Apply PnL by moving USDC between the **market vault** and the **TraderVault**, updating `accounts[user].available`.
+- **Consequences**:
+  - Settlement roots now have an on-chain path to affect user balances, enabling Brevis-style workflows.
+  - Negative PnL claims require sufficient available balance in the Trading Account (explicit debit).

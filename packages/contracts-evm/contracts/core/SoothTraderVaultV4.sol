@@ -10,6 +10,7 @@ import "../interfaces/IYieldStrategy.sol";
 import "../interfaces/ITimeLock.sol";
 import "../launchpad/interfaces/ILaunchpadFactory.sol";
 import "../launchpad/interfaces/ILaunchpadMarket.sol";
+import "./SoothSettlementRootSink.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,6 +21,7 @@ import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155
 /// @dev AMM trades are internal positions. Orderbook uses ERC1155.
 contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder {
     using SafeERC20 for IERC20;
+    using SoothMerkleProof for bytes32[];
 
     // ============ Constants ============
     
@@ -796,6 +798,60 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
 
     function setTimeLock(ITimeLock _timeLock) external onlyOwner {
         timeLock = _timeLock;
+    }
+
+    // ============ Settlement Root Claims (Stage 3) ============
+
+    mapping(address => mapping(bytes32 => mapping(address => bool))) public settlementClaimed; // market => batchId => user => claimed
+
+    event SettlementClaimed(address indexed user, address indexed market, bytes32 indexed batchId, int256 pnlWad, uint256 assetDelta);
+
+    /// @notice Claim PnL against a settlement root and apply it to the Trading Account.
+    /// @dev Uses the market's own vault for funds movement (Launchpad markets are their own vault).
+    function claimSettlementRoot(
+        address sink,
+        address market,
+        bytes32 batchId,
+        int256 pnlWad,
+        bytes32[] calldata proof
+    ) external {
+        require(_isValidMarket(market), "TraderVault: invalid market");
+        require(!settlementClaimed[market][batchId][msg.sender], "TraderVault: already claimed");
+        require(ISoothMarketV4(market).isSettled(), "TraderVault: market not settled");
+
+        // Require exact scaling to avoid dust drift between WAD and asset-decimals
+        if (pnlWad > 0) {
+            require(uint256(pnlWad) % scalar == 0, "TraderVault: pnl not scalable");
+        } else if (pnlWad < 0) {
+            require(uint256(-pnlWad) % scalar == 0, "TraderVault: pnl not scalable");
+        }
+
+        bytes32 root = SoothSettlementRootSink(sink).roots(market, batchId);
+        require(root != bytes32(0), "TraderVault: no root");
+
+        bytes32 leaf = keccak256(abi.encodePacked(market, msg.sender, pnlWad, batchId));
+        require(proof.verify(root, leaf), "TraderVault: bad proof");
+
+        ISoothMarketV4 mkt = ISoothMarketV4(market);
+        ISoothLiquidityVault marketVault = mkt.liquidityVault();
+
+        uint256 assetDelta = 0;
+        if (pnlWad > 0) {
+            assetDelta = uint256(pnlWad) / scalar;
+            // Pull funds from market vault into TraderVault
+            marketVault.sendFunds(mkt.marketId(), address(this), assetDelta);
+            accounts[msg.sender].available += assetDelta;
+        } else if (pnlWad < 0) {
+            assetDelta = uint256(-pnlWad) / scalar;
+            require(accounts[msg.sender].available >= assetDelta, "TraderVault: insufficient balance");
+            accounts[msg.sender].available -= assetDelta;
+            // Push funds from TraderVault into market vault
+            require(_asset.transfer(address(marketVault), assetDelta), "TraderVault: transfer failed");
+            marketVault.receiveFunds(mkt.marketId(), assetDelta);
+        }
+
+        settlementClaimed[market][batchId][msg.sender] = true;
+        emit SettlementClaimed(msg.sender, market, batchId, pnlWad, assetDelta);
     }
 
     // ============ Market Callbacks ============
