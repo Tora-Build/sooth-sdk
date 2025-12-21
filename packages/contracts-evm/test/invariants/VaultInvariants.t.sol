@@ -6,7 +6,7 @@ import "forge-std/StdInvariant.sol";
 import "../../contracts/core/SoothTraderVaultV4.sol";
 import "../../contracts/launchpad/LaunchpadFactory.sol";
 import "../../contracts/launchpad/LaunchpadMarket.sol";
-import "../../contracts/core/OutcomeToken.sol";
+import "../../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
 import "../../contracts/core/ProtocolConfig.sol";
@@ -24,7 +24,7 @@ contract VaultInvariantTest is StdInvariant, Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
     
@@ -46,7 +46,7 @@ contract VaultInvariantTest is StdInvariant, Test {
         
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0);
         
@@ -77,13 +77,19 @@ contract VaultInvariantTest is StdInvariant, Test {
         vm.stopPrank();
         
         // Configure permissions
+        address ot = address(market.outcomeToken());
+        vm.prank(owner);
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+        vm.prank(owner);
+        traderVault.setOutcomeToken(ot, true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(address(traderVault), true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(owner, true);
         
         // Fund liquidity vault (for global operations)
         usdc.mint(address(liquidityVault), 100_000e18);
+        vm.prank(owner);
         liquidityVault.receiveFunds(1, 100_000e18);
         
         vm.stopPrank();

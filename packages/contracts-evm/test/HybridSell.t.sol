@@ -6,7 +6,7 @@ import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
@@ -21,7 +21,7 @@ contract HybridSellTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
@@ -35,7 +35,7 @@ contract HybridSellTest is Test {
         feeController = new SoothFeeController(address(this));
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
         

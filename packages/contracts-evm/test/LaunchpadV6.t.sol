@@ -310,19 +310,10 @@ contract LaunchpadV6Test is Test {
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
 
-        // Warp past deadline without graduation
+        // Stage 1: liquidation is deferred. Expiry is permissionless and LP redemption handles refunds.
         vm.warp(block.timestamp + 3601);
-        
-        // Market must be expired first
         market.expire();
-        
-        // Guardian liquidates
-        vm.startPrank(guardian);
-        market.liquidate();
-        vm.stopPrank();
-        
-        assertTrue(market.isLiquidated(), "Market should be liquidated");
-        assertFalse(market.isLive(), "Market should not be live");
+        assertFalse(market.isLive(), "Market should not be live after expiry");
     }
 
     function testNonGuardianCannotLiquidate() public {
@@ -331,11 +322,10 @@ contract LaunchpadV6Test is Test {
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
+        // Stage 1: liquidation is deferred for everyone.
         vm.warp(block.timestamp + 3601);
-        
-        // Non-guardian tries to liquidate
         vm.startPrank(trader);
-        vm.expectRevert("Launchpad: not guardian");
+        vm.expectRevert("Launchpad: liquidation deferred (Stage 2)");
         market.liquidate();
         vm.stopPrank();
     }
@@ -358,9 +348,9 @@ contract LaunchpadV6Test is Test {
         }
         vm.stopPrank();
 
-        // Guardian tries to liquidate - should fail
+        // Stage 1: liquidation is deferred.
         vm.startPrank(guardian);
-        vm.expectRevert("Launchpad: cannot liquidate");
+        vm.expectRevert("Launchpad: liquidation deferred (Stage 2)");
         market.liquidate();
         vm.stopPrank();
     }
@@ -380,23 +370,17 @@ contract LaunchpadV6Test is Test {
         assertGt(lpBalance, 0, "Trader should have LP tokens");
         vm.stopPrank();
 
-        // Liquidate - market must be expired first
+        // Stage 1: refunds are via redeemLP after expiry.
         vm.warp(block.timestamp + 3601);
         market.expire();
-        
-        vm.startPrank(guardian);
-        market.liquidate();
-        vm.stopPrank();
 
-        // Trader claims refund
         vm.startPrank(trader);
         uint256 usdcBefore = usdc.balanceOf(trader);
-        market.claimLiquidationRefund(trader);
+        market.redeemLP(lpBalance);
         uint256 usdcAfter = usdc.balanceOf(trader);
-        
+
         assertGt(usdcAfter, usdcBefore, "Trader should receive refund");
         assertEq(market.balanceOf(trader), 0, "LP tokens should be burned");
-        
         vm.stopPrank();
     }
 
@@ -414,13 +398,11 @@ contract LaunchpadV6Test is Test {
         // Market hasn't met threshold yet
         assertFalse(market.isGraduated(), "Should not be graduated");
         
-        // Guardian forces graduation
+        // Stage 1: forceGraduate is deferred.
         vm.startPrank(guardian);
+        vm.expectRevert("Launchpad: forceGraduate deferred (Stage 2)");
         market.forceGraduate();
         vm.stopPrank();
-        
-        assertTrue(market.isGraduated(), "Should be graduated");
-        assertEq(market.feeLMSR(), 100, "Fee should drop to 1%");
     }
 
     function testNonGuardianCannotForceGraduate() public {
@@ -430,7 +412,7 @@ contract LaunchpadV6Test is Test {
         vm.stopPrank();
 
         vm.startPrank(trader);
-        vm.expectRevert("Launchpad: not guardian");
+        vm.expectRevert("Launchpad: forceGraduate deferred (Stage 2)");
         market.forceGraduate();
         vm.stopPrank();
     }

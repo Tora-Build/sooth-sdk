@@ -138,7 +138,7 @@ contract LaunchpadFactory is ILaunchpadFactory {
             traderVault,
             feeController,
             outcomeToken,
-            bytes32(uint256(uint160(adjudicator))),
+            adjudicator,
             bValue,
             msg.sender, // Creator is the operator (marketOperator = creator)
             0, // Initial Q (50/50 probability)

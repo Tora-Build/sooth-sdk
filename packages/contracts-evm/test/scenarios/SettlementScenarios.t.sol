@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../../contracts/core/SoothTraderVaultV4.sol";
 import "../../contracts/launchpad/LaunchpadFactory.sol";
 import "../../contracts/launchpad/LaunchpadMarket.sol";
-import "../../contracts/core/OutcomeToken.sol";
+import "../../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
 import "../../contracts/core/ProtocolConfig.sol";
@@ -23,7 +23,7 @@ contract SettlementScenariosTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
 
@@ -46,7 +46,7 @@ contract SettlementScenariosTest is Test {
 
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0);
         
@@ -77,14 +77,20 @@ contract SettlementScenariosTest is Test {
         vm.stopPrank();
 
         // Auth wiring
+        address ot = address(market.outcomeToken());
+        vm.prank(owner);
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+        vm.prank(owner);
+        traderVault.setOutcomeToken(ot, true);
 
+        vm.prank(owner);
         liquidityVault.setAuthorized(address(traderVault), true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(owner, true);
 
         // Seed liquidity vault (for global operations)
         usdc.mint(address(liquidityVault), INITIAL_GOVERNOR);
+        vm.prank(owner);
         liquidityVault.receiveFunds(1, INITIAL_GOVERNOR);
 
         vm.stopPrank();
@@ -96,14 +102,14 @@ contract SettlementScenariosTest is Test {
     }
 
     function test_onlyGovernorCanSettle() public {
-        // Non-governor cannot settle
-        vm.expectRevert(bytes("Market: not governor"));
+        // Non-adjudicator cannot settle
+        vm.expectRevert(bytes("Market: not adjudicator"));
         vm.prank(owner);
-        market.settle(0);
+        market.finalizeResolution(0, uint64(block.timestamp));
 
-        // Governor can settle
+        // Adjudicator can settle (factory uses creator as adjudicator in this suite)
         vm.prank(creator);
-        market.settle(0);
+        market.finalizeResolution(0, uint64(block.timestamp));
         assertTrue(market.isSettled(), "Market should be settled");
         assertFalse(market.isLive(), "Market should not be live after settlement");
     }
@@ -115,7 +121,7 @@ contract SettlementScenariosTest is Test {
         vm.stopPrank();
 
         vm.prank(creator);
-        market.settle(0);
+        market.finalizeResolution(0, uint64(block.timestamp));
 
         // Any further AMM trade must revert (onlyLive)
         vm.prank(alice);
@@ -125,7 +131,7 @@ contract SettlementScenariosTest is Test {
 
     function test_postSettlement_OrderCreationBlocked() public {
         vm.prank(creator);
-        market.settle(1);
+        market.finalizeResolution(1, uint64(block.timestamp));
 
         vm.startPrank(alice);
         traderVault.deposit(1000e18);
@@ -147,7 +153,7 @@ contract SettlementScenariosTest is Test {
 
         // Settle market
         vm.prank(creator);
-        market.settle(0);
+        market.finalizeResolution(0, uint64(block.timestamp));
 
         // Merge should still work (merge is on OutcomeToken, not gated by market liveness)
         uint256 beforeAvail = traderVault.availableBalance(alice);
@@ -167,20 +173,20 @@ contract SettlementScenariosTest is Test {
         traderVault.tradeAMM(address(market), 0, 100e18, 2000e18);
         traderVault.tradeAMM(address(market), 0, -40e18, 0);
 
-        uint256 lockedBefore = traderVault.lockedBalance(alice);
+        uint256 lockedBefore = market.lockedProceeds(alice);
         assertGt(lockedBefore, 0, "Should have locked proceeds after sell");
         vm.stopPrank();
 
         // Settle market
         vm.prank(creator);
-        market.settle(0);
+        market.finalizeResolution(0, uint64(block.timestamp));
 
         // After lock duration, claimUnlocked should still succeed
         vm.warp(block.timestamp + LOCK_DURATION + 1);
 
         uint256 availBefore = traderVault.availableBalance(alice);
         vm.prank(alice);
-        uint256 claimed = traderVault.claimUnlocked();
+        uint256 claimed = traderVault.claimUnlocked(ISoothLiquidityVault(address(market)));
 
         assertGt(claimed, 0, "Should claim something");
         assertGt(traderVault.availableBalance(alice), availBefore, "Available should increase after claim");

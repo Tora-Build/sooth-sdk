@@ -11,6 +11,12 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Removed extra `</div>` tag causing "Expected corresponding JSX closing tag for `<Card>`" error
 
 ### Changed
+- **Contracts (Stage 1 Dual-Engine + Adjudicator Settlement)** (2025-12-21):
+  - **BREAKING**: Market settlement is now **Adjudicator-only** via `finalizeResolution(outcome, tStar)` (operator/creator can no longer settle).
+  - **BREAKING**: `ISoothMarketV4.initialize` now takes `adjudicator: address` (was `bytes32`).
+  - **BREAKING**: Disabled `LaunchpadMarket.swap()` (direct mint/burn + LMSR update path) to preserve AMM/OB separation.
+  - Removed creator-only expiry refund (`claimCreatorRefund` now reverts); refunds are via pro-rata `redeemLP()`.
+  - Added `claimLockedOnMarketEnd(maxSteps)` to unlock proceeds immediately once the market ends.
 - **Markets Page Cleanup** (2025-12-21):
   - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
   - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`

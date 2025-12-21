@@ -7,7 +7,7 @@ import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
@@ -21,7 +21,7 @@ contract OrderbookShortTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
     
@@ -35,7 +35,7 @@ contract OrderbookShortTest is Test {
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
         
@@ -94,7 +94,9 @@ contract OrderbookShortTest is Test {
         uint256 amount = 10e18;
         uint256 sellPrice = 0.4e18; // Selling YES at 0.4
         
-        uint256 expectedCollateral = (1e18 - sellPrice) * amount / 1e18; // 0.6 * 10 = 6e18
+        // TraderVault accounts are denominated in USDC decimals (MockUSDC = 6),
+        // so convert WAD-cost into asset decimals via `scalar`.
+        uint256 expectedCollateral = ((1e18 - sellPrice) * amount / 1e18) / traderVault.scalar(); // 6e6 for 6-dec USDC
         
         uint256 balBefore = traderVault.availableBalance(alice);
         

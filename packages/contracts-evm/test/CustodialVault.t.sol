@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
@@ -19,7 +19,7 @@ contract CustodialVaultTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     MockUSDC usdc;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
@@ -32,7 +32,7 @@ contract CustodialVaultTest is Test {
     function setUp() public {
         usdc = new MockUSDC();
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         feeController = new SoothFeeController(address(this));
         protocolConfig = new ProtocolConfig(address(this), 0);
 
@@ -133,7 +133,7 @@ contract CustodialVaultTest is Test {
         // 6. Verify Payout Logic (Spot Sell Fix)
         // User sold 5 at 0.50. Payout should be 2.5 USDC.
         uint256 diff = postBal - preBal;
-        assertEq(diff, 2.5e18, "Payout should be Price * Amount");
+        assertEq(diff, 2_500_000, "Payout should be Price * Amount (USDC 6 decimals)");
         
         // 7. Verify Share Balance reduced
         assertEq(vault.shareBalances(user, address(market), 0), 5e18, "User should have 5 YES left");

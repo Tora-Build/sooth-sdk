@@ -152,7 +152,9 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
     // =========================================================================
 
     /// @notice Direct swap: buy/sell outcome tokens without going through TraderVault
-    /// @dev Reduces transactions: 1 approve + 1 swap (vs 3 txs via TraderVault)
+    /// @dev Disabled in Stage 1 of the dual-engine redesign because it mixes
+    ///      LMSR state updates (AMM) with minting/burning collateralized outcome tokens (Orderbook).
+    ///      This breaks the protocol's dual-ledger separation (AMM positions vs. complete-set tokens).
     /// @param outcome 0 = YES, 1 = NO
     /// @param deltaShares Positive = buy, negative = sell (in 18 decimals)
     /// @param maxCost For buys: max USDC to spend. For sells: min USDC to receive (in USDC decimals)
@@ -161,63 +163,8 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         int256 deltaShares,
         int256 maxCost
     ) external onlyLive returns (int256 cost, uint256 fee) {
-        require(deltaShares != 0, "Launchpad: zero trade");
-        require(outcome < 2, "Launchpad: invalid outcome");
-        
-        address trader = msg.sender;
-        bool isBuy = deltaShares > 0;
-        uint256 absShares = uint256(isBuy ? deltaShares : -deltaShares);
-        
-        // Calculate trade cost using LMSR
-        uint256 bVal = b();
-        int256 newQYes;
-        int256 newQNo;
-        (cost, newQYes, newQNo) = _costDelta(qYes, qNo, outcome, deltaShares, bVal);
-        
-        // Apply fee
-        uint256 absCost = cost >= 0 ? uint256(cost) : uint256(-cost);
-        fee = (absCost * feeLMSR()) / MAX_BPS;
-        
-        // Scale cost from WAD to USDC decimals
-        uint256 scale = 10 ** (18 - IERC20Metadata(address(_asset)).decimals());
-        uint256 costAsset = (absCost + scale - 1) / scale; // Round up for buys
-        uint256 feeAsset = (fee + scale - 1) / scale;
-        
-        if (isBuy) {
-            // BUY: Pull USDC from user, mint outcome tokens
-            uint256 totalCost = costAsset + feeAsset;
-            require(int256(totalCost) <= maxCost, "Launchpad: cost exceeds limit");
-            
-            // SAFETY: Price cap guardrail ($1.00 per share max cost basis)
-            // costAsset (6 decimals) should not exceed absShares (18 decimals) / 1e12
-            require(costAsset <= (absShares / 1e12) + 1, "Launchpad: price exceeds $1 cap");
-            
-            _asset.safeTransferFrom(trader, address(this), totalCost);
-            outcomeToken.mint(trader, outcome, absShares);
-        } else {
-            // SELL: Burn outcome tokens, lock proceeds (24h)
-            uint256 proceeds = costAsset > feeAsset ? costAsset - feeAsset : 0;
-            // maxCost is negative for sells (min to receive), so check: proceeds >= |maxCost|
-            require(int256(proceeds) >= -maxCost, "Launchpad: proceeds below minimum");
-            
-            // Safety check: ensure contract has enough gross assets to cover new total lock
-            require(totalAssets() >= totalLockedProceeds + proceeds, "Launchpad: insufficient assets to lock");
-            
-            outcomeToken.burn(trader, outcome, absShares);
-            
-            // Lock proceeds for 24 hours (V6 lock-on-sell)
-            _lockProceeds(trader, proceeds);
-        }
-        
-        // Update LMSR state
-        qYes = newQYes;
-        qNo = newQNo;
-        reserve += int256(fee);
-        
-        // Handle graduation logic (fees, LP tokens, etc.)
-        _handlePostTradeFees(trader, fee, isBuy);
-        
-        emit TradeAMM(trader, outcome, deltaShares, cost, fee);
+        (outcome, deltaShares, maxCost);
+        revert("Launchpad: direct swap disabled (use TraderVault)");
     }
     
     /// @dev Internal helper to handle post-trade fee logic (LP tokens, graduation check)
@@ -585,72 +532,21 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
     }
 
     function claimCreatorRefund() external override {
-        require(!isLive && !isGraduated, "Not expired/failed");
-        require(msg.sender == creator, "Not creator");
-        
-        uint256 totalRefund = totalAssets();
-        require(totalRefund > 0, "No assets to refund");
-        
-        _asset.safeTransfer(creator, totalRefund);
-        emit CreatorRefunded(creator, totalRefund);
+        revert("Launchpad: creator refund removed (use redeemLP)");
     }
     
-    // Guardian functions
-    modifier onlyGuardian() {
-        address protocolConfig = ILaunchpadFactory(factory).protocolConfig();
-        require(
-            IProtocolConfig(protocolConfig).guardian() == msg.sender,
-            "Launchpad: not guardian"
-        );
-        _;
+    // Guardian liquidation/force-graduate are deferred to Stage 2.
+    // Stage 1: Failure handling is permissionless via `expire()` + `redeemLP()`.
+    function liquidate() external {
+        revert("Launchpad: liquidation deferred (Stage 2)");
     }
-    
-    function liquidate() external onlyGuardian {
-        require(!isGraduated && !isLive, "Launchpad: cannot liquidate");
-        require(block.timestamp > deadline, "Launchpad: not expired");
-        
-        isLiquidated = true;
-        isLive = false;
-        
-        address protocolConfig = ILaunchpadFactory(factory).protocolConfig();
-        uint256 liquidationFeeBps = IProtocolConfig(protocolConfig).liquidationFeeBps();
-        uint256 totalAssets_ = totalAssets();
-        uint256 liquidationFee = (totalAssets_ * liquidationFeeBps) / 10000;
-        uint256 refundAmount = totalAssets_ - liquidationFee;
-        
-        // Transfer liquidation fee to protocol (via factory treasury or protocolConfig)
-        if (liquidationFee > 0) {
-            // Protocol gets fee - need to determine recipient
-            // For now, leave it in market
-        }
-        
-        emit MarketLiquidated(liquidationFee, refundAmount);
+
+    function forceGraduate() external {
+        revert("Launchpad: forceGraduate deferred (Stage 2)");
     }
-    
-    function forceGraduate() external onlyGuardian {
-        require(!isGraduated, "Launchpad: already graduated");
-        isGraduated = true;
-        emit MarketGraduated(feesAccrued, block.timestamp);
-    }
-    
-    function claimLiquidationRefund(address user) external {
-        require(isLiquidated, "Launchpad: not liquidated");
-        require(user == msg.sender || msg.sender == traderVault, "Launchpad: unauthorized");
-        
-        // Calculate user's share based on LP tokens
-        uint256 userLP = balanceOf(user);
-        uint256 totalLP = totalSupply();
-        require(totalLP > 0, "Launchpad: no LP tokens");
-        
-        uint256 userShare = (totalAssets() * userLP) / totalLP;
-        require(userShare > 0, "Launchpad: no refund");
-        
-        // Burn LP tokens
-        _burn(user, userLP);
-        
-        // Transfer refund
-        _asset.safeTransfer(user, userShare);
-        emit LiquidationRefundClaimed(user, userShare);
+
+    function claimLiquidationRefund(address) external {
+        revert("Launchpad: liquidation refunds removed (use redeemLP)");
     }
     
     // LP Token redemption (only after settlement)
@@ -673,5 +569,29 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         if (supply == 0) return 0;
         uint256 netAssets = totalAssets() > totalLockedProceeds ? totalAssets() - totalLockedProceeds : 0;
         return (amount * netAssets) / supply;
+    }
+
+    /// @notice Stage 1 failure UX: allow claiming locked proceeds immediately once the market ends.
+    /// @dev Avoids trapping users behind a 24h timer after `expire()` or settlement.
+    function claimLockedOnMarketEnd(uint256 maxSteps) external returns (uint256 claimed) {
+        require(!isLive, "Market still active");
+        UserLockState storage state = _lockStates[msg.sender];
+
+        uint256 len = state.locks.length;
+        uint256 steps = 0;
+
+        for (uint256 i = state.headIndex; i < len && steps < maxSteps; i++) {
+            claimed += state.locks[i].amount;
+            delete state.locks[i];
+            state.headIndex = i + 1;
+            steps++;
+        }
+
+        if (claimed > 0) {
+            state.totalLocked -= claimed;
+            totalLockedProceeds -= claimed;
+            _asset.safeTransfer(msg.sender, claimed);
+            emit Claimed(msg.sender, claimed);
+        }
     }
 }

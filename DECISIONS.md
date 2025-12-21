@@ -400,3 +400,21 @@
     - **Performance**: Removed background polling for on-chain token balances, improving page load and responsiveness.
     - **Security**: Reduces risk of users accidentally burning wallet tokens when they intended to manage vault inventory.
     - **Technical Debt**: Cleaned up hooks and deleted `OrderbookTokensCard.tsx`.
+
+## ADR-027: Adjudicator-Gated Settlement + Dual-Engine Boundary Enforcement (Stage 1)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - Creator/operator-controlled settlement is not acceptable for trustless markets.
+  - Direct “swap” paths that both mutate LMSR (`qYes/qNo`) and mint/burn collateralized outcome tokens violate the dual-engine separation (AMM ledger vs. complete-set tokens).
+  - Creator-only expiry refunds created inconsistent end-of-market semantics.
+- **Decision**:
+  - Settlement is **Adjudicator-only**, via `finalizeResolution(outcome, tStar)`.
+  - Store `adjudicator` as an `address` (contract-based Truth interface) and record `tStar` for Open-End / retroactive-finality modes.
+  - Disable `LaunchpadMarket.swap()` until a clean, non-contaminating direct trading path exists.
+  - Remove creator-only refund; use **pro-rata LP redemption** via `redeemLP()` on market end.
+  - Add `claimLockedOnMarketEnd(maxSteps)` so users can claim locked proceeds immediately once the market ends.
+- **Consequences**:
+  - **Breaking change**: `ISoothMarketV4.initialize` now takes `adjudicator: address` (was `bytes32`).
+  - Integrations must route settlement through an adjudicator contract.
+  - Direct “1 approve + 1 swap” UX is postponed until Stage 2+.
