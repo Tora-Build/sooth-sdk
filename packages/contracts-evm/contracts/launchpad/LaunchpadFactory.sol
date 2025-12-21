@@ -8,6 +8,7 @@ import {ISoothMarketV4} from "../interfaces/ISoothMarketV4.sol";
 import {ILaunchpadFactory} from "./interfaces/ILaunchpadFactory.sol";
 import {ILaunchpadMarket} from "./interfaces/ILaunchpadMarket.sol";
 import {IProtocolConfig} from "../core/ProtocolConfig.sol";
+import {ISoothAdjudicatorRegistryV6} from "../core/SoothAdjudicatorRegistry.sol";
 
 /// @title LaunchpadFactory
 /// @notice Immutable Factory for deploying Launchpad Markets
@@ -26,7 +27,8 @@ contract LaunchpadFactory is ILaunchpadFactory {
     address public immutable feeController;
     address public immutable outcomeTokenImplementation;
     address public immutable treasury;
-    address public immutable adjudicator;
+    address public immutable defaultAdjudicator;
+    address public immutable adjudicatorRegistry;
     address public immutable protocolConfig; // V6: ProtocolConfig reference
 
     // =========================================================================
@@ -58,7 +60,8 @@ contract LaunchpadFactory is ILaunchpadFactory {
         address _feeController,
         address _outcomeTokenImplementation,
         address _treasury,
-        address _adjudicator,
+        address _defaultAdjudicator,
+        address _adjudicatorRegistry,
         address _protocolConfig // V6: New parameter
     ) {
         require(_marketImplementation != address(0), "Factory: zero marketImpl");
@@ -67,7 +70,8 @@ contract LaunchpadFactory is ILaunchpadFactory {
         require(_feeController != address(0), "Factory: zero feeController");
         require(_outcomeTokenImplementation != address(0), "Factory: zero outcomeTokenImpl");
         require(_treasury != address(0), "Factory: zero treasury");
-        require(_adjudicator != address(0), "Factory: zero adjudicator");
+        require(_defaultAdjudicator != address(0), "Factory: zero adjudicator");
+        require(_adjudicatorRegistry != address(0), "Factory: zero adjudicatorRegistry");
         require(_protocolConfig != address(0), "Factory: zero protocolConfig");
         
         marketImplementation = _marketImplementation;
@@ -76,7 +80,8 @@ contract LaunchpadFactory is ILaunchpadFactory {
         feeController = _feeController;
         outcomeTokenImplementation = _outcomeTokenImplementation;
         treasury = _treasury;
-        adjudicator = _adjudicator;
+        defaultAdjudicator = _defaultAdjudicator;
+        adjudicatorRegistry = _adjudicatorRegistry;
         protocolConfig = _protocolConfig;
 
         // Initialize Tiers (User pays M, Market gets b)
@@ -103,14 +108,15 @@ contract LaunchpadFactory is ILaunchpadFactory {
     // External Functions
     // =========================================================================
 
-    /// @notice V6: Creates a new launchpad market (no lpVault return)
+    /// @notice V6+: Creates a new launchpad market (no lpVault return)
     function createMarket(
         string memory name,
         string memory symbol,
         string memory /* description */,
         uint8 liquidityTierIndex,
         bool isOpenEnd,
-        uint40 durationSeconds
+        uint40 durationSeconds,
+        address marketAdjudicator
     ) external returns (address market, address /* lpVault - V6: not used */) {
         require(liquidityTierIndex < 4, "Factory: invalid tier");
         
@@ -132,13 +138,16 @@ contract LaunchpadFactory is ILaunchpadFactory {
         require(success, "Factory: OutcomeToken init failed");
         
         // Market is its own vault (implements ISoothLiquidityVault), so pass address(this) as liquidityVault
+        address adj = marketAdjudicator == address(0) ? defaultAdjudicator : marketAdjudicator;
+        require(ISoothAdjudicatorRegistryV6(adjudicatorRegistry).isEnabled(adj), "Factory: adjudicator not enabled");
+
         ISoothMarketV4(market).initialize(
             marketId,
             address(market), // Market is its own vault
             traderVault,
             feeController,
             outcomeToken,
-            adjudicator,
+            adj,
             bValue,
             msg.sender, // Creator is the operator (marketOperator = creator)
             0, // Initial Q (50/50 probability)

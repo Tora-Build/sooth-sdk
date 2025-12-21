@@ -9,6 +9,7 @@ import "../../contracts/launchpad/LaunchpadMarket.sol";
 import "../../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
+import "../../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../../contracts/core/ProtocolConfig.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 import "../actors/TraderActor.sol";
@@ -27,6 +28,7 @@ contract VaultInvariantTest is StdInvariant, Test {
     LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     
     // Actors
     TraderActor[] traders;
@@ -49,6 +51,8 @@ contract VaultInvariantTest is StdInvariant, Test {
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(owner);
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         factory = new LaunchpadFactory(
             address(marketImpl),
@@ -58,6 +62,7 @@ contract VaultInvariantTest is StdInvariant, Test {
             address(outcomeTokenImpl),
             creator,
             creator,
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -71,7 +76,8 @@ contract VaultInvariantTest is StdInvariant, Test {
             "Test market for invariants",
             0,
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

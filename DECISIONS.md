@@ -418,3 +418,22 @@
   - **Breaking change**: `ISoothMarketV4.initialize` now takes `adjudicator: address` (was `bytes32`).
   - Integrations must route settlement through an adjudicator contract.
   - Direct “1 approve + 1 swap” UX is postponed until Stage 2+.
+
+## ADR-028: Adjudicator Registry + Guardian Lifecycle + Settlement Roots + Safe Direct Trade (Stage 2)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - After Stage 1, markets were adjudicator-gated but lacked an allowlist and per-market selection.
+  - Guardian lifecycle tools (liquidation/force-graduate) were required for stuck/failed Launchpad markets.
+  - Brevis-style retroactive settlement requires on-chain root publication and claim verification.
+  - “Direct swap” UX needs to return without reintroducing AMM/OB ledger contamination.
+- **Decision**:
+  - Introduce `SoothAdjudicatorRegistry` and enforce allowlisting at market creation.
+  - Extend `LaunchpadFactory.createMarket` to accept `marketAdjudicator` (0 = default).
+  - Implement Guardian-only `liquidate()` and `forceGraduate()` on `LaunchpadMarket`, routing liquidation fee to `factory.treasury()`.
+  - Add `SoothSettlementRootSink` to store `(market, batchId) -> root` and verify claims (event-only in this stage).
+  - Add `SoothTraderVaultV4.depositAndTradeAMM(...)` as the safe “approve + trade” path that only touches AMM internal positions.
+- **Consequences**:
+  - **Breaking changes** to factory ABI (constructor + `createMarket` signature).
+  - Settlement root claims are verifiable on-chain, but **payout wiring is deferred** to a later stage (adjudicator class-specific).
+  - Direct trading UX is restored without ERC1155 mint/burn paths.

@@ -8,6 +8,7 @@ import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/ISoothMarketV4.sol";
@@ -21,6 +22,7 @@ contract GranularityTest is Test {
     LaunchpadMarket public market;
     LaunchpadMarket public marketImpl;
     LaunchpadOutcomeToken public outcomeTokenImpl;
+    SoothAdjudicatorRegistry public adjudicatorRegistry;
     SoothTraderVaultV4 public traderVault;
     SoothFeeController public feeController;
     ProtocolConfig public protocolConfig;
@@ -36,6 +38,8 @@ contract GranularityTest is Test {
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         traderVault.setTimeLock(ITimeLock(address(0))); 
 
@@ -47,6 +51,7 @@ contract GranularityTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -60,7 +65,8 @@ contract GranularityTest is Test {
             "Test market for granularity",
             0, // tier 0
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

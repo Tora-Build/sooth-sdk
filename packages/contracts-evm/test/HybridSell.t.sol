@@ -8,6 +8,7 @@ import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/IOutcomeToken.sol";
@@ -22,6 +23,7 @@ contract HybridSellTest is Test {
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
     LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
@@ -38,6 +40,8 @@ contract HybridSellTest is Test {
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         factory = new LaunchpadFactory(
             address(marketImpl),
@@ -47,6 +51,7 @@ contract HybridSellTest is Test {
             address(outcomeTokenImpl),
             creator,
             creator,
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -60,7 +65,8 @@ contract HybridSellTest is Test {
             "Test market for hybrid sell",
             0,
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

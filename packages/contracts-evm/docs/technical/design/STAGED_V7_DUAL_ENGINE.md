@@ -49,12 +49,45 @@ It is intentionally implementation-forward: each stage ends with code, tests, an
 
 ### Tests
 
-- Updated `LaunchpadV6.t.sol` to reflect Stage 1:
-  - liquidation/force-graduate are deferred
-  - refunds use `redeemLP`
+- Updated tests to reflect Stage 1 semantics (no creator refund, no direct swap, adjudicator settlement).
 - Legacy `Launchpad.t.sol` was archived and converted to a non-test contract.
 
-### Known follow-ups for Stage 2
+---
+
+## Stage 2 (Implemented)
+
+### Goals
+
+1. Enforce **Adjudicator allowlisting** and allow **per-market adjudicator selection** at creation time.
+2. Restore **Guardian controls** with correct fee routing (`liquidate`, `forceGraduate`).
+3. Add **settlement-root scaffolding** for Brevis-style retroactive settlement.
+4. Reintroduce a **safe “direct trade” UX** without AMM/OB contamination.
+
+### Delivered changes
+
+- **Adjudicator registry + per-market selection**
+  - Added `SoothAdjudicatorRegistry` (allowlist + metadata).
+  - `LaunchpadFactory` now stores `defaultAdjudicator` and `adjudicatorRegistry`.
+  - `createMarket(..., marketAdjudicator)` supports per-market adjudicator (0 = default) and enforces allowlist.
+
+- **Guardian liquidation/force-graduate**
+  - `LaunchpadMarket.liquidate()` is Guardian-only, post-expiry, routes a protocol fee to `factory.treasury()`.
+  - `LaunchpadMarket.forceGraduate()` is Guardian-only, pre-expiry, sets `isGraduated = true`.
+
+- **Settlement root sink (scaffolding)**
+  - Added `SoothSettlementRootSink`: stores a Merkle root per (market, batchId) and verifies claims (event-only).
+  - Submitters: market adjudicator or an authorized prover.
+
+- **Safe one-call AMM trade**
+  - Added `SoothTraderVaultV4.depositAndTradeAMM(...)` which pulls funds and executes `tradeAMM` in one call.
+  - This replaces the old “direct swap” UX without touching ERC1155 outcome tokens.
+
+### Tests
+
+- Updated all Launchpad test suites and deploy scripts to the new factory signatures.
+- Added:
+  - `SettlementRootSinkTest` (submit root + claim verification)
+  - `DirectAmmTradeTest` (deposit+trade in one call)
 
 - Re-introduce Guardian liquidation/force-graduate with correct fee routing and race-free accounting.
 - Introduce formal `IAdjudicator` interface and registry enforcement at market creation.

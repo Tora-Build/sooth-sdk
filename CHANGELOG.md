@@ -17,6 +17,12 @@ All notable changes to Sooth Protocol will be documented in this file.
   - **BREAKING**: Disabled `LaunchpadMarket.swap()` (direct mint/burn + LMSR update path) to preserve AMM/OB separation.
   - Removed creator-only expiry refund (`claimCreatorRefund` now reverts); refunds are via pro-rata `redeemLP()`.
   - Added `claimLockedOnMarketEnd(maxSteps)` to unlock proceeds immediately once the market ends.
+- **Contracts (Stage 2 Adjudicator Registry + Guardian + Settlement Roots + Direct Trade)** (2025-12-21):
+  - **BREAKING**: `LaunchpadFactory` now requires an `adjudicatorRegistry` and exposes `defaultAdjudicator`.
+  - **BREAKING**: `LaunchpadFactory.createMarket` now includes `marketAdjudicator` (0 = use default) and enforces allowlisting.
+  - Restored Guardian controls on `LaunchpadMarket`: `liquidate()` (routes liquidation fee to treasury) and `forceGraduate()`.
+  - Added `SoothSettlementRootSink` (Merkle root storage + claim verification events; transfer logic deferred).
+  - Added `SoothTraderVaultV4.depositAndTradeAMM(...)` for one-call “approve + trade” UX without ERC1155 mint/burn.
 - **Markets Page Cleanup** (2025-12-21):
   - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
   - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`

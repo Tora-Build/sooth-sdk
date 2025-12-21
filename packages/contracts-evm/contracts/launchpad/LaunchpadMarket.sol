@@ -535,14 +535,48 @@ contract LaunchpadMarket is SoothMarketBase, ERC20, ISoothLiquidityVault, ILaunc
         revert("Launchpad: creator refund removed (use redeemLP)");
     }
     
-    // Guardian liquidation/force-graduate are deferred to Stage 2.
-    // Stage 1: Failure handling is permissionless via `expire()` + `redeemLP()`.
-    function liquidate() external {
-        revert("Launchpad: liquidation deferred (Stage 2)");
+    // =========================================================================
+    // Guardian controls (Stage 2)
+    // =========================================================================
+
+    modifier onlyGuardian() {
+        address pc = ILaunchpadFactory(factory).protocolConfig();
+        require(IProtocolConfig(pc).guardian() == msg.sender, "Launchpad: not guardian");
+        _;
     }
 
-    function forceGraduate() external {
-        revert("Launchpad: forceGraduate deferred (Stage 2)");
+    /// @notice Guardian liquidates a failed market after expiry.
+    /// @dev Liquidation does NOT perform pro-rata refunds directly; LPs redeem via `redeemLP()`.
+    ///      Liquidation simply marks the market and routes a protocol fee to `factory.treasury()`.
+    function liquidate() external onlyGuardian {
+        require(!isLiquidated, "Launchpad: already liquidated");
+        require(!isGraduated, "Launchpad: cannot liquidate");
+        require(!isLive && !isSettled, "Launchpad: not expired");
+        require(deadline != type(uint40).max && block.timestamp > deadline, "Launchpad: not expired");
+
+        isLiquidated = true;
+
+        uint256 assetsBefore = totalAssets();
+        address pc = ILaunchpadFactory(factory).protocolConfig();
+        uint256 feeBps = IProtocolConfig(pc).liquidationFeeBps();
+        uint256 fee = (assetsBefore * feeBps) / 10_000;
+        uint256 refundAmount = assetsBefore > fee ? assetsBefore - fee : 0;
+
+        if (fee > 0) {
+            _asset.safeTransfer(ILaunchpadFactory(factory).treasury(), fee);
+        }
+
+        emit MarketLiquidated(fee, refundAmount);
+    }
+
+    /// @notice Guardian forces graduation before the deadline (escape hatch).
+    function forceGraduate() external onlyGuardian {
+        require(!isGraduated, "Launchpad: already graduated");
+        require(isLive && !isSettled, "Launchpad: not live");
+        require(deadline == type(uint40).max || block.timestamp <= deadline, "Launchpad: expired");
+
+        isGraduated = true;
+        emit MarketGraduated(feesAccrued, block.timestamp);
     }
 
     function claimLiquidationRefund(address) external {

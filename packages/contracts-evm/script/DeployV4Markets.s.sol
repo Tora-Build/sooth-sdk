@@ -10,6 +10,7 @@ import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title DeployV4Markets  
@@ -52,6 +53,8 @@ contract DeployV4Markets is Script {
         LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
+        SoothAdjudicatorRegistry adjudicatorRegistry = new SoothAdjudicatorRegistry(deployer);
+        adjudicatorRegistry.setAdjudicator(deployer, 1, true, bytes32(0));
         LaunchpadQuoter quoter = new LaunchpadQuoter();
         
         console.log("\n[Quoter] LaunchpadQuoter:", address(quoter));
@@ -64,6 +67,7 @@ contract DeployV4Markets is Script {
             address(outcomeTokenImpl),
             deployer, // treasury
             deployer, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -81,7 +85,8 @@ contract DeployV4Markets is Script {
             "Will the UN confirm the existence of alien life?",
             1, // tier 1
             false,
-            90 days
+            90 days,
+            address(0)
         );
         LaunchpadMarket market1 = LaunchpadMarket(market1Addr);
         
@@ -101,7 +106,8 @@ contract DeployV4Markets is Script {
             "Will BTC 7-day TWAP reach $100k?",
             2, // tier 2
             false,
-            90 days
+            90 days,
+            address(0)
         );
         LaunchpadMarket market2 = LaunchpadMarket(market2Addr);
         

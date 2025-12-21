@@ -116,6 +116,26 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         emit Deposit(msg.sender, amount);
     }
 
+    /// @notice Convenience: deposit from wallet and execute an AMM trade in one call.
+    /// @dev This is the safe "direct swap" path: it only touches AMM internal positions via `tradeAMM`
+    ///      and never mints/burns collateralized outcome tokens.
+    /// @param depositAmount Amount of asset decimals to pull from wallet (0 allowed).
+    function depositAndTradeAMM(
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        int256 maxCost,
+        uint256 depositAmount
+    ) external {
+        if (depositAmount > 0) {
+            require(_asset.transferFrom(msg.sender, address(this), depositAmount), "TraderVault: transfer failed");
+            accounts[msg.sender].available += depositAmount;
+            emit Deposit(msg.sender, depositAmount);
+        }
+
+        _tradeAMM(msg.sender, market, outcome, deltaShares, maxCost);
+    }
+
     function withdraw(uint256 amount) external {
         require(amount > 0, "TraderVault: zero amount");
         require(accounts[msg.sender].available >= amount, "TraderVault: insufficient available");
@@ -169,6 +189,16 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         int256 deltaShares,
         int256 maxCost
     ) external {
+        _tradeAMM(msg.sender, market, outcome, deltaShares, maxCost);
+    }
+
+    function _tradeAMM(
+        address user,
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        int256 maxCost
+    ) internal {
         require(_isValidMarket(market), "TraderVault: invalid market");
         require(deltaShares != 0, "TraderVault: zero shares");
         require(outcome < 2, "TraderVault: invalid outcome");
@@ -180,14 +210,14 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         ISoothLiquidityVault marketVault = mkt.liquidityVault();
         require(address(marketVault) != address(0), "TraderVault: zero vault");
 
-        AMMPosition storage pos = ammPositions[msg.sender][market];
+        AMMPosition storage pos = ammPositions[user][market];
 
         if (deltaShares > 0) {
             // ========== BUY ==========
             uint256 shares = uint256(deltaShares);
             
             // Execute trade on market (returns cost in WAD)
-            (int256 rawCost, uint256 rawFee) = mkt.executeAMMTrade(msg.sender, outcome, deltaShares);
+            (int256 rawCost, uint256 rawFee) = mkt.executeAMMTrade(user, outcome, deltaShares);
             
             // For BUYs, cost should always be positive
             // When buying NO, tick moves down and costToMove returns negative,
@@ -207,7 +237,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             try ILaunchpadMarket(market).isGraduated() returns (bool graduated) {
                 if (!graduated) {
                     isLaunchpadPreGrad = true;
-                    try ILaunchpadMarket(market).lockedProceeds(msg.sender) returns (uint256 lockedAmount) {
+                    try ILaunchpadMarket(market).lockedProceeds(user) returns (uint256 lockedAmount) {
                         locked = lockedAmount;
                     } catch {}
                 }
@@ -215,16 +245,16 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             
             if (isLaunchpadPreGrad && locked > 0 && totalCost <= locked) {
                 // Use locked proceeds for the entire cost
-                ILaunchpadMarket(market).useLockedProceeds(msg.sender, totalCost);
+                ILaunchpadMarket(market).useLockedProceeds(user, totalCost);
                 // Funds stay in market (no transfer needed)
             } else {
                 // Use available balance
-            require(accounts[msg.sender].available >= totalCost, "TraderVault: insufficient balance");
-            accounts[msg.sender].available -= totalCost;
-            
-            // Pay to liquidity vault attached to THIS market
-            require(_asset.transfer(address(marketVault), totalCost), "TraderVault: transfer failed");
-            marketVault.receiveFunds(mkt.marketId(), totalCost);
+                require(accounts[user].available >= totalCost, "TraderVault: insufficient balance");
+                accounts[user].available -= totalCost;
+                
+                // Pay to liquidity vault attached to THIS market
+                require(_asset.transfer(address(marketVault), totalCost), "TraderVault: transfer failed");
+                marketVault.receiveFunds(mkt.marketId(), totalCost);
             }
             
             // Credit internal shares
@@ -233,8 +263,8 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             } else {
                 pos.noShares += shares;
             }
-            emit AMMBuy(msg.sender, market, outcome, shares, totalCost, 0);
-            emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
+            emit AMMBuy(user, market, outcome, shares, totalCost, 0);
+            emit TradeExecuted(user, market, outcome, deltaShares, rawCost);
 
         } else {
             // ========== SELL: Lock proceeds ==========
@@ -248,7 +278,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             }
             
             // Execute trade on market (returns negative cost = proceeds)
-            (int256 rawCost, uint256 rawFee) = mkt.executeAMMTrade(msg.sender, outcome, deltaShares);
+            (int256 rawCost, uint256 rawFee) = mkt.executeAMMTrade(user, outcome, deltaShares);
             require(rawCost < 0, "TraderVault: unexpected positive cost");
             
             // Scale to asset decimals
@@ -271,10 +301,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             // Always lock proceeds (both pre and post-graduation)
             // Pre-graduation: Proceeds locked, can be used for reinvestment via useLockedProceeds()
             // Post-graduation: Normal 24h lock-on-sell
-            _lockProceedsOnVault(marketVault, msg.sender, mkt.marketId(), netProceeds);
+            _lockProceedsOnVault(marketVault, user, mkt.marketId(), netProceeds);
 
-            emit AMMSell(msg.sender, market, outcome, shares, netProceeds);
-            emit TradeExecuted(msg.sender, market, outcome, deltaShares, rawCost);
+            emit AMMSell(user, market, outcome, shares, netProceeds);
+            emit TradeExecuted(user, market, outcome, deltaShares, rawCost);
         }
     }
 

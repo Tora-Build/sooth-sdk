@@ -9,6 +9,7 @@ import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/IOutcomeToken.sol";
@@ -20,6 +21,7 @@ contract CustodialVaultTest is Test {
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
     LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     MockUSDC usdc;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
@@ -33,6 +35,8 @@ contract CustodialVaultTest is Test {
         usdc = new MockUSDC();
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         outcomeTokenImpl = new LaunchpadOutcomeToken();
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         feeController = new SoothFeeController(address(this));
         protocolConfig = new ProtocolConfig(address(this), 0);
 
@@ -47,6 +51,7 @@ contract CustodialVaultTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -60,7 +65,8 @@ contract CustodialVaultTest is Test {
             "Test market for custodial vault",
             0, // tier 0
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

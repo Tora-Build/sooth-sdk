@@ -8,6 +8,7 @@ import "../../contracts/launchpad/LaunchpadMarket.sol";
 import "../../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
+import "../../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../../contracts/core/ProtocolConfig.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 import "../../contracts/interfaces/IOutcomeToken.sol";
@@ -24,6 +25,7 @@ contract SettlementScenariosTest is Test {
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
     LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
 
@@ -49,6 +51,8 @@ contract SettlementScenariosTest is Test {
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(owner);
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         factory = new LaunchpadFactory(
             address(marketImpl),
@@ -58,6 +62,7 @@ contract SettlementScenariosTest is Test {
             address(outcomeTokenImpl),
             creator,
             creator,
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -71,7 +76,8 @@ contract SettlementScenariosTest is Test {
             "Test market for settlement scenarios",
             0,
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

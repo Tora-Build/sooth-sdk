@@ -8,6 +8,7 @@ import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/IOutcomeToken.sol";
@@ -73,6 +74,7 @@ contract V4IntegrationTest is Test {
     LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     // Test accounts
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -102,6 +104,8 @@ contract V4IntegrationTest is Test {
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0); // 0% liquidation fee for tests
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(owner);
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
 
         // Deploy LaunchpadFactory
         factory = new LaunchpadFactory(
@@ -112,6 +116,7 @@ contract V4IntegrationTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
 
@@ -126,7 +131,8 @@ contract V4IntegrationTest is Test {
             "Test market for integration tests",
             0, // tier 0
             false, // fixed deadline
-            30 days // duration
+            30 days, // duration
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

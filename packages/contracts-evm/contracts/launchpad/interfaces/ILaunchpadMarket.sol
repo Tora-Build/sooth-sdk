@@ -76,13 +76,13 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     /// @notice V6: Total locked proceeds
     function totalLockedProceeds() external view returns (uint256);
     
-    /// @notice Whether market has been liquidated (Stage 2 feature; currently unused)
+    /// @notice Whether market has been liquidated (Guardian-triggered, post-expiry).
     function isLiquidated() external view returns (bool);
 
-    /// @notice (Deferred) Guardian liquidation is a Stage 2 feature.
+    /// @notice Guardian liquidation (post-expiry). Routes liquidation fee to treasury.
     function liquidate() external;
 
-    /// @notice (Deferred) Guardian force-graduate is a Stage 2 feature.
+    /// @notice Guardian force-graduate (pre-expiry escape hatch).
     function forceGraduate() external;
 
     /// @notice (Deprecated) Liquidation refunds were removed in favor of `redeemLP()`.

@@ -9,6 +9,7 @@ import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/ISoothMarketV4.sol";
@@ -22,6 +23,7 @@ contract OrderbookShortTest is Test {
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
     LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
     
@@ -36,6 +38,8 @@ contract OrderbookShortTest is Test {
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         
         outcomeTokenImpl = new LaunchpadOutcomeToken();
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
         
@@ -47,6 +51,7 @@ contract OrderbookShortTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -60,7 +65,8 @@ contract OrderbookShortTest is Test {
             "Test market for short selling",
             0, // tier 0
             false, // fixed deadline
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
