@@ -100,14 +100,64 @@ contract AdjudicatorFlowsTest is Test {
 
         // anyone proposes with minimal bond
         vm.deal(creator, 1 ether);
+        uint256 creatorBefore = creator.balance;
         vm.prank(creator);
         adj.propose{value: 1}(marketAddr, 0, uint64(block.timestamp));
+        assertEq(address(adj).balance, 1, "Bond should be escrowed");
 
         vm.warp(block.timestamp + 1 hours + 1);
         adj.finalize(marketAddr);
 
         assertTrue(LaunchpadMarket(marketAddr).isSettled(), "Should be settled");
         assertEq(LaunchpadMarket(marketAddr).winningOutcome(), 0, "Outcome");
+
+        // bond is refundable (pull-based)
+        assertEq(adj.claimableBonds(creator), 1, "Claimable bond");
+        vm.prank(creator);
+        adj.withdrawBond(payable(creator), 1);
+        assertEq(adj.claimableBonds(creator), 0, "Bond withdrawn");
+        assertEq(creator.balance, creatorBefore, "Bond refunded to proposer");
+    }
+
+    function test_optimisticAdjudicator_dispute_slashes_bond_owner_withdraws() public {
+        vm.startPrank(owner);
+        SoothOptimisticAdjudicator adj = new SoothOptimisticAdjudicator(owner, 11, 1 hours, 1);
+        registry.setAdjudicator(address(adj), 11, true, bytes32(0));
+
+        LaunchpadFactory factory = new LaunchpadFactory(
+            address(marketImpl),
+            address(usdc),
+            address(traderVault),
+            address(feeController),
+            address(tokenImpl),
+            owner,
+            address(adj),
+            address(registry),
+            address(protocolConfig)
+        );
+        vm.stopPrank();
+
+        vm.startPrank(creator);
+        usdc.approve(address(factory), type(uint256).max);
+        (address marketAddr, ) = factory.createMarket("M3", "M3", "D", 0, false, 30 days, address(adj));
+        vm.stopPrank();
+
+        vm.deal(creator, 1 ether);
+        vm.prank(creator);
+        adj.propose{value: 1}(marketAddr, 1, uint64(block.timestamp));
+
+        // owner disputes → bond is slashed (no longer refundable)
+        uint256 ownerBefore = owner.balance;
+        vm.prank(owner);
+        adj.dispute(marketAddr);
+
+        assertEq(adj.ownerAccruedBonds(), 1, "Owner accrued bond");
+        assertEq(adj.claimableBonds(creator), 0, "Not refundable");
+
+        vm.prank(owner);
+        adj.withdrawOwnerAccrued(payable(owner), 1);
+        assertEq(adj.ownerAccruedBonds(), 0, "Owner withdrew accrued");
+        assertEq(owner.balance, ownerBefore + 1, "Owner received slashed bond");
     }
 }
 
