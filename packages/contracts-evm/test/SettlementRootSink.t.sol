@@ -70,6 +70,7 @@ contract SettlementRootSinkTest is Test {
         traderVault.setMarket(marketAddr, true);
         traderVault.setOutcomeToken(address(ISoothMarketV4(marketAddr).outcomeToken()), true);
         sink = new SoothSettlementRootSink(owner);
+        traderVault.setSettlementSink(address(sink), true);
         vm.stopPrank();
 
         // Fund user (not strictly required for this test)
@@ -120,6 +121,27 @@ contract SettlementRootSinkTest is Test {
 
         uint256 afterAvail = traderVault.availableBalance(user);
         assertEq(afterAvail - beforeAvail, 12e6, "Should credit 12 USDC (6 decimals)");
+    }
+
+    function test_traderVault_claimSettlementRoot_revertsIfSinkNotAllowed() public {
+        address marketAddr = factory.getAllMarkets()[0];
+        vm.prank(adjudicator);
+        LaunchpadMarket(marketAddr).finalizeResolution(0, uint64(block.timestamp));
+
+        // New sink not allowlisted
+        SoothSettlementRootSink otherSink = new SoothSettlementRootSink(owner);
+
+        bytes32 batchId = keccak256("batch-bad-sink");
+        int256 pnl = int256(1e18);
+        bytes32 root = keccak256(abi.encodePacked(marketAddr, user, pnl, batchId));
+
+        vm.prank(adjudicator);
+        otherSink.submitRoot(marketAddr, batchId, root);
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(user);
+        vm.expectRevert("TraderVault: invalid sink");
+        traderVault.claimSettlementRoot(address(otherSink), marketAddr, batchId, pnl, proof);
     }
 }
 

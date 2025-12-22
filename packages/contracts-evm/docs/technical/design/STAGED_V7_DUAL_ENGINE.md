@@ -115,6 +115,31 @@ It is intentionally implementation-forward: each stage ends with code, tests, an
 - Added `AdjudicatorFlowsTest` (manual + optimistic resolution).
 - Extended `SettlementRootSinkTest` with a payout-path test through `TraderVault`.
 
+---
+
+## Stage 4 (Implemented)
+
+### Goals
+
+1. Harden settlement-root payouts against malicious sink contracts.
+2. Add a minimal Brevis-style adjudicator stub with gateway-authenticated callbacks.
+
+### Delivered changes
+
+- **Settlement sink allowlist**
+  - Added `SoothTraderVaultV4.setSettlementSink(sink, enabled)` (owner-only).
+  - `claimSettlementRoot` now requires `isSettlementSink[sink] == true`.
+
+- **Brevis adjudicator stub**
+  - Added `SoothBrevisAdjudicator`:
+    - `brevisResolveMarket(...)` (only gateway) → calls market `finalizeResolution`.
+    - `brevisSubmitSettlementRoot(...)` (only gateway) → submits root to `SoothSettlementRootSink`.
+
+### Tests
+
+- Extended `SettlementRootSinkTest` with sink allowlist revert test.
+- Added `BrevisAdjudicatorStubTest`.
+
 - Re-introduce Guardian liquidation/force-graduate with correct fee routing and race-free accounting.
 - Introduce formal `IAdjudicator` interface and registry enforcement at market creation.
 - Add retroactive settlement root plumbing (SettlementSink/Merkle claims) per Brevis docs.

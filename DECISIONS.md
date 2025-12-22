@@ -454,3 +454,18 @@
 - **Consequences**:
   - Settlement roots now have an on-chain path to affect user balances, enabling Brevis-style workflows.
   - Negative PnL claims require sufficient available balance in the Trading Account (explicit debit).
+
+## ADR-030: Settlement Sink Allowlist + Brevis Gateway Stub (Stage 4)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - `claimSettlementRoot` depends on an external sink contract for the root; without constraints, a malicious sink could be used to forge roots.
+  - Brevis integration needs a canonical callback-authenticated adjudicator shape.
+- **Decision**:
+  - Add a `TraderVault` allowlist for settlement sinks (`setSettlementSink`) and require it in `claimSettlementRoot`.
+  - Add `SoothBrevisAdjudicator` stub with `onlyBrevisGateway` callback gating for:
+    - market resolution (`brevisResolveMarket`)
+    - settlement-root submission (`brevisSubmitSettlementRoot`)
+- **Consequences**:
+  - Settlement roots become an explicitly trusted integration surface, reducing attack surface.
+  - The Brevis adjudicator is ready to have real proof verification wired in later stages.

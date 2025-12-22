@@ -27,6 +27,10 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Added `SoothManualAdjudicator` and `SoothOptimisticAdjudicator` (simple optimistic window).
   - Added `SoothTraderVaultV4.claimSettlementRoot(...)` to apply settlement-root PnL to the Trading Account and move USDC to/from the market vault.
   - Added/updated tests: `AdjudicatorFlowsTest`, extended `SettlementRootSinkTest` payout path.
+ - **Contracts (Stage 4 Settlement Sink Hardening + Brevis Stub)** (2025-12-21):
+  - Added `SoothTraderVaultV4.setSettlementSink(...)` and enforced allowlisting for `claimSettlementRoot`.
+  - Added `SoothBrevisAdjudicator` stub with gateway-authenticated callbacks for resolution + root submission.
+  - Added/updated tests: `BrevisAdjudicatorStubTest`, extended `SettlementRootSinkTest` allowlist checks.
 - **Markets Page Cleanup** (2025-12-21):
   - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
   - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`

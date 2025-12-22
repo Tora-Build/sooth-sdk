@@ -770,6 +770,13 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         _isOutcomeToken[token] = enabled;
     }
 
+    mapping(address => bool) public isSettlementSink;
+
+    function setSettlementSink(address sink, bool enabled) external onlyOwner {
+        require(sink != address(0), "TraderVault: zero sink");
+        isSettlementSink[sink] = enabled;
+    }
+
     address public launchpadFactory;
 
     function setLiquidityVault(ISoothLiquidityVault _liquidityVault) external onlyOwner {
@@ -816,6 +823,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         bytes32[] calldata proof
     ) external {
         require(_isValidMarket(market), "TraderVault: invalid market");
+        require(isSettlementSink[sink], "TraderVault: invalid sink");
         require(!settlementClaimed[market][batchId][msg.sender], "TraderVault: already claimed");
         require(ISoothMarketV4(market).isSettled(), "TraderVault: market not settled");
 
