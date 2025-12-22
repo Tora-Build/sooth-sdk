@@ -840,6 +840,9 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         bytes32 leaf = keccak256(abi.encodePacked(market, msg.sender, pnlWad, batchId));
         require(proof.verify(root, leaf), "TraderVault: bad proof");
 
+        // CEI: mark claimed before any external interactions (vault/token transfers)
+        settlementClaimed[market][batchId][msg.sender] = true;
+
         ISoothMarketV4 mkt = ISoothMarketV4(market);
         ISoothLiquidityVault marketVault = mkt.liquidityVault();
 
@@ -858,7 +861,6 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
             marketVault.receiveFunds(mkt.marketId(), assetDelta);
         }
 
-        settlementClaimed[market][batchId][msg.sender] = true;
         emit SettlementClaimed(msg.sender, market, batchId, pnlWad, assetDelta);
     }
 
