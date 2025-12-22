@@ -32,8 +32,8 @@ TRADER_VAULT=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothTrader
 GOVERNOR_VAULT=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothLiquidityVault' "$DEPLOYMENTS_JSON")
 FEE_CONTROLLER=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.SoothFeeController' "$DEPLOYMENTS_JSON")
 USDC=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.MockUSDC' "$DEPLOYMENTS_JSON")
-MARKET1=$(jq -r --arg net "$NETWORK" '.networks[$net].marketInfo.market1.address' "$DEPLOYMENTS_JSON")
-MARKET2=$(jq -r --arg net "$NETWORK" '.networks[$net].marketInfo.market2.address' "$DEPLOYMENTS_JSON")
+MARKET1=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.market1' "$DEPLOYMENTS_JSON")
+MARKET2=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.market2' "$DEPLOYMENTS_JSON")
 
 echo "Config Addresses:"
 echo "  ChainId:       $CHAIN_ID"

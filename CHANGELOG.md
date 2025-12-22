@@ -31,6 +31,11 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Added `SoothTraderVaultV4.setSettlementSink(...)` and enforced allowlisting for `claimSettlementRoot`.
   - Added `SoothBrevisAdjudicator` stub with gateway-authenticated callbacks for resolution + root submission.
   - Added/updated tests: `BrevisAdjudicatorStubTest`, extended `SettlementRootSinkTest` allowlist checks.
+- **MegaETH Frontier Fresh Redeploy (BREAKING)** (2025-12-21):
+  - Deployed a fresh V6.1.8 stack to MegaETH Frontier (chainId 4326)
+  - Updated canonical configs:
+    - `apps/web/src/config/deployments.json` (added `megaethFrontier`, bumped version)
+    - `apps/web/src/config/markets.json` (added 2 real markets for 4326)
 - **Markets Page Cleanup** (2025-12-21):
   - Removed Hero Stats Bar (was showing placeholder "24h Volume: $--")
   - Added badge counts to filter tabs: `All (2)`, `Bonding (1)`, `Graduated (1)`

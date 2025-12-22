@@ -91,13 +91,18 @@
 ### MegaETH Mainnet (Chain 4326) - Frontier Net ✅
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0x58f35be6a5e3d2be4c3575853043322b02feed84` |
-| FeeController | `0x3c06e44bd4d09328a4c374174b8e325c0c674b6e` |
-| LiquidityVault | `0x1af3cb8b270db3e71fc979543c32b87709ea191f` |
-| TraderVaultV4 | `0x8629b9ca457f4088ec8346faed61da858fdb498d` |
-| **LaunchpadFactory (V6)** | `0xaa3ffae62a8af00d08ac395e9551776b0a01e492` |
-| Market 1 (Alien Life) | `0x13D233B5D83A24a3090780738E4AC82Be3305cee` |
-| Market 2 (BTC TWAP) | `0xc5DF627fa7d51d75B3EF179c156AceF9801B927E` |
+| MockUSDC | `0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0` |
+| FeeController | `0x05818c4028ff5c273b45b3c55131af2bd9d12322` |
+| LiquidityVault | `0x204760c47d4a009c353e6cf7e2d7c0b497243603` |
+| TraderVaultV4 | `0x98169fffdf249b1196e4e8095f673379f3d06694` |
+| ProtocolConfig | `0xc69003eec9b262dd9d5911d4d00133bc73d5f70d` |
+| LaunchpadMarketImpl | `0xe73e78c4f93c79593c4e09b6d096d668ba45852f` |
+| LaunchpadOutcomeTokenImpl | `0xae2aea85f34c6dab95403163bc2e457e82744196` |
+| **LaunchpadFactory (V6)** | `0x347a74a7025c42be608f3bdc0b150d4ad6eb4674` |
+| Market 1 (Alien Life) | `0x813F5A52d0dBD948e848b656e2415a57c5dE27B3` |
+| OutcomeToken 1 | `0x44b866EAA6C7a601000Bb177436ab1E465e55883` |
+| Market 2 (BTC TWAP) | `0x8E8895A78bDdFbb2C04C7b382b8a1D773811a4Df` |
+| OutcomeToken 2 | `0xf6110471bC21e0958326b312aea1239F2529Ee51` |
 
 ### Base Sepolia (Chain 84532) - V6.2.3 Quoter ✅
 | Contract | Address |

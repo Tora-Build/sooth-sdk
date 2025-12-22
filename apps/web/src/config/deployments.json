@@ -1,7 +1,7 @@
 {
-  "version": "6.2.4",
-  "lastUpdated": "2025-12-21T10:50:00Z",
-  "status": "Pure WAD Architecture (V6.2.4) - Fixed LP Scaling & Polish",
+  "version": "6.2.6-megaeth-frontier-1",
+  "lastUpdated": "2025-12-21T23:59:00Z",
+  "status": "MegaETH Frontier fresh redeploy (V6.1.8 stack) - updated canonical configs",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -16,6 +16,23 @@
         "SoothTraderVault": "0x1364d5CCc14251C73823e0291EF57e9EA4b9E673",
         "SoothLiquidityVault": "0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB",
         "SoothFeeController": "0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9"
+      }
+    },
+    "megaethFrontier": {
+      "chainId": 4326,
+      "contracts": {
+        "MockUSDC": "0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0",
+        "SoothFeeController": "0x05818c4028ff5c273b45b3c55131af2bd9d12322",
+        "SoothLiquidityVault": "0x204760c47d4a009c353e6cf7e2d7c0b497243603",
+        "SoothTraderVault": "0x98169fffdf249b1196e4e8095f673379f3d06694",
+        "ProtocolConfig": "0xc69003eec9b262dd9d5911d4d00133bc73d5f70d",
+        "LaunchpadFactory": "0x347a74a7025c42be608f3bdc0b150d4ad6eb4674",
+        "LaunchpadMarketImpl": "0xe73e78c4f93c79593c4e09b6d096d668ba45852f",
+        "LaunchpadOutcomeToken": "0xae2aea85f34c6dab95403163bc2e457e82744196",
+        "market1": "0x813F5A52d0dBD948e848b656e2415a57c5dE27B3",
+        "market1OutcomeToken": "0x44b866EAA6C7a601000Bb177436ab1E465e55883",
+        "market2": "0x8E8895A78bDdFbb2C04C7b382b8a1D773811a4Df",
+        "market2OutcomeToken": "0xf6110471bC21e0958326b312aea1239F2529Ee51"
       }
     }
   }

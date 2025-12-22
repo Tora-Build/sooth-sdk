@@ -8,6 +8,7 @@ import { useAccount } from 'wagmi';
 import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { formatUnits } from 'viem';
 import uiContent from '../../../config/ui-content.json';
+import { useChainStore } from '../../../store/useChainStore';
 
 interface AmmTradingPanelProps {
     address: `0x${string}`;
@@ -27,6 +28,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     onTradeSuccess
 }) => {
     const { isConnected } = useAccount();
+    const { selectedChainId } = useChainStore();
     const t = uiContent.trading;
     const c = uiContent.common;
     // V6.1: Use direct swap (bypasses TraderVault, reduces to 2 TX max)
@@ -36,6 +38,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
     const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(0);
     const [amount, setAmount] = useState('10');
+    // Debounced amount used for quoting to reduce RPC spam (especially on MegaETH).
+    const [quoteAmount, setQuoteAmount] = useState('10');
     const [slippageBps, setSlippageBps] = useState(100); // 1% default
     const [showSlippageSelector, setShowSlippageSelector] = useState(false);
     const [isPending, setIsPending] = useState(false);
@@ -49,7 +53,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Quote
-    const sharesInput = tradeMode === 'buy' ? amount : `-${amount}`;
+    useEffect(() => {
+        const chainIdNum = Number(selectedChainId);
+        const debounceMs = chainIdNum === 4326 ? 600 : 150;
+        const t = setTimeout(() => setQuoteAmount(amount), debounceMs);
+        return () => clearTimeout(t);
+    }, [amount, selectedChainId]);
+
+    const sharesInput = tradeMode === 'buy' ? quoteAmount : `-${quoteAmount}`;
     const { quote } = useLaunchpadTradeQuote(
         address,
         selectedOutcome,

@@ -46,7 +46,7 @@ contract VaultInvariantTest is StdInvariant, Test {
         feeController = new SoothFeeController(owner);
         feeController.setOrderbookFee(10);
         
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();

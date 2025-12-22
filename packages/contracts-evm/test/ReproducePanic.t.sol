@@ -33,7 +33,7 @@ contract ReproducePanicTest is Test {
     function setUp() public {
         usdc = new MockUSDC();
         feeController = new SoothFeeController(address(this));
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         vault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();

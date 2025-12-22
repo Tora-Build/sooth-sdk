@@ -95,7 +95,7 @@ contract V4IntegrationTest is Test {
         feeController.setOrderbookFee(10); // 0.1%
 
         // Deploy LiquidityVault (for TraderVault's global locked proceeds tracking)
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
 
         // Deploy TraderVault V4
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));

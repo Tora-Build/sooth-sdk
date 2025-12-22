@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { usePublicClient, useReadContract, useChainId } from 'wagmi';
+import { usePublicClient, useReadContract } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 import { LAUNCHPAD_FACTORY_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../../config/abis';
 import { useDeployments } from '../useDeployments';
@@ -23,7 +23,8 @@ export interface LaunchpadMarketData {
 
 export function useLaunchpadMarkets() {
     const { config } = useDeployments();
-    const chainId = useChainId();
+    const { selectedChainId } = useChainStore();
+    const chainId = typeof selectedChainId === 'number' ? selectedChainId : undefined;
     // @ts-ignore
     const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
     
@@ -32,8 +33,8 @@ export function useLaunchpadMarkets() {
         address: factoryAddress,
         abi: LAUNCHPAD_FACTORY_ABI,
         functionName: 'getAllMarkets',
-        chainId: chainId,
-        query: { enabled: !!factoryAddress, refetchInterval: 30000 }
+        chainId,
+        query: { enabled: !!factoryAddress && !!chainId, refetchInterval: 30000 }
     });
     
     const addresses = (marketAddresses as `0x${string}`[]) || [];
@@ -52,8 +53,8 @@ export function useLaunchpadMarkets() {
     
     const { data: combinedData, isLoading: isLoadingCombined } = useReadContracts({
         contracts: combinedContracts,
-        chainId: chainId,
-        query: { enabled: addresses.length > 0, refetchInterval: 30000 }
+        chainId,
+        query: { enabled: addresses.length > 0 && !!chainId, refetchInterval: 30000 }
     });
 
     // Filter to only V6 markets and extract details
@@ -100,8 +101,8 @@ export function useLaunchpadMarkets() {
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        chainId: chainId,
-        query: { enabled: tokenCalls.length > 0, refetchInterval: 60000 }
+        chainId,
+        query: { enabled: tokenCalls.length > 0 && !!chainId, refetchInterval: 60000 }
     });
 
     // 4. Transform and Merge

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
 import { useChainStore } from '../../store/useChainStore';
@@ -15,6 +15,8 @@ import toast from 'react-hot-toast';
 export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const { selectedChainId } = useChainStore();
+    const walletChainId = useChainId();
+    const { switchChainAsync } = useSwitchChain();
     const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
     const [isPending, setIsPending] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -68,6 +70,26 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const { writeContractAsync } = useWriteContract();
 
     const decimals = Number(usdcDecimals || 6);
+    const targetChainId = Number(selectedChainId);
+
+    // MegaETH Frontier often requires explicit high gas to avoid flaky estimateGas behavior.
+    const megaethGas = targetChainId === 4326 ? 999999999n : undefined;
+
+    const ensureWalletOnSelectedChain = useCallback(async () => {
+        if (!targetChainId) return false;
+        if (walletChainId === targetChainId) return true;
+
+        // Prompt a wallet switch (best effort), otherwise bail to avoid cross-chain tx spam.
+        const toastId = toast.loading(`Switch wallet network to Chain ${targetChainId}...`);
+        try {
+            await switchChainAsync?.({ chainId: targetChainId });
+            toast.dismiss(toastId);
+            return true;
+        } catch (e) {
+            toast.error(`Please switch your wallet to Chain ${targetChainId} and try again.`, { id: toastId });
+            return false;
+        }
+    }, [targetChainId, walletChainId, switchChainAsync]);
 
     /**
      * Approve USDC for market (one-time or per-trade)
@@ -77,6 +99,9 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             toast.error('Market not ready');
             return;
         }
+
+        const okChain = await ensureWalletOnSelectedChain();
+        if (!okChain) return false;
 
         if (isApproving) return;
         setIsApproving(true);
@@ -104,7 +129,9 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 address: usdcAddress as `0x${string}`,
                 abi: ERC20_ABI,
                 functionName: 'approve',
-                args: [marketAddress, approveAmount]
+                args: [marketAddress, approveAmount],
+                chainId: targetChainId,
+                gas: megaethGas
             });
 
             await publicClient.waitForTransactionReceipt({ hash });
@@ -118,7 +145,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } finally {
             setIsApproving(false);
         }
-    }, [marketAddress, usdcAddress, userAddress, writeContractAsync, publicClient, refetchAllowance, isApproving]);
+    }, [marketAddress, usdcAddress, userAddress, writeContractAsync, publicClient, refetchAllowance, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
 
     /**
      * Execute direct swap on market
@@ -135,6 +162,9 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             toast.error('Wallet not connected');
             return;
         }
+
+        const okChain = await ensureWalletOnSelectedChain();
+        if (!okChain) return false;
 
         if (isPending || isApproving) return;
         setIsPending(true);
@@ -167,7 +197,9 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 address: marketAddress,
                 abi: LAUNCHPAD_MARKET_ABI,
                 functionName: 'swap',
-                args: [outcome, signedDelta, signedMaxCost]
+                args: [outcome, signedDelta, signedMaxCost],
+                chainId: targetChainId,
+                gas: megaethGas
             });
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -219,7 +251,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } finally {
             setIsPending(false);
         }
-    }, [marketAddress, userAddress, publicClient, decimals, allowance, approve, writeContractAsync, refetchBalance, isPending, isApproving]);
+    }, [marketAddress, userAddress, publicClient, decimals, allowance, approve, writeContractAsync, refetchBalance, isPending, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
 
     /**
      * Claim unlocked proceeds from sells
@@ -230,12 +262,17 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             return;
         }
 
+        const okChain = await ensureWalletOnSelectedChain();
+        if (!okChain) return false;
+
         const toastId = toast.loading('Claiming unlocked proceeds...');
         try {
             const hash = await writeContractAsync({
                 address: marketAddress,
                 abi: LAUNCHPAD_MARKET_ABI,
-                functionName: 'claimUnlocked'
+                functionName: 'claimUnlocked',
+                chainId: targetChainId,
+                gas: megaethGas
             });
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -252,7 +289,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             toast.error(error.message?.split('\n')[0] || 'Claim failed', { id: toastId });
             return false;
         }
-    }, [marketAddress, publicClient, writeContractAsync, refetchBalance]);
+    }, [marketAddress, publicClient, writeContractAsync, refetchBalance, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
 
     return {
         swap,
