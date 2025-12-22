@@ -23,6 +23,30 @@
       "tier": 2,
       "mode": "real",
       "chainId": 84532
+    },
+    {
+      "id": "megaeth-alien-life",
+      "name": "UN Confirms Alien Life",
+      "symbol": "ALIEN",
+      "contractAddress": "0x813F5A52d0dBD948e848b656e2415a57c5dE27B3",
+      "description": "Will the UN confirm the existence of alien life?",
+      "outcomeToken": "0x44b866EAA6C7a601000Bb177436ab1E465e55883",
+      "outcomes": ["YES", "NO"],
+      "tier": 1,
+      "mode": "real",
+      "chainId": 4326
+    },
+    {
+      "id": "megaeth-btc-100k",
+      "name": "BTC 7-day TWAP >= $100k",
+      "symbol": "BTC100K",
+      "contractAddress": "0x8E8895A78bDdFbb2C04C7b382b8a1D773811a4Df",
+      "description": "Will BTC 7-day TWAP reach $100k?",
+      "outcomeToken": "0xf6110471bC21e0958326b312aea1239F2529Ee51",
+      "outcomes": ["YES", "NO"],
+      "tier": 2,
+      "mode": "real",
+      "chainId": 4326
     }
   ]
 }

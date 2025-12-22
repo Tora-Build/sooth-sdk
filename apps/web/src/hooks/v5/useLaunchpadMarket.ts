@@ -10,6 +10,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const { selectedChainId } = useChainStore();
     const deployments = getDeployments(Number(selectedChainId));
+    const traderVaultAddr = deployments?.SoothTraderVault as `0x${string}` | undefined;
 
     // Writes
     const { writeContract: graduateWrite, data: graduateTxHash, isPending: isGraduatePending } = useWriteContract();
@@ -47,14 +48,17 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'feeLMSR', chainId: Number(selectedChainId) },
             // User-specific reads (LP related only)
-            ...(userAddress ? [
+            ...(userAddress && traderVaultAddr ? [
                 { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: [userAddress], chainId: Number(selectedChainId) },
                 { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [userAddress], chainId: Number(selectedChainId) },
                 // Vault liquid balances
-                { address: deployments.SoothTraderVault as `0x${string}`, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [userAddress, marketAddress, 0], chainId: Number(selectedChainId) },
-                { address: deployments.SoothTraderVault as `0x${string}`, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [userAddress, marketAddress, 1], chainId: Number(selectedChainId) },
+                { address: traderVaultAddr, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [userAddress, marketAddress, 0], chainId: Number(selectedChainId) },
+                { address: traderVaultAddr, abi: TRADER_VAULT_V4_ABI, functionName: 'shareBalances', args: [userAddress, marketAddress, 1], chainId: Number(selectedChainId) },
                 // Vault locked balances
-                { address: deployments.SoothTraderVault as `0x${string}`, abi: TRADER_VAULT_V4_ABI, functionName: 'ammPositions', args: [userAddress, marketAddress], chainId: Number(selectedChainId) },
+                { address: traderVaultAddr, abi: TRADER_VAULT_V4_ABI, functionName: 'ammPositions', args: [userAddress, marketAddress], chainId: Number(selectedChainId) },
+            ] : userAddress ? [
+                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: [userAddress], chainId: Number(selectedChainId) },
+                { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [userAddress], chainId: Number(selectedChainId) },
             ] : []),
         ],
         query: {

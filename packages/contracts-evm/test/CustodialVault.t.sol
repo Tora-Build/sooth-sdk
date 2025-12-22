@@ -31,7 +31,7 @@ contract CustodialVaultTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         outcomeTokenImpl = new OutcomeToken();
         feeController = new SoothFeeController(address(this));
         protocolConfig = new ProtocolConfig(address(this), 0);
@@ -47,7 +47,7 @@ contract CustodialVaultTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig)
+            address(protocolConfig), 6
         );
         
         // Create Launchpad market

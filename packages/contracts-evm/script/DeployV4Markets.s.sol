@@ -64,7 +64,7 @@ contract DeployV4Markets is Script {
             address(outcomeTokenImpl),
             deployer, // treasury
             deployer, // adjudicator
-            address(protocolConfig)
+            address(protocolConfig), 6
         );
         
         console.log("\n[Factory] LaunchpadFactory:", address(factory));

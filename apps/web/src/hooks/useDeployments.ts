@@ -1,7 +1,7 @@
-import { useChainId } from 'wagmi';
 import { useEffect } from 'react';
 import deploymentsData from '../config/deployments.json';
 import { DEFAULT_CHAIN_ID } from '../lib/chains';
+import { useChainStore } from '../store/useChainStore';
 
 // Define the shape of deployments for a single chain
 export interface ChainDeployments {
@@ -42,13 +42,25 @@ const CHAIN_ID_MAP: Record<number, string> = {
   4326: 'megaethFrontier'
 };
 
-export function useDeployments() {
-  const chainId = useChainId();
+function resolveNetworkName(chainId: number): string | undefined {
+  const mapped = CHAIN_ID_MAP[chainId];
+  if (mapped && deploymentsConfig.networks[mapped]) return mapped;
 
-  // Fallback to default chain if current chain is not supported
-  const activeChainId = CHAIN_ID_MAP[chainId] ? chainId : DEFAULT_CHAIN_ID;
-  const networkName = CHAIN_ID_MAP[activeChainId];
-  const chainDeployments = deploymentsConfig.networks[networkName]?.contracts;
+  // Fallback: find by chainId in deployments.json (more robust than name mapping).
+  const found = Object.entries(deploymentsConfig.networks).find(([, cfg]) => cfg?.chainId === chainId);
+  return found?.[0];
+}
+
+export function useDeployments() {
+  // Prefer app-selected chain (supports browsing chain A while wallet is on chain B).
+  const { selectedChainId } = useChainStore();
+  const chainId = typeof selectedChainId === 'number' ? selectedChainId : DEFAULT_CHAIN_ID;
+
+  // Fallback to default chain if current chain is not supported by config
+  const resolvedName = resolveNetworkName(chainId);
+  const fallbackName = resolveNetworkName(DEFAULT_CHAIN_ID);
+  const networkName = resolvedName ?? fallbackName;
+  const chainDeployments = networkName ? deploymentsConfig.networks[networkName]?.contracts : undefined;
   const configVersion = deploymentsConfig.version;
 
   // Runtime guard: Detect stale browser cache
@@ -62,7 +74,9 @@ export function useDeployments() {
 
 
   if (!chainDeployments) {
-    console.error(`[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`);
+    console.error(
+      `[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`
+    );
     return { config: { contracts: {} as ChainDeployments } };
   }
 
@@ -71,6 +85,6 @@ export function useDeployments() {
 
 // Helper to get deployments for a specific chain ID (useful outside of hooks)
 export function getDeployments(chainId: number) {
-  const networkName = CHAIN_ID_MAP[chainId] || 'baseSepolia';
-  return deploymentsConfig.networks[networkName]?.contracts;
+  const networkName = resolveNetworkName(chainId) ?? resolveNetworkName(DEFAULT_CHAIN_ID);
+  return (networkName ? deploymentsConfig.networks[networkName]?.contracts : undefined) ?? ({} as ChainDeployments);
 }

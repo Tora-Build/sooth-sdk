@@ -46,7 +46,7 @@ contract RedeployMarketsOnly is Script {
             address(outcomeTokenImpl),
             deployer, // treasury
             deployer, // adjudicator
-            address(protocolConfig)
+            address(protocolConfig), 6
         );
         console.log("LaunchpadFactory:", address(factory));
 

@@ -16,6 +16,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
     const publicClient = usePublicClient();
     const [isRedeeming, setIsRedeeming] = useState(false);
     const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
+    const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}` | undefined;
     
     const hasYes = (pos.liquidYes + pos.lockedYes + pos.walletYes) > 0.001;
     const hasNo = (pos.liquidNo + pos.lockedNo + pos.walletNo) > 0.001;
@@ -25,8 +26,12 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
     const handleRedeem = async () => {
         setIsRedeeming(true);
         try {
+            if (!traderVaultAddress) {
+                toast.error('Missing TraderVault deployment for this chain');
+                return;
+            }
             const hash = await writeContractAsync({
-                address: config.contracts.SoothTraderVault as `0x${string}`,
+                address: traderVaultAddress,
                 abi: TRADER_VAULT_V4_ABI,
                 functionName: 'redeem',
                 args: [pos.marketAddress],

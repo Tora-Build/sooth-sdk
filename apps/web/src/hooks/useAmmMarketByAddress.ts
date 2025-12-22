@@ -21,6 +21,7 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
     const { address: userAddress } = useAccount();
     const { config } = useDeployments();
     const { selectedChainId } = useChainStore();
+    const chainId = Number(selectedChainId);
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}`;
 
     // 1. Fetch outcome token address first (Dependency for balances)
@@ -83,7 +84,8 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
         ],
         query: {
             enabled: !!marketAddress && !!outcomeTokenAddr && !!traderVaultAddress,
-            refetchInterval: 5000, 
+            // MegaETH RPCs are rate-limited; avoid aggressive polling that can break tx sends in wallets.
+            refetchInterval: chainId === 4326 ? 20000 : 5000,
         }
     });
 
@@ -129,7 +131,7 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
             description: `Symbol: ${marketMeta?.symbol || 'N/A'}`,
             contractAddress: marketAddress,
             outcomeTokenAddress: (outcomeTokenAddr as `0x${string}`) || '0x0000000000000000000000000000000000000000',
-            chainId: 84532, // Base Sepolia - should be dynamic
+            chainId, // must match currently selected chain
             mode: 'real' as const,
             adjudicatorKind: 'manual',
             openEnded: true,

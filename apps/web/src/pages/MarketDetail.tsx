@@ -733,8 +733,8 @@ export const MarketDetail = () => {
             isUnderwater={isUnderwater}
           />
 
-          {/* Inventory Management - Move from Portfolio to Market Detail (Market Sensitive) */}
-          {address && (
+          {/* Inventory Management (Post-Graduation Only) */}
+          {isGraduated && address && (
             <Card className="p-4 border-indigo-500/20 bg-indigo-950/10">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] text-indigo-400 font-black uppercase tracking-widest flex items-center gap-2">

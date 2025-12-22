@@ -32,7 +32,7 @@ contract DeployFreshV4 is Script {
         console.log("FeeController:", address(feeController));
 
         // 3. Deploy LiquidityVault (for TraderVault's global locked proceeds tracking)
-        SoothLiquidityVault liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        SoothLiquidityVault liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         console.log("LiquidityVault:", address(liquidityVault));
 
         // 4. Deploy TraderVaultV4
@@ -55,7 +55,7 @@ contract DeployFreshV4 is Script {
             address(outcomeTokenImpl),
             deployer, // treasury
             deployer, // adjudicator
-            address(protocolConfig)
+            address(protocolConfig), 6
         );
         console.log("LaunchpadFactory:", address(factory));
 

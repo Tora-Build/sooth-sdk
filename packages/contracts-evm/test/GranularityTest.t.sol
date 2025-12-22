@@ -30,7 +30,7 @@ contract GranularityTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         feeController = new SoothFeeController(address(this));
         outcomeTokenImpl = new OutcomeToken();
@@ -47,7 +47,7 @@ contract GranularityTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig)
+            address(protocolConfig), 6
         );
         
         // Create Launchpad market
