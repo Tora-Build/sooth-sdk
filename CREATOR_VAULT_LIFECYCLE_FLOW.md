@@ -4,6 +4,8 @@
 
 The LaunchpadMarket contract serves as its own "creator vault" - it implements `ISoothLiquidityVault` and holds all USDC directly. LP tokens are ERC20 tokens minted by the market contract itself. All funds (creator deposit + fees) are stored in one co-mingled balance: `_asset.balanceOf(address(this))`.
 
+> Update (Stage 1+): `claimCreatorRefund()` and `claimLiquidationRefund()` were removed in favor of a single pro-rata path: **`redeemLP(...)`** after market end. Market resolution is **Adjudicator-only** via `finalizeResolution(outcome, tStar)`.
+
 ## Phase 1: Market Creation (Initialization)
 
 ```
@@ -148,10 +150,11 @@ Condition: deadline passed && !isGraduated
 expire() called:
   - isLive = false
   ↓
-claimCreatorRefund() called by creator:
-  - totalRefund = totalAssets()  ← ALL funds in market
-  - _asset.safeTransfer(creator, totalRefund)
-  - Market drained, LP tokens worthless (market inactive)
+LP holders redeem pro-rata:
+  - call `redeemLP(amount)` after market end
+  - assets = (amount × totalAssets()) / totalSupply()
+  - _burn(user, amount)
+  - _asset.safeTransfer(user, assets)
 ```
 
 **Money Flow:**
@@ -167,36 +170,14 @@ Expiry:
 Wait... This seems wrong! Traders should get their share based on LP tokens.
 ```
 
-**Issue Identified:**
-Looking at `claimCreatorRefund()` (line 393-402):
-```solidity
-function claimCreatorRefund() external override {
-    require(!isLive && !isGraduated, "Not expired/failed");
-    require(msg.sender == creator, "Not creator");
-    
-    uint256 totalRefund = totalAssets();  // ← Gets ALL funds!
-    require(totalRefund > 0, "No assets to refund");
-    
-    _asset.safeTransfer(creator, totalRefund);  // ← Creator gets everything
-    emit CreatorRefunded(creator, totalRefund);
-}
-```
-
-This is problematic! If traders have LP tokens, they should get their proportional share. Creator should only get their proportional share based on LP ownership.
-
-**Expected Behavior:**
-- Creator owns: $693 / $743 = 93.3% of LP tokens
-- Creator refund: 93.3% × $743 = $693 (their original deposit)
-- Traders refund: 6.7% × $743 = $50 (their fee contributions)
-
-But current implementation gives everything to creator! Need `claimLiquidationRefund()` pattern or pro-rata distribution.
+**Note:** This document previously described a creator-only refund path; that path has been removed. Expiry refunds are now pro-rata via `redeemLP(...)`.
 
 ---
 
 ## Phase 5B: Market Settlement (After Graduation)
 
 ```
-Condition: Adjudicator calls settle()
+Condition: Adjudicator calls finalizeResolution(outcome, tStar)
   ↓
 Market settles (via SoothMarketBase logic):
   - isLive = false
@@ -245,7 +226,7 @@ liquidate() called:
   - liquidationFee = totalAssets() × liquidationFeeBps / 10000
   - refundAmount = totalAssets() - liquidationFee
   ↓
-LP holders call claimLiquidationRefund(user):
+LP holders redeem pro-rata:
   - userShare = (totalAssets() × userLP) / totalSupply()
   - _burn(user, userLP)
   - _asset.safeTransfer(user, userShare)
@@ -285,10 +266,8 @@ Protocol receives liquidation fee: $37.15
 - Should accrue to existing holders (ERC4626-style)
 - Exchange rate calculation includes protocol fees (inflated)
 
-### Issue 3: Expiry Refund Logic
-- `claimCreatorRefund()` gives ALL funds to creator
-- Should be pro-rata based on LP token ownership
-- Traders who earned LP tokens get nothing on expiry
+### Issue 3: Expiry/Liquidation Refund Logic
+- Pro-rata refunds for LP holders are handled via `redeemLP(...)` (creator is just an LP).
 
 ### Issue 4: totalAssets() Calculation
 - Currently: `_asset.balanceOf(address(this))` (everything)

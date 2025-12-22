@@ -1,23 +1,22 @@
-# Vault Architecture Requirements
+# Vault Architecture Requirements (Legacy / Superseded)
 
-## Status: 📋 Planned for Next Phase
+## Status: Superseded by Launchpad per-market vaults
 
 ---
 
-## Current Implementation (Phase 1)
+## Context
 
-### Architecture
+The current protocol architecture (Launchpad) uses **per-market liquidity vaults**:
 
-- **Single Vault**: One `SoothVault` instance serves all markets
-- **All Adjudicator Types**: Markets using different adjudicator classes share the same liquidity pool
-- **Deployment**: Base Sepolia testnet
+- Each `LaunchpadMarket` holds USDC directly and implements the vault interface.
+- Market creation is via `LaunchpadFactory`.
+- Settlement is **Adjudicator-only** via `finalizeResolution(outcome, tStar)`.
 
-### Contracts
+This document previously described a “single shared vault / multi-vault by adjudicator class” roadmap for a different architecture generation. Keep it only as historical context; do not treat it as a current requirement.
 
-- `SoothVault`: `0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38`
-- Markets using this vault:
-  - Market 1 (DUMMY_ADJ, classId: 1): `0x49b81D81B371F2a87D5af443B0E9ed6EBe0A2660`
-  - Market 2 (DUMMY_ADJ, classId: 1): `0x7AF0976e2103AF9FFA1BC0EA4A5ABC134175722E`
+### If we revisit shared-vaults later
+
+If Sooth re-introduces shared vaults (e.g. “vault per adjudicator class”), the routing and registries described below can be revisited, but they are **not** part of the current Launchpad architecture.
 
 ### Rationale for Current Design
 
@@ -93,8 +92,8 @@ contract SoothVaultRegistry {
 
 ```typescript
 // Market creation with auto-routing
-1. createMarket(adjudicatorId, riskClass)
-2. adjudicatorClass = adjudicatorRegistry.getAdjudicator(adjudicatorId).classId
+1. createMarket(adjudicator, riskClass)
+2. adjudicatorClass = adjudicatorRegistry.classIdOf(adjudicator) // pseudo
 3. vault = vaultRegistry.getVaultForClass(adjudicatorClass)
 4. market.initialize(marketId, vault, ...)
 ```
@@ -103,7 +102,7 @@ contract SoothVaultRegistry {
 
 #### Why Separate Vaults?
 
-- **Risk Segregation**: UMA oracle failures don't affect ZK-based markets
+- **Risk Segregation**: failures in one adjudication mechanism don’t affect others
 - **LP Choice**: LPs can choose which adjudication mechanisms to support
 - **Different Risk Profiles**: Each vault can have different risk parameters
 - **Regulatory Compliance**: Easier to comply with different jurisdictions
@@ -153,9 +152,9 @@ vaultRegistry.registerVault(3, address(vault_Attestation)); // classId 3 = Attes
 ### Market Factory Update
 
 ```solidity
-function createMarket(bytes32 adjudicatorId, RiskClass riskClass) external {
-    // Get adjudicator config
-    (uint8 classId, , , ) = adjudicatorRegistry.getAdjudicator(adjudicatorId);
+function createMarket(address adjudicator, RiskClass riskClass) external {
+    // Get adjudicator config (pseudo)
+    uint8 classId = adjudicatorRegistry.classIdOf(adjudicator);
 
     // Get appropriate vault for this class
     address vaultAddress = vaultRegistry.getVaultForClass(classId);
@@ -163,7 +162,7 @@ function createMarket(bytes32 adjudicatorId, RiskClass riskClass) external {
 
     // Create market with class-specific vault
     SoothMarket market = new SoothMarket();
-    market.initialize(marketId, vault, riskManager, amm, adjudicatorId);
+    market.initialize(marketId, vault, riskManager, amm, adjudicator);
 
     // ... rest of initialization
 }

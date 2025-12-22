@@ -6,6 +6,8 @@ import {LaunchpadFactory} from "../contracts/launchpad/LaunchpadFactory.sol";
 import {LaunchpadMarket} from "../contracts/launchpad/LaunchpadMarket.sol";
 import {LaunchpadOutcomeToken} from "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
+import {ProtocolConfig} from "../contracts/core/ProtocolConfig.sol";
+import {SoothAdjudicatorRegistry} from "../contracts/core/SoothAdjudicatorRegistry.sol";
 
 contract DeployLaunchpadV5_Fix is Script {
     function run() external {
@@ -16,22 +18,25 @@ contract DeployLaunchpadV5_Fix is Script {
         address usdc = 0x53d34066A316AE1699d434753B70593A6D59Fec1;
         address traderVault = 0x80dbB5604579B9d23E6FF092A97Eea05B176C528; // NEW V4.7 Vault
         address feeController = 0x1a646107e7E88aa01Fadff3145Af08156679198e;
-        address globalGovernor = 0x2A2DfA1B3B3F4db798b759d07064Bb800BD10fB1;
 
         // 1. Deploy Implementations
         LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
+        ProtocolConfig protocolConfig = new ProtocolConfig(msg.sender, 0);
+        SoothAdjudicatorRegistry registry = new SoothAdjudicatorRegistry(msg.sender);
+        registry.setAdjudicator(msg.sender, 1, true, bytes32(0));
         
         // 2. Deploy Factory
         LaunchpadFactory factory = new LaunchpadFactory(
             address(marketImpl),
             usdc,
             traderVault,
-            globalGovernor,
             feeController,
             address(outcomeTokenImpl),
             msg.sender, // Treasury
-            msg.sender  // Adjudicator
+            msg.sender, // Default Adjudicator
+            address(registry),
+            address(protocolConfig)
         );
 
         console.log("LaunchpadMarket Impl:", address(marketImpl));

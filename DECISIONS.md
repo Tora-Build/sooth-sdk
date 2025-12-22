@@ -400,3 +400,72 @@
     - **Performance**: Removed background polling for on-chain token balances, improving page load and responsiveness.
     - **Security**: Reduces risk of users accidentally burning wallet tokens when they intended to manage vault inventory.
     - **Technical Debt**: Cleaned up hooks and deleted `OrderbookTokensCard.tsx`.
+
+## ADR-027: Adjudicator-Gated Settlement + Dual-Engine Boundary Enforcement (Stage 1)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - Creator/operator-controlled settlement is not acceptable for trustless markets.
+  - Direct “swap” paths that both mutate LMSR (`qYes/qNo`) and mint/burn collateralized outcome tokens violate the dual-engine separation (AMM ledger vs. complete-set tokens).
+  - Creator-only expiry refunds created inconsistent end-of-market semantics.
+- **Decision**:
+  - Settlement is **Adjudicator-only**, via `finalizeResolution(outcome, tStar)`.
+  - Store `adjudicator` as an `address` (contract-based Truth interface) and record `tStar` for Open-End / retroactive-finality modes.
+  - Disable `LaunchpadMarket.swap()` until a clean, non-contaminating direct trading path exists.
+  - Remove creator-only refund; use **pro-rata LP redemption** via `redeemLP()` on market end.
+  - Add `claimLockedOnMarketEnd(maxSteps)` so users can claim locked proceeds immediately once the market ends.
+- **Consequences**:
+  - **Breaking change**: `ISoothMarketV4.initialize` now takes `adjudicator: address` (was `bytes32`).
+  - Integrations must route settlement through an adjudicator contract.
+  - Direct “1 approve + 1 swap” UX is postponed until Stage 2+.
+
+## ADR-028: Adjudicator Registry + Guardian Lifecycle + Settlement Roots + Safe Direct Trade (Stage 2)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - After Stage 1, markets were adjudicator-gated but lacked an allowlist and per-market selection.
+  - Guardian lifecycle tools (liquidation/force-graduate) were required for stuck/failed Launchpad markets.
+  - Brevis-style retroactive settlement requires on-chain root publication and claim verification.
+  - “Direct swap” UX needs to return without reintroducing AMM/OB ledger contamination.
+- **Decision**:
+  - Introduce `SoothAdjudicatorRegistry` and enforce allowlisting at market creation.
+  - Extend `LaunchpadFactory.createMarket` to accept `marketAdjudicator` (0 = default).
+  - Implement Guardian-only `liquidate()` and `forceGraduate()` on `LaunchpadMarket`, routing liquidation fee to `factory.treasury()`.
+  - Add `SoothSettlementRootSink` to store `(market, batchId) -> root` and verify claims (event-only in this stage).
+  - Add `SoothTraderVaultV4.depositAndTradeAMM(...)` as the safe “approve + trade” path that only touches AMM internal positions.
+- **Consequences**:
+  - **Breaking changes** to factory ABI (constructor + `createMarket` signature).
+  - Settlement root claims are verifiable on-chain, but **payout wiring is deferred** to a later stage (adjudicator class-specific).
+  - Direct trading UX is restored without ERC1155 mint/burn paths.
+
+## ADR-029: Settlement Root Payout Wiring + Adjudicator Classes (Stage 3)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - Stage 2 added settlement root publication and proof verification, but claims were “event-only” and not applied to balances.
+  - Markets need concrete adjudicator implementations to support multiple truth classes under a unified abstraction.
+- **Decision**:
+  - Add concrete adjudicators:
+    - `SoothManualAdjudicator`: owner resolves a market by calling `finalizeResolution`.
+    - `SoothOptimisticAdjudicator`: anyone proposes; after a dispute window, anyone can finalize (simplified dispute flag).
+  - Wire settlement-root claims into real accounting via `SoothTraderVaultV4.claimSettlementRoot(...)`:
+    - Proof verification against `SoothSettlementRootSink`.
+    - Apply PnL by moving USDC between the **market vault** and the **TraderVault**, updating `accounts[user].available`.
+- **Consequences**:
+  - Settlement roots now have an on-chain path to affect user balances, enabling Brevis-style workflows.
+  - Negative PnL claims require sufficient available balance in the Trading Account (explicit debit).
+
+## ADR-030: Settlement Sink Allowlist + Brevis Gateway Stub (Stage 4)
+- **Date**: 2025-12-21
+- **Status**: Accepted (Implemented in contracts-evm)
+- **Context**:
+  - `claimSettlementRoot` depends on an external sink contract for the root; without constraints, a malicious sink could be used to forge roots.
+  - Brevis integration needs a canonical callback-authenticated adjudicator shape.
+- **Decision**:
+  - Add a `TraderVault` allowlist for settlement sinks (`setSettlementSink`) and require it in `claimSettlementRoot`.
+  - Add `SoothBrevisAdjudicator` stub with `onlyBrevisGateway` callback gating for:
+    - market resolution (`brevisResolveMarket`)
+    - settlement-root submission (`brevisSubmitSettlementRoot`)
+- **Consequences**:
+  - Settlement roots become an explicitly trusted integration surface, reducing attack surface.
+  - The Brevis adjudicator is ready to have real proof verification wired in later stages.

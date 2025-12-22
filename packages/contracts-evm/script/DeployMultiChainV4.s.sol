@@ -9,6 +9,7 @@ import "../contracts/core/OutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/ProtocolConfig.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title MockUSDC for testnet deployments
@@ -95,6 +96,8 @@ contract DeployMultiChainV4 is Script {
         OutcomeToken outcomeTokenImpl = new OutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0); // 0% liquidation fee
+        SoothAdjudicatorRegistry adjudicatorRegistry = new SoothAdjudicatorRegistry(deployer);
+        adjudicatorRegistry.setAdjudicator(deployer, 1, true, bytes32(0));
         
         LaunchpadFactory factory = new LaunchpadFactory(
             address(marketImpl),
@@ -104,6 +107,7 @@ contract DeployMultiChainV4 is Script {
             address(outcomeTokenImpl),
             deployer, // treasury
             deployer, // adjudicator
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
         
@@ -128,7 +132,8 @@ contract DeployMultiChainV4 is Script {
             "Will the UN confirm the existence of alien life?",
             1, // tier 1
             false, // fixed deadline
-            5 days // duration
+            5 days, // duration
+            address(0)
         );
         LaunchpadMarket market1 = LaunchpadMarket(market1Addr);
         
@@ -147,7 +152,8 @@ contract DeployMultiChainV4 is Script {
             "Will BTC 7-day TWAP reach $100k?",
             2, // tier 2
             false, // fixed deadline
-            5 days // duration
+            5 days, // duration
+            address(0)
         );
         LaunchpadMarket market2 = LaunchpadMarket(market2Addr);
         

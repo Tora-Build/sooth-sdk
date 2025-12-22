@@ -5,9 +5,10 @@ import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/IOutcomeToken.sol";
@@ -70,9 +71,10 @@ contract V4IntegrationTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     // Test accounts
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -99,9 +101,11 @@ contract V4IntegrationTest is Test {
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
 
         // Deploy Launchpad components
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0); // 0% liquidation fee for tests
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(owner);
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
 
         // Deploy LaunchpadFactory
         factory = new LaunchpadFactory(
@@ -112,7 +116,8 @@ contract V4IntegrationTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
 
         // Create a Launchpad market
@@ -126,14 +131,18 @@ contract V4IntegrationTest is Test {
             "Test market for integration tests",
             0, // tier 0
             false, // fixed deadline
-            30 days // duration
+            30 days, // duration
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
         // Configure permissions
+        vm.prank(owner);
         traderVault.setMarket(address(market), true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(address(traderVault), true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(owner, true);
 
         vm.stopPrank();
@@ -164,7 +173,7 @@ contract V4IntegrationTest is Test {
         traderVault.tradeAMM(address(market), 0, -50e18, 0);
 
         uint256 availableAfterSell = traderVault.availableBalance(alice);
-        uint256 locked = traderVault.lockedBalance(alice);
+        uint256 locked = market.lockedProceeds(alice);
         uint256 traderBalanceAfterSell = usdc.balanceOf(address(traderVault));
 
         assertEq(availableAfterSell, availableBeforeSell, "Available should not increase while locked");
@@ -184,15 +193,15 @@ contract V4IntegrationTest is Test {
         // Lock some proceeds
         traderVault.tradeAMM(address(market), 0, -40e18, 0);
 
-        uint256 lockedBefore = traderVault.lockedBalance(alice);
+        uint256 lockedBefore = market.lockedProceeds(alice);
         uint256 traderBalanceBeforeClaim = usdc.balanceOf(address(traderVault));
         uint256 marketAssetsBefore = market.totalAssets();
 
         // Wait for unlock and claim
         vm.warp(block.timestamp + LOCK_DURATION + 1);
-        uint256 claimed = traderVault.claimUnlocked();
+        uint256 claimed = traderVault.claimUnlocked(ISoothLiquidityVault(address(market)));
 
-        uint256 lockedAfter = traderVault.lockedBalance(alice);
+        uint256 lockedAfter = market.lockedProceeds(alice);
         uint256 availableAfter = traderVault.availableBalance(alice);
         uint256 traderBalanceAfterClaim = usdc.balanceOf(address(traderVault));
 
@@ -222,7 +231,7 @@ contract V4IntegrationTest is Test {
         traderVault.tradeAMM(address(market), 0, -20e18, 0);
 
         uint256 availableAfter = traderVault.availableBalance(alice);
-        uint256 locked = traderVault.lockedBalance(alice);
+        uint256 locked = market.lockedProceeds(alice);
 
         assertGt(availableAfter, availableBefore, "Auto-claim should release expired funds");
         assertGt(locked, 0, "New proceeds should be locked");

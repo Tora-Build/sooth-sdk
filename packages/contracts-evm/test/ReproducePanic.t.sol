@@ -5,10 +5,11 @@ import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,7 +19,8 @@ contract ReproducePanicTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     MockUSDC usdc;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
@@ -33,9 +35,11 @@ contract ReproducePanicTest is Test {
         feeController = new SoothFeeController(address(this));
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         vault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         factory = new LaunchpadFactory(
             address(marketImpl),
@@ -45,7 +49,8 @@ contract ReproducePanicTest is Test {
             address(outcomeTokenImpl),
             creator,
             creator,
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
         
         // Create Launchpad market
@@ -58,7 +63,8 @@ contract ReproducePanicTest is Test {
             "Test market for panic reproduction",
             0,
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();

@@ -8,6 +8,8 @@ import {LaunchpadOutcomeToken} from "../contracts/launchpad/LaunchpadOutcomeToke
 import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
 import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";
+import {ProtocolConfig} from "../contracts/core/ProtocolConfig.sol";
+import {SoothAdjudicatorRegistry} from "../contracts/core/SoothAdjudicatorRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployV5Upgrade is Script {
@@ -36,16 +38,22 @@ contract DeployV5Upgrade is Script {
         console.log("OutcomeToken Impl:", address(tokenImpl));
         console.log("Market Impl:", address(marketImpl));
 
+        // 3a. Deploy mutable config + adjudicator allowlist
+        ProtocolConfig protocolConfig = new ProtocolConfig(adjudicator, 0);
+        SoothAdjudicatorRegistry registry = new SoothAdjudicatorRegistry(adjudicator);
+        registry.setAdjudicator(adjudicator, 1, true, bytes32(0));
+
         // 3. Deploy NEW LaunchpadFactory (linked to new TraderVault)
         LaunchpadFactory factory = new LaunchpadFactory(
             address(marketImpl),
             usdc,
             address(traderVault),
-            globalGovernor,
             feeController,
             address(tokenImpl),
             treasury,
-            adjudicator
+            adjudicator,
+            address(registry),
+            address(protocolConfig)
         );
         console.log("New LaunchpadFactory:", address(factory));
 

@@ -29,7 +29,12 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
     ISoothFeeController public feeController;
 
     uint256 public override marketId;
-    bytes32 public adjudicatorId;
+    /// @notice Adjudicator contract responsible for final resolution (Truth interface).
+    /// @dev This is intentionally an address (not bytes32) to support contract-based adjudicators
+    ///      such as Brevis, optimistic adjudicators, multisigs, etc.
+    address public override adjudicator;
+    /// @notice Truth timestamp (T*) set by Adjudicator at resolution time.
+    uint64 public override tStar;
     
     // Liquidity parameters
     uint256 public override bBase;      // Base liquidity parameter
@@ -75,7 +80,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         address _traderVault,
         address _feeController,
         address _outcomeToken,
-        bytes32 _adjudicatorId,
+        address _adjudicator,
         uint256 _bBase,
         address _marketOperator,
         int256 _initialQYes,
@@ -83,6 +88,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
     ) external {
         require(traderVault == address(0), "Market: already init");
         require(_initialQYes >= 0 && _initialQNo >= 0, "Market: negative q");
+        require(_adjudicator != address(0), "Market: zero adjudicator");
 
         liquidityVault = ISoothLiquidityVault(_liquidityVault);
         traderVault = _traderVault;
@@ -90,7 +96,7 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         outcomeToken = IOutcomeToken(_outcomeToken);
         
         marketId = _marketId;
-        adjudicatorId = _adjudicatorId;
+        adjudicator = _adjudicator;
         bBase = _bBase;
         marketOperator = _marketOperator;
         
@@ -241,6 +247,11 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
 
     modifier onlyOperator() virtual {
         require(msg.sender == marketOperator, "Market: not operator");
+        _;
+    }
+
+    modifier onlyAdjudicator() {
+        require(msg.sender == adjudicator, "Market: not adjudicator");
         _;
     }
 
@@ -542,13 +553,17 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
         emit BBaseIncrease(oldB, bBase);
     }
 
-    function settle(uint8 _winningOutcome) external onlyOperator {
+    /// @notice Finalize resolution with outcome and truth timestamp (T*).
+    /// @dev Adjudicator-only. This is the canonical path for Open-End "truth-driven" markets.
+    function finalizeResolution(uint8 _winningOutcome, uint64 _tStar) external onlyAdjudicator {
         require(isLive, "Market: not live");
         require(_winningOutcome < 2, "Market: invalid outcome");
-        
+        require(_tStar > 0, "Market: invalid tStar");
+
         isLive = false;
         isSettled = true;
         winningOutcome = _winningOutcome;
+        tStar = _tStar;
 
         emit Settled(_winningOutcome);
     }

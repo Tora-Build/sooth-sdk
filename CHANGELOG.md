@@ -11,6 +11,26 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Removed extra `</div>` tag causing "Expected corresponding JSX closing tag for `<Card>`" error
 
 ### Changed
+- **Contracts (Stage 1 Dual-Engine + Adjudicator Settlement)** (2025-12-21):
+  - **BREAKING**: Market settlement is now **Adjudicator-only** via `finalizeResolution(outcome, tStar)` (operator/creator can no longer settle).
+  - **BREAKING**: `ISoothMarketV4.initialize` now takes `adjudicator: address` (was `bytes32`).
+  - **BREAKING**: Disabled `LaunchpadMarket.swap()` (direct mint/burn + LMSR update path) to preserve AMM/OB separation.
+  - Removed creator-only expiry refund (`claimCreatorRefund` now reverts); refunds are via pro-rata `redeemLP()`.
+  - Added `claimLockedOnMarketEnd(maxSteps)` to unlock proceeds immediately once the market ends.
+- **Contracts (Stage 2 Adjudicator Registry + Guardian + Settlement Roots + Direct Trade)** (2025-12-21):
+  - **BREAKING**: `LaunchpadFactory` now requires an `adjudicatorRegistry` and exposes `defaultAdjudicator`.
+  - **BREAKING**: `LaunchpadFactory.createMarket` now includes `marketAdjudicator` (0 = use default) and enforces allowlisting.
+  - Restored Guardian controls on `LaunchpadMarket`: `liquidate()` (routes liquidation fee to treasury) and `forceGraduate()`.
+  - Added `SoothSettlementRootSink` (Merkle root storage + claim verification events; transfer logic deferred).
+  - Added `SoothTraderVaultV4.depositAndTradeAMM(...)` for one-call “approve + trade” UX without ERC1155 mint/burn.
+ - **Contracts (Stage 3 Adjudicator Classes + Settlement Root Payout Wiring)** (2025-12-21):
+  - Added `SoothManualAdjudicator` and `SoothOptimisticAdjudicator` (simple optimistic window).
+  - Added `SoothTraderVaultV4.claimSettlementRoot(...)` to apply settlement-root PnL to the Trading Account and move USDC to/from the market vault.
+  - Added/updated tests: `AdjudicatorFlowsTest`, extended `SettlementRootSinkTest` payout path.
+ - **Contracts (Stage 4 Settlement Sink Hardening + Brevis Stub)** (2025-12-21):
+  - Added `SoothTraderVaultV4.setSettlementSink(...)` and enforced allowlisting for `claimSettlementRoot`.
+  - Added `SoothBrevisAdjudicator` stub with gateway-authenticated callbacks for resolution + root submission.
+  - Added/updated tests: `BrevisAdjudicatorStubTest`, extended `SettlementRootSinkTest` allowlist checks.
 - **MegaETH Frontier Fresh Redeploy (BREAKING)** (2025-12-21):
   - Deployed a fresh V6.1.8 stack to MegaETH Frontier (chainId 4326)
   - Updated canonical configs:

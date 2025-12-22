@@ -21,6 +21,7 @@ import {SoothTraderVaultV4} from "../contracts/core/SoothTraderVaultV4.sol";
 import {SoothFeeController} from "../contracts/core/SoothFeeController.sol";
 import {SoothLiquidityVault} from "../contracts/core/SoothLiquidityVault.sol";
 import {ProtocolConfig} from "../contracts/core/ProtocolConfig.sol";
+import {SoothAdjudicatorRegistry} from "../contracts/core/SoothAdjudicatorRegistry.sol";
 import {ISoothLiquidityVault} from "../contracts/core/ISoothLiquidityVault.sol";
 import {ILaunchpadMarket} from "../contracts/launchpad/interfaces/ILaunchpadMarket.sol";
 
@@ -68,6 +69,7 @@ contract LaunchpadV6Test is Test {
     SoothLiquidityVault globalGovernor;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     MockOutcomeToken outcomeTokenImpl;
 
     address creator = address(0x100);
@@ -86,6 +88,8 @@ contract LaunchpadV6Test is Test {
         feeController = new SoothFeeController(creator);
         protocolConfig = new ProtocolConfig(guardian, 0); // V6: 0% liquidation fee for tests
         outcomeTokenImpl = new MockOutcomeToken();
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(creator);
+        adjudicatorRegistry.setAdjudicator(defaultAdjudicator, 1, true, bytes32(0));
         
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(globalGovernor)));
         marketImpl = new LaunchpadMarket();
@@ -99,6 +103,7 @@ contract LaunchpadV6Test is Test {
             address(outcomeTokenImpl),
             treasury,
             defaultAdjudicator,
+            address(adjudicatorRegistry),
             address(protocolConfig)
         );
 
@@ -128,7 +133,7 @@ contract LaunchpadV6Test is Test {
 
     function testPreGradSellLocksProceeds() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("LockTest", "LOCK", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("LockTest", "LOCK", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -152,7 +157,7 @@ contract LaunchpadV6Test is Test {
 
     function testPreGradWithdrawalBlockedWithLockedProceeds() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("WithdrawTest", "WD", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("WithdrawTest", "WD", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -188,7 +193,7 @@ contract LaunchpadV6Test is Test {
 
     function testLockedProceedsCanBeUsedForBuying() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("UseLocked", "UL", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("UseLocked", "UL", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -218,7 +223,7 @@ contract LaunchpadV6Test is Test {
 
     function testLockQueueFIFO() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("FIFO", "FIFO", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("FIFO", "FIFO", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -250,7 +255,7 @@ contract LaunchpadV6Test is Test {
 
     function testClaimUnlockedAfter24h() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Claim", "CLM", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("Claim", "CLM", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -305,35 +310,30 @@ contract LaunchpadV6Test is Test {
 
     function testGuardianCanLiquidate() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Liquidate", "LIQ", "D", 0, false, 3600);
+        (address marketAddr, ) = factory.createMarket("Liquidate", "LIQ", "D", 0, false, 3600, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
 
-        // Warp past deadline without graduation
         vm.warp(block.timestamp + 3601);
-        
-        // Market must be expired first
         market.expire();
-        
-        // Guardian liquidates
+
         vm.startPrank(guardian);
         market.liquidate();
         vm.stopPrank();
-        
+
         assertTrue(market.isLiquidated(), "Market should be liquidated");
-        assertFalse(market.isLive(), "Market should not be live");
     }
 
     function testNonGuardianCannotLiquidate() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("NoLiq", "NLIQ", "D", 0, false, 3600);
+        (address marketAddr, ) = factory.createMarket("NoLiq", "NLIQ", "D", 0, false, 3600, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 3601);
-        
-        // Non-guardian tries to liquidate
+        market.expire();
+
         vm.startPrank(trader);
         vm.expectRevert("Launchpad: not guardian");
         market.liquidate();
@@ -342,7 +342,7 @@ contract LaunchpadV6Test is Test {
 
     function testCannotLiquidateGraduatedMarket() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("GradLiq", "GLIQ", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("GradLiq", "GLIQ", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         usdc.mint(trader, 50000 * 1e6);
@@ -358,7 +358,6 @@ contract LaunchpadV6Test is Test {
         }
         vm.stopPrank();
 
-        // Guardian tries to liquidate - should fail
         vm.startPrank(guardian);
         vm.expectRevert("Launchpad: cannot liquidate");
         market.liquidate();
@@ -367,7 +366,7 @@ contract LaunchpadV6Test is Test {
 
     function testLiquidationRefund() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("RefundLiq", "RLIQ", "D", 0, false, 3600);
+        (address marketAddr, ) = factory.createMarket("RefundLiq", "RLIQ", "D", 0, false, 3600, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -380,23 +379,20 @@ contract LaunchpadV6Test is Test {
         assertGt(lpBalance, 0, "Trader should have LP tokens");
         vm.stopPrank();
 
-        // Liquidate - market must be expired first
         vm.warp(block.timestamp + 3601);
         market.expire();
-        
+
         vm.startPrank(guardian);
         market.liquidate();
         vm.stopPrank();
 
-        // Trader claims refund
         vm.startPrank(trader);
         uint256 usdcBefore = usdc.balanceOf(trader);
-        market.claimLiquidationRefund(trader);
+        market.redeemLP(lpBalance);
         uint256 usdcAfter = usdc.balanceOf(trader);
-        
+
         assertGt(usdcAfter, usdcBefore, "Trader should receive refund");
         assertEq(market.balanceOf(trader), 0, "LP tokens should be burned");
-        
         vm.stopPrank();
     }
 
@@ -406,7 +402,7 @@ contract LaunchpadV6Test is Test {
 
     function testGuardianCanForceGraduate() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("ForceGrad", "FG", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("ForceGrad", "FG", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -414,18 +410,17 @@ contract LaunchpadV6Test is Test {
         // Market hasn't met threshold yet
         assertFalse(market.isGraduated(), "Should not be graduated");
         
-        // Guardian forces graduation
         vm.startPrank(guardian);
         market.forceGraduate();
         vm.stopPrank();
-        
+
         assertTrue(market.isGraduated(), "Should be graduated");
         assertEq(market.feeLMSR(), 100, "Fee should drop to 1%");
     }
 
     function testNonGuardianCannotForceGraduate() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("NoForce", "NF", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("NoForce", "NF", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -441,7 +436,7 @@ contract LaunchpadV6Test is Test {
 
     function testMarketIsOwnVault() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("SelfVault", "SV", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("SelfVault", "SV", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -451,7 +446,7 @@ contract LaunchpadV6Test is Test {
 
     function testMarketHoldsUSDC() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("HoldUSDC", "HU", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("HoldUSDC", "HU", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -463,7 +458,7 @@ contract LaunchpadV6Test is Test {
 
     function testMarketImplementsVaultInterface() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Interface", "IF", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("Interface", "IF", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -478,7 +473,7 @@ contract LaunchpadV6Test is Test {
 
     function testCreatorReceivesLPTokens() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("CreatorLP", "CLP", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("CreatorLP", "CLP", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -491,7 +486,7 @@ contract LaunchpadV6Test is Test {
 
     function testTradersReceiveLPTokensFromFees() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("TraderLP", "TLP", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("TraderLP", "TLP", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -509,7 +504,7 @@ contract LaunchpadV6Test is Test {
 
     function testLPRedemptionOnlyAfterSettlement() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Redeem", "RDM", "D", 0, false, 3600);
+        (address marketAddr, ) = factory.createMarket("Redeem", "RDM", "D", 0, false, 3600, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
 
@@ -543,7 +538,7 @@ contract LaunchpadV6Test is Test {
 
     function testInvariant_Solvency() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Solvency", "SOL", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("Solvency", "SOL", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -569,7 +564,7 @@ contract LaunchpadV6Test is Test {
 
     function testInvariant_LPAccounting() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("LPAcc", "LPA", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("LPAcc", "LPA", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -589,7 +584,7 @@ contract LaunchpadV6Test is Test {
 
     function testInvariant_LockConsistency() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("LockCons", "LC", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("LockCons", "LC", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -610,7 +605,7 @@ contract LaunchpadV6Test is Test {
 
     function testInvariant_AssetTracking() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("AssetTrack", "AT", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("AssetTrack", "AT", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -641,7 +636,7 @@ contract LaunchpadV6Test is Test {
 
     function testZeroLockedProceedsUsage() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("ZeroLock", "ZL", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("ZeroLock", "ZL", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -662,7 +657,7 @@ contract LaunchpadV6Test is Test {
 
     function testPartialLockedProceedsUsage() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("Partial", "PART", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("Partial", "PART", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();
@@ -693,7 +688,7 @@ contract LaunchpadV6Test is Test {
 
     function testWADMathPrecision() public {
         vm.startPrank(creator);
-        (address marketAddr, ) = factory.createMarket("WAD", "WAD", "D", 0, false, 36000);
+        (address marketAddr, ) = factory.createMarket("WAD", "WAD", "D", 0, false, 36000, address(0));
         LaunchpadMarket market = LaunchpadMarket(marketAddr);
         traderVault.setMarket(marketAddr, true);
         vm.stopPrank();

@@ -6,9 +6,10 @@ import "forge-std/StdInvariant.sol";
 import "../../contracts/core/SoothTraderVaultV4.sol";
 import "../../contracts/launchpad/LaunchpadFactory.sol";
 import "../../contracts/launchpad/LaunchpadMarket.sol";
-import "../../contracts/core/OutcomeToken.sol";
+import "../../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../../contracts/core/SoothLiquidityVault.sol";
 import "../../contracts/core/SoothFeeController.sol";
+import "../../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../../contracts/core/ProtocolConfig.sol";
 import "../../contracts/core/SoothInterfaces.sol";
 import "../actors/TraderActor.sol";
@@ -24,9 +25,10 @@ contract VaultInvariantTest is StdInvariant, Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     
     // Actors
     TraderActor[] traders;
@@ -46,9 +48,11 @@ contract VaultInvariantTest is StdInvariant, Test {
         
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(owner, 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(owner);
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         factory = new LaunchpadFactory(
             address(marketImpl),
@@ -58,7 +62,8 @@ contract VaultInvariantTest is StdInvariant, Test {
             address(outcomeTokenImpl),
             creator,
             creator,
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
         
         // Create Launchpad market
@@ -71,19 +76,26 @@ contract VaultInvariantTest is StdInvariant, Test {
             "Test market for invariants",
             0,
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
         
         // Configure permissions
+        address ot = address(market.outcomeToken());
+        vm.prank(owner);
         traderVault.setMarket(address(market), true);
-        traderVault.setOutcomeToken(address(market.outcomeToken()), true);
+        vm.prank(owner);
+        traderVault.setOutcomeToken(ot, true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(address(traderVault), true);
+        vm.prank(owner);
         liquidityVault.setAuthorized(owner, true);
         
         // Fund liquidity vault (for global operations)
         usdc.mint(address(liquidityVault), 100_000e18);
+        vm.prank(owner);
         liquidityVault.receiveFunds(1, 100_000e18);
         
         vm.stopPrank();

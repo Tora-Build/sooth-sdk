@@ -1,7 +1,7 @@
 # Sooth Protocol: Access & Configuration Reference
 
 **Date:** 2025-12-02  
-**Scope:** Core Contracts (`SoothVault`, `SoothMarket`, `SoothRiskManager`)
+**Scope:** Historical reference (pre-Launchpad). Current protocol uses `LaunchpadFactory`, `LaunchpadMarket`, `SoothTraderVaultV4`, and Adjudicator-based settlement.
 
 ---
 
@@ -43,7 +43,7 @@ Represents a single prediction market.
 | Parameter       | Type           | Description                                 | Mutability        |
 | :-------------- | :------------- | :------------------------------------------ | :---------------- |
 | `marketId`      | `uint256`      | Unique identifier.                          | Set on Init       |
-| `adjudicatorId` | `bytes32`      | ID of the adjudicator (oracle/ZK).          | Set on Init       |
+| `adjudicator` | `address`      | Adjudicator contract address (oracle-type / ZK / optimistic / multisig). | Set on Init       |
 | `amm`           | `ISoothAMM`    | Address of the pricing engine (e.g., LMSR). | Set on Init       |
 | `riskManager`   | `IRiskManager` | Address of Risk Manager.                    | Set on Init       |
 | `vault`         | `ISoothVault`  | Address of Vault.                           | Set on Init       |

@@ -7,8 +7,9 @@ import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/mocks/MockUSDC.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/ISoothMarketV4.sol";
@@ -21,7 +22,8 @@ contract OrderbookShortTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     SoothFeeController feeController;
     ProtocolConfig protocolConfig;
     
@@ -35,7 +37,9 @@ contract OrderbookShortTest is Test {
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
         
@@ -47,7 +51,8 @@ contract OrderbookShortTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
         
         // Create Launchpad market
@@ -60,7 +65,8 @@ contract OrderbookShortTest is Test {
             "Test market for short selling",
             0, // tier 0
             false, // fixed deadline
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
@@ -94,7 +100,9 @@ contract OrderbookShortTest is Test {
         uint256 amount = 10e18;
         uint256 sellPrice = 0.4e18; // Selling YES at 0.4
         
-        uint256 expectedCollateral = (1e18 - sellPrice) * amount / 1e18; // 0.6 * 10 = 6e18
+        // TraderVault accounts are denominated in USDC decimals (MockUSDC = 6),
+        // so convert WAD-cost into asset decimals via `scalar`.
+        uint256 expectedCollateral = ((1e18 - sellPrice) * amount / 1e18) / traderVault.scalar(); // 6e6 for 6-dec USDC
         
         uint256 balBefore = traderVault.availableBalance(alice);
         

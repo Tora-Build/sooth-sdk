@@ -64,7 +64,7 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     /// @notice Triggers expiry if deadline passed without graduation. Permissionless.
     function expire() external;
 
-    /// @notice Claim refund for creator if market expired.
+    /// @notice (Deprecated) Creator refund was removed in favor of pro-rata LP redemption via `redeemLP()`.
     function claimCreatorRefund() external;
     
     /// @notice V6: Use locked proceeds for buying
@@ -76,16 +76,16 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     /// @notice V6: Total locked proceeds
     function totalLockedProceeds() external view returns (uint256);
     
-    /// @notice V6: Whether market has been liquidated
+    /// @notice Whether market has been liquidated (Guardian-triggered, post-expiry).
     function isLiquidated() external view returns (bool);
-    
-    /// @notice V6: Guardian liquidates failed market (only guardian)
+
+    /// @notice Guardian liquidation (post-expiry). Routes liquidation fee to treasury.
     function liquidate() external;
-    
-    /// @notice V6: Guardian forces graduation (only guardian)
+
+    /// @notice Guardian force-graduate (pre-expiry escape hatch).
     function forceGraduate() external;
-    
-    /// @notice V6: User claims liquidation refund
+
+    /// @notice (Deprecated) Liquidation refunds were removed in favor of `redeemLP()`.
     function claimLiquidationRefund(address user) external;
     
     /// @notice V6: Redeem LP tokens for USDC (only after settlement)
@@ -93,6 +93,9 @@ interface ILaunchpadMarket is ISoothMarketV4 {
     
     /// @notice V6: Preview redeem amount for LP tokens
     function previewRedeemLP(uint256 amount) external view returns (uint256);
+
+    /// @notice Stage 1: claim locked proceeds immediately once market ends.
+    function claimLockedOnMarketEnd(uint256 maxSteps) external returns (uint256 claimed);
 
     // =========================================================================
     // Pure AMM Accounting (V6.1.9)

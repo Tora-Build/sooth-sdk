@@ -37,7 +37,7 @@ TraderTerminal (page)
 || **Adjudicator Badge** | `market.adjudicatorLabel` | e.g., "Manual Settlement" |
 || **Status Badge** | `market.status` | "Trading" / "Settled - YES/NO" |
 || **Orderbook Button** | Opens drawer | "↗ Orderbook" |
-|| **Adjudicator Link** | `market.adjudicatorId` | Links to BaseScan in real mode |
+|| **Adjudicator Link** | `market.adjudicator` | Links to BaseScan in real mode |
 
 ---
 
@@ -69,7 +69,7 @@ TraderTerminal (page)
 || **New Probability** | `quote.newPriceYes * 100` | After trade impact |
 || **Progress Bar** | Width | `newPriceYes * 100%` |
 
-### Order Summary (V6.1.8)
+### Order Summary
 
 || Label | Variable | Formula |
 ||-------|----------|---------|
@@ -78,7 +78,7 @@ TraderTerminal (page)
 || **Total Cost** (Buy) | `quote.maxWithSlippage` | Net + Fee + Slippage buffer |
 || **Min Received** (Sell) | `quote.maxWithSlippage` | Minimum proceeds after fees |
 
-> **V6.1.8 Note**: Separates "Price (Net)" and "Fee" to clarify the $1.00 LMSR price cap.
+> Note: Separates "Price (Net)" and "Fee" to clarify the $1.00 LMSR price cap.
 > The base cost per share is capped at $1.00; fees are added on top.
 
 ---
@@ -232,7 +232,7 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 ||------|------|-------------------|
 || Market Info | `useAmmMarket` / `useLaunchpadMarket` | Various market reads |
 || AMM Quote | `useV4Quote` / `useLaunchpadTradeQuote` | `calculateAMMTradeCost()` |
-|| Balance | `useAmmTrade` / `useLaunchpadSwap` | `yesBalance()`, `noBalance()` |
+|| AMM Trade | `useAmmTrade` | `TraderVault.tradeAMM(...)` / `depositAndTradeAMM(...)` |
 || Orderbook | `useOrderbook` | `orders()`, `bestBid()`, `bestAsk()` |
 || User Orders | `useOrderbook` | Filtered by `msg.sender` |
 
@@ -250,7 +250,7 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 || `Orderbook.tsx` | Order book display |
 || `MarketSelector.tsx` | Market selection dropdown |
 || `MarketFilters.tsx` | Category filters |
-|| `useLaunchpadSwap.ts` | V6.1.8: Direct swap hook for Launchpad markets |
+|| `useAmmTrade.ts` | AMM trading via TraderVault (no direct market.swap) |
 
 ---
 
@@ -274,9 +274,9 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 
 ---
 
-## 14. PortfolioView (V4.6 Lock-on-Sell)
+## 14. PortfolioView (Per-Market Lock-on-Sell)
 
-> Added 2025-12-12 for Lock-on-Sell feature
+> Locking is per-market (Launchpad markets are their own vaults).
 
 ### Component Structure
 
@@ -301,9 +301,9 @@ PortfolioView
 || Label | Variable | Source | Notes |
 ||-------|----------|--------|-------|
 || **💰 USDC Balance** | Header | Static | Card title |
-|| **Available** | `availableFormatted` | `useLockedFunds()` | Green text, can withdraw |
-|| **🔒 Locked** | `lockedFormatted` | `useLockedFunds()` | Amber text, only shows if `locked > 0n` |
-|| **Claim Button** | `claimableFormatted` | `useLockedFunds()` | Green button, only shows if `hasClaimable` |
+|| **Available** | `availableFormatted` | `useLockedFunds()` | Green text, can withdraw (unless a given UX blocks withdraw while any market has locks) |
+|| **🔒 Locked** | `lockedFormatted` | `useLockedFunds()` | Amber text, per-market (or aggregated across markets) |
+|| **Claim Button** | `claimableFormatted` | `useLockedFunds()` | Claims expired locks for the selected market |
 || **📋 Pending** | `pendingFormatted` | `useLockedFunds()` | Gray text, reserved for orders |
 || **Total** | `totalFormatted` | `useLockedFunds()` | Sum of all balances |
 
@@ -311,18 +311,18 @@ PortfolioView
 
 || Function | Return Type | Description |
 ||----------|-------------|-------------|
-|| `lockedBalance(user)` | `uint256` | Total locked USDC (proceeds from sells) |
-|| `claimableBalance(user)` | `uint256` | Portion of locked that has expired |
+|| `lockedProceeds(market, user)` | `uint256` | Total locked USDC on that market (proceeds from sells) |
+|| `nextUnlock(market, user)` | `(uint256 amount, uint64 unlockTime)` | Next unlock slot for that market |
 || `availableBalance(user)` | `uint256` | Free balance for trading/withdraw |
 || `pendingBalance(user)` | `uint256` | Collateral reserved for orders |
 || `totalBalance(user)` | `uint256` | Sum of all balances |
-|| `claimUnlocked()` | Action | Claims expired locks to available |
+|| `claimUnlocked(market)` | Action | Calls `TraderVaultV4.claimUnlocked(ISoothLiquidityVault(market))` to move unlocked proceeds to available |
 
 ### Data Sources
 
 || Data | Hook | Contract |
 ||------|------|----------|
-|| Locked/Claimable | `useLockedFunds` | `TraderVaultV4` |
+|| Locked/Claimable | `useLockedFunds` | `LaunchpadMarket.lockedProceeds(user)`, `LaunchpadMarket.nextUnlock(user)` + `TraderVaultV4.claimUnlocked(vault)` |
 || AMM Positions | `useBalances` | `TraderVaultV4.ammPositions()` |
 || Orderbook Tokens | `useBalances` | `OutcomeToken.balanceOf()` |
 
@@ -336,4 +336,4 @@ PortfolioView
 
 ---
 
-*Last updated: 2025-12-20 (V6.1.8 Safe Parity Minting)*
+*Last updated: 2025-12-22 (Per-market locking semantics)*

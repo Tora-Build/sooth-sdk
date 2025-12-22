@@ -41,6 +41,7 @@ interface ILaunchpadFactory {
     /// @param liquidityTierIndex Index of the liquidity tier (0=$100, 1=$1k, 2=$10k, 3=$100k)
     /// @param isOpenEnd Whether the market is open-ended (no expiry) or fixed expiry
     /// @param durationSeconds Duration in seconds (only for fixed-expiry markets)
+    /// @param marketAdjudicator Address of the Adjudicator (0 = use factory default)
     /// @return market The address of the deployed LaunchpadMarket
     /// @return lpVault V6: Always returns address(0). Market implements ISoothLiquidityVault itself.
     function createMarket(
@@ -49,7 +50,8 @@ interface ILaunchpadFactory {
         string memory description,
         uint8 liquidityTierIndex,
         bool isOpenEnd,
-        uint40 durationSeconds
+        uint40 durationSeconds,
+        address marketAdjudicator
     ) external returns (address market, address lpVault);
 
     /// @notice Returns the required deposit for a given liquidity tier index
@@ -66,4 +68,13 @@ interface ILaunchpadFactory {
     
     /// @notice V6: Returns ProtocolConfig address (for immutable Factory)
     function protocolConfig() external view returns (address);
+
+    /// @notice Protocol fee recipient
+    function treasury() external view returns (address);
+
+    /// @notice Default Adjudicator used when marketAdjudicator == 0
+    function defaultAdjudicator() external view returns (address);
+
+    /// @notice Adjudicator registry allowlist
+    function adjudicatorRegistry() external view returns (address);
 }

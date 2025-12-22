@@ -7,7 +7,8 @@ import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/ISoothMarketV4.sol";
@@ -20,7 +21,8 @@ contract GranularityTest is Test {
     LaunchpadFactory public factory;
     LaunchpadMarket public market;
     LaunchpadMarket public marketImpl;
-    OutcomeToken public outcomeTokenImpl;
+    LaunchpadOutcomeToken public outcomeTokenImpl;
+    SoothAdjudicatorRegistry public adjudicatorRegistry;
     SoothTraderVaultV4 public traderVault;
     SoothFeeController public feeController;
     ProtocolConfig public protocolConfig;
@@ -33,9 +35,11 @@ contract GranularityTest is Test {
         liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         feeController = new SoothFeeController(address(this));
-        outcomeTokenImpl = new OutcomeToken();
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
         marketImpl = new LaunchpadMarket();
         protocolConfig = new ProtocolConfig(address(this), 0);
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
         traderVault.setTimeLock(ITimeLock(address(0))); 
 
@@ -47,7 +51,8 @@ contract GranularityTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
         
         // Create Launchpad market
@@ -60,7 +65,8 @@ contract GranularityTest is Test {
             "Test market for granularity",
             0, // tier 0
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
@@ -84,6 +90,7 @@ contract GranularityTest is Test {
 
     function test_Orderbook_Integer_Math() public {
         // Alice places order for 10 shares (Integer 10) at 0.40 USDC
+        uint256 balBefore = traderVault.availableBalance(alice);
         vm.prank(alice);
         uint256 orderId = traderVault.placeOrder(
             address(market), 
@@ -93,12 +100,10 @@ contract GranularityTest is Test {
             true // isBuy
         );
         
-        // Expected Cost: 10 * 0.40 / scalar = 0 (integer math with tiny amount)
-        // With 10 shares at 0.4 price: cost = (0.4e18 * 10) / 1e18 / 1 = 4 wei
-        // This is effectively 0 due to integer truncation
+        // Expected Cost: (price * amount) / 1e18 / scalar.
+        // With 6-dec USDC, scalar = 1e12, so tiny integer orders truncate to 0.
         uint256 balance = traderVault.availableBalance(alice);
-        // Cost is (price * amount) / 1e18 / scalar = (0.4e18 * 10) / 1e18 / 1 = 4
-        assertEq(balance, 1000e18 - 4);
+        assertEq(balance, balBefore, "Tiny integer order should not move 6-dec USDC balance");
         
         // Verify Order is stored as 10
         ISoothMarketV4.OrderV4 memory order = market.orders(orderId);
@@ -107,15 +112,14 @@ contract GranularityTest is Test {
     
     function test_Orderbook_LargeInteger() public {
         // If user passes 10e18 (WAD), they buy 10^18 shares at 0.4 price
-        // Cost = (0.4e18 * 10e18) / 1e18 / scalar = 4e18 (affordable with 1000e18 deposit)
+        // Cost = (0.4e18 * 10e18) / 1e18 / scalar = 4e6 (for 6-dec USDC)
         uint256 balBefore = traderVault.availableBalance(alice);
         
         vm.prank(alice);
         traderVault.placeOrder(address(market), 0, 0.4e18, 10e18, true);
         
         uint256 balAfter = traderVault.availableBalance(alice);
-        // Cost should be 4e18
-        assertEq(balBefore - balAfter, 4e18, "Cost should be 4e18 for 10e18 shares at 0.4");
+        assertEq(balBefore - balAfter, 4_000_000, "Cost should be 4 USDC (6 decimals)");
     }
 
     function test_AMM_Fractional_Succeeds() public {

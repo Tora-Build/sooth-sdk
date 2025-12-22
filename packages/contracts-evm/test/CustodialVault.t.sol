@@ -5,10 +5,11 @@ import "forge-std/Test.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
+import "../contracts/core/SoothAdjudicatorRegistry.sol";
 import "../contracts/core/ProtocolConfig.sol";
 import "../contracts/core/SoothInterfaces.sol";
 import "../contracts/interfaces/IOutcomeToken.sol";
@@ -19,7 +20,8 @@ contract CustodialVaultTest is Test {
     LaunchpadFactory factory;
     LaunchpadMarket market;
     LaunchpadMarket marketImpl;
-    OutcomeToken outcomeTokenImpl;
+    LaunchpadOutcomeToken outcomeTokenImpl;
+    SoothAdjudicatorRegistry adjudicatorRegistry;
     MockUSDC usdc;
     SoothLiquidityVault liquidityVault;
     SoothFeeController feeController;
@@ -31,8 +33,10 @@ contract CustodialVaultTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
-        outcomeTokenImpl = new OutcomeToken();
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
+        outcomeTokenImpl = new LaunchpadOutcomeToken();
+        adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
+        adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         feeController = new SoothFeeController(address(this));
         protocolConfig = new ProtocolConfig(address(this), 0);
 
@@ -47,7 +51,8 @@ contract CustodialVaultTest is Test {
             address(outcomeTokenImpl),
             creator, // treasury
             creator, // adjudicator
-            address(protocolConfig), 6
+            address(adjudicatorRegistry),
+            address(protocolConfig)
         );
         
         // Create Launchpad market
@@ -60,7 +65,8 @@ contract CustodialVaultTest is Test {
             "Test market for custodial vault",
             0, // tier 0
             false,
-            30 days
+            30 days,
+            address(0)
         );
         market = LaunchpadMarket(marketAddr);
         vm.stopPrank();
@@ -133,7 +139,7 @@ contract CustodialVaultTest is Test {
         // 6. Verify Payout Logic (Spot Sell Fix)
         // User sold 5 at 0.50. Payout should be 2.5 USDC.
         uint256 diff = postBal - preBal;
-        assertEq(diff, 2.5e18, "Payout should be Price * Amount");
+        assertEq(diff, 2_500_000, "Payout should be Price * Amount (USDC 6 decimals)");
         
         // 7. Verify Share Balance reduced
         assertEq(vault.shareBalances(user, address(market), 0), 5e18, "User should have 5 YES left");
