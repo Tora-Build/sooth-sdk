@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import { cn } from '../../lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface TabsProps {
   value: string;
@@ -11,19 +11,19 @@ interface TabsProps {
 
 const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
 
-export const TabsRoot: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => (
+export const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children, className }) => (
   <TabsContext.Provider value={{ value, onValueChange }}>
     <div className={cn('w-full', className)}>{children}</div>
   </TabsContext.Provider>
 );
 
-export const TabsListImpl: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+export const TabsList: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
   <div className={cn('relative flex h-10 sm:h-12 items-center rounded-xl bg-slate-950/50 p-1 border border-slate-800', className)}>
     {children}
   </div>
 );
 
-export const TabsTriggerImpl: React.FC<{ value: string; children: React.ReactNode; className?: string }> = ({ value, children, className }) => {
+export const TabsTrigger: React.FC<{ value: string; children: React.ReactNode; className?: string }> = ({ value, children, className }) => {
   const context = useContext(TabsContext);
   if (!context) throw new Error('TabsTrigger must be used within Tabs');
   

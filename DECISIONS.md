@@ -455,17 +455,19 @@
   - Settlement roots now have an on-chain path to affect user balances, enabling Brevis-style workflows.
   - Negative PnL claims require sufficient available balance in the Trading Account (explicit debit).
 
-## ADR-030: Settlement Sink Allowlist + Brevis Gateway Stub (Stage 4)
-- **Date**: 2025-12-21
-- **Status**: Accepted (Implemented in contracts-evm)
-- **Context**:
-  - `claimSettlementRoot` depends on an external sink contract for the root; without constraints, a malicious sink could be used to forge roots.
-  - Brevis integration needs a canonical callback-authenticated adjudicator shape.
-- **Decision**:
-  - Add a `TraderVault` allowlist for settlement sinks (`setSettlementSink`) and require it in `claimSettlementRoot`.
-  - Add `SoothBrevisAdjudicator` stub with `onlyBrevisGateway` callback gating for:
-    - market resolution (`brevisResolveMarket`)
-    - settlement-root submission (`brevisSubmitSettlementRoot`)
+## ADR-031: V7 Dual-Engine Architecture (Staged Implementation)
+- **Date**: 2025-12-22
+- **Status**: Accepted (Deployed on Base Sepolia)
+- **Context**: Previous versions mixed Orderbook (OB) and AMM (LMSR) logics, leading to potential "ledger contamination" where OB collateral could be mistaken for LP equity. Additionally, settlement was centralized/manual, and the "Lock-on-Buy" UX blocked trading flow.
+- **Decision**: Finalize the transition to the **V7 Dual-Engine Architecture**:
+    - **Isolation**: Separated Orderbook (mint/burn complete sets) from AMM (pure price anchor). AMM state is now strictly theoretical for valuation, and its assets are held in the market's own vault.
+    - **Adjudicator Registry**: Introduced a global registry (`SoothAdjudicatorRegistry`) to allowlist and manage truth-providers (Manual, Optimistic, Brevis). Markets are assigned an adjudicator at creation.
+    - **Lock-on-Sell**: Replaced "Lock-on-Buy" with "Lock-on-Sell". Sellers' proceeds are locked for 24h in the `TraderVault`, but the shares themselves remain tradable.
+    - **Safe Direct Trade**: Added `TraderVault.depositAndTradeAMM()` as the canonical "1-click" trade path, avoiding ERC1155 complexity while maintaining isolation.
+    - **Guardian Tools**: Added `forceGraduate()` and `liquidate()` for Launchpad markets, enabling protocol safety against stuck markets.
+    - **Settlement Roots**: Scaffolding for retroactive Brevis-style settlement via Merkle roots and `SoothSettlementRootSink`.
 - **Consequences**:
-  - Settlement roots become an explicitly trusted integration surface, reducing attack surface.
-  - The Brevis adjudicator is ready to have real proof verification wired in later stages.
+    - **Security**: Complete separation of risk between LPs (AMM-only) and Traders (OB+AMM).
+    - **Scalability**: New adjudicator types can be plugged in without contract redeploys.
+    - **UX**: Significant improvement as users are no longer "locked out" of their positions after buying.
+    - **Breaking Changes**: Deployment scripts and frontend must handle the new factory parameters and `TraderVault` trade entry points.

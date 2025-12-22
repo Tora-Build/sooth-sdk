@@ -29,6 +29,7 @@ Quick reference for when to use which workflow or rule.
 | `/researcher` | Documentation, design exploration |
 | `/designer` | UI/UX design |
 | `/qa` | Test strategy, coverage, quality assurance |
+| `/librarian` | Repo maintenance, dead code removal, and documentation reorganization |
 
 ---
 
@@ -43,6 +44,7 @@ Quick reference for when to use which workflow or rule.
 | Writing Solidity | `/evm-dev` |
 | Writing React | `/frontend-dev` |
 | End of work session | `/coordinator` |
+| Repo cleanup/Docs sync | `/librarian` |
 | Agent repeating errors | "Read LESSONS_LEARNED.md" |
 
 ---

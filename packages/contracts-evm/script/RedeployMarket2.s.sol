@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/core/SoothFeeController.sol";
@@ -34,7 +34,7 @@ contract RedeployMarket2 is Script {
         IERC20 usdc = IERC20(0x2D2Aed066C34523913ab7084B668bFf3529cB176); // Existing USDC
 
         // Deploy Launchpad Factory
-        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
         SoothAdjudicatorRegistry adjudicatorRegistry = new SoothAdjudicatorRegistry(deployer);

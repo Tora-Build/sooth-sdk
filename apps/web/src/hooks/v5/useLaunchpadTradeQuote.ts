@@ -24,7 +24,8 @@ export function useLaunchpadTradeQuote(
     outcomeIndex: 0 | 1,
     shares: string,
     slippageBps: number = 50,
-    decimals: number = 6 // Pass decimals from parent to avoid extra RPC calls
+    decimals: number = 6,
+    marketData?: { qYes: bigint, qNo: bigint, b: bigint }
 ) {
     const { selectedChainId } = useChainStore();
     const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
@@ -112,9 +113,28 @@ export function useLaunchpadTradeQuote(
                 const fee = feeFloat;
                 const priceImpact = Number(rawPriceImpact) / 100; // bps to percent
 
-                // Estimate next prices (approximate until we add nextQ to quoter return or fetch separately)
-                const newPriceYes = 0.5; // TODO: Refine quoter to return next prices
-                const newPriceNo = 0.5;
+                // Estimate next prices
+                let newPriceYes = 0.5;
+                let newPriceNo = 0.5;
+
+                if (marketData && marketData.b > 0n) {
+                    const qY = Number(formatUnits(marketData.qYes, 18));
+                    const qN = Number(formatUnits(marketData.qNo, 18));
+                    const b = Number(formatUnits(marketData.b, 18));
+
+                    const delta = parseFloat(shares);
+                    let nextQY = qY;
+                    let nextQN = qN;
+
+                    if (outcomeIndex === 0) nextQY += delta;
+                    else nextQN += delta;
+
+                    const maxQ = Math.max(nextQY, nextQN);
+                    const eY = Math.exp((nextQY - maxQ) / b);
+                    const eN = Math.exp((nextQN - maxQ) / b);
+                    newPriceYes = eY / (eY + eN);
+                    newPriceNo = 1 - newPriceYes;
+                }
 
                 // Slippage Params
                 const BPS = 10000;
@@ -154,7 +174,7 @@ export function useLaunchpadTradeQuote(
         run();
 
         return () => { cancelled = true; };
-    }, [marketAddress, outcomeIndex, shares, publicClient, quoterAddress, slippageBps, decimals]);
+    }, [marketAddress, outcomeIndex, shares, publicClient, quoterAddress, slippageBps, decimals, marketData?.qYes, marketData?.qNo, marketData?.b]);
 
     return { quote, isLoading, error };
 }

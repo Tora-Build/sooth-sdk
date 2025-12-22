@@ -3,22 +3,22 @@
         "id": 1,
         "name": "UN Confirms Alien Life",
         "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-        "marketAddress": "0xf17f4863aeeecdd5db8d0eb2a81a5435987267db",
-        "outcomeTokenAddress": "0x7f7a84196dc38b054a6f31b2efcd7142860b37c6",
+        "marketAddress": "0xE467bDC870BC1AEa7401Cc0a3C34ABCcA2c3C64D",
+        "outcomeTokenAddress": "0x89F5FF36A6d684B3ba121FFc7437c84a7e453BA5",
         "bBase": "10000000000000000000000",
         "initialTick": 500,
         "status": "live",
-        "deployedAt": "2025-12-09T04:25:00Z"
+        "deployedAt": "2025-12-22T12:00:00Z"
     },
     {
         "id": 2,
         "name": "BTC 7-day TWAP >= $100k",
         "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-        "marketAddress": "0xb6cfef7a8128eb236362c4f60a9b4f0aa7784ef7",
-        "outcomeTokenAddress": "0xd1385686a408e629271bddcc9b918c284134c069",
+        "marketAddress": "0x5DBe9BB350407c604eDDABa86CbB59514F1A6EfD",
+        "outcomeTokenAddress": "0x35aEA513cD336eF7c80FCAD9569B621ACfD17211",
         "bBase": "15000000000000000000000",
         "initialTick": 700,
         "status": "live",
-        "deployedAt": "2025-12-09T04:35:00Z"
+        "deployedAt": "2025-12-22T12:00:00Z"
     }
 ]

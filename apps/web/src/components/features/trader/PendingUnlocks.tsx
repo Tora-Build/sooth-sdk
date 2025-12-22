@@ -6,9 +6,9 @@ import { formatUnits } from 'viem';
 import { cn } from '../../../lib/utils';
 import { PortfolioCard } from '../portfolio/PortfolioCard';
 
-const LockEntryItem: React.FC<{ entry: LockEntry }> = ({ entry }) => {
+const LockEntryItem: React.FC<{ entry: LockEntry, decimals: number }> = ({ entry, decimals }) => {
   const formatUSD = (val: bigint) => {
-    const num = parseFloat(formatUnits(val, 6));
+    const num = parseFloat(formatUnits(val, decimals));
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
   };
 
@@ -76,7 +76,7 @@ const LockEntryItem: React.FC<{ entry: LockEntry }> = ({ entry }) => {
  */
 export const PendingUnlocks: React.FC = () => {
   const { mode } = useMarketStore();
-  const { lockedFormatted, hasClaimable, claim, isClaiming, entries } = useLockedFunds();
+  const { lockedFormatted, hasClaimable, claim, isClaiming, entries, decimals } = useLockedFunds();
 
   return (
     <PortfolioCard
@@ -98,7 +98,7 @@ export const PendingUnlocks: React.FC = () => {
     >
         <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 mb-2">
             <p className="text-[9px] text-emerald-400/60 font-mono leading-tight">
-                Funds from AMM sells are held for 24h to protect against price manipulation.
+                Funds from AMM sells are held for 24h to ensure settlement finality.
             </p>
         </div>
         {hasClaimable && (
@@ -112,7 +112,7 @@ export const PendingUnlocks: React.FC = () => {
             </button>
         )}
         {entries.map((entry, idx) => (
-            <LockEntryItem key={idx} entry={entry} />
+            <LockEntryItem key={idx} entry={entry} decimals={decimals} />
         ))}
         {mode === 'demo' && entries.length > 0 && (
             <div className="p-2 rounded bg-amber-500/5 border border-amber-500/10 text-center">

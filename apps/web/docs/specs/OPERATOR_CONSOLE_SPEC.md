@@ -2,6 +2,7 @@
 
 > Reference document for Operator Console terminology, labels, and calculations.
 > Aligned with `.agent/KNOWLEDGE.md` as the canonical source of truth.
+> **V7 integration note**: Operator actions are split across **Adjudicators** (Truth) and **Guardians** (lifecycle safety).
 
 ---
 
@@ -13,8 +14,10 @@ OperatorConsole (page)
 │   └── MarketRow (per market)
 ├── GuardianConsole
 │   └── GuardianRow (per market)
-└── SettlementSimulator
-    └── Market rows with PnL simulations
+├── SettlementRootsConsole (optional)
+│   └── RootRow (per market/batch)
+└── SettlementSimulator (optional)
+    └── Market rows with high-level settlement state
 ```
 
 ---
@@ -34,7 +37,8 @@ OperatorConsole (page)
 |--------|----------------|
 | **Markets** | `stats.markets` |
 | **Market Status** | `trading.marketStatus` |
-| **Resolve** | `operator.resolve` |
+| **Adjudicator** | `operator.adjudicator` |
+| **Actions** | `operator.resolve` |
 
 ### MarketRow
 
@@ -42,13 +46,15 @@ OperatorConsole (page)
 |---------|-----------|---------|
 | **Question** | Always | `market.question` |
 | **ID** | Always | `ID: {market.id}` |
-| **Status Badge** | Always | trading / settled / cooldown |
-| **YES Button** | `status === 'settling'` | Calls `adjudicate('YES')` |
-| **NO Button** | `status === 'settling'` | Calls `adjudicate('NO')` |
-| **PnL Root Input** | `status === 'clearing'` | Text input for proof |
-| **Upload Button** | `status === 'clearing'` | Calls `uploadPnL(pnlRoot)` |
-| **Winner Display** | `status === 'settled'` | "Winner: YES/NO" |
-| **No Actions** | Otherwise | "No actions available" |
+| **Status Badge** | Always | trading / settled / expired |
+| **Adjudicator Address** | Always | `market.adjudicator` (link to explorer) |
+| **Adjudicator Class** | Always | Read `IAdjudicator.adjudicatorClass()` when possible (Manual / Optimistic / Brevis / Unknown) |
+| **Manual: Resolve** | `class === 'manual' && !isSettled` | Outcome selector + `tStar` input → calls `SoothManualAdjudicator.resolve(market, outcome, tStar)` (owner-only) |
+| **Optimistic: Propose** | `class === 'optimistic' && !isSettled` | Outcome + `tStar` → calls `SoothOptimisticAdjudicator.propose(market, outcome, tStar)` with bond |
+| **Optimistic: Dispute** | `class === 'optimistic' && hasActiveProposal` | Calls `SoothOptimisticAdjudicator.dispute(market)` (owner-only) |
+| **Optimistic: Finalize** | `class === 'optimistic' && windowElapsed && !isSettled` | Calls `SoothOptimisticAdjudicator.finalize(market)` |
+| **Brevis** | `class === 'brevis'` | Read-only: settlement is gateway-driven (`brevisGateway`) |
+| **Winner Display** | `isSettled` | "Winner: YES/NO • T*: {tStar}" |
 
 ---
 
@@ -73,14 +79,12 @@ OperatorConsole (page)
 
 | Element | Condition | Action |
 |---------|-----------|--------|
-| **Resume Button** | `status === 'paused'` | Calls `unpauseMarket()` |
-| **Emergency Pause** | `status !== 'paused'` | Calls `pauseMarket()` |
-| **Settle (YES)** | Always | Calls `forceSettle('YES')` |
-| **Settle (NO)** | Always | Calls `forceSettle('NO')` |
+| **Force Graduate** | `!isGraduated && isLive` | Calls `LaunchpadMarket.forceGraduate()` (guardian-only) |
+| **Liquidate** | `!isGraduated && !isLive` | Calls `LaunchpadMarket.liquidate()` (guardian-only; routes fee to `factory.treasury()`) |
 
 ---
 
-## 4. SettlementSimulator
+## 4. SettlementSimulator (Optional)
 
 ### Header
 
@@ -94,26 +98,17 @@ OperatorConsole (page)
 | Column | Translation Key | Data |
 |--------|----------------|------|
 | **Markets** | `stats.markets` | Market name |
-| **Current YES** | `simulator.currentYes` | `priceYes * 100`% |
-| **Market Reserves** | `trading.marketReserves` | `b * 0.1` (approx) |
-| **Shares YES** | `simulator.sharesYes` | User YES shares |
-| **Shares NO** | `simulator.sharesNo` | User NO shares |
-| **Payout (YES wins)** | `simulator.payoutYes` | `userSharesYes` |
-| **LP PnL (YES wins)** | `simulator.pnlYes` | `reserve - payoutYes` |
-| **Payout (NO wins)** | `simulator.payoutNo` | `userSharesNo` |
-| **LP PnL (NO wins)** | `simulator.pnlNo` | `reserve - payoutNo` |
+| **Current YES** | `simulator.currentYes` | `price(0) * 100%` (WAD) |
+| **Adjudicator** | `operator.adjudicator` | `market.adjudicator()` |
+| **T*** | `operator.tStar` | `market.tStar()` |
+| **Floor (WAD)** | `simulator.floor` | `market.totalNetAssets()` |
 
 ### Calculations
 
 ```typescript
-// Demo mode: from local state
-const priceYes = Math.exp(qYes/b) / (Math.exp(qYes/b) + Math.exp(qNo/b));
-
-// Real mode: from contract
-const priceYes = market.price(0); // 18 decimals
-
-// LP PnL calculation
-const lpPnL = marketReserve - payout;
+// Real mode: from contract (WAD)
+const priceYesWad = market.price(0);
+const floorWad = market.totalNetAssets();
 ```
 
 ---
@@ -123,9 +118,9 @@ const lpPnL = marketReserve - payout;
 | Data | Hook | Contract Function |
 |------|------|-------------------|
 | Market List | `useMarketStore` | - |
-| Market Status | `useReadContracts` | `isLive()`, `isSettled()` |
-| Settlement | `useSettlement` | `adjudicate()`, `uploadPnL()` |
-| Guardian | `useGuardian` | `pauseMarket()`, `unpauseMarket()`, `forceSettle()` |
+| Market Status | `useReadContracts` | `isLive()`, `isSettled()`, `winningOutcome()`, `tStar()`, `adjudicator()` |
+| Settlement (Manual/Optimistic) | `useWriteContract` | `SoothManualAdjudicator.resolve(...)` / `SoothOptimisticAdjudicator.propose/dispute/finalize(...)` |
+| Guardian | `useWriteContract` | `LaunchpadMarket.forceGraduate()` / `LaunchpadMarket.liquidate()` |
 | Prices | `useReadContracts` | `price(0)`, `price(1)` |
 | Liquidity | `useReadContracts` | `b()` |
 
@@ -168,4 +163,4 @@ const lpPnL = marketReserve - payout;
 
 ---
 
-*Last updated: 2025-12-12*
+*Last updated: 2025-12-22 (V7 adjudicators + guardian lifecycle actions)*

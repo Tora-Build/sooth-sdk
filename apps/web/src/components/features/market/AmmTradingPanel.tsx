@@ -32,7 +32,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const t = uiContent.trading;
     const c = uiContent.common;
     // V6.1: Use direct swap (bypasses TraderVault, reduces to 2 TX max)
-    const { swap, usdcBalance, isPending: isSwapPending, decimals } = useLaunchpadSwap(address);
+    const { swap, usdcBalance, isPending: isSwapPending, decimals, isLoading: swapLoading } = useLaunchpadSwap(address);
 
     // Determine trade mode and outcome
     const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
@@ -61,12 +61,13 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     }, [amount, selectedChainId]);
 
     const sharesInput = tradeMode === 'buy' ? quoteAmount : `-${quoteAmount}`;
-    const { quote } = useLaunchpadTradeQuote(
+    const { quote, isLoading: isQuoteLoading } = useLaunchpadTradeQuote(
         address,
         selectedOutcome,
         sharesInput,
         slippageBps,
-        decimals
+        decimals,
+        market ? { qYes: market.qYes, qNo: market.qNo, b: market.bParam || bParam } : undefined
     );
 
     // User's shares for sell mode (AMM IS WALLET ONLY)
@@ -155,7 +156,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
     // Check if buy amount exceeds balance
     const usdcBalanceNum = parseFloat(formatUnits(usdcBalance, decimals));
-    const insufficientBalance = tradeMode === 'buy' && quote && usdcBalanceNum < quote.maxWithSlippage;
+    const insufficientBalance = !isQuoteLoading && tradeMode === 'buy' && quote && usdcBalanceNum < quote.maxWithSlippage;
 
     // LP Health Check (for info)
     const { isUnderwater } = useLaunchpadMarket(address);
@@ -200,8 +201,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         }`}
                 >
                     <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{c.yes}</div>
-                    <div className="text-sm font-medium text-white tabular-nums">
+                    <div className="text-sm font-medium text-white tabular-nums flex items-center justify-center gap-1">
                         {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
+                        {quote && amountNum > 0 && Math.abs(quote.inputAmount) === amountNum && (
+                            <>
+                                <span className="text-slate-500 text-[10px]">→</span>
+                                <span className="text-emerald-400">{(quote.newPriceYes * 100).toFixed(1)}%</span>
+                            </>
+                        )}
                     </div>
                 </button>
                 <button
@@ -212,8 +219,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         }`}
                 >
                     <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{c.no}</div>
-                    <div className="text-sm font-medium text-white tabular-nums">
+                    <div className="text-sm font-medium text-white tabular-nums flex items-center justify-center gap-1">
                         {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
+                        {quote && amountNum > 0 && Math.abs(quote.inputAmount) === amountNum && (
+                            <>
+                                <span className="text-slate-500 text-[10px]">→</span>
+                                <span className="text-rose-400">{(quote.newPriceNo * 100).toFixed(1)}%</span>
+                            </>
+                        )}
                     </div>
                 </button>
             </div>
@@ -232,7 +245,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         </button>
                     ) : (
                         <span className="text-xs text-slate-500 font-mono">
-                            Bal: ${parseFloat(formatUnits(usdcBalance || 0n, decimals)).toFixed(0)}
+                            Bal: {formatCurrency(parseFloat(formatUnits(usdcBalance || 0n, decimals || 18)))}
                         </span>
                     )}
                 </div>
@@ -304,6 +317,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         {costPerShare !== null ? formatCurrency(costPerShare - (quote?.fee || 0) / (amountNum || 1)) : '--'}
                     </span>
                 </div>
+                {quote && quote.priceImpact > 0 && (
+                    <div className="flex justify-between">
+                        <span className="text-slate-500">Price Impact</span>
+                        <span className={`font-mono ${quote.priceImpact > 5 ? 'text-rose-400 font-bold' : quote.priceImpact > 2 ? 'text-amber-400' : 'text-slate-400'}`}>
+                            {quote.priceImpact.toFixed(2)}%
+                        </span>
+                    </div>
+                )}
                 <div className="flex justify-between">
                     <span className="text-slate-500">
                         Fee <span className={`${isGraduated ? 'text-emerald-400' : 'text-cyan-400'}`}>
@@ -320,6 +341,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         {quote && Math.abs(quote.inputAmount) === amountNum ? formatCurrency(quote.maxWithSlippage) : '--'}
                     </span>
                 </div>
+                {quote && quote.nextFloor > 0 && (
+                    <div className="flex justify-between pt-1 opacity-60">
+                        <span className="text-[10px] text-slate-500">Projected LP Floor</span>
+                        <span className="text-[10px] font-mono text-emerald-400/80">
+                            ${quote.nextFloor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Underwater Warning */}
@@ -362,6 +391,14 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                 </div>
             </div>
 
+            {/* Price Impact Warning */}
+            {quote && quote.priceImpact > 5 && (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 flex items-start gap-2">
+                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <span>High price impact: {quote.priceImpact.toFixed(2)}%. This trade moves the market price significantly.</span>
+                </div>
+            )}
+
             {/* Trade Button */}
             {tradeMode === 'sell' && (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[10px] text-amber-400/80">
@@ -384,6 +421,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     disabled={
                         isPending ||
                         isSwapPending ||
+                        swapLoading ||
+                        isQuoteLoading ||
                         !quote ||
                         parseFloat(amount) <= 0 ||
                         exceedsHoldings ||
@@ -393,12 +432,22 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     className={`w-full py-2 text-sm font-bold shadow-lg ${selectedOutcome === 0
                         ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
                         : 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/20'
-                        } ${(exceedsHoldings || insufficientBalance || (tradeMode === 'sell' && !canSell)) ? 'opacity-50' : ''}`}
+                        } ${(exceedsHoldings || insufficientBalance || swapLoading || isQuoteLoading || (tradeMode === 'sell' && !canSell)) ? 'opacity-50' : ''}`}
                 >
                     {isPending || isSwapPending ? (
                         <span className="flex items-center justify-center gap-2">
                             <Loader2 size={14} className="animate-spin" />
                             Processing...
+                        </span>
+                    ) : swapLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <Loader2 size={14} className="animate-spin" />
+                            Initializing...
+                        </span>
+                    ) : isQuoteLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <Loader2 size={14} className="animate-spin" />
+                            Quoting...
                         </span>
                     ) : tradeMode === 'sell' && !canSell ? (
                         `No ${selectedOutcome === 0 ? 'YES' : 'NO'} shares`

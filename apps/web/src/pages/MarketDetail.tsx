@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useLaunchpadMarket } from '../hooks/v5/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/v5/useLaunchpadMarkets';
@@ -12,6 +12,7 @@ import { formatUnits } from 'viem';
 import { useAccount, useReadContracts } from 'wagmi';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
+import { LaunchpadLockedProceeds } from '../components/features/trader/LaunchpadLockedProceeds';
 import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { formatCurrency } from '../utils/format';
 import { PositionActionsModal } from '../components/features/portfolio/PositionActionsModal';
@@ -43,6 +44,7 @@ const MarketInfoCard = ({
   pureFloorProp,
   pureCeilingProp,
   isUnderwater,
+  decimals,
 }: {
   priceYes: number;
   priceNo: number;
@@ -66,12 +68,13 @@ const MarketInfoCard = ({
   pureFloorProp?: bigint;
   pureCeilingProp?: bigint;
   isUnderwater?: boolean;
+  decimals?: number;
 }) => {
   const [showHelp, setShowHelp] = useState(false);
   const t = uiContent.lp;
   
-  // USDC amounts are in 6 decimals, but feesAccrued and LP tokens are in 18 decimals (WAD)
-  const ASSET_DECIMALS = 6;
+  // USDC amounts are in asset decimals, but feesAccrued and LP tokens are in 18 decimals (WAD)
+  const ASSET_DECIMALS = decimals || 18;
   const WAD_DECIMALS = 18;
   
   const creatorDeposit = totalCreatorDeposit ? parseFloat(formatUnits(totalCreatorDeposit, ASSET_DECIMALS)) : 0;
@@ -79,9 +82,9 @@ const MarketInfoCard = ({
   const lockedTotal = totalLockedProceeds ? parseFloat(formatUnits(totalLockedProceeds, ASSET_DECIMALS)) : 0;
 
   // Use Isolated Ledger values from Hook (V6.2.4: Pure WAD)
-  const tvl = pureFloorProp ? parseFloat(formatUnits(pureFloorProp, WAD_DECIMALS)) : 0;
-  const lpCeiling = pureCeilingProp ? parseFloat(formatUnits(pureCeilingProp, WAD_DECIMALS)) : 0;
-  const ammCash = ammCashProp ? parseFloat(formatUnits(ammCashProp, WAD_DECIMALS)) : 0;
+  const tvl = pureFloorProp ? parseFloat(formatUnits(pureFloorProp, ASSET_DECIMALS)) : 0;
+  const lpCeiling = pureCeilingProp ? parseFloat(formatUnits(pureCeilingProp, ASSET_DECIMALS)) : 0;
+  const ammCash = ammCashProp ? parseFloat(formatUnits(ammCashProp, ASSET_DECIMALS)) : 0;
 
   const b = bBase ? parseFloat(formatUnits(bBase, WAD_DECIMALS)) : 1000;
   const qY = qYes ? parseFloat(formatUnits(qYes, WAD_DECIMALS)) : 0;
@@ -495,7 +498,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
-  const { refetch: refetchVault, availableBalance, decimals, traderVaultAddress } = useTraderVault();
+  const { refetch: refetchVault, availableBalance, decimals, traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
   const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
   
   // Fetch vault share balances for this market
@@ -519,7 +522,7 @@ export const MarketDetail = () => {
   
   const vaultYesShares = vaultShareData?.[0]?.result ? parseFloat(formatUnits(vaultShareData[0].result as bigint, 18)) : 0;
   const vaultNoShares = vaultShareData?.[1]?.result ? parseFloat(formatUnits(vaultShareData[1].result as bigint, 18)) : 0;
-  const usdcAvailable = parseFloat(formatUnits(availableBalance || 0n, decimals || 6));
+  const usdcAvailable = parseFloat(formatUnits(availableBalance || 0n, decimals || 18));
   const mergeableAmount = Math.min(vaultYesShares, vaultNoShares);
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
@@ -556,6 +559,10 @@ export const MarketDetail = () => {
     userSharePercent,
     totalLockedProceeds,
     lockedProceeds,
+    adjudicator,
+    tStar,
+    winningOutcome,
+    decimals: marketDecimals,
     // V6.2.5: Positions & Prices
     userYesShares,
     userNoShares,
@@ -563,9 +570,11 @@ export const MarketDetail = () => {
     userNoWallet,
     priceYes,
     priceNo,
+    creatorLpBalance,
     // V6: LP actions
     redeemLP,
     isRedeemLPPending,
+    bEffective,
   } = marketData;
 
   const { markets: allMarkets, isLoading: marketsLoading } = useLaunchpadMarkets();
@@ -581,18 +590,6 @@ export const MarketDetail = () => {
       enabled: !!outcomeToken && !marketMeta && !marketsLoading,
     },
   });
-
-  // Fetch creator's LP balance (for leaderboard)
-  const { data: creatorLpData } = useReadContracts({
-    contracts: creator && address ? [
-      { address: address as `0x${string}`, abi: LAUNCHPAD_MARKET_ABI, functionName: 'balanceOf', args: [creator] },
-    ] : [],
-    query: {
-      enabled: !!creator && !!address,
-      refetchInterval: 15000,
-    },
-  });
-  const creatorLpBalance = creatorLpData?.[0]?.result as bigint | undefined;
 
   const directName = directTokenData?.[0]?.result as string | undefined;
   const directSymbol = directTokenData?.[1]?.result as string | undefined;
@@ -628,7 +625,7 @@ export const MarketDetail = () => {
     priceNo: pNo,
     qYes: qYes || 0n,
     qNo: qNo || 0n,
-    bParam: bBase || 0n,
+    bParam: bEffective || bBase || 0n,
     status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
     userYesShares: parseFloat(formatUnits(userYesShares || 0n, 18)),
     userNoShares: parseFloat(formatUnits(userNoShares || 0n, 18)),
@@ -658,7 +655,11 @@ export const MarketDetail = () => {
             <h1 className="text-2xl font-bold text-white">
               {displayName}
             </h1>
-            {isGraduated ? (
+            {isSettled ? (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/50">
+                ⚖️ Settled
+              </Badge>
+            ) : isGraduated ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
                 🎓 Graduated
               </Badge>
@@ -731,7 +732,54 @@ export const MarketDetail = () => {
             pureFloorProp={pureFloor}
             pureCeilingProp={pureCeiling}
             isUnderwater={isUnderwater}
+            decimals={marketDecimals || decimals}
           />
+
+          {/* Settlement Status Card */}
+          {adjudicator && (
+            <Card className="p-6 border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">
+                    {isSettled ? 'Market Settlement' : 'Adjudication'}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Adjudicator: {adjudicator?.slice(0, 8)}...{adjudicator?.slice(-6)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {isSettled ? (
+                  <>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-slate-900/50 border border-slate-800">
+                      <span className="text-sm text-slate-400">Winning Outcome</span>
+                      <Badge className={winningOutcome === 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}>
+                        {winningOutcome === 0 ? 'YES' : 'NO'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-slate-900/50 border border-slate-800">
+                      <span className="text-sm text-slate-400">Truth Time (T*)</span>
+                      <span className="text-sm font-mono text-white">
+                        {tStar ? new Date(tStar * 1000).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                    <p className="text-xs text-slate-500 italic">
+                      {isExpired 
+                        ? 'Awaiting adjudication from protocol...' 
+                        : `This market will be settled by the adjudicator after ${deadline ? new Date(deadline * 1000).toLocaleDateString() : 'expiry'}.`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Inventory Management (Post-Graduation Only) */}
           {isGraduated && address && (
@@ -822,11 +870,15 @@ export const MarketDetail = () => {
               totalSupply={totalSupply}
               totalAssets={totalAssets}
               totalNetAssets={totalNetAssets}
-            totalLockedProceeds={totalLockedProceeds}
-            ammCashProp={ammCash}
-            pureFloorProp={pureFloor}
-            pureCeilingProp={pureCeiling}
+              totalLockedProceeds={totalLockedProceeds}
+              ammCashProp={ammCash}
+              pureFloorProp={pureFloor}
+              pureCeilingProp={pureCeiling}
+              decimals={marketDecimals || decimals}
             />
+
+            {/* Locked Proceeds Card */}
+            <LaunchpadLockedProceeds marketAddress={address as `0x${string}`} />
 
             {/* Trading Panel */}
             <MarketCard

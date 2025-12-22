@@ -71,5 +71,6 @@ When making SOP changes, document:
 | `.agent/workflows/*.md` | Role definitions |
 | `.agent/LESSONS_LEARNED.md` | Mistake memory |
 | `.agent/GUIDE.md` | Quick reference |
+| `.cursor/commands/*.md` | Cursor commands |
 | `.husky/pre-commit` | Commit hooks |
 | `verify-deployment.sh` | Verification scripts |

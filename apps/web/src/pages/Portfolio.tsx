@@ -1,4 +1,4 @@
-import { Wallet, History, ShieldCheck } from 'lucide-react';
+import { Wallet, History, ShieldCheck, Clock } from 'lucide-react';
 import { TradingAccountCard } from '../components/features/portfolio/TradingAccountCard';
 import { WalletSummaryCard } from '../components/features/portfolio/WalletSummaryCard';
 import { LPPositionsCard } from '../components/features/portfolio/LPPositionsCard';
@@ -8,9 +8,13 @@ import { ActiveOrdersCard } from '../components/features/portfolio/ActiveOrdersC
 import { PendingUnlocks } from '../components/features/trader/PendingUnlocks';
 import { ActivityLog } from '../components/features/ActivityLog';
 import { useAccount } from 'wagmi';
+import { useLockedFunds } from '../hooks/useLockedFunds';
+import { formatCurrency } from '../utils/format';
+import { formatUnits } from 'viem';
 
 export const Portfolio = () => {
   const { isConnected } = useAccount();
+  const { locked, claimable, available, total, hasClaimable, claim, isClaiming, decimals } = useLockedFunds();
 
   if (!isConnected) {
     return (
@@ -28,10 +32,41 @@ export const Portfolio = () => {
 
   return (
     <div className="space-y-12 pb-24 max-w-6xl mx-auto pt-8 px-4">
+      {/* Portfolio Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/50 backdrop-blur-sm">
+          <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total Equity</p>
+          <p className="text-2xl font-bold text-white font-mono">{formatCurrency(parseFloat(formatUnits(total, decimals || 18)))}</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/50 backdrop-blur-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Clock size={32} className="text-amber-400" />
+          </div>
+          <p className="text-[10px] text-amber-500/70 uppercase font-black tracking-widest mb-1">Total Locked</p>
+          <p className="text-2xl font-bold text-amber-400 font-mono">{formatCurrency(parseFloat(formatUnits(locked, decimals || 18)))}</p>
+          <p className="text-[9px] text-slate-500 mt-1 font-medium">Proceeds in 24h cooling period</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/50 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p className="text-[10px] text-emerald-500/70 uppercase font-black tracking-widest mb-1">Claimable Now</p>
+            <p className="text-2xl font-bold text-emerald-400 font-mono">{formatCurrency(parseFloat(formatUnits(claimable, decimals || 18)))}</p>
+          </div>
+          {hasClaimable && (
+            <button
+              onClick={claim}
+              disabled={isClaiming}
+              className="mt-2 py-1.5 rounded-lg bg-emerald-500 text-slate-900 font-black text-[9px] hover:bg-emerald-400 transition-all uppercase tracking-widest"
+            >
+              {isClaiming ? 'Claiming...' : 'Claim All'}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Domain Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
         
-        {/* Domain A: Orderbook Account (Custodial) */}
+        {/* Domain A: Trading Account (Unified) */}
         <div className="flex flex-col gap-6 animate-fade-in-up">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-3">
@@ -39,11 +74,11 @@ export const Portfolio = () => {
                 <ShieldCheck size={16} className="text-indigo-400" />
             </div>
             <div>
-                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Orderbook Account</h2>
+                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Trading Account</h2>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">Custodial Vault</p>
+                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">Universal Vault</p>
                   <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
-                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">Isolated Margin</p>
+                  <p className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest">V7 Dual-Engine</p>
                 </div>
               </div>
             </div>
@@ -56,7 +91,7 @@ export const Portfolio = () => {
           </div>
             </div>
 
-        {/* Domain B: Wallet & AMM (Direct) */}
+        {/* Domain B: Wallet & Liquidity */}
         <div className="flex flex-col gap-6 animate-fade-in-up stagger-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-3">
@@ -64,13 +99,15 @@ export const Portfolio = () => {
                 <Wallet size={16} className="text-emerald-400" />
               </div>
               <div>
-                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Wallet & AMM</h2>
+                <h2 className="font-black text-white uppercase tracking-[0.25em] text-[11px] leading-none">Wallet & Liquidity</h2>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">Direct Ownership</p>
+                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">Self-Custody</p>
                   <span className="w-1 h-1 rounded-full bg-emerald-500/30" />
-                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">LP Provisioning</p>
-            </div>
-          </div>
+                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">LP Equity</p>
+                  <span className="w-1 h-1 rounded-full bg-emerald-500/30" />
+                  <p className="text-[9px] text-emerald-400/50 font-bold uppercase tracking-widest">AMM Rewards</p>
+                </div>
+              </div>
             </div>
           </div>
 

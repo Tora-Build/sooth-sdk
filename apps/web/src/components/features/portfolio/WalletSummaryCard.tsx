@@ -13,7 +13,7 @@ export const WalletSummaryCard: React.FC = () => {
 
   // Wallet side data (No longer includes outcome tokens, those are in Orderbook domain)
   const { totalLPValueFormatted, isLoading: lpLoading, refetch: refetchLP } = useLPPositions();
-  const { locked, lockedFormatted, isLoading: lockLoading, refetch: refetchLocked } = useLockedFunds();
+  const { locked, lockedFormatted, isLoading: lockLoading, refetch: refetchLocked, decimals } = useLockedFunds();
 
   const handleRefresh = () => {
     refetchLP();
@@ -21,7 +21,7 @@ export const WalletSummaryCard: React.FC = () => {
   };
 
   const lpValueNum = parseFloat(totalLPValueFormatted || '0');
-  const lockedValueNum = parseFloat(formatUnits(locked, 6)); // Aggregate locked is in USDC decimals
+  const lockedValueNum = parseFloat(formatUnits(locked, decimals || 18)); 
   
   const totalWalletValue = lpValueNum + lockedValueNum;
   const isLoading = lpLoading || lockLoading;
@@ -47,7 +47,7 @@ export const WalletSummaryCard: React.FC = () => {
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <div className="text-[10px] text-emerald-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
-              Wallet Account
+              Wallet & Liquidity
               <button
                 onClick={handleRefresh}
                 className="text-slate-600 hover:text-emerald-400 transition-colors"
@@ -70,7 +70,7 @@ export const WalletSummaryCard: React.FC = () => {
 
             {/* Sub-header or minor info */}
             <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-              AMM & Liquidity Provision
+              Direct Assets • Self-Custody
             </div>
           </div>
         </div>

@@ -54,7 +54,7 @@ function resolveNetworkName(chainId: number): string | undefined {
 export function useDeployments() {
   // Prefer app-selected chain (supports browsing chain A while wallet is on chain B).
   const { selectedChainId } = useChainStore();
-  const chainId = typeof selectedChainId === 'number' ? selectedChainId : DEFAULT_CHAIN_ID;
+  const chainId = Number(selectedChainId) || DEFAULT_CHAIN_ID;
 
   // Fallback to default chain if current chain is not supported by config
   const resolvedName = resolveNetworkName(chainId);

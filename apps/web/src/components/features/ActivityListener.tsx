@@ -7,6 +7,7 @@ import { useLaunchpadMarkets } from '../../hooks/v5/useLaunchpadMarkets';
 import { useActivityStore } from '../../store/useActivityStore';
 import { useOrderStore } from '../../store/useOrderStore';
 import { useMarketStore } from '../../store/useMarketStore';
+import toast from 'react-hot-toast';
 
 /**
  * Component to watch events for a specific Launchpad Market
@@ -25,16 +26,18 @@ const LaunchpadMarketWatcher: React.FC<{ market: { address: `0x${string}`, name:
         const isBuy = (deltaShares || 0n) > 0n;
         const shares = formatUnits(deltaShares || 0n, 18);
         const outcomeText = outcome === 0 ? 'YES' : 'NO';
+        const description = `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`;
 
         addActivity({
           type: 'trade',
           market: market.name,
-          description: `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '🔄' });
       });
     },
   });
@@ -47,15 +50,17 @@ const LaunchpadMarketWatcher: React.FC<{ market: { address: `0x${string}`, name:
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const { amount } = log.args;
+        const description = `Proceeds locked (24h): ${formatUnits(amount || 0n, 6)} USDC`;
         addActivity({
           type: 'liquidity',
           market: market.name,
-          description: `Proceeds locked (24h): ${formatUnits(amount || 0n, 6)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast(description, { icon: '🔒' });
       });
     },
   });
@@ -68,15 +73,62 @@ const LaunchpadMarketWatcher: React.FC<{ market: { address: `0x${string}`, name:
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const { amount } = log.args;
+        const description = `Unlocked proceeds claimed: ${formatUnits(amount || 0n, 6)} USDC`;
         addActivity({
           type: 'claim',
           market: market.name,
-          description: `Unlocked proceeds claimed: ${formatUnits(amount || 0n, 6)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '💰' });
+      });
+    },
+  });
+
+  // Watch LpTokensRedeemed
+  useWatchContractEvent({
+    address: market.address,
+    abi: LAUNCHPAD_MARKET_ABI,
+    eventName: 'LpTokensRedeemed',
+    onLogs(logs: any[]) {
+      logs.forEach(log => {
+        const { amount, assets } = log.args;
+        const description = `Redeemed ${formatUnits(amount || 0n, 18)} LP for ${formatUnits(assets || 0n, 6)} USDC`;
+        addActivity({
+          type: 'liquidity',
+          market: market.name,
+          description,
+          hash: log.transactionHash,
+          mode: 'real',
+          timestamp: Date.now(),
+          chainId,
+        });
+        toast.success(description, { icon: '🏦' });
+      });
+    },
+  });
+
+  // Watch MarketGraduated
+  useWatchContractEvent({
+    address: market.address,
+    abi: LAUNCHPAD_MARKET_ABI,
+    eventName: 'MarketGraduated',
+    onLogs(logs: any[]) {
+      logs.forEach(log => {
+        const description = `🎓 Market Graduated to Full AMM!`;
+        addActivity({
+          type: 'settle',
+          market: market.name,
+          description,
+          hash: log.transactionHash,
+          mode: 'real',
+          timestamp: Date.now(),
+          chainId,
+        });
+        toast.success(description, { icon: '🏆', duration: 10000 });
       });
     },
   });
@@ -133,15 +185,17 @@ export const ActivityListener: React.FC = () => {
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const assets = log.args.assets;
+        const description = `Deposited ${formatUnits(assets || 0n, 18)} USDC`;
         addActivity({
           type: 'liquidity',
           market: 'USDC Vault',
-          description: `Deposited ${formatUnits(assets || 0n, 18)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '📥' });
       });
     },
     enabled: mode === 'real',
@@ -155,15 +209,17 @@ export const ActivityListener: React.FC = () => {
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const assets = log.args.assets;
+        const description = `Withdrew ${formatUnits(assets || 0n, 18)} USDC`;
         addActivity({
           type: 'liquidity',
           market: 'USDC Vault',
-          description: `Withdrew ${formatUnits(assets || 0n, 18)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '📤' });
       });
     },
     enabled: mode === 'real',
@@ -186,16 +242,18 @@ export const ActivityListener: React.FC = () => {
         const outcomeText = outcome === 0 ? 'YES' : 'NO';
         const shares = formatUnits(deltaShares || 0n, 18);
         const isBuy = (deltaShares || 0n) > 0n;
+        const description = `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`;
 
         addActivity({
           type: 'trade',
           market: marketName,
-          description: `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '🔄' });
       });
     },
     enabled: mode === 'real' && !!traderVaultAddress,
@@ -227,15 +285,17 @@ export const ActivityListener: React.FC = () => {
           hash: log.transactionHash
         });
 
+        const description = `Limit Order Placed: ${parseFloat(formatUnits(amount || 0n, 18)).toFixed(2)} shares @ $${parseFloat(formatUnits(price || 0n, 18)).toFixed(2)}`;
         addActivity({
           type: 'trade',
           market: marketName,
-          description: `Limit Order Placed: ${parseFloat(formatUnits(amount || 0n, 18)).toFixed(2)} shares @ $${parseFloat(formatUnits(price || 0n, 18)).toFixed(2)}`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '📝' });
       });
     },
     enabled: mode === 'real' && !!traderVaultAddress,
@@ -256,15 +316,17 @@ export const ActivityListener: React.FC = () => {
         );
         const marketName = marketMeta?.name || 'Unknown Market';
 
+        const description = `Order #${orderId.toString()} Cancelled`;
         addActivity({
           type: 'trade',
           market: marketName,
-          description: `Order #${orderId.toString()} Cancelled`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast(description, { icon: '🚫' });
       });
     },
     enabled: mode === 'real' && !!traderVaultAddress,
@@ -278,15 +340,17 @@ export const ActivityListener: React.FC = () => {
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const { amount } = log.args;
+        const description = `Proceeds locked: ${formatUnits(amount || 0n, 6)} USDC`;
         addActivity({
           type: 'liquidity',
           market: 'Trading Vault',
-          description: `Proceeds locked: ${formatUnits(amount || 0n, 6)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast(description, { icon: '🔒' });
       });
     },
     enabled: mode === 'real' && !!traderVaultAddress,
@@ -300,15 +364,17 @@ export const ActivityListener: React.FC = () => {
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const { amount } = log.args;
+        const description = `Unlocked funds claimed: ${formatUnits(amount || 0n, 6)} USDC`;
         addActivity({
           type: 'claim',
           market: 'Trading Vault',
-          description: `Unlocked funds claimed: ${formatUnits(amount || 0n, 6)} USDC`,
+          description,
           hash: log.transactionHash,
           mode: 'real',
           timestamp: Date.now(),
           chainId,
         });
+        toast.success(description, { icon: '💰' });
       });
     },
     enabled: mode === 'real' && !!traderVaultAddress,

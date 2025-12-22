@@ -28,10 +28,11 @@ contract DeployV4Markets is Script {
     address constant FEE_CONTROLLER = 0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9;
     
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
-        
-        vm.startBroadcast(deployerPrivateKey);
+        // Prefer Foundry CLI flags over env var secrets:
+        // - forge script ... --private-key $PRIVATE_KEY --broadcast
+        // This avoids forcing PRIVATE_KEY to exist in the environment.
+        vm.startBroadcast();
+        address deployer = msg.sender;
 
         console.log("=== Phase 2: Deploy Launchpad Markets ===");
         console.log("Using infrastructure:");

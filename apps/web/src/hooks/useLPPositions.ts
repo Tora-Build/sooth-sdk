@@ -96,12 +96,12 @@ export function useLPPositions() {
                 lpBalance,
                 lpBalanceFormatted: formatUnits(lpBalance, LP_TOKEN_DECIMALS),
                 ceilingValue,
-                ceilingValueFormatted: formatUnits(ceilingValue, LP_TOKEN_DECIMALS),
+                ceilingValueFormatted: formatUnits(ceilingValue, USDC_DECIMALS),
                 floorValue,
-                floorValueFormatted: formatUnits(floorValue, LP_TOKEN_DECIMALS),
+                floorValueFormatted: formatUnits(floorValue, USDC_DECIMALS),
                 // Legacy support
                 estimatedValue: floorValue, 
-                estimatedValueFormatted: formatUnits(floorValue, LP_TOKEN_DECIMALS),
+                estimatedValueFormatted: formatUnits(floorValue, USDC_DECIMALS),
                 totalSupply,
                 sharePercent,
                 totalAssets,
@@ -122,8 +122,8 @@ export function useLPPositions() {
         return positions.reduce((acc, p) => acc + p.ceilingValue, 0n);
     }, [positions]);
 
-    const totalLPValueFormatted = formatUnits(totalLPValue, LP_TOKEN_DECIMALS);
-    const totalCeilingValueFormatted = formatUnits(totalCeilingValue, LP_TOKEN_DECIMALS);
+    const totalLPValueFormatted = formatUnits(totalLPValue, USDC_DECIMALS);
+    const totalCeilingValueFormatted = formatUnits(totalCeilingValue, USDC_DECIMALS);
 
     return {
         positions,

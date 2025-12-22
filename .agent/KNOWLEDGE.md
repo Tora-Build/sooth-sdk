@@ -1,18 +1,22 @@
 # Knowledge Base
-> Sooth Protocol V4 — Canonical Facts
+> Sooth Protocol V7 — Canonical Facts
 
 ---
 
-## Architecture
+## Architecture (V7 Dual-Engine)
 ```
-User ──► TraderVault ──┬──► Market[] ──► OutcomeToken[]
-                       └──► GovernorVault (USDC Pool)
+User ──► TraderVault ──┬──► LaunchpadMarket[] (each is its own vault)
+                       │      └──► OutcomeToken (ERC1155)
+                       ├──► SoothLiquidityVault (global locked proceeds)
+                       └──► SoothAdjudicatorRegistry (allowlisted truth)
+
+Factory:
+  LaunchpadFactory.createMarket(..., adjudicator) → clones LaunchpadMarket + OutcomeToken
 
 Authorization:
-  Vault.isMarket[market]         = true
-  Vault.isOutcomeToken[token]    = true
-  Governor.authorized[market]    = true
-  Market.traderVault             = Vault
+  Vault.isMarket[market]         = via factory check (dynamic)
+  Market.traderVault             = TraderVault
+  Market.adjudicator             = settlement resolver contract (manual/optimistic/brevis)
 ```
 
 ---
@@ -31,14 +35,17 @@ isBuy=true        | Long            | Buy specified
 isBuy=false       | Short           | Buy opposite
 price             | Probability     | 0.6e18 = 60%
 qYes/qNo          | Inventory       | LMSR state
-b                 | Depth           | Liquidity param
+b / bBase         | Depth           | Liquidity param
+isGraduated       | Graduated       | Past bonding phase
+adjudicator       | Resolver        | Truth-providing contract
+tStar             | Truth Point     | Outcome probability at settlement
 ```
 
 ---
 
 ## Precision
 ```
-WAD       = 1e18           // All internal math
+WAD       = 1e18           // All AMM internal math
 USDC_DEC  = 18             // MockUSDC uses 18 decimals (testnet)
 SCALAR    = 1              // WAD / USDC = 1e18/1e18
 LOCK      = 24 hours       // AMM sell lock duration (Lock-on-Sell)
@@ -46,6 +53,10 @@ LOCK      = 24 hours       // AMM sell lock duration (Lock-on-Sell)
 Note: Real USDC is 6 decimals. Scalar would be 1e12.
       Testnet MockUSDC is 18 decimals for simplicity.
       Lock applies to SELL proceeds, not BUY shares.
+
+V7 Pure WAD Architecture:
+      AMM views (ammAssets, totalNetAssets, cost, fee) are 18-decimal WAD.
+      Lock/transfer values are native asset decimals (6 for USDC).
 ```
 
 ---
@@ -67,73 +78,59 @@ short_collateral = (1 - price) * amount
 payout = min(yes, no) * 1e18
 ```
 
-### Governor Vault
+### Launchpad Market Economics
 ```
-// LP Shares (Vault Token)
-shares_mint     = assets * totalSupply / totalAssets   // or 1:1 if first
-shares_burn     = assets * totalSupply / totalAssets
-assets_per_share = totalAssets / totalSupply
+// Creator Deposit
+maxLoss = bBase × 0.693 (ln(2))
 
-// Exposure Locking
-lockedExposure[mktId]   = b × solvencyFactor(pYes)
-totalLockedExposure     = Σ lockedExposure[all markets]
-availableForWithdraw    = totalAssets - totalLockedExposure
+// Graduation Threshold
+bBase >= 2 × initial_b (doubled from creation)
 
-// Solvency Factor (Dynamic based on YES price)
-solvencyFactor(pYes) = pYes × ln(pYes) + (1-pYes) × ln(1-pYes)  // negative entropy
-// At 50%: ≈ 0.693 (ln(2))
-// At 90%: ≈ 0.325
-// At 10%: ≈ 0.325
+// Pre-Graduation Fees (5%)
+100% → bBase growth + 1:1 LP token mint
 
-// Market PnL Tracking
-marketReserves[mktId]   = cumulative PnL (signed)
-  receiveFunds(mkt, amt) → reserves += amt, totalAssets += amt
-  sendFunds(mkt, amt)    → reserves -= amt, totalAssets -= amt
-
-// Config Defaults
-defaultBBase       = 10000e18        // 10k USDC liquidity depth
-defaultFeeBps      = 50              // 0.5%
-reserveFactorBps   = 1000            // 10% buffer
+// Post-Graduation Fees (1%)
+50% → bBase growth
+30% → LP token accrual
+20% → Protocol treasury
 ```
 
-### Dynamic Liquidity
+### LP Valuation (Honest Floor Model)
 ```
-// Market depth scales with trading activity
-b_market = b_base + (net_reserves × reserveFactor / 10000)
+// AMM Ledger (Pure Accounting)
+AMM_Cash = Initial_Seed + Fees + (Current_LMSR_Cost - Initial_LMSR_Cost)
 
-// Example: b_base=10000, reserves=500, factor=1000 (10%)
-// b = 10000 + (500 × 1000 / 10000) = 10050
+// Floor Value (Worst Case)
+Floor = AMM_Cash - max(qYes, qNo)
 
-// Fees reinvest into depth
-trade → fee collected → reserves ↑ → b ↑ → slippage ↓
+// Ceiling Value (Best Case)
+Ceiling = AMM_Cash - min(qYes, qNo)
+
+// Exchange Rate
+ExRate = Floor / LP_Supply
 ```
 
 ---
 
 ## Call Chains
 ```
-AMM Buy:
-  tradeAMM(mkt, 0, +Δ, max)
+AMM Buy (Safe Path):
+  depositAndTradeAMM(mkt, 0, +Δ, max)
+    → Transfers USDC from wallet if needed
     → Market.executeAMMTrade() → updates qYes
-    → Vault → Governor.receiveFunds()
-    → credits ammPositions[user][mkt].yesShares
-    → NO unlock time (shares always tradable)
+    → Market holds funds (is its own vault)
 
 AMM Sell (Lock-on-Sell):
   tradeAMM(mkt, 0, -Δ, min)
     → require yesShares >= Δ
     → Market.executeAMMTrade() → updates qYes
-    → Governor.lockProceeds(marketId, user, netProceeds)
-      → creates LockEntry{amount, unlockTime = now + 24h}
-      → funds stay in Governor, earmarked for user
-    → user.locked += netProceeds
+    → Pre-grad: lock in market's FIFO queue
+    → Post-grad: lock via global SoothLiquidityVault
 
 Claim Unlocked:
-  claimUnlocked()
-    → Governor.claimUnlocked(user, traderVault)
-      → iterates lock queue, claims expired entries
-      → transfers USDC → TraderVault
-    → credits user.available
+  claimUnlocked(marketVault)
+    → Iterates lock queue, claims expired entries
+    → Transfers USDC → user's available balance
 
 Limit Order:
   placeOrder(mkt, out, price, amt, isBuy)
@@ -141,57 +138,30 @@ Limit Order:
     → Market.createOrder()
     → on match: onOrderMatched() → credit shares
 
-Spot Sell:
-  placeSpotOrder(mkt, out, price, amt)
-    → lock shares from shareBalances
-    → Market.createOrder() as opposite
-    → on match: merge() → creditMergeProceeds()
-
-Hybrid Sell:
-  executeHybridSell(mkt, out, price, total)
-    → spot = min(shareBalances, total)
-    → short = total - spot
-    → placeSpotOrder(spot) + placeOrder(short, isBuy=false)
+Settlement:
+  Adjudicator.finalizeResolution(outcome, tStar)
+    → Market.isLive = false
+    → Traders redeem winning tokens
+    → LP holders call redeemLP()
 ```
 
 ---
 
 ## Deployments
 
-### Base Sepolia (Chain 84532) — V4.5
+### Base Sepolia (Chain 84532) — V7.0.0
 ```
-Vault     = 0x48Efb2434383E87a4a143D2B07BeE73611f5423C
-Governor  = 0xcB0f1305951d4BC6EF266790836aC62604cFA733
-Fee       = 0xE570Ab7dBbB58241F2cD7E1D3E2dD43196DAee97
-USDC      = 0x3E45bf96a8D866D796E168eE77a5fA7507D544F1
-Market1   = 0x99CB8c0e3da2604518b8210589edcaB50Cc6f769 (Alien)
-Token1    = 0x6C590f0cd0750043ad46Ec37D2d095De89506cfd
-Market2   = 0x94D02d846a04A751e9e4f93A6684a30e043444Da (BTC)
-Token2    = 0x7178301FDEe367DC0ad10215c466293f9E7CDc5e
-```
-
-### BNB Testnet (Chain 97) — V4.5
-```
-Vault     = 0x50293aD4e42593A8b081960c991c198729E81192
-Governor  = 0x8629b9ca457F4088ec8346FAED61DA858FDB498d
-Fee       = 0xbc7b155057Bb78BB8bF9c9F9Fa6bFCc931aEAF38
-USDC      = 0x58F35BE6A5e3D2be4C3575853043322B02FEeD84
-Market1   = 0xa852857A15a10692A5cF22cB2B5b707C8dD64cf8 (Alien)
-Token1    = 0x4F0b73177dac5A7f5EA2dbCffd2b983B3719b39B
-Market2   = 0x7c60001d89D9878B1f7C4180916fCc3ede592e8d (BTC)
-Token2    = 0xaaE4610eEB6bF5FCf3775AcA69A5911691556995
-```
-
-### MegaETH Testnet (Chain 6343) — V4.5
-```
-Vault     = 0xdc980ac16626211a7c472a94a163440eb68c5bfc
-Governor  = 0xdb0063ce93e445ff7a8916f6f5a093f80833494f
-Fee       = 0x9dbdfe94e596262dff5d91c007bae2ba4d80a8f7
-USDC      = 0x493da6e5c9de67ab50b2fb08d14865614189b5c2
-Market1   = 0x89ba3fee2fb764ec297dc91bb874aa5bf88f204c (Alien)
-Token1    = 0xda5979e913c8ce987d5c44e9d138e0cea87802ff
-Market2   = 0xeb33e2f815306d936d4bdd2b33b2b68c16b62fa0 (BTC)
-Token2    = 0xd8e977e9e7e81d29daec823bf60e0303e80281cb
+MockUSDC             = 0x7B61060a98D541f7C26fbC7e215FF9753c8D2a11
+SoothFeeController   = 0xf2b1f87fDb1fb7c447B654647F565ad1A03227c4
+SoothLiquidityVault  = 0xc0413700c172817897C09b14b5643ee7cCFcf34b
+SoothTraderVaultV4   = 0x1C70bD3b70B065ACBb5AA81053D7F1aF8CF23045
+ProtocolConfig       = 0xEA0f15e3650AEC0c6DF89Fe8C7443EA47CD4bc88
+AdjudicatorRegistry  = 0x4C52a6277b1B84121b3072C0c92b6Be0b7CC10F1
+LaunchpadFactory     = 0x2C2AdE29b81a6B47Cdd05CcAf06cF10E30d1318C
+Market 1             = 0xE467bDC870BC1AEa7401Cc0a3C34ABCcA2c3C64D
+Token 1              = 0x89F5FF36A6d684B3ba121FFc7437c84a7e453BA5
+Market 2             = 0x5DBe9BB350407c604eDDABa86CbB59514F1A6EfD
+Token 2              = 0x35aEA513cD336eF7c80FCAD9569B621ACfD17211
 ```
 
 ---
@@ -200,15 +170,15 @@ Token2    = 0xd8e977e9e7e81d29daec823bf60e0303e80281cb
 ```
 Revert String                       | Cause
 ------------------------------------|----------------------------------
-"TraderVault: invalid market"       | market not in isMarket[]
+"TraderVault: invalid market"       | market not from factory
 "TraderVault: not market"           | caller is not a registered market
 "TraderVault: not outcomeToken"     | caller is not a registered token
 "TraderVault: insufficient balance" | available < required
-"TraderVault: shares locked"        | block.timestamp < unlockTime
 "TraderVault: slippage exceeded"    | cost > maxCost or proceeds < min
-"GovernorVault: not authorized"     | caller not in authorizedSpender[]
-"GovernorVault: Locked funds"       | withdraw would breach exposure
+"SoothLiquidityVault: not authorized"| caller not authorized
+"SoothLiquidityVault: Locked funds" | withdraw would breach exposure
 "Market: not trading"               | market settled or paused
+"Market: not graduated"             | orderbook requires graduation
 "OutcomeToken: zero amount"         | merge(0) called
 ```
 
@@ -221,19 +191,16 @@ Function                            | Modifier            | Who Can Call
 TraderVault.deposit()               | none                | anyone
 TraderVault.withdraw()              | none                | anyone (own funds)
 TraderVault.tradeAMM()              | none                | anyone
+TraderVault.depositAndTradeAMM()    | none                | anyone (V7)
 TraderVault.placeOrder()            | none                | anyone
 TraderVault.claimUnlocked()         | none                | anyone (own funds)
 TraderVault.onOrderMatched()        | onlyMarket          | Market contracts
 TraderVault.creditMergeProceeds()   | onlyOutcomeToken    | OutcomeToken
-TraderVault.setMarket()             | onlyOwner           | deployer
-TraderVault.setOutcomeToken()       | onlyOwner           | deployer
-GovernorVault.receiveFunds()        | onlyAuthorized      | Markets/Vault
-GovernorVault.sendFunds()           | onlyAuthorized      | Markets/Vault
-GovernorVault.lockProceeds()        | onlyAuthorized      | TraderVault only
-GovernorVault.claimUnlocked()       | onlyAuthorized      | TraderVault only
-GovernorVault.setAuthorized()       | onlyOwner           | deployer
+TraderVault.setLaunchpadFactory()   | onlyOwner           | deployer
 Market.executeAMMTrade()            | none                | TraderVault only*
 Market.createOrder()                | none                | TraderVault only*
+Market.finalizeResolution()         | onlyAdjudicator     | Adjudicator
+Market.claimLockedOnMarketEnd()     | none                | anyone (after end)
 OutcomeToken.merge()                | none                | anyone (burns own)
 
 * enforced by design (Vault calls on behalf of user)
@@ -242,6 +209,8 @@ OutcomeToken.merge()                | none                | anyone (burns own)
 ---
 
 ```
-Version: V4.6 | KB: v1.4 | Updated: 2025-12-12
-Lock Model: Lock-on-Sell (proceeds locked 24h, shares always tradable)
+Version: V7.0.0 | KB: v3.0 | Updated: 2025-12-22
+Architecture: V7 Dual-Engine (OB/AMM isolation)
+Lock Model: Lock-on-Sell (proceeds locked 24h)
+Settlement: Adjudicator-only (Registry-gated)
 ```

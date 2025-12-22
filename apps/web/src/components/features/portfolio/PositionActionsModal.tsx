@@ -61,7 +61,7 @@ export const PositionActionsModal: React.FC<{
     // For Split: Use vault USDC balance
     const available = mode === 'merge' 
         ? (activeMarket ? Math.min(activeMarket.liquidYes || 0, activeMarket.liquidNo || 0) : 0)
-        : parseFloat(availableBalance.toString()) / (10 ** (decimals || 6));
+        : parseFloat(formatUnits(availableBalance, decimals || 18));
 
     const handleAction = async () => {
         if (!amount || parseFloat(amount) <= 0 || !activeMarket || !publicClient || !address) return;
@@ -100,9 +100,9 @@ export const PositionActionsModal: React.FC<{
                 
             } else {
                 // Split: Atomic via splitAndDeposit (1 transaction)
-                const scalar = BigInt(10 ** (18 - (decimals || 6)));
+                const scalar = BigInt(10 ** (18 - (decimals || 18)));
                 const maxSplitWad = availableBalance * scalar;
-                const availableSplit = parseFloat(formatUnits(availableBalance, decimals || 6));
+                const availableSplit = parseFloat(formatUnits(availableBalance, decimals || 18));
                 
                 if (parseFloat(amount) >= availableSplit) {
                     finalAmountBig = maxSplitWad;

@@ -32,7 +32,7 @@ contract GranularityTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)), 6);
+        liquidityVault = new SoothLiquidityVault(IERC20(address(usdc)));
         traderVault = new SoothTraderVaultV4(IERC20(address(usdc)), ISoothLiquidityVault(address(liquidityVault)));
         feeController = new SoothFeeController(address(this));
         outcomeTokenImpl = new LaunchpadOutcomeToken();
@@ -41,8 +41,6 @@ contract GranularityTest is Test {
         adjudicatorRegistry = new SoothAdjudicatorRegistry(address(this));
         adjudicatorRegistry.setAdjudicator(creator, 1, true, bytes32(0));
         
-        traderVault.setTimeLock(ITimeLock(address(0))); 
-
         factory = new LaunchpadFactory(
             address(marketImpl),
             address(usdc),

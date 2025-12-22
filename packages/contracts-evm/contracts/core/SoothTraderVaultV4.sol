@@ -6,8 +6,6 @@ import "../core/SoothInterfaces.sol"; // For Ownable and other interfaces
 import "../interfaces/ISoothMarketV4.sol";
 import "../interfaces/ISoothTraderVaultV4.sol";
 import "../interfaces/IOutcomeToken.sol";
-import "../interfaces/IYieldStrategy.sol";
-import "../interfaces/ITimeLock.sol";
 import "../launchpad/interfaces/ILaunchpadFactory.sol";
 import "../launchpad/interfaces/ILaunchpadMarket.sol";
 import "./SoothSettlementRootSink.sol";
@@ -49,10 +47,7 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
     
     mapping(address => bool) private _isMarket;
     mapping(address => bool) private _isOutcomeToken;
-
     ISoothLiquidityVault public liquidityVault;
-    IYieldStrategy public yieldStrategy;
-    ITimeLock public timeLock;
 
     // ============ Events ============
     
@@ -121,6 +116,10 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
     /// @notice Convenience: deposit from wallet and execute an AMM trade in one call.
     /// @dev This is the safe "direct swap" path: it only touches AMM internal positions via `tradeAMM`
     ///      and never mints/burns collateralized outcome tokens.
+    /// @param market Target market.
+    /// @param outcome Outcome to trade (0 = YES, 1 = NO).
+    /// @param deltaShares Signed share delta (positive = BUY, negative = SELL).
+    /// @param maxCost Slippage guard. BUY: max cost (WAD). SELL: min proceeds (WAD, can be negative depending on conventions).
     /// @param depositAmount Amount of asset decimals to pull from wallet (0 allowed).
     function depositAndTradeAMM(
         address market,
@@ -772,6 +771,8 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
 
     mapping(address => bool) public isSettlementSink;
 
+    /// @notice Allowlist a settlement root sink contract.
+    /// @dev Hardens `claimSettlementRoot` against user-supplied malicious sinks.
     function setSettlementSink(address sink, bool enabled) external onlyOwner {
         require(sink != address(0), "TraderVault: zero sink");
         isSettlementSink[sink] = enabled;
@@ -799,14 +800,6 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
         return false;
     }
 
-    function setYieldStrategy(IYieldStrategy strategy) external onlyOwner {
-        yieldStrategy = strategy;
-    }
-
-    function setTimeLock(ITimeLock _timeLock) external onlyOwner {
-        timeLock = _timeLock;
-    }
-
     // ============ Settlement Root Claims (Stage 3) ============
 
     mapping(address => mapping(bytes32 => mapping(address => bool))) public settlementClaimed; // market => batchId => user => claimed
@@ -815,6 +808,16 @@ contract SoothTraderVaultV4 is ISoothTraderVaultV4, SoothOwnable, ERC1155Holder 
 
     /// @notice Claim PnL against a settlement root and apply it to the Trading Account.
     /// @dev Uses the market's own vault for funds movement (Launchpad markets are their own vault).
+    /// @dev Leaf format:
+    ///      `leaf = keccak256(abi.encodePacked(market, account, pnlWad, batchId))`
+    /// @dev Scaling gotcha:
+    ///      `pnlWad` is WAD (1e18). This function converts to asset-decimals via `assetDelta = abs(pnlWad) / scalar`.
+    ///      To prevent dust drift, `abs(pnlWad)` must be exactly divisible by `scalar`.
+    /// @param sink Allowlisted sink contract storing the Merkle root.
+    /// @param market The market the batch pertains to.
+    /// @param batchId The batch identifier used when publishing the root.
+    /// @param pnlWad Signed profit/loss delta in WAD (positive = user should receive funds).
+    /// @param proof Merkle proof for the leaf.
     function claimSettlementRoot(
         address sink,
         address market,

@@ -45,7 +45,7 @@ export function useTraderVault() {
   });
 
   const [availableBalance, pendingBalance, userUsdcBalance, allowance, rawDecimals, totalBalanceRes] = data?.map(r => r.result) || [];
-  const decimals = Number(rawDecimals || 18);
+  const decimals = Number(rawDecimals ?? 6);
 
   const totalBalance = totalBalanceRes as bigint || (availableBalance as bigint || 0n) + (pendingBalance as bigint || 0n);
 
@@ -456,6 +456,7 @@ export function useTraderVault() {
 
   /**
    * Execute AMM trade (market order with slippage protection)
+   * V7: Uses depositAndTradeAMM for 1-tx auto-deposit UX
    * @param marketAddress - Market contract address
    * @param outcome - 0 = YES, 1 = NO
    * @param deltaShares - Positive = buy, negative = sell (e.g., "100" or "-50")
@@ -485,8 +486,10 @@ export function useTraderVault() {
       const absShares = deltaShares.replace('-', '');
       const sharesBig = parseUnits(absShares, 18);
       const sharesSigned = isBuy ? sharesBig : -sharesBig;
+      const maxCostAsset = parseUnits(maxCost, decimals);
 
-      // Auto-Deposit Logic for BUY
+      // V7 Auto-Deposit UX: Calculate needed deposit
+      let depositAmount = 0n;
       if (isBuy) {
         // Fetch current available balance in Vault directly to avoid stale state
         const available = await publicClient.readContract({
@@ -496,65 +499,40 @@ export function useTraderVault() {
           args: [address]
         }) as bigint;
 
-        const costAsset = parseUnits(maxCost, decimals);
+        if (available < maxCostAsset) {
+          depositAmount = maxCostAsset - available;
 
-        if (available < costAsset) {
-          const needed = costAsset - available;
-          const neededStr = formatUnits(needed, decimals);
-
-          // Check allowance
-          if (currentAllowance < needed) {
-            const toastApprove = toast.loading('Approving USDC for deposit...');
+          // Check and auto-approve for the deposit portion
+          if (currentAllowance < depositAmount) {
+            const toastApprove = toast.loading('Approving USDC for Vault...');
             try {
-              // Determine approval amount (use needed amount)
               const hashApprove = await writeContractAsync({
-                address: deployments.MockUSDC as `0x${string}`,
+                address: tokenAddress,
                 abi: ERC20_ABI,
                 functionName: 'approve',
-                args: [traderVaultAddress, needed],
+                args: [traderVaultAddress, depositAmount],
               });
               await publicClient.waitForTransactionReceipt({ hash: hashApprove });
               toast.success('Approved!', { id: toastApprove });
-              // Note: We don't explicitly update currentAllowance state here, 
-              // but the chain is updated for the next tx.
             } catch (e: any) {
               toast.error('Approval failed', { id: toastApprove });
               throw e;
             }
           }
-
-          // Deposit
-          const tId = toast.loading(`Depositing ${neededStr} USDC...`);
-          try {
-            const depHash = await writeContractAsync({
-              address: traderVaultAddress,
-              abi: TRADER_VAULT_V4_ABI,
-              functionName: 'deposit',
-              args: [needed]
-            });
-            await publicClient.waitForTransactionReceipt({ hash: depHash });
-            toast.success('Deposit successful', { id: tId });
-            // Wait for indexing to prevent "insufficient balance" in next call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          } catch (e) {
-            toast.error('Deposit failed', { id: tId });
-            throw e;
-          }
         }
       }
 
-      // Proceed to Trade
-      const maxCostAsset = parseUnits(maxCost, decimals);
-
+      // Proceed to Integrated Trade
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
-        functionName: 'tradeAMM',
+        functionName: 'depositAndTradeAMM',
         args: [
           marketAddress as `0x${string}`,
           outcome,
           sharesSigned,
           maxCostAsset,
+          depositAmount,
         ],
       });
 
@@ -571,7 +549,7 @@ export function useTraderVault() {
           hash,
           mode,
           timestamp: Date.now(),
-          chainId: publicClient.chain?.id
+          chainId: Number(selectedChainId)
         });
         refetch();
       } else {

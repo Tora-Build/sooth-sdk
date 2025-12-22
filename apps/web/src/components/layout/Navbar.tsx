@@ -4,7 +4,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
-import { Wallet, TrendingUp, Briefcase, Menu, Droplets } from 'lucide-react';
+import { Wallet, TrendingUp, Briefcase, Menu, Droplets, ShieldCheck } from 'lucide-react';
 
 export const Navbar = () => {
   const location = useLocation();
@@ -46,6 +46,10 @@ export const Navbar = () => {
             <NavLink to="/faucet" active={isActive('/faucet')}>
               <Droplets className="w-4 h-4" />
               Faucet
+            </NavLink>
+            <NavLink to="/operator" active={isActive('/operator')}>
+              <ShieldCheck className="w-4 h-4" />
+              Operator
             </NavLink>
             <NavLink to="/about" active={isActive('/about')}>
               About
@@ -118,6 +122,14 @@ export const Navbar = () => {
           >
             <Droplets className="w-5 h-5" />
             <span>Faucet</span>
+          </MobileNavLink>
+          <MobileNavLink
+            to="/operator"
+            active={isActive('/operator')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            <span>Operator</span>
           </MobileNavLink>
           <MobileNavLink
             to="/about"

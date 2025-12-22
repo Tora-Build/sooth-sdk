@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/core/SoothFeeController.sol";
@@ -35,7 +35,7 @@ contract RedeployMarketsOnly is Script {
         IERC20 usdc = IERC20(0x2D2Aed066C34523913ab7084B668bFf3529cB176); // Existing USDC
 
         // Deploy Launchpad Factory
-        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0);
         SoothAdjudicatorRegistry adjudicatorRegistry = new SoothAdjudicatorRegistry(deployer);
@@ -73,7 +73,7 @@ contract RedeployMarketsOnly is Script {
         liquidityVault.setAuthorized(address(traderVault), true);
 
         console.log("NEW Market 1 (Alien):", address(market1));
-        console.log("NEW OutcomeToken 1:", address(market1.outcomeToken()));
+        console.log("NEW LaunchpadOutcomeToken 1:", address(market1.outcomeToken()));
 
         // --- Market 2: BTC ---
         (address market2Addr, ) = factory.createMarket(
@@ -90,7 +90,7 @@ contract RedeployMarketsOnly is Script {
         traderVault.setOutcomeToken(address(market2.outcomeToken()), true);
 
         console.log("NEW Market 2 (BTC):", address(market2));
-        console.log("NEW OutcomeToken 2:", address(market2.outcomeToken()));
+        console.log("NEW LaunchpadOutcomeToken 2:", address(market2.outcomeToken()));
 
         vm.stopBroadcast();
     }

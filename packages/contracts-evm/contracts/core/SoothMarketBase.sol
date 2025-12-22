@@ -555,6 +555,12 @@ contract SoothMarketBase is SoothOwnable, ISoothMarketV4 {
 
     /// @notice Finalize resolution with outcome and truth timestamp (T*).
     /// @dev Adjudicator-only. This is the canonical path for Open-End "truth-driven" markets.
+    /// @dev Gotcha: This intentionally does not transfer funds. Settlement payouts are handled via:
+    ///      - LP redemption (`redeemLP`) for liquidity participants
+    ///      - TraderVault redemption / settlement-root claims for traders
+    /// @param _winningOutcome Winning outcome (0 = YES, 1 = NO).
+    /// @param _tStar Truth timestamp (T*). For fixed-end markets this can be set to the resolution time;
+    ///              for open-end markets it should reflect the truth-time used by the adjudicator.
     function finalizeResolution(uint8 _winningOutcome, uint64 _tStar) external onlyAdjudicator {
         require(isLive, "Market: not live");
         require(_winningOutcome < 2, "Market: invalid outcome");

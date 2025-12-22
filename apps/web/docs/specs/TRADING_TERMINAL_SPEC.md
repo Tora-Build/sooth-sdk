@@ -2,6 +2,7 @@
 
 > Reference document for Trading Terminal terminology, labels, and calculations.
 > Aligned with `.agent/KNOWLEDGE.md` as the canonical source of truth.
+> **V7 integration note**: This spec is aligned to the staged V7 dual-engine redesign (`STAGED_V7_DUAL_ENGINE.md`).
 
 ---
 
@@ -88,7 +89,7 @@ TraderTerminal (page)
 || Element | Variable | Notes |
 ||---------|----------|-------|
 || **Label** | "Shares" | Static |
-|| **Lock Info** (Sell) | `lockedAmount`, `hoursRemaining` | Shows if user has locked shares |
+|| **Lock Info** (Sell) | - | **Lock-on-sell**: shares are always tradable; **sell proceeds** are locked for 24h. Show a tooltip: "Sell proceeds are locked. You can still keep trading." |
 || **Available** (Sell) | `maxSellAmount` | User's available balance |
 || **Decrement Button** | `-` | Hold-to-repeat enabled |
 || **Input Field** | `amount` | Numeric, 1 step |
@@ -116,6 +117,15 @@ TraderTerminal (page)
 || **Disabled - Amount** | `amount <= 0` | Button disabled |
 || **Disabled - Sell** | `!canSell` | Button disabled |
 || **Disabled - Status** | `market.status !== 'trading'` | Button disabled |
+
+### 7.1 Safe “Direct Trade” Path (V7)
+
+V7 reintroduces a safe one-call “deposit + trade” UX via `TraderVault.depositAndTradeAMM(...)`. This replaces the old `market.swap()` path (which is disabled).
+
+|| UX Goal | Preferred Call | When |
+||--------|----------------|------|
+|| **One-click Buy/Sell from wallet** | `depositAndTradeAMM(market, outcome, deltaSharesWad, limitWad, depositAmountAsset)` | If user’s Trading Account available balance is insufficient and they have wallet funds |
+|| **Trade from Trading Account** | `tradeAMM(market, outcome, deltaSharesWad, limitWad)` | If user already has sufficient available balance |
 
 ---
 
@@ -207,6 +217,19 @@ quote.newPriceNo     // NO price after trade
 quote.maxWithSlippage // Cost with slippage buffer
 ```
 
+### WAD vs Asset-Decimals (Critical)
+
+- **AMM math + quotes**: WAD (18 decimals)
+  - `deltaSharesWad`, `costWad`, `feeWad`, prices, `ammAssets()`, `totalNetAssets()`, `pureCeilingAssets()`, quoter results
+- **Trading Account (TraderVault) balances**: **asset decimals** (e.g. USDC=6)
+  - `accounts(user).available/pending`, `lockedBalance`, `claimUnlocked` amounts
+- **Market lock amounts & redemption transfers**: **asset decimals**
+  - `market.lockedProceeds(user)`, `market.totalLockedProceeds()`, `market.claimLockedOnMarketEnd()`, `market.redeemLP()` transfers
+- **Scale helpers**:
+  - `market.decimalsScale()` = \(10^{18 - assetDecimals}\)
+  - Convert WAD → asset: `asset = wad / decimalsScale`
+  - Convert asset → WAD: `wad = asset * decimalsScale`
+
 ### Limit Order Collateral
 
 ```typescript
@@ -232,7 +255,7 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 ||------|------|-------------------|
 || Market Info | `useAmmMarket` / `useLaunchpadMarket` | Various market reads |
 || AMM Quote | `useV4Quote` / `useLaunchpadTradeQuote` | `calculateAMMTradeCost()` |
-|| AMM Trade | `useAmmTrade` | `TraderVault.tradeAMM(...)` / `depositAndTradeAMM(...)` |
+|| AMM Trade | `useAmmTrade` | `TraderVault.tradeAMM(...)` / `TraderVault.depositAndTradeAMM(...)` |
 || Orderbook | `useOrderbook` | `orders()`, `bestBid()`, `bestAsk()` |
 || User Orders | `useOrderbook` | Filtered by `msg.sender` |
 
@@ -276,7 +299,7 @@ const withSlippage = totalCost * (1 + slippageBps / 10000);
 
 ## 14. PortfolioView (Per-Market Lock-on-Sell)
 
-> Locking is per-market (Launchpad markets are their own vaults).
+> Locking is per-market (Launchpad markets are their own vaults). Proceeds are locked on **SELL**, not on BUY.
 
 ### Component Structure
 
@@ -288,12 +311,8 @@ PortfolioView
 │   ├── Pending (gray)
 │   └── Total
 ├── AMM Positions Card
-│   ├── UnlockTimer (legacy, may be unused)
-│   ├── YES Shares
-│   └── NO Shares
-└── Orderbook Tokens Card
-    ├── YES Tokens
-    └── NO Tokens
+│   ├── YES Shares (WAD)
+│   └── NO Shares (WAD)
 ```
 
 ### USDC Balance Section
@@ -303,7 +322,7 @@ PortfolioView
 || **💰 USDC Balance** | Header | Static | Card title |
 || **Available** | `availableFormatted` | `useLockedFunds()` | Green text, can withdraw (unless a given UX blocks withdraw while any market has locks) |
 || **🔒 Locked** | `lockedFormatted` | `useLockedFunds()` | Amber text, per-market (or aggregated across markets) |
-|| **Claim Button** | `claimableFormatted` | `useLockedFunds()` | Claims expired locks for the selected market |
+|| **Claim Button** | `claimableFormatted` | `useLockedFunds()` | Claims expired locks for the selected market while market is live |
 || **📋 Pending** | `pendingFormatted` | `useLockedFunds()` | Gray text, reserved for orders |
 || **Total** | `totalFormatted` | `useLockedFunds()` | Sum of all balances |
 
@@ -311,12 +330,13 @@ PortfolioView
 
 || Function | Return Type | Description |
 ||----------|-------------|-------------|
-|| `lockedProceeds(market, user)` | `uint256` | Total locked USDC on that market (proceeds from sells) |
-|| `nextUnlock(market, user)` | `(uint256 amount, uint64 unlockTime)` | Next unlock slot for that market |
-|| `availableBalance(user)` | `uint256` | Free balance for trading/withdraw |
-|| `pendingBalance(user)` | `uint256` | Collateral reserved for orders |
-|| `totalBalance(user)` | `uint256` | Sum of all balances |
-|| `claimUnlocked(market)` | Action | Calls `TraderVaultV4.claimUnlocked(ISoothLiquidityVault(market))` to move unlocked proceeds to available |
+|| `lockedProceeds(market, user)` | `uint256` | Total locked proceeds on that market (asset decimals) |
+|| `nextUnlock(market, user)` | `(uint256 amount, uint64 unlockTime)` | Next unlock slot for that market (asset decimals) |
+|| `availableBalance(user)` | `uint256` | Free balance for trading/withdraw (asset decimals) |
+|| `pendingBalance(user)` | `uint256` | Collateral reserved for orders (asset decimals) |
+|| `totalBalance(user)` | `uint256` | Sum of all balances (asset decimals) |
+|| `claimUnlocked(market)` | Action | Calls `TraderVaultV4.claimUnlocked(ISoothLiquidityVault(market))` to move unlocked proceeds to available (only meaningful while market is live) |
+|| `claimLockedOnMarketEnd(market, maxSteps)` | Action | Calls `LaunchpadMarket.claimLockedOnMarketEnd(maxSteps)` to bypass the timer once the market ends (`!isLive`) |
 
 ### Data Sources
 
@@ -324,7 +344,6 @@ PortfolioView
 ||------|------|----------|
 || Locked/Claimable | `useLockedFunds` | `LaunchpadMarket.lockedProceeds(user)`, `LaunchpadMarket.nextUnlock(user)` + `TraderVaultV4.claimUnlocked(vault)` |
 || AMM Positions | `useBalances` | `TraderVaultV4.ammPositions()` |
-|| Orderbook Tokens | `useBalances` | `OutcomeToken.balanceOf()` |
 
 ### Files
 
@@ -336,4 +355,4 @@ PortfolioView
 
 ---
 
-*Last updated: 2025-12-22 (Per-market locking semantics)*
+*Last updated: 2025-12-22 (V7: safe direct trade + lock-on-sell + market-end lock claiming)*

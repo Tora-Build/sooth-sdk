@@ -1,21 +1,23 @@
 {
-  "version": "6.2.6-megaeth-frontier-1",
-  "lastUpdated": "2025-12-21T23:59:00Z",
-  "status": "MegaETH Frontier fresh redeploy (V6.1.8 stack) - updated canonical configs",
+  "version": "7.0.0-base-sepolia-1",
+  "lastUpdated": "2025-12-22T12:00:00Z",
+  "status": "Base Sepolia V7 Full Stack Redeploy (Dual-Engine + Adjudicators)",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd",
-        "LaunchpadFactory": "0x7D4f70a4A8E5dD888e1F4b36E632F6b704f8ADd9",
+        "MockUSDC": "0x7B61060a98D541f7C26fbC7e215FF9753c8D2a11",
+        "LaunchpadFactory": "0x2C2AdE29b81a6B47Cdd05CcAf06cF10E30d1318C",
         "LaunchpadQuoter": "0xc2B5665F4B3f89770de2e74EEb3073EF87c59ED9",
-        "market1": "0x5D9a6a9AbcE5e2c0Af9ec22a246E713b3975959b",
-        "market1OutcomeToken": "0x5db0707FD9161dc5B01c61d030c08E06310A9d96",
-        "market2": "0xBB1cC536EaFeCC2e74BA68fE9428129f732C2Bc2",
-        "market2OutcomeToken": "0x7627E0e35280cE4C653a62BA09619b428B1c9eB2",
-        "SoothTraderVault": "0x1364d5CCc14251C73823e0291EF57e9EA4b9E673",
-        "SoothLiquidityVault": "0xDE5639BC20a0de20a0bEF2EdDE36b9C5DE79CEfB",
-        "SoothFeeController": "0x3D20145Ec9b15b2AC27292459aB2FaCb3921aCA9"
+        "market1": "0xE467bDC870BC1AEa7401Cc0a3C34ABCcA2c3C64D",
+        "market1OutcomeToken": "0x89F5FF36A6d684B3ba121FFc7437c84a7e453BA5",
+        "market2": "0x5DBe9BB350407c604eDDABa86CbB59514F1A6EfD",
+        "market2OutcomeToken": "0x35aEA513cD336eF7c80FCAD9569B621ACfD17211",
+        "SoothTraderVault": "0x1C70bD3b70B065ACBb5AA81053D7F1aF8CF23045",
+        "SoothLiquidityVault": "0xc0413700c172817897C09b14b5643ee7cCFcf34b",
+        "SoothFeeController": "0xf2b1f87fDb1fb7c447B654647F565ad1A03227c4",
+        "ProtocolConfig": "0xEA0f15e3650AEC0c6DF89Fe8C7443EA47CD4bc88",
+        "SoothAdjudicatorRegistry": "0x4C52a6277b1B84121b3072C0c92b6Be0b7CC10F1"
       }
     },
     "megaethFrontier": {

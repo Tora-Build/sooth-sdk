@@ -5,7 +5,7 @@ import { useActivityStore, ActivityItem } from '../../store/useActivityStore';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useChainStore } from '../../store/useChainStore';
 import { getChainById } from '../../lib/chains';
-import { ExternalLink, ShoppingCart, Coins, Landmark, AlertCircle, History, Filter } from 'lucide-react';
+import { ExternalLink, ShoppingCart, Coins, Landmark, AlertCircle, History, Filter, Shield, Box } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
 
@@ -13,7 +13,7 @@ export const ActivityLog: React.FC = () => {
   const { activities } = useActivityStore();
   const { mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
-  const [filter, setFilter] = useState<'all' | 'trade' | 'liquidity' | 'settle'>('all');
+  const [filter, setFilter] = useState<'all' | 'trade' | 'liquidity' | 'settle' | 'system'>('all');
 
   const chain = getChainById(selectedChainId);
   const explorerUrl = chain?.explorerUrl || 'https://sepolia.basescan.org';
@@ -28,9 +28,10 @@ export const ActivityLog: React.FC = () => {
 
     // Filter by type
     if (filter === 'all') return true;
-    if (filter === 'trade') return item.type === 'trade';
+    if (filter === 'trade') return item.type === 'trade' || item.type === 'orderbook';
     if (filter === 'liquidity') return ['liquidity', 'deposit', 'withdraw', 'claim'].includes(item.type);
-    if (filter === 'settle') return ['settle', 'dispute'].includes(item.type);
+    if (filter === 'settle') return ['settle', 'dispute', 'settlement_root'].includes(item.type);
+    if (filter === 'system') return item.type === 'admin';
     
     return true;
   });
@@ -38,12 +39,15 @@ export const ActivityLog: React.FC = () => {
   const getTypeIcon = (type: ActivityItem['type']) => {
     switch (type) {
       case 'trade': return <ShoppingCart size={14} className="text-emerald-400" />;
+      case 'orderbook': return <Box size={14} className="text-blue-400" />;
       case 'liquidity':
       case 'deposit':
       case 'withdraw':
       case 'claim': return <Coins size={14} className="text-amber-400" />;
-      case 'settle': return <Landmark size={14} className="text-indigo-400" />;
+      case 'settle':
+      case 'settlement_root': return <Landmark size={14} className="text-indigo-400" />;
       case 'dispute': return <AlertCircle size={14} className="text-rose-400" />;
+      case 'admin': return <Shield size={14} className="text-purple-400" />;
       default: return <History size={14} className="text-slate-400" />;
     }
   };
@@ -51,12 +55,15 @@ export const ActivityLog: React.FC = () => {
   const getTypeColor = (type: ActivityItem['type']) => {
     switch (type) {
       case 'trade': return 'bg-emerald-500/10 border-emerald-500/20';
+      case 'orderbook': return 'bg-blue-500/10 border-blue-500/20';
       case 'liquidity':
       case 'deposit':
       case 'withdraw':
       case 'claim': return 'bg-amber-500/10 border-amber-500/20';
-      case 'settle': return 'bg-indigo-500/10 border-indigo-500/20';
+      case 'settle':
+      case 'settlement_root': return 'bg-indigo-500/10 border-indigo-500/20';
       case 'dispute': return 'bg-rose-500/10 border-rose-500/20';
+      case 'admin': return 'bg-purple-500/10 border-purple-500/20';
       default: return 'bg-slate-500/10 border-slate-500/20';
     }
   };
@@ -70,11 +77,11 @@ export const ActivityLog: React.FC = () => {
           <h3 className="font-bold text-white text-sm">Activity Log</h3>
         </div>
         
-        <div className="flex items-center gap-1 bg-slate-950/50 p-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1 bg-slate-950/50 p-1 rounded-lg border border-slate-800 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setFilter('all')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'all' ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -83,7 +90,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('trade')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'trade' ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -92,7 +99,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('liquidity')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'liquidity' ? "bg-amber-500/20 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -101,11 +108,20 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('settle')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'settle' ? "bg-indigo-500/20 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
             SETTLE
+          </button>
+          <button
+            onClick={() => setFilter('system')}
+            className={cn(
+              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              filter === 'system' ? "bg-purple-500/20 text-purple-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            SYSTEM
           </button>
         </div>
       </div>

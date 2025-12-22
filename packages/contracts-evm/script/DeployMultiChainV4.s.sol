@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/launchpad/LaunchpadFactory.sol";
 import "../contracts/launchpad/LaunchpadMarket.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/ProtocolConfig.sol";
@@ -47,10 +47,11 @@ contract MockUSDC is IERC20 {
 /// @dev Run with: forge script script/DeployMultiChainV4.s.sol --rpc-url $RPC --broadcast
 contract DeployMultiChainV4 is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
-        
-        vm.startBroadcast(deployerPrivateKey);
+        // Prefer Foundry CLI flags over env var secrets:
+        // - forge script ... --private-key $PRIVATE_KEY --broadcast
+        // This avoids forcing PRIVATE_KEY to exist in the environment.
+        vm.startBroadcast();
+        address deployer = msg.sender;
 
         console.log("=== V4.5 Multi-Chain Deployment ===");
         console.log("Deployer:", deployer);
@@ -93,7 +94,7 @@ contract DeployMultiChainV4 is Script {
         console.log("\n=== Deploying Launchpad Factory ===");
 
         // Deploy Launchpad components
-        OutcomeToken outcomeTokenImpl = new OutcomeToken();
+        LaunchpadOutcomeToken outcomeTokenImpl = new LaunchpadOutcomeToken();
         LaunchpadMarket marketImpl = new LaunchpadMarket();
         ProtocolConfig protocolConfig = new ProtocolConfig(deployer, 0); // 0% liquidation fee
         SoothAdjudicatorRegistry adjudicatorRegistry = new SoothAdjudicatorRegistry(deployer);

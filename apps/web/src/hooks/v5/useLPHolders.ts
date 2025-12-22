@@ -1,7 +1,7 @@
 import { usePublicClient, useReadContracts } from 'wagmi';
 import { useMemo, useState, useEffect } from 'react';
-import { LAUNCHPAD_MARKET_ABI } from '../../config/abis';
-import { parseAbiItem } from 'viem';
+import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
+import { parseAbiItem, getAddress } from 'viem';
 
 export interface LPHolder {
     address: `0x${string}`;
@@ -25,9 +25,9 @@ export function useLPHolders(marketAddress?: `0x${string}`, creatorAddress?: `0x
             setIsLoadingEvents(true);
             try {
                 // Get Transfer events (ERC20 standard)
-                // Limit block range to avoid RPC errors on Base Sepolia
                 const currentBlock = await publicClient.getBlockNumber();
-                const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n;
+                // Base Sepolia often has a 50k block limit for getLogs
+                const fromBlock = currentBlock > 40000n ? currentBlock - 40000n : 0n;
 
                 const logs = await publicClient.getLogs({
                     address: marketAddress,
@@ -36,23 +36,28 @@ export function useLPHolders(marketAddress?: `0x${string}`, creatorAddress?: `0x
                     toBlock: 'latest',
                 });
 
-                // Extract unique "to" addresses (excluding zero address for burns)
-                const uniqueHolders = new Set<`0x${string}`>();
+                // Extract unique "to" addresses
+                const uniqueHolders = new Set<string>();
+                
+                // Always add creator
+                if (creatorAddress) {
+                    uniqueHolders.add(creatorAddress.toLowerCase());
+                }
+
                 logs.forEach(log => {
-                    const to = log.args.to as `0x${string}`;
+                    const to = log.args.to as string;
                     if (to && to !== '0x0000000000000000000000000000000000000000') {
-                        uniqueHolders.add(to);
+                        uniqueHolders.add(to.toLowerCase());
                     }
                 });
 
-                // Also add creator if known
-                if (creatorAddress) {
-                    uniqueHolders.add(creatorAddress);
-                }
-
-                setHolderAddresses(Array.from(uniqueHolders));
+                setHolderAddresses(Array.from(uniqueHolders).map(addr => getAddress(addr)));
             } catch (error) {
                 console.error('Error fetching LP holders:', error);
+                // Fallback: at least show creator
+                if (creatorAddress) {
+                    setHolderAddresses([getAddress(creatorAddress)]);
+                }
             } finally {
                 setIsLoadingEvents(false);
             }
@@ -61,12 +66,12 @@ export function useLPHolders(marketAddress?: `0x${string}`, creatorAddress?: `0x
         fetchHolders();
     }, [marketAddress, publicClient, creatorAddress]);
 
-    // Build contract calls to fetch balances for all discovered holders
+    // Build contract calls to fetch balances
     const balanceContracts = useMemo(() => {
         if (!marketAddress || !holderAddresses.length) return [];
         return holderAddresses.map(addr => ({
             address: marketAddress,
-            abi: LAUNCHPAD_MARKET_ABI,
+            abi: ERC20_ABI, // Use standard ERC20 for better compatibility
             functionName: 'balanceOf' as const,
             args: [addr],
         }));

@@ -153,7 +153,7 @@ export const VaultPositionsCard: React.FC = () => {
             variant="indigo"
             badge={
                 <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-widest">
-                    {vaultPositions.length} active
+                    {vaultPositions.length} margin positions
                 </span>
             }
             itemCount={vaultPositions.length}

@@ -1,7 +1,15 @@
-# Launchpad Frontend Specification (Dual-Engine + Adjudicator Settlement)
+# Launchpad Frontend Specification (V7 Dual-Engine + Adjudicator Settlement)
 
 ## 1. Overview
-The **Sooth Launchpad V6** introduces a permissionless market creation flow inspired by "pump.fun", allowing any user to deploy a prediction market. These markets start with a bonding curve liquidity model (accruing fees to liquidity) and "graduate" to post-graduation phase upon reaching a liquidity threshold. All markets are Launchpad markets—there are no separate "standard markets" (see ADR-016).
+The **Sooth Launchpad (V6+ / staged V7)** introduces a permissionless market creation flow inspired by "pump.fun", allowing any user to deploy a prediction market. These markets start with a bonding curve liquidity model (accruing fees to liquidity) and "graduate" to post-graduation phase upon reaching a liquidity threshold. All markets are Launchpad markets—there are no separate "standard markets" (see ADR-016).
+
+**V7 doctrine (must always hold)**:
+- **Dual-engine separation**
+  - **AMM (LMSR)**: updates `qYes/qNo`; trades create internal AMM positions only.
+  - **Orderbook (OB)**: produces fully-collateralized complete-set tokens; OB fills must not mutate LMSR state.
+- **No direct swap**: `LaunchpadMarket.swap()` is intentionally disabled (reverts).
+- **Adjudicator-only settlement**: market resolution is only via `finalizeResolution(outcome, tStar)` called by `market.adjudicator()`.
+- **No creator-only refunds**: expiry/failure redemption uses pro-rata LP redemption (`redeemLP`).
 
 **Current Key Features**:
 - **Pre-Graduation Locking**: All sell proceeds are locked (24h) during pre-graduation phase
@@ -44,13 +52,18 @@ The V6 Launchpad uses a **Dual Venue** model.
 
 #### Interactions
 1. **Approve USDC**: User must approve Factory to spend `tierDeposit`.
-2. **Create Market**: Call `factory.createMarket(...)`.
-   - **V6**: Returns `(market, address(0))` (no separate lpVault - market is its own vault)
+2. **Create Market**: Call `factory.createMarket(..., marketAdjudicator)`.
+   - **V7**: `marketAdjudicator` is an address. `address(0)` uses the factory default. Non-zero must be allowlisted by `factory.adjudicatorRegistry()`.
+   - Returns `(market, address(0))` (no separate lpVault - market is its own vault)
    - **Events**: Listen for `MarketCreated(market, creator, lpVault, ...)` to redirect user to the new market page.
 
 #### Data Requirements
-- `factory.tierDeposits(index)`: Fetch required USDC for selected tier.
-- `factory.tierBValues(index)`: Display initial liquidity depth.
+- Prefer view helpers:
+  - `factory.getRequiredDeposit(tierIndex)` (asset decimals; typically USDC=6)
+  - `factory.getLiquidityB(tierIndex)` (WAD 18)
+- Adjudicator config:
+  - `factory.defaultAdjudicator()`
+  - `factory.adjudicatorRegistry()`
 
 ---
 
@@ -87,6 +100,8 @@ Display specialized badges based on state:
   - Show unlock countdown for next available proceeds
   - "Use Locked Proceeds" option when buying (calls `useLockedProceeds()`)
   - "Claim Unlocked" button when proceeds are available
+- **Stage 1 UX**: Once the market ends (`!isLive`), show “Claim Locked (Market End)” which calls:
+  - `market.claimLockedOnMarketEnd(maxSteps)` (bypasses the timer; claims in batches)
 - **Orderbook**: Available for post-graduation Launchpad markets only (activated after graduation).
 
 ---
@@ -211,6 +226,8 @@ function useLaunchpadFactory() {
   return {
     tierDeposits: bigint[];      // 4 tiers
     tierBValues: bigint[];       // 4 tiers
+    defaultAdjudicator: `0x${string}`;
+    adjudicatorRegistry: `0x${string}`;
     createMarket: (params) => Promise<void>;
     isCreatePending: boolean;
   };
@@ -227,30 +244,51 @@ function useLaunchpadMarket(address: `0x${string}`) {
     deadline: number;
     creator: `0x${string}`;
     isLive: boolean;
-    feesAccrued: bigint;         // Track accumulated fees (18 decimals)
-    totalAssets: bigint;         // Gross USDC in vault (6 decimals)
-    totalNetAssets: bigint;      // V6.1.8: Floor Equity (6 decimals)
-    totalLockedProceeds: bigint; // V6: Total locked proceeds (6 decimals)
-    totalSupply: bigint;         // LP token supply (18 decimals)
-    totalCreatorDeposit: bigint; // Creator's initial deposit (6 decimals)
+    // Settlement (V7)
+    adjudicator: `0x${string}`;
+    tStar: number;
+
+    // AMM accounting (WAD 18)
+    feesAccruedWad: bigint;
+    ammAssetsWad: bigint;
+    pureCeilingAssetsWad: bigint;
+    totalNetAssetsWad: bigint;  // Honest Floor (WAD)
+    totalSupplyWad: bigint;     // LP supply (WAD)
+
+    // Asset-decimal views (e.g. USDC=6)
+    assetDecimals: number;
+    decimalsScale: bigint;      // 10^(18-assetDecimals)
+    totalAssets: bigint;        // cash balance (asset decimals)
+    totalLockedProceeds: bigint;// asset decimals
+    totalCreatorDeposit: bigint;// asset decimals
     // Outcome Token Supplies (for liability calculation)
     qYes: number;                // Total YES shares outstanding
     qNo: number;                 // Total NO shares outstanding
     // V6 Locking
-    lockedProceeds: bigint;      // User's locked proceeds
+    lockedProceeds: bigint;      // User's locked proceeds (asset decimals)
     nextUnlockTime: number | null;
     useLockedProceeds: (amount: bigint) => Promise<void>;
     claimUnlocked: () => Promise<void>;
+    claimLockedOnMarketEnd: (maxSteps: bigint) => Promise<void>;
     // LP Value
     userLpBalance: bigint;       // User's LP token balance
     userLpValue: bigint;         // User's Protected Equity (floor value)
     // Actions
     graduate: () => void;
     expire: () => void;
-    claimCreatorRefund: () => void;
+    redeemLP: (amountWad: bigint) => void;
+    previewRedeemLP: (amountWad: bigint) => Promise<bigint>; // returns asset decimals
   };
 }
 ```
+
+### 3.2.0 Decimal Conventions (Do not mix)
+
+- **WAD (18)**: prices, AMM shares, `ammAssets()`, `totalNetAssets()`, `pureCeilingAssets()`, LP supply/balances.
+- **Asset decimals** (e.g. USDC=6): `totalAssets()`, all lock amounts, and transfers in `redeemLP()` / `claimLockedOnMarketEnd()`.
+- **Scale**: `decimalsScale = 10^(18 - assetDecimals)`
+  - Convert WAD → asset: `asset = wad / decimalsScale`
+  - Convert asset → WAD: `wad = asset * decimalsScale`
 
 ### 3.2.1 useLockedProceeds Hook (V6)
 ```typescript
@@ -310,13 +348,13 @@ function useLPHolders(marketAddress: `0x${string}`) {
 
 ### 3.6 ABIs
 Located in `apps/web/src/config/abis.ts`:
-- `LAUNCHPAD_FACTORY_ABI` - V6: Includes `protocolConfig()` view
+- `LAUNCHPAD_FACTORY_ABI` - V7: `createMarket(..., marketAdjudicator)` + `defaultAdjudicator()` + `adjudicatorRegistry()`
 - `LAUNCHPAD_MARKET_ABI` - Launchpad market views + LP vault interface
-  - `totalNetAssets()` - Floor Equity
-  - `totalAssets()` - Gross USDC
+  - `ammAssets()` / `totalNetAssets()` / `pureCeilingAssets()` - AMM ledger in WAD
+  - `totalAssets()` - cash balance (asset decimals)
   - `totalSupply()` - LP token supply
-  - `lockedProceeds()`, `totalLockedProceeds()`, `claimUnlocked()`
-- `TRADER_VAULT_ABI` - AMM + Orderbook entrypoint (includes `tradeAMM` / `depositAndTradeAMM`)
+  - `lockedProceeds()`, `totalLockedProceeds()`, `claimLockedOnMarketEnd()`, `decimalsScale()`
+- `TRADER_VAULT_ABI` - AMM + Orderbook entrypoint (includes `tradeAMM` / `depositAndTradeAMM`, and Stage 3 settlement root claims)
 - `OUTCOME_TOKEN_ABI` - V6.1.8: Includes `totalSupply(uint256)` for liability tracking
 - `PROTOCOL_CONFIG_ABI` - V6: For guardian and liquidation fee configuration
 
@@ -327,9 +365,10 @@ Located in `apps/web/src/config/abis.ts`:
 - **No Direct Swap**: `market.swap()` is disabled to preserve the AMM/Orderbook boundary
   - Approve USDC to `TraderVault`
   - AMM trades go through `TraderVault` and update internal AMM positions (no ERC1155 mint/burn)
-- **Honest Accounting**: `totalNetAssets()` returns Floor Equity
-  - Formula: `Cash - Locked - Max(qYES, qNO)`
-  - Used for LP ExRate and redemption value
+- **Honest AMM Accounting (WAD)**:
+  - `ammAssets()` returns pure AMM ledger in WAD.
+  - `totalNetAssets()` returns the **Honest Floor** in WAD: `ammAssets - max(qYes, qNo)` (virtual liability).
+  - `totalAssets()` / lock amounts remain in asset-decimals and are used for actual transfers (e.g., `redeemLP`).
 - **Safe Parity Minting**: LP rewards capped at 1:1 when pool is thin
   - Prevents trillion-LP explosions from precision gaps
 - **Price Cap Guardrail**: `require(cost <= shares)` in `swap()`
@@ -411,7 +450,7 @@ Located in `apps/web/src/config/abis.ts`:
 1. Check `nextUnlockTime <= block.timestamp`
 2. Show "Claim Unlocked Proceeds" button
 3. Display available amount
-4. Call `market.claimUnlocked()` directly
+4. Call `TraderVault.claimUnlocked(market)` (the market’s `claimUnlocked(user, recipient)` is authorized for TraderVault, not direct EOAs)
 
 ---
 
@@ -423,10 +462,10 @@ Located in `apps/web/src/config/abis.ts`:
 | `components/features/market/AmmTradingPanel.tsx` | Unified trading UI component |
 | `components/features/market/LPLeaderboardCard.tsx` | LP holders display |
 | `hooks/v5/useLaunchpadMarket.ts` | Market data fetching (includes `totalNetAssets`) |
-| `hooks/v5/useLaunchpadSwap.ts` | Direct swap execution with approval management |
+| `hooks/v5/useLaunchpadSwap.ts` | **Do not use** in V7 (direct `market.swap()` is disabled) |
 | `hooks/v5/useLPHolders.ts` | LP holder discovery via event logs |
 | `hooks/v5/useLaunchpadTradeQuote.ts` | Quote calculation with fee split |
 
 ---
 
-*Last updated: 2025-12-22 (Adjudicator settlement + AMM via TraderVault; direct swap disabled)*
+*Last updated: 2025-12-22 (V7 staged integration: adjudicator registry, safe direct trade, market-end lock claiming, settlement-root claim surfaces)*

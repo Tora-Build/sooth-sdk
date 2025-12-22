@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/core/SoothTraderVaultV4.sol";
 import "../contracts/core/SoothMarketBase.sol";
-import "../contracts/core/OutcomeToken.sol";
+import "../contracts/launchpad/LaunchpadOutcomeToken.sol";
 import "../contracts/core/SoothLiquidityVault.sol";
 import "../contracts/core/SoothFeeController.sol";
 import "../contracts/core/SoothInterfaces.sol";
@@ -42,10 +42,10 @@ contract MockUSDC is IERC20 {
 /// @notice Deploy V4 infrastructure contracts only (Phase 1)
 contract DeployV4Infra is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
-        
-        vm.startBroadcast(deployerPrivateKey);
+        // Prefer Foundry CLI flags over env var secrets:
+        // - forge script ... --private-key $PRIVATE_KEY --broadcast
+        vm.startBroadcast();
+        address deployer = msg.sender;
 
         console.log("=== Phase 1: Deploy V4 Infrastructure ===");
         console.log("Deployer:", deployer);

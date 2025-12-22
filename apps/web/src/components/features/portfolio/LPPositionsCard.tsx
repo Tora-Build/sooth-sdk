@@ -13,7 +13,7 @@ export const LPPositionsCard: React.FC = () => {
 
     return (
         <PortfolioCard
-            title={t.title}
+            title="LP Equity"
             icon={<Coins size={16} className="text-emerald-400" />}
             variant="emerald"
             badge={
@@ -22,7 +22,7 @@ export const LPPositionsCard: React.FC = () => {
                         {isLoading && positions.length === 0 ? '--' : formatCurrency(totalValueNum)}
                     </div>
                     <div className="text-[7px] text-slate-500 font-black uppercase tracking-tighter leading-none mt-0.5">
-                        {t.floorTotal}
+                        AMM Rewards
                     </div>
                 </div>
             }

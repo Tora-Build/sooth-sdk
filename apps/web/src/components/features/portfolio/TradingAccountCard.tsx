@@ -106,7 +106,7 @@ export const TradingAccountCard: React.FC = () => {
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <div className="text-[10px] text-indigo-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
-              Orderbook Account
+              Trading Account
               <button
                 onClick={handleRefresh}
                 className="text-slate-600 hover:text-indigo-400 transition-colors"
@@ -129,6 +129,9 @@ export const TradingAccountCard: React.FC = () => {
 
             {/* Action Buttons Grid */}
             <div className="flex flex-col gap-2">
+              <div className="text-[9px] text-indigo-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
+                Unified Collateral • Professional Execution
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   size="sm"

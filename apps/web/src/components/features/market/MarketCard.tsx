@@ -35,7 +35,12 @@ export const MarketCard = ({
     bBase: hookBBase, 
     graduationThreshold: hookGraduationThreshold,
     pureFloor,
-    totalLockedProceeds
+    totalLockedProceeds,
+    decimals,
+    adjudicator,
+    isSettled,
+    winningOutcome,
+    tStar
   } = useLaunchpadMarket(
     (prefetchedMarket || propBBase) ? undefined : address
   );
@@ -81,7 +86,11 @@ export const MarketCard = ({
             ) : (
               <div className="h-4 w-12 bg-slate-700/30 rounded" />
             )}
-            {isGraduated ? (
+            {isSettled ? (
+              <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/50">
+                ⚖️ Settled
+              </Badge>
+            ) : isGraduated ? (
               <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
                 🎓 Graduated
               </Badge>
@@ -92,6 +101,11 @@ export const MarketCard = ({
             ) : (
               <Badge className="text-[10px] bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
                 🔥 Bonding
+              </Badge>
+            )}
+            {adjudicator && (
+              <Badge variant="secondary" className="text-[9px] bg-slate-800/50 text-slate-500 border-slate-700/50 py-0 h-4">
+                ⚖️ {adjudicator.slice(0, 4)}...{adjudicator.slice(-2)}
               </Badge>
             )}
           </div>
@@ -143,15 +157,15 @@ export const MarketCard = ({
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Liquidity Depth: LMSR parameter controlling price impact">
               <Zap className="w-3 h-3 text-cyan-400" />
-              <span className="font-mono">${liquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="font-mono">${(Number(effectiveB || 0n) / (10 ** 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Floor Equity: Guaranteed minimum LP value (worst-case)">
               <Shield className="w-3 h-3 text-emerald-400" />
-              <span className="font-mono">${(Number(pureFloor || 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="font-mono">${(Number(pureFloor || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Locked Proceeds: User funds in 24h cooling period">
               <Lock className="w-3 h-3 text-amber-400" />
-              <span className="font-mono">${(Number(totalLockedProceeds || 0n) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="font-mono">${(Number(totalLockedProceeds || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
           </div>
 
@@ -165,7 +179,19 @@ export const MarketCard = ({
           )}
         </div>
         
-        {deadline && !isGraduated && (
+        {isSettled ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-[10px] text-slate-500">
+              <Shield className="w-3 h-3 text-amber-400" />
+              <span>Winner: <span className={winningOutcome === 0 ? "text-emerald-400" : "text-rose-400"}>{winningOutcome === 0 ? 'YES' : 'NO'}</span></span>
+            </div>
+            {tStar && (
+              <div className="text-[9px] text-slate-500 font-mono">
+                T*: {new Date(tStar * 1000).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        ) : deadline && !isGraduated && (
           <div className="flex items-center gap-1 text-[10px] text-slate-500">
             <Clock className="w-3 h-3" />
             <span>Deadline: {new Date(Number(deadline) * 1000).toLocaleDateString()}</span>

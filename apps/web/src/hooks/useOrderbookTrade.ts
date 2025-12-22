@@ -334,7 +334,7 @@ export function useOrderbookTrade(marketId: string) {
         costSigned: costSigned.toString()
       });
 
-      // v3: Check available balance for Buys
+      // V7: Check available balance for Buys
       if (isBuy) {
         const { data: latestData } = await refetchBalance();
         const rawBalanceLatest = (latestData?.[0]?.result as bigint) || 0n;
@@ -345,7 +345,7 @@ export function useOrderbookTrade(marketId: string) {
           throw new Error(`Insufficient balance. Need ${(Number(limitValue) / 1e18).toFixed(2)} USDC, have ${(Number(balance) / 1e18).toFixed(2)} USDC.`);
         }
       } else {
-        // v3: Check holdngs for Sells
+        // V7: Check holdings for Sells
         // Note: strict check might fail if data is stale, but better than revert on-chain
         const userShares = market ? (outcome === 0 ? market.userYesShares : market.userNoShares) : 0;
         if (Number(amount) > (userShares || 0)) {

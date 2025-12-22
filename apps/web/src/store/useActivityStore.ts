@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export interface ActivityItem {
   id: string;
-  type: 'trade' | 'settle' | 'dispute' | 'liquidity' | 'deposit' | 'withdraw' | 'claim';
+  type: 'trade' | 'orderbook' | 'settle' | 'dispute' | 'liquidity' | 'deposit' | 'withdraw' | 'claim' | 'settlement_root' | 'admin';
   market: string;
   description: string;
   time: string;

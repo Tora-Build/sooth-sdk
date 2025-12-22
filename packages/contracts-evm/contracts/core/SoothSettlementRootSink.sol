@@ -6,6 +6,9 @@ import {ISoothMarketV4} from "../interfaces/ISoothMarketV4.sol";
 
 /// @notice Minimal Merkle proof verifier (sorted pairs).
 library SoothMerkleProof {
+    /// @notice Verifies a Merkle proof for `leaf` against `root` using sorted-pair hashing.
+    /// @dev The tree is constructed such that for each step the pair is sorted (`a <= b`) before hashing.
+    ///      This removes left/right ambiguity in proofs at the cost of requiring sorted pair construction.
     function verify(bytes32[] memory proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {
         bytes32 computed = leaf;
         for (uint256 i = 0; i < proof.length; i++) {
@@ -37,6 +40,8 @@ contract SoothSettlementRootSink is Ownable {
 
     constructor(address owner_) Ownable(owner_) {}
 
+    /// @notice Allow or disallow an address to submit roots (in addition to the market adjudicator).
+    /// @dev Intended for ZK provers / operators that post finalized batches.
     function setProver(address prover, bool allowed) external onlyOwner {
         isProver[prover] = allowed;
         emit ProverSet(prover, allowed);
@@ -44,6 +49,7 @@ contract SoothSettlementRootSink is Ownable {
 
     /// @notice Submit a settlement Merkle root for a market/batch.
     /// @dev Only the market's adjudicator or an authorized prover may submit.
+    /// @dev `batchId` is an opaque identifier (e.g. epoch, block range, or external proof id).
     function submitRoot(address market, bytes32 batchId, bytes32 root) external {
         require(root != bytes32(0), "Sink: zero root");
         require(roots[market][batchId] == bytes32(0), "Sink: root exists");
@@ -57,6 +63,8 @@ contract SoothSettlementRootSink is Ownable {
     }
 
     /// @notice Claim against a settlement root (verification + event only).
+    /// @dev Leaf format must match the producer:
+    ///      `leaf = keccak256(abi.encodePacked(market, account, pnlWad, batchId))`.
     /// @param pnlWad Signed delta in WAD (18 decimals) for this account.
     /// @param proof Merkle proof for leaf = keccak256(market, account, pnlWad, batchId).
     function claim(address market, bytes32 batchId, int256 pnlWad, bytes32[] calldata proof) external {

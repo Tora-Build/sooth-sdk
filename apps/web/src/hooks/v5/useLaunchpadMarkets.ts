@@ -39,15 +39,14 @@ export function useLaunchpadMarkets() {
     
     const addresses = (marketAddresses as `0x${string}`[]) || [];
 
-    // 2. Combined V6 Check + Market Details
+    // 2. Combined V7 Check + Market Details
     const combinedContracts = useMemo(() => {
         if (!addresses.length) return [];
         return addresses.flatMap(addr => [
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'totalLockedProceeds' as const },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lpVault' as const },
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' as const },
             { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' as const },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' as const }
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' as const },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'adjudicator' as const }
         ]);
     }, [addresses]);
     
@@ -57,39 +56,36 @@ export function useLaunchpadMarkets() {
         query: { enabled: addresses.length > 0 && !!chainId, refetchInterval: 30000 }
     });
 
-    // Filter to only V6 markets and extract details
-    const v6Markets = useMemo(() => {
+    // Extract details for V7 markets
+    const v7Markets = useMemo(() => {
         if (!addresses.length || !combinedData) return [];
         
         return addresses.map((addr, i) => {
-            const baseIdx = i * 5;
-            const totalLockedResult = combinedData[baseIdx];
-            const lpVaultResult = combinedData[baseIdx + 1];
-            const outcomeTokenResult = combinedData[baseIdx + 2];
-            const isGraduatedResult = combinedData[baseIdx + 3];
-            const deadlineResult = combinedData[baseIdx + 4];
+            const baseIdx = i * 4;
+            const outcomeTokenResult = combinedData[baseIdx];
+            const isGraduatedResult = combinedData[baseIdx + 1];
+            const deadlineResult = combinedData[baseIdx + 2];
+            const adjudicatorResult = combinedData[baseIdx + 3];
 
-            // V6 check: no error on totalLockedProceeds AND lpVault returns zero
-            const isV6 = !totalLockedResult?.error && 
-                         lpVaultResult?.result === '0x0000000000000000000000000000000000000000';
-
-            if (!isV6) return null;
+            // If we can't even get the outcome token, it's probably not a valid V7 market
+            if (!outcomeTokenResult?.result || outcomeTokenResult.error) return null;
 
             return {
                 address: addr,
-                outcomeToken: outcomeTokenResult?.result as `0x${string}`,
+                outcomeToken: outcomeTokenResult.result as `0x${string}`,
                 isGraduated: !!isGraduatedResult?.result,
-                deadline: Number(deadlineResult?.result || 0)
+                deadline: Number(deadlineResult?.result || 0),
+                adjudicator: adjudicatorResult?.result as `0x${string}`
             };
         }).filter((m): m is NonNullable<typeof m> => m !== null);
     }, [addresses, combinedData]);
 
-    const v6MarketAddresses = useMemo(() => v6Markets.map(m => m.address), [v6Markets]);
+    const v7MarketAddresses = useMemo(() => v7Markets.map(m => m.address), [v7Markets]);
 
     // 3. Extract Token Addresses to fetch Name/Symbol from LaunchpadOutcomeToken
     const tokenCalls = useMemo(() => {
-        if (!v6Markets.length) return [];
-        return v6Markets.flatMap(m => {
+        if (!v7Markets.length) return [];
+        return v7Markets.flatMap(m => {
             const tokenAddr = m.outcomeToken;
             const effectiveAddr = (tokenAddr && tokenAddr !== '0x0000000000000000000000000000000000000000') ? tokenAddr : undefined;
             return [
@@ -97,7 +93,7 @@ export function useLaunchpadMarkets() {
                 { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol' }
             ];
         });
-    }, [v6Markets]);
+    }, [v7Markets]);
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
@@ -107,7 +103,7 @@ export function useLaunchpadMarkets() {
 
     // 4. Transform and Merge
     const markets: LaunchpadMarketData[] = useMemo(() => {
-        return v6Markets.map((m, i) => {
+        return v7Markets.map((m, i) => {
             const nameResult = tokenData?.[i * 2];
             const symbolResult = tokenData?.[i * 2 + 1];
 
@@ -123,7 +119,7 @@ export function useLaunchpadMarkets() {
                 chainId: chainId
             };
         }).reverse();
-    }, [v6Markets, tokenData, isLoadingTokenData, chainId]);
+    }, [v7Markets, tokenData, isLoadingTokenData, chainId]);
 
     return {
         markets,

@@ -2,7 +2,33 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [7.0.0] - 2025-12-22
+
+### Added
+- **V7 Dual-Engine Stack**: Full deployment on Base Sepolia.
+- **Separated Orderbook & AMM**: Collateralized complete sets (OB) vs. price anchor (AMM).
+- **Adjudicator-Gated Settlement**: Unified settlement logic via `SoothAdjudicatorRegistry`.
+- **Lock-on-Sell**: Real-time share trading with 24h locked proceeds.
+- **TraderVault V4**: Safe `depositAndTradeAMM` path and unified asset accounting.
+- **ProtocolConfig & Adjudicators**: Manual, Optimistic, and Brevis-ready adjudicator scaffolding.
+
+### Changed
+- **Breaking**: `market.swap()` disabled in favor of `TraderVault.depositAndTradeAMM()`.
+- **Breaking**: `market.claimUnlocked()` replaced by `TraderVault.claimUnlocked(market)`.
+- **Breaking**: Market creation now requires an explicit `marketAdjudicator`.
+
 ## [Unreleased]
+
+### Changed
+- **Librarian Cleanup** (2025-12-22):
+  - **Deleted** orphaned root-level `lib/` folder (~1,770 duplicate files)
+  - **Deleted** empty `archive/` directory
+  - **Archived** stale audit docs (`AUDIT_FIXES_SUMMARY.md`, `AUDIT_REPORT.md`) to `docs_archive/`
+  - **Moved** research docs (`CREATOR_VAULT_LIFECYCLE_FLOW.md`, `LP_TOKEN_DESIGN_ANALYSIS.md`) to `packages/contracts-evm/docs/research/`
+  - **Moved** `MONEY_FLOW_DIAGRAM.md` to `packages/contracts-evm/docs/core/`
+  - **Archived** duplicate issues from `apps/web/docs/issues/` and `packages/contracts-evm/docs/issues/solved/` to `docs_archive/issues/`
+  - **Updated** `.agent/KNOWLEDGE.md` from V4.6 to V6.2.7 reality
+  - **Updated** `README.md` with V6 Launchpad architecture
 
 ### Fixed
 - **MarketCard Locked Proceeds Bug** (2025-12-21):
@@ -58,6 +84,15 @@ All notable changes to Sooth Protocol will be documented in this file.
   - Changed market deadline from `90 days` → `5 days` in `DeployMultiChainV4.s.sol`
 
 ### Added
+- **Alpha Codebase Purge (2025-12-22)**:
+  - **Contracts**: Deleted unreferenced `archive/contracts-evm` duplicate snapshot.
+  - **Contracts**: Pruned accidental script duplicates (`* 2.sol`, `verify-deployment 2.sh`) and backup test files.
+  - **Contracts**: Removed legacy discrete LMSR math (`TickMath.sol`, `TickLMSR.sol`) and unused interfaces (`ITickCostRegistry.sol`, `ITimeLock.sol`, `IYieldStrategy.sol`).
+  - **Contracts**: Deleted redundant `OutcomeToken.sol` and superseded `MarketLPVault_V5.sol`.
+  - **Frontend**: Deleted legacy `src/config/solana` and unreferenced V3/early-V4 ABIs.
+  - **Frontend**: Removed empty legacy directories (`components/features/operator`, `components/features/launchpad` cleanup, `_archive/v4`).
+  - **Frontend**: Cleaned up `abis.ts` by removing 10+ unused legacy ABI exports.
+  - **Frontend**: Pruned legacy maintenance scripts (`calc_fee.ts`, `debug-market-state.mjs`).
 - **V6.2.5 Pure Trading Account Model** (2025-12-21):
   - **Abandoned Wallet Token Support**: Completely removed all UI and logic for wallet-held ERC1155 tokens in the current dApp version. The dApp now ignores on-chain tokens to focus on the custodial Trading Account.
   - **Inventory Management Hub**: Restored the Merge/Split interface, strictly anchored to the **Trading Account (Vault)** context. Added a dedicated management hub in the Portfolio card.

@@ -2,6 +2,7 @@
 
 > Reference document for Activity Log terminology, labels, and data structure.
 > Aligned with `.agent/KNOWLEDGE.md` as the canonical source of truth.
+> **V7 integration note**: Activity should reflect both dual-engine trading (AMM + OB) and staged V7 lifecycle/settlement actions.
 
 ---
 
@@ -32,7 +33,8 @@ ActivityLog
 | **All** | `activity.filterAll` | All types |
 | **Trade** | `activity.filterTrade` | `type === 'trade'` |
 | **LP** | `activity.filterLP` | `type === 'liquidity'` |
-| **Resolve** | `activity.filterSettle` | `type === 'settle' \|\| 'dispute'` |
+| **Resolve** | `activity.filterSettle` | `type === 'settle' \|\| type === 'dispute'` |
+| **System** | `activity.filterSystem` | `type === 'lock' \|\| type === 'settlement_root' \|\| type === 'admin'` |
 
 ---
 
@@ -43,9 +45,13 @@ ActivityLog
 | Type | Color |
 |------|-------|
 | `trade` | Emerald (green) |
+| `orderbook` | Teal (cyan) |
 | `settle` | Indigo (blue) |
 | `dispute` | Rose (red) |
 | `liquidity` | Amber (yellow) |
+| `lock` | Orange (amber/rose blend) |
+| `settlement_root` | Violet (purple) |
+| `admin` | Slate (gray) |
 
 ### Display Elements
 
@@ -64,14 +70,16 @@ ActivityLog
 interface ActivityItem {
   id: string;           // Unique identifier
   // NOTE: "settle" here corresponds to market resolution (Settled event / finalizeResolution()).
-  type: 'trade' | 'liquidity' | 'settle' | 'dispute';
+  type: 'trade' | 'orderbook' | 'liquidity' | 'lock' | 'settle' | 'dispute' | 'settlement_root' | 'admin';
   description: string;  // Human-readable description
   market: string;       // Market name
+  marketAddress?: `0x${string}`; // Optional (real mode)
   time: string;         // Formatted time
   timestamp: number;    // Unix timestamp
   hash?: string;        // Transaction hash (optional)
   mode: 'demo' | 'real';
   chainId?: number;     // For real mode
+  metadata?: Record<string, unknown>; // Optional structured details for drilldowns
 }
 ```
 
@@ -133,6 +141,17 @@ addActivity({
   timestamp: Date.now()
 });
 
+// Orderbook activity
+addActivity({
+  type: 'orderbook',
+  market: 'BTC 7-day TWAP >= $100k',
+  description: 'Placed limit bid: 100 YES @ $0.48',
+  mode: 'real',
+  hash: '0xabc...',
+  chainId: 84532,
+  timestamp: Date.now()
+});
+
 // Liquidity activity
 addActivity({
   type: 'liquidity',
@@ -140,6 +159,17 @@ addActivity({
   description: 'Deposited 1000 USDC',
   mode: 'real',
   hash: '0x456...',
+  chainId: 84532,
+  timestamp: Date.now()
+});
+
+// Locking activity (V7 lock-on-sell)
+addActivity({
+  type: 'lock',
+  market: 'BTC 7-day TWAP >= $100k',
+  description: 'Sell proceeds locked: $23.19 (unlocks in 24h)',
+  mode: 'real',
+  hash: '0xdef...',
   chainId: 84532,
   timestamp: Date.now()
 });
@@ -154,11 +184,49 @@ addActivity({
   chainId: 84532,
   timestamp: Date.now()
 });
+
+// Settlement root activity (V7 Stage 2/3)
+addActivity({
+  type: 'settlement_root',
+  market: 'UN Confirms Alien Life',
+  description: 'Settlement root published (batch 0x…); claim available',
+  mode: 'real',
+  hash: '0x999...',
+  chainId: 84532,
+  timestamp: Date.now()
+});
 ```
 
 ---
 
-## 9. Files
+## 9. V7 Event → Activity Mapping (Recommended)
+
+> This is a mapping for `ActivityListener.tsx` / indexers. Not all events may be wired in UI yet.
+
+- **AMM trades**
+  - `LaunchpadMarket.TradeAMM` → `type: 'trade'`
+- **Orderbook**
+  - `OrderCreated` → `type: 'orderbook'` (“Placed bid/ask…”)
+  - `OrderMatched` → `type: 'orderbook'` (“Filled …”)
+  - `OrderCancelled` → `type: 'orderbook'` (“Cancelled order …”)
+- **Proceeds locking**
+  - `LaunchpadMarket.Locked` → `type: 'lock'`
+  - `LaunchpadMarket.Claimed` / `TraderVault.Unlocked` → `type: 'lock'`
+  - `LaunchpadMarket.claimLockedOnMarketEnd` (via `Claimed` event) → `type: 'lock'` (“Claimed locked proceeds (market ended)”)
+- **Lifecycle**
+  - `MarketGraduated` → `type: 'admin'` (or `liquidity` if you prefer)
+  - `MarketExpired` / `MarketLiquidated` → `type: 'admin'`
+  - `LpTokensRedeemed` → `type: 'liquidity'`
+- **Settlement**
+  - `SoothManualAdjudicator.Resolved` / `SoothOptimisticAdjudicator.Finalized` → `type: 'settle'`
+  - `SoothOptimisticAdjudicator.Disputed` → `type: 'dispute'`
+- **Settlement roots**
+  - `SoothSettlementRootSink.RootSubmitted` → `type: 'settlement_root'`
+  - `TraderVault.SettlementClaimed` → `type: 'settlement_root'`
+
+---
+
+## 10. Files
 
 | File | Purpose |
 |------|---------|
@@ -168,7 +236,7 @@ addActivity({
 
 ---
 
-## 10. Translation Keys
+## 11. Translation Keys
 
 | Key | English Text |
 |-----|--------------|
@@ -177,10 +245,11 @@ addActivity({
 | `activity.filterTrade` | "Trade" |
 | `activity.filterLP` | "LP" |
 | `activity.filterSettle` | "Settle" |
+| `activity.filterSystem` | "System" |
 | `activity.noActivity` | "No activity yet" |
 | `activity.noActivityFilter` | "No matching activity" |
 | `activity.viewTx` | "View TX" |
 
 ---
 
-*Last updated: 2025-12-12*
+*Last updated: 2025-12-22 (V7 activity taxonomy + settlement roots)*

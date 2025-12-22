@@ -1,28 +1,33 @@
 import { useCallback, useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
-import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../../config/abis';
+import { LAUNCHPAD_MARKET_ABI, ERC20_ABI, TRADER_VAULT_V4_ABI } from '../../config/abis';
 import { useChainStore } from '../../store/useChainStore';
 import { useActivityStore } from '../../store/useActivityStore';
+import { useDeployments } from '../useDeployments';
 import marketsConfig from '../../config/markets.json';
 import toast from 'react-hot-toast';
 
 /**
- * V6.1: Direct swap hook for Launchpad markets
- * Bypasses TraderVault - user interacts directly with market contract
- * Reduces transactions: 1 approve + 1 swap (vs 3 txs via TraderVault)
+ * V7: Integrated swap hook using TraderVault.depositAndTradeAMM
+ * Bypasses direct market.swap (which is disabled in V7)
+ * Still provides 1 approve + 1 trade UX
  */
 export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const { selectedChainId } = useChainStore();
+    const { config } = useDeployments();
+    const traderVaultAddress = config.contracts.SoothTraderVault as `0x${string}`;
+    const usdcAddressFromConfig = config.contracts.MockUSDC as `0x${string}`;
+
     const walletChainId = useChainId();
     const { switchChainAsync } = useSwitchChain();
     const publicClient = usePublicClient({ chainId: Number(selectedChainId) });
     const [isPending, setIsPending] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
 
-    // Get USDC address from market
-    const { data: usdcAddress } = useReadContract({
+    // Get USDC address from market (fallback/verification)
+    const { data: usdcAddressFromMarket } = useReadContract({
         address: marketAddress,
         abi: LAUNCHPAD_MARKET_ABI,
         functionName: 'asset',
@@ -31,6 +36,8 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             enabled: !!marketAddress,
         }
     });
+
+    const usdcAddress = usdcAddressFromConfig || usdcAddressFromMarket;
 
     // Get USDC decimals
     const { data: usdcDecimals } = useReadContract({
@@ -43,8 +50,8 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         }
     });
 
-    // Get user's USDC balance
-    const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
+    // Get user's spendable USDC balance (Wallet + TraderVault)
+    const { data: walletUsdcBalance, refetch: refetchWalletBalance } = useReadContract({
         address: usdcAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
@@ -55,22 +62,39 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         }
     });
 
-    // Get user's USDC allowance for market
+    const { data: vaultAvailableBalance, refetch: refetchVaultBalance } = useReadContract({
+        address: traderVaultAddress,
+        abi: TRADER_VAULT_V4_ABI,
+        functionName: 'availableBalance',
+        args: userAddress ? [userAddress] : undefined,
+        chainId: Number(selectedChainId),
+        query: { 
+            enabled: !!traderVaultAddress && !!userAddress,
+        }
+    });
+
+    const totalSpendableBalance = (walletUsdcBalance as bigint || 0n) + (vaultAvailableBalance as bigint || 0n);
+
+    // Get user's USDC allowance for TraderVault
     const { data: allowance, refetch: refetchAllowance } = useReadContract({
         address: usdcAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: userAddress && marketAddress ? [userAddress, marketAddress] : undefined,
+        args: userAddress && traderVaultAddress ? [userAddress, traderVaultAddress] : undefined,
         chainId: Number(selectedChainId),
         query: { 
-            enabled: !!usdcAddress && !!userAddress && !!marketAddress,
+            enabled: !!usdcAddress && !!userAddress && !!traderVaultAddress,
         }
     });
 
     const { writeContractAsync } = useWriteContract();
 
-    const decimals = Number(usdcDecimals || 6);
+    const decimals = usdcDecimals !== undefined ? Number(usdcDecimals) : 6;
     const targetChainId = Number(selectedChainId);
+
+    const refetchBalances = useCallback(async () => {
+        await Promise.all([refetchWalletBalance(), refetchVaultBalance(), refetchAllowance()]);
+    }, [refetchWalletBalance, refetchVaultBalance, refetchAllowance]);
 
     // MegaETH Frontier often requires explicit high gas to avoid flaky estimateGas behavior.
     const megaethGas = targetChainId === 4326 ? 999999999n : undefined;
@@ -92,11 +116,23 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     }, [targetChainId, walletChainId, switchChainAsync]);
 
     /**
-     * Approve USDC for market (one-time or per-trade)
+     * Approve USDC for TraderVault (one-time or per-trade)
      */
     const approve = useCallback(async (amount?: bigint) => {
-        if (!marketAddress || !usdcAddress || !publicClient || !userAddress) {
-            toast.error('Market not ready');
+        if (!traderVaultAddress) {
+            toast.error('TraderVault address not found in config');
+            return;
+        }
+        if (!usdcAddress) {
+            toast.error('USDC address not ready (market query pending)');
+            return;
+        }
+        if (!publicClient) {
+            toast.error('Public client not ready');
+            return;
+        }
+        if (!userAddress) {
+            toast.error('Please connect your wallet');
             return;
         }
 
@@ -115,7 +151,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 address: usdcAddress as `0x${string}`,
                 abi: ERC20_ABI,
                 functionName: 'allowance',
-                args: [userAddress, marketAddress]
+                args: [userAddress, traderVaultAddress]
             }) as bigint;
 
             if (currentAllowance >= (amount || 1n)) {
@@ -124,12 +160,12 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 return true;
             }
 
-            toast.loading('Approving USDC...', { id: toastId });
+            toast.loading('Approving USDC for Vault...', { id: toastId });
             const hash = await writeContractAsync({
                 address: usdcAddress as `0x${string}`,
                 abi: ERC20_ABI,
                 functionName: 'approve',
-                args: [marketAddress, approveAmount],
+                args: [traderVaultAddress, approveAmount],
                 chainId: targetChainId,
                 gas: megaethGas
             });
@@ -137,7 +173,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             await publicClient.waitForTransactionReceipt({ hash });
             
             toast.success('Approved!', { id: toastId });
-            await refetchAllowance();
+            await refetchBalances();
             return true;
         } catch (error: any) {
             toast.error(error.message?.split('\n')[0] || 'Approval failed', { id: toastId });
@@ -145,10 +181,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } finally {
             setIsApproving(false);
         }
-    }, [marketAddress, usdcAddress, userAddress, writeContractAsync, publicClient, refetchAllowance, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
+    }, [traderVaultAddress, usdcAddress, userAddress, writeContractAsync, publicClient, refetchBalances, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
 
     /**
-     * Execute direct swap on market
+     * Execute direct trade via TraderVault (safe path)
      * @param outcome 0 = YES, 1 = NO
      * @param shares Amount of shares (string, e.g., "10" for buy, "-10" for sell)
      * @param maxCostUsdc Max USDC to spend (for buys) or min to receive (for sells)
@@ -158,8 +194,20 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         shares: string,
         maxCostUsdc: string
     ) => {
-        if (!marketAddress || !userAddress || !publicClient) {
-            toast.error('Wallet not connected');
+        if (!marketAddress) {
+            toast.error('Market address missing');
+            return;
+        }
+        if (!traderVaultAddress) {
+            toast.error('TraderVault address missing');
+            return;
+        }
+        if (!userAddress) {
+            toast.error('Please connect your wallet');
+            return;
+        }
+        if (!publicClient) {
+            toast.error('Public client not ready');
             return;
         }
 
@@ -190,14 +238,18 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                 }
             }
 
-            // Execute swap
+            // Execute via TraderVault
             const toastId = toast.loading(isBuy ? 'Buying shares...' : 'Selling shares...');
             
+            // Calculate deposit needed: maxCost - availableInVault
+            const availableInVault = (vaultAvailableBalance as bigint) || 0n;
+            const depositAmount = isBuy && maxCost > availableInVault ? maxCost - availableInVault : 0n;
+
             const hash = await writeContractAsync({
-                address: marketAddress,
-                abi: LAUNCHPAD_MARKET_ABI,
-                functionName: 'swap',
-                args: [outcome, signedDelta, signedMaxCost],
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
+                functionName: 'depositAndTradeAMM',
+                args: [marketAddress, outcome, signedDelta, signedMaxCost, depositAmount],
                 chainId: targetChainId,
                 gas: megaethGas
             });
@@ -238,7 +290,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
                     });
                 }
 
-                await refetchBalance();
+                await refetchBalances();
                 return true;
             } else {
                 toast.error('Transaction failed', { id: toastId });
@@ -251,14 +303,22 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         } finally {
             setIsPending(false);
         }
-    }, [marketAddress, userAddress, publicClient, decimals, allowance, approve, writeContractAsync, refetchBalance, isPending, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
+    }, [marketAddress, traderVaultAddress, userAddress, publicClient, decimals, allowance, vaultAvailableBalance, approve, writeContractAsync, refetchBalances, isPending, isApproving, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
 
     /**
-     * Claim unlocked proceeds from sells
+     * Claim unlocked proceeds from sells via TraderVault
      */
     const claimUnlocked = useCallback(async () => {
-        if (!marketAddress || !publicClient) {
-            toast.error('Market not ready');
+        if (!marketAddress) {
+            toast.error('Market address missing');
+            return;
+        }
+        if (!traderVaultAddress) {
+            toast.error('TraderVault address missing');
+            return;
+        }
+        if (!publicClient) {
+            toast.error('Public client not ready');
             return;
         }
 
@@ -268,9 +328,10 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
         const toastId = toast.loading('Claiming unlocked proceeds...');
         try {
             const hash = await writeContractAsync({
-                address: marketAddress,
-                abi: LAUNCHPAD_MARKET_ABI,
+                address: traderVaultAddress,
+                abi: TRADER_VAULT_V4_ABI,
                 functionName: 'claimUnlocked',
+                args: [marketAddress],
                 chainId: targetChainId,
                 gas: megaethGas
             });
@@ -279,7 +340,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             
             if (receipt.status === 'success') {
                 toast.success('Claimed!', { id: toastId });
-                await refetchBalance();
+                await refetchBalances();
                 return true;
             } else {
                 toast.error('Claim failed', { id: toastId });
@@ -289,16 +350,20 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
             toast.error(error.message?.split('\n')[0] || 'Claim failed', { id: toastId });
             return false;
         }
-    }, [marketAddress, publicClient, writeContractAsync, refetchBalance, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
+    }, [marketAddress, traderVaultAddress, publicClient, writeContractAsync, refetchBalances, ensureWalletOnSelectedChain, targetChainId, megaethGas]);
+
+    const isLoading = !usdcAddress || !traderVaultAddress;
 
     return {
         swap,
         approve,
         claimUnlocked,
         isPending,
-        usdcBalance: (usdcBalance as bigint) || 0n,
+        isLoading,
+        usdcBalance: totalSpendableBalance,
         allowance: (allowance as bigint) || 0n,
         decimals,
-        refetch: refetchBalance
+        refetch: refetchBalances
     };
 }
+

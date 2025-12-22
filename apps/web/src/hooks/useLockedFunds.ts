@@ -1,6 +1,6 @@
 import { useAccount, useReadContracts, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useChainId } from 'wagmi';
 import { useState, useCallback, useMemo } from 'react';
-import { TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI } from '../config/abis';
+import { TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
 import { formatUnits } from 'viem';
@@ -121,10 +121,13 @@ export function useLockedFunds(): UseLockedFundsResult {
     }, [address, traderVault, uniqueMarkets, chainId]);
 
     const { data: lockData, isLoading: lockDataLoading, refetch } = useReadContracts({
-        contracts: lockContracts,
+        contracts: [
+            ...lockContracts,
+            { address: contracts?.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals', chainId }
+        ],
         chainId,
         query: { 
-            enabled: !!address && lockContracts.length > 0,
+            enabled: !!address && lockContracts.length > 0 && !!contracts?.MockUSDC,
             refetchInterval: 30000,
             staleTime: 10000,
         }
@@ -142,19 +145,24 @@ export function useLockedFunds(): UseLockedFundsResult {
         let vaultLocked = 0n;
         let marketLocked = 0n;
         let allEntries: LockEntry[] = [];
+        let assetDecimals = 18;
         
         // Basic safety check for array existence and length
         if (!lockData || !address) return { 
             locked: 0n, claimable: 0n, available: 0n, pending: 0n, total: 0n, 
             vaultLocked: 0n, marketLocked: 0n,
-            nextUnlockAmount: 0n, nextUnlockTimestamp: 0, entries: [] 
+            nextUnlockAmount: 0n, nextUnlockTimestamp: 0, entries: [],
+            decimals: 18
         };
+
+        // Last entry is decimals
+        assetDecimals = Number(lockData[lockData.length - 1]?.result || 6);
 
         let cursor = 0;
         const now = Math.floor(Date.now() / 1000);
 
         // Process TraderVault results
-        if (traderVault && lockData.length >= 7) {
+        if (traderVault && lockData.length >= 8) {
             vaultLocked = (lockData[cursor++]?.result as bigint) || 0n;
             const vaultClaimable = (lockData[cursor++]?.result as bigint) || 0n;
             available = (lockData[cursor++]?.result as bigint) || 0n;
@@ -185,8 +193,8 @@ export function useLockedFunds(): UseLockedFundsResult {
 
         // Process Market results
         uniqueMarkets.forEach(market => {
-            // Check if we have enough data left in array
-            if (cursor + 4 > lockData.length) return;
+            // Check if we have enough data left in array (excluding the decimals entry at the end)
+            if (cursor + 4 >= lockData.length) return;
 
             const mLocked = (lockData[cursor++]?.result as bigint) || 0n;
             const marketClaimable = (lockData[cursor++]?.result as bigint) || 0n;
@@ -230,27 +238,28 @@ export function useLockedFunds(): UseLockedFundsResult {
             marketLocked,
             nextUnlockAmount: nextEntry?.amount || 0n,
             nextUnlockTimestamp: nextEntry?.unlockTime || 0,
-            entries: allEntries
+            entries: allEntries,
+            decimals: assetDecimals
         };
     }, [lockData, address, traderVault, uniqueMarkets]);
 
     // 4. Claim Action (Aggregated)
     const claim = useCallback(async () => {
-        if (!address || !publicClient) return;
+        if (!address || !publicClient || !traderVault) return;
         setIsClaiming(true);
 
         const toastId = toast.loading('Claiming unlocked proceeds...');
         try {
             // Find all targets with claimable funds
-            const targets: { address: `0x${string}`, abi: any, name: string }[] = [];
+            const targets: { address: `0x${string}`, name: string, isGlobal: boolean }[] = [];
             
-            // Check TraderVault
+            // Check TraderVault (Global)
             const tvClaimable = aggregated.entries
                 .filter(e => e.marketName === 'Global Vault' && e.isClaimable)
                 .reduce((sum, e) => sum + e.amount, 0n);
             
-            if (tvClaimable > 0n && traderVault) {
-                targets.push({ address: traderVault, abi: TRADER_VAULT_V4_ABI, name: 'Global Vault' });
+            if (tvClaimable > 0n) {
+                targets.push({ address: traderVault, name: 'Global Vault', isGlobal: true });
             }
 
             // Check Markets
@@ -260,7 +269,7 @@ export function useLockedFunds(): UseLockedFundsResult {
                     .reduce((sum, e) => sum + e.amount, 0n);
                 
                 if (mClaimable > 0n) {
-                    targets.push({ address: market.address, abi: LAUNCHPAD_MARKET_ABI, name: market.name });
+                    targets.push({ address: market.address, name: market.name, isGlobal: false });
                 }
             });
 
@@ -270,13 +279,15 @@ export function useLockedFunds(): UseLockedFundsResult {
                 return;
             }
 
-            // Execute claims sequentially
+            // Execute claims sequentially via TraderVault
             for (const target of targets) {
                 toast.loading(`Claiming from ${target.name}...`, { id: toastId });
+                
                 const hash = await writeContractAsync({
-                    address: target.address,
-                    abi: target.abi,
+                    address: traderVault,
+                    abi: TRADER_VAULT_V4_ABI,
                     functionName: 'claimUnlocked',
+                    args: target.isGlobal ? [] : [target.address],
                 });
                 await publicClient.waitForTransactionReceipt({ hash });
             }
@@ -291,10 +302,9 @@ export function useLockedFunds(): UseLockedFundsResult {
         }
     }, [address, traderVault, uniqueMarkets, aggregated.entries, writeContractAsync, publicClient, refetch]);
 
-    // Format values (6 decimals for USDC)
-    const USDC_DECIMALS = 6;
+    // Format values using dynamic decimals
     const formatUSD = (value: bigint) => {
-        const num = parseFloat(formatUnits(value, USDC_DECIMALS));
+        const num = parseFloat(formatUnits(value, aggregated.decimals));
         return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     };
 
