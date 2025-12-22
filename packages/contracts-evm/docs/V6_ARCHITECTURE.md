@@ -157,9 +157,8 @@ if (isLaunchpadPreGrad && locked > 0 && totalCost <= locked) {
 
 **TraderVault.withdraw()**:
 ```solidity
-// Block withdrawals if user has locked proceeds
-uint256 globalLocked = globalGovernor.lockedBalance(msg.sender);
-require(globalLocked == 0, "TraderVault: has locked proceeds, cannot withdraw");
+// Withdrawals may be blocked while the user has active locked proceeds (implementation-specific).
+// In the current Launchpad design, locking lives on the market (market is its own vault).
 ```
 
 ---
@@ -180,7 +179,8 @@ contract LaunchpadFactory is ILaunchpadFactory {
     address public immutable outcomeTokenImplementation;
     address public immutable treasury;
     address public immutable defaultAdjudicator;
-    address public immutable protocolConfig;  // ProtocolConfig reference
+    address public immutable adjudicatorRegistry; // Adjudicator allowlist
+    address public immutable protocolConfig;      // ProtocolConfig reference
     
     constructor(
         address _marketImplementation,
@@ -190,6 +190,7 @@ contract LaunchpadFactory is ILaunchpadFactory {
         address _outcomeTokenImplementation,
         address _treasury,
         address _defaultAdjudicator,
+        address _adjudicatorRegistry,
         address _protocolConfig  // ProtocolConfig for mutable parameters
     ) {
         // Set all immutables
@@ -231,7 +232,7 @@ The Guardian (set by Protocol Owner via `ProtocolConfig`) has per-market powers:
 
 1. **`liquidate()`**: Trigger liquidation for failed-to-graduate markets
    - Protocol takes `liquidationFeeBps` as fee
-   - Users can claim refunds via `claimLiquidationRefund()`
+   - LP holders redeem pro-rata via `redeemLP(...)` (no separate `claimLiquidationRefund` path)
 
 2. **`forceGraduate()`**: Push stuck markets to graduated state
    - Bypasses graduation threshold check
@@ -286,7 +287,8 @@ function initializeLaunchpad(...) external {
 
 **Functions using `onlyGovernor`**:
 - `increaseBBase(uint256 amount)` - Creator can manually increase liquidity
-- `settle(uint8 _winningOutcome)` - Creator can settle market
+
+> Note: market settlement is **Adjudicator-only** via `finalizeResolution(outcome, tStar)`.
 
 ---
 

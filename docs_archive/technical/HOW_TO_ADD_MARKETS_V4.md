@@ -1,4 +1,8 @@
-# How to Add V4 Markets
+# How to Add V4 Markets (Archived)
+
+> This document is **archived** and reflects a pre-Launchpad deployment flow (direct `SoothMarketV4` deployment, `OutcomeToken`, `adjudicatorId`).
+>
+> **Current flow**: create markets via `LaunchpadFactory.createMarket(...)`, which deploys a `LaunchpadMarket` + `LaunchpadOutcomeToken` and uses an **Adjudicator address** (allowlisted by `SoothAdjudicatorRegistry`).
 
 ## Option 1: Individual Deployment Scripts (Recommended)
 

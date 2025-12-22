@@ -135,6 +135,10 @@ It is intentionally implementation-forward: each stage ends with code, tests, an
     - `brevisResolveMarket(...)` (only gateway) → calls market `finalizeResolution`.
     - `brevisSubmitSettlementRoot(...)` (only gateway) → submits root to `SoothSettlementRootSink`.
 
+### Related docs
+
+- `SETTLEMENT_ROOTS_AND_BREVIS.md` (design + leaf format + integration surfaces)
+
 ### Tests
 
 - Extended `SettlementRootSinkTest` with sink allowlist revert test.

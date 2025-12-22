@@ -60,6 +60,7 @@ factory = new LaunchpadFactory(
     address(outcomeTokenImpl),
     treasury,
     adjudicator,
+    address(adjudicatorRegistry),
     address(protocolConfig)
 );
 
@@ -70,7 +71,8 @@ factory = new LaunchpadFactory(
     "Description",
     0, // tier
     false, // isOpenEnd
-    7 days // duration
+    7 days, // duration
+    address(0) // marketAdjudicator (0 = default)
 );
 ```
 
@@ -127,7 +129,7 @@ Update all references to "standard markets" to clarify that only Launchpad marke
 
 - [x] Core contract comments updated
 - [x] Launchpad.t.sol test fixed (added ProtocolConfig)
-- [ ] Convert remaining test files
-- [ ] Convert deployment scripts
-- [ ] Update documentation
-- [ ] Verify all tests pass
+- [x] Convert remaining test files
+- [x] Convert deployment scripts
+- [x] Update documentation
+- [x] Verify all tests pass

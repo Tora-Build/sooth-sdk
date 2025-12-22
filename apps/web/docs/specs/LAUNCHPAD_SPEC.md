@@ -1,17 +1,18 @@
-# Launchpad V6.1.8 Frontend Specification
+# Launchpad Frontend Specification (Dual-Engine + Adjudicator Settlement)
 
 ## 1. Overview
 The **Sooth Launchpad V6** introduces a permissionless market creation flow inspired by "pump.fun", allowing any user to deploy a prediction market. These markets start with a bonding curve liquidity model (accruing fees to liquidity) and "graduate" to post-graduation phase upon reaching a liquidity threshold. All markets are Launchpad markets—there are no separate "standard markets" (see ADR-016).
 
-**V6.1.8 Key Features**:
+**Current Key Features**:
 - **Pre-Graduation Locking**: All sell proceeds are locked (24h) during pre-graduation phase
 - **Reinvestment**: Locked proceeds can be used to buy shares via `useLockedProceeds()`
 - **2-Contract Architecture**: Market implements `ISoothLiquidityVault` itself (market is its own vault)
-- **Direct AMM Trading**: Users call `market.swap()` directly (no TraderVault for AMM)
+- **AMM Trading via TraderVault**: Users trade AMM via `SoothTraderVaultV4` (no direct `market.swap()`)
+- **Dual-Engine Boundary**: AMM positions are internal; orderbook uses ERC1155 outcome tokens
 - **Honest Floor Accounting**: LP ExRate based on `totalNetAssets()` (cash - locked - liability)
 - **Safe Parity Minting**: LP tokens minted at `max(Current ExRate, 1.0)` to prevent dilution
-- **Price Cap Guardrail**: AMM enforces max $1.00 per share (LMSR precision protection)
 - **Guardian Role**: Protocol-managed guardian for liquidation and forced graduation
+- **Adjudicator Settlement**: Markets finalize via `finalizeResolution(outcome, T*)`
 
 > **See also**: [MARKETS_PAGE_SPEC.md](./MARKETS_PAGE_SPEC.md) for Markets list and MarketCard inline trading.
 
@@ -68,12 +69,12 @@ Display specialized badges based on state:
   - **Target**: `market.graduationThreshold()`
   - **Percentage**: `(bBase / threshold) * 100`
 
-#### Trading (V6.1.8 Direct Swap)
-- **AMM Trading**: Uses `market.swap()` directly (NOT via TraderVault)
-  - Users approve USDC to `LaunchpadMarket` contract directly
-  - Call `market.swap(deltaShares, maxCost)` for buys
-  - Call `market.swap(-deltaShares, -minProceeds)` for sells
-  - Returns ERC1155 OutcomeToken shares to user
+#### Trading (AMM via TraderVault)
+- **AMM Trading**: Uses `SoothTraderVaultV4.tradeAMM(...)` (or `depositAndTradeAMM(...)`)
+  - Users approve USDC to `TraderVault` (not `LaunchpadMarket`)
+  - `market.swap()` is disabled (reverts) to preserve AMM/Orderbook separation
+  - AMM trades update **internal AMM positions** (no ERC1155 mint/burn)
+- **Orderbook Trading**: Uses `TraderVault` order functions and ERC1155 `OutcomeToken`
 - **Quote Display (Price Net + Fee)**:
   - **Price (Net)**: Base cost per share from LMSR (capped at $1.00)
   - **Fee**: Separate line showing fee amount and percentage
@@ -102,10 +103,10 @@ Display specialized badges based on state:
 - **Condition**: `block.timestamp > market.deadline()` AND `!isGraduated`.
 - **Action**:
   - `market.expire()`: Sets market to not live.
-  - `creator.claimCreatorRefund()`: Creator reclaims deposit + fees.
+  - **LP redemption/refunds**: LP holders redeem pro-rata via `redeemLP(...)` (creator is just an LP)
 - **UI**:
   - Show "Market Expired" warning.
-  - If User == Creator, show "Claim Refund" button.
+  - Show "Redeem LP" action for LP holders.
 
 ### 2.4 V6 Pre-Graduation Locking
 
@@ -276,25 +277,18 @@ function useLaunchpadMarkets() {
 }
 ```
 
-### 3.4 useLaunchpadSwap Hook (V6.1.8)
+### 3.4 AMM Trade Hook (TraderVault)
 ```typescript
-function useLaunchpadSwap(marketAddress: `0x${string}`) {
+function useAmmTrade(marketAddress: `0x${string}`) {
   return {
-    // Approval
-    allowance: bigint;
+    // Approval (USDC -> TraderVault)
     needsApproval: boolean;
-    isApproving: boolean;
-    approve: (amount?: bigint) => Promise<boolean>; // Checks existing allowance first
-    
-    // Trading
-    swap: (deltaShares: number, isBuy: boolean, maxCost: bigint) => Promise<void>;
+    approve: (amount?: bigint) => Promise<boolean>;
+
+    // Trading (signed shares; slippage via maxCost/minProceeds)
+    tradeAMM: (outcome: 0 | 1, deltaSharesWad: bigint, maxCostOrMinProceeds: bigint) => Promise<void>;
+    depositAndTradeAMM?: (outcome: 0 | 1, deltaSharesWad: bigint, maxCostOrMinProceeds: bigint, depositAmount: bigint) => Promise<void>;
     isPending: boolean;
-    
-    // Locked Proceeds
-    claimUnlocked: () => Promise<void>;
-    
-    // Refetch
-    refetchAllowance: () => void;
   };
 }
 ```
@@ -317,22 +311,22 @@ function useLPHolders(marketAddress: `0x${string}`) {
 ### 3.6 ABIs
 Located in `apps/web/src/config/abis.ts`:
 - `LAUNCHPAD_FACTORY_ABI` - V6: Includes `protocolConfig()` view
-- `LAUNCHPAD_MARKET_ABI` - V6.1.8: Includes:
-  - `swap(int128, int256)` - Direct AMM trading
+- `LAUNCHPAD_MARKET_ABI` - Launchpad market views + LP vault interface
   - `totalNetAssets()` - Floor Equity
   - `totalAssets()` - Gross USDC
   - `totalSupply()` - LP token supply
   - `lockedProceeds()`, `totalLockedProceeds()`, `claimUnlocked()`
+- `TRADER_VAULT_ABI` - AMM + Orderbook entrypoint (includes `tradeAMM` / `depositAndTradeAMM`)
 - `OUTCOME_TOKEN_ABI` - V6.1.8: Includes `totalSupply(uint256)` for liability tracking
 - `PROTOCOL_CONFIG_ABI` - V6: For guardian and liquidation fee configuration
 
-### 3.7 V6.1.8 Architecture Changes
+### 3.7 Architecture Notes
 - **Market as Vault**: Market implements `ISoothLiquidityVault` itself
   - `market.lpVault()` returns `address(0)` (no separate contract)
   - `market.totalAssets()` returns `_asset.balanceOf(address(market))`
-- **Direct Swap**: Users call `market.swap()` directly (TraderVault only for Orderbook)
-  - Approve USDC to market contract, not TraderVault
-  - 2 transactions max: Approve + Swap
+- **No Direct Swap**: `market.swap()` is disabled to preserve the AMM/Orderbook boundary
+  - Approve USDC to `TraderVault`
+  - AMM trades go through `TraderVault` and update internal AMM positions (no ERC1155 mint/burn)
 - **Honest Accounting**: `totalNetAssets()` returns Floor Equity
   - Formula: `Cash - Locked - Max(qYES, qNO)`
   - Used for LP ExRate and redemption value
@@ -435,4 +429,4 @@ Located in `apps/web/src/config/abis.ts`:
 
 ---
 
-*Last updated: 2025-12-20 (V6.1.8 Safe Parity Minting)*
+*Last updated: 2025-12-22 (Adjudicator settlement + AMM via TraderVault; direct swap disabled)*

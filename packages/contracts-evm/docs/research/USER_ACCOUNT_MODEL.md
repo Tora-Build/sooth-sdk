@@ -1,6 +1,6 @@
-# Sooth v3 User Account Model
+# Sooth v3 User Account Model (Historical)
 
-**Status:** Implemented in `SoothTraderVaultV3`  
+**Status:** Historical (current protocol uses `SoothTraderVaultV4` + per-market lock queues in `LaunchpadMarket`)  
 **Date:** 2025-12-04
 
 ---
@@ -34,7 +34,7 @@ This represents "unsettled" profits or proceeds.
   - **Redemption:** When you redeem winning tokens after a market resolves.
 - **Mechanism:**
   - Funds are locked for a default of **48 hours** (configurable by Guardian).
-  - This creates a "dispute window" where the Guardian can claw back funds in case of retroactive settlement (e.g., if a market was resolved incorrectly due to oracle failure).
+  - This creates a "dispute window" where the Guardian can claw back funds in case of retroactive settlement (e.g., if a market was resolved incorrectly due to adjudicator failure).
 - **Unlock:** After the duration passes, users call `claimUnlocked()` to move funds to **Available**.
 
 ---
@@ -76,5 +76,5 @@ This represents "unsettled" profits or proceeds.
 ## Security & Safety
 
 - **Solvency:** Users can never trade with funds they don't have. `Available` balance is checked before every action.
-- **Retroactive Settlement:** The `Pending` state protects the protocol. If an oracle reports "YES won" but later it's revealed "NO won", the Guardian can recover the wrongly paid out funds from the `Pending` balances before they leave the protocol.
+- **Retroactive Settlement:** The `Pending` state protects the protocol. If an adjudicator reports "YES won" but later it's revealed "NO won", the Guardian can recover the wrongly paid out funds from the `Pending` balances before they leave the protocol.
 - **Yield:** By centralizing funds in the Vault, we can efficiently manage liquidity reserves and earn yield on the rest, rather than having idle collateral scattered across hundreds of market contracts.

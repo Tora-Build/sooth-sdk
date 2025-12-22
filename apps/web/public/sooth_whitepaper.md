@@ -84,7 +84,7 @@ Sooth employs modular **Adjudicator Classes**. Creators choose the most appropri
 ---
 
 ## 7. Settlement and Payouts
-Upon resolution, the Adjudicator calls `settle(outcome, T*)`.
+Upon resolution, the Adjudicator finalizes the market via `finalizeResolution(outcome, T*)`.
 1.  **Trader Payouts:** Calculated based on shares held and the final outcome.
 2.  **LP Payouts:** Remaining funds in the market (Reserves) are distributed pro-rata to LP token holders.
 3.  **Protocol Share:** If the market is profitable, the Protocol takes a 20% share of the profit (post-graduation only).
@@ -97,12 +97,14 @@ Upon resolution, the Adjudicator calls `settle(outcome, T*)`.
 ```solidity
 interface ILaunchpadFactory {
     function createMarket(
-        uint256 tierIndex,
-        uint256 initialYesBps,
-        address adjudicator,
-        bytes32 questionHash,
-        string calldata description
-    ) external returns (address market);
+        string memory name,
+        string memory symbol,
+        string memory description,
+        uint8 liquidityTierIndex,
+        bool isOpenEnd,
+        uint40 durationSeconds,
+        address marketAdjudicator // 0 = default adjudicator
+    ) external returns (address market, address lpVault);
 }
 ```
 
@@ -110,9 +112,8 @@ interface ILaunchpadFactory {
 ```solidity
 interface ILaunchpadMarket {
     function state() external view returns (MarketState); // Internal, Graduated, Settled, Expired
-    function tradeAMM(int256 deltaShares, int256 maxCost) external;
     function graduate() external;
-    function settle(uint8 outcome, uint64 terminationTime) external;
+    function finalizeResolution(uint8 outcome, uint64 tStar) external; // Adjudicator-only
 }
 ```
 

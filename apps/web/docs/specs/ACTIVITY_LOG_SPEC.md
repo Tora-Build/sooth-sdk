@@ -32,7 +32,7 @@ ActivityLog
 | **All** | `activity.filterAll` | All types |
 | **Trade** | `activity.filterTrade` | `type === 'trade'` |
 | **LP** | `activity.filterLP` | `type === 'liquidity'` |
-| **Settle** | `activity.filterSettle` | `type === 'settle' \|\| 'dispute'` |
+| **Resolve** | `activity.filterSettle` | `type === 'settle' \|\| 'dispute'` |
 
 ---
 
@@ -63,6 +63,7 @@ ActivityLog
 ```typescript
 interface ActivityItem {
   id: string;           // Unique identifier
+  // NOTE: "settle" here corresponds to market resolution (Settled event / finalizeResolution()).
   type: 'trade' | 'liquidity' | 'settle' | 'dispute';
   description: string;  // Human-readable description
   market: string;       // Market name
@@ -147,7 +148,7 @@ addActivity({
 addActivity({
   type: 'settle',
   market: 'UN Confirms Alien Life',
-  description: 'Market settled: YES wins',
+  description: 'Market resolved: YES wins',
   mode: 'real',
   hash: '0x789...',
   chainId: 84532,
