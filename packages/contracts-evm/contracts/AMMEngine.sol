@@ -3,15 +3,19 @@ pragma solidity ^0.8.20;
 
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
-import {ITraderVaultLite} from "./interfaces/ITraderVaultLite.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {LMSRMath} from "./libraries/LMSRMath.sol";
 
 /**
  * @title AMMEngine
  * @notice LMSR-based AMM with position domain, 24h locks, and T* settlement
  * @dev Positions are non-transferable ledger entries
+ *      Users manage their own USDC custody (EOA, Safe, smart account, etc.)
  */
 contract AMMEngine is IAMMEngine {
+    using SafeERC20 for IERC20;
+
     // ============================================
     // Constants
     // ============================================
@@ -23,14 +27,17 @@ contract AMMEngine is IAMMEngine {
     // State Variables
     // ============================================
 
-    /// @notice Trader vault for USDC custody
-    ITraderVaultLite public immutable traderVault;
+    /// @notice USDC token address
+    IERC20 public immutable usdc;
 
     /// @notice Market state
     mapping(address => MarketState) private _markets;
 
     /// @notice User positions
     mapping(address => mapping(address => Position)) private _positions;
+
+    /// @notice User USDC balances (for locked proceeds)
+    mapping(address => uint256) private _balances;
 
     struct MarketState {
         uint256 qYes;           // YES quantity (WAD)
@@ -43,9 +50,9 @@ contract AMMEngine is IAMMEngine {
     // Constructor
     // ============================================
 
-    constructor(address _traderVault) {
-        require(_traderVault != address(0), "AMMEngine: zero vault");
-        traderVault = ITraderVaultLite(_traderVault);
+    constructor(address _usdc) {
+        require(_usdc != address(0), "AMMEngine: zero usdc");
+        usdc = IERC20(_usdc);
     }
 
     // ============================================
@@ -111,9 +118,8 @@ contract AMMEngine is IAMMEngine {
             // Buying YES
             require(actualCost <= maxCost, "AMMEngine: cost too high");
             
-            // Deduct USDC from vault
-            // Note: In production, vault would have a debit() function
-            // For now, we assume vault integration
+            // Transfer USDC from user
+            usdc.safeTransferFrom(msg.sender, address(this), actualCost);
             
             // Update position
             position.shares += deltaShares;
@@ -194,8 +200,8 @@ contract AMMEngine is IAMMEngine {
         amount = position.lockedProceeds;
         position.lockedProceeds = 0;
 
-        // Credit USDC to vault
-        // Note: In production, vault would have a credit() function
+        // Transfer USDC to user
+        usdc.safeTransfer(msg.sender, amount);
 
         emit ProceedsClaimed(msg.sender, market, amount);
     }
@@ -280,8 +286,10 @@ contract AMMEngine is IAMMEngine {
         // Clear position
         position.shares = 0;
 
-        // Credit USDC to vault
-        // Note: In production, vault would have a credit() function
+        // Transfer USDC payout to user
+        if (payout > 0) {
+            usdc.safeTransfer(msg.sender, payout);
+        }
     }
 
     /**

@@ -44,6 +44,17 @@ interface IAMMEngine {
     }
 
     // ============================================
+    // Market Initialization
+    // ============================================
+
+    /**
+     * @notice Initialize market with liquidity
+     * @param market Market address
+     * @param initialLiquidity Liquidity parameter b (WAD)
+     */
+    function initializeMarket(address market, uint256 initialLiquidity) external;
+
+    // ============================================
     // Trading
     // ============================================
 

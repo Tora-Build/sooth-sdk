@@ -1,0 +1,489 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {ILaunchpadEngine} from "./interfaces/ILaunchpadEngine.sol";
+import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
+import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title LaunchpadEngine
+ * @notice Creator economics layer with LP tokens, fee distribution, and graduation mechanics
+ * @dev Wraps AMMEngine to add Launchpad model on top of pure trading logic
+ */
+contract LaunchpadEngine is ILaunchpadEngine, Ownable {
+    using SafeERC20 for IERC20;
+
+    // ============================================
+    // Constants
+    // ============================================
+
+    uint256 private constant WAD = 1e18;
+    uint256 private constant LN2 = 693147180559945309; // ln(2) in WAD
+    uint256 private constant BPS_DENOMINATOR = 10000;
+
+    // ============================================
+    // Immutables
+    // ============================================
+
+    IERC20 public immutable usdc;
+    IAMMEngine public immutable ammEngine;
+    address public immutable protocolTreasury;
+    uint8 private immutable usdcDecimals; // Cached for gas savings
+
+    // ============================================
+    // Configurable Parameters (Owner-controlled)
+    // ============================================
+
+    /// @notice Pre-graduation fee in basis points (default: 500 = 5%)
+    uint16 public preGradFeeBps;
+
+    /// @notice Post-graduation fee in basis points (default: 100 = 1%)
+    uint16 public postGradFeeBps;
+
+    /// @notice Post-grad fee split: % to bBase growth (default: 5000 = 50%)
+    uint16 public bBaseShareBps;
+
+    /// @notice Post-grad fee split: % to LP yield (default: 3000 = 30%)
+    uint16 public lpYieldShareBps;
+
+    /// @notice Post-grad fee split: % to protocol (default: 2000 = 20%)
+    uint16 public protocolShareBps;
+
+    /// @notice Graduation multiplier (default: 2 = 2× bBase)
+    uint16 public graduationMultiplier;
+
+    // ============================================
+    // Market State
+    // ============================================
+
+    struct MarketState {
+        address creator;
+        uint256 bBase;              // Initial liquidity (WAD)
+        uint256 bCurrent;           // Current liquidity (WAD)
+        uint256 creatorDeposit;     // Initial deposit (USDC decimals)
+        uint256 feesAccrued;        // Total fees collected (USDC decimals)
+        uint256 totalLPSupply;      // Total LP tokens minted (WAD)
+        uint256 lpYieldPool;        // Accumulated LP yield (USDC decimals)
+        bool isGraduated;
+        uint64 createdAt;
+        uint64 graduatedAt;
+    }
+
+    mapping(address => MarketState) public markets;
+
+    // ============================================
+    // LP Token Tracking
+    // ============================================
+
+    /// @notice LP token balances: market => user => balance (WAD)
+    mapping(address => mapping(address => uint256)) public lpBalances;
+
+    // ============================================
+    // Constructor
+    // ============================================
+
+    constructor(
+        address _usdc,
+        address _ammEngine,
+        address _protocolTreasury,
+        address _owner
+    ) Ownable(_owner) {
+        require(_usdc != address(0), "LaunchpadEngine: zero usdc");
+        require(_ammEngine != address(0), "LaunchpadEngine: zero ammEngine");
+        require(_protocolTreasury != address(0), "LaunchpadEngine: zero treasury");
+
+        usdc = IERC20(_usdc);
+        ammEngine = IAMMEngine(_ammEngine);
+        protocolTreasury = _protocolTreasury;
+        usdcDecimals = IERC20Metadata(_usdc).decimals(); // Cache decimals
+
+        // Set default parameters
+        preGradFeeBps = 500;        // 5%
+        postGradFeeBps = 100;       // 1%
+        bBaseShareBps = 5000;       // 50%
+        lpYieldShareBps = 3000;     // 30%
+        protocolShareBps = 2000;    // 20%
+        graduationMultiplier = 2;   // 2× bBase
+    }
+
+    // ============================================
+    // Owner Functions (Governance)
+    // ============================================
+
+    /**
+     * @notice Set pre-graduation fee
+     * @param feeBps Fee in basis points (e.g., 500 = 5%)
+     */
+    function setPreGradFee(uint16 feeBps) external onlyOwner {
+        require(feeBps <= 1000, "LaunchpadEngine: fee too high"); // Max 10%
+        preGradFeeBps = feeBps;
+        emit PreGradFeeUpdated(feeBps);
+    }
+
+    /**
+     * @notice Set post-graduation fee
+     * @param feeBps Fee in basis points (e.g., 100 = 1%)
+     */
+    function setPostGradFee(uint16 feeBps) external onlyOwner {
+        require(feeBps <= 500, "LaunchpadEngine: fee too high"); // Max 5%
+        postGradFeeBps = feeBps;
+        emit PostGradFeeUpdated(feeBps);
+    }
+
+    /**
+     * @notice Set post-graduation fee distribution
+     * @param bBaseBps % to bBase growth
+     * @param lpYieldBps % to LP yield
+     * @param protocolBps % to protocol
+     */
+    function setFeeDistribution(
+        uint16 bBaseBps,
+        uint16 lpYieldBps,
+        uint16 protocolBps
+    ) external onlyOwner {
+        require(bBaseBps + lpYieldBps + protocolBps == BPS_DENOMINATOR, "LaunchpadEngine: must sum to 100%");
+        
+        bBaseShareBps = bBaseBps;
+        lpYieldShareBps = lpYieldBps;
+        protocolShareBps = protocolBps;
+        
+        emit FeeDistributionUpdated(bBaseBps, lpYieldBps, protocolBps);
+    }
+
+    /**
+     * @notice Set graduation multiplier
+     * @param multiplier Graduation threshold = multiplier × bBase (e.g., 2 = 2× bBase)
+     */
+    function setGraduationMultiplier(uint16 multiplier) external onlyOwner {
+        require(multiplier >= 1 && multiplier <= 10, "LaunchpadEngine: invalid multiplier");
+        graduationMultiplier = multiplier;
+        emit GraduationMultiplierUpdated(multiplier);
+    }
+
+    // ============================================
+    // Market Creation
+    // ============================================
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function createMarket(
+        address market,
+        uint256 initialLiquidity
+    ) external override returns (uint256 lpTokens) {
+        require(ITruthMarket(market).creator() == msg.sender, "LaunchpadEngine: not creator");
+        require(markets[market].creator == address(0), "LaunchpadEngine: already exists");
+        require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
+
+        // Calculate required deposit: b × ln(2)
+        uint256 depositWad = (initialLiquidity * LN2) / WAD;
+        uint256 deposit = _wadToUsdc(depositWad);
+
+        // Transfer deposit from creator
+        usdc.safeTransferFrom(msg.sender, address(this), deposit);
+
+        // Initialize AMM with liquidity
+        ammEngine.initializeMarket(market, initialLiquidity);
+
+        // Mint initial LP tokens to creator (1:1 with deposit in WAD)
+        lpTokens = depositWad;
+
+        // Store market state
+        markets[market] = MarketState({
+            creator: msg.sender,
+            bBase: initialLiquidity,
+            bCurrent: initialLiquidity,
+            creatorDeposit: deposit,
+            feesAccrued: 0,
+            totalLPSupply: lpTokens,
+            lpYieldPool: 0,
+            isGraduated: false,
+            createdAt: uint64(block.timestamp),
+            graduatedAt: 0
+        });
+
+        lpBalances[market][msg.sender] = lpTokens;
+
+        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
+    }
+
+    // ============================================
+    // Trading
+    // ============================================
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function tradePositions(
+        address market,
+        int256 deltaShares,
+        uint256 maxCost
+    ) external override returns (uint256 actualCost) {
+        MarketState storage state = markets[market];
+        require(state.creator != address(0), "LaunchpadEngine: market not found");
+        require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
+
+        // Get quote from AMM (base cost without fees)
+        (uint256 baseCost, ) = ammEngine.getPositionQuote(market, deltaShares);
+
+        // Calculate fee
+        uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
+        uint256 fee = (baseCost * feeBps) / BPS_DENOMINATOR;
+        actualCost = baseCost + fee;
+
+        require(actualCost <= maxCost, "LaunchpadEngine: cost too high");
+
+        // Transfer total cost from user
+        usdc.safeTransferFrom(msg.sender, address(this), actualCost);
+
+        // Approve AMM to spend base cost
+        usdc.approve(address(ammEngine), baseCost);
+
+        // Execute trade on AMM
+        ammEngine.tradePositions(market, deltaShares, baseCost);
+
+        // Distribute fee
+        _distributeFee(market, fee, msg.sender);
+
+        emit PositionTraded(msg.sender, market, deltaShares, actualCost, fee);
+    }
+
+    /**
+     * @notice Distribute trading fee according to graduation status
+     */
+    function _distributeFee(
+        address market,
+        uint256 fee,
+        address trader
+    ) internal {
+        MarketState storage state = markets[market];
+
+        if (!state.isGraduated) {
+            // PRE-GRADUATION: 100% to bBase growth + LP minting
+
+            // Increase liquidity parameter
+            uint256 feeInWad = _usdcToWad(fee);
+            state.bCurrent += feeInWad;
+
+            // Mint LP tokens to trader (1:1 with fee paid)
+            uint256 lpTokens = feeInWad;
+            lpBalances[market][trader] += lpTokens;
+            state.totalLPSupply += lpTokens;
+
+            // Update fees accrued
+            state.feesAccrued += fee;
+
+            // Check graduation (short-circuit if already graduated)
+            if (!state.isGraduated) {
+                uint256 graduationThreshold = state.bBase * graduationMultiplier;
+                uint256 feesInWad = _usdcToWad(state.feesAccrued);
+
+                if (feesInWad >= graduationThreshold) {
+                    state.isGraduated = true;
+                    state.graduatedAt = uint64(block.timestamp);
+                    emit MarketGraduated(market, state.feesAccrued, block.timestamp);
+                }
+            }
+
+            emit FeeDistributedPreGrad(market, fee, feeInWad, lpTokens, trader);
+
+        } else {
+            // POST-GRADUATION: Split according to configured percentages
+
+            uint256 toBBase = (fee * bBaseShareBps) / BPS_DENOMINATOR;
+            uint256 toLPYield = (fee * lpYieldShareBps) / BPS_DENOMINATOR;
+            uint256 toProtocol = (fee * protocolShareBps) / BPS_DENOMINATOR;
+
+            // Increase liquidity
+            uint256 bBaseInWad = _usdcToWad(toBBase);
+            state.bCurrent += bBaseInWad;
+
+            // Add to LP yield pool (increases redemption value)
+            state.lpYieldPool += toLPYield;
+
+            // Transfer protocol share
+            usdc.safeTransfer(protocolTreasury, toProtocol);
+
+            emit FeeDistributedPostGrad(market, fee, toBBase, toLPYield, toProtocol);
+        }
+    }
+
+    // ============================================
+    // LP Management
+    // ============================================
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function redeemLP(
+        address market,
+        uint256 lpAmount
+    ) external override returns (uint256 usdcAmount) {
+        MarketState storage state = markets[market];
+        require(lpBalances[market][msg.sender] >= lpAmount, "LaunchpadEngine: insufficient LP");
+
+        // Calculate redemption value using Honest Floor Model
+        uint256 floorValue = _calculateFloor(market);
+
+        // Pro-rata share
+        usdcAmount = (floorValue * lpAmount) / state.totalLPSupply;
+
+        // Burn LP tokens
+        lpBalances[market][msg.sender] -= lpAmount;
+        state.totalLPSupply -= lpAmount;
+
+        // Transfer USDC
+        usdc.safeTransfer(msg.sender, usdcAmount);
+
+        emit LPRedeemed(msg.sender, market, lpAmount, usdcAmount);
+    }
+
+    /**
+     * @notice Calculate floor value (worst-case LP value)
+     * @dev Floor = (Deposit + Fees + LP Yield) - max(qYes, qNo)
+     */
+    function _calculateFloor(address market) internal view returns (uint256) {
+        MarketState memory state = markets[market];
+
+        // Get AMM state
+        (uint256 qYes, uint256 qNo, ) = ammEngine.getMarketState(market);
+
+        // Total cash in market
+        uint256 totalCash = state.creatorDeposit + state.feesAccrued + state.lpYieldPool;
+
+        // Maximum liability (worst case: all traders hold winning outcome)
+        uint256 maxLiability = qYes > qNo ? qYes : qNo;
+        uint256 maxLiabilityInUsdc = _wadToUsdc(maxLiability);
+
+        // Floor = Cash - Liability
+        if (totalCash > maxLiabilityInUsdc) {
+            return totalCash - maxLiabilityInUsdc;
+        } else {
+            return 0; // Market underwater
+        }
+    }
+
+    // ============================================
+    // Creator Functions
+    // ============================================
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function increaseBBase(
+        address market,
+        uint256 amount
+    ) external override {
+        MarketState storage state = markets[market];
+        require(msg.sender == state.creator, "LaunchpadEngine: not creator");
+
+        // Transfer USDC from creator
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+
+        // Increase liquidity
+        uint256 amountInWad = _usdcToWad(amount);
+        state.bCurrent += amountInWad;
+        state.bBase += amountInWad; // Also increase base for graduation calc
+
+        // Mint LP tokens to creator
+        lpBalances[market][msg.sender] += amountInWad;
+        state.totalLPSupply += amountInWad;
+
+        emit LiquidityIncreased(market, msg.sender, amount, amountInWad);
+    }
+
+    // ============================================
+    // View Functions
+    // ============================================
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function getMarketState(address market)
+        external
+        view
+        override
+        returns (
+            address creator,
+            uint256 bBase,
+            uint256 bCurrent,
+            uint256 totalLPSupply,
+            bool isGraduated,
+            uint256 floorValue
+        )
+    {
+        MarketState memory state = markets[market];
+        return (
+            state.creator,
+            state.bBase,
+            state.bCurrent,
+            state.totalLPSupply,
+            state.isGraduated,
+            _calculateFloor(market)
+        );
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function getLPBalance(address market, address user)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        return lpBalances[market][user];
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function getGraduationProgress(address market)
+        external
+        view
+        override
+        returns (uint256 feesAccrued, uint256 threshold, uint256 progressBps)
+    {
+        MarketState memory state = markets[market];
+        
+        feesAccrued = state.feesAccrued;
+        uint256 thresholdWad = state.bBase * graduationMultiplier;
+        threshold = _wadToUsdc(thresholdWad);
+        
+        if (state.isGraduated) {
+            progressBps = BPS_DENOMINATOR; // 100%
+        } else if (threshold > 0) {
+            progressBps = (feesAccrued * BPS_DENOMINATOR) / threshold;
+        } else {
+            progressBps = 0;
+        }
+    }
+
+    // ============================================
+    // Helper Functions
+    // ============================================
+
+    function _usdcToWad(uint256 usdcAmount) internal view returns (uint256) {
+        if (usdcDecimals == 18) {
+            return usdcAmount;
+        } else if (usdcDecimals < 18) {
+            return usdcAmount * (10 ** (18 - usdcDecimals));
+        } else {
+            return usdcAmount / (10 ** (usdcDecimals - 18));
+        }
+    }
+
+    function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            return wadAmount / (10 ** (18 - usdcDecimals));
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
+    }
+}
