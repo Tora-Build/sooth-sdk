@@ -1,5 +1,24 @@
 import { parseAbi } from "viem";
 
+// V8 ABIs - Import from JSON files
+import LaunchpadEngineABI from "./abis/v8/LaunchpadEngine.abi.json";
+import CollateralizerABI from "./abis/v8/Collateralizer.abi.json";
+import AMMEngineABI from "./abis/v8/AMMEngine.abi.json";
+import TickBookABI from "./abis/v8/TickBook.abi.json";
+import TruthMarketABI from "./abis/v8/TruthMarket.abi.json";
+import OutcomeTokenABI from "./abis/v8/OutcomeToken.abi.json";
+
+// V8 ABIs Export
+export const V8_ABIS = {
+  LaunchpadEngine: LaunchpadEngineABI,
+  Collateralizer: CollateralizerABI,
+  AMMEngine: AMMEngineABI,
+  TickBook: TickBookABI,
+  TruthMarket: TruthMarketABI,
+  OutcomeToken: OutcomeTokenABI,
+} as const;
+
+// Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
   "function isLive() view returns (bool)",
   "function isSettled() view returns (bool)",

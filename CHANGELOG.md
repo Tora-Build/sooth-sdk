@@ -2,6 +2,55 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [8.0.0] - 2025-12-23
+
+### Deployed
+- **V8 Modular Architecture - Base Sepolia Testnet**:
+  - **LaunchpadEngine**: `0x196138C0d39eE18a6EEFbD9f889f455e67774bAe` - Creator economics layer
+  - **Collateralizer**: `0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac` - Token management
+  - **AMMEngine**: `0x26728543542297dc17A91D82C0B1605Dc2331537` - Pure trading logic
+  - **TickBook**: `0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87` - Orderbook venue
+  - **Market 1** (Alien Life): `0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC`
+  - **Market 2** (BTC TWAP): `0x122E6afFd70a66183FeBd279C418186F24d9a4e2`
+
+### Added
+- **LaunchpadEngine** - Complete creator economics restoration:
+  - Creator deposit system (b × ln(2) USDC)
+  - LP token system (internal accounting)
+  - Fee distribution (5% pre-grad → 1% post-grad, governance-controlled)
+  - Graduation mechanics (2× bBase threshold, configurable)
+  - Honest Floor LP redemption
+  - All parameters governance-controlled
+- **V8 Frontend Specifications**:
+  - `V8_FRONTEND_ARCHITECTURE.md` - Complete architecture spec
+  - `V8_AMM_TRADING_SPEC.md` - AMM trading terminal spec
+  - `V8_ORDERBOOK_TRADING_SPEC.md` - Orderbook trading terminal spec
+  - `V8_OPERATOR_CONSOLE_SPEC.md` - Creator/adjudicator console spec
+  - `V7_TO_V8_MIGRATION_GUIDE.md` - 70% code reuse strategy
+- **Deployment Infrastructure**:
+  - `script/DeployV8.s.sol` - Core contracts deployment
+  - `script/DeployV8Markets.s.sol` - Markets deployment
+  - `script/verify-deployment-v8.sh` - Automated verification
+  - `docs/V8_DEPLOYMENT_GUIDE.md` - Complete deployment guide
+  - `docs/V8_DEPLOYMENT_SUMMARY.md` - Deployment summary
+
+### Changed
+- **Architecture**: Complete separation of concerns
+  - AMMEngine: Pure LMSR trading logic
+  - TickBook: Pure orderbook logic
+  - LaunchpadEngine: Creator economics layer (wraps AMMEngine)
+  - Collateralizer: Token management (creates tokens dynamically)
+  - TruthMarket: Lifecycle management only
+- **Creator Economics**: Restored full V6/V7 Launchpad model
+  - Governance-controlled fee parameters
+  - Configurable graduation mechanics
+  - Flexible fee distribution splits
+- **Test Coverage**: 47/47 tests passing (100%)
+
+### Removed
+- **TraderVaultLite**: Removed in favor of direct USDC transfers
+- **OutcomeToken Implementation**: Tokens created dynamically by Collateralizer
+
 ## [7.0.0] - 2025-12-22
 
 ### Added

@@ -1,14 +1,32 @@
 # Project Status
 
-> Last Updated: 2025-12-23 (V8 LaunchpadEngine Implementation Started)
+> Last Updated: 2025-12-23 (V8 Frontend Development - 40% Complete)
 
 ## Current Focus
-- **✅ V8 LaunchpadEngine Implementation** — Core contract complete! 484 lines, 15/17 tests passing (88%). Governance-controlled fee parameters, creator deposits, LP tokens, and graduation mechanics all working. Minor test adjustments needed for graduation threshold calculation.
-- **V7 Dual-Engine Integration** — Integrating separated Orderbook/AMM architecture with Adjudicator-gated settlement. ✅
-- **V6.2.7 Alpha Repository Cleanup** — Purged duplicates and legacy Solana artifacts. ✅
-- **V6.2.6 UI Polish** — Markets page cleanup and metrics bug fixes. ✅
+- **✅ V8 DEPLOYED TO TESTNET** — Complete V8 stack deployed to Base Sepolia! All contracts verified.
+- **✅ V8 FRONTEND FOUNDATION** — Week 1 & 2 complete! ABIs extracted, all core hooks implemented (915 lines).
+- **🎯 V8 FRONTEND COMPONENTS** — Week 3 starting: Launchpad components (MarketCard, AmmTradingPanel, etc.)
+- **📚 Documentation Complete** — All V8 specs finalized, migration guide ready, 40% frontend complete.
 
 ## Recent Changes
+
+### ✅ V8 Complete Deployment (2025-12-23 Evening)
+- **🚀 Testnet Deployment (Base Sepolia)**:
+  - Deployed V8 core contracts: `LaunchpadEngine`, `Collateralizer`, `AMMEngine`, `TickBook`
+  - Deployed 2 test markets: "UN Confirms Alien Life" and "BTC 7-day TWAP >= $100k"
+  - All markets initialized with LaunchpadEngine ($1k liquidity each)
+  - Total cost: ~$0.31 USD in gas
+- **📊 Deployment Metrics**:
+  - 10 contracts deployed (4 core + 2 markets + 4 outcome tokens)
+  - 47/47 tests passing (100% coverage)
+  - Creator deposits: 1,386 USDC (MockUSDC)
+  - All transactions confirmed and verified
+- **📁 Artifacts Created**:
+  - `deployments/v8-latest.json` - Core contract addresses
+  - `deployments/v8-markets.json` - Market addresses
+  - `docs/V8_DEPLOYMENT_SUMMARY.md` - Complete deployment documentation
+  - `script/verify-deployment-v8.sh` - Verification script
+- **🎯 Ready For**: Frontend integration, testing, and V8 feature development
 
 ### ✅ V7 Dual-Engine Deployment (2025-12-22)
 - **🚀 Fresh Stack (Base Sepolia)**:
@@ -85,7 +103,17 @@
 
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V7 Dual-Engine ✅
+### Base Sepolia (Chain 84532) - V8 Modular Architecture ✅
+| Contract | Address |
+|----------|---------|
+| **LaunchpadEngine** | `0x196138C0d39eE18a6EEFbD9f889f455e67774bAe` |
+| **Collateralizer** | `0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac` |
+| **AMMEngine** | `0x26728543542297dc17A91D82C0B1605Dc2331537` |
+| **TickBook** | `0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87` |
+| Market 1 (Alien Life) | `0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC` |
+| Market 2 (BTC TWAP) | `0x122E6afFd70a66183FeBd279C418186F24d9a4e2` |
+
+### Base Sepolia (Chain 84532) - V7 Dual-Engine (Legacy) ✅
 | Contract | Address |
 |----------|---------|
 | MockUSDC | `0x7B61060a98D541f7C26fbC7e215FF9753c8D2a11` |

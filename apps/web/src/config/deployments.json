@@ -1,9 +1,21 @@
 {
-  "version": "7.0.0-base-sepolia-1",
-  "lastUpdated": "2025-12-22T12:00:00Z",
-  "status": "Base Sepolia V7 Full Stack Redeploy (Dual-Engine + Adjudicators)",
+  "version": "8.0.0",
+  "lastUpdated": "2025-12-23T20:53:00Z",
+  "status": "V8 Modular Architecture - Base Sepolia Testnet",
   "networks": {
     "baseSepolia": {
+      "chainId": 84532,
+      "contracts": {
+        "MockUSDC": "0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd",
+        "LaunchpadEngine": "0x196138C0d39eE18a6EEFbD9f889f455e67774bAe",
+        "Collateralizer": "0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac",
+        "AMMEngine": "0x26728543542297dc17A91D82C0B1605Dc2331537",
+        "TickBook": "0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87",
+        "market1": "0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC",
+        "market2": "0x122E6afFd70a66183FeBd279C418186F24d9a4e2"
+      }
+    },
+    "baseSepoliaV7": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x7B61060a98D541f7C26fbC7e215FF9753c8D2a11",

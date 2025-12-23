@@ -8,16 +8,17 @@ import { Toaster } from 'react-hot-toast';
 import { wagmiAdapter, projectId, metadata, networks } from './lib/wagmi';
 import { ActivityListener } from './components/features/ActivityListener';
 
-// Pages
-import { Landing } from './pages/Landing';
-import { About } from './pages/About';
+// Pages - V8
+import { Landing } from './pages/v8/Landing';
+import { About } from './pages/v8/About';
 import { AppLayout } from './layouts/AppLayout';
-import { Markets } from './pages/Markets';
-import { MarketDetail } from './pages/MarketDetail';
-import { Portfolio } from './pages/Portfolio';
-import { CreateMarket } from './pages/CreateMarket';
-import { Faucet } from './pages/Faucet';
-import { OperatorConsole } from './pages/OperatorConsole';
+import { Markets } from './pages/v8/Markets';
+// import { MarketDetail } from './pages/v8/MarketDetail';
+// import { Portfolio } from './pages/v8/Portfolio';
+// import { CreateMarket } from './pages/v8/CreateMarket';
+// import { Faucet } from './pages/v8/Faucet';
+import { OperatorConsole } from './pages/v8/OperatorConsole';
+import { V8HooksTest } from './pages/V8HooksTest';
 
 import './index.css';
 
@@ -66,11 +67,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/about" element={<About />} />
             <Route element={<AppLayout />}>
               <Route path="/markets" element={<Markets />} />
-              <Route path="/market/:address" element={<MarketDetail />} />
-              <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/create" element={<CreateMarket />} />
-              <Route path="/faucet" element={<Faucet />} />
+              {/* <Route path="/market/:address" element={<MarketDetail />} /> */}
+              {/* <Route path="/portfolio" element={<Portfolio />} /> */}
+              {/* <Route path="/create" element={<CreateMarket />} /> */}
+              {/* <Route path="/faucet" element={<Faucet />} /> */}
               <Route path="/operator" element={<OperatorConsole />} />
+              <Route path="/v8-test" element={<V8HooksTest />} />
             </Route>
           </Routes>
         </BrowserRouter>
