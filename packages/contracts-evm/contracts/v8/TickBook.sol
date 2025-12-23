@@ -109,10 +109,18 @@ contract TickBook is ITickBook {
 
         // Execute swap across ticks
         while (remainingIn > 0) {
-            // Find next tick with liquidity
-            uint16 nextTick = isBuy 
-                ? _bitmaps[marketKey].findNextUp(currentTick)
-                : _bitmaps[marketKey].findNextDown(currentTick);
+            // Find next tick with liquidity (including current tick)
+            uint16 nextTick;
+            
+            // First, check if current tick has liquidity
+            if (_bitmaps[marketKey].isSet(currentTick)) {
+                nextTick = currentTick;
+            } else {
+                // Search for next tick
+                nextTick = isBuy 
+                    ? _bitmaps[marketKey].findNextUp(currentTick)
+                    : _bitmaps[marketKey].findNextDown(currentTick);
+            }
 
             if (nextTick > MAX_TICK) break; // No more liquidity
             if (isBuy && nextTick > limitTick) break; // Hit limit
@@ -130,12 +138,29 @@ contract TickBook is ITickBook {
                 continue;
             }
 
-            // Calculate swap at this tick
-            uint256 amountOutAtTick = TickMath.getAmountOut(
-                uint256(reserveIn),
-                uint256(reserveOut),
-                remainingIn
-            );
+            // Determine how much we can swap at this tick
+            uint256 maxOut = reserveOut; // Maximum output available
+            uint256 amountInAtTick;
+            uint256 amountOutAtTick;
+            
+            // Check if we can fill entire order at this tick
+            uint256 potentialOut = TickMath.getAmountOut(reserveIn, reserveOut, remainingIn);
+            
+            if (potentialOut < maxOut) {
+                // Partial fill - consume all remaining input
+                amountInAtTick = remainingIn;
+                amountOutAtTick = potentialOut;
+            } else {
+                // Full tick consumption - calculate input needed
+                amountOutAtTick = maxOut - 1; // Leave 1 wei to avoid division by zero
+                amountInAtTick = TickMath.getAmountIn(reserveIn, reserveOut, amountOutAtTick);
+                
+                // Ensure we don't exceed remaining input
+                if (amountInAtTick > remainingIn) {
+                    amountInAtTick = remainingIn;
+                    amountOutAtTick = TickMath.getAmountOut(reserveIn, reserveOut, amountInAtTick);
+                }
+            }
 
             // Apply fee (0.2% taker fee)
             uint256 fee = (amountOutAtTick * TAKER_FEE_BPS) / 10000;
@@ -143,23 +168,32 @@ contract TickBook is ITickBook {
 
             // Update tick liquidity
             if (isBuy) {
-                tickData.liquidityNO = uint128(reserveIn + remainingIn);
+                tickData.liquidityNO = uint128(reserveIn + amountInAtTick);
                 tickData.liquidityYES = uint128(reserveOut - amountOutAtTick - fee);
             } else {
-                tickData.liquidityYES = uint128(reserveIn + remainingIn);
+                tickData.liquidityYES = uint128(reserveIn + amountInAtTick);
                 tickData.liquidityNO = uint128(reserveOut - amountOutAtTick - fee);
             }
 
             // Check if tick is exhausted
-            if (tickData.liquidityYES == 0 || tickData.liquidityNO == 0) {
+            if (tickData.liquidityYES <= 1 || tickData.liquidityNO <= 1) {
                 _bitmaps[marketKey].clearBit(nextTick);
             }
 
             totalOut += amountOutAtTick;
             totalFee += fee;
-            remainingIn = 0; // Simplified: assume single tick execution
+            remainingIn -= amountInAtTick;
 
-            currentTick = nextTick;
+            // Move to next tick for next iteration
+            if (remainingIn > 0) {
+                currentTick = isBuy 
+                    ? _bitmaps[marketKey].findNextUp(nextTick)
+                    : _bitmaps[marketKey].findNextDown(nextTick);
+                    
+                if (currentTick > MAX_TICK) break; // No more ticks
+            } else {
+                currentTick = nextTick;
+            }
         }
 
         require(totalOut > 0, "TickBook: insufficient liquidity");
