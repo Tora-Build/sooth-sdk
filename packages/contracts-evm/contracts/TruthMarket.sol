@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {ITruthMarket} from "../interfaces/v8/ITruthMarket.sol";
+import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 
 /**
  * @title TruthMarket

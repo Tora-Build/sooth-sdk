@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {Collateralizer} from "../../contracts/v8/Collateralizer.sol";
-import {TruthMarket} from "../../contracts/v8/TruthMarket.sol";
-import {OutcomeToken} from "../../contracts/v8/OutcomeToken.sol";
+import {Collateralizer} from "../../contracts/Collateralizer.sol";
+import {TruthMarket} from "../../contracts/TruthMarket.sol";
+import {OutcomeToken} from "../../contracts/OutcomeToken.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract CollateralizerTest is Test {

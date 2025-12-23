@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {ITickBook} from "../interfaces/v8/ITickBook.sol";
-import {ITruthMarket} from "../interfaces/v8/ITruthMarket.sol";
+import {ITickBook} from "./interfaces/ITickBook.sol";
+import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";

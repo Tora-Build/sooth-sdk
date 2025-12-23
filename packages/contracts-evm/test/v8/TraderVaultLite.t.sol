@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {TraderVaultLite} from "../../contracts/v8/TraderVaultLite.sol";
+import {TraderVaultLite} from "../../contracts/TraderVaultLite.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract TraderVaultLiteTest is Test {

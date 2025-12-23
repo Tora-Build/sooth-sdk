@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {TruthMarket} from "../../contracts/v8/TruthMarket.sol";
+import {TruthMarket} from "../../contracts/TruthMarket.sol";
 
 contract TruthMarketTest is Test {
     TruthMarket public market;

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IAMMEngine} from "../interfaces/v8/IAMMEngine.sol";
-import {ITruthMarket} from "../interfaces/v8/ITruthMarket.sol";
-import {ITraderVaultLite} from "../interfaces/v8/ITraderVaultLite.sol";
+import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
+import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {ITraderVaultLite} from "./interfaces/ITraderVaultLite.sol";
 import {LMSRMath} from "./libraries/LMSRMath.sol";
 
 /**
