@@ -26,38 +26,54 @@ export function AdjudicatorConsole() {
   // Fetch market adjudicator states
   const marketCalls = useMemo(() => {
     return markets.flatMap(m => [
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'adjudicator' },
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isSettled' },
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'winningOutcome' },
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'tStar' },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'adjudicator', chainId: Number(selectedChainId) },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'winningOutcome', chainId: Number(selectedChainId) },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'tStar', chainId: Number(selectedChainId) },
     ]);
-  }, [markets]);
+  }, [markets, selectedChainId]);
 
   const { data: marketStates, isLoading: isLoadingStates, refetch: refetchStates } = useReadContracts({
     contracts: marketCalls,
-    chainId: Number(selectedChainId),
     query: { enabled: markets.length > 0 }
   });
 
   const handleResolve = async (marketAddress: `0x${string}`, adjudicatorAddress: `0x${string}`) => {
     const outcome = outcomes[marketAddress] ?? 0;
-    const tStarStr = tStars[marketAddress] || '1.0';
-    const tStar = parseUnits(tStarStr, 18);
+    
+    // V7: tStar is a truth-time (Unix timestamp)
+    // Default to current time if not provided
+    const tStarStr = tStars[marketAddress];
+    const tStar = tStarStr ? BigInt(Math.floor(Number(tStarStr))) : BigInt(Math.floor(Date.now() / 1000));
 
     setResolving(prev => ({ ...prev, [marketAddress]: true }));
     const toastId = toast.loading('Resolving market...');
 
     try {
-      // For now, we assume it's a Manual Adjudicator if we're using this path
-      // In a full implementation, we'd check adjudicatorClass() first
-      const hash = await writeContractAsync({
-        address: adjudicatorAddress,
-        abi: SOOTH_MANUAL_ADJUDICATOR_ABI,
-        functionName: 'resolve',
-        args: [marketAddress, outcome, tStar],
-      });
+      // V7 Settlement Logic:
+      // 1. If the adjudicator is an EOA (e.g. the user themselves), call finalizeResolution on the market.
+      // 2. If the adjudicator is a contract, call resolve() on that contract.
+      
+      const isEoaAdjudicator = adjudicatorAddress.toLowerCase() === userAddress?.toLowerCase();
 
-      await publicClient?.waitForTransactionReceipt({ hash });
+      if (isEoaAdjudicator) {
+        const hash = await writeContractAsync({
+          address: marketAddress,
+          abi: LAUNCHPAD_MARKET_ABI,
+          functionName: 'finalizeResolution',
+          args: [outcome, tStar],
+        });
+        await publicClient?.waitForTransactionReceipt({ hash });
+      } else {
+        const hash = await writeContractAsync({
+          address: adjudicatorAddress,
+          abi: SOOTH_MANUAL_ADJUDICATOR_ABI,
+          functionName: 'resolve',
+          args: [marketAddress, outcome, tStar],
+        });
+        await publicClient?.waitForTransactionReceipt({ hash });
+      }
+
       toast.success('Market resolved!', { id: toastId });
       refetchStates();
     } catch (error: any) {
@@ -113,11 +129,11 @@ export function AdjudicatorConsole() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">T* (Truth)</label>
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">T* (Time)</label>
                       <Input 
                         type="text" 
-                        placeholder="1.0"
-                        className="w-24 h-8 bg-slate-900"
+                        placeholder={Math.floor(Date.now() / 1000).toString()}
+                        className="w-32 h-8 bg-slate-900 font-mono text-[10px]"
                         value={tStars[market.address] || ''}
                         onChange={(e) => setTStars(prev => ({ ...prev, [market.address]: e.target.value }))}
                       />
@@ -125,7 +141,7 @@ export function AdjudicatorConsole() {
 
                     <Button 
                       size="sm" 
-                      variant="cyan"
+                      variant="primary"
                       onClick={() => handleResolve(market.address, adjudicator)}
                       disabled={resolving[market.address] || !adjudicator}
                     >
