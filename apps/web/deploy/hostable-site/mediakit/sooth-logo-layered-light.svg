@@ -1,0 +1,13 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="48" fill="#F8FAFC" />
+  <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.1" stroke="#818CF8" stroke-width="1" />
+  <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.1" stroke="#C084FC" stroke-width="1" />
+  <path d="M100 10L180 80L100 150L20 80Z" fill="#0891B2" opacity="0.2" stroke="#0891B2" stroke-width="2" />
+  <path d="M100 10V190" stroke="#0F172A" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+</svg>
+
+
+
+
+
+

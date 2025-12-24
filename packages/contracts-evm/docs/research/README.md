@@ -6,21 +6,21 @@ This directory contains research findings, analysis, and technical investigation
 
 These documents represent the core architectural convergence for the next-generation Sooth venue stack.
 
-### 1. [Architectural Consensus Summary](./V8/RESEARCH_SUMMARY_MODULAR_STACK.md)
+### 1. [V8 Modular Architecture](./V8/V8_MODULAR_ARCHITECTURE.md)
 **Priority:** 🔥 **CRITICAL**  
-Summary of the tri-modular stack (Truth Market + AMM Engine + OB Venue) and the fundamental non-fungible domain decision.
+Canonical writeup of the V8 modular stack (TruthMarket + AMMEngine + TickBook + Collateralizer) and the key domain-separation decisions.
 
-### 2. [Modular Venue Stack Specification](./V8/MODULAR_VENUE_STACK.md)
+### 2. [V8 Launchpad Architecture](./V8/V8_LAUNCHPAD_ARCHITECTURE.md)
 **Priority:** 🔥 **HIGH**  
-Full specification for the decoupled architecture, standard interfaces, and self-contained OB venue mechanics.
+Creator-economics layer design (LaunchpadEngine) and how it wraps the pure AMM engine.
 
-### 3. [Continuous Linear Ticks (CLT) Math](./V8/CONTINUOUS_LINEAR_TICK_RESEARCH.md)
+### 3. [V8 Frontend Integration Guide](./V8/V8_FRONTEND_INTEGRATION_GUIDE.md)
 **Priority:** 🔥 **HIGH**  
-Technical deep-dive into the "Fungible Concentrated Liquidity" model and the math for linear probability ticks.
+Practical integration notes and conventions for wiring contracts → frontend.
 
-### 4. [Design Review: Modular Stack](./V8/MODULAR_VENUE_STACK_REVIEW.md)
+### 4. [V8 Gas Optimization Review](./V8/V8_GAS_OPTIMIZATION_REVIEW.md)
 **Priority:** ✅ **REVIEWED**  
-Comprehensive design review of the modular stack proposal with identified gaps and phased next steps.
+Gas review notes and optimization opportunities.
 
 ---
 

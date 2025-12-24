@@ -18,8 +18,8 @@ private/
 # Foundry (packages/contracts-evm)
 out/
 cache/
-broadcast/*
-!**/run-latest.json
+packages/contracts-evm/broadcast/**
+!packages/contracts-evm/broadcast/**/run-latest.json
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
 lib/prb-math
@@ -37,10 +37,7 @@ build/
 dist/
 .npm
 *.log
-apps/web/deploy/
-
-# pnpm
-pnpm-lock.yaml
+apps/web/dist/
 
 # Turbo
 .turbo/
@@ -49,5 +46,3 @@ pnpm-lock.yaml
 generated/
 graph-data/
 
-# Archive folders
-**/archive/**
