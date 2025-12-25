@@ -38,7 +38,7 @@ export const LPPositionsCard: React.FC = () => {
                 {positions.map((position) => (
                     <Link
                         key={position.marketAddress}
-                        to={`/market/${position.marketAddress}`}
+                        to={`/trade/${position.marketAddress}`}
                     className="block p-2.5 rounded-lg bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/40 transition-all group"
                     >
                     <div className="flex items-center justify-between mb-1.5">

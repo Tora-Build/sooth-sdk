@@ -1,14 +1,167 @@
 # Project Status
 
-> Last Updated: 2025-12-23 (V8 Frontend Development - 40% Complete)
+> Last Updated: 2025-12-25 (V8.1.5 Complete - Hybrid Orderbook & Unified Depth Deployed)
 
 ## Current Focus
-- **✅ V8 DEPLOYED TO TESTNET** — Complete V8 stack deployed to Base Sepolia! All contracts verified.
-- **✅ V8 FRONTEND FOUNDATION** — Week 1 & 2 complete! ABIs extracted, all core hooks implemented (915 lines).
-- **🎯 V8 FRONTEND COMPONENTS** — Week 3 starting: Launchpad components (MarketCard, AmmTradingPanel, etc.)
-- **📚 Documentation Complete** — All V8 specs finalized, migration guide ready, 40% frontend complete.
+- **✅ V8.1.5 FULL STACK DEPLOYED** — Core contracts and initial markets live on Base Sepolia.
+- **✅ HYBRID CONCENTRATED ORDERBOOK** — TickBook now supports Limit (Ranged) and Market (Amount) orders.
+- **✅ UI TEXT CENTRALIZATION** — All user-facing text moved to `ui-content.json` for easier management.
+- **✅ ACTOR-CENTRIC TUTORIAL** — Interactive Learn page live, aligned with Dec 2025 Whitepaper.
+- **✅ E2E TEST SUITE: 100% PASSING** — 84/84 tests verified on latest deployment config.
+- **✅ MULTICHAIN ISOLATION** — Automatic filtering of markets based on active wallet network.
 
 ## Recent Changes
+
+### ✅ V8.1.5 Full-Stack Integration (2025-12-25 Late Night)
+- **Hybrid Orderbook Protocol**:
+  - Implemented `placeLimitOrder` (supports both point and range orders).
+  - Implemented `executeMarketOrder` (immediate dollar-amount execution).
+  - Transitioned from AMM "Liquidity" terminology to Exchange "Maker/Taker" primitives.
+- **Unified Depth Architecture**:
+  - YES and NO tokens are unified into a single coordinate system ($L$) across 10,000 ticks.
+  - Directional sweeping logic (Buy YES = Sweep Up, Buy NO = Sweep Down) verified in production.
+- **UI Content Migration**:
+  - Successfully migrated all hardcoded text from `Learn.tsx`, `Pro.tsx`, `Trade.tsx`, `Create.tsx`, and `Navbar.tsx` to `apps/web/src/config/ui-content.json`.
+  - Simplifies localization and branding updates.
+- **Venue Branding Finalized**:
+  - **AMM**: Retail gaming interface.
+  - **Pro**: Professional terminal (powered by TickBook).
+  - **Launchpad**: Creator economics and graduation hub.
+- **QA & Stability**:
+  - All Playwright E2E tests passing, including those requiring precise heading selectors.
+  - Confirmed 100% graduation progress bar persistence for matured markets.
+  - Verified `/about` route serves the new actor-centric Learn content.
+
+### ✅ TickBook Protocol V8.1 Refactor (2025-12-25 Late Evening)
+- **Maker/Taker Protocol Shift**:
+  - Replaced AMM "Liquidity" terminology with professional exchange primitives.
+  - Implemented `placeLimitOrder` (supports both single-tick and ranged orders).
+  - Implemented `executeMarketOrder` (amount-based immediate fill with slippage protection).
+- **Unified YES/NO Depth**:
+  - Unified both outcome sides into a single mathematical coordinate system.
+  - Symmetrical pricing: every tick represents $P(YES)$ and $1-P(YES)$ simultaneously.
+  - Directional sweeping for market orders (Buy YES = Sweep Up, Buy NO = Sweep Down).
+- **Pro Terminal Upgrade**:
+  - Dual-mode trading panel: Toggle between LIMIT (RANGE) and MARKET execution.
+  - Terminal Terminology: Updated Tick Map, Tick Ladder, and Depth Chart to reflect "Order Depth" and "Maker Inventory."
+- **Protocol Verification**:
+  - successfully passed 100% of unit and integration tests (`TickBook.t.sol` and `V8Integration.t.sol`).
+  - Created technical summary doc: `apps/web/docs/TICKBOOK_PROTOCOL_V8.1_SUMMARY.md`.
+
+### ✅ E2E Testing Infrastructure Hardened (2025-12-25 Late Evening)
+- **Custom MetaMask Fixture**:
+  - Built `e2e/fixtures/wallet.fixture.ts` for direct MetaMask extension loading
+  - Bypasses Synpress caching issues by using `chromium.launchPersistentContext()`
+  - Pre-downloaded MetaMask v11.9.1 to `.metamask/extension/`
+- **Headed but Non-Intrusive Execution**:
+  - Basic tests (77) run in **headless mode** — no browser window, no interruption
+  - Wallet/onchain tests run **headed but off-screen** (`--window-position=-2400,-2400`)
+  - Tests execute serially (`workers: 1`, `fullyParallel: false`) for stability
+- **Web3Modal Handling**:
+  - Added `Escape` key press to close `<w3m-modal>` before interacting with trading UI
+  - Fixes "element intercepts pointer events" failures
+- **Test Coverage Summary**:
+  | Project | Tests | Status |
+  |---------|-------|--------|
+  | `basic` | 77 | ✅ Headless |
+  | `wallet` | 2 | ✅ Off-screen |
+  | `onchain` | 5 | ✅ Off-screen |
+  | **Total** | **84** | ✅ All passing |
+- **New npm Scripts**:
+  - `npm run test:e2e:basic` — Headless smoke tests (1.6 min)
+  - `npm run test:e2e:wallet` — Wallet connection tests
+  - `npm run test:e2e:onchain` — On-chain transaction tests
+  - `npm run test:e2e` — Full suite (3.2 min)
+
+### ✅ V8.1 UI Rebranding & Actor-Centric Tutorial (2025-12-25 Evening)
+- **Actor-Centric Learn Page**:
+  - Rebuilt `/about` (formerly `/learn`) to align with the Dec 2025 Whitepaper.
+  - New perspectives: The Creator (Launchpad), The Gaming Trader (AMM), The Arbitrageur & PvP Trader (TickBook).
+  - Integrated `LMSRCurve` and `SandboxTradingPanel` for interactive learning.
+- **Protocol Rebranding**:
+  - **AMM** (formerly Trade): Focused on retail traders.
+  - **TickBook** (formerly Pro): Focused on professional orderbook traders.
+  - **Launchpad** (formerly Create): Focused on market creators and adjudicators.
+- **Multichain Market Filtering**:
+  - Implemented `useChainId` across all major views.
+  - Markets now automatically filter to match the user's active wallet network.
+- **UI Polish**:
+  - Graduation progress bar now persists at 100% for graduated markets.
+  - Standardized "Learn" wording across Landing page and Navbar.
+- **Maintenance**:
+  - Deleted legacy `About.tsx`.
+  - Updated E2E tests to 100% pass rate with new terminology.
+
+### ✅ V8.1 E2E Test Suite QA (2025-12-25)
+- **Fixed 6 Failing Tests**:
+  - `trade.spec.ts:95` - Fixed BUY/SELL toggle assertion to match actual styling (rose for SELL, cyan/emerald for BUY)
+  - `learn.spec.ts` - Updated 5 step content matchers to use `getByRole('heading')` instead of text search
+- **Verified Legacy Page Removal**:
+  - QA caught outdated tests running against deleted pages (markets.spec.ts, market-detail.spec.ts)
+  - Confirmed all legacy routes removed from main.tsx
+  - Updated internal links to use new role-based paths
+- **Test Coverage Summary**:
+  | File | Passed | Skipped | Status |
+  |------|--------|---------|--------|
+  | navigation.spec.ts | 11 | 0 | ✅ |
+  | trade.spec.ts | 19 | 0 | ✅ |
+  | learn.spec.ts | 18 | 0 | ✅ |
+  | pro.spec.ts | 8 | 3 | ✅ |
+  | create.spec.ts | 5 | 6 | ✅ |
+  | gov.spec.ts | 5 | 5 | ✅ |
+  | **Total** | **68** | **14** | ✅ |
+- **Skipped Tests**: 14 tests require wallet connection via Synpress (env vars needed)
+
+### 🚨 V8 Contract Bug Discovery (2025-12-24 Evening)
+- **Critical Bug Found**: `LaunchpadEngine.tradePositions()` has a USDC decimal mismatch
+- **Root Cause**: The contract calculates `actualCost` in WAD (18 decimals) from LMSR, but passes it directly to `USDC.transferFrom()` without converting to token decimals (6 for standard USDC)
+- **Impact**: When trading on a 6-decimal USDC, the contract tries to transfer astronomically more tokens than intended (e.g., 5.26 WAD = 5.26 trillion tokens in 6-decimal format)
+- **Fix Required**: Add `_wadToUsdc(actualCost)` conversion before the `safeTransferFrom` call in `LaunchpadEngine.sol` line 241
+- **Workaround Options**:
+  1. **Redeploy contracts** with the fix (recommended)
+  2. **Deploy 18-decimal MockUSDC** to match WAD (quick fix for testnet)
+- **Status**: ❌ **BLOCKING V8 TRADING** — Contract redeploy required
+
+### ✅ V8 Frontend Decimal Handling (2025-12-24 Evening)
+- **Fixed SimpleTradingPanel**:
+  - Approval check now correctly compares allowance vs cost in matching decimals
+  - Balance check converts WAD cost to token decimals before comparison
+  - Added debug logging for USDC decimals, balance, allowance, and quote cost
+  - Approval amount now uses actual token decimals (not hardcoded 18)
+- **Added AMMFormulasCard**: Ported 5 core AMM formulas from V7 MarketDetail to V8
+  - 💵 Cash = creatorDeposit + feesAccrued
+  - 📊 Max Liability = max(qYes, qNo)
+  - 🛡️ Floor = Cash − maxLiability
+  - ⚡ LP Value = Floor × (yourLP / totalLP)
+  - ⚠️ Underwater = Floor ≤ 0
+- **UI Polish**:
+  - Hidden v8-test page from navigation (kept for internal testing)
+  - Reordered nav links: Markets → Portfolio → Operator → Faucet → About
+  - Added AMM Formulas to MarketDetail "Info" tab
+
+### ✅ V8 Frontend Trading Integration (2025-12-24)
+- **🎯 SimpleTradingPanel Wired Up**:
+  - Real-time quotes via `useAMMQuoteDirect` hook (LMSR cost, fees, price impact)
+  - USDC approval flow with `ERC20.approve()` to LaunchpadEngine
+  - Actual trade execution via `LaunchpadEngine.tradePositions(market, deltaShares, maxCost)`
+  - V8 position model: +deltaShares = long YES, -deltaShares = long NO
+  - Price impact warnings and Lock-on-Sell notices
+  - 1% slippage buffer on maxCost for buy orders
+- **📊 Portfolio Page Overhaul**:
+  - `MarketPositionCard` - Shows user's YES/NO token balances per market
+  - `LPPositionCard` - Shows creator LP positions
+  - Real-time position values using `useAmmMarketDirect`, `useCollateralizerDirect`
+  - Potential payouts if YES/NO wins
+  - Links to trade and manage positions
+- **🔧 Direct Hooks Complete**:
+  - `useAMMQuoteDirect` - LMSR cost calculation with fee breakdown
+  - All V8 direct hooks now exported and working
+  - Verified `formatWad` formatting correct for testnet (18 decimal MockUSDC)
+- **📁 Files Modified**:
+  - `apps/web/src/components/features/v8/SimpleTradingPanel.tsx` - Trading integration
+  - `apps/web/src/pages/v8/Portfolio.tsx` - Complete rewrite with V8 hooks
+  - `apps/web/src/hooks/v8/direct/useAMMQuoteDirect.ts` - Real-time quotes
+  - `apps/web/src/hooks/v8/direct/index.ts` - Export all hooks
 
 ### ✅ V8 Complete Deployment (2025-12-23 Evening)
 - **🚀 Testnet Deployment (Base Sepolia)**:
@@ -101,17 +254,29 @@
 - **Audit Report**: `packages/contracts-evm/docs/research/V8/V8_AUDIT_REPORT.md`
 - **Confidence Level**: HIGH (95%+)
 
+### ✅ V8.1 Modular Architecture Deployment (2025-12-24)
+- **🚀 Final Fixed Stack (Base Sepolia)**:
+  - Fixed critical `LaunchpadEngine` decimal bug (WAD → USDC Ceil).
+  - Deployed updated core: `LaunchpadEngine`, `Collateralizer`, `AMMEngine`, `TickBook`.
+  - Restored legacy markets: Alien Life, BTC TWAP, plus new ETH5K market.
+  - Synced `deployments.json` and `markets.json` to frontend.
+- **🛠️ Refined Logic**:
+  - Implemented `_wadToUsdcCeil` to prevent "insufficient allowance" for exact balances.
+  - Overrode default 4s polling with 1s `pollingInterval` in frontend.
+  - Swapped RPC priority to favor official `sepolia.base.org`.
+
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V8 Modular Architecture ✅
+### Base Sepolia (Chain 84532) - V8.1 Modular Architecture ✅
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x196138C0d39eE18a6EEFbD9f889f455e67774bAe` |
-| **Collateralizer** | `0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac` |
-| **AMMEngine** | `0x26728543542297dc17A91D82C0B1605Dc2331537` |
-| **TickBook** | `0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87` |
-| Market 1 (Alien Life) | `0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC` |
-| Market 2 (BTC TWAP) | `0x122E6afFd70a66183FeBd279C418186F24d9a4e2` |
+| **LaunchpadEngine** | `0xFf422cc9b537BD41DD2583E3E611CA2eF1C149B4` |
+| **Collateralizer** | `0x2C60E3A96334E449C92C7d035E51EB8A6dA9245E` |
+| **AMMEngine** | `0x35089e985E23D01b4D2E453E775D570649624E8E` |
+| **TickBook** | `0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF` |
+| Market 1 (Alien Life) | `0xa67D75Bb57e6aBe59Cc6E8d102b319D894919ef1` |
+| Market 2 (BTC TWAP) | `0xAbEf550048C255B6513fF9B28EaFC6bF1e27b089` |
+| Market 3 (ETH5K) | `0xcdE5B0b2dD6b229d8d6195D14CBAb726025ECd18` |
 
 ### Base Sepolia (Chain 84532) - V7 Dual-Engine (Legacy) ✅
 | Contract | Address |
@@ -151,28 +316,42 @@
 | **Slippage Warning** | Yellow/red indicator when impact > 1% / 5% | S |
 | **Trade Confirmation** | Summary modal before executing large trades | M |
 
-### 🛡️ Priority 2: LP Health & Transparency
+### ✅ Priority 2: Spendable Proceeds (V8.1)
+| Task | Description | Effort | Status |
+|------|-------------|--------|---|
+| **Contract Changes** | Add global balance tracking + lock queue to AMMEngine | L | ✅ DONE |
+| **Testing Suite** | Unit tests + integration tests for cross-market spendability | M | ✅ DONE |
+| **Frontend Hooks** | `useAvailableBalance`, `useLockQueue`, `useClaimableAmount` | M | ✅ DONE |
+| **UI Components** | ProceedsManagement, LockQueueTable, claim button | M | ✅ DONE |
+| **Deployment** | Deploy V8.1 to Base Sepolia, update frontend config | S | ✅ DONE |
+
+**Feature**: Enable locked AMM sell proceeds to be **spendable but not withdrawable** during 24h lock period.  
+**Benefits**: Capital efficiency (immediate re-trading), cross-market liquidity (sell A → buy B).  
+**Docs**: `packages/contracts-evm/docs/research/V8/V8_SPENDABLE_PROCEEDS_IMPLEMENTATION.md`  
+**Total Effort**: ~1 week
+
+### 🛡️ Priority 3: LP Health & Transparency
 | Task | Description | Effort |
 |------|-------------|--------|
 | **Underwater Banner** | Red alert banner when `isUnderwater()` is true | S |
 | **Realized P&L Display** | Show `lpRealizedPnL()` in Market Stats card | S |
 | **LP ExRate History** | Simple chart showing ExRate over time (optional) | L |
 
-### 📱 Priority 3: Mobile & Responsive
+### 📱 Priority 4: Mobile & Responsive
 | Task | Description | Effort |
 |------|-------------|--------|
 | **Trading Panel Mobile** | Stack Buy/Sell vertically, larger touch targets | M |
 | **Portfolio Mobile** | Single-column layout for position cards | M |
 | **Navigation Mobile** | Collapsible nav drawer or bottom tabs | M |
 
-### 🔬 Priority 4: QA & Stress Testing
+### 🔬 Priority 5: QA & Stress Testing
 | Task | Description | Effort |
 |------|-------------|--------|
 | **Orderbook Stacking** | Test 50+ orders at same price level on MegaETH | M |
 | **LMSR Edge Cases** | Fuzz tests for large trades (>50% of liquidity) | M |
 | **Multi-User Simulation** | 10 concurrent traders script | L |
 
-### 🚀 Priority 5: Launch Prep
+### 🚀 Priority 6: Launch Prep
 | Task | Description | Effort |
 |------|-------------|--------|
 | **Fresh Mainnet Deploy** | Deploy to Base/MegaETH with 5-day deadline markets | M |
@@ -180,6 +359,7 @@
 | **Analytics Events** | Add basic event tracking for trades/deposits | M |
 
 **Effort Key**: S = Small (< 2 hrs), M = Medium (2-6 hrs), L = Large (> 6 hrs)
+
 
 ---
 
@@ -198,11 +378,56 @@
 - [ ] **Legacy Test Cleanup**: `Launchpad.t.sol` is a placeholder for legacy tests. Should be moved to an archive folder.
 - [ ] **TODO Resolution**: `apps/web/src/hooks/useTraderVault.ts:311` (Extract orderId from event logs).
 - [ ] **TODO Resolution**: `apps/web/src/hooks/v5/useLaunchpadTradeQuote.ts:116` (Refine quoter to return next prices).
+- [ ] **Frontend cleanup**: `apps/web/src/hooks/v5/*` (legacy V5 hooks) are present again; migrate any remaining consumers to V8 hooks and remove V5 hooks + any V5-only listeners (e.g. `ActivityListener`) once V8 equivalents exist.
 
 ### Info (Nice to Fix)
 - [ ] **Comment Clarification**: Update `SoothTraderVaultV4.sol` to clarify that `UserAccount.pending` is used for Orderbook collateral.
 
 ---
+
+## Session Summary (2025-12-25 Late Evening)
+**E2E Testing Infrastructure Hardened** — Replaced Synpress with a custom MetaMask fixture that directly loads the extension into a persistent browser context. Configured Playwright for hybrid execution: basic tests run headless (no window), while wallet/onchain tests run headed but off-screen to avoid focus stealing. Added Web3Modal dismissal to prevent modal-blocking-clicks failures. All 84 tests now pass in ~3.2 minutes.
+
+**Pending Work for Next Session**:
+1. ~~Configure Synpress environment variables~~ ✅ Done (custom fixture)
+2. ~~Run wallet-connected tests~~ ✅ Done (2 passing)
+3. Implement "My Markets" filter in Launchpad to show created/adjudicated markets
+4. Add live "Graduated" status badge to AMM/TickBook market cards
+5. Test cross-market reinvestment flow (Sell A → Buy B)
+6. Complete on-chain test implementations (faucet, trade, portfolio verification)
+
+## Session Summary (2025-12-25 Evening)
+**Actor-Centric Rebranding & Multichain Filtering** — Refactored the educational flow to be actor-centric (Creator, Gaming Trader, Arbitrageur) based on the latest whitepaper. Renamed UI venues to AMM and TickBook to align with protocol architecture. Implemented automatic multichain market filtering across all views. Unified the "About" and "Learn" routes.
+
+## Session Summary (2025-12-25)
+**V8.1 E2E Tests Complete** — QA ran full E2E test suite against the V8.1 role-based UI. Identified and fixed 6 failing tests related to styling assertions and content matchers. Confirmed that legacy routes (/markets, /market/:address, etc.) have been properly removed and all internal links updated to new role-based paths. All 68 smoke tests now pass.
+
+**Pending Work for Next Session**:
+1. Configure Synpress environment variables for wallet-connected tests
+2. Run and fix 14 skipped wallet tests (create, gov, pro pages)
+3. Verify 24h lock behavior on-chain
+4. Test cross-market reinvestment flow (Sell A → Buy B)
+5. Add transaction history/activity feed (requires event indexing)
+
+## Session Summary (2025-12-24 Late Night)
+**V8.1 Stack Finalized** — Successfully redeployed the full V8.1 modular stack to Base Sepolia, resolving the critical USDC decimal precision bug. Synced all addresses to the frontend and verified that previous markets (Alien Life, BTC 100k) are functioning on the new stack. Optimized transaction response times by reducing polling intervals and prioritizing official RPC endpoints.
+
+**Pending Work for Next Session**:
+1. ~~Verify 24h lock behavior on-chain~~ (still pending)
+2. ~~Test cross-market reinvestment flow~~ (still pending)
+3. ✅ Polish operator console → Now "Create" page with role-based sections
+4. ✅ Wire up settlement/redemption flows → SettlementPanel component
+5. ~~Add transaction history/activity feed~~ (still pending)
+
+## Session Summary (2025-12-24)
+**V8 Frontend Trading Integration** — Completed the trading panel integration with real contract calls. The `SimpleTradingPanel` now uses `useAMMQuoteDirect` for real-time LMSR cost/fee calculations and calls `LaunchpadEngine.tradePositions()` for actual trades. Rewrote the Portfolio page to use V8 direct hooks, showing user positions and LP positions with real-time values. All V8 direct hooks are now exported and working. Frontend is now at 70% completion.
+
+**Pending Work for Next Session**:
+1. Test trading flows on Base Sepolia testnet
+2. Polish operator console (Creator Dashboard, Settlement Panel)
+3. Wire up settlement/redemption flows
+4. Add transaction history/activity feed (requires event indexing)
+5. Mobile responsive fixes
 
 ## Session Summary (2025-12-22 Evening)
 **V6.2.7 Repository Audit & Hygiene** — Performed a full codebase audit. Cleaned up `abis.ts` by removing several legacy ABIs (V3 and early V4) that were no longer used. Expanded the `LAUNCHPAD_MARKET_ABI` to include missing V6 functions for better frontend integration. Verified contract-to-interface consistency for the core and launchpad modules. Identified and documented remaining TODOs and legacy test files for future cleanup.

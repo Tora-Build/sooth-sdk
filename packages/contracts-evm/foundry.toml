@@ -11,11 +11,16 @@ remappings = ["prb-math/=lib/prb-math/src/"]
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 [rpc_endpoints]
+baseSepolia = "https://sepolia.base.org"
 megaethMainnet = "https://mainnet.megaeth.com/rpc"
 megaethTestnet = "https://timothy.megaeth.com/rpc"
+monadTestnet = "https://testnet-rpc.monad.xyz"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
-baseSepolia = "https://sepolia.base.org"
 
 # MegaETH requires higher gas settings
 [profile.megaeth]
 gas_price = 100000000
+
+# Monad testnet profile
+[profile.monad]
+# Standard EIP-1559 gas settings

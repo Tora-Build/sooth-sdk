@@ -19,9 +19,9 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
     const launchpadEngineAddress = deployments?.contracts
         ?.LaunchpadEngine as `0x${string}` | undefined;
 
-    const { data, isLoading, error, refetch } = useReadContracts({
+    const read = useReadContracts({
         contracts: [
-            // Market state (includes creator address)
+            // Full market struct from mapping `markets(market)`
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
@@ -29,62 +29,85 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId: selectedChainId,
             },
-            // Creator's LP balance
+            // Graduation progress (feesAccrued, threshold, progressBps)
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
-                functionName: "lpBalances",
+                functionName: "getGraduationProgress",
+                args: marketAddress ? [marketAddress] : undefined,
+                chainId: selectedChainId,
+            },
+            // Creator's LP balance (for share/yield computations)
+            {
+                address: launchpadEngineAddress,
+                abi: V8_ABIS.LaunchpadEngine,
+                functionName: "getLPBalance",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId: selectedChainId,
-            },
-            // Current bBase (for calculating LP value)
-            {
-                address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
-                functionName: "getBBase",
-                args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
-            },
-            // Graduation status
-            {
-                address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
-                functionName: "isGraduated",
-                args: marketAddress ? [marketAddress] : undefined,
                 chainId: selectedChainId,
             },
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!selectedChainId,
-            refetchInterval: 30000, // Refetch every 30s
-            staleTime: 10000, // Consider data stale after 10s
+            refetchInterval: 30000,
+            staleTime: 10000,
         },
     });
+
+    const { data, isLoading, error, refetch } = read;
 
     const creatorData = useMemo(() => {
         if (!data || !marketAddress || !userAddress) return null;
 
-        const [marketStateResult, lpBalanceResult, bBaseResult, isGraduatedResult] = data;
+        const [marketsResult, graduationProgressResult, lpBalanceResult] = data;
 
         // Check if critical reads failed
         if (
-            marketStateResult.status === "failure" ||
-            bBaseResult.status === "failure"
+            marketsResult.status === "failure" ||
+            graduationProgressResult.status === "failure"
         ) {
             return null;
         }
 
-        // Parse market state struct
-        // struct MarketState { address creator; uint256 initialBBase; uint256 feesAccrued; uint256 lpSupply; uint256 lpYieldPool; }
-        const marketState = marketStateResult.result as readonly [
-            `0x${string}`, // creator
-            bigint, // initialBBase
-            bigint, // feesAccrued
-            bigint, // lpSupply
-            bigint  // lpYieldPool
+        // Parse markets(market) tuple:
+        // (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
+        const marketState = marketsResult.result as readonly [
+            `0x${string}`,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint
         ];
 
-        const [creator, initialBBase, feesAccrued, lpSupply, lpYieldPool] = marketState;
+        const [
+            creator,
+            bBase,
+            bCurrent,
+            creatorDeposit,
+            feesAccrued,
+            lpSupply,
+            lpYieldPool,
+            isGraduated,
+            createdAt,
+            graduatedAt,
+        ] = marketState;
+
+        const asBigInt = (v: unknown): bigint => {
+            if (typeof v === "bigint") return v;
+            if (typeof v === "number") return BigInt(v);
+            if (typeof v === "string") return BigInt(v);
+            return BigInt(v as any);
+        };
+
+        const lpSupplyBn = asBigInt(lpSupply);
+        const lpYieldPoolBn = asBigInt(lpYieldPool);
+        const feesAccruedBn = asBigInt(feesAccrued);
+        const currentBBaseBn = asBigInt(bCurrent);
+        const isGraduatedBool = typeof isGraduated === "boolean" ? isGraduated : Boolean(isGraduated);
 
         // Check if user is the creator
         const isCreator = creator.toLowerCase() === userAddress.toLowerCase();
@@ -109,46 +132,45 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             lpBalanceResult.status === "success"
                 ? (lpBalanceResult.result as bigint)
                 : 0n;
-        const currentBBase = bBaseResult.result as bigint;
-        const isGraduated =
-            isGraduatedResult.status === "success"
-                ? (isGraduatedResult.result as boolean)
-                : false;
+
+        const lpBalanceBn = asBigInt(lpBalance);
 
         // Calculate LP share (percentage of total supply)
-        const lpShare = lpSupply > 0n
-            ? Number((lpBalance * 10000n) / lpSupply) / 100
+        const lpShare = lpSupplyBn > 0n
+            ? Number((lpBalanceBn * 10000n) / lpSupplyBn) / 100
             : 0;
 
         // Calculate claimable yield (proportional to LP balance)
-        const claimableYield = lpSupply > 0n
-            ? (lpYieldPool * lpBalance) / lpSupply
+        const claimableYield = lpSupplyBn > 0n
+            ? (lpYieldPoolBn * lpBalanceBn) / lpSupplyBn
             : 0n;
 
         // Calculate total earnings (fees + yield)
-        const totalEarnings = feesAccrued + lpYieldPool;
+        const totalEarnings = feesAccruedBn + lpYieldPoolBn;
 
         // Calculate creator's share of fees (based on creatorFeeSplitBps, typically 50%)
-        // This is an approximation - actual calculation happens on-chain
-        const estimatedCreatorFees = feesAccrued / 2n; // Assuming 50% split
+        const estimatedCreatorFees = feesAccruedBn / 2n;
 
         return {
             address: marketAddress,
             isCreator: true,
             creator,
-            lpBalance,
+            lpBalance: lpBalanceBn,
             lpShare,
-            lpSupply,
-            feesAccrued,
-            lpYieldPool,
+            lpSupply: lpSupplyBn,
+            feesAccrued: feesAccruedBn,
+            lpYieldPool: lpYieldPoolBn,
             claimableYield,
             totalEarnings,
             estimatedCreatorFees,
-            initialBBase,
-            currentBBase,
-            isGraduated,
+            initialBBase: asBigInt(bBase),
+            currentBBase: currentBBaseBn,
+            isGraduated: isGraduatedBool,
+            creatorDeposit: asBigInt(creatorDeposit),
+            createdAt: asBigInt(createdAt),
+            graduatedAt: asBigInt(graduatedAt),
             // Helper flags
-            hasLpTokens: lpBalance > 0n,
+            hasLpTokens: lpBalanceBn > 0n,
             hasClaimableYield: claimableYield > 0n,
             hasEarnings: totalEarnings > 0n,
         };
@@ -188,7 +210,7 @@ export function useIsCreator(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!selectedChainId,
-            refetchInterval: false, // Creator doesn't change
+            refetchInterval: false,
             staleTime: Infinity,
         },
     });

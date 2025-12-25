@@ -262,4 +262,337 @@
     -ms-overflow-style: none !important;
     scrollbar-width: none !important;
   }
+
+  /* ============================================
+   * Educational UI Components
+   * ============================================ */
+
+  /* Education Tooltip */
+  .edu-tooltip {
+    @apply bg-[#1e1b4b] border border-indigo-500 rounded-lg px-4 py-3;
+    max-width: 280px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1);
+  }
+
+  /* Education Spotlight (for tours) */
+  .edu-spotlight {
+    position: relative;
+    z-index: 1000;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.5);
+    border-radius: 8px;
+  }
+
+  .edu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999;
+  }
+
+  /* Sandbox Banner */
+  .sandbox-banner {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: #000;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  /* Keyboard Shortcut Key */
+  .kbd {
+    @apply bg-slate-700 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-xs text-slate-300;
+  }
+
+  /* Pro Page Compact Styling */
+  .pro-compact {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .pro-compact .glass-card {
+    border-radius: 4px;
+    padding: 8px;
+  }
+
+  /* Countdown Timer Urgent */
+  .countdown-urgent {
+    @apply text-rose-400;
+    animation: pulse-urgent 1s infinite;
+  }
+
+  @keyframes pulse-urgent {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Fade in animation for tooltips */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.15s ease-out forwards;
+  }
+
+  /* Quick trade button styles */
+  .quick-trade-btn {
+    @apply px-3 py-1.5 text-sm font-medium rounded-lg border transition-all duration-150;
+    @apply bg-slate-800/50 border-slate-700 text-slate-300;
+    @apply hover:bg-slate-700 hover:border-slate-600 hover:text-white hover:-translate-y-0.5;
+    @apply active:scale-95 active:translate-y-0;
+    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500/50;
+  }
+
+  .quick-trade-btn.active {
+    @apply bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-md shadow-indigo-500/10;
+  }
+
+  /* ============================================
+   * Micro-interactions & Polish
+   * ============================================ */
+
+  /* Probability Card - pulsing border on hover */
+  .prob-card {
+    @apply relative overflow-hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .prob-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px -10px currentColor;
+  }
+
+  .prob-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, currentColor 0%, transparent 50%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .prob-card:hover::before {
+    opacity: 0.5;
+  }
+
+  /* Connect Wallet CTA - subtle pulse */
+  .cta-pulse {
+    animation: cta-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes cta-pulse {
+    0%, 100% { 
+      box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+    }
+    50% { 
+      box-shadow: 0 0 0 8px rgba(6, 182, 212, 0);
+    }
+  }
+
+  /* Value change flash */
+  .value-flash {
+    animation: value-flash 0.5s ease-out;
+  }
+
+  @keyframes value-flash {
+    0% { background-color: rgba(99, 102, 241, 0.3); }
+    100% { background-color: transparent; }
+  }
+
+  /* Smooth number transitions */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Card hover lift */
+  .card-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Focus visible for accessibility */
+  .focus-ring:focus-visible {
+    @apply outline-none ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-950;
+  }
+
+  /* Success state glow */
+  .success-glow {
+    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Error state shake */
+  .shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-slate-800 rounded;
+    background: linear-gradient(90deg, 
+      rgba(30, 41, 59, 1) 0%, 
+      rgba(51, 65, 85, 1) 50%, 
+      rgba(30, 41, 59, 1) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Tooltip arrow */
+  .tooltip-arrow {
+    @apply absolute w-2 h-2 bg-[#1e1b4b] rotate-45;
+  }
+
+  .tooltip-arrow.bottom {
+    @apply -bottom-1 left-1/2 -translate-x-1/2;
+    box-shadow: 1px 1px 0 rgba(99, 102, 241, 0.5);
+  }
+
+  .tooltip-arrow.top {
+    @apply -top-1 left-1/2 -translate-x-1/2;
+    box-shadow: -1px -1px 0 rgba(99, 102, 241, 0.5);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #d946ef 100%);
+  }
+
+  /* Trade button variants with gradients */
+  .btn-buy {
+    @apply bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold;
+    @apply hover:from-emerald-500 hover:to-emerald-400;
+    @apply shadow-lg shadow-emerald-500/25;
+  }
+
+  .btn-sell {
+    @apply bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold;
+    @apply hover:from-rose-500 hover:to-rose-400;
+    @apply shadow-lg shadow-rose-500/25;
+  }
+
+  /* Status indicator dot */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-dot.live {
+    @apply bg-emerald-400;
+    animation: status-pulse 2s infinite;
+  }
+
+  @keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Divider with gradient */
+  .divider-gradient {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+  }
+
+  /* Progress step indicator */
+  .progress-step {
+    @apply w-3 h-3 rounded-full transition-all;
+  }
+
+  .progress-step.completed {
+    @apply bg-indigo-500;
+  }
+
+  .progress-step.current {
+    @apply bg-indigo-500 ring-4 ring-indigo-500/30;
+  }
+
+  .progress-step.pending {
+    @apply bg-slate-700;
+  }
+
+  /* Orderbook styles for Pro page */
+  .orderbook-row {
+    @apply flex items-center justify-between py-0.5 px-2 text-xs font-mono;
+    @apply hover:bg-slate-800/50 cursor-pointer transition-colors;
+  }
+
+  .orderbook-bid {
+    @apply text-emerald-400;
+  }
+
+  .orderbook-ask {
+    @apply text-rose-400;
+  }
+
+  .orderbook-depth {
+    @apply absolute inset-y-0 right-0 opacity-20;
+  }
+
+  .orderbook-depth.bid {
+    @apply bg-emerald-500;
+  }
+
+  .orderbook-depth.ask {
+    @apply bg-rose-500;
+  }
+
+  /* TickBook Visualization */
+  .tick-grid {
+    display: grid;
+    grid-template-columns: repeat(100, 1fr);
+    grid-template-rows: repeat(100, 1fr);
+    @apply gap-px bg-slate-900 border border-slate-800;
+  }
+
+  .tick-pulse {
+    animation: tick-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes tick-pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.2); filter: brightness(1.5); }
+  }
+
+  .ladder-row-hover:hover {
+    @apply bg-indigo-500/10;
+  }
+
+  .ladder-row-hover:hover .ladder-action {
+    @apply opacity-100;
+  }
+
+  .ladder-action {
+    @apply opacity-0 transition-opacity;
+  }
 }

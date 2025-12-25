@@ -77,10 +77,12 @@ export function useDeployments() {
     console.error(
       `[useDeployments] No deployments found for chain ${chainId} or default ${DEFAULT_CHAIN_ID}. Check deployments.json.`
     );
-    return { config: { contracts: {} as ChainDeployments } };
+    // Provide both shapes for callers: legacy `contracts` and newer `config.contracts`.
+    return { contracts: {} as ChainDeployments, config: { contracts: {} as ChainDeployments } };
   }
 
-  return { config: { contracts: chainDeployments } };
+  // Provide both shapes for callers: legacy `contracts` and newer `config.contracts`.
+  return { contracts: chainDeployments, config: { contracts: chainDeployments } };
 }
 
 // Helper to get deployments for a specific chain ID (useful outside of hooks)

@@ -89,17 +89,17 @@ contract V8IntegrationTest is Test {
         assertEq(OutcomeToken(yesToken).balanceOf(alice), 1000 * WAD);
         assertEq(OutcomeToken(noToken).balanceOf(alice), 1000 * WAD);
         
-        // === PHASE 2: Users provide liquidity to TickBook ===
+        // === PHASE 2: Users provide depth to TickBook ===
         vm.startPrank(alice);
         OutcomeToken(yesToken).approve(address(tickBook), 500 * WAD);
         OutcomeToken(noToken).approve(address(tickBook), 500 * WAD);
-        tickBook.addLiquidity(marketKey, 5000, 500 * WAD); // At 50% tick
+        tickBook.placeLimitOrder(marketKey, 5000, 5000, 500 * WAD); // At 50% tick
         vm.stopPrank();
         
-        // === PHASE 3: Bob swaps tokens ===
+        // === PHASE 3: Bob executes a market order ===
         vm.startPrank(bob);
         OutcomeToken(noToken).approve(address(tickBook), 100 * WAD);
-        uint256 yesReceived = tickBook.swap(marketKey, true, 100 * WAD, 6000);
+        uint256 yesReceived = tickBook.executeMarketOrder(marketKey, true, 100 * WAD, 6000);
         vm.stopPrank();
         
         assertTrue(yesReceived > 0);
@@ -181,22 +181,22 @@ contract V8IntegrationTest is Test {
             vm.stopPrank();
         }
         
-        // Alice provides liquidity
+        // Alice provides depth
         vm.startPrank(alice);
-        OutcomeToken(yesToken).approve(address(tickBook), 500 * WAD);
-        OutcomeToken(noToken).approve(address(tickBook), 500 * WAD);
-        tickBook.addLiquidity(marketKey, 5000, 500 * WAD);
+        OutcomeToken(yesToken).approve(address(tickBook), 1000 * WAD);
+        OutcomeToken(noToken).approve(address(tickBook), 1000 * WAD);
+        tickBook.placeLimitOrder(marketKey, 4900, 5100, 500 * WAD);
         vm.stopPrank();
         
         // Bob and Carol trade
         vm.startPrank(bob);
         OutcomeToken(noToken).approve(address(tickBook), 100 * WAD);
-        tickBook.swap(marketKey, true, 100 * WAD, 6000);
+        tickBook.executeMarketOrder(marketKey, true, 100 * WAD, 6000);
         vm.stopPrank();
         
         vm.startPrank(carol);
         OutcomeToken(yesToken).approve(address(tickBook), 100 * WAD);
-        tickBook.swap(marketKey, false, 100 * WAD, 4000);
+        tickBook.executeMarketOrder(marketKey, false, 100 * WAD, 4000);
         vm.stopPrank();
         
         // Verify total collateral is conserved

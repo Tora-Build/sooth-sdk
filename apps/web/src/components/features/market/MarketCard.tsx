@@ -69,7 +69,7 @@ export const MarketCard = ({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 pr-3">
           <Link
-            to={`/market/${address}`}
+            to={`/trade/${address}`}
             className={`block transition-colors ${disableNavigation ? 'pointer-events-none' : 'group-hover:text-cyan-400'}`}
           >
             {name ? (
@@ -171,7 +171,7 @@ export const MarketCard = ({
 
           {!disableNavigation && (
             <Link
-              to={`/market/${address}`}
+              to={`/trade/${address}`}
               className="text-[10px] font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
             >
               Details <ArrowRight size={10} />

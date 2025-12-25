@@ -4,7 +4,13 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
-import { Wallet, TrendingUp, Briefcase, Menu, Droplets, ShieldCheck } from 'lucide-react';
+import uiContent from '../../config/ui-content.json';
+import { 
+  Wallet, TrendingUp, Menu, Droplets,
+  Zap, PlusCircle, Shield, BookOpen
+} from 'lucide-react';
+
+const { navbar: content } = uiContent;
 
 export const Navbar = () => {
   const location = useLocation();
@@ -33,26 +39,40 @@ export const Navbar = () => {
             </span>
           </Link>
 
-          {/* Nav Links */}
+          {/* Nav Links - Role-Based Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            <NavLink to="/markets" active={isActive('/markets')}>
+            {/* Creator/Adjudicator - First */}
+            <NavLink to="/create" active={isActive('/create')}>
+              <PlusCircle className="w-4 h-4" />
+              {content.launchpad}
+            </NavLink>
+            
+            {/* Trading Pages */}
+            <NavLink to="/trade" active={isActive('/trade') || location.pathname.startsWith('/trade/')}>
               <TrendingUp className="w-4 h-4" />
-              Markets
+              {content.amm}
             </NavLink>
-            <NavLink to="/portfolio" active={isActive('/portfolio')}>
-              <Briefcase className="w-4 h-4" />
-              Portfolio
+            <NavLink to="/pro" active={isActive('/pro') || location.pathname.startsWith('/pro/')}>
+              <Zap className="w-4 h-4" />
+              {content.pro}
             </NavLink>
+            
+            {/* Guardian/Governance */}
+            <NavLink to="/gov" active={isActive('/gov')}>
+              <Shield className="w-4 h-4" />
+              {content.gov}
+            </NavLink>
+            
+            {/* Education / Info */}
+            <NavLink to="/about" active={isActive('/about')}>
+              <BookOpen className="w-4 h-4" />
+              {content.learn}
+            </NavLink>
+            
+            {/* Utility - Faucet for testnet */}
             <NavLink to="/faucet" active={isActive('/faucet')}>
               <Droplets className="w-4 h-4" />
-              Faucet
-            </NavLink>
-            <NavLink to="/operator" active={isActive('/operator')}>
-              <ShieldCheck className="w-4 h-4" />
-              Operator
-            </NavLink>
-            <NavLink to="/about" active={isActive('/about')}>
-              About
+              {content.faucet}
             </NavLink>
           </nav>
         </div>
@@ -69,7 +89,7 @@ export const Navbar = () => {
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all hover:shadow-lg hover:shadow-cyan-500/25"
             >
               <Wallet className="w-4 h-4" />
-              <span className="hidden sm:inline">Connect</span>
+              <span className="hidden sm:inline">{content.connect}</span>
             </button>
           ) : (
             <button
@@ -99,44 +119,61 @@ export const Navbar = () => {
         title="Navigation"
       >
         <nav className="flex flex-col gap-2">
+          {/* Create - First */}
           <MobileNavLink
-            to="/markets"
-            active={isActive('/markets')}
+            to="/create"
+            active={isActive('/create')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span>{content.launchpad}</span>
+          </MobileNavLink>
+          
+          {/* Trading Pages */}
+          <MobileNavLink
+            to="/trade"
+            active={isActive('/trade') || location.pathname.startsWith('/trade/')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <TrendingUp className="w-5 h-5" />
-            <span>Markets</span>
+            <span>{content.amm}</span>
           </MobileNavLink>
           <MobileNavLink
-            to="/portfolio"
-            active={isActive('/portfolio')}
+            to="/pro"
+            active={isActive('/pro') || location.pathname.startsWith('/pro/')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <Briefcase className="w-5 h-5" />
-            <span>Portfolio</span>
+            <Zap className="w-5 h-5" />
+            <span>{content.pro}</span>
           </MobileNavLink>
           <MobileNavLink
-            to="/faucet"
-            active={isActive('/faucet')}
+            to="/gov"
+            active={isActive('/gov')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <Droplets className="w-5 h-5" />
-            <span>Faucet</span>
-          </MobileNavLink>
-          <MobileNavLink
-            to="/operator"
-            active={isActive('/operator')}
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            <span>Operator</span>
+            <Shield className="w-5 h-5" />
+            <span>{content.gov}</span>
           </MobileNavLink>
           <MobileNavLink
             to="/about"
             active={isActive('/about')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <span>About</span>
+            <BookOpen className="w-5 h-5" />
+            <span>{content.learn}</span>
+          </MobileNavLink>
+          
+          {/* Divider */}
+          <div className="border-t border-slate-800 my-2" />
+          
+          {/* Utility */}
+          <MobileNavLink
+            to="/faucet"
+            active={isActive('/faucet')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <Droplets className="w-5 h-5" />
+            <span>{content.faucet}</span>
           </MobileNavLink>
         </nav>
       </Drawer>

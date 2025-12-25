@@ -11,51 +11,64 @@ import { useChainStore } from "../../store/useChainStore";
  */
 export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
     const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
 
-    const { data, isLoading, error, refetch } = useReadContracts({
+    // Split core reads from string metadata reads.
+    // Some RPCs/providers can be flaky on string returns; don't let that block core lifecycle state.
+    const readCore = useReadContracts({
         contracts: [
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "isLive",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "isSettled",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "winningOutcome",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "deadline",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "creator",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "adjudicator",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "guardian",
-                chainId: selectedChainId,
+                chainId,
             },
+        ] as const,
+        query: {
+            enabled: !!marketAddress && !!selectedChainId,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        },
+    });
+
+    const readQuestion = useReadContracts({
+        contracts: [
             {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
@@ -65,13 +78,21 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!selectedChainId,
-            refetchInterval: 30000, // Refetch every 30s
-            staleTime: 10000, // Consider data stale after 10s
+            refetchInterval: 30000,
+            staleTime: 10000,
         },
     });
 
+    const dataCore = readCore.data;
+    const dataQuestion = readQuestion.data;
+    const isLoading = readCore.isLoading;
+    const error = readCore.error || readQuestion.error;
+    const refetch = async () => {
+        await Promise.all([readCore.refetch(), readQuestion.refetch()]);
+    };
+
     const marketData = useMemo(() => {
-        if (!data || !marketAddress) return null;
+        if (!dataCore || !marketAddress) return null;
 
         const [
             isLiveResult,
@@ -81,8 +102,9 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             creatorResult,
             adjudicatorResult,
             guardianResult,
-            questionResult,
-        ] = data;
+        ] = dataCore;
+
+        const questionResult = (dataQuestion as any[] | undefined)?.[0];
 
         // Check if any reads failed
         if (
@@ -115,7 +137,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
                 ? (guardianResult.result as `0x${string}`)
                 : undefined;
         const question =
-            questionResult.status === "success"
+            questionResult?.status === "success"
                 ? (questionResult.result as string)
                 : "";
 
@@ -153,7 +175,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             isPending: status === "pending",
             hasWinner: isSettled && winningOutcome !== undefined,
         };
-    }, [data, marketAddress]);
+    }, [dataCore, dataQuestion, marketAddress]);
 
     return {
         market: marketData,

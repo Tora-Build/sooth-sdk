@@ -36,8 +36,14 @@ contract AMMEngine is IAMMEngine {
     /// @notice User positions
     mapping(address => mapping(address => Position)) private _positions;
 
-    /// @notice User USDC balances (for locked proceeds)
-    mapping(address => uint256) private _balances;
+    /// @notice User available balances (spendable USDC, includes locked)
+    mapping(address => uint256) private _availableBalance;
+
+    /// @notice User locked balances (subset of available, not withdrawable)
+    mapping(address => uint256) private _lockedBalance;
+
+    /// @notice Lock queue for tracking individual lock entries
+    mapping(address => IAMMEngine.LockEntry[]) private _lockQueue;
 
     struct MarketState {
         uint256 qYes;           // YES quantity (WAD)
@@ -118,8 +124,24 @@ contract AMMEngine is IAMMEngine {
             // Buying YES
             require(actualCost <= maxCost, "AMMEngine: cost too high");
             
-            // Transfer USDC from user
-            usdc.safeTransferFrom(msg.sender, address(this), actualCost);
+            // Spend from available balance first, then pull from wallet
+            if (_availableBalance[msg.sender] >= actualCost) {
+                // Sufficient available balance
+                _availableBalance[msg.sender] -= actualCost;
+                emit BalanceUsed(msg.sender, actualCost, _availableBalance[msg.sender]);
+            } else {
+                // Partial or full wallet pull
+                uint256 fromBalance = _availableBalance[msg.sender];
+                uint256 fromWallet = actualCost - fromBalance;
+                
+                _availableBalance[msg.sender] = 0;
+                usdc.safeTransferFrom(msg.sender, address(this), _wadToUsdcCeil(fromWallet));
+                
+                if (fromBalance > 0) {
+                    emit BalanceUsed(msg.sender, fromBalance, 0);
+                }
+                emit WalletPull(msg.sender, fromWallet);
+            }
             
             // Update position
             position.shares += deltaShares;
@@ -127,14 +149,21 @@ contract AMMEngine is IAMMEngine {
             // Selling YES (buying NO)
             require(position.shares >= -deltaShares, "AMMEngine: insufficient shares");
             
-            // Lock proceeds for 24h
-            position.lockedProceeds += actualCost;
-            position.lockExpiry = uint64(block.timestamp + LOCK_DURATION);
+            // Credit available balance + add to lock queue
+            _availableBalance[msg.sender] += actualCost;
+            _lockedBalance[msg.sender] += actualCost;
+            
+            _lockQueue[msg.sender].push(IAMMEngine.LockEntry({
+                amount: actualCost,
+                expiry: uint64(block.timestamp + LOCK_DURATION),
+                market: market
+            }));
+            
             
             // Update position
             position.shares += deltaShares; // deltaShares is negative
             
-            emit ProceedsLocked(msg.sender, market, actualCost, position.lockExpiry);
+            emit ProceedsLocked(msg.sender, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
         }
 
         // Update market state
@@ -189,22 +218,49 @@ contract AMMEngine is IAMMEngine {
     // ============================================
 
     /**
-     * @inheritdoc IAMMEngine
+     * @notice Claim unlocked proceeds (global, not per-market)
+     * @param maxClaims Maximum number of lock entries to process (gas limit)
+     * @return totalUnlocked Total amount unlocked and transferred
      */
-    function claimUnlocked(address market) external override returns (uint256 amount) {
-        Position storage position = _positions[market][msg.sender];
+    function claimUnlocked(uint256 maxClaims) external returns (uint256 totalUnlocked) {
+        require(maxClaims > 0 && maxClaims <= 50, "AMMEngine: invalid maxClaims");
         
-        require(position.lockedProceeds > 0, "AMMEngine: no locked proceeds");
-        require(block.timestamp >= position.lockExpiry, "AMMEngine: still locked");
-
-        amount = position.lockedProceeds;
-        position.lockedProceeds = 0;
-
-        // Transfer USDC to user
-        usdc.safeTransfer(msg.sender, amount);
-
-        emit ProceedsClaimed(msg.sender, market, amount);
+        IAMMEngine.LockEntry[] storage queue = _lockQueue[msg.sender];
+        require(queue.length > 0, "AMMEngine: no locks");
+        
+        uint256 processed = 0;
+        uint256 i = 0;
+        
+        // Iterate through queue, remove expired locks
+        while (i < queue.length && processed < maxClaims) {
+            if (block.timestamp >= queue[i].expiry) {
+                totalUnlocked += queue[i].amount;
+                
+                // Remove entry (swap with last, pop)
+                queue[i] = queue[queue.length - 1];
+                queue.pop();
+                
+                processed++;
+                // Don't increment i (we just swapped in a new entry)
+            } else {
+                i++;
+            }
+        }
+        
+        require(totalUnlocked > 0, "AMMEngine: no unlocked proceeds");
+        
+        // Update balances
+        _lockedBalance[msg.sender] -= totalUnlocked;
+        _availableBalance[msg.sender] -= totalUnlocked;
+        
+        // Transfer to user
+        usdc.safeTransfer(msg.sender, _wadToUsdc(totalUnlocked));
+        
+        emit ProceedsClaimed(msg.sender, address(0), totalUnlocked);
+        emit LocksProcessed(msg.sender, processed, totalUnlocked);
     }
+
+
 
     /**
      * @inheritdoc IAMMEngine
@@ -213,14 +269,72 @@ contract AMMEngine is IAMMEngine {
         external
         view
         override
-        returns (
-            int256 shares,
-            uint256 lockedProceeds,
-            uint64 lockExpiry
-        )
+        returns (int256 shares)
     {
         Position memory position = _positions[market][user];
-        return (position.shares, position.lockedProceeds, position.lockExpiry);
+        return position.shares;
+    }
+
+    // ============================================
+    // Balance Management (V8.1)
+    // ============================================
+
+    /**
+     * @notice Get user's available and locked balances
+     * @param user User address
+     * @return available Total available balance (spendable)
+     * @return locked Locked balance (subset of available, not withdrawable)
+     */
+    function getBalances(address user) 
+        external 
+        view 
+        returns (uint256 available, uint256 locked) 
+    {
+        return (_availableBalance[user], _lockedBalance[user]);
+    }
+
+    /**
+     * @notice Get user's lock queue
+     * @param user User address
+     * @return entries Array of lock entries
+     */
+    function getLockQueue(address user) 
+        external 
+        view 
+        returns (IAMMEngine.LockEntry[] memory entries)
+    {
+        return _lockQueue[user];
+    }
+
+    /**
+     * @notice Calculate currently claimable amount
+     * @param user User address
+     * @return claimable Amount that can be claimed now
+     * @return nextUnlock Timestamp of next unlock (0 if none)
+     * @return nextAmount Amount of next unlock (0 if none)
+     */
+    function getClaimableAmount(address user) 
+        external 
+        view 
+        returns (
+            uint256 claimable, 
+            uint64 nextUnlock, 
+            uint256 nextAmount
+        ) 
+    {
+        IAMMEngine.LockEntry[] memory queue = _lockQueue[user];
+        uint64 earliestLocked = type(uint64).max;
+        
+        for (uint256 i = 0; i < queue.length; i++) {
+            if (block.timestamp >= queue[i].expiry) {
+                claimable += queue[i].amount;
+            } else if (queue[i].expiry < earliestLocked) {
+                earliestLocked = queue[i].expiry;
+                nextAmount = queue[i].amount;
+            }
+        }
+        
+        nextUnlock = (earliestLocked == type(uint64).max) ? 0 : earliestLocked;
     }
 
     // ============================================
@@ -288,7 +402,7 @@ contract AMMEngine is IAMMEngine {
 
         // Transfer USDC payout to user
         if (payout > 0) {
-            usdc.safeTransfer(msg.sender, payout);
+            usdc.safeTransfer(msg.sender, _wadToUsdc(payout));
         }
     }
 
@@ -296,13 +410,27 @@ contract AMMEngine is IAMMEngine {
      * @inheritdoc IAMMEngine
      */
     function applyRetroSettlement(
-        address market,
-        address user,
-        bytes calldata proof
+        address /* market */,
+        address /* user */,
+        bytes calldata /* proof */
     ) external override returns (uint256 refund) {
         // T* settlement logic would go here
         // This requires Merkle proof verification and state reconstruction
         // Placeholder for now
         revert("AMMEngine: T* not implemented");
+    }
+
+
+    // ============================================
+    // Internal Helpers
+    // ============================================
+
+    function _wadToUsdc(uint256 wad) internal pure returns (uint256) {
+        return wad / 1e12;
+    }
+
+    function _wadToUsdcCeil(uint256 wad) internal pure returns (uint256) {
+        if (wad == 0) return 0;
+        return (wad - 1) / 1e12 + 1;
     }
 }

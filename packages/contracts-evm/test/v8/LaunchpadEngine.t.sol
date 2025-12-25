@@ -153,8 +153,8 @@ contract LaunchpadEngineTest is Test {
         
         for (uint256 i = 0; i < maxIterations; i++) {
             // Check if already graduated
-            (, , , , bool isGraduated, ) = launchpad.getMarketState(_market);
-            if (isGraduated) break;
+            (, , , , bool isGrad, ) = launchpad.getMarketState(_market);
+            if (isGrad) break;
             
             // Execute trade
             vm.prank(trader);

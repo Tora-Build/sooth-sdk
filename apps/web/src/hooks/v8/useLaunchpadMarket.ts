@@ -15,132 +15,156 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
     const { selectedChainId } = useChainStore();
     const { address: userAddress } = useAccount();
     const deployments = useDeployments();
+    const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
 
     const launchpadEngineAddress = deployments?.contracts
         ?.LaunchpadEngine as `0x${string}` | undefined;
 
-    const { data, isLoading, error, refetch } = useReadContracts({
+    // Market reads (lightweight mapping state + graduation)
+    const readMarket = useReadContracts({
         contracts: [
-            // Market state struct (contains creator, initialBBase, feesAccrued, lpSupply, lpYieldPool)
             {
-            \n                address: launchpadEngineAddress,
+                address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
-                functionName: "getMarketState",
+                functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
-            // Graduation progress (returns currentBBase, threshold, isGraduated)
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
-            // User LP balance (if connected)
+        ],
+        query: {
+            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        },
+    });
+
+    // LP Balance (separate optional read)
+    const readLpBalance = useReadContracts({
+        contracts: [
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "getLPBalance",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
-            // Pre-graduation fee
+        ],
+        query: {
+            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId && !!userAddress,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        },
+    });
+
+    // Param reads (fees + multiplier)
+    const readParams = useReadContracts({
+        contracts: [
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "preGradFeeBps",
-                chainId: selectedChainId,
+                chainId,
             },
-            // Post-graduation fee
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "postGradFeeBps",
-                chainId: selectedChainId,
+                chainId,
             },
-            // Graduation multiplier
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "graduationMultiplier",
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
-            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
-            refetchInterval: 30000, // Refetch every 30s
-            staleTime: 10000, // Consider data stale after 10s
+            enabled: !!launchpadEngineAddress && !!selectedChainId,
+            refetchInterval: false,
+            staleTime: Infinity,
         },
     });
 
-    const launchpadData = useMemo(() => {
-        if (!data || !marketAddress) return null;
+    const dataMarket = readMarket.data;
+    const dataParams = readParams.data;
+    const dataLpBalance = readLpBalance.data;
+    const isLoading = readMarket.isLoading;
+    const error = readMarket.error || readParams.error;
+    const refetch = async () => {
+        await Promise.all([readMarket.refetch(), readParams.refetch(), readLpBalance.refetch()]);
+    };
 
-        const [
-            marketStateResult,
-            bBaseResult,
-            isGraduatedResult,
-            lpBalanceResult,
-            preGradFeeResult,
-            postGradFeeResult,
-            gradMultiplierResult,
-            creatorSplitResult,
-        ] = data;
+    const launchpadData = useMemo(() => {
+        if (!dataMarket || !marketAddress) return null;
+
+        const marketResults = dataMarket as any[];
+        const marketStateResult = marketResults[0];
+        const graduationProgressResult = marketResults[1];
+        const lpBalanceResult = (dataLpBalance as any[] | undefined)?.[0];
+
+        const preGradFeeResult = (dataParams as any[] | undefined)?.[0];
+        const postGradFeeResult = (dataParams as any[] | undefined)?.[1];
+        const gradMultiplierResult = (dataParams as any[] | undefined)?.[2];
 
         // Check if critical reads failed
-        if (
-            marketStateResult.status === "failure" ||
-            bBaseResult.status === "failure"
-        ) {
+        if (marketStateResult?.status === "failure" || graduationProgressResult?.status === "failure") {
             return null;
         }
 
-        // Parse market state struct
-        // struct MarketState { address creator; uint256 initialBBase; uint256 feesAccrued; uint256 lpSupply; uint256 lpYieldPool; }
+        // markets(market) -> (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
         const marketState = marketStateResult.result as readonly [
-            `0x${string}`, // creator
-            bigint, // initialBBase
-            bigint, // feesAccrued
-            bigint, // lpSupply
-            bigint  // lpYieldPool
+            `0x${string}`,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint
         ];
+        const [
+            creator,
+            bBase,
+            bCurrent,
+            creatorDeposit,
+            feesAccruedFromMarket,
+            totalLPSupply,
+            lpYieldPool,
+            isGraduated,
+        ] = marketState;
 
-        const [creator, initialBBase, feesAccrued, lpSupply, lpYieldPool] = marketState;
+        // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
+        const graduationProgressTuple = graduationProgressResult.result as readonly [bigint, bigint, bigint];
+        const [feesAccrued, graduationThreshold, progressBps] = graduationProgressTuple;
 
-        const bBase = bBaseResult.result as bigint;
-        const isGraduated =
-            isGraduatedResult.status === "success"
-                ? (isGraduatedResult.result as boolean)
-                : false;
         const userLpBalance =
-            lpBalanceResult.status === "success"
+            lpBalanceResult?.status === "success"
                 ? (lpBalanceResult.result as bigint)
                 : 0n;
         const preGradFeeBps =
-            preGradFeeResult.status === "success"
+            preGradFeeResult?.status === "success"
                 ? (preGradFeeResult.result as bigint)
                 : 500n; // Default 5%
         const postGradFeeBps =
-            postGradFeeResult.status === "success"
+            postGradFeeResult?.status === "success"
                 ? (postGradFeeResult.result as bigint)
                 : 100n; // Default 1%
         const graduationMultiplier =
-            gradMultiplierResult.status === "success"
+            gradMultiplierResult?.status === "success"
                 ? (gradMultiplierResult.result as bigint)
                 : 2n; // Default 2x
-        const creatorFeeSplitBps =
-            creatorSplitResult.status === "success"
-                ? (creatorSplitResult.result as bigint)
-                : 5000n; // Default 50%
 
-        // Calculate graduation threshold
-        const graduationThreshold = initialBBase * graduationMultiplier;
-
-        // Calculate graduation progress (0-100%)
-        const graduationProgress = initialBBase > 0n
-            ? Number((bBase * 10000n) / graduationThreshold) / 100
-            : 0;
+        // progressBps is already 0-10000
+        const graduationProgress = Number(progressBps) / 100;
 
         // Current fee rate
         const currentFeeBps = isGraduated ? postGradFeeBps : preGradFeeBps;
@@ -148,11 +172,13 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
         return {
             address: marketAddress,
             creator,
-            initialBBase,
-            currentBBase: bBase,
-            feesAccrued,
-            lpSupply,
+            initialBBase: bBase,
+            currentBBase: bCurrent,
+            feesAccrued: feesAccrued ?? feesAccruedFromMarket,
+            lpSupply: totalLPSupply,
+            floorValue: 0n,
             lpYieldPool,
+            creatorDeposit,
             isGraduated,
             graduationThreshold,
             graduationProgress: Math.min(100, graduationProgress),
@@ -161,13 +187,12 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
             postGradFeeBps,
             currentFeeBps,
             graduationMultiplier,
-            creatorFeeSplitBps,
             // Helper flags
-            canGraduate: bBase >= graduationThreshold && !isGraduated,
+            canGraduate: progressBps >= 10000n && !isGraduated,
             hasLpTokens: userLpBalance > 0n,
-            hasAccruedFees: feesAccrued > 0n,
+            hasAccruedFees: (feesAccrued ?? feesAccruedFromMarket) > 0n,
         };
-    }, [data, marketAddress]);
+    }, [dataMarket, dataParams, dataLpBalance, marketAddress]);
 
     return {
         launchpad: launchpadData,

@@ -1,0 +1,31 @@
+{
+  "chainId": 84532,
+  "chainName": "baseSepolia",
+  "timestamp": "2025-12-25T03:09:24.556Z",
+  "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+  "contracts": {
+    "MockUSDC": "0x0ed4eeb883634b7c811bec8191ee3a3cac0f3d50",
+    "Collateralizer": "0x965a4f576de2020a74430b88c0426a650a6fb3a7",
+    "AMMEngine": "0xd7fef3da74ee58fdbb5d0fc8681fe4d04002f6b6",
+    "TickBook": "0x0dfa9b8569dd525fcb8c4b48e0a5758f1e4bb81f",
+    "LaunchpadEngine": "0x12d443d40728e437a334149d1fade7ea49a22344"
+  },
+  "markets": [
+    {
+      "address": "0x0c97fd6f1eda33477aa780675caef879845abcdd",
+      "name": "UN Confirms Alien Life",
+      "symbol": "ALIEN",
+      "yesToken": "0x71f1e05f57ABb40eB4028317eB72d5Bda80A0ed8",
+      "noToken": "0xf8A6DAa6706980f858621758a41dCa039630F840",
+      "isGraduated": false
+    },
+    {
+      "address": "0x0746fd75f23d3cc4150a9dd4e189363c71a2811c",
+      "name": "BTC TWAP >= $100k",
+      "symbol": "BTC100K",
+      "yesToken": "0xA902b3D786Bac9De96d0ED66B1A24837571D04c6",
+      "noToken": "0x7cBB23B520e652727B83178F6Aa88029a8f07263",
+      "isGraduated": true
+    }
+  ]
+}

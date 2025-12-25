@@ -5,6 +5,7 @@ import { Clock, Zap, ArrowRight, Shield } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { useTruthMarket, useLaunchpadMarket, useAmmMarket } from '../../../hooks/v8';
+import { SimpleTradingPanel } from './SimpleTradingPanel';
 
 interface MarketCardProps {
   address: `0x${string}`;
@@ -34,12 +35,12 @@ export const MarketCard = ({
   const liquidity = Number(bBase) / 1e18;
 
   return (
-    <Card className="group flex flex-col h-full p-5 hover:border-cyan-500/50 transition-all duration-300 relative overflow-hidden">
+    <Card data-testid="market-card" className="group flex flex-col h-full p-5 hover:border-cyan-500/50 transition-all duration-300 relative overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 pr-3">
           <Link
-            to={`/market/${address}`}
+            to={`/trade/${address}`}
             className={`block transition-colors ${disableNavigation ? 'pointer-events-none' : 'group-hover:text-cyan-400'}`}
           >
             <h3 className="font-bold text-white text-lg leading-tight line-clamp-2">
@@ -98,11 +99,13 @@ export const MarketCard = ({
         </div>
       </div>
 
-      {/* Trading Panel - Coming Soon */}
+      {/* Trading Panel */}
       <div className="pt-3 border-t border-slate-800">
-        <div className="text-center py-4 text-sm text-slate-500">
-          Trading panel coming soon
-        </div>
+        <SimpleTradingPanel 
+          address={address}
+          isGraduated={isGraduated}
+          isSettled={isSettled}
+        />
       </div>
 
       {/* Footer Stats & Navigation */}
@@ -121,7 +124,7 @@ export const MarketCard = ({
 
           {!disableNavigation && (
             <Link
-              to={`/market/${address}`}
+              to={`/trade/${address}`}
               className="text-[10px] font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
             >
               Details <ArrowRight size={10} />

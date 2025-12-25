@@ -26,11 +26,18 @@ export const baseSepolia = defineChain({
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://sepolia.base.org'] },
+    default: { http: ['https://sepolia.base.org', 'https://base-sepolia-rpc.publicnode.com'] },
   },
   blockExplorers: {
     default: { name: 'Basescan', url: 'https://sepolia.basescan.org' },
   },
+  /* 
+  contracts: {
+    multicall3: {
+      address: '0xca11bde05977b3631167028862be2a173976ca11',
+    },
+  },
+  */
   testnet: true,
 });
 
@@ -112,6 +119,22 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  // Monad Testnet
+  {
+    id: 10143,
+    type: 'evm',
+    name: 'Monad Testnet',
+    displayName: 'Monad',
+    shortName: 'Monad',
+    rpcUrl: 'https://testnet-rpc.monad.xyz',
+    explorerUrl: 'https://testnet.monadexplorer.com',
+    icon: '🟣',
+    nativeCurrency: {
+      name: 'Monad',
+      symbol: 'MON',
+      decimals: 18,
+    },
+  },
   // MegaETH Testnet - HIDDEN (RPC rate limiting)
   // {
   //   id: 6343,
@@ -144,11 +167,25 @@ export const megaethTestnet = defineChain({
   testnet: true,
 });
 
+// Define Monad Testnet using viem
+export const monadTestnet = defineChain({
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.monad.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+  },
+  testnet: true,
+});
+
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
 // Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, megaethFrontier];
+export const wagmiChains: Chain[] = [baseSepolia, megaethFrontier, monadTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

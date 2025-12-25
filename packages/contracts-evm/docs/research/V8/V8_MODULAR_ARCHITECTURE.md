@@ -518,6 +518,7 @@ interface ICollateralizer {
 - Hanson LMSR: [Logarithmic Market Scoring Rules](http://mason.gmu.edu/~rhanson/mktscore.pdf)
 - ERC4626: [Tokenized Vault Standard](https://eips.ethereum.org/EIPS/eip-4626)
 - ADR-008: WAD Math Precision Rules
+- V8 Note: `LOCKED_PROCEEDS_SPENDABILITY.md` (lock-on-sell spendability policy)
 
 ---
 

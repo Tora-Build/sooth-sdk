@@ -1,14 +1,7 @@
 {
-  "market1": {
-    "address": "0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC",
-    "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-    "deadline": 1769089452,
-    "liquidity": 1000000000000000000000
-  },
-  "market2": {
-    "address": "0x122E6afFd70a66183FeBd279C418186F24d9a4e2",
-    "question": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-    "deadline": 1769089452,
-    "liquidity": 1000000000000000000000
-  }
+  "market": "0xcdE5B0b2dD6b229d8d6195D14CBAb726025ECd18",
+  "question": "Will ETH > $5000 by EOY 2025?",
+  "deadline": 1767194852,
+  "liquidity": 1000000000000000000000,
+  "deposit": 693147180559945309000
 }

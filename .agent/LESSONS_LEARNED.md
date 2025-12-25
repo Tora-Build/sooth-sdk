@@ -189,4 +189,20 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-21*
+## V8 Contract-Frontend Decimal Boundary
+
+### ❌ Pattern: WAD in Contract ↔ Token Decimals in USDC
+- **Date:** 2025-12-24
+- **Mistake:** `LaunchpadEngine.tradePositions()` calculates `actualCost` in WAD (18 decimals) from LMSR, but passes it directly to `USDC.safeTransferFrom()` without converting to token decimals (6 for standard USDC).
+- **Root Cause:** V8's "Pure WAD" architecture uses 1e18 internally, but USDC is 1e6. The contract has helper functions `_wadToUsdc()` and `_usdcToWad()` but forgot to use them at the transfer boundary.
+- **Symptom:** Trades fail with "USDC: insufficient allowance" even with massive allowances, because contract tries to transfer 1e12x more tokens than intended.
+- **Fix:** Add `_wadToUsdc(actualCost)` conversion before the `safeTransferFrom` call.
+- **Rule:** At every USDC transfer boundary, check:
+  1. "Is this value in WAD (18 decimals)?"
+  2. "Does USDC expect token decimals (6)?"
+  3. If yes to both → MUST convert using `_wadToUsdc()`
+- **Lesson:** Frontend-to-contract integration testing is essential. Unit tests with 18-decimal MockUSDC won't catch this.
+
+---
+
+*Last updated: 2025-12-24*

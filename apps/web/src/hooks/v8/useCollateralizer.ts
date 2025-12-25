@@ -4,7 +4,6 @@ import { V8_ABIS } from "../../config/abis";
 import { useChainStore } from "../../store/useChainStore";
 import { useDeployments } from "../useDeployments";
 import { useAccount } from "wagmi";
-import { ERC20_ABI } from "../../config/abis";
 
 /**
  * Hook to fetch Collateralizer state for a market
@@ -20,9 +19,9 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
     const collateralizerAddress = deployments?.contracts
         ?.Collateralizer as `0x${string}` | undefined;
 
-    const { data, isLoading, error, refetch } = useReadContracts({
+    // Core tokens read (critical)
+    const readTokens = useReadContracts({
         contracts: [
-            // Get outcome tokens
             {
                 address: collateralizerAddress,
                 abi: V8_ABIS.Collateralizer,
@@ -30,15 +29,17 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId: selectedChainId,
             },
-            // Get user balances (if connected)
-            {
-                address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
-                functionName: "getBalances",
-                args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId: selectedChainId,
-            },
-            // Get total collateral
+        ],
+        query: {
+            enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        },
+    });
+
+    // Total collateral (optional)
+    const readTotal = useReadContracts({
+        contracts: [
             {
                 address: collateralizerAddress,
                 abi: V8_ABIS.Collateralizer,
@@ -49,15 +50,41 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId,
-            refetchInterval: 30000, // Refetch every 30s
-            staleTime: 10000, // Consider data stale after 10s
+            refetchInterval: 30000,
+            staleTime: 10000,
         },
     });
 
-    const collateralizerData = useMemo(() => {
-        if (!data || !marketAddress) return null;
+    // User balances (optional)
+    const readBalances = useReadContracts({
+        contracts: [
+            {
+                address: collateralizerAddress,
+                abi: V8_ABIS.Collateralizer,
+                functionName: "getBalances",
+                args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
+                chainId: selectedChainId,
+            },
+        ],
+        query: {
+            enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId && !!userAddress,
+            refetchInterval: 30000,
+            staleTime: 10000,
+        },
+    });
 
-        const [tokensResult, balancesResult, totalCollateralResult] = data;
+    const tokensData = readTokens.data;
+    const totalData = readTotal.data;
+    const { isLoading: tokensLoading, error: tokensError } = readTokens;
+    const { error: totalError } = readTotal;
+    const { error: balancesError } = readBalances;
+
+    const collateralizerData = useMemo(() => {
+        if (!tokensData || !marketAddress) return null;
+
+        const tokensResult = (tokensData as any[])[0];
+        const totalCollateralResult = (totalData as any[] | undefined)?.[0];
+        const balancesResult = (readBalances.data as any[] | undefined)?.[0];
 
         // Check if critical reads failed
         if (tokensResult.status === "failure") {
@@ -70,14 +97,14 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
 
         // Parse user balances
         const balances =
-            balancesResult.status === "success"
+            balancesResult?.status === "success"
                 ? (balancesResult.result as readonly [bigint, bigint])
                 : [0n, 0n];
         const [yesBalance, noBalance] = balances;
 
-        // Parse total collateral
+        // Parse total collateral (optional)
         const totalCollateral =
-            totalCollateralResult.status === "success"
+            totalCollateralResult?.status === "success"
                 ? (totalCollateralResult.result as bigint)
                 : 0n;
 
@@ -98,13 +125,18 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
             hasCompleteSets: completeSetBalance > 0n,
             canMerge: completeSetBalance > 0n,
         };
-    }, [data, marketAddress]);
+    }, [tokensData, totalData, readBalances.data, marketAddress]);
+
+    const combinedIsLoading = tokensLoading;
+    const combinedError = tokensError || totalError || balancesError;
 
     return {
         collateralizer: collateralizerData,
-        isLoading,
-        error,
-        refetch,
+        isLoading: combinedIsLoading,
+        error: combinedError,
+        refetch: async () => {
+            await Promise.all([readTokens.refetch(), readTotal.refetch(), readBalances.refetch()]);
+        },
     };
 }
 
@@ -140,7 +172,7 @@ export function useOutcomeToken(tokenAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!tokenAddress && !!selectedChainId,
-            refetchInterval: false, // Metadata doesn't change
+            refetchInterval: false,
             staleTime: Infinity,
         },
     });

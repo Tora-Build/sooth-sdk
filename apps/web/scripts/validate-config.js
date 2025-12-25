@@ -82,6 +82,8 @@ function checkStrings(obj, updatePath = '') {
             checkStrings(val, currentPath);
         } else if (typeof val === 'string') {
             if (val.trim() === '') log(colors.yellow, `⚠ Warning: Empty string at ${currentPath}`);
+        } else if (typeof val === 'boolean' || typeof val === 'number') {
+            // Booleans and numbers are also allowed in UI content
         } else {
             error(`Invalid type at ${currentPath}: ${typeof val}`);
         }

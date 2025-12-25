@@ -1,178 +1,314 @@
 {
-  "common": {
-    "loading": "Loading...",
-    "error": "Something went wrong",
-    "usdc": "USDC",
-    "yes": "YES",
-    "no": "NO",
-    "noHolders": "// no_holders_found",
-    "loadingHolders": "// loading_holders",
-    "noPositions": "// no_lp_positions"
+  "learn": {
+    "header": {
+      "title": "Learn Sooth Protocol",
+      "subtitle": "\"When every participant has aligned incentives, the protocol doesn't need gatekeepers. Truth emerges from the market itself.\""
+    },
+    "steps": [
+      {
+        "id": "thesis",
+        "title": "The Decentralization Thesis",
+        "badge": "Pillar 0 · Introduction",
+        "description": "Sooth Protocol is designed around one core thesis: **decentralization creates better markets**. Traditional platforms suffer from gatekept creation and centralized resolution. Sooth solves this through three foundational pillars."
+      },
+      {
+        "id": "creator",
+        "title": "The Creator 🎨",
+        "badge": "Pillar I · Launchpad",
+        "description": "Market creation is an **economic game**. Creators deposit capital and become the first LP, permanently aligning their interests with the market's success."
+      },
+      {
+        "id": "gaming",
+        "title": "The Gaming Trader 🎮",
+        "badge": "Pillar I · Stakeholder Rewards",
+        "description": "Early traders receive **LP tokens** for every trade, converting from customers into protocol stakeholders."
+      },
+      {
+        "id": "pro",
+        "title": "The Arbitrageur 🔄 & PvP Trader ⚔️",
+        "badge": "Pillar III · TickBook",
+        "description": "Sooth operates **dual trading venues** to serve different trader archetypes. Sophisticated traders use the TickBook for CEX-grade execution."
+      },
+      {
+        "id": "ready",
+        "title": "Start Your Journey",
+        "description": "Sooth's ecosystem is a cooperative network. Which actor role will you play today?"
+      }
+    ],
+    "pillars": {
+      "launchpad": {
+        "title": "Launchpad",
+        "description": "Permissionless market creation with creator economics.",
+        "innovation": "Incentive Alignment"
+      },
+      "zkRules": {
+        "title": "ZK Rules",
+        "description": "Autonomous, retroactive settlement via T*.",
+        "innovation": "Retroactive Finality"
+      },
+      "tickBook": {
+        "title": "TickBook",
+        "description": "On-chain CLOB with 10,000-tick depth.",
+        "innovation": "High-throughput CLOB"
+      }
+    },
+    "advantage": {
+      "title": "The Sooth Advantage",
+      "table": {
+        "headers": ["Feature", "Traditional", "Sooth"],
+        "rows": [
+          ["Creation", "Gatekept", "Permissionless"],
+          ["Liquidity", "Hybrid/Fragmented", "Unified Vault"],
+          ["Resolution", "Central Oracle", "ZK + Multi-class"]
+        ]
+      }
+    },
+    "creator": {
+      "plTitle": "Creator P&L Analysis",
+      "plItems": [
+        { "event": "Market Created", "impact": "-$693 Deposit", "pos": false },
+        { "event": "Trading Volume", "impact": "+LP Tokens Minted", "pos": true },
+        { "event": "Graduation", "impact": "Unlocks Yield Stream", "pos": true },
+        { "event": "Profitable Settlement", "impact": "+Vault Assets", "pos": true }
+      ],
+      "example": {
+        "title": "Creator Example",
+        "text": "Carol creates a market with a **$693 deposit**. Volume generates **$150 in fees**. As the 50% LP holder, she earns from every trade.",
+        "pnlLabel": "Estimated Net P&L",
+        "pnlValue": "+$807"
+      },
+      "tiersTitle": "Liquidity Tiers",
+      "tiers": [
+        { "tier": "Micro", "b": "$100", "dep": "$69" },
+        { "tier": "Small", "b": "$1k", "dep": "$693" },
+        { "tier": "Med", "b": "$10k", "dep": "$6.9k" },
+        { "tier": "Large", "b": "$100k", "dep": "$69k" }
+      ]
+    },
+    "gaming": {
+      "mechanismTitle": "Fee → LP Mechanism",
+      "mechanismSteps": [
+        "Trader pays 5% fee on trade",
+        "Fee adds to liquidity depth (bBase)",
+        "LP tokens minted TO THE TRADER"
+      ],
+      "pricingTitle": "Pricing Dynamics (LMSR)",
+      "practiceTitle": "Practice Prediction",
+      "sellLock": {
+        "title": "24h Sell Lock",
+        "description": "To prevent hit-and-run extraction, sell proceeds are locked for 24h. They remain spendable for new trades, but can only be withdrawn after the cooldown."
+      }
+    },
+    "pro": {
+      "architectureTitle": "Dual Venue Architecture",
+      "amm": {
+        "title": "AMM (Retail)",
+        "items": [
+          ["Asset", "Position Ledger"],
+          ["Pricing", "LMSR Curve"],
+          ["Liquidity", "Always Available"],
+          ["Sell Lock", "24h Cooldown"]
+        ]
+      },
+      "tickBook": {
+        "title": "TickBook (Pro)",
+        "items": [
+          ["Asset", "ERC20 Tokens"],
+          ["Pricing", "Limit Orderbook"],
+          ["Liquidity", "Depth-dependent"],
+          ["Sell Lock", "None (Instant)"]
+        ]
+      },
+      "arb": {
+        "title": "The Arbitrageur's Role",
+        "description": "Arbitrageurs keep prices efficient by bridging the gap between AMM and TickBook. They buy cheap on one venue and sell expensive on the other."
+      },
+      "pvp": {
+        "title": "PvP Conviction",
+        "description": "The TickBook is where conviction meets conviction. No AMM buffer—just peer-to-peer trading. Winners take the loser's stake with zero LP spread extraction."
+      },
+      "evolutionTitle": "Market Evolution",
+      "evolutionStages": ["LAUNCH", "GROWTH", "MATURE"],
+      "evolutionStates": ["AMM Only", "AMM + TickBook", "TickBook Dominant"]
+    },
+    "ready": {
+      "title": "Choose Your Path",
+      "subtitle": "Sooth's ecosystem is a cooperative network. Which actor role will you play today?",
+      "actors": [
+        { "title": "Creator 🎨", "motivation": "Monetize insight, earn LP" },
+        { "title": "Gaming Trader 🎮", "motivation": "Predict & earn rewards" },
+        { "title": "Arbitrageur 🔄", "motivation": "Profit from inefficiencies" },
+        { "title": "PvP Trader ⚔️", "motivation": "Pure conviction trading" }
+      ]
+    },
+    "context": {
+      "title": "Whitepaper Context",
+      "quotes": {
+        "thesis": "Decentralization isn't a compromise—it's a competitive advantage.",
+        "creator": "The Launchpad transforms market creation from a privileged operation into an incentive-aligned economic game.",
+        "gaming": "Pre-graduation fees mint LP tokens to traders, converting them from customers into stakeholders.",
+        "pro": "Dual-venue arbitrage creates tight, efficient prices through pure market forces.",
+        "ready": "Truth emerges from the market itself."
+      },
+      "mechanismsTitle": "Key Mechanisms",
+      "mechanisms": [
+        { "label": "LMSR", "desc": "Guaranteed liquidity algorithm" },
+        { "label": "T*", "desc": "Retroactive settlement timestamp" },
+        { "label": "bBase", "desc": "Liquidity depth parameter" },
+        { "label": "Graduation", "desc": "Market maturity threshold" }
+      ]
+    },
+    "proTip": "Sooth is a cooperative network. Every participant's actions help discover the true price of future events."
   },
-  "trading": {
-    "buy": "Buy",
-    "sell": "Sell",
-    "shares": "Shares",
-    "price": "Price",
-    "outcome": "Outcome",
-    "marketPrice": "AMM Price",
-    "bestPrice": "Best Price",
-    "costPerShare": "Cost per share",
-    "totalCost": "Total Cost",
-    "insufficientBalance": "Insufficient Balance ({{amount}} USDC)",
-    "insufficientShares": "Insufficient {{outcome}} Shares (Have {{amount}})",
-    "needCollateral": "Need Collateral for Limit Sell ({{amount}} USDC)",
-    "placeOrder": "Place Order",
-    "smartRouteAMM": "⚡ Smart Route: Executing via AMM",
-    "matchOrderbook": "⚡ Match: Executing via Orderbook",
-    "passiveOrder": "✓ Limit orders wait in orderbook until filled",
-    "marketOrderHint": "⚡ Market orders match immediately against AMM",
-    "yourPrice": "Your Price (USDC)",
-    "marketStatus": "Market Status",
-    "trading": "Trading",
-    "tradingPending": "Trading...",
-    "settled": "Settled",
-    "cooldown": "Cooldown",
-    "voided": "Voided",
-    "markets": "Markets",
-    "noMarkets": "No markets available",
-    "noMarketsDesc": "Markets will appear here once deployed on-chain.",
-    "noResults": "No markets match your search or filters.",
-    "clearFilters": "Clear filters",
-    "orderbook": "Orderbook",
-    "adjudicator": "Adjudicator",
-    "unified": "Unified",
-    "liquidity": "Liquidity",
-    "feeSlippage": "Fee + Slippage",
-    "maxTotal": "Max Total",
-    "minReceived": "Min Received",
-    "slippageTolerance": "Slippage Tolerance",
-    "liquidityGrow": "Liquidity 'b' grows as the market earns spreads.",
-    "solvencyFactor": "Solvency Factor",
-    "maxLossLocked": "Max Loss (Locked)",
-    "marketReserves": "Market Reserve",
-    "baseLiquidity": "Base Liquidity",
-    "activeMarketsExposure": "Active Markets & Exposure",
-    "reserveMultiplier": "Reserve Multiplier",
-    "totalLocked": "Total Locked",
-    "noActiveMarkets": "No active markets found for this vault.",
-    "yes": "YES",
-    "no": "NO",
-    "yesPrice": "YES Price",
-    "yesProb": "YES Probability",
-    "probabilityYes": "YES Probability",
-    "slippage": "Slippage Tolerance",
-    "marketOrderNote": "Market orders match immediately against AMM"
+  "pro": {
+    "restricted": {
+      "title": "TickBook Restricted",
+      "description": "Hyper-orderbook venues are only available for graduated markets. This market is still in its bonding phase on the AMM.",
+      "switchButton": "Switch to AMM Interface"
+    },
+    "utility": {
+      "network": "Network",
+      "latency": "Latency"
+    },
+    "tabs": {
+      "inventory": "INVENTORY",
+      "history": "HISTORY"
+    },
+    "inventory": {
+      "balances": "Balances",
+      "split": "SPLIT",
+      "merge": "MERGE",
+      "details": "Details",
+      "truthFinality": "Truth Finality",
+      "retroactive": "RETROACTIVE"
+    },
+    "history": {
+      "empty": "No trade history"
+    },
+    "visuals": {
+      "tickMap": "Tick Map (10,000)",
+      "tickMapSub": "HIGH FIDELITY BITMAP",
+      "tickLadder": "Tick Ladder",
+      "depthChart": "Market Depth"
+    },
+    "execution": {
+      "buyYes": "BUY YES",
+      "sellYes": "SELL YES",
+      "limit": "LIMIT (RANGE)",
+      "market": "MARKET",
+      "rangeLower": "Range Lower (Prob)",
+      "rangeUpper": "Range Upper (Optional)",
+      "rangeUpperPlaceholder": "Leave empty for point order",
+      "amountDollar": "Amount (Dollar Based)",
+      "amountShares": "Amount (Shares)",
+      "estimatedValue": "Estimated Value",
+      "takerFee": "Taker Fee (0.2%)",
+      "executeMarket": "Execute Market",
+      "placeLimit": "Place Limit"
+    },
+    "activeOrders": {
+      "title": "Active Orders",
+      "clearAll": "Clear All",
+      "empty": "No active limit orders"
+    },
+    "shortcuts": {
+      "buy": "BUY",
+      "sell": "SELL",
+      "price": "PRICE",
+      "shortcuts": "SHORTCUTS",
+      "terminal": "V8.1 TICKBOOK TERMINAL"
+    }
   },
-  "lp": {
-    "title": "LP Dashboard",
-    "deposit": "Deposit",
-    "withdraw": "Withdraw",
-    "tvl": "TVL",
-    "myShare": "My Share",
-    "yieldAPIT": "Yield (APY)",
-    "vaultAddress": "Vault Address",
-    "activeMarkets": "Active Markets & Exposure",
-    "exposure": "Exposure",
-    "risk": "Risk",
-    "utilization": "Utilization",
-    "netPnl": "Net P&L",
-    "realTimeTracking": "Real-time tracking of vault capital locked across different markets.",
-    "hybridLiquidity": "Hybrid Liquidity (Dynamic)",
-    "formula": "Formula",
-    "components": "Components",
-    "worstCasePayout": "Worst-Case Payout",
-    "floorValue": "Floor Value",
-    "ceilingValue": "Ceiling Value",
-    "protectedEquity": "Protected Equity",
-    "floorTotal": "Floor Total",
-    "ceilingTotal": "Ceiling Total",
-    "netAssets": "Net Assets",
-    "floor": "Floor",
-    "ceiling": "Ceiling",
-    "yourFloor": "Your Floor",
-    "creatorFloor": "Creator Floor",
-    "floorDescription": "Your guaranteed payout if the worst outcome wins.",
-    "ceilingDescription": "Your share of all cash in the vault (Potential upside).",
-    "fairMintingDescription": "Rewards accrue when traders pay fees to the pool.",
-    "floorEquity": "Floor Equity",
-    "ceilingAssets": "Ceiling Assets",
-    "floorDelta": "Floor Delta",
-    "floorEquityDescription": "The net USDC value owned by LPs after accounting for all debt and potential winner payouts.",
-    "floorDeltaDescription": "The net profit/loss realized by the pool from AMM inventory pricing shifts.",
-    "exRateDescription": "Guaranteed growth (Floor) vs potential upside (Ceiling) multiplier. This value represents your USDC return per LP token.",
-    "floorExRate": "Floor ExRate",
-    "ceilingExRate": "Ceiling ExRate",
-    "liabilityDescription": "The maximum possible USDC payout if the majority outcome wins right now.",
-    "holders": "LP Holders"
+  "trade": {
+    "header": {
+      "title": "Trade",
+      "subtitle": "Simple AMM trading for prediction markets"
+    },
+    "selector": {
+      "searchPlaceholder": "Search markets...",
+      "trending": "Trending Markets",
+      "noMarkets": "No markets match your search"
+    },
+    "panel": {
+      "deadline": "Deadline",
+      "graduated": "Graduated",
+      "preGrad": "Pre-Grad",
+      "goPro": "Go Pro",
+      "selectToStart": "Select a market to start trading"
+    },
+    "positions": {
+      "title": "My Positions",
+      "noPositions": "No positions yet.",
+      "makePrediction": "Make your first prediction!",
+      "connectWallet": "Connect wallet to view positions"
+    },
+    "education": "New to prediction markets? Learn how they work →"
   },
-  "operator": {
-    "title": "Adjudicator Console",
-    "description": "Manage market settlement and dispute resolution.",
-    "guardian": "Guardian Console",
-    "settleMarket": "Settle Market",
-    "emergencyPause": "Emergency Pause",
-    "resume": "Resume Market",
-    "resolve": "Resolve",
-    "winningOutcome": "Winning Outcome",
-    "noActions": "No Actions",
-    "upload": "Upload",
-    "winner": "Winner"
+  "create": {
+    "header": {
+      "title": "Create & Manage",
+      "subtitle": "Manage your markets and settle outcomes"
+    },
+    "roles": {
+      "creator": "Creator",
+      "adjudicator": "Adjudicator",
+      "lpTooltip": "What are LP tokens?"
+    },
+    "tabs": {
+      "markets": "My Markets",
+      "settlements": "Pending Settlements",
+      "create": "+ Create New"
+    },
+    "emptyMarkets": {
+      "title": "No Markets Yet",
+      "description": "Market creators earn fees from every trade. Start earning today!",
+      "button": "Create Your First Market"
+    },
+    "emptySettlements": {
+      "title": "All Caught Up!",
+      "description": "No markets are awaiting your settlement decision."
+    },
+    "connectWallet": {
+      "title": "Connect Wallet",
+      "description": "Connect your wallet to view your markets and create new ones."
+    },
+    "wizard": {
+      "steps": {
+        "q": "Define Your Question",
+        "l": "Set Initial Liquidity",
+        "r": "Assign Roles",
+        "review": "Review & Deploy"
+      },
+      "q": {
+        "description": "Create a clear, unambiguous question that can be resolved as YES or NO.",
+        "label": "Question",
+        "placeholder": "e.g., \"Will ETH reach $10,000 by December 31, 2025?\"",
+        "deadline": "Resolution Deadline"
+      },
+      "l": {
+        "description": "Choose how much USDC to seed the market with. This determines trading depth.",
+        "maxLoss": "Max potential loss: $"
+      },
+      "r": {
+        "description": "Designate who can settle the market outcome and who can veto incorrect settlements.",
+        "adjLabel": "Adjudicator Address",
+        "adjDesc": "Can settle the market outcome after the deadline",
+        "guardLabel": "Guardian Address",
+        "guardDesc": "Can veto incorrect settlements within 24 hours"
+      },
+      "review": {
+        "transactionDesc": "Deploying will require two transactions: TruthMarket creation and initial liquidity deposit.",
+        "comingSoon": "Deploy Market (Coming Soon)"
+      }
+    }
   },
-  "activity": {
-    "title": "Activity Log",
-    "recentTrades": "Recent Trades",
-    "myOrders": "My Orders",
-    "noActivity": "No recent activity since app opened.",
-    "noActivityFilter": "No activity found for this filter.",
-    "type": "Type",
-    "size": "Size",
-    "price": "Price",
-    "time": "Time",
-    "viewTx": "View TX",
-    "filterAll": "All",
-    "filterTrade": "Trade",
-    "filterLP": "LP",
-    "filterSettle": "Settle"
-  },
-  "portfolio": {
-    "title": "My Portfolio",
-    "connectWallet": "Connect wallet to view portfolio",
-    "netValue": "Net Value",
-    "tradingAccount": "Trading Account",
-    "activePositions": "Active Positions",
-    "value": "Value",
-    "noActivePositions": "No active positions",
-    "lpHoldings": "LP Holdings",
-    "wallet": "Wallet",
-    "available": "Available",
-    "pending": "Pending (48h lock)",
-    "claim": "Claim",
-    "max": "Max"
-  },
-  "stats": {
-    "markets": "Markets",
-    "activeMarkets": "Active markets",
-    "vaults": "Vaults",
-    "vaultsSub": "Unique adjudicator types",
-    "totalTvl": "Total TVL",
-    "acrossVaults": "Across all vaults",
-    "lockedLiquidity": "Locked Liquidity",
-    "reservedPositions": "Reserved for positions"
-  },
-  "validation": {
-    "invalidPrice": "Price must be between 0.01 and 0.99",
-    "invalidAmount": "Amount must be greater than 0"
-  },
-  "simulator": {
-    "title": "Settlement Simulator",
-    "description": "Real-time PnL analysis for settlement scenarios",
-    "currentYes": "Current YES %",
-    "sharesYes": "YES Shares",
-    "sharesNo": "NO Shares",
-    "payoutYes": "YES Win Payout",
-    "pnlYes": "YES Win LP PnL",
-    "payoutNo": "NO Win Payout",
-    "pnlNo": "NO Win LP PnL"
+  "navbar": {
+    "launchpad": "Launchpad",
+    "amm": "AMM",
+    "pro": "Pro",
+    "gov": "Gov",
+    "learn": "Learn",
+    "faucet": "Faucet",
+    "connect": "Connect"
   }
 }

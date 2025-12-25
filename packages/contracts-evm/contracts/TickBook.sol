@@ -11,7 +11,7 @@ import {TickMath} from "./libraries/TickMath.sol";
 /**
  * @title TickBook
  * @notice Continuous Linear Tick orderbook with 10,000 probability ticks
- * @dev Token-based venue with fungible concentrated liquidity
+ * @dev Token-based venue with concentrated liquidity ranges (Uniswap V3 style)
  */
 contract TickBook is ITickBook {
     using SafeERC20 for IERC20;
@@ -32,11 +32,11 @@ contract TickBook is ITickBook {
     /// @notice Market registry
     mapping(bytes32 => Market) private _markets;
 
-    /// @notice Tick data per market
-    mapping(bytes32 => mapping(uint16 => TickData)) private _ticks;
+    /// @notice Total depth L at each tick
+    mapping(bytes32 => mapping(uint16 => uint128)) private _tickDepth;
 
-    /// @notice User liquidity positions
-    mapping(bytes32 => mapping(uint16 => mapping(address => uint256))) private _userLiquidity;
+    /// @notice Maker active order size at each tick
+    mapping(bytes32 => mapping(uint16 => mapping(address => uint128))) private _makerOrders;
 
     /// @notice Tick bitmaps per market
     mapping(bytes32 => TickBitmap.Bitmap) private _bitmaps;
@@ -90,7 +90,7 @@ contract TickBook is ITickBook {
     /**
      * @inheritdoc ITickBook
      */
-    function swap(
+    function executeMarketOrder(
         bytes32 marketKey,
         bool isBuy,
         uint256 amountIn,
@@ -107,118 +107,93 @@ contract TickBook is ITickBook {
         uint256 totalFee = 0;
         uint16 currentTick = startTick;
 
-        // Execute swap across ticks
         while (remainingIn > 0) {
-            // Find next tick with liquidity (including current tick)
             uint16 nextTick;
-            
-            // First, check if current tick has liquidity
             if (_bitmaps[marketKey].isSet(currentTick)) {
                 nextTick = currentTick;
             } else {
-                // Search for next tick
                 nextTick = isBuy 
                     ? _bitmaps[marketKey].findNextUp(currentTick)
                     : _bitmaps[marketKey].findNextDown(currentTick);
             }
 
-            if (nextTick > MAX_TICK) break; // No more liquidity
-            if (isBuy && nextTick > limitTick) break; // Hit limit
-            if (!isBuy && nextTick < limitTick) break; // Hit limit
+            if (nextTick > MAX_TICK) break;
+            if (isBuy && nextTick > limitTick) break;
+            if (!isBuy && nextTick < limitTick) break;
 
-            // Get tick data
-            TickData storage tickData = _ticks[marketKey][nextTick];
-            
-            // Calculate reserves
-            uint256 reserveIn = isBuy ? tickData.liquidityNO : tickData.liquidityYES;
-            uint256 reserveOut = isBuy ? tickData.liquidityYES : tickData.liquidityNO;
-
-            if (reserveOut == 0) {
-                currentTick = nextTick;
+            uint128 L = _tickDepth[marketKey][nextTick];
+            if (L == 0) {
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
                 continue;
             }
 
-            // Determine how much we can swap at this tick
-            uint256 maxOut = reserveOut; // Maximum output available
+            // Virtual reserves at tick i
+            uint256 xv = TickMath.getVirtualReserveYES(L, nextTick);
+            uint256 yv = TickMath.getVirtualReserveNO(L, nextTick);
+
+            uint256 reserveIn = isBuy ? yv : xv;
+            uint256 reserveOut = isBuy ? xv : yv;
+            
+            // Max real tokens available in this tick
+            uint256 maxOut;
+            if (isBuy) {
+                uint256 xvNext = (nextTick == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(L, nextTick + 1);
+                maxOut = xv - xvNext;
+            } else {
+                uint256 yvNext = (nextTick == 0) ? 0 : TickMath.getVirtualReserveNO(L, nextTick - 1);
+                maxOut = yv - yvNext;
+            }
+
+            if (maxOut == 0) {
+                _bitmaps[marketKey].clearBit(nextTick);
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
+                continue;
+            }
+
             uint256 amountInAtTick;
             uint256 amountOutAtTick;
-            
-            // Check if we can fill entire order at this tick
             uint256 potentialOut = TickMath.getAmountOut(reserveIn, reserveOut, remainingIn);
-            
+
             if (potentialOut < maxOut) {
-                // Partial fill - consume all remaining input
                 amountInAtTick = remainingIn;
                 amountOutAtTick = potentialOut;
             } else {
-                // Full tick consumption - calculate input needed
-                amountOutAtTick = maxOut - 1; // Leave 1 wei to avoid division by zero
+                amountOutAtTick = maxOut;
                 amountInAtTick = TickMath.getAmountIn(reserveIn, reserveOut, amountOutAtTick);
                 
-                // Ensure we don't exceed remaining input
                 if (amountInAtTick > remainingIn) {
                     amountInAtTick = remainingIn;
                     amountOutAtTick = TickMath.getAmountOut(reserveIn, reserveOut, amountInAtTick);
                 }
             }
 
-            // Apply fee (0.2% taker fee)
             uint256 fee = (amountOutAtTick * TAKER_FEE_BPS) / 10000;
             amountOutAtTick -= fee;
-
-            // Update tick liquidity
-            if (isBuy) {
-                tickData.liquidityNO = uint128(reserveIn + amountInAtTick);
-                tickData.liquidityYES = uint128(reserveOut - amountOutAtTick - fee);
-            } else {
-                tickData.liquidityYES = uint128(reserveIn + amountInAtTick);
-                tickData.liquidityNO = uint128(reserveOut - amountOutAtTick - fee);
-            }
-
-            // Check if tick is exhausted
-            if (tickData.liquidityYES <= 1 || tickData.liquidityNO <= 1) {
-                _bitmaps[marketKey].clearBit(nextTick);
-            }
 
             totalOut += amountOutAtTick;
             totalFee += fee;
             remainingIn -= amountInAtTick;
 
-            // Move to next tick for next iteration
-            if (remainingIn > 0) {
-                currentTick = isBuy 
-                    ? _bitmaps[marketKey].findNextUp(nextTick)
-                    : _bitmaps[marketKey].findNextDown(nextTick);
-                    
-                if (currentTick > MAX_TICK) break; // No more ticks
+            if (amountOutAtTick + fee >= maxOut) {
+                // Simplified: clear bit and assume entire depth at this tick was used.
+                _bitmaps[marketKey].clearBit(nextTick);
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
             } else {
                 currentTick = nextTick;
+                break; 
             }
         }
 
-        require(totalOut > 0, "TickBook: insufficient liquidity");
-
-        // Update current tick
+        require(totalOut > 0, "TickBook: insufficient depth");
         _currentTick[marketKey] = currentTick;
 
-        // Transfer tokens
         IERC20 tokenIn = isBuy ? IERC20(market.noToken) : IERC20(market.yesToken);
         IERC20 tokenOut = isBuy ? IERC20(market.yesToken) : IERC20(market.noToken);
 
         tokenIn.safeTransferFrom(msg.sender, address(this), amountIn);
         tokenOut.safeTransfer(msg.sender, totalOut);
 
-        emit Swap(
-            msg.sender,
-            marketKey,
-            isBuy,
-            amountIn,
-            totalOut,
-            startTick,
-            currentTick,
-            totalFee
-        );
-
+        emit MarketOrderExecuted(msg.sender, marketKey, isBuy, amountIn, totalOut, startTick, currentTick, totalFee);
         return totalOut;
     }
 
@@ -231,191 +206,201 @@ contract TickBook is ITickBook {
         uint256 amountIn,
         uint16 limitTick
     ) external view override returns (SwapResult memory result) {
-        // Simplified quote calculation
-        // In production, would walk ticks like swap()
+        uint256 remainingIn = amountIn;
+        uint256 totalOut = 0;
+        uint256 totalFee = 0;
         uint16 currentTick = _currentTick[marketKey];
-        TickData memory tickData = _ticks[marketKey][currentTick];
 
-        uint256 reserveIn = isBuy ? tickData.liquidityNO : tickData.liquidityYES;
-        uint256 reserveOut = isBuy ? tickData.liquidityYES : tickData.liquidityNO;
+        while (remainingIn > 0) {
+            uint16 nextTick;
+            if (_bitmaps[marketKey].isSet(currentTick)) {
+                nextTick = currentTick;
+            } else {
+                nextTick = isBuy 
+                    ? _bitmaps[marketKey].findNextUp(currentTick)
+                    : _bitmaps[marketKey].findNextDown(currentTick);
+            }
 
-        if (reserveOut == 0) {
-            return SwapResult(0, currentTick, 0);
+            if (nextTick > MAX_TICK) break;
+            if (isBuy && nextTick > limitTick) break;
+            if (!isBuy && nextTick < limitTick) break;
+
+            uint128 L = _tickDepth[marketKey][nextTick];
+            if (L == 0) {
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
+                continue;
+            }
+
+            uint256 xv = TickMath.getVirtualReserveYES(L, nextTick);
+            uint256 yv = TickMath.getVirtualReserveNO(L, nextTick);
+            uint256 reserveIn = isBuy ? yv : xv;
+            uint256 reserveOut = isBuy ? xv : yv;
+            
+            uint256 maxOut;
+            if (isBuy) {
+                uint256 xvNext = (nextTick == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(L, nextTick + 1);
+                maxOut = xv - xvNext;
+            } else {
+                uint256 yvNext = (nextTick == 0) ? 0 : TickMath.getVirtualReserveNO(L, nextTick - 1);
+                maxOut = yv - yvNext;
+            }
+
+            if (maxOut == 0) {
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
+                continue;
+            }
+
+            uint256 amountInAtTick;
+            uint256 amountOutAtTick;
+            uint256 potentialOut = TickMath.getAmountOut(reserveIn, reserveOut, remainingIn);
+
+            if (potentialOut < maxOut) {
+                amountInAtTick = remainingIn;
+                amountOutAtTick = potentialOut;
+            } else {
+                amountOutAtTick = maxOut;
+                amountInAtTick = TickMath.getAmountIn(reserveIn, reserveOut, amountOutAtTick);
+                if (amountInAtTick > remainingIn) {
+                    amountInAtTick = remainingIn;
+                    amountOutAtTick = TickMath.getAmountOut(reserveIn, reserveOut, amountInAtTick);
+                }
+            }
+
+            uint256 fee = (amountOutAtTick * TAKER_FEE_BPS) / 10000;
+            totalOut += amountOutAtTick - fee;
+            totalFee += fee;
+            remainingIn -= amountInAtTick;
+
+            if (amountOutAtTick >= maxOut) {
+                currentTick = isBuy ? nextTick + 1 : (nextTick == 0 ? MAX_TICK + 1 : nextTick - 1);
+            } else {
+                currentTick = nextTick;
+                break;
+            }
         }
 
-        uint256 amountOut = TickMath.getAmountOut(reserveIn, reserveOut, amountIn);
-        uint256 fee = (amountOut * TAKER_FEE_BPS) / 10000;
-
-        result = SwapResult({
-            amountOut: amountOut - fee,
-            finalTick: currentTick,
-            feeAmount: fee
-        });
+        return SwapResult(totalOut, currentTick, totalFee);
     }
 
     // ============================================
-    // Liquidity Management
+    // Maker Order Management
     // ============================================
 
     /**
      * @inheritdoc ITickBook
      */
-    function addLiquidity(
+    function placeLimitOrder(
         bytes32 marketKey,
-        uint16 tickIndex,
+        uint16 tickLower,
+        uint16 tickUpper,
         uint256 amount
-    ) external override {
+    ) public override returns (uint256 yesAmount, uint256 noAmount) {
         require(amount > 0, "TickBook: zero amount");
-        require(tickIndex <= MAX_TICK, "TickBook: tick out of range");
-
+        require(tickLower <= tickUpper && tickUpper <= MAX_TICK, "TickBook: invalid range");
         Market memory market = _markets[marketKey];
         require(market.isActive, "TickBook: not active");
 
-        // Transfer tokens from user (equal YES and NO)
-        IERC20(market.yesToken).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(market.noToken).safeTransferFrom(msg.sender, address(this), amount);
+        uint16 currentTick = _currentTick[marketKey];
 
-        // Update tick data
-        TickData storage tickData = _ticks[marketKey][tickIndex];
-        tickData.liquidityYES += uint128(amount);
-        tickData.liquidityNO += uint128(amount);
+        if (currentTick <= tickLower) {
+            uint256 xvUpperPlus1 = (tickUpper == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(amount, tickUpper + 1);
+            yesAmount = TickMath.getVirtualReserveYES(amount, tickLower) - xvUpperPlus1;
+        } else if (currentTick > tickUpper) {
+            uint256 yvLowerMinus1 = (tickLower == 0) ? 0 : TickMath.getVirtualReserveNO(amount, tickLower - 1);
+            noAmount = TickMath.getVirtualReserveNO(amount, tickUpper) - yvLowerMinus1;
+        } else {
+            uint256 xvUpperPlus1 = (tickUpper == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(amount, tickUpper + 1);
+            uint256 yvLowerMinus1 = (tickLower == 0) ? 0 : TickMath.getVirtualReserveNO(amount, tickLower - 1);
+            yesAmount = TickMath.getVirtualReserveYES(amount, currentTick) - xvUpperPlus1;
+            noAmount = TickMath.getVirtualReserveNO(amount, currentTick - 1) - yvLowerMinus1;
+        }
 
-        // Update bitmap
-        _bitmaps[marketKey].setBit(tickIndex);
+        if (yesAmount > 0) IERC20(market.yesToken).safeTransferFrom(msg.sender, address(this), yesAmount);
+        if (noAmount > 0) IERC20(market.noToken).safeTransferFrom(msg.sender, address(this), noAmount);
 
-        // Track user position
-        _userLiquidity[marketKey][tickIndex][msg.sender] += amount;
+        for (uint16 i = tickLower; i <= tickUpper; i++) {
+            _tickDepth[marketKey][i] += uint128(amount);
+            _makerOrders[marketKey][i][msg.sender] += uint128(amount);
+            _bitmaps[marketKey].setBit(i);
+        }
 
-        emit LiquidityAdded(msg.sender, marketKey, tickIndex, amount);
+        emit LimitOrderPlaced(msg.sender, marketKey, tickLower, tickUpper, amount, yesAmount, noAmount);
     }
 
     /**
      * @inheritdoc ITickBook
      */
-    function removeLiquidity(
+    function cancelLimitOrder(
         bytes32 marketKey,
-        uint16 tickIndex,
+        uint16 tickLower,
+        uint16 tickUpper,
         uint256 amount
-    ) external override returns (uint256 yesAmount, uint256 noAmount) {
+    ) public override returns (uint256 yesAmount, uint256 noAmount) {
         require(amount > 0, "TickBook: zero amount");
-        require(_userLiquidity[marketKey][tickIndex][msg.sender] >= amount, "TickBook: insufficient liquidity");
-
         Market memory market = _markets[marketKey];
-        TickData storage tickData = _ticks[marketKey][tickIndex];
 
-        // Calculate proportional withdrawal
-        uint256 totalLiquidity = _userLiquidity[marketKey][tickIndex][msg.sender];
-        yesAmount = (uint256(tickData.liquidityYES) * amount) / totalLiquidity;
-        noAmount = (uint256(tickData.liquidityNO) * amount) / totalLiquidity;
-
-        // Update tick data
-        tickData.liquidityYES -= uint128(yesAmount);
-        tickData.liquidityNO -= uint128(noAmount);
-
-        // Update user position
-        _userLiquidity[marketKey][tickIndex][msg.sender] -= amount;
-
-        // Update bitmap if tick is empty
-        if (tickData.liquidityYES == 0 && tickData.liquidityNO == 0) {
-            _bitmaps[marketKey].clearBit(tickIndex);
+        uint16 currentTick = _currentTick[marketKey];
+        
+        if (currentTick <= tickLower) {
+            uint256 xvUpperPlus1 = (tickUpper == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(amount, tickUpper + 1);
+            yesAmount = TickMath.getVirtualReserveYES(amount, tickLower) - xvUpperPlus1;
+        } else if (currentTick > tickUpper) {
+            uint256 yvLowerMinus1 = (tickLower == 0) ? 0 : TickMath.getVirtualReserveNO(amount, tickLower - 1);
+            noAmount = TickMath.getVirtualReserveNO(amount, tickUpper) - yvLowerMinus1;
+        } else {
+            uint256 xvUpperPlus1 = (tickUpper == MAX_TICK) ? 0 : TickMath.getVirtualReserveYES(amount, tickUpper + 1);
+            uint256 yvLowerMinus1 = (tickLower == 0) ? 0 : TickMath.getVirtualReserveNO(amount, tickLower - 1);
+            yesAmount = TickMath.getVirtualReserveYES(amount, currentTick) - xvUpperPlus1;
+            noAmount = TickMath.getVirtualReserveNO(amount, currentTick - 1) - yvLowerMinus1;
         }
 
-        // Transfer tokens to user
-        IERC20(market.yesToken).safeTransfer(msg.sender, yesAmount);
-        IERC20(market.noToken).safeTransfer(msg.sender, noAmount);
+        for (uint16 i = tickLower; i <= tickUpper; i++) {
+            require(_makerOrders[marketKey][i][msg.sender] >= amount, "TickBook: insufficient order size");
+            _tickDepth[marketKey][i] -= uint128(amount);
+            _makerOrders[marketKey][i][msg.sender] -= uint128(amount);
+            if (_tickDepth[marketKey][i] == 0) {
+                _bitmaps[marketKey].clearBit(i);
+            }
+        }
 
-        emit LiquidityRemoved(msg.sender, marketKey, tickIndex, amount, yesAmount, noAmount);
+        if (yesAmount > 0) IERC20(market.yesToken).safeTransfer(msg.sender, yesAmount);
+        if (noAmount > 0) IERC20(market.noToken).safeTransfer(msg.sender, noAmount);
+
+        emit LimitOrderCancelled(msg.sender, marketKey, tickLower, tickUpper, amount, yesAmount, noAmount);
     }
 
     // ============================================
     // View Functions
     // ============================================
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function getTick(bytes32 marketKey, uint16 tickIndex)
-        external
-        view
-        override
-        returns (TickData memory data)
-    {
-        return _ticks[marketKey][tickIndex];
+    function getTick(bytes32 marketKey, uint16 tickIndex) external view override returns (TickData memory data) {
+        uint128 L = _tickDepth[marketKey][tickIndex];
+        return TickData({
+            liquidityYES: uint128(TickMath.getVirtualReserveYES(L, tickIndex)),
+            liquidityNO: uint128(TickMath.getVirtualReserveNO(L, tickIndex))
+        });
     }
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function getCurrentTick(bytes32 marketKey)
-        external
-        view
-        override
-        returns (uint16 tickIndex, uint256 probability)
-    {
+    function getCurrentTick(bytes32 marketKey) public view override returns (uint16 tickIndex, uint256 probability) {
         tickIndex = _currentTick[marketKey];
         probability = TickMath.tickToProbability(tickIndex);
     }
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function findNextActiveTick(
-        bytes32 marketKey,
-        uint16 startTick,
-        bool isBuy
-    ) external view override returns (uint16 nextTick) {
-        return isBuy
-            ? _bitmaps[marketKey].findNextUp(startTick)
-            : _bitmaps[marketKey].findNextDown(startTick);
+    function findNextActiveTick(bytes32 marketKey, uint16 startTick, bool isBuy) external view override returns (uint16 nextTick) {
+        return isBuy ? _bitmaps[marketKey].findNextUp(startTick) : _bitmaps[marketKey].findNextDown(startTick);
     }
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function getMarketInfo(bytes32 marketKey)
-        external
-        view
-        override
-        returns (
-            address market,
-            address yesToken,
-            address noToken,
-            bool isActive
-        )
-    {
+    function getMarketInfo(bytes32 marketKey) external view override returns (address market, address yesToken, address noToken, bool isActive) {
         Market memory m = _markets[marketKey];
         return (m.truthMarket, m.yesToken, m.noToken, m.isActive);
     }
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function getUserLiquidity(
-        bytes32 marketKey,
-        uint16 tickIndex,
-        address provider
-    ) external view override returns (uint256 liquidity) {
-        return _userLiquidity[marketKey][tickIndex][provider];
+    function getLimitOrder(bytes32 marketKey, uint16 tickLower, uint16 tickUpper, address maker) external view override returns (uint256 amount) {
+        // For simplicity, we currently track liquidity per-tick in _makerOrders.
+        // Returning depth at the lower tick as a proxy for the range order.
+        return uint256(_makerOrders[marketKey][tickLower][maker]);
     }
 
-    /**
-     * @inheritdoc ITickBook
-     */
-    function getAccruedFees(bytes32 marketKey, address recipient)
-        external
-        view
-        override
-        returns (uint256 amount)
-    {
-        // Fee tracking not implemented in this version
-        return 0;
-    }
-
-    /**
-     * @inheritdoc ITickBook
-     */
-    function claimFees(bytes32 marketKey) external override returns (uint256 amount) {
-        // Fee claiming not implemented in this version
-        return 0;
-    }
+    function getAccruedFees(bytes32 marketKey, address recipient) external pure override returns (uint256 amount) { return 0; }
+    function claimFees(bytes32 marketKey) external pure override returns (uint256 amount) { return 0; }
 }

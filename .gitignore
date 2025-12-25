@@ -38,6 +38,8 @@ dist/
 .npm
 *.log
 apps/web/dist/
+apps/web/.cache-synpress/
+apps/web/.metamask/
 
 # Turbo
 .turbo/

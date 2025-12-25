@@ -2,6 +2,150 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased]
+
+### Deployment & Protocol Upgrade (2025-12-25)
+- **V8.1.5 Full Stack Deployment**: Redeployed the complete protocol stack and initial markets to Base Sepolia.
+- **Hybrid Concentrated Orderbook**: Transitioned TickBook to a **Maker/Taker** exchange model.
+  - Makers place **Limit Orders** (point or ranged).
+  - Takers execute **Market Orders** (dollar-amount based immediate fill).
+- **Unified Depth Architecture**: Integrated the unified coordinate system for order depth across 10,000 ticks.
+- **ABI Synchronization**: Automated extraction and syncing of all V8.1 contract ABIs to the frontend.
+
+### Frontend & UI/UX (2025-12-25)
+- **UI Content Centralization**: Migrated all user-facing text to `apps/web/src/config/ui-content.json` for better maintainability.
+- **Actor-Centric Learn Page**: Complete refactor of educational flow based on the Dec 2025 Whitepaper (Creator, Gaming Trader, Arbitrageur, PvP Trader).
+- **Venue Branding**: Standardized names across the dApp:
+  - **AMM** (Retail Trading)
+  - **Pro** (Professional Terminal)
+  - **Launchpad** (Market Creation)
+- **Multichain Market Filtering**: Implemented real-time market filtering by active `chainId` across all venues.
+- **Graduation UI Fix**: Ensured the graduation progress bar correctly stays at 100% for graduated markets.
+
+### QA & Infrastructure (2025-12-25)
+- **E2E Test Suite Hardening**:
+  - Replaced Synpress with a custom MetaMask fixture for direct extension loading.
+  - Hybrid execution: Headless for basic tests, headed but off-screen for wallet/on-chain tests.
+  - Fixed Playwright strict mode violations and timing issues after UI text migration.
+  - **Result**: 100% pass rate (84/84 tests) verified on production-like configuration.
+- **Automated ABI Sync**: Implemented script to verify contract artifacts and sync ABIs to the frontend configuration.
+
+### 🚨 Known Issues
+- **CRITICAL: LaunchpadEngine USDC Decimals Bug** (2025-12-24):
+  - `tradePositions()` passes WAD amounts directly to USDC transfer without decimal conversion
+  - Affects all trades when using 6-decimal USDC (standard USDC)
+  - **Fix Required**: Add `_wadToUsdc(actualCost)` before `safeTransferFrom` in line 241
+  - **Status**: Blocking V8 trading, requires contract redeploy
+
+### QA
+- **TickBook Protocol Refactor verified** (2025-12-25):
+  - 100% pass rate on `TickBook.t.sol` (Unit tests)
+  - 100% pass rate on `V8Integration.t.sol` (Integration tests)
+  - Fixed `test_MultipleUsers_Trading` failure by providing broader maker inventory ranges.
+- **E2E Testing Infrastructure Hardened** (2025-12-25):
+  - Built custom MetaMask fixture (`e2e/fixtures/wallet.fixture.ts`) replacing Synpress
+  - Direct extension loading via `chromium.launchPersistentContext()` with MetaMask v11.9.1
+  - Hybrid execution: basic tests headless, wallet/onchain tests headed but off-screen
+  - Web3Modal dismissal (`Escape` key) to prevent modal-blocking-clicks failures
+  - Serial execution (`workers: 1`) for stability
+  - All 84 tests passing: 77 basic + 2 wallet + 5 onchain
+  - New npm scripts: `test:e2e:basic`, `test:e2e:wallet`, `test:e2e:onchain`
+- **E2E Test Suite Complete** (2025-12-25):
+  - Fixed 6 failing tests in trade.spec.ts and learn.spec.ts
+  - trade.spec.ts:95 - Updated BUY/SELL toggle assertion (rose for SELL, cyan/emerald for BUY)
+  - learn.spec.ts - Updated 5 step content matchers to use `getByRole('heading')`
+  - gov.spec.ts - Fixed tests to handle wallet-not-connected state
+  - All 68 smoke tests passing, 14 wallet tests skipped (require Synpress)
+  - Verified legacy routes fully removed from application
+
+### Removed
+- **Legacy V8.0 Pages** (2025-12-25):
+  - Deleted `/markets`, `/market/:address`, `/portfolio`, `/create-market`, `/operator` routes
+  - Deleted corresponding page files: Markets.tsx, MarketDetail.tsx, Portfolio.tsx, CreateMarket.tsx, OperatorConsole.tsx
+  - Deleted legacy E2E tests: markets.spec.ts, market-detail.spec.ts, portfolio.spec.ts
+  - Updated all internal links to use new role-based paths (/trade, /create, /gov, etc.)
+
+### Added
+- **TickBook Protocol V8.1 (Hybrid Orderbook)** (2025-12-25):
+  - Transitioned from AMM "Liquidity" model to **Maker/Taker** exchange model.
+  - `placeLimitOrder`: Supports point orders and broad range orders.
+  - `executeMarketOrder`: Amount-based execution with built-in slippage protection.
+  - **Unified Book Architecture**: Symmetrical YES/NO depth map ($L$) across 10,000 ticks.
+  - **Pro Terminal Dual-Mode**: High-performance UI for both ranged maker and amount taker orders.
+  - Created `TICKBOOK_PROTOCOL_V8.1_SUMMARY.md` technical specification.
+- **Actor-Centric Learn Page** (2025-12-25):
+  - Complete refactor of educational flow based on Dec 2025 Whitepaper.
+  - Interactive steps for Creators, Gaming Traders, and Arbitrageurs.
+  - Sandbox mode integrated into the tutorial flow without a global banner.
+- **Multichain Market Filtering** (2025-12-25):
+  - Automatic filtering of markets by `chainId` on AMM, TickBook, Launchpad, and Gov pages.
+  - Uses `useChainId` from wagmi for real-time reactivity.
+
+### Changed
+- **UI Venue Renaming** (2025-12-25):
+  - **Trade** → **AMM** (Retail AMM Interface)
+  - **Pro** → **TickBook** (Professional Orderbook Interface)
+  - **Create** → **Launchpad** (Creator Economics Interface)
+- **About/Learn Unification** (2025-12-25):
+  - Combined legacy "About" and "Learn" into a single `/about` route.
+  - Updated Navbar and Landing page "Learn" buttons to point to `/about`.
+- **Graduation UX** (2025-12-25):
+  - Graduation progress bar now stays visible at 100% for graduated markets.
+
+### Removed
+- **Legacy About Page** (2025-12-25):
+  - Deleted `apps/web/src/pages/v8/About.tsx`.
+- **Sandbox Banner** (2025-12-25):
+  - Removed "SANDBOX MODE" warning banner from the top of the Learn page.
+
+### Added
+- **AMMFormulasCard Component** (2025-12-24):
+  - Displays 5 core AMM accounting formulas ported from V7:
+    - 💵 Cash = creatorDeposit + feesAccrued
+    - 📊 Max Liability = max(qYes, qNo)
+    - 🛡️ Floor = Cash − maxLiability
+    - ⚡ LP Value = Floor × (yourLP / totalLP)
+    - ⚠️ Underwater warning when Floor ≤ 0
+  - Integrated into MarketDetail "Info" tab
+- **V8 Trading Panel Integration** (2025-12-24):
+  - `SimpleTradingPanel` now uses `useAMMQuoteDirect` for real-time LMSR cost/fee calculation
+  - Trade execution via `LaunchpadEngine.tradePositions(market, deltaShares, maxCost)`
+  - USDC approval flow with proper allowance checking
+  - Price impact warnings for large trades
+  - Lock-on-Sell notices for sell orders
+  - 1% slippage buffer on maxCost for buy orders
+- **V8 Portfolio Page** (2025-12-24):
+  - `MarketPositionCard` - Shows user's YES/NO token balances per market
+  - `LPPositionCard` - Shows creator LP positions
+  - Real-time position values from V8 direct hooks
+  - Potential payouts calculation (if YES/NO wins)
+  - Links to trade and manage positions
+- **useAMMQuoteDirect Hook** (2025-12-24):
+  - Real-time LMSR cost calculation using frontend math
+  - Fee breakdown (cost, fee, net cost)
+  - Price impact percentage
+  - New price after trade
+  - Formatted display values
+
+### Fixed
+- **SimpleTradingPanel Decimal Handling** (2025-12-24):
+  - Fixed approval check to correctly compare allowance vs cost in matching decimals
+  - Fixed balance check to convert WAD cost to token decimals before comparison
+  - Approval amount now uses actual token decimals from contract (not hardcoded 18)
+  - Added comprehensive debug logging for USDC decimals, balance, allowance, and quote cost
+
+### Changed
+- **Navigation Cleanup** (2025-12-24):
+  - Hidden v8-test page from navigation (kept accessible for internal testing)
+  - Reordered nav links: Markets → Portfolio → Operator → Faucet → About
+- **Repo hygiene (Librarian)**:
+  - **Breaking**: removed repo-wide `docs_archive/` in favor of per-package archives:
+    - `apps/web/docs/_archive/`
+    - `packages/contracts-evm/docs/_archive/`
+  - **Breaking**: moved `V7_IMPLEMENTATION_PLAN.md` → `packages/contracts-evm/docs/_archive/v7/`
+  - **Build artifacts**: canonical committed static site is now `apps/web/deploy/hostable-site/` (no committed `apps/web/dist/`)
+  - **Git ignore policy**: track `pnpm-lock.yaml`; ignore `packages/contracts-evm/broadcast/**` (keep `run-latest.json` only)
+
 ## [8.0.0] - 2025-12-23
 
 ### Deployed

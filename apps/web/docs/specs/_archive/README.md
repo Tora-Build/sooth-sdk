@@ -1,12 +1,33 @@
-# Archived Specs (NOT CURRENT)
+# Archived Specifications
 
-This folder holds **superseded** specs kept only for reference.
+> These specifications have been superseded by V8.1 documentation.
 
-- **Canonical V8 specs**: `apps/web/docs/specs/`
-- **Status**: NOT CURRENT
+## V8 Specs (Superseded by V8.1)
 
-## Contents
+| File | Description |
+|------|-------------|
+| `V8_AMM_TRADING_SPEC.md` | AMM trading terminal specification |
+| `V8_FRONTEND_ARCHITECTURE.md` | Frontend architecture overview |
+| `V8_OPERATOR_CONSOLE_SPEC.md` | Operator console specification |
+| `V8_ORDERBOOK_TRADING_SPEC.md` | Orderbook trading specification |
 
-- `legacy-specs/`: previous spec set (migrated from `apps/web/docs/specs/archive/`).
+## Legacy Specs (Pre-V8)
 
+See `legacy-specs/` for:
 
+- `ACTIVITY_LOG_SPEC.md`
+- `LAUNCHPAD_SPEC.md`
+- `LP_DASHBOARD_SPEC.md`
+- `OPERATOR_CONSOLE_SPEC.md`
+- `TRADING_TERMINAL_SPEC.md`
+
+## Current Documentation
+
+For up-to-date documentation, see:
+
+- [`../../V8.1_FRONTEND.md`](../../V8.1_FRONTEND.md) - V8.1 Frontend Documentation
+- [`../../V8_ACTOR_FLOW.md`](../../V8_ACTOR_FLOW.md) - Architecture Diagrams
+
+---
+
+*Archived: 2025-12-25*

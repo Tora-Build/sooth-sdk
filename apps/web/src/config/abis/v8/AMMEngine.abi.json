@@ -15,17 +15,17 @@
     "name": "applyRetroSettlement",
     "inputs": [
       {
-        "name": "market",
+        "name": "",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "user",
+        "name": "",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "proof",
+        "name": "",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -44,19 +44,72 @@
     "name": "claimUnlocked",
     "inputs": [
       {
-        "name": "market",
+        "name": "maxClaims",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "totalUnlocked",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getBalances",
+    "inputs": [
+      {
+        "name": "user",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "amount",
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "locked",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getClaimableAmount",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "claimable",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nextUnlock",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "nextAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -73,6 +126,42 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLockQueue",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "entries",
+        "type": "tuple[]",
+        "internalType": "struct IAMMEngine.LockEntry[]",
+        "components": [
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "expiry",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "market",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -126,16 +215,6 @@
         "name": "shares",
         "type": "int256",
         "internalType": "int256"
-      },
-      {
-        "name": "lockedProceeds",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "lockExpiry",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -250,6 +329,56 @@
   },
   {
     "type": "event",
+    "name": "BalanceUsed",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remaining",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LocksProcessed",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "count",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalUnlocked",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PositionTraded",
     "inputs": [
       {
@@ -343,6 +472,25 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WalletPull",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

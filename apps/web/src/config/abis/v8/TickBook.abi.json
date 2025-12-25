@@ -1,7 +1,7 @@
 [
   {
     "type": "function",
-    "name": "addLiquidity",
+    "name": "cancelLimitOrder",
     "inputs": [
       {
         "name": "marketKey",
@@ -9,7 +9,12 @@
         "internalType": "bytes32"
       },
       {
-        "name": "tickIndex",
+        "name": "tickLower",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "tickUpper",
         "type": "uint16",
         "internalType": "uint16"
       },
@@ -19,7 +24,18 @@
         "internalType": "uint256"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "yesAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "noAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -35,6 +51,40 @@
     "outputs": [
       {
         "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "executeMarketOrder",
+    "inputs": [
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "isBuy",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limitTick",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amountOut",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -92,7 +142,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -112,6 +162,40 @@
       },
       {
         "name": "probability",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLimitOrder",
+    "inputs": [
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tickLower",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "tickUpper",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "maker",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -241,7 +325,7 @@
   },
   {
     "type": "function",
-    "name": "getUserLiquidity",
+    "name": "placeLimitOrder",
     "inputs": [
       {
         "name": "marketKey",
@@ -249,24 +333,34 @@
         "internalType": "bytes32"
       },
       {
-        "name": "tickIndex",
+        "name": "tickLower",
         "type": "uint16",
         "internalType": "uint16"
       },
       {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
+        "name": "tickUpper",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
       {
-        "name": "liquidity",
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [
+      {
+        "name": "yesAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "noAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -298,79 +392,11 @@
     "stateMutability": "nonpayable"
   },
   {
-    "type": "function",
-    "name": "removeLiquidity",
-    "inputs": [
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "tickIndex",
-        "type": "uint16",
-        "internalType": "uint16"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "yesAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "noAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "swap",
-    "inputs": [
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "isBuy",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "amountIn",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "limitTick",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "amountOut",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
     "type": "event",
-    "name": "LiquidityAdded",
+    "name": "LimitOrderCancelled",
     "inputs": [
       {
-        "name": "provider",
+        "name": "maker",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -382,38 +408,13 @@
         "internalType": "bytes32"
       },
       {
-        "name": "tickIndex",
+        "name": "tickLower",
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "LiquidityRemoved",
-    "inputs": [
-      {
-        "name": "provider",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "tickIndex",
+        "name": "tickUpper",
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
@@ -441,7 +442,56 @@
   },
   {
     "type": "event",
-    "name": "Swap",
+    "name": "LimitOrderPlaced",
+    "inputs": [
+      {
+        "name": "maker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tickLower",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "tickUpper",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "yesAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "noAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MarketOrderExecuted",
     "inputs": [
       {
         "name": "user",
@@ -493,16 +543,5 @@
       }
     ],
     "anonymous": false
-  },
-  {
-    "type": "error",
-    "name": "SafeERC20FailedOperation",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
   }
 ]

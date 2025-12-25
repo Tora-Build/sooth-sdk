@@ -1,0 +1,46 @@
+[
+  {
+    "chain": "megaethFrontier",
+    "chainId": 4326,
+    "timestamp": "2025-12-25T04:57:09.917Z",
+    "config": {
+      "chainName": "megaethFrontier",
+      "numWallets": 3,
+      "totalTrades": 20,
+      "maxParallel": 5,
+      "usdcPerWallet": "10000000000000000000000",
+      "tradeSize": "100000000000000000000",
+      "liquidityPerTick": "1000000000000000000000"
+    },
+    "setup": {
+      "walletsCreated": 3,
+      "walletsFunded": 0,
+      "liquidityAdded": true,
+      "marketKey": "0x811979fede4a46ffad048ec98e3b9e49f6a1a5c7b66d1255793623df417edfda"
+    },
+    "trades": {
+      "total": 20,
+      "successful": 0,
+      "failed": 20,
+      "successRate": 0
+    },
+    "latency": {
+      "min": 0,
+      "max": 0,
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "throughput": {
+      "totalTimeMs": 2745,
+      "tps": 0
+    },
+    "gas": {
+      "min": "0",
+      "max": "0",
+      "avg": "0",
+      "total": "0"
+    }
+  }
+]

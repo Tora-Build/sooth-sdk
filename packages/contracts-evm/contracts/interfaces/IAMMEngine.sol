@@ -33,14 +33,35 @@ interface IAMMEngine {
         uint256 amount
     );
 
+    event BalanceUsed(
+        address indexed user,
+        uint256 amount,
+        uint256 remaining
+    );
+
+    event WalletPull(
+        address indexed user,
+        uint256 amount
+    );
+
+    event LocksProcessed(
+        address indexed user,
+        uint256 count,
+        uint256 totalUnlocked
+    );
+
     // ============================================
     // Structs
     // ============================================
 
     struct Position {
         int256 shares;           // Signed shares (positive = YES, negative = NO)
-        uint256 lockedProceeds;  // USDC locked from sells
-        uint64 lockExpiry;       // Timestamp when proceeds unlock
+    }
+
+    struct LockEntry {
+        uint256 amount;     // Locked amount (WAD)
+        uint64 expiry;      // Unlock timestamp
+        address market;     // Market that generated this lock
     }
 
     // ============================================
@@ -89,28 +110,62 @@ interface IAMMEngine {
     // ============================================
 
     /**
-     * @notice Claim unlocked sell proceeds
-     * @dev Only callable after lock expiry
-     * @param market Market address
-     * @return amount USDC claimed
-     */
-    function claimUnlocked(address market) external returns (uint256 amount);
-
-    /**
-     * @notice Get user's position and lock status
+     * @notice Get user's position
      * @param market Market address
      * @param user User address
      * @return shares Current position (WAD)
-     * @return lockedProceeds Locked USDC from sells (WAD)
-     * @return lockExpiry Timestamp when proceeds unlock
      */
     function getPosition(address market, address user)
         external
         view
+        returns (int256 shares);
+
+    // ============================================
+    // Balance Management (V8.1)
+    // ============================================
+
+    /**
+     * @notice Claim unlocked proceeds (global, not per-market)
+     * @param maxClaims Maximum number of lock entries to process (gas limit)
+     * @return totalUnlocked Total amount unlocked and transferred
+     */
+    function claimUnlocked(uint256 maxClaims) external returns (uint256 totalUnlocked);
+
+    /**
+     * @notice Get user's available and locked balances
+     * @param user User address
+     * @return available Total available balance (spendable)
+     * @return locked Locked balance (subset of available, not withdrawable)
+     */
+    function getBalances(address user) 
+        external 
+        view 
+        returns (uint256 available, uint256 locked);
+
+    /**
+     * @notice Get user's lock queue
+     * @param user User address
+     * @return entries Array of lock entries
+     */
+    function getLockQueue(address user) 
+        external 
+        view 
+        returns (LockEntry[] memory entries);
+
+    /**
+     * @notice Calculate currently claimable amount
+     * @param user User address
+     * @return claimable Amount that can be claimed now
+     * @return nextUnlock Timestamp of next unlock (0 if none)
+     * @return nextAmount Amount of next unlock (0 if none)
+     */
+    function getClaimableAmount(address user) 
+        external 
+        view 
         returns (
-            int256 shares,
-            uint256 lockedProceeds,
-            uint64 lockExpiry
+            uint256 claimable, 
+            uint64 nextUnlock, 
+            uint256 nextAmount
         );
 
     // ============================================

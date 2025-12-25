@@ -1,0 +1,49 @@
+import { useReadContract, useAccount } from 'wagmi';
+import { formatUnits } from 'viem';
+import { V8_ABIS } from '../../config/abis';
+
+export interface AvailableBalanceData {
+    available: bigint;
+    locked: bigint;
+    availableFormatted: string;
+    lockedFormatted: string;
+    withdrawable: bigint; // available - locked
+    withdrawableFormatted: string;
+    isLoading: boolean;
+    error: Error | null;
+}
+
+/**
+ * Hook to fetch available and locked proceeds from the AMMEngine
+ */
+export function useAvailableBalance(
+    ammEngineAddress: `0x${string}` | undefined
+): AvailableBalanceData {
+    const { address } = useAccount();
+
+    const { data, isLoading, error } = useReadContract({
+        address: ammEngineAddress,
+        abi: V8_ABIS.AMMEngine,
+        functionName: 'getBalances',
+        args: address ? [address] : undefined,
+        query: {
+            enabled: !!address && !!ammEngineAddress,
+            refetchInterval: 5000, // Refresh every 5 seconds
+        },
+    });
+
+    const available = (data as [bigint, bigint])?.[0] ?? 0n;
+    const locked = (data as [bigint, bigint])?.[1] ?? 0n;
+    const withdrawable = available - locked;
+
+    return {
+        available,
+        locked,
+        availableFormatted: formatUnits(available, 18), // AMMEngine stores internal balance in WAD
+        lockedFormatted: formatUnits(locked, 18),
+        withdrawable,
+        withdrawableFormatted: formatUnits(withdrawable, 18),
+        isLoading,
+        error: error as Error | null,
+    };
+}

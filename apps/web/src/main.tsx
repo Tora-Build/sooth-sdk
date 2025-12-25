@@ -6,19 +6,20 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { wagmiAdapter, projectId, metadata, networks } from './lib/wagmi';
-import { ActivityListener } from './components/features/ActivityListener';
+// NOTE (alpha): `ActivityListener` currently depends on removed V5 hooks (hooks/v5/*),
+// which causes Vite to 404 those module URLs and breaks the app. Re-introduce a V8 version later.
 
-// Pages - V8
+// Pages
 import { Landing } from './pages/v8/Landing';
-import { About } from './pages/v8/About';
 import { AppLayout } from './layouts/AppLayout';
-import { Markets } from './pages/v8/Markets';
-// import { MarketDetail } from './pages/v8/MarketDetail';
-// import { Portfolio } from './pages/v8/Portfolio';
-// import { CreateMarket } from './pages/v8/CreateMarket';
-// import { Faucet } from './pages/v8/Faucet';
-import { OperatorConsole } from './pages/v8/OperatorConsole';
-import { V8HooksTest } from './pages/V8HooksTest';
+import { Faucet } from './pages/v8/Faucet';
+
+// Role-Based Pages (V8.1)
+import { Trade } from './pages/Trade';
+import { Create } from './pages/Create';
+import { Pro } from './pages/Pro';
+import { Gov } from './pages/Gov';
+import { Learn } from './pages/Learn';
 
 import './index.css';
 
@@ -50,7 +51,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <ActivityListener />
           <Toaster
             position="bottom-right"
             toastOptions={{
@@ -64,15 +64,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           />
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/about" element={<About />} />
             <Route element={<AppLayout />}>
-              <Route path="/markets" element={<Markets />} />
-              {/* <Route path="/market/:address" element={<MarketDetail />} /> */}
-              {/* <Route path="/portfolio" element={<Portfolio />} /> */}
-              {/* <Route path="/create" element={<CreateMarket />} /> */}
-              {/* <Route path="/faucet" element={<Faucet />} /> */}
-              <Route path="/operator" element={<OperatorConsole />} />
-              <Route path="/v8-test" element={<V8HooksTest />} />
+              <Route path="/about" element={<Learn />} />
+              {/* Role-Based Pages (V8.1) */}
+              <Route path="/trade" element={<Trade />} />
+              <Route path="/trade/:marketId" element={<Trade />} />
+              <Route path="/pro" element={<Pro />} />
+              <Route path="/pro/:marketId" element={<Pro />} />
+              <Route path="/create" element={<Create />} />
+              <Route path="/gov" element={<Gov />} />
+              <Route path="/faucet" element={<Faucet />} />
             </Route>
           </Routes>
         </BrowserRouter>

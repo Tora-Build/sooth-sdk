@@ -54,7 +54,7 @@ const TrendingCard = ({ market, rank }: { market: Market; rank: number }) => {
 
   return (
     <Link
-      to={`/market/${market.address}`}
+      to={`/trade/${market.address}`}
       className="group block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:border-fuchsia-500/40 hover:bg-slate-800/50 transition-all"
     >
       <div className="flex items-start justify-between mb-2">

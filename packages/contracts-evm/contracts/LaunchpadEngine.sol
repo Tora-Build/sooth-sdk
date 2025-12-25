@@ -181,7 +181,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
         // Calculate required deposit: b × ln(2)
         uint256 depositWad = (initialLiquidity * LN2) / WAD;
-        uint256 deposit = _wadToUsdc(depositWad);
+        uint256 deposit = _wadToUsdcCeil(depositWad);
 
         // Transfer deposit from creator
         usdc.safeTransferFrom(msg.sender, address(this), deposit);
@@ -232,22 +232,27 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
         // Calculate fee
         uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
-        uint256 fee = (baseCost * feeBps) / BPS_DENOMINATOR;
+        uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
         actualCost = baseCost + fee;
 
         require(actualCost <= maxCost, "LaunchpadEngine: cost too high");
 
+        // Convert to USDC decimals for transfers
+        uint256 actualCostUsdc = _wadToUsdcCeil(actualCost);
+        uint256 baseCostUsdc = _wadToUsdcCeil(baseCost);
+        uint256 feeUsdc = actualCostUsdc - baseCostUsdc;
+
         // Transfer total cost from user
-        usdc.safeTransferFrom(msg.sender, address(this), actualCost);
+        usdc.safeTransferFrom(msg.sender, address(this), actualCostUsdc);
 
         // Approve AMM to spend base cost
-        usdc.approve(address(ammEngine), baseCost);
+        usdc.approve(address(ammEngine), baseCostUsdc);
 
         // Execute trade on AMM
         ammEngine.tradePositions(market, deltaShares, baseCost);
 
         // Distribute fee
-        _distributeFee(market, fee, msg.sender);
+        _distributeFee(market, fee, feeUsdc, msg.sender);
 
         emit PositionTraded(msg.sender, market, deltaShares, actualCost, fee);
     }
@@ -257,7 +262,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
      */
     function _distributeFee(
         address market,
-        uint256 fee,
+        uint256 feeWad,
+        uint256 feeUsdc,
         address trader
     ) internal {
         MarketState storage state = markets[market];
@@ -266,20 +272,19 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             // PRE-GRADUATION: 100% to bBase growth + LP minting
 
             // Increase liquidity parameter
-            uint256 feeInWad = _usdcToWad(fee);
-            state.bCurrent += feeInWad;
+            state.bCurrent += feeWad;
 
             // Mint LP tokens to trader (1:1 with fee paid)
-            uint256 lpTokens = feeInWad;
+            uint256 lpTokens = feeWad;
             lpBalances[market][trader] += lpTokens;
             state.totalLPSupply += lpTokens;
 
             // Update fees accrued
-            state.feesAccrued += fee;
+            state.feesAccrued += feeUsdc;
 
             // Check graduation (short-circuit if already graduated)
             if (!state.isGraduated) {
-                uint256 graduationThreshold = state.bBase * graduationMultiplier;
+                uint256 graduationThreshold = state.bBase * uint256(graduationMultiplier);
                 uint256 feesInWad = _usdcToWad(state.feesAccrued);
 
                 if (feesInWad >= graduationThreshold) {
@@ -289,26 +294,27 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
                 }
             }
 
-            emit FeeDistributedPreGrad(market, fee, feeInWad, lpTokens, trader);
+            emit FeeDistributedPreGrad(market, feeUsdc, feeWad, lpTokens, trader);
 
         } else {
             // POST-GRADUATION: Split according to configured percentages
 
-            uint256 toBBase = (fee * bBaseShareBps) / BPS_DENOMINATOR;
-            uint256 toLPYield = (fee * lpYieldShareBps) / BPS_DENOMINATOR;
-            uint256 toProtocol = (fee * protocolShareBps) / BPS_DENOMINATOR;
+            // toBBase is WAD growth, calculated from feeWad
+            uint256 toBBase = (feeWad * uint256(bBaseShareBps)) / BPS_DENOMINATOR;
+            
+            // LPYield and Protocol are USDC transfers, calculated from feeUsdc
+            uint256 toLPYield = (feeUsdc * uint256(lpYieldShareBps)) / BPS_DENOMINATOR;
+            uint256 toProtocol = (feeUsdc * uint256(protocolShareBps)) / BPS_DENOMINATOR;
 
-            // Increase liquidity
-            uint256 bBaseInWad = _usdcToWad(toBBase);
-            state.bCurrent += bBaseInWad;
-
-            // Add to LP yield pool (increases redemption value)
+            state.bCurrent += toBBase;
             state.lpYieldPool += toLPYield;
+            state.feesAccrued += feeUsdc;
 
-            // Transfer protocol share
-            usdc.safeTransfer(protocolTreasury, toProtocol);
+            if (toProtocol > 0) {
+                usdc.safeTransfer(protocolTreasury, toProtocol);
+            }
 
-            emit FeeDistributedPostGrad(market, fee, toBBase, toLPYield, toProtocol);
+            emit FeeDistributedPostGrad(market, feeUsdc, toBBase, toLPYield, toProtocol);
         }
     }
 
@@ -482,6 +488,18 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             return wadAmount;
         } else if (usdcDecimals < 18) {
             return wadAmount / (10 ** (18 - usdcDecimals));
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
+    }
+
+    function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
+        if (wadAmount == 0) return 0;
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            uint256 factor = 10 ** (18 - usdcDecimals);
+            return (wadAmount + factor - 1) / factor;
         } else {
             return wadAmount * (10 ** (usdcDecimals - 18));
         }

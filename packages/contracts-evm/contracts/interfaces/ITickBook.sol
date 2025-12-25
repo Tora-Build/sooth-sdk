@@ -11,7 +11,7 @@ interface ITickBook {
     // Events
     // ============================================
 
-    event Swap(
+    event MarketOrderExecuted(
         address indexed user,
         bytes32 indexed marketKey,
         bool isBuy,
@@ -22,17 +22,21 @@ interface ITickBook {
         uint256 feeAmount
     );
 
-    event LiquidityAdded(
-        address indexed provider,
+    event LimitOrderPlaced(
+        address indexed maker,
         bytes32 indexed marketKey,
-        uint16 tickIndex,
-        uint256 amount
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 amount,
+        uint256 yesAmount,
+        uint256 noAmount
     );
 
-    event LiquidityRemoved(
-        address indexed provider,
+    event LimitOrderCancelled(
+        address indexed maker,
         bytes32 indexed marketKey,
-        uint16 tickIndex,
+        uint16 tickLower,
+        uint16 tickUpper,
         uint256 amount,
         uint256 yesAmount,
         uint256 noAmount
@@ -58,7 +62,7 @@ interface ITickBook {
     // ============================================
 
     /**
-     * @notice Execute swap in token domain
+     * @notice Execute a market order (immediate fill)
      * @dev Walks ticks until amountIn is consumed or limitTick is reached
      * @param marketKey Unique market identifier
      * @param isBuy true = buy YES, false = sell YES
@@ -66,7 +70,7 @@ interface ITickBook {
      * @param limitTick Maximum/minimum tick to execute
      * @return amountOut Output token amount (WAD)
      */
-    function swap(
+    function executeMarketOrder(
         bytes32 marketKey,
         bool isBuy,
         uint256 amountIn,
@@ -89,48 +93,57 @@ interface ITickBook {
     ) external view returns (SwapResult memory result);
 
     // ============================================
-    // Liquidity Management
+    // Maker Order Management
     // ============================================
 
     /**
-     * @notice Add concentrated liquidity at specific tick
-     * @dev Requires equal amounts of YES and NO tokens
+     * @notice Place a limit order across a range of ticks
+     * @dev Automatically calculates YES/NO requirements based on current tick.
+     *      Range can be a single tick (tickLower == tickUpper).
      * @param marketKey Market identifier
-     * @param tickIndex Tick to provide liquidity (0-9999)
-     * @param amount Liquidity amount (in YES+NO pairs, WAD)
+     * @param tickLower Lower tick of the range
+     * @param tickUpper Upper tick of the range
+     * @param amount Order amount (WAD)
+     * @return yesAmount YES tokens transferred from maker
+     * @return noAmount NO tokens transferred from maker
      */
-    function addLiquidity(
+    function placeLimitOrder(
         bytes32 marketKey,
-        uint16 tickIndex,
-        uint256 amount
-    ) external;
-
-    /**
-     * @notice Remove liquidity from tick
-     * @param marketKey Market identifier
-     * @param tickIndex Tick to remove liquidity from
-     * @param amount Liquidity amount to remove (WAD)
-     * @return yesAmount YES tokens returned
-     * @return noAmount NO tokens returned
-     */
-    function removeLiquidity(
-        bytes32 marketKey,
-        uint16 tickIndex,
+        uint16 tickLower,
+        uint16 tickUpper,
         uint256 amount
     ) external returns (uint256 yesAmount, uint256 noAmount);
 
     /**
-     * @notice Get user's liquidity position at tick
+     * @notice Cancel a limit order and withdraw remaining tokens
      * @param marketKey Market identifier
-     * @param tickIndex Tick index
-     * @param provider LP address
-     * @return liquidity User's liquidity amount (WAD)
+     * @param tickLower Lower tick
+     * @param tickUpper Upper tick
+     * @param amount Amount to cancel (WAD)
+     * @return yesAmount YES tokens returned
+     * @return noAmount NO tokens returned
      */
-    function getUserLiquidity(
+    function cancelLimitOrder(
         bytes32 marketKey,
-        uint16 tickIndex,
-        address provider
-    ) external view returns (uint256 liquidity);
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 amount
+    ) external returns (uint256 yesAmount, uint256 noAmount);
+
+    /**
+     * @notice Get maker's active order size in a range
+     * @param marketKey Market identifier
+     * @param tickLower Lower tick
+     * @param tickUpper Upper tick
+     * @param maker Maker address
+     * @return amount Active order amount (WAD)
+     */
+    function getLimitOrder(
+        bytes32 marketKey,
+        uint16 tickLower,
+        uint16 tickUpper,
+        address maker
+    ) external view returns (uint256 amount);
 
     // ============================================
     // Market State

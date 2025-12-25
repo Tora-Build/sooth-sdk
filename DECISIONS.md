@@ -223,3 +223,162 @@ User's Choice (EOA, Safe, Smart Account, etc.)
 
 **Estimated Time to Production**: 1-2 weeks
 
+## ADR-039: LaunchpadEngine USDC Decimals Bug Fix
+- **Date**: 2025-12-24
+- **Status**: Identified (Fix Pending)
+- **Context**: During V8 frontend integration testing, discovered a critical bug in `LaunchpadEngine.tradePositions()` that prevents trading when USDC has 6 decimals (standard USDC).
+- **Bug Location**: `LaunchpadEngine.sol` line 241
+  ```solidity
+  // BUG: actualCost is in WAD (18 decimals) but USDC.transferFrom expects token decimals (6)
+  usdc.safeTransferFrom(msg.sender, address(this), actualCost);
+  ```
+- **Root Cause**: 
+  - `ammEngine.getPositionQuote()` returns cost in WAD (18 decimals)
+  - Fee calculation maintains WAD precision
+  - But `safeTransferFrom` expects the token's native decimals (6 for USDC)
+  - Result: Contract tries to transfer ~1e12x more tokens than intended
+- **Fix Required**:
+  ```solidity
+  // Convert WAD to USDC decimals before transfer
+  uint256 actualCostInUsdc = _wadToUsdc(actualCost);
+  usdc.safeTransferFrom(msg.sender, address(this), actualCostInUsdc);
+  ```
+- **Impact**:
+  - All trades fail with "USDC: insufficient allowance" 
+  - Contract calculates correct cost but transfers wrong amount
+  - Frontend is correct; issue is contract-side only
+- **Workaround Options**:
+  1. **Redeploy LaunchpadEngine** with fix (recommended)
+  2. **Deploy 18-decimal MockUSDC** (matches WAD, quick testnet fix)
+- **Lessons Learned**:
+  - Always verify decimal handling at integration boundaries
+  - Test with actual token decimals (6 for USDC) not just 18
+  - Frontend-to-contract integration testing caught this before mainnet
+
+## ADR-040: Actor-Centric Educational Strategy & Venue Rebranding
+- **Date**: 2025-12-25
+- **Status**: Accepted
+- **Context**: The protocol was using generic terms like "Trade" and "Pro" which didn't reflect the specific actor roles defined in the Dec 2025 Whitepaper (Creator, Gaming Trader, Arbitrageur, PvP Trader). Additionally, the educational "Learn" page was too generic.
+- **Decision**: **Rebrand UI venues and refactor the educational flow** to be actor-centric:
+    - **AMM**: Retail-focused venue for "Gaming Traders".
+    - **TickBook**: Orderbook venue for "Arbitrageurs" and "PvP Traders".
+    - **Launchpad**: Economic venue for "Creators" and "Adjudicators".
+    - **Unified Learn/About**: Merge the "About" page into an interactive, actor-centric tutorial at the `/about` route.
+- **Rationale**:
+    - **Brand Consistency**: Aligns the UI with the "Decentralization Thesis" of the whitepaper.
+    - **Clear Value Proposition**: Helps users self-identify their role (e.g., "I am an arbitrageur, I should use TickBook").
+    - **Reduced Cognitive Load**: Unified routes and clearer venue names make the protocol easier to navigate.
+- **Consequences**:
+    - **Breaking Change**: Renamed all primary navigation links.
+    - **Documentation**: Updated `V8.1_FRONTEND.md` and `E2E_TESTING_SPEC.md` to reflect new names.
+    - **Tests**: All E2E tests updated to expect new terminology.
+
+## ADR-041: Multichain Market Isolation
+- **Date**: 2025-12-25
+- **Status**: Accepted
+- **Context**: Users were seeing all configured markets (Base Sepolia, MegaETH, etc.) regardless of which chain their wallet was connected to. This led to "Contract not found" errors when attempting to interact with a market on the wrong chain.
+- **Decision**: **Implement client-side market filtering** by `chainId`:
+    - All venue pages (`AMM`, `TickBook`, `Launchpad`, `Gov`) now filter the `marketsConfig.markets` list based on the active `chainId` from `wagmi`.
+    - If no chain is connected, a default chain (Base Sepolia) is used for viewing.
+- **Rationale**:
+    - **User Experience**: Prevents users from clicking on markets they cannot trade.
+    - **System Stability**: Eliminates RPC errors caused by calling non-existent addresses on the current chain.
+- **Consequences**:
+    - **Market Visibility**: Users must switch networks in their wallet to see markets on other chains.
+    - **Data Integrity**: Ensures that quotes and balances shown are always relevant to the active connection.
+
+## ADR-042: Custom MetaMask Fixture for E2E Testing
+- **Date**: 2025-12-25
+- **Status**: Accepted
+- **Context**: Synpress (the standard Playwright extension for dApp testing) had persistent caching issues (`Cache for X does not exist`) that prevented reliable wallet tests. The caching mechanism was sensitive to extension versions and environment changes.
+- **Decision**: **Build a custom MetaMask fixture** that bypasses Synpress entirely:
+    - Pre-download MetaMask extension to `.metamask/extension/` (v11.9.1)
+    - Use `chromium.launchPersistentContext()` with `--load-extension` flag
+    - Implement wallet import/connection logic directly in test files
+    - Use off-screen window positioning (`--window-position=-2400,-2400`) for headed tests
+- **Implementation**:
+    ```typescript
+    // e2e/fixtures/wallet.fixture.ts
+    const context = await chromium.launchPersistentContext('', {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${EXTENSION_PATH}`,
+        `--load-extension=${EXTENSION_PATH}`,
+        '--window-position=-2400,-2400', // Off-screen
+      ],
+    });
+    ```
+- **Rationale**:
+    - **Reliability**: No caching issues; extension loads fresh each run
+    - **Developer Experience**: Off-screen windows don't steal focus during test runs
+    - **Control**: Full control over MetaMask onboarding flow
+    - **Simplicity**: Single fixture file vs complex Synpress configuration
+- **Consequences**:
+    - **Removed Synpress Dependency**: Tests no longer require `@synthetixio/synpress`
+    - **Extension Maintenance**: Must manually update MetaMask version in `.metamask/`
+    - **Test Structure**: Wallet tests use `wallet.fixture.ts`, basic tests use standard Playwright
+    - **Hybrid Execution**: Basic tests run headless (1.6 min), wallet tests run headed but off-screen
+
+## ADR-043: Serial E2E Test Execution for Stability
+- **Date**: 2025-12-25
+- **Status**: Accepted
+- **Context**: Parallel E2E test execution with multiple browser instances caused:
+    1. Excessive focus stealing (browser popups interrupting developer work)
+    2. Web3Modal modals overlapping and blocking clicks
+    3. MetaMask extension state conflicts across parallel contexts
+- **Decision**: **Run all E2E tests serially** with project-based ordering:
+    ```typescript
+    // playwright.config.ts
+    fullyParallel: false,
+    workers: 1,
+    projects: [
+      { name: 'basic', testMatch: /^(?!.*wallet|.*onchain).*\.spec\.ts$/, use: { headless: true } },
+      { name: 'wallet', testMatch: /wallet.*\.spec\.ts$/, dependencies: ['basic'] },
+      { name: 'onchain', testMatch: /onchain.*\.spec\.ts$/, dependencies: ['wallet'] },
+    ],
+    ```
+- **Rationale**:
+    - **Stability**: Single browser context avoids extension state conflicts
+    - **Developer UX**: No focus stealing; headless mode for basic tests
+    - **Ordered Execution**: Wallet tests run after basic, onchain after wallet
+    - **Acceptable Speed**: 3.2 min for 84 tests is reasonable for CI
+- **Consequences**:
+    - **Slower CI**: Serial execution is slower than parallel (but more reliable)
+    - **Granular Commands**: Can run subsets via `npm run test:e2e:basic`
+    - **Clear Dependencies**: Project dependencies ensure correct test order
+
+## ADR-044: Hybrid Concentrated Orderbook (TickBook Refinement)
+- **Date**: 2025-12-25
+- **Status**: Accepted (Deployed)
+- **Context**: The TickBook initially used AMM-style "Liquidity" terminology (e.g., `addLiquidityRange`), which was confusing for professional traders. The protocol needed a cleaner separation between makers (liquidity providers) and takers (swappers) while retaining the capital efficiency of concentrated liquidity.
+- **Decision**: **Transition TickBook to a "Hybrid Concentrated Orderbook" model**:
+    - **Makers**: Place **Limit Orders** across a range of ticks (asymmetrical liquidity).
+    - **Takers**: Execute **Market Orders** for a specific dollar amount (USDC) against existing depth.
+    - **Terminology Shift**:
+        - `addLiquidityRange` → `placeLimitOrder`
+        - `removeLiquidityRange` → `cancelLimitOrder`
+        - `swap` → `executeMarketOrder`
+- **Rationale**:
+    - **Market Standard**: Aligns with professional CEX/DEX exchange primitives.
+    - **Clarity**: Explicitly defines the role of each actor (Maker vs Taker).
+    - **User Experience**: Takers don't need to understand "sweeping ticks"—they just want to buy $100 worth of YES shares.
+- **Consequences**:
+    - **Breaking Change**: Updated contract interfaces, events, and state variables.
+    - **Contract Re-Audit**: Logic verified through 100% test coverage in `TickBook.t.sol`.
+    - **UI Alignment**: Pro terminal updated to use "Limit (Range)" and "Market" terminology.
+
+## ADR-045: UI Content Centralization
+- **Date**: 2025-12-25
+- **Status**: Accepted
+- **Context**: User-facing text was scattered across dozens of React components, making it difficult to maintain a consistent brand voice and perform global terminology updates (e.g., rebranding "Pro" to "TickBook" and back).
+- **Decision**: **Migrate all UI text to a centralized configuration file**:
+    - File: `apps/web/src/config/ui-content.json`
+    - Structure: Organized by page/component (e.g., `learn`, `pro`, `trade`, `create`).
+    - Governance: The JSON file becomes the "Source of Truth" for all copywriting.
+- **Rationale**:
+    - **Maintainability**: One place to update terminology across the entire app.
+    - **Scalability**: Facilitates future internationalization (i18n) and localization.
+    - **Consistency**: Ensures the same term (e.g., "Launchpad") is used identically in the Navbar and footer.
+- **Consequences**:
+    - **Frontend Refactor**: Updated `Learn.tsx`, `Pro.tsx`, `Trade.tsx`, `Create.tsx`, and `Navbar.tsx` to consume the JSON content.
+    - **Validation**: Added a validator script (`validate-config.js`) to ensure the JSON structure matches frontend expectations.

@@ -39,18 +39,22 @@ contract DeployTestMarket is Script {
         console.log("1. TruthMarket deployed:", address(market));
         
         // 2. Register with Collateralizer
-        Collateralizer(collateralizer).registerMarket(address(market));
+        Collateralizer(collateralizer).registerMarket(
+            address(market),
+            "ETH > $5000 by EOY 2025",
+            "ETH5K"
+        );
         console.log("2. Market registered with Collateralizer");
         
         // 3. Activate market
         market.activate();
         console.log("3. Market activated");
         
-        // 4. Initialize LaunchpadEngine (requires USDC approval)
+        // 4. Create market in LaunchpadEngine (requires USDC approval)
         uint256 bBase = 1000e18; // $1,000 liquidity
         uint256 deposit = (bBase * 693147180559945309) / 1e18; // b * ln(2)
         
-        console.log("4. Initializing LaunchpadEngine...");
+        console.log("4. Creating market in LaunchpadEngine...");
         console.log("   Liquidity (b):", bBase / 1e18, "USDC");
         console.log("   Required deposit:", deposit / 1e18, "USDC");
         
@@ -58,9 +62,9 @@ contract DeployTestMarket is Script {
         IERC20(usdc).approve(launchpadEngine, deposit);
         console.log("   USDC approved");
         
-        // Initialize
-        LaunchpadEngine(launchpadEngine).initializeMarket(address(market), bBase);
-        console.log("   LaunchpadEngine initialized");
+        // Create market
+        LaunchpadEngine(launchpadEngine).createMarket(address(market), bBase);
+        console.log("   Market created in LaunchpadEngine");
         
         vm.stopBroadcast();
         
