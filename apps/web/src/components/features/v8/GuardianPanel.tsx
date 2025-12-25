@@ -15,7 +15,7 @@ interface GuardianPanelProps {
 
 export const GuardianPanel = ({ address }: GuardianPanelProps) => {
   const { address: userAddress } = useAccount();
-  const { truthMarket, isLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading } = useTruthMarketDirect(address);
   
   const [showVetoConfirmation, setShowVetoConfirmation] = useState(false);
   const [showFinalizeConfirmation, setShowFinalizeConfirmation] = useState(false);

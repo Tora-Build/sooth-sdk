@@ -17,7 +17,7 @@ type Outcome = 'yes' | 'no' | 'invalid' | null;
 
 export const SettlementPanel = ({ address }: SettlementPanelProps) => {
   const { address: userAddress } = useAccount();
-  const { truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
   const { amm } = useAmmMarketDirect(address);
   
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome>(null);

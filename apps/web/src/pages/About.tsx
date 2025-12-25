@@ -459,10 +459,10 @@ export const About = () => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500 font-mono">
               <div>© 2025 Sooth Protocol</div>
               <div className="flex gap-6">
-                <a href="#" className="hover:text-cyan-400 transition-colors">Whitepaper</a>
-                <a href="#" className="hover:text-cyan-400 transition-colors">Docs</a>
-                <a href="#" className="hover:text-cyan-400 transition-colors">GitHub</a>
-                <Link to="/markets" className="hover:text-cyan-400 transition-colors">Launch App</Link>
+                <a href="https://docs.sooth.xyz/whitepaper" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">Whitepaper</a>
+                <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">Docs</a>
+                <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">GitHub</a>
+                <Link to="/trade" className="hover:text-cyan-400 transition-colors">Launch App</Link>
               </div>
             </div>
           </div>

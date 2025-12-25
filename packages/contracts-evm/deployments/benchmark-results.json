@@ -1,27 +1,27 @@
 [
   {
-    "chain": "megaethFrontier",
-    "chainId": 4326,
-    "timestamp": "2025-12-25T04:57:09.917Z",
+    "chain": "monadTestnet",
+    "chainId": 10143,
+    "timestamp": "2025-12-25T17:48:15.249Z",
     "config": {
-      "chainName": "megaethFrontier",
-      "numWallets": 3,
-      "totalTrades": 20,
+      "chainName": "monadTestnet",
+      "numWallets": 2,
+      "totalTrades": 10,
       "maxParallel": 5,
       "usdcPerWallet": "10000000000000000000000",
       "tradeSize": "100000000000000000000",
       "liquidityPerTick": "1000000000000000000000"
     },
     "setup": {
-      "walletsCreated": 3,
-      "walletsFunded": 0,
+      "walletsCreated": 2,
+      "walletsFunded": 2,
       "liquidityAdded": true,
-      "marketKey": "0x811979fede4a46ffad048ec98e3b9e49f6a1a5c7b66d1255793623df417edfda"
+      "marketKey": "0xb679711034296b68c7cbef37e57439840accd1cfbc5a61e321cac9201f53dec3"
     },
     "trades": {
-      "total": 20,
+      "total": 10,
       "successful": 0,
-      "failed": 20,
+      "failed": 10,
       "successRate": 0
     },
     "latency": {
@@ -33,7 +33,7 @@
       "p99": 0
     },
     "throughput": {
-      "totalTimeMs": 2745,
+      "totalTimeMs": 180528,
       "tps": 0
     },
     "gas": {

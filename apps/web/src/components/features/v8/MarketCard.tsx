@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Clock, Zap, ArrowRight, Shield } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
-import { useTruthMarket, useLaunchpadMarket, useAmmMarket } from '../../../hooks/v8';
+import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } from '../../../hooks/v8';
 import { SimpleTradingPanel } from './SimpleTradingPanel';
 
 interface MarketCardProps {
@@ -22,9 +22,9 @@ export const MarketCard = ({
   deadline,
   disableNavigation
 }: MarketCardProps) => {
-  const { market } = useTruthMarket(address);
-  const { launchpad } = useLaunchpadMarket(address);
-  const { amm } = useAmmMarket(address);
+  const { market } = useTruthMarketDirect(address);
+  const { launchpad } = useLaunchpadMarketDirect(address);
+  const { amm } = useAmmMarketDirect(address);
 
   const isGraduated = launchpad?.isGraduated ?? false;
   const isSettled = market?.isSettled ?? false;

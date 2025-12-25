@@ -15,7 +15,7 @@ export function useTokenBalances(tokens: Address[]) {
     })),
     query: {
       enabled: !!address && tokens.length > 0,
-      refetchInterval: 5000,
+      refetchInterval: 15000,
     }
   });
 

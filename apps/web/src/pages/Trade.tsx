@@ -6,11 +6,13 @@
  */
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Search, TrendingUp, Zap, Clock, ChevronRight, Wallet } from 'lucide-react';
-import { useAccount, useChainId } from 'wagmi';
+import { Search, TrendingUp, Zap, Clock, ChevronRight, GraduationCap } from 'lucide-react';
+import { useChainId } from 'wagmi';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { SimpleTradingPanel } from '../components/features/v8';
+import { MarketStats } from '../components/features/v8/MarketStats';
+import { LPHolders } from '../components/features/v8/LPHolders';
 import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks/v8';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
@@ -25,31 +27,41 @@ interface MarketItemProps {
 }
 
 const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect }) => {
-  const { amm, isLoading } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
+  const { amm, isLoading: isAmmLoading } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
+  const { launchpad, isLoading: isLaunchpadLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const probability = amm?.yesProbability ?? 0.5;
   const probabilityPercent = (probability * 100).toFixed(0);
+  const isGraduated = launchpad?.isGraduated ?? false;
 
   return (
     <button
       onClick={onSelect}
-      className={`card-lift w-full p-3 rounded-lg text-left focus-ring ${
-        isSelected
-          ? 'bg-indigo-600/20 border-indigo-500 border shadow-lg shadow-indigo-500/10'
-          : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
-      }`}
+      className={`card-lift w-full p-3 rounded-lg text-left focus-ring relative overflow-hidden ${isSelected
+        ? 'bg-indigo-600/20 border-indigo-500 border shadow-lg shadow-indigo-500/10'
+        : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
+        }`}
     >
+      {isGraduated && (
+        <div className="absolute top-0 right-0 w-8 h-8 pointer-events-none overflow-hidden">
+          <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-bold py-0.5 px-4 rotate-45 translate-x-3 translate-y-[-2px] shadow-sm">
+            PRO
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <p className={`font-medium truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-            {market.symbol}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className={`font-medium truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+              {market.symbol}
+            </p>
+            {isGraduated && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Graduated to TickBook" />}
+          </div>
           <p className="text-xs text-slate-500 truncate">{market.name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-lg font-bold tabular-nums ${
-            probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
-          }`}>
-            {isLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
+          <span className={`text-lg font-bold tabular-nums ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
+            }`}>
+            {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
           </span>
           <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-0.5' : 'text-slate-600'}`} />
         </div>
@@ -61,14 +73,13 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
 export const Trade = () => {
   const { marketId } = useParams<{ marketId?: string }>();
   const navigate = useNavigate();
-  const { isConnected } = useAccount();
   const chainId = useChainId();
 
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m => 
+    return marketsConfig.markets.filter(m =>
       m.version === 'v8.1' && m.chainId === chainId
     );
   }, [chainId]);
@@ -86,15 +97,15 @@ export const Trade = () => {
     if (!searchQuery) return v8Markets;
     const query = searchQuery.toLowerCase();
     return v8Markets.filter(
-      m => m.name.toLowerCase().includes(query) || 
-           m.symbol.toLowerCase().includes(query) ||
-           m.description.toLowerCase().includes(query)
+      m => m.name.toLowerCase().includes(query) ||
+        m.symbol.toLowerCase().includes(query) ||
+        m.description.toLowerCase().includes(query)
     );
   }, [searchQuery, v8Markets]);
 
   // Get market data
   const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
-  const { launchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
+  const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
   const handleSelectMarket = (market: typeof v8Markets[0]) => {
     navigate(`/trade/${market.contractAddress}`);
@@ -145,7 +156,7 @@ export const Trade = () => {
             </div>
 
             {/* Market List */}
-            <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar py-1 -my-1">
               {filteredMarkets.length > 0 ? (
                 filteredMarkets.map(market => (
                   <MarketItem
@@ -180,9 +191,27 @@ export const Trade = () => {
                         </div>
                       )}
                     </div>
-                    <Badge variant={launchpad?.isGraduated ? 'success' : 'warning'}>
-                      {launchpad?.isGraduated ? content.panel.graduated : content.panel.preGrad}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant={launchpad?.isGraduated ? 'success' : 'warning'} className={launchpad?.isGraduated ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}>
+                        {launchpad?.isGraduated ? (
+                          <span className="flex items-center gap-1">
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            {content.panel.graduated}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            {content.panel.preGrad}
+                          </span>
+                        )}
+                      </Badge>
+                      {launchpad?.isGraduated && (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider animate-pulse">
+                          <Zap className="w-2.5 h-2.5" />
+                          TickBook Live
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Card>
 
@@ -190,13 +219,13 @@ export const Trade = () => {
                 <SimpleTradingPanel
                   address={selectedMarket.contractAddress as `0x${string}`}
                   isGraduated={launchpad?.isGraduated}
-                  isSettled={!truth?.isLive}
+                  isSettled={truth != null && truth.isLive === false}
                 />
 
                 {/* Quick Links */}
                 {launchpad?.isGraduated && (
                   <div className="flex items-center justify-end text-sm">
-                    <Link 
+                    <Link
                       to={`/pro/${selectedMarket.contractAddress}`}
                       className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                     >
@@ -214,35 +243,20 @@ export const Trade = () => {
             )}
           </div>
 
-          {/* Right Column: Positions & Education */}
+          {/* Right Column: LP & Stats */}
           <div className="lg:col-span-4 space-y-4">
-            {/* My Positions */}
-            <Card>
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Wallet className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-white">{content.positions.title}</h3>
-                </div>
-
-                {isConnected ? (
-                  <div className="text-center py-6">
-                    <TrendingUp className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                    <p className="text-slate-400 text-sm">{content.positions.noPositions}</p>
-                    <p className="text-slate-500 text-xs mt-1">{content.positions.makePrediction}</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Wallet className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                    <p className="text-slate-400 text-sm">{content.positions.connectWallet}</p>
-                  </div>
-                )}
-              </div>
-            </Card>
+            {/* Market Details & Stats */}
+            {!isLoadingLaunchpad && selectedMarket && (
+              <>
+                <LPHolders marketAddress={selectedMarket.contractAddress as `0x${string}`} />
+                <MarketStats marketAddress={selectedMarket.contractAddress as `0x${string}`} />
+              </>
+            )}
 
             {/* Educational Link */}
             <div className="text-center">
-              <Link 
-                to="/learn"
+              <Link
+                to="/about"
                 className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
               >
                 {content.education}

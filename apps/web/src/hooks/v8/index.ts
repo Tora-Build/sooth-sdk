@@ -35,6 +35,7 @@ export { useTokenBalances } from "./useTokenBalances";
 // More reliable when RPC providers have multicall issues
 export {
     useV8DirectRead,
+    readContractSafe,
     useTruthMarketDirect,
     useLaunchpadMarketDirect,
     useAmmMarketDirect,

@@ -19,8 +19,8 @@ export function useV8DirectRead<TData>(params: {
     queryFn: async () => {
       return await read(client as NonNullable<typeof client>);
     },
-    refetchInterval: 30_000,
-    staleTime: 10_000,
+    refetchInterval: 30_000 + Math.floor(Math.random() * 5000),
+    staleTime: 15_000,
   });
 }
 

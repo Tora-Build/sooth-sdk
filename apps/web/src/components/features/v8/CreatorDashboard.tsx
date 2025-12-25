@@ -27,7 +27,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
   const { address: userAddress } = useAccount();
   const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(address);
   const { amm, isLoading: ammLoading } = useAmmMarketDirect(address);
-  const { truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
 
   const isLoading = launchpadLoading || ammLoading || truthLoading;
   const isCreator = userAddress?.toLowerCase() === truthMarket?.creator?.toLowerCase();

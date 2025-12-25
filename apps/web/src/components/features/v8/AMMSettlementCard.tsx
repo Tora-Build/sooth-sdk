@@ -27,7 +27,7 @@ const formatWad = (value: bigint): string => {
 
 export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
   const { address: userAddress, isConnected } = useAccount();
-  const { truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
   const { isLoading: ammLoading } = useAmmMarketDirect(address);
   
   const isLoading = truthLoading || ammLoading;

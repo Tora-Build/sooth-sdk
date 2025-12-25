@@ -1,30 +1,30 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "timestamp": "2025-12-25T03:09:24.556Z",
+  "timestamp": "2025-12-25T17:21:43.146Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x0ed4eeb883634b7c811bec8191ee3a3cac0f3d50",
-    "Collateralizer": "0x965a4f576de2020a74430b88c0426a650a6fb3a7",
-    "AMMEngine": "0xd7fef3da74ee58fdbb5d0fc8681fe4d04002f6b6",
-    "TickBook": "0x0dfa9b8569dd525fcb8c4b48e0a5758f1e4bb81f",
-    "LaunchpadEngine": "0x12d443d40728e437a334149d1fade7ea49a22344"
+    "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
+    "Collateralizer": "0x7bb89c9a31a930d4673ea81f1c6ca61901129026",
+    "AMMEngine": "0x845ad37212126a975bcd2bdb602fdb064539c8cc",
+    "TickBook": "0x795ba13f59f7205a74366ad87d38a497aabf8dd5",
+    "LaunchpadEngine": "0xab1097823329b453d56943b4ea2fac592592b3cf"
   },
   "markets": [
     {
-      "address": "0x0c97fd6f1eda33477aa780675caef879845abcdd",
+      "address": "0x56ad5739bb3511e9b6f42a686f15ed1915ffd561",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "yesToken": "0x71f1e05f57ABb40eB4028317eB72d5Bda80A0ed8",
-      "noToken": "0xf8A6DAa6706980f858621758a41dCa039630F840",
+      "yesToken": "0xC824618DDF2Ebae46bf69B7a035f3a57313FCF25",
+      "noToken": "0x3D105e3386580ba40143C833c6ed97c0cCf395cC",
       "isGraduated": false
     },
     {
-      "address": "0x0746fd75f23d3cc4150a9dd4e189363c71a2811c",
+      "address": "0x7e5daac2f94efccd0d82654b17be35fd80d2285a",
       "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "yesToken": "0xA902b3D786Bac9De96d0ED66B1A24837571D04c6",
-      "noToken": "0x7cBB23B520e652727B83178F6Aa88029a8f07263",
+      "yesToken": "0x491d417A062c4d34FCa9f34B0c52806e6B5082bb",
+      "noToken": "0xb5660f4fc3666F7CD83F82288d49862955E249Bb",
       "isGraduated": true
     }
   ]

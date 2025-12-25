@@ -35,6 +35,24 @@ export const SimpleTradingPanel = ({
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('10');
 
+  // Bug #1 & #2: Handle amount change with validation
+  const handleAmountChange = (val: string) => {
+    if (val === '') {
+      setAmount('');
+      return;
+    }
+    const num = parseFloat(val);
+    if (isNaN(num)) return;
+    
+    // Prevent negative numbers (Bug #1)
+    if (num < 0) return;
+    
+    // Reasonable upper limit (Bug #2)
+    if (num > 100000000) return;
+    
+    setAmount(val);
+  };
+
   // Parse shares as a number for the quote hook
   const sharesNum = useMemo(() => {
     const parsed = parseFloat(amount);
@@ -49,7 +67,11 @@ export const SimpleTradingPanel = ({
     address: contracts.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'decimals',
-    query: { enabled: !!contracts.MockUSDC },
+    query: { 
+      enabled: !!contracts.MockUSDC,
+      staleTime: Infinity,
+      refetchInterval: false,
+    },
   });
 
   const { data: usdcBalance } = useReadContract({
@@ -57,7 +79,10 @@ export const SimpleTradingPanel = ({
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [userAddress!],
-    query: { enabled: !!userAddress && !!contracts.MockUSDC },
+    query: { 
+      enabled: !!userAddress && !!contracts.MockUSDC,
+      refetchInterval: 15000,
+    },
   });
 
   const { data: usdcAllowance } = useReadContract({
@@ -65,29 +90,21 @@ export const SimpleTradingPanel = ({
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [userAddress!, contracts.LaunchpadEngine as `0x${string}`],
-    query: { enabled: !!userAddress && !!contracts.MockUSDC && !!contracts.LaunchpadEngine },
+    query: { 
+      enabled: !!userAddress && !!contracts.MockUSDC && !!contracts.LaunchpadEngine,
+      refetchInterval: 30000,
+    },
   });
 
   // USDC decimals (default to 18 for MockUSDC on testnets)
   const decimals = Number(usdcDecimals ?? 18);
 
-  // Debug: Log what decimals we're reading
-  useEffect(() => {
-    console.log('[USDC Debug]', {
-      usdcDecimalsRaw: usdcDecimals,
-      decimalsUsed: decimals,
-      usdcBalance: usdcBalance?.toString(),
-      usdcAllowance: usdcAllowance?.toString(),
-      quoteCost: quote.cost?.toString(),
-    });
-  }, [usdcDecimals, decimals, usdcBalance, usdcAllowance, quote.cost]);
-
   // Contract write hooks
   const { writeContract: approve, data: approveTxHash, isPending: isApproving } = useWriteContract();
   const { writeContract: trade, data: tradeTxHash, isPending: isTrading } = useWriteContract();
 
-  const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 1000 });
-  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ hash: tradeTxHash, pollingInterval: 1000 });
+  const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 2000 });
+  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ hash: tradeTxHash, pollingInterval: 2000 });
 
   // Log transaction hash when it's set
   useEffect(() => {
@@ -127,15 +144,6 @@ export const SimpleTradingPanel = ({
     // Add 1% buffer for slippage
     const requiredAllowance = (costInTokenDecimals * 101n) / 100n;
     const currentAllowance = usdcAllowance as bigint;
-
-    console.log('[Approval Check]', {
-      tokenDecimals: decimals,
-      quoteCostWAD: quote.cost.toString(),
-      costInTokenDecimals: costInTokenDecimals.toString(),
-      currentAllowance: currentAllowance.toString(),
-      requiredAllowance: requiredAllowance.toString(),
-      needsApproval: currentAllowance < requiredAllowance,
-    });
 
     return currentAllowance < requiredAllowance;
   }, [usdcAllowance, quote.cost, decimals]);
@@ -178,37 +186,27 @@ export const SimpleTradingPanel = ({
     });
   };
 
-  // Execute trade
-  // V8 uses a position model where:
-  // - Positive shares = long YES
-  // - Negative shares = long NO
-  // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
-  const handleTrade = () => {
-    console.log('[Trade] handleTrade called', {
-      launchpadEngine: contracts.LaunchpadEngine,
-      deltaShares: quote.deltaShares?.toString(),
-      sharesNum,
-    });
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade',message:'handleTrade called',data:{launchpadEngine:contracts.LaunchpadEngine,ammEngine:contracts.AMMEngine,deltaShares:quote.deltaShares?.toString(),quoteCost:quote.cost?.toString(),quoteIsLoading:quote.isLoading,sharesNum,selectedOutcome,tradeMode,marketAddress:address},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H3'})}).catch(()=>{});
-    // #endregion
-
-    if (!contracts.LaunchpadEngine) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade',message:'LaunchpadEngine missing',data:{contracts},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
-      toast.error('LaunchpadEngine contract address not found');
-      return;
-    }
-
-    if (quote.deltaShares === undefined || quote.deltaShares === 0n) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade',message:'Invalid quote - deltaShares is 0',data:{deltaShares:quote.deltaShares?.toString(),quoteCost:quote.cost?.toString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
-      toast.error('Invalid quote - please enter shares amount');
-      return;
-    }
+    // Execute trade
+    // V8 uses a position model where:
+    // - Positive shares = long YES
+    // - Negative shares = long NO
+    // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
+    const handleTrade = () => {
+      console.log('[Trade] handleTrade called', {
+        launchpadEngine: contracts.LaunchpadEngine,
+        deltaShares: quote.deltaShares?.toString(),
+        sharesNum,
+      });
+  
+      if (!contracts.LaunchpadEngine) {
+        toast.error('LaunchpadEngine contract address not found');
+        return;
+      }
+  
+      if (quote.deltaShares === undefined || quote.deltaShares === 0n) {
+        toast.error('Invalid quote - please enter shares amount');
+        return;
+      }
 
     // The quote hook already calculates the correct delta based on outcome and mode
     // V8 Position Model:
@@ -219,10 +217,6 @@ export const SimpleTradingPanel = ({
     // Add 1% slippage buffer to maxCost
     // Note: maxCost is in WAD (1e18) matching the contract's internal accounting
     const maxCost = (quote.cost * 101n) / 100n;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade',message:'Executing trade',data:{market:address,deltaShares:deltaShares.toString(),maxCost:maxCost.toString(),maxCostUSD:(Number(maxCost)/1e18).toFixed(4),launchpadEngine:contracts.LaunchpadEngine},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
 
     console.log('[Trade] Executing:', {
       market: address,
@@ -238,29 +232,44 @@ export const SimpleTradingPanel = ({
         abi: V8_ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [address, deltaShares, maxCost],
+        // Explicit gas limit to bypass MegaETH gas estimation issues
+        gas: 500000n,
       }, {
         onSuccess: (hash) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade:onSuccess',message:'Trade tx submitted',data:{hash},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
           console.log('[Trade] Transaction submitted! Hash:', hash);
           toast.success(`${tradeMode === 'buy' ? 'Bought' : 'Sold'} ${sharesNum} ${selectedOutcome === 0 ? 'YES' : 'NO'} shares!`);
           setAmount('10'); // Reset amount
         },
         onError: (error: any) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade:onError',message:'Trade failed',data:{errorMessage:error?.shortMessage||error?.message,errorDetails:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
           console.error('[Trade] Error:', error);
-          const shortMessage = error?.shortMessage || error?.message || 'Unknown error';
-          toast.error(`Trade failed: ${shortMessage}`);
+          console.error('[Trade] Error cause:', error?.cause);
+          console.error('[Trade] Error data:', error?.data);
+
+          // Try to extract the actual revert reason from various error formats
+          let errorMsg = 'Unknown error';
+          if (error?.cause?.reason) {
+            errorMsg = error.cause.reason;
+          } else if (error?.cause?.shortMessage) {
+            errorMsg = error.cause.shortMessage;
+          } else if (error?.data?.message) {
+            errorMsg = error.data.message;
+          } else if (error?.shortMessage) {
+            errorMsg = error.shortMessage;
+          } else if (error?.message) {
+            // Try to extract revert reason from message
+            const match = error.message.match(/reason[:\s]+["']?([^"'\n]+)["']?/i);
+            if (match) {
+              errorMsg = match[1];
+            } else {
+              errorMsg = error.message;
+            }
+          }
+
+          toast.error(`Trade failed: ${errorMsg}`);
         },
       });
       console.log('[Trade] writeContract called - waiting for wallet confirmation...');
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SimpleTradingPanel.tsx:handleTrade:catch',message:'Unexpected error',data:{error:String(err)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       console.error('[Trade] Unexpected error:', err);
       toast.error('Unexpected error during trade');
     }
@@ -356,7 +365,32 @@ export const SimpleTradingPanel = ({
 
       {/* Amount Input */}
       <div>
-        <label className="text-xs text-slate-500 block mb-1">Shares</label>
+        <div className="flex justify-between items-end mb-1">
+          <label className="text-xs text-slate-500">Shares</label>
+          {isConnected && (
+            <button 
+              onClick={() => {
+                // If buying, calculate how many shares user can buy with their balance
+                // For simplicity, we'll just set it to a large number or 1000 for now
+                // as full LMSR max calculation is complex client-side
+                if (tradeMode === 'buy') {
+                  const balance = Number(usdcBalance || 0n) / (10 ** decimals);
+                  // Approximate max shares for current price
+                  const price = selectedOutcome === 0 ? yesPrice : noPrice;
+                  const estMax = Math.floor(balance / price);
+                  handleAmountChange(String(Math.min(estMax, 1000000)));
+                } else {
+                  // If selling, we'd need to know user's position
+                  // For now, let's just use 1000
+                  handleAmountChange('1000');
+                }
+              }}
+              className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider"
+            >
+              MAX
+            </button>
+          )}
+        </div>
         <div className="relative">
           <button
             onClick={() => setAmount(prev => String(Math.max(1, Number(prev) - 1)))}
@@ -368,10 +402,10 @@ export const SimpleTradingPanel = ({
             type="number"
             data-testid="shares-input"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => handleAmountChange(e.target.value)}
             className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-12 py-2 text-sm text-white text-center focus:outline-none focus:border-cyan-500 transition-colors"
             placeholder="10"
-            min="1"
+            min="0"
           />
           <button
             onClick={() => setAmount(prev => String(Number(prev) + 1))}
@@ -430,16 +464,31 @@ export const SimpleTradingPanel = ({
 
         {/* Price Impact - always show when shares > 0 */}
         {sharesNum > 0 && (
-          <div className="flex justify-between text-xs pt-2 border-t border-slate-700">
-            <span className="text-slate-500">Price Impact</span>
-            <span className={`font-mono ${Math.abs(quote.priceImpact) > 5
-              ? 'text-rose-400'
-              : Math.abs(quote.priceImpact) > 2
-                ? 'text-amber-400'
-                : 'text-slate-400'
-              }`}>
-              {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
-            </span>
+          <div className="space-y-2 pt-2 border-t border-slate-700">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Price Impact</span>
+              <span className={`font-mono ${Math.abs(quote.priceImpact) > 5
+                ? 'text-rose-400 font-bold'
+                : Math.abs(quote.priceImpact) > 2
+                  ? 'text-amber-400 font-bold'
+                  : 'text-slate-400'
+                }`}>
+                {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
+              </span>
+            </div>
+            
+            {/* Impact Warnings */}
+            {Math.abs(quote.priceImpact) > 5 ? (
+              <div className="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2 animate-pulse">
+                <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                <span><strong>High Price Impact!</strong> You are moving the market significantly. Consider trading in smaller sizes.</span>
+              </div>
+            ) : Math.abs(quote.priceImpact) > 2 ? (
+              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 flex items-start gap-2">
+                <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                <span>Significant price impact. Check your execution price carefully.</span>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -543,18 +592,16 @@ export const SimpleTradingPanel = ({
         ) : (
           <Button
             onClick={() => {
-              console.log('[Trade] Button clicked!', { isPending, hasEnoughBalance, sharesNum });
               handleTrade();
             }}
             disabled={isPending || !hasEnoughBalance || sharesNum <= 0}
-            className={`w-full py-3 text-sm font-bold transition-all active:scale-[0.98] ${
-              isPending || !hasEnoughBalance || sharesNum <= 0 
-                ? 'opacity-50 cursor-not-allowed' 
-                : 'hover:-translate-y-0.5'
-            } ${selectedOutcome === 0
-              ? 'btn-buy'
-              : 'btn-sell'
-            }`}
+            className={`w-full py-3 text-sm font-bold transition-all active:scale-[0.98] ${isPending || !hasEnoughBalance || sharesNum <= 0
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:-translate-y-0.5'
+              } ${selectedOutcome === 0
+                ? 'btn-buy'
+                : 'btn-sell'
+              }`}
           >
             {isPending ? (
               <Loader2 size={16} className="mr-2 animate-spin" />

@@ -11,13 +11,14 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
   ExternalLink, ChevronRight, Calendar, DollarSign
 } from 'lucide-react';
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount, useChainId, useReadContracts } from 'wagmi';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { InfoTooltip } from '../components/ui/Tooltip';
 import { CreatorDashboard, SettlementPanel, GraduationProgress } from '../components/features/v8';
 import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } from '../hooks/v8';
+import { V8_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 
@@ -30,16 +31,16 @@ type Tab = 'markets' | 'settlements' | 'create';
 interface CreatorMarketCardProps {
   market: typeof marketsConfig.markets[0];
   userAddress?: string;
+  isCreator: boolean;
+  isAdjudicator: boolean;
 }
 
-const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddress }) => {
+const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddress, isCreator, isAdjudicator }) => {
   const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(market.contractAddress as `0x${string}`);
   const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const { amm } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
 
   const isLoading = truthLoading || launchpadLoading;
-  const isCreator = userAddress?.toLowerCase() === truthMarket?.creator?.toLowerCase();
-  const isAdjudicator = userAddress?.toLowerCase() === truthMarket?.adjudicator?.toLowerCase();
 
   if (!isCreator && !isAdjudicator) return null;
 
@@ -277,23 +278,60 @@ export const Create = () => {
     );
   }, [chainId]);
 
+  // Batch fetch roles for all markets
+  const { data: rolesData, isLoading: rolesLoading } = useReadContracts({
+    contracts: v8Markets.flatMap(m => [
+      {
+        address: m.contractAddress as `0x${string}`,
+        abi: V8_ABIS.TruthMarket,
+        functionName: 'creator',
+      },
+      {
+        address: m.contractAddress as `0x${string}`,
+        abi: V8_ABIS.TruthMarket,
+        functionName: 'adjudicator',
+      },
+    ]),
+    query: {
+      enabled: !!userAddress && v8Markets.length > 0,
+    }
+  });
+
+  // Process roles data
+  const marketRoles = useMemo(() => {
+    if (!rolesData || !userAddress) return [];
+    
+    return v8Markets.map((m, i) => {
+      const creator = rolesData[i * 2]?.result as string;
+      const adjudicator = rolesData[i * 2 + 1]?.result as string;
+      
+      const isCreator = creator?.toLowerCase() === userAddress.toLowerCase();
+      const isAdjudicator = adjudicator?.toLowerCase() === userAddress.toLowerCase();
+      
+      return {
+        ...m,
+        isCreator,
+        isAdjudicator,
+        hasRole: isCreator || isAdjudicator
+      };
+    });
+  }, [v8Markets, rolesData, userAddress]);
+
   // Filter markets where user is creator or adjudicator
   const userMarkets = useMemo(() => {
-    // Return all v8 markets for now - actual filtering happens in the cards
-    return v8Markets;
-  }, [v8Markets]);
+    return marketRoles.filter(m => m.hasRole);
+  }, [marketRoles]);
 
   // Count user's roles
   const roleCount = useMemo(() => {
     let creator = 0;
     let adjudicator = 0;
-    // TODO: Actually check on-chain data
-    v8Markets.forEach(m => {
-      if (m.creator?.toLowerCase() === userAddress?.toLowerCase()) creator++;
-      // Adjudicator check would require contract reads
+    marketRoles.forEach(m => {
+      if (m.isCreator) creator++;
+      if (m.isAdjudicator) adjudicator++;
     });
     return { creator, adjudicator };
-  }, [userAddress, v8Markets]);
+  }, [marketRoles]);
 
   const tabs = [
     { id: 'markets' as Tab, label: 'My Markets', icon: Coins },
@@ -372,13 +410,27 @@ export const Create = () => {
         {/* Tab Content */}
         {activeTab === 'markets' && (
           <div className="space-y-4">
-            {userMarkets.length > 0 ? (
+            {rolesLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2].map(i => (
+                  <Card key={i} className="animate-pulse">
+                    <div className="p-4 space-y-3">
+                      <div className="h-5 bg-slate-700 rounded w-3/4" />
+                      <div className="h-4 bg-slate-700 rounded w-1/2" />
+                      <div className="h-8 bg-slate-700 rounded" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : userMarkets.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {userMarkets.map(market => (
                   <CreatorMarketCard
                     key={market.id}
                     market={market}
                     userAddress={userAddress}
+                    isCreator={market.isCreator}
+                    isAdjudicator={market.isAdjudicator}
                   />
                 ))}
               </div>
@@ -403,8 +455,10 @@ export const Create = () => {
 
         {activeTab === 'settlements' && (
           <div className="space-y-4">
-            {userMarkets.some(m => m.creator !== userAddress) ? (
-              userMarkets.map(market => (
+            {rolesLoading ? (
+              <Card className="animate-pulse p-4 h-32" />
+            ) : userMarkets.some(m => m.isAdjudicator) ? (
+              userMarkets.filter(m => m.isAdjudicator).map(market => (
                 <SettlementCard
                   key={market.id}
                   market={market}

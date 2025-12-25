@@ -1,7 +1,7 @@
 {
-  "version": "8.1.5",
-  "lastUpdated": "2025-12-25T16:00:00Z",
-  "status": "V8.1 Multi-Chain - Base Sepolia + MegaETH Frontier",
+  "version": "8.1.6",
+  "lastUpdated": "2025-12-26T01:20:00Z",
+  "status": "V8.1 Multi-Chain - Base Sepolia + MegaETH Frontier + Monad Testnet",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -21,6 +21,16 @@
         "Collateralizer": "0xae32be447b11ff47c4f27ef5b4dcfbfcfca584e8",
         "AMMEngine": "0x47d14033162fcd90ef329bfcb8a901ff966c276d",
         "TickBook": "0xb68cf3fb896fd9b3869830473917767c3f6a28cf"
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "contracts": {
+        "MockUSDC": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
+        "LaunchpadEngine": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
+        "Collateralizer": "0x50293ad4e42593a8b081960c991c198729e81192",
+        "AMMEngine": "0x12a38bc9e3bd2359265ce70451777ede2fd875a3",
+        "TickBook": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50"
       }
     },
     "baseSepoliaV7": {

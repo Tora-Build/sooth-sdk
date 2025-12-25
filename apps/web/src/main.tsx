@@ -18,6 +18,7 @@ import { Faucet } from './pages/v8/Faucet';
 import { Trade } from './pages/Trade';
 import { Create } from './pages/Create';
 import { Pro } from './pages/Pro';
+import { Portfolio } from './pages/Portfolio';
 import { Gov } from './pages/Gov';
 import { Learn } from './pages/Learn';
 
@@ -72,6 +73,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/pro" element={<Pro />} />
               <Route path="/pro/:marketId" element={<Pro />} />
               <Route path="/create" element={<Create />} />
+              <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/gov" element={<Gov />} />
               <Route path="/faucet" element={<Faucet />} />
             </Route>

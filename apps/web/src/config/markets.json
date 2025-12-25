@@ -1,6 +1,40 @@
 {
-  "version": "8.1.5",
+  "version": "8.1.6",
   "markets": [
+    {
+      "id": "monad-v8-btc-100k",
+      "name": "BTC 7-day TWAP >= $100k",
+      "symbol": "BTC100K",
+      "contractAddress": "0x7d4d3abb446a20d81b150eb661190e8aafc73835",
+      "description": "Will BTC 7-day TWAP reach or exceed $100,000?",
+      "yesToken": "0x411cce8b5E3DcC1C6D0f1F3cb57f9c245e720F82",
+      "noToken": "0x4afB49566b4bCF7850fc1f8b90431AebEfbc4cDf",
+      "outcomes": ["YES", "NO"],
+      "mode": "real",
+      "chainId": 10143,
+      "version": "v8.1",
+      "isGraduated": true,
+      "deadline": 1769266290,
+      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "liquidity": "1000"
+    },
+    {
+      "id": "monad-v8-alien-life",
+      "name": "UN Confirms Alien Life",
+      "symbol": "ALIEN",
+      "contractAddress": "0x27927f8a675fdd263efc1eaf163eeb106529ebbd",
+      "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
+      "yesToken": "0x738e3e2851561F800827Fbb4995999686F1B36dF",
+      "noToken": "0x24DE64EFCC343f069387F98210c960c467db2573",
+      "outcomes": ["YES", "NO"],
+      "mode": "real",
+      "chainId": 10143,
+      "version": "v8.1",
+      "isGraduated": false,
+      "deadline": 1769266290,
+      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "liquidity": "1000"
+    },
     {
       "id": "v8-btc-100k",
       "name": "BTC 7-day TWAP >= $100k",

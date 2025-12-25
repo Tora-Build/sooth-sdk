@@ -67,7 +67,7 @@ const formatUSD = (value: number): string => {
 export const MarketInitializationPanel = ({ address }: MarketInitializationPanelProps) => {
   const { address: userAddress, isConnected } = useAccount();
   const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(address);
-  const { truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
   
   const [selectedTier, setSelectedTier] = useState(1); // Default to Standard
   const [isApproving, setIsApproving] = useState(false);

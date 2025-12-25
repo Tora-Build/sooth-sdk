@@ -26,6 +26,13 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
             {
                 address: launchpadEngineAddress,
                 abi: V8_ABIS.LaunchpadEngine,
+                functionName: "getMarketState",
+                args: marketAddress ? [marketAddress] : undefined,
+                chainId,
+            },
+            {
+                address: launchpadEngineAddress,
+                abi: V8_ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -105,8 +112,9 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
         if (!dataMarket || !marketAddress) return null;
 
         const marketResults = dataMarket as any[];
-        const marketStateResult = marketResults[0];
-        const graduationProgressResult = marketResults[1];
+        const marketStateDetailedResult = marketResults[0];
+        const marketsMappingResult = marketResults[1];
+        const graduationProgressResult = marketResults[2];
         const lpBalanceResult = (dataLpBalance as any[] | undefined)?.[0];
 
         const preGradFeeResult = (dataParams as any[] | undefined)?.[0];
@@ -114,12 +122,30 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
         const gradMultiplierResult = (dataParams as any[] | undefined)?.[2];
 
         // Check if critical reads failed
-        if (marketStateResult?.status === "failure" || graduationProgressResult?.status === "failure") {
+        if (marketStateDetailedResult?.status === "failure" || marketsMappingResult?.status === "failure" || graduationProgressResult?.status === "failure") {
             return null;
         }
 
+        // getMarketState(market) -> (creator, bBase, bCurrent, totalLPSupply, isGraduated, floorValue)
+        const detailedState = marketStateDetailedResult.result as readonly [
+            `0x${string}`,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint
+        ];
+        const [
+            creator,
+            bBase,
+            bCurrent,
+            totalLPSupply,
+            isGraduated,
+            floorValue,
+        ] = detailedState;
+
         // markets(market) -> (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
-        const marketState = marketStateResult.result as readonly [
+        const marketState = marketsMappingResult.result as readonly [
             `0x${string}`,
             bigint,
             bigint,
@@ -132,14 +158,12 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
             bigint
         ];
         const [
-            creator,
-            bBase,
-            bCurrent,
+            _c, _bB, _bC,
             creatorDeposit,
             feesAccruedFromMarket,
-            totalLPSupply,
+            _tLS,
             lpYieldPool,
-            isGraduated,
+            _iG,
         ] = marketState;
 
         // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
@@ -176,7 +200,7 @@ export function useLaunchpadMarket(marketAddress: `0x${string}` | undefined) {
             currentBBase: bCurrent,
             feesAccrued: feesAccrued ?? feesAccruedFromMarket,
             lpSupply: totalLPSupply,
-            floorValue: 0n,
+            floorValue,
             lpYieldPool,
             creatorDeposit,
             isGraduated,

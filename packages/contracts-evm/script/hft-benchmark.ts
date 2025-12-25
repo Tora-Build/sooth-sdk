@@ -284,8 +284,10 @@ async function runBenchmark(
   let walletsFunded = 0;
   for (const trader of traders) {
     try {
-      // Transfer native token for gas (0.01 ETH)
-      const gasAmount = 10000000000000000n; // 0.01 ETH
+      // Transfer native token for gas - vary by chain
+      const gasAmount = config.chainName === 'monadTestnet' 
+        ? 1000000000000000000n  // 1 MON for Monad (higher gas prices)
+        : 1000000000000000n;    // 0.001 ETH for other chains (minimal)
       const gasHash = await masterWallet.sendTransaction({
         to: trader.address,
         value: gasAmount,
@@ -377,8 +379,13 @@ async function runBenchmark(
     });
     await publicClient.waitForTransactionReceipt({ hash: registerHash });
     console.log(`  Registered market with TickBook`);
-  } catch {
-    console.log(`  Market already registered with TickBook`);
+  } catch (error: any) {
+    const errMsg = String(error).slice(0, 150);
+    if (errMsg.includes('already registered')) {
+      console.log(`  Market already registered with TickBook`);
+    } else {
+      console.error(`  Failed to register market: ${errMsg}`);
+    }
   }
   
   // Master splits USDC for liquidity
@@ -434,6 +441,11 @@ async function runBenchmark(
   ];
   const liqPerRange = config.liquidityPerTick;
   
+  // Get gas settings for Monad (higher limits needed due to opcode repricing)
+  const gasOverrides = config.chainName === 'monadTestnet' && chainConfig.gasSettings?.gasLimit
+    ? { gas: chainConfig.gasSettings.gasLimit, maxFeePerGas: chainConfig.gasSettings.maxFeePerGas, maxPriorityFeePerGas: chainConfig.gasSettings.maxPriorityFeePerGas }
+    : {};
+  
   for (const order of limitOrders) {
     try {
       const liqHash = await masterWallet.writeContract({
@@ -443,6 +455,7 @@ async function runBenchmark(
         args: [marketKey, order.tickLower, order.tickUpper, liqPerRange],
         chain,
         account: masterAccount,
+        ...gasOverrides,
       });
       await publicClient.waitForTransactionReceipt({ hash: liqHash });
       console.log(`  Placed limit order: ${order.description}`);
@@ -467,6 +480,7 @@ async function runBenchmark(
         args: [deployment.contracts.TickBook as `0x${string}`, config.usdcPerWallet],
         chain,
         account: trader.walletClient.account!,
+        ...gasOverrides,
       });
       
       // Approve NO tokens
@@ -477,6 +491,7 @@ async function runBenchmark(
         args: [deployment.contracts.TickBook as `0x${string}`, config.usdcPerWallet],
         chain,
         account: trader.walletClient.account!,
+        ...gasOverrides,
       });
     } catch (error) {
       console.error(`  Failed to approve for ${trader.address}:`, error);
@@ -529,6 +544,7 @@ async function runBenchmark(
           ],
           chain,
           account: trader.walletClient.account!,
+          ...gasOverrides,
         });
         
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -553,6 +569,13 @@ async function runBenchmark(
     
     const successCount = batchResults.filter(r => r.success).length;
     console.log(`  Batch ${Math.floor(i / batchSize) + 1}: ${successCount}/${batchResults.length} successful`);
+    
+    // Log first failure reason in batch
+    const firstFail = batchResults.find(r => !r.success && r.error);
+    if (firstFail && firstFail.error) {
+      const shortError = firstFail.error.split('\n')[0].slice(0, 100);
+      console.log(`    First error: ${shortError}`);
+    }
   }
   
   const totalTimeMs = Date.now() - startTime;

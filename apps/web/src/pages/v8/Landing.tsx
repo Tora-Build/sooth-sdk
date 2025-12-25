@@ -193,10 +193,10 @@ message SettlementProof {
             © 2025 Sooth Protocol | v8.1.0-alpha
           </div>
           <div className="flex items-center gap-8">
-            <a href="#" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>
-            <a href="#" className="hover:text-cyan-400 transition-colors font-medium">GitHub</a>
-            <a href="#" className="hover:text-cyan-400 transition-colors font-medium">Discord</a>
-            <a href="#" className="hover:text-cyan-400 transition-colors font-medium">Twitter</a>
+            <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>
+            <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">GitHub</a>
+            <a href="https://discord.gg/sooth" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Discord</a>
+            <a href="https://x.com/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Twitter</a>
           </div>
         </div>
       </footer>

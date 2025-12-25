@@ -66,7 +66,7 @@ const roleConfigs: Record<Role, RoleConfig> = {
 
 export const OperatorRoleBadge = ({ address }: OperatorRoleBadgeProps) => {
   const { address: userAddress, isConnected } = useAccount();
-  const { truthMarket, isLoading } = useTruthMarketDirect(address);
+  const { market: truthMarket, isLoading } = useTruthMarketDirect(address);
 
   // Determine user's role
   const getUserRoles = (): Role[] => {

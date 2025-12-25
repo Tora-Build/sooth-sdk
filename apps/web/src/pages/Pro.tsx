@@ -1,589 +1,457 @@
 /**
- * TickBook Page - Professional Trading Interface
+ * Pro Page - TickBook Trading Terminal
  * 
- * High-performance terminal for market makers and arbitrageurs.
- * Highlights the 10,000-tick bitmap architecture.
+ * Professional orderbook interface for graduated markets.
+ * Redesigned with Premium "Cyber-Glass" Aesthetics.
+ * 
+ * Features:
+ * - High-performance virtualized-style orderbook
+ * - Bespoke dual-thumb range slider
+ * - Neon glassmorphism UI
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Plus, Minus, HelpCircle, X, ArrowLeftRight, 
-  TrendingUp, TrendingDown, Zap, Clock, RefreshCw,
-  LayoutGrid, List, BarChart3, Wallet, Info, ArrowUpRight, ArrowDownRight
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  Zap, ChevronLeft, Wallet, ArrowUpRight, ArrowDownRight, GraduationCap
 } from 'lucide-react';
-import { useAccount, useChainId, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, useWriteContract, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { 
-  useAmmMarketDirect, 
-  useTruthMarketDirect, 
-  useLaunchpadMarketDirect, 
+import {
+  useLaunchpadMarketDirect,
+  useTruthMarketDirect,
   useCollateralizerDirect,
   useTickBookDirect,
   useTokenBalances
 } from '../hooks/v8';
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS } from '../config/abis';
-import { 
-  TickMap, 
-  TickLadder, 
-  OrderbookDepth 
-} from '../components/features/v8/TickBook';
 import marketsConfig from '../config/markets.json';
-import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';
 
-const { pro: content } = uiContent;
+// Import refactored components
+import { GlassPanel, PanelHeader } from '../components/features/v8/ProTerminal/ui-components';
+import { CyberSlider } from '../components/features/v8/ProTerminal/CyberSlider';
+import { Orderbook } from '../components/features/v8/ProTerminal/Orderbook';
+import { UserHistory } from '../components/features/v8/ProTerminal/UserHistory';
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export const Pro = () => {
   const { marketId } = useParams<{ marketId?: string }>();
   const navigate = useNavigate();
-  const { isConnected, address: userAddress } = useAccount();
+  const { isConnected } = useAccount();
   const chainId = useChainId();
   const { contracts } = useDeployments();
   const { writeContractAsync } = useWriteContract();
 
-  // Filter V8 markets for current chain
-  const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m => 
-      m.version === 'v8.1' && m.chainId === chainId
-    );
-  }, [chainId]);
+  // --------------------------------------------------------------------------
+  // Data Fetching & Prep
+  // --------------------------------------------------------------------------
+  const { v8Markets, selectedMarket } = useMemo(() => {
+    const markets = marketsConfig.markets.filter(m => m.version === 'v8.1' && m.chainId === chainId);
+    return {
+      v8Markets: markets,
+      selectedMarket: marketId ? markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase()) : markets[0]
+    };
+  }, [marketId, chainId]);
 
-  // Find selected market
-  const selectedMarket = useMemo(() => {
-    if (marketId) {
-      return v8Markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase());
-    }
-    return v8Markets[0];
-  }, [marketId, v8Markets]);
-
-  // Data Fetching
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
-  const { amm } = useAmmMarketDirect(marketAddr);
   const { launchpad } = useLaunchpadMarketDirect(marketAddr);
-  const { market: truth } = useTruthMarketDirect(marketAddr);
   const { collateralizer, isLoading: isTokensLoading } = useCollateralizerDirect(marketAddr);
-  
+
   const { tickBook, isLoading: isTickBookLoading, refetch: refetchTickBook } = useTickBookDirect(
     marketAddr,
     collateralizer?.yesToken,
     collateralizer?.noToken
   );
 
-  const { balances, refetch: refetchBalances } = useTokenBalances([
+  const { balances, refetch: refetchBalances } = useTokenBalances(useMemo(() => [
     contracts.MockUSDC as `0x${string}`,
     collateralizer?.yesToken as `0x${string}`,
     collateralizer?.noToken as `0x${string}`
-  ]);
+  ].filter(Boolean) as `0x${string}`[], [contracts.MockUSDC, collateralizer]));
 
-  const [usdcBalance, yesBalance, noBalance] = balances;
+  // Fetch USDC decimals for proper formatting (Bug #4)
+  const { data: usdcDecimals } = useReadContract({
+    address: contracts.MockUSDC as `0x${string}`,
+    abi: V8_ABIS.OutcomeToken,
+    functionName: 'decimals',
+    query: { 
+      enabled: !!contracts.MockUSDC,
+      staleTime: Infinity,
+      refetchInterval: false,
+    },
+  });
+  const decimals = Number(usdcDecimals ?? 18);
 
+  // Safely extract balances with defaults
+  const usdcBalance = balances[0] ?? 0n;
+  const yesBalance = collateralizer?.yesToken ? (balances[1] ?? 0n) : 0n;
+  const noBalance = collateralizer?.noToken ? (balances[2] ?? 0n) : 0n;
+
+  // --------------------------------------------------------------------------
   // UI State
+  // --------------------------------------------------------------------------
+  const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
-  const [priceInput, setPriceInput] = useState('');
-  const [priceUpperInput, setPriceUpperInput] = useState(''); // For ranged limit orders
-  const [sizeInput, setSizeInput] = useState('');
-  const [optimisticOrders, setOptimisticOrders] = useState<any[]>([]);
+  const [priceMode, setPriceMode] = useState<'ranged' | 'single'>('ranged');
+
+  // Tabs for Inventory/History
   const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
 
-  // Derived State
-  const isGraduated = launchpad?.isGraduated ?? false;
-  const currentTick = tickBook?.currentTick ?? 5000;
-  const bids = tickBook?.bids ?? [];
-  const asks = tickBook?.asks ?? [];
+  // Price Inputs
+  const [range, setRange] = useState<[number, number]>([45, 55]);
+  const [lowerInput, setLowerInput] = useState('45');
+  const [upperInput, setUpperInput] = useState('55');
+  const [sizeInput, setSizeInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Keyboard shortcuts
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === 'INPUT') return;
-
-    switch (e.key) {
-      case 'b': case 'B': setTradeMode('buy'); break;
-      case 's': case 'S': setTradeMode('sell'); break;
-      case 'Escape': 
-        setPriceInput(''); 
-        setSizeInput(''); 
-        break;
-      case 'ArrowUp':
-        setPriceInput(p => (Math.min(0.9999, parseFloat(p || '0.5') + (e.shiftKey ? 0.01 : 0.001))).toFixed(4));
-        break;
-      case 'ArrowDown':
-        setPriceInput(p => (Math.max(0.0001, parseFloat(p || '0.5') - (e.shiftKey ? 0.01 : 0.001))).toFixed(4));
-        break;
+  // Bug #5: Prevent negative price inputs
+  const handlePriceInputChange = (val: string, isLower: boolean) => {
+    if (val === '') {
+      isLower ? setLowerInput('') : setUpperInput('');
+      return;
     }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  const handleTickClick = (tick: number, side?: 'buy' | 'sell') => {
-    setPriceInput((tick / 10000).toFixed(4));
-    if (side) setTradeMode(side);
+    const num = parseFloat(val);
+    if (isNaN(num)) return;
+    if (num < 0) return; 
+    if (num > 100) return;
+    isLower ? setLowerInput(val) : setUpperInput(val);
   };
 
-  const handleExecuteTrade = async () => {
+  // Sync Slider <-> Inputs
+  const handleSliderChange = (newRange: [number, number]) => {
+    setRange(newRange);
+    setLowerInput(newRange[0].toString());
+    setUpperInput(newRange[1].toString());
+  };
+
+  const handleInputBlur = () => {
+    let l = Math.max(1, Math.min(99, parseFloat(lowerInput) || 45));
+    let u = Math.max(1, Math.min(99, parseFloat(upperInput) || 55));
+
+    if (priceMode === 'single') u = l;
+    else if (l > u) u = l;
+
+    setRange([l, u]);
+    setLowerInput(l.toString());
+    setUpperInput(u.toString());
+  };
+
+  // Orderbook Logic
+  const handleTickClick = (price: number, side: 'buy' | 'sell') => {
+    const p = price * 100;
+    setPriceMode('single'); // Auto-switch to single for precise clicking
+    setRange([p, p]);
+    setLowerInput(p.toFixed(2));
+    setUpperInput(p.toFixed(2));
+    setTradeMode(side);
+    setOrderType('limit');
+  };
+
+  // --------------------------------------------------------------------------
+  // Execution Logic
+  // --------------------------------------------------------------------------
+  const getActionLabel = () => {
+    if (orderType === 'market') return `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${outcome.toUpperCase()}`;
+    return `Place ${tradeMode === 'buy' ? 'Buy' : 'Sell'} Order`;
+  };
+
+  const executeTrade = async () => {
     if (!sizeInput || !tickBook?.marketKey) return;
-    
-    const amountIn = parseUnits(sizeInput, 18);
-    
-    if (orderType === 'market') {
-      const slippageTick = tradeMode === 'buy' ? 9999 : 0; // Default max slippage for now
-      try {
+    setIsSubmitting(true);
+    const amountBg = parseUnits(sizeInput, 18);
+
+    try {
+      if (orderType === 'market') {
+        const isBuyYes = (outcome === 'yes' && tradeMode === 'buy') || (outcome === 'no' && tradeMode === 'sell');
         await writeContractAsync({
           address: contracts.TickBook as `0x${string}`,
           abi: V8_ABIS.TickBook,
           functionName: 'executeMarketOrder',
-          args: [
-            tickBook.marketKey,
-            tradeMode === 'buy',
-            amountIn,
-            slippageTick
-          ]
+          args: [tickBook.marketKey, isBuyYes, amountBg, isBuyYes ? 9999 : 0]
         });
-        refetchTickBook();
-        refetchBalances();
-      } catch (err) {
-        console.error('Market order failed', err);
+      } else {
+        const t1 = Math.round((parseFloat(lowerInput) / 100) * 10000);
+        const t2 = priceMode === 'single' ? t1 : Math.round((parseFloat(upperInput) / 100) * 10000);
+        await writeContractAsync({
+          address: contracts.TickBook as `0x${string}`,
+          abi: V8_ABIS.TickBook,
+          functionName: 'placeLimitOrder',
+          args: [tickBook.marketKey, Math.min(t1, t2), Math.max(t1, t2), amountBg]
+        });
       }
-      return;
-    }
-
-    // Limit Order (Ranged)
-    if (!priceInput) return;
-    const tickLower = Math.round(parseFloat(priceInput) * 10000);
-    const tickUpper = priceUpperInput ? Math.round(parseFloat(priceUpperInput) * 10000) : tickLower;
-    
-    // Optimistic UI
-    const newOrder = {
-      id: Date.now(),
-      price: parseFloat(priceInput),
-      priceUpper: priceUpperInput ? parseFloat(priceUpperInput) : undefined,
-      size: parseFloat(sizeInput),
-      side: tradeMode,
-      status: 'pending'
-    };
-    setOptimisticOrders(prev => [newOrder, ...prev]);
-
-    try {
-      await writeContractAsync({
-        address: contracts.TickBook as `0x${string}`,
-        abi: V8_ABIS.TickBook,
-        functionName: 'placeLimitOrder',
-        args: [
-          tickBook.marketKey,
-          Math.min(tickLower, tickUpper),
-          Math.max(tickLower, tickUpper),
-          amountIn
-        ]
-      });
       refetchTickBook();
       refetchBalances();
-    } catch (err) {
-      console.error('Limit order failed', err);
-    } finally {
-      setOptimisticOrders(prev => prev.filter(o => o.id !== newOrder.id));
-    }
+      setSizeInput('');
+    } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
   };
 
-  const handleSplit = async () => {
+  const doAction = async (method: 'split' | 'merge') => {
     if (!sizeInput) return;
+    setIsSubmitting(true);
     try {
       await writeContractAsync({
         address: contracts.Collateralizer as `0x${string}`,
         abi: V8_ABIS.Collateralizer,
-        functionName: 'split',
+        functionName: method,
         args: [marketAddr, parseUnits(sizeInput, 18)]
       });
       refetchBalances();
-    } catch (err) {
-      console.error('Split failed', err);
-    }
+    } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
   };
 
-  const handleMerge = async () => {
-    if (!sizeInput) return;
-    try {
-      await writeContractAsync({
-        address: contracts.Collateralizer as `0x${string}`,
-        abi: V8_ABIS.Collateralizer,
-        functionName: 'merge',
-        args: [marketAddr, parseUnits(sizeInput, 18)]
-      });
-      refetchBalances();
-    } catch (err) {
-      console.error('Merge failed', err);
-    }
-  };
-
-  if (!isGraduated && !isTickBookLoading && !isTokensLoading) {
+  // --------------------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------------------
+  if (!launchpad?.isGraduated && !isTickBookLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <Card className="max-w-md text-center p-8 border-amber-500/20 bg-amber-500/5">
-          <div className="relative inline-block mb-4">
-            <Zap className="w-12 h-12 text-amber-500" />
-            <div className="absolute inset-0 blur-xl bg-amber-500/20 -z-10" />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">{content.restricted.title}</h2>
-          <p className="text-slate-400 mb-6">
-            {content.restricted.description}
-          </p>
-          <Button
-            variant="primary"
-            onClick={() => navigate(`/trade/${marketAddr}`)}
-            className="w-full"
-          >
-            {content.restricted.switchButton}
-          </Button>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
+        <GlassPanel className="max-w-md p-8 text-center border-amber-500/30 bg-amber-900/10">
+          <Zap className="w-12 h-12 text-amber-500 mx-auto mb-4 animate-pulse" />
+          <h2 className="text-xl font-heading text-white mb-2">TickBook Restricted</h2>
+          <Button variant="primary" onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full mt-4">Go to AMM</Button>
+        </GlassPanel>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 overflow-hidden flex flex-col font-mono selection:bg-cyan-500/30">
-      {/* Top Utility Bar */}
-      <div className="h-10 border-b border-slate-800 bg-slate-900/40 flex items-center px-4 justify-between shrink-0">
-        <div className="flex items-center gap-4 overflow-x-auto no-scrollbar">
-          {v8Markets.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => navigate(`/pro/${m.contractAddress}`)}
-              className={cn(
-                "flex items-center gap-2 px-2 py-1 rounded text-[10px] font-bold transition-all",
-                selectedMarket?.id === m.id 
-                  ? "bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.4)]" 
-                  : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              {m.symbol}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-          <span className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]" />
-            {content.utility.network}: {chainId === 84532 ? 'Base Sepolia' : 'Chain ' + chainId}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {content.utility.latency}: 12ms
-          </span>
-        </div>
-      </div>
-
-      {/* Main 4-Pane Grid */}
-      <div className="flex-1 grid grid-cols-12 grid-rows-6 gap-px bg-slate-800 overflow-hidden">
-        
-        {/* Pane 1: Left Sidebar (Inventory) */}
-        <div className="col-span-2 row-span-6 bg-slate-950 p-3 flex flex-col gap-4 border-r border-slate-800">
-          <div className="flex p-0.5 bg-slate-900 rounded-md mb-2">
-            <button 
-              onClick={() => setActiveTab('inventory')}
-              className={cn("flex-1 py-1 text-[9px] font-bold rounded", activeTab === 'inventory' ? "bg-slate-800 text-white" : "text-slate-500")}
-            >
-              {content.tabs.inventory}
-            </button>
-            <button 
-              onClick={() => setActiveTab('history')}
-              className={cn("flex-1 py-1 text-[9px] font-bold rounded", activeTab === 'history' ? "bg-slate-800 text-white" : "text-slate-500")}
-            >
-              {content.tabs.history}
-            </button>
-          </div>
-
-          {activeTab === 'inventory' ? (
-            <div className="space-y-4 animate-fade-in flex-1">
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                <Wallet className="w-3 h-3" />
-                {content.inventory.balances}
-              </h3>
-              
-              <div className="space-y-2">
-                <div className="p-2 rounded bg-slate-900/50 border border-slate-800">
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-slate-500">USDC</span>
-                    <span className="text-white tabular-nums">{formatUnits(usdcBalance, 6).split('.')[0]}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-emerald-400">YES</span>
-                    <span className="text-white tabular-nums">{formatUnits(yesBalance, 18).split('.')[0]}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-rose-400">NO</span>
-                    <span className="text-white tabular-nums">{formatUnits(noBalance, 18).split('.')[0]}</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={handleSplit}
-                    className="py-1.5 text-[9px] font-bold bg-slate-800 hover:bg-slate-700 rounded text-slate-300 flex items-center justify-center gap-1"
-                  >
-                    <ArrowUpRight className="w-3 h-3" />
-                    {content.inventory.split}
-                  </button>
-                  <button 
-                    onClick={handleMerge}
-                    className="py-1.5 text-[9px] font-bold bg-slate-800 hover:bg-slate-700 rounded text-slate-300 flex items-center justify-center gap-1"
-                  >
-                    <ArrowDownRight className="w-3 h-3" />
-                    {content.inventory.merge}
-                  </button>
+    <div className="min-h-screen pb-20">
+      {/* 1. Header Section */}
+      <div className="max-w-[1600px] mx-auto px-4 pt-6 pb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Link to="/trade" className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-heading gradient-text font-bold tracking-tight">
+                  {selectedMarket?.name}
+                </h1>
+                <div className="flex items-center gap-2">
+                  <Badge variant="indigo" className="font-mono text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                    V8.1 TICKBOOK
+                  </Badge>
+                  <Badge variant="success" className="font-mono text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                    <GraduationCap className="w-3 h-3 mr-1" />
+                    GRADUATED
+                  </Badge>
                 </div>
               </div>
-
-              <div className="divider-gradient my-2" />
-
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                <Info className="w-3 h-3" />
-                {content.inventory.details}
-              </h3>
-              <div className="p-2 rounded bg-slate-900/30 text-[9px] space-y-2">
-                <p className="text-slate-400 leading-relaxed italic">
-                  {selectedMarket?.description}
-                </p>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 font-bold uppercase">{content.inventory.truthFinality}</span>
-                  <span className="text-cyan-400 font-bold">{content.inventory.retroactive}</span>
-                </div>
+              <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 font-mono">
+                <span className="flex items-center gap-1.5"><div className="status-dot live" /> LIVE</span>
+                <span>ID: {selectedMarket?.symbol}</span>
+                <span>NET: {chainId}</span>
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-700 opacity-50 italic animate-fade-in">
-              <BarChart3 className="w-8 h-8 mb-2" />
-              <span className="text-[10px]">{content.history.empty}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Pane 2: Center (The Magic visualization) */}
-        <div className="col-span-6 row-span-6 bg-[#020617] flex flex-col p-4 gap-4 overflow-hidden border-r border-slate-800">
-          <div className="flex-1 flex gap-4 min-h-0">
-            {/* Tick Map */}
-            <div className="flex-1 flex flex-col min-w-0">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                  <LayoutGrid className="w-3 h-3" />
-                  {content.visuals.tickMap}
-                </h3>
-                <span className="text-[9px] text-slate-600 font-mono">{content.visuals.tickMapSub}</span>
-              </div>
-              <div className="flex-1 flex items-center justify-center bg-slate-950/50 rounded-lg border border-slate-900 p-2 overflow-hidden shadow-inner">
-                <TickMap 
-                  currentTick={currentTick}
-                  bids={bids}
-                  asks={asks}
-                  onTickClick={handleTickClick}
-                />
-              </div>
-            </div>
-
-            {/* Tick Ladder */}
-            <div className="w-64 flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                  <List className="w-3 h-3" />
-                  {content.visuals.tickLadder}
-                </h3>
-              </div>
-              <TickLadder 
-                currentTick={currentTick}
-                bids={bids}
-                asks={asks}
-                onTickClick={handleTickClick}
-              />
             </div>
           </div>
 
-          {/* Depth Chart (Bottom Center) */}
-          <div className="h-40 shrink-0 border-t border-slate-800 pt-4">
-            <OrderbookDepth bids={bids} asks={asks} />
+          {/* Market Ticker */}
+          <div className="flex gap-2">
+            {v8Markets.slice(0, 4).map(m => (
+              <button
+                key={m.id}
+                onClick={() => navigate(`/pro/${m.contractAddress}`)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all font-mono border",
+                  selectedMarket?.id === m.id
+                    ? "bg-slate-800 border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_-5px_rgba(6,182,212,0.3)]"
+                    : "bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
+                )}
+              >
+                {m.symbol}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Pane 3: Right (Execution & Orders) */}
-        <div className="col-span-4 row-span-6 bg-slate-950 flex flex-col overflow-hidden">
-          <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1">
-            {/* Trade Forms */}
-            <div className="space-y-4">
-              <div className="flex p-0.5 bg-slate-900 rounded-lg">
-                <button 
-                  onClick={() => setTradeMode('buy')}
-                  className={cn(
-                    "flex-1 py-2 text-[10px] font-bold rounded-md transition-all",
-                    tradeMode === 'buy' ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-slate-500 hover:text-slate-300"
-                  )}
-                >
-                  {content.execution.buyYes}
-                </button>
-                <button 
-                  onClick={() => setTradeMode('sell')}
-                  className={cn(
-                    "flex-1 py-2 text-[10px] font-bold rounded-md transition-all",
-                    tradeMode === 'sell' ? "bg-rose-600 text-white shadow-lg shadow-rose-500/20" : "text-slate-500 hover:text-slate-300"
-                  )}
-                >
-                  {content.execution.sellYes}
-                </button>
-              </div>
+        {/* 2. Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)] min-h-[600px]">
 
-              <div className="flex p-0.5 bg-slate-900/50 rounded-md border border-slate-800">
-                <button 
-                  onClick={() => setOrderType('limit')}
-                  className={cn("flex-1 py-1 text-[9px] font-bold rounded", orderType === 'limit' ? "bg-slate-800 text-cyan-400" : "text-slate-500")}
-                >
-                  {content.execution.limit}
-                </button>
-                <button 
-                  onClick={() => setOrderType('market')}
-                  className={cn("flex-1 py-1 text-[9px] font-bold rounded", orderType === 'market' ? "bg-slate-800 text-cyan-400" : "text-slate-500")}
-                >
-                  {content.execution.market}
-                </button>
-              </div>
+          {/* LEFT: Orderbook (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col gap-4 h-full">
+            <Orderbook
+              bids={tickBook?.bids ?? []}
+              asks={tickBook?.asks ?? []}
+              currentTick={tickBook?.currentTick ?? 5000}
+              isLoading={isTickBookLoading}
+              onRefresh={refetchTickBook}
+              onTickClick={handleTickClick}
+            />
+          </div>
 
-              <div className="space-y-3">
+          {/* RIGHT: Trading & Positions (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col gap-6 h-full overflow-y-auto pr-1">
+
+            {/* 1. Trading Panel */}
+            <GlassPanel className="p-0 overflow-visible relative">
+              <PanelHeader title="EXECUTION" icon={Zap} />
+              <div className="p-6 space-y-6">
+
+                {/* Top Controls: Outcome & Action */}
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Outcome Selector */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Outcome</label>
+                    <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-lg border border-slate-800">
+                      <button onClick={() => setOutcome('yes')} className={cn("py-2 rounded px-2 text-xs font-bold transition-all", outcome === 'yes' ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "text-slate-500 hover:text-slate-300")}>YES</button>
+                      <button onClick={() => setOutcome('no')} className={cn("py-2 rounded px-2 text-xs font-bold transition-all", outcome === 'no' ? "bg-rose-500/20 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]" : "text-slate-500 hover:text-slate-300")}>NO</button>
+                    </div>
+                  </div>
+
+                  {/* Action Selector */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Action</label>
+                    <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-lg border border-slate-800">
+                      <button onClick={() => setTradeMode('buy')} className={cn("py-2 rounded px-2 text-xs font-bold transition-all", tradeMode === 'buy' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300")}>BUY</button>
+                      <button onClick={() => setTradeMode('sell')} className={cn("py-2 rounded px-2 text-xs font-bold transition-all", tradeMode === 'sell' ? "bg-rose-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300")}>SELL</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Type Tabs */}
+                <div className="flex border-b border-slate-800">
+                  {['limit', 'market'].map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setOrderType(type as any)}
+                      className={cn(
+                        "px-6 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all",
+                        orderType === type
+                          ? "border-cyan-500 text-cyan-400"
+                          : "border-transparent text-slate-500 hover:text-slate-300"
+                      )}
+                    >
+                      {type} Order
+                    </button>
+                  ))}
+                </div>
+
+                {/* PRICE INPUTS (Limit Only) */}
                 {orderType === 'limit' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-end">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">{content.execution.rangeLower}</label>
-                        <span className="text-[10px] text-cyan-400 font-bold">TICK #{(parseFloat(priceInput || '0.5') * 10000).toFixed(0)}</span>
-                      </div>
-                      <div className="relative">
-                        <input 
-                          type="number"
-                          step="0.0001"
-                          value={priceInput}
-                          onChange={(e) => setPriceInput(e.target.value)}
-                          placeholder="0.5000"
-                          className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
-                        />
+                  <div className="space-y-6 animate-fade-in-up">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-400">Price Range (%)</label>
+                      <div className="flex bg-slate-900 rounded p-0.5 border border-slate-800">
+                        <button onClick={() => setPriceMode('single')} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase rounded", priceMode === 'single' ? "bg-slate-700 text-white" : "text-slate-500")}>Single</button>
+                        <button onClick={() => setPriceMode('ranged')} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase rounded", priceMode === 'ranged' ? "bg-slate-700 text-white" : "text-slate-500")}>Ranged</button>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-end">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">{content.execution.rangeUpper}</label>
-                        {priceUpperInput && <span className="text-[10px] text-cyan-400 font-bold">TICK #{(parseFloat(priceUpperInput) * 10000).toFixed(0)}</span>}
+
+                    <CyberSlider
+                      value={range}
+                      onChange={handleSliderChange}
+                      isSingle={priceMode === 'single'}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-500 font-mono">LOWER BOUND</span>
+                        <input className="input-field bg-slate-950 font-bold text-lg" value={lowerInput} onChange={e => handlePriceInputChange(e.target.value, true)} onBlur={handleInputBlur} type="number" />
                       </div>
-                      <div className="relative">
-                        <input 
-                          type="number"
-                          step="0.0001"
-                          value={priceUpperInput}
-                          onChange={(e) => setPriceUpperInput(e.target.value)}
-                          placeholder={content.execution.rangeUpperPlaceholder}
-                          className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
-                        />
-                      </div>
+                      {priceMode === 'ranged' && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500 font-mono">UPPER BOUND</span>
+                          <input className="input-field bg-slate-950 font-bold text-lg" value={upperInput} onChange={e => handlePriceInputChange(e.target.value, false)} onBlur={handleInputBlur} type="number" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">
-                    {orderType === 'market' ? content.execution.amountDollar : content.execution.amountShares}
-                  </label>
+                {/* AMOUNT INPUT */}
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <label className="text-xs font-bold text-slate-400">Amount</label>
+                    <span className="text-xs font-mono text-slate-500">
+                      Bal: {parseFloat(formatUnits(orderType === 'market' ? usdcBalance : (outcome === 'yes' ? yesBalance : noBalance), orderType === 'market' ? decimals : 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
                   <div className="relative">
-                    <input 
+                    <input
+                      className="input-field bg-slate-950 text-xl font-bold tracking-tight"
+                      placeholder="0.00"
                       type="number"
                       value={sizeInput}
-                      onChange={(e) => setSizeInput(e.target.value)}
-                      placeholder={orderType === 'market' ? "100.00 USDC" : "100.00 SHARES"}
-                      className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
+                      onChange={e => setSizeInput(e.target.value)}
                     />
-                  </div>
-                </div>
-
-                <div className="p-2 rounded bg-slate-900/50 border border-slate-800/50 flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] text-slate-600 font-bold uppercase">{content.execution.estimatedValue}</span>
-                    <span className="text-white text-xs font-mono">
-                      {orderType === 'market' 
-                        ? (parseFloat(sizeInput || '0')).toFixed(2)
-                        : (parseFloat(priceInput || '0') * parseFloat(sizeInput || '0')).toFixed(2)
-                      } USDC
-                    </span>
-                  </div>
-                  <div className="flex flex-col text-right">
-                    <span className="text-[8px] text-slate-600 font-bold uppercase">{content.execution.takerFee}</span>
-                    <span className="text-slate-400 text-[10px] font-mono">
-                      {orderType === 'market'
-                        ? (parseFloat(sizeInput || '0') * 0.002).toFixed(4)
-                        : (parseFloat(priceInput || '0') * parseFloat(sizeInput || '0') * 0.002).toFixed(4)
-                      }
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">
+                      {orderType === 'market' ? 'USDC' : 'SHARES'}
                     </span>
                   </div>
                 </div>
 
-                <Button 
-                  onClick={handleExecuteTrade}
+                {/* EXECUTE BUTTON */}
+                <Button
+                  onClick={executeTrade}
+                  disabled={!isConnected || !sizeInput || isSubmitting}
                   className={cn(
-                    "w-full font-bold uppercase text-[11px] tracking-widest py-3 transition-all",
+                    "w-full h-12 text-lg font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99]",
                     tradeMode === 'buy' ? "btn-buy" : "btn-sell"
                   )}
                 >
-                  {orderType === 'market' 
-                    ? `${content.execution.executeMarket} ${tradeMode === 'buy' ? 'Buy' : 'Sell'}`
-                    : `${content.execution.placeLimit} ${tradeMode === 'buy' ? 'Buy' : 'Sell'}`
-                  }
+                  {isSubmitting ? 'PROCESSING...' : getActionLabel()}
                 </Button>
-              </div>
-            </div>
 
-            <div className="divider-gradient" />
-
-            {/* Active Orders */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                  <Clock className="w-3 h-3" />
-                  {content.activeOrders.title}
-                </h3>
-                <button className="text-[9px] text-slate-600 hover:text-rose-400 transition-colors uppercase font-bold">{content.activeOrders.clearAll}</button>
               </div>
-              
-              <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar">
-                {/* Optimistic Orders */}
-                {optimisticOrders.map(order => (
-                  <div key={order.id} className="p-2 rounded bg-cyan-500/5 border border-cyan-500/20 flex justify-between items-center animate-pulse">
-                    <div className="flex flex-col">
-                      <span className={cn("text-[10px] font-bold", order.side === 'buy' ? "text-emerald-400" : "text-rose-400")}>
-                        {order.side === 'buy' ? 'BUY' : 'SELL'} {order.price.toFixed(4)}
-                      </span>
-                      <span className="text-[9px] text-slate-500 font-mono">{order.size} SHARES</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="w-3 h-3 text-cyan-500 animate-spin" />
-                      <X className="w-3 h-3 text-slate-700 hover:text-rose-500 cursor-pointer" />
-                    </div>
+            </GlassPanel>
+
+            {/* 2. Inventory / History Manager */}
+            {activeTab === 'inventory' ? (
+              <GlassPanel className="flex-1 min-h-[250px] p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-purple-400" />
+                    <span className="text-xs font-bold text-slate-100 uppercase tracking-wider">Inventory</span>
                   </div>
-                ))}
+                  <button onClick={() => setActiveTab('history')} className="text-xs text-slate-500 hover:text-white transition-colors">
+                    View History →
+                  </button>
+                </div>
 
-                {/* Real Orders Placeholder */}
-                {optimisticOrders.length === 0 && (
-                  <div className="h-32 flex flex-col items-center justify-center text-slate-700 opacity-50 italic">
-                    <BarChart3 className="w-8 h-8 mb-2" />
-                    <span className="text-[10px]">{content.activeOrders.empty}</span>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center">
+                    <span className="text-[10px] text-slate-500 font-mono mb-1">USDC</span>
+                    <span className="font-mono text-white font-bold">{parseFloat(formatUnits(usdcBalance, decimals)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-900/50 flex flex-col items-center">
+                    <span className="text-[10px] text-emerald-500 font-mono mb-1">YES</span>
+                    <span className="font-mono text-white font-bold">{parseFloat(formatUnits(yesBalance, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-900/50 flex flex-col items-center">
+                    <span className="text-[10px] text-rose-500 font-mono mb-1">NO</span>
+                    <span className="font-mono text-white font-bold">{parseFloat(formatUnits(noBalance, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                </div>
 
-          {/* Bottom Bar: Quick Keyboard Help */}
-          <div className="h-8 bg-slate-900 border-t border-slate-800 flex items-center px-4 gap-4 text-[9px] text-slate-600 font-mono shrink-0">
-            <span className="flex items-center gap-1"><span className="kbd">[B]</span> {content.shortcuts.buy}</span>
-            <span className="flex items-center gap-1"><span className="kbd">[S]</span> {content.shortcuts.sell}</span>
-            <span className="flex items-center gap-1"><span className="kbd">[↑↓]</span> {content.shortcuts.price}</span>
-            <span className="flex items-center gap-1"><span className="kbd">[?]</span> {content.shortcuts.shortcuts}</span>
-            <div className="flex-1" />
-            <span className="text-cyan-500/50">{content.shortcuts.terminal}</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <Button variant="secondary" onClick={() => doAction('split')} disabled={!sizeInput} className="text-xs">
+                    <ArrowUpRight className="w-3 h-3 mr-2" /> SPLIT USDC
+                  </Button>
+                  <Button variant="secondary" onClick={() => doAction('merge')} disabled={!sizeInput} className="text-xs">
+                    <ArrowDownRight className="w-3 h-3 mr-2" /> MERGE TOKENS
+                  </Button>
+                </div>
+              </GlassPanel>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setActiveTab('inventory')}
+                  className="absolute top-3 right-4 z-10 text-xs text-slate-500 hover:text-white transition-colors"
+                >
+                  ← Back to Inventory
+                </button>
+                <UserHistory />
+              </div>
+            )}
+
           </div>
         </div>
       </div>

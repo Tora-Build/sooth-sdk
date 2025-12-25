@@ -115,12 +115,6 @@ export function useAMMQuoteDirect(
 
   const sharesWad = BigInt(Math.floor(shares * 1e18));
 
-  // #region agent log
-  if (shares > 0 && marketAddress) {
-    fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAMMQuoteDirect.ts:entry',message:'Quote hook called',data:{marketAddress,shares,sharesWad:sharesWad.toString(),outcome,isBuy,ammEngineAddress,chainId,ammData:{qYes:amm.amm?.qYes?.toString(),qNo:amm.amm?.qNo?.toString(),yesProbability:amm.amm?.yesProbability,noProbability:amm.amm?.noProbability},launchpadData:{bBase:launchpad.launchpad?.currentBBase?.toString(),feeBps:launchpad.launchpad?.currentFeeBps?.toString(),isGraduated:launchpad.launchpad?.isGraduated},isLoadingLaunchpad,isLoadingAmm},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H4,H5'})}).catch(()=>{});
-  }
-  // #endregion
-
   // V8 Position Model:
   // - Positive deltaShares = Long YES
   // - Negative deltaShares = Short YES (Long NO)
@@ -146,9 +140,6 @@ export function useAMMQuoteDirect(
     enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n,
     chainId,
     read: async (client) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAMMQuoteDirect.ts:getPositionQuote:before',message:'Calling getPositionQuote',data:{ammEngineAddress,marketAddress,deltaShares:deltaShares.toString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       try {
         const result = await client.readContract({
           address: ammEngineAddress!,
@@ -156,14 +147,8 @@ export function useAMMQuoteDirect(
           functionName: 'getPositionQuote',
           args: [marketAddress!, deltaShares]
         }) as readonly [bigint, bigint];
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAMMQuoteDirect.ts:getPositionQuote:success',message:'Quote returned',data:{cost:result[0].toString(),newPrice:result[1].toString(),costUSD:(Number(result[0])/1e18).toFixed(4)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         return result;
       } catch (err: any) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAMMQuoteDirect.ts:getPositionQuote:error',message:'Quote call failed',data:{error:err?.message||String(err)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         throw err;
       }
     }

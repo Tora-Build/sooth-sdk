@@ -4,6 +4,12 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Critical UI Stabilization** (2025-12-26 Late Night):
+  - **LPHolders Crash**: Added defensive null checks for `stats` object to prevent crashes during RPC 429 throttling events.
+  - **Portfolio Crash**: Added `Array.isArray` check to `useLockQueue` reducer to handle malformed RPC responses.
+  - **Trade Page ReferenceError**: Added missing import for `LPHolders` component.
+
 ### Deployment & Protocol Upgrade (2025-12-25)
 - **V8.1.5 Full Stack Deployment**: Redeployed the complete protocol stack and initial markets to Base Sepolia.
 - **Hybrid Concentrated Orderbook**: Transitioned TickBook to a **Maker/Taker** exchange model.

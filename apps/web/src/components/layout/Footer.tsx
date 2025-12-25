@@ -13,13 +13,13 @@ export const Footer = () => {
           <Link to="/about" className="hover:text-cyan-400 transition-colors">
             About
           </Link>
-          <a href="#" className="hover:text-cyan-400 transition-colors">
+          <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
             Docs
           </a>
-          <a href="#" className="hover:text-cyan-400 transition-colors">
+          <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
             GitHub
           </a>
-          <a href="#" className="hover:text-cyan-400 transition-colors">
+          <a href="https://discord.gg/sooth" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
             Discord
           </a>
         </div>

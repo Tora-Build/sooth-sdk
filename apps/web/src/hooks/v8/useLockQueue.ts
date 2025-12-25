@@ -37,7 +37,7 @@ export function useLockQueue(
         args: address ? [address] : undefined,
         query: {
             enabled: !!address && !!ammEngineAddress,
-            refetchInterval: 5000,
+            refetchInterval: 15000,
         },
     });
 
@@ -53,21 +53,21 @@ export function useLockQueue(
             amount: entry.amount,
             expiry: entry.expiry,
             market: entry.market,
-            amountFormatted: formatUnits(entry.amount, 6),
+            amountFormatted: formatUnits(entry.amount, 18),
             expiryDate: new Date(expiryMs),
             isUnlocked,
             timeUntilUnlock,
         };
     });
 
-    const totalLocked = entries.reduce((sum, entry) => sum + entry.amount, 0n);
+    const totalLocked = Array.isArray(entries) ? entries.reduce((sum, entry) => sum + entry.amount, 0n) : 0n;
     const unlockedCount = entries.filter((e) => e.isUnlocked).length;
     const lockedCount = entries.length - unlockedCount;
 
     return {
         entries,
         totalLocked,
-        totalLockedFormatted: formatUnits(totalLocked, 6),
+        totalLockedFormatted: formatUnits(totalLocked, 18),
         unlockedCount,
         lockedCount,
         isLoading,

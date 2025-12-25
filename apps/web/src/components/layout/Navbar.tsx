@@ -5,9 +5,9 @@ import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
 import uiContent from '../../config/ui-content.json';
-import { 
+import {
   Wallet, TrendingUp, Menu, Droplets,
-  Zap, PlusCircle, Shield, BookOpen
+  Zap, PlusCircle, Shield, BookOpen, Briefcase
 } from 'lucide-react';
 
 const { navbar: content } = uiContent;
@@ -35,7 +35,7 @@ export const Navbar = () => {
               <div className="absolute inset-0 bg-cyan-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <span className="hidden sm:block font-heading font-bold text-lg text-white tracking-tight">
-                SOOTH
+              SOOTH
             </span>
           </Link>
 
@@ -46,7 +46,12 @@ export const Navbar = () => {
               <PlusCircle className="w-4 h-4" />
               {content.launchpad}
             </NavLink>
-            
+
+            <NavLink to="/portfolio" active={isActive('/portfolio')}>
+              <Briefcase className="w-4 h-4" />
+              Portfolio
+            </NavLink>
+
             {/* Trading Pages */}
             <NavLink to="/trade" active={isActive('/trade') || location.pathname.startsWith('/trade/')}>
               <TrendingUp className="w-4 h-4" />
@@ -56,19 +61,19 @@ export const Navbar = () => {
               <Zap className="w-4 h-4" />
               {content.pro}
             </NavLink>
-            
+
             {/* Guardian/Governance */}
             <NavLink to="/gov" active={isActive('/gov')}>
               <Shield className="w-4 h-4" />
               {content.gov}
             </NavLink>
-            
+
             {/* Education / Info */}
             <NavLink to="/about" active={isActive('/about')}>
               <BookOpen className="w-4 h-4" />
               {content.learn}
             </NavLink>
-            
+
             {/* Utility - Faucet for testnet */}
             <NavLink to="/faucet" active={isActive('/faucet')}>
               <Droplets className="w-4 h-4" />
@@ -128,7 +133,16 @@ export const Navbar = () => {
             <PlusCircle className="w-5 h-5" />
             <span>{content.launchpad}</span>
           </MobileNavLink>
-          
+
+          <MobileNavLink
+            to="/portfolio"
+            active={isActive('/portfolio')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <Briefcase className="w-5 h-5" />
+            <span>Portfolio</span>
+          </MobileNavLink>
+
           {/* Trading Pages */}
           <MobileNavLink
             to="/trade"
@@ -162,10 +176,10 @@ export const Navbar = () => {
             <BookOpen className="w-5 h-5" />
             <span>{content.learn}</span>
           </MobileNavLink>
-          
+
           {/* Divider */}
           <div className="border-t border-slate-800 my-2" />
-          
+
           {/* Utility */}
           <MobileNavLink
             to="/faucet"
@@ -177,17 +191,17 @@ export const Navbar = () => {
           </MobileNavLink>
         </nav>
       </Drawer>
-    </header>
+    </header >
   );
 };
 
-const NavLink = ({ 
-  to, 
-  active, 
-  children 
-}: { 
-  to: string; 
-  active: boolean; 
+const NavLink = ({
+  to,
+  active,
+  children
+}: {
+  to: string;
+  active: boolean;
   children: React.ReactNode;
 }) => (
   <Link

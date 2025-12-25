@@ -22,38 +22,6 @@ export function V8HooksTest() {
     const { collateralizer, isLoading: collateralizerLoading } = useCollateralizer(MARKET_1);
     const { position, isLoading: positionLoading } = useCreatorPosition(MARKET_1);
 
-    // #region agent log (hypothesis A/C/D)
-    useEffect(() => {
-        // Emit a summary once the non-TruthMarket hooks have settled so the page isn't blocked
-        // by intermittent TruthMarket hangs.
-        const coreDone = !launchpadLoading && !ammLoading && !collateralizerLoading && !positionLoading;
-        if (!coreDone) return;
-        fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',mode:'no-cors',body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'V8HooksTest.tsx:summary',message:'v8-test summary (core done)',data:{selectedChainId,truthMarketLoading:marketLoading,marketLoaded:!!market,launchpadLoaded:!!launchpad,ammLoaded:!!amm,collateralizerLoaded:!!collateralizer,creatorPositionLoaded:!!position},timestamp:Date.now()})}).catch(()=>{});
-    }, [selectedChainId, marketLoading, launchpadLoading, ammLoading, collateralizerLoading, positionLoading, market, launchpad, amm, collateralizer, position]);
-    // #endregion
-
-    // #region agent log (hypothesis D)
-    const lastLoadingKeyRef = useRef<string | null>(null);
-    useEffect(() => {
-        const key = JSON.stringify({
-            selectedChainId,
-            marketLoading,
-            launchpadLoading,
-            ammLoading,
-            collateralizerLoading,
-            positionLoading,
-            marketOk: !!market,
-            launchpadOk: !!launchpad,
-            ammOk: !!amm,
-            collateralizerOk: !!collateralizer,
-            positionOk: !!position,
-        });
-        if (lastLoadingKeyRef.current === key) return;
-        lastLoadingKeyRef.current = key;
-        fetch('http://127.0.0.1:7242/ingest/d6bfcae9-9603-4479-b460-97a3c584da0e',{method:'POST',mode:'no-cors',body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'V8HooksTest.tsx:loading',message:'loading state changed',data:JSON.parse(key),timestamp:Date.now()})}).catch(()=>{});
-    }, [selectedChainId, marketLoading, launchpadLoading, ammLoading, collateralizerLoading, positionLoading, market, launchpad, amm, collateralizer, position]);
-    // #endregion
-
     return (
         <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
             <h1>V8 Hooks Test - Market 1</h1>

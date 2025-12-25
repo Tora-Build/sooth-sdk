@@ -112,6 +112,13 @@
   | **Total** | **68** | **14** | ✅ |
 - **Skipped Tests**: 14 tests require wallet connection via Synpress (env vars needed)
 
+### ✅ Stability & Critical Bug Fixes (2025-12-26 Late Night)
+- **RPC Resilience**:
+  - Hardened `LPHolders` component against null `stats` during RPC 429 throttling events.
+  - Hardened `useLockQueue` hook with `Array.isArray` checks to prevent reducer crashes on malformed responses.
+  - Resolved `Trade` page crash due to missing `LPHolders` import.
+- **Impact**: Application no longer white-screens during partial network failures; components degrade gracefully to empty states.
+
 ### 🚨 V8 Contract Bug Discovery (2025-12-24 Evening)
 - **Critical Bug Found**: `LaunchpadEngine.tradePositions()` has a USDC decimal mismatch
 - **Root Cause**: The contract calculates `actualCost` in WAD (18 decimals) from LMSR, but passes it directly to `USDC.transferFrom()` without converting to token decimals (6 for standard USDC)
@@ -380,10 +387,18 @@
 - [ ] **TODO Resolution**: `apps/web/src/hooks/v5/useLaunchpadTradeQuote.ts:116` (Refine quoter to return next prices).
 - [ ] **Frontend cleanup**: `apps/web/src/hooks/v5/*` (legacy V5 hooks) are present again; migrate any remaining consumers to V8 hooks and remove V5 hooks + any V5-only listeners (e.g. `ActivityListener`) once V8 equivalents exist.
 
-### Info (Nice to Fix)
 - [ ] **Comment Clarification**: Update `SoothTraderVaultV4.sol` to clarify that `UserAccount.pending` is used for Orderbook collateral.
 
 ---
+
+## Session Summary (2025-12-26 Late Night)
+**Critical UI Stabilization & RPC Resilience** — Addressed multiple high-priority application crashes that were occurring under unstable network conditions (RPC 429 rate limiting). Hardened the `LPHolders` component and `useLockQueue` hook with defensive coding patterns (null checks, array validation) to ensure the UI handles missing or malformed data gracefully instead of crashing. Fixed import regressions in the `Trade` page.
+
+**Pending Work for Next Session**:
+1. Monitor RPC stability (consider private endpoint if 429s persist)
+2. Configure Synpress environment variables for wallet-connected tests
+3. Run and fix 14 skipped wallet tests (create, gov, pro pages)
+4. Verify 24h lock behavior on-chain
 
 ## Session Summary (2025-12-25 Late Evening)
 **E2E Testing Infrastructure Hardened** — Replaced Synpress with a custom MetaMask fixture that directly loads the extension into a persistent browser context. Configured Playwright for hybrid execution: basic tests run headless (no window), while wallet/onchain tests run headed but off-screen to avoid focus stealing. Added Web3Modal dismissal to prevent modal-blocking-clicks failures. All 84 tests now pass in ~3.2 minutes.
@@ -395,6 +410,7 @@
 4. Add live "Graduated" status badge to AMM/TickBook market cards
 5. Test cross-market reinvestment flow (Sell A → Buy B)
 6. Complete on-chain test implementations (faucet, trade, portfolio verification)
+
 
 ## Session Summary (2025-12-25 Evening)
 **Actor-Centric Rebranding & Multichain Filtering** — Refactored the educational flow to be actor-centric (Creator, Gaming Trader, Arbitrageur) based on the latest whitepaper. Renamed UI venues to AMM and TickBook to align with protocol architecture. Implemented automatic multichain market filtering across all views. Unified the "About" and "Learn" routes.

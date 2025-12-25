@@ -32,8 +32,8 @@ export function useAmmMarket(marketAddress: `0x${string}` | undefined) {
         ] as const,
         query: {
             enabled: !!marketAddress && !!ammEngineAddress && !!chainId,
-            refetchInterval: 10000,
-            staleTime: 5000,
+            refetchInterval: 20000,
+            staleTime: 10000,
         },
     });
 
