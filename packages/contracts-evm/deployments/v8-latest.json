@@ -1,6 +1,6 @@
 {
-  "collateralizer": "0xe6Ea4E08A383057726A4f13adD4a91c9DDfFe01C",
-  "ammEngine": "0x29D8d6928D22612b89b3ba15B37183685E83Ac18",
-  "tickBook": "0x05a811706f59eb106F15A699E71c4E264248bB55",
-  "launchpadEngine": "0x63B625e2bB008699F518178E4aD2CF76EEcbd6aC"
+  "collateralizer": "0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8",
+  "ammEngine": "0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f",
+  "tickBook": "0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe",
+  "launchpadEngine": "0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15"
 }

@@ -9,7 +9,10 @@
       "description": "Will BTC 7-day TWAP reach or exceed $100,000?",
       "yesToken": "0x411cce8b5E3DcC1C6D0f1F3cb57f9c245e720F82",
       "noToken": "0x4afB49566b4bCF7850fc1f8b90431AebEfbc4cDf",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 10143,
       "version": "v8.1",
@@ -26,7 +29,10 @@
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
       "yesToken": "0x738e3e2851561F800827Fbb4995999686F1B36dF",
       "noToken": "0x24DE64EFCC343f069387F98210c960c467db2573",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 10143,
       "version": "v8.1",
@@ -39,16 +45,19 @@
       "id": "v8-btc-100k",
       "name": "BTC 7-day TWAP >= $100k",
       "symbol": "BTC100K",
-      "contractAddress": "0xe783ba6ACdF1Dd59032b39209bf0951A63599683",
+      "contractAddress": "0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05",
       "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-      "yesToken": "0x75cA86f5b9E022e1Df013324B1e9330Fda324A8b",
-      "noToken": "0xA3154F1d6e11b7C087b2f258ca6A095c348424C1",
-      "outcomes": ["YES", "NO"],
+      "yesToken": "0x13A31F20fF45b6B00D928d9547812257Ffc423De",
+      "noToken": "0xD48C233A88160eE43116f3586C0D771AB4B25f9f",
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 84532,
       "version": "v8.1",
-      "isGraduated": true,
-      "deadline": 1769266290,
+      "isGraduated": false,
+      "deadline": 1769358564,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },
@@ -56,16 +65,19 @@
       "id": "v8-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "contractAddress": "0x13f8dB919eBAe3C8c28a8c536362dE756E96e953",
+      "contractAddress": "0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-      "yesToken": "0x1C054ef2D9F2257eBE14c025A4cdDfFba53c1b0e",
-      "noToken": "0x394c1110923F8d1a5680F76a1822c8C82feE8cc4",
-      "outcomes": ["YES", "NO"],
+      "yesToken": "0xb4D739391d60505D887E33bb80C11D3947351f9d",
+      "noToken": "0x05cbf4cfa2Ff15329d7B0268218090f2A868A10b",
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 84532,
       "version": "v8.1",
       "isGraduated": false,
-      "deadline": 1769266290,
+      "deadline": 1769358564,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },
@@ -77,7 +89,10 @@
       "description": "Will BTC 7-day TWAP reach or exceed $100,000?",
       "yesToken": "0x83bE6ddBF1A7C4e135BEe40eB0b27b123879DFDE",
       "noToken": "0xaecC8AA6A16D16d7d2e918F646cc575A3F10D2C6",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 4326,
       "version": "v8.1",
@@ -94,7 +109,10 @@
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
       "yesToken": "0x0f5711FBC9dd20591c19A9C53fe6Cd551752Bb62",
       "noToken": "0x17f739956615d54d346ab60d22E7b99cbc6D29EA",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 4326,
       "version": "v8.1",
@@ -110,7 +128,10 @@
       "contractAddress": "0xE467bDC870BC1AEa7401Cc0a3C34ABCcA2c3C64D",
       "description": "Will the UN confirm the existence of alien life?",
       "outcomeToken": "0x89F5FF36A6d684B3ba121FFc7437c84a7e453BA5",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "tier": 1,
       "mode": "real",
       "chainId": 84532,
@@ -123,7 +144,10 @@
       "contractAddress": "0x5DBe9BB350407c604eDDABa86CbB59514F1A6EfD",
       "description": "Will BTC 7-day TWAP reach $100k?",
       "outcomeToken": "0x35aEA513cD336eF7c80FCAD9569B621ACfD17211",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "tier": 2,
       "mode": "real",
       "chainId": 84532,
