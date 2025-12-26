@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,11 +10,28 @@
     --foreground: 210 40% 98%;
     --cyan: 186 94% 53%;
     --magenta: 293 69% 49%;
+
+    /* Typography */
+    --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-heading: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+
+    /* UI Tokens */
+    --ring: rgba(34, 211, 238, 0.35); /* cyan-400 */
+    --ring-strong: rgba(99, 102, 241, 0.45); /* indigo-500 */
+    --border: rgba(51, 65, 85, 0.65); /* slate-700 */
+    --border-strong: rgba(99, 102, 241, 0.35);
+    --shadow: 0 12px 40px -18px rgba(0, 0, 0, 0.65);
+    --shadow-soft: 0 6px 22px -12px rgba(0, 0, 0, 0.55);
   }
 
   body {
-    @apply bg-slate-950 text-slate-300 font-mono antialiased;
-    background-image: radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%);
+    @apply bg-slate-950 text-slate-300 antialiased;
+    font-family: var(--font-ui);
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(34, 211, 238, 0.08) 0%, transparent 35%),
+      radial-gradient(circle at 90% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -30,7 +47,24 @@
   h4,
   h5,
   h6 {
-    @apply font-heading text-white tracking-tight;
+    font-family: var(--font-heading);
+    @apply text-white tracking-tight;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Scrollbar styling */
@@ -57,35 +91,94 @@
 
   /* Neon Terminal Card */
   .glass-card {
-    @apply bg-slate-900/80 border border-slate-800 rounded-xl transition-colors duration-300;
+    @apply relative rounded-2xl border transition-colors duration-200;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(2, 6, 23, 0.58) 100%);
+    border-color: rgba(51, 65, 85, 0.55);
     backdrop-filter: blur(12px);
     contain: paint;
-    box-shadow:
-      0 0 0 1px rgba(6, 182, 212, 0.05),
-      0 4px 24px -4px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-soft);
   }
 
   .glass-card:hover {
-    border-color: rgba(6, 182, 212, 0.3);
-    box-shadow:
-      0 0 0 1px rgba(6, 182, 212, 0.1),
-      0 0 30px -10px rgba(6, 182, 212, 0.2),
-      0 4px 24px -4px rgba(0, 0, 0, 0.5);
+    border-color: rgba(34, 211, 238, 0.25);
+    box-shadow: var(--shadow);
+  }
+
+  .glass-card:focus-within {
+    border-color: rgba(34, 211, 238, 0.35);
+    box-shadow: 0 0 0 4px var(--ring), var(--shadow);
+  }
+
+  .glass-card-premium {
+    @apply glass-card;
+    border-color: rgba(99, 102, 241, 0.22);
+    background: linear-gradient(180deg, rgba(30, 27, 75, 0.42) 0%, rgba(2, 6, 23, 0.62) 100%);
+  }
+
+  .glass-card-premium:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.12), var(--shadow);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200;
+    @apply px-6 py-2.5 text-sm;
+    @apply focus-visible:outline-none;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+
+  .btn:focus-visible {
+    box-shadow: 0 0 0 4px var(--ring), var(--shadow-soft);
+  }
+
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
   }
 
   /* Primary Button - Neon Cyan */
   .btn-primary {
-    @apply bg-gradient-to-r from-cyan-500 to-cyan-600 text-black font-bold px-6 py-2.5 rounded-lg hover:from-cyan-400 hover:to-cyan-500 hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-200 ease-out active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950;
+    @apply hover:from-cyan-300 hover:to-cyan-400;
+    box-shadow: 0 10px 26px -18px rgba(34, 211, 238, 0.65);
   }
 
   /* Secondary Button */
   .btn-secondary {
-    @apply bg-slate-800/80 border border-slate-700 text-slate-200 font-medium px-6 py-2.5 rounded-lg hover:bg-slate-800 hover:border-slate-600 hover:text-white transition-all duration-200 ease-out active:scale-95;
+    @apply bg-slate-900/50 border border-slate-700/70 text-slate-200;
+    @apply hover:bg-slate-900/70 hover:border-slate-600/70 hover:text-white;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-slate-300 hover:text-white hover:bg-slate-800/40;
+  }
+
+  .btn-danger {
+    @apply bg-rose-500/10 text-rose-300 border border-rose-500/30;
+    @apply hover:bg-rose-500/15 hover:border-rose-400/40;
   }
 
   /* Input Field */
   .input-field {
-    @apply bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 w-full font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 placeholder:text-slate-600 transition-all duration-200;
+    @apply w-full rounded-xl px-4 py-3 text-slate-100;
+    @apply bg-slate-950/40 border border-slate-800/70 placeholder:text-slate-500/80;
+    @apply focus:outline-none focus:border-cyan-400/60;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .input-field:focus {
+    box-shadow: 0 0 0 4px var(--ring), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .input-field:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .input-field[aria-invalid="true"] {
+    border-color: rgba(244, 63, 94, 0.45); /* rose-500 */
+  }
+
+  .input-field[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.18), inset 0 1px 0 rgba(255,255,255,0.05);
   }
 
   /* Number Input - Hide spinners */
@@ -279,9 +372,29 @@
 
   /* Education Tooltip */
   .edu-tooltip {
-    @apply bg-[#1e1b4b] border border-indigo-500 rounded-lg px-4 py-3;
+    @apply rounded-xl px-4 py-3;
+    background: rgba(2, 6, 23, 0.92);
+    border: 1px solid rgba(99, 102, 241, 0.28);
     max-width: 280px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 14px 40px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.08);
+  }
+
+  /* Used by Dialog/Drawer scroll containers */
+  .custom-scrollbar {
+    scrollbar-gutter: stable;
+  }
+
+  /* Shared glows referenced by components */
+  .shadow-glow-indigo {
+    box-shadow: 0 16px 44px -26px rgba(99, 102, 241, 0.6);
+  }
+
+  .shadow-glow-violet {
+    box-shadow: 0 16px 44px -26px rgba(139, 92, 246, 0.6);
+  }
+
+  .shadow-glow-emerald {
+    box-shadow: 0 16px 44px -26px rgba(16, 185, 129, 0.55);
   }
 
   /* Education Spotlight (for tours) */

@@ -264,32 +264,33 @@
     },
     "proTip": "Sooth is a cooperative network. Every participant's actions help discover the true price of future events.",
     "formulas": {
-      "title": "Market Mechanics",
+      "title": "Protocol Accounting",
+      "subtitle": "Sooth V8.1 uses a Dual-Venue ledger with automated reconciliation.",
       "items": [
         {
-          "name": "Cost Function (LMSR)",
-          "formula": "C = b · ln(e^(qYes/b) + e^(qNo/b))",
-          "desc": "Determines the total cost to purchase a set of outcome shares."
+          "name": "Cash Basis Formula",
+          "formula": "Seed + Fees + P&L + Yield = Gross",
+          "desc": "Reconciles every USDC in the AMM ledger. Gross Cash is the total pool of assets available to back trades and LP equity."
         },
         {
-          "name": "Marginal Price (Probability)",
-          "formula": "P(i) = e^(qi/b) / Σ(e^(qj/b))",
-          "desc": "The instantaneous price of an outcome, representing its probability."
+          "name": "Equity Floor Formula",
+          "formula": "Gross Cash - Max Liability = Floor",
+          "desc": "The guaranteed minimum value of the pool. Liability is calculated as the cost to pay out the most probable outcome (max shares)."
         },
         {
-          "name": "Liquidity Scaling (Dynamic b)",
-          "formula": "b(t) = b(0) + α · FeesAccrued",
-          "desc": "Liquidity deepens as volume increases, reducing slippage over time."
+          "name": "LP Valuation (ExRate)",
+          "formula": "Equity / LP Supply = Rate",
+          "desc": "The real-time redemption value of 1 LP token. Unlike V7, V8 LP tokens are stakeholders in the entire AMM treasury."
         },
         {
-          "name": "Trading Fee",
-          "formula": "Fee = (Cost(q + Δq) - Cost(q)) · φ",
-          "desc": "Fees are calculated on the net cost change, where φ is the fee parameter."
+          "name": "Graduation Threshold",
+          "formula": "bBase × Multiplier (2x)",
+          "desc": "Markets graduate to the TickBook once cumulative trading fees reach 200% of the initial creator deposit."
         },
         {
-          "name": "Slippage / Depth",
-          "formula": "S = (AvgPrice - SpotPrice) / SpotPrice",
-          "desc": "Price impact increases with trade size relative to parameter b."
+          "name": "Liquidity Anchor",
+          "formula": "b × ln(2) ≈ LP Supply",
+          "desc": "A mathematical invariant that ensures LP supply remains proportional to market depth parameter 'b'."
         }
       ]
     }

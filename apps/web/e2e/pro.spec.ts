@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import marketsConfig from '../src/config/markets.json';
 
-const V8_GRADUATED = marketsConfig.markets.find(m => m.version === 'v8.1' && m.isGraduated);
-const V8_PREGRAD = marketsConfig.markets.find(m => m.version === 'v8.1' && !m.isGraduated);
+const V8_GRADUATED = marketsConfig.markets.find(m => m.version.startsWith('v8') && m.isGraduated);
+const V8_PREGRAD = marketsConfig.markets.find(m => m.version.startsWith('v8') && !m.isGraduated);
 
 test.describe('Pro Page', () => {
   test('displays TickBook terminal identification', async ({ page }) => {

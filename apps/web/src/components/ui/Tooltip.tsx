@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useId, useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { HelpCircle, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -22,19 +22,20 @@ export const Tooltip: React.FC<TooltipProps> = ({
   className,
   showIcon = false,
 }) => {
+  const tooltipId = useId();
   const [isVisible, setIsVisible] = useState(false);
   const [actualPosition, setActualPosition] = useState(position);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseEnter = () => {
+  const show = () => {
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true);
     }, delay);
   };
 
-  const handleMouseLeave = () => {
+  const hide = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -87,12 +88,25 @@ export const Tooltip: React.FC<TooltipProps> = ({
     <div
       ref={triggerRef}
       className={cn('relative inline-flex items-center gap-1', className)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      aria-describedby={isVisible ? tooltipId : undefined}
     >
       {children}
       {showIcon && (
-        <HelpCircle className="w-3.5 h-3.5 text-slate-500 hover:text-indigo-400 transition-colors cursor-help" />
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          aria-label="Help"
+          onMouseEnter={show}
+          onMouseLeave={hide}
+          onFocus={show}
+          onBlur={hide}
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500 hover:text-indigo-300 transition-colors" />
+        </button>
       )}
 
       {isVisible && (
@@ -103,6 +117,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             positionClasses[actualPosition]
           )}
           role="tooltip"
+          id={tooltipId}
         >
           {/* Arrow */}
           <div
@@ -121,7 +136,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
               to={learnMore}
               className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
             >
-              Learn more
+              Learn
               <ExternalLink className="w-3 h-3" />
             </Link>
           )}

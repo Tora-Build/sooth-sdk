@@ -104,9 +104,9 @@ const ERC20_ABI = parseAbi([
 ]);
 
 const LAUNCHPAD_ENGINE_ABI = parseAbi([
-  'function createMarket(address market, uint256 initialLiquidity) external returns (uint256 lpTokens)',
+  'function createMarket(address market, uint256 initialLiquidity, string name, string symbol) external returns (uint256 lpTokens)',
   'function tradePositions(address market, int256 deltaShares, uint256 maxCost) external returns (uint256 actualCost)',
-  'function getMarketState(address market) external view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 totalLPSupply, bool isGraduated, uint256 floorValue)',
+  'function getMarketState(address market) external view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 totalLPSupply, bool isGraduated, uint256 floorValue, string name, string symbol)',
   'function getGraduationProgress(address market) external view returns (uint256 feesAccrued, uint256 threshold, uint256 progressBps)',
 ]);
 
@@ -210,7 +210,9 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
     mockUSDC,
     ammEngine,
     collateralizer,
-    ctx.deployer, // owner
+    tickBook,
+    ctx.deployer, // Protocol Treasury
+    ctx.deployer, // Initial owner
   ]);
   
   return { mockUSDC, collateralizer, ammEngine, tickBook, launchpadEngine };
@@ -334,7 +336,7 @@ async function deployMarket(
     address: core.launchpadEngine,
     abi: LAUNCHPAD_ENGINE_ABI,
     functionName: 'createMarket',
-    args: [marketAddress, marketConfig.bBase],
+    args: [marketAddress, marketConfig.bBase, marketConfig.name, marketConfig.symbol],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
   });

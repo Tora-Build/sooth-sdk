@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import {ILaunchpadEngine} from "./interfaces/ILaunchpadEngine.sol";
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
+import {ITickBook} from "./interfaces/ITickBook.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -31,6 +33,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
     IERC20 public immutable usdc;
     IAMMEngine public immutable ammEngine;
+    ICollateralizer public immutable collateralizer;
+    ITickBook public immutable tickBook;
     address public immutable protocolTreasury;
     uint8 private immutable usdcDecimals; // Cached for gas savings
 
@@ -71,6 +75,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         bool isGraduated;
         uint64 createdAt;
         uint64 graduatedAt;
+        string name;                // Market name (for TickBook tokens)
+        string symbol;              // Market symbol (for TickBook tokens)
     }
 
     mapping(address => MarketState) public markets;
@@ -89,15 +95,21 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     constructor(
         address _usdc,
         address _ammEngine,
+        address _collateralizer,
+        address _tickBook,
         address _protocolTreasury,
         address _owner
     ) Ownable(_owner) {
         require(_usdc != address(0), "LaunchpadEngine: zero usdc");
         require(_ammEngine != address(0), "LaunchpadEngine: zero ammEngine");
+        require(_collateralizer != address(0), "LaunchpadEngine: zero collateralizer");
+        require(_tickBook != address(0), "LaunchpadEngine: zero tickBook");
         require(_protocolTreasury != address(0), "LaunchpadEngine: zero treasury");
 
         usdc = IERC20(_usdc);
         ammEngine = IAMMEngine(_ammEngine);
+        collateralizer = ICollateralizer(_collateralizer);
+        tickBook = ITickBook(_tickBook);
         protocolTreasury = _protocolTreasury;
         usdcDecimals = IERC20Metadata(_usdc).decimals(); // Cache decimals
 
@@ -173,7 +185,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
      */
     function createMarket(
         address market,
-        uint256 initialLiquidity
+        uint256 initialLiquidity,
+        string calldata name,
+        string calldata symbol
     ) external override returns (uint256 lpTokens) {
         require(ITruthMarket(market).creator() == msg.sender, "LaunchpadEngine: not creator");
         require(markets[market].creator == address(0), "LaunchpadEngine: already exists");
@@ -203,7 +217,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             lpYieldPool: 0,
             isGraduated: false,
             createdAt: uint64(block.timestamp),
-            graduatedAt: 0
+            graduatedAt: 0,
+            name: name,
+            symbol: symbol
         });
 
         lpBalances[market][msg.sender] = lpTokens;
@@ -226,35 +242,56 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         MarketState storage state = markets[market];
         require(state.creator != address(0), "LaunchpadEngine: market not found");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
+        require(ammEngine.router() == address(this), "LaunchpadEngine: amm not configured");
+
+        // Determine if this is a close (sell) vs open (buy) trade, so we can avoid
+        // incorrectly pulling USDC from the user during sells.
+        int256 currentShares = ammEngine.getPosition(market, msg.sender);
+        bool isClosingYes = (deltaShares < 0) && (currentShares > 0);
+        bool isClosingNo = (deltaShares > 0) && (currentShares < 0);
+        bool isClosing = isClosingYes || isClosingNo;
 
         // Get quote from AMM (base cost without fees)
         (uint256 baseCost, ) = ammEngine.getPositionQuote(market, deltaShares);
 
-        // Calculate fee
-        uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
-        uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
-        actualCost = baseCost + fee;
+        if (isClosing) {
+            // SELL / CLOSE: do not pull USDC from user.
+            // We interpret maxCost as minimum proceeds (slippage protection).
+            // Fees on sells are currently not applied (alpha simplification).
+            uint256 minProceeds = maxCost;
+            actualCost = baseCost;
 
-        require(actualCost <= maxCost, "LaunchpadEngine: cost too high");
+            // Execute trade on AMM (credits proceeds to trader, locked)
+            ammEngine.tradePositionsFor(msg.sender, market, deltaShares, minProceeds);
 
-        // Convert to USDC decimals for transfers
-        uint256 actualCostUsdc = _wadToUsdcCeil(actualCost);
-        uint256 baseCostUsdc = _wadToUsdcCeil(baseCost);
-        uint256 feeUsdc = actualCostUsdc - baseCostUsdc;
+            emit PositionTraded(msg.sender, market, deltaShares, actualCost, 0);
+        } else {
+            // BUY / OPEN: user pays baseCost + fee
+            uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
+            uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
+            actualCost = baseCost + fee;
 
-        // Transfer total cost from user
-        usdc.safeTransferFrom(msg.sender, address(this), actualCostUsdc);
+            require(actualCost <= maxCost, "LaunchpadEngine: cost too high");
 
-        // Approve AMM to spend base cost
-        usdc.approve(address(ammEngine), baseCostUsdc);
+            // Convert to USDC decimals for transfers
+            uint256 actualCostUsdc = _wadToUsdcCeil(actualCost);
+            uint256 baseCostUsdc = _wadToUsdcCeil(baseCost);
+            uint256 feeUsdc = actualCostUsdc - baseCostUsdc;
 
-        // Execute trade on AMM
-        ammEngine.tradePositions(market, deltaShares, baseCost);
+            // Transfer total cost from user
+            usdc.safeTransferFrom(msg.sender, address(this), actualCostUsdc);
 
-        // Distribute fee
-        _distributeFee(market, fee, feeUsdc, msg.sender);
+            // Approve AMM to spend base cost
+            usdc.approve(address(ammEngine), baseCostUsdc);
 
-        emit PositionTraded(msg.sender, market, deltaShares, actualCost, fee);
+            // Execute trade on AMM
+            ammEngine.tradePositionsFor(msg.sender, market, deltaShares, baseCost);
+
+            // Distribute fee
+            _distributeFee(market, fee, feeUsdc, msg.sender);
+
+            emit PositionTraded(msg.sender, market, deltaShares, actualCost, fee);
+        }
     }
 
     /**
@@ -273,6 +310,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
             // Increase liquidity parameter
             state.bCurrent += feeWad;
+            // Mirror depth growth into AMM pricing
+            ammEngine.increaseLiquidity(market, feeWad);
 
             // Mint LP tokens to trader (1:1 with fee paid)
             uint256 lpTokens = feeWad;
@@ -290,6 +329,15 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
                 if (feesInWad >= graduationThreshold) {
                     state.isGraduated = true;
                     state.graduatedAt = uint64(block.timestamp);
+
+                    // ATOMIC GRADUATION: Register in Collateralizer and TickBook
+                    (address yes, address no) = collateralizer.registerMarket(
+                        market,
+                        state.name,
+                        state.symbol
+                    );
+                    tickBook.registerMarket(market, yes, no);
+
                     emit MarketGraduated(market, state.feesAccrued, block.timestamp);
                 }
             }
@@ -307,6 +355,10 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             uint256 toProtocol = (feeUsdc * uint256(protocolShareBps)) / BPS_DENOMINATOR;
 
             state.bCurrent += toBBase;
+            // Mirror depth growth into AMM pricing
+            if (toBBase > 0) {
+                ammEngine.increaseLiquidity(market, toBBase);
+            }
             state.lpYieldPool += toLPYield;
             state.feesAccrued += feeUsdc;
 

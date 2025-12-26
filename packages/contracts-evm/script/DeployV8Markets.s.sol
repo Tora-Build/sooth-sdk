@@ -9,6 +9,13 @@ import {Collateralizer} from "../contracts/Collateralizer.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployV8Markets is Script {
+    struct DeployedMarket {
+        address market;
+        address yesToken;
+        address noToken;
+        uint64 deadline;
+    }
+
     function run() public {
         // Load addresses from deployment
         address launchpadEngine = vm.envAddress("LAUNCHPAD_ENGINE");
@@ -42,22 +49,26 @@ contract DeployV8Markets is Script {
         // ============================================
         console.log("--- Market 1: UN Confirms Alien Life ---");
         
-        uint64 deadline1 = uint64(block.timestamp + 30 days);
+        DeployedMarket memory m1;
+        m1.deadline = uint64(block.timestamp + 30 days);
         TruthMarket market1 = new TruthMarket(
             "Will the United Nations officially confirm the existence of extraterrestrial life?",
-            deadline1,
+            m1.deadline,
             adjudicator,
             guardian
         );
-        console.log("1. TruthMarket deployed:", address(market1));
+        m1.market = address(market1);
+        console.log("1. TruthMarket deployed:", m1.market);
         
-        // Register with Collateralizer
-        Collateralizer(collateralizer).registerMarket(
-            address(market1),
+        // Register with Collateralizer (capture token addresses for frontend config)
+        (m1.yesToken, m1.noToken) = Collateralizer(collateralizer).registerMarket(
+            m1.market,
             "UN Confirms Alien Life",
             "ALIEN"
         );
         console.log("2. Registered with Collateralizer");
+        console.log("   YES token:", m1.yesToken);
+        console.log("   NO token:", m1.noToken);
         
         // Activate market
         market1.activate();
@@ -65,7 +76,12 @@ contract DeployV8Markets is Script {
         
         // Initialize LaunchpadEngine
         IERC20(usdc).approve(launchpadEngine, deposit);
-        LaunchpadEngine(launchpadEngine).createMarket(address(market1), bBase);
+        LaunchpadEngine(launchpadEngine).createMarket(
+            m1.market,
+            bBase,
+            "UN Confirms Alien Life",
+            "ALIEN"
+        );
         console.log("4. LaunchpadEngine initialized");
         console.log("");
         
@@ -74,22 +90,26 @@ contract DeployV8Markets is Script {
         // ============================================
         console.log("--- Market 2: BTC TWAP ---");
         
-        uint64 deadline2 = uint64(block.timestamp + 30 days);
+        DeployedMarket memory m2;
+        m2.deadline = uint64(block.timestamp + 30 days);
         TruthMarket market2 = new TruthMarket(
             "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-            deadline2,
+            m2.deadline,
             adjudicator,
             guardian
         );
-        console.log("1. TruthMarket deployed:", address(market2));
+        m2.market = address(market2);
+        console.log("1. TruthMarket deployed:", m2.market);
         
-        // Register with Collateralizer
-        Collateralizer(collateralizer).registerMarket(
-            address(market2),
+        // Register with Collateralizer (capture token addresses for frontend config)
+        (m2.yesToken, m2.noToken) = Collateralizer(collateralizer).registerMarket(
+            m2.market,
             "BTC 7-day TWAP >= $100k",
             "BTC100K"
         );
         console.log("2. Registered with Collateralizer");
+        console.log("   YES token:", m2.yesToken);
+        console.log("   NO token:", m2.noToken);
         
         // Activate market
         market2.activate();
@@ -97,7 +117,12 @@ contract DeployV8Markets is Script {
         
         // Initialize LaunchpadEngine
         IERC20(usdc).approve(launchpadEngine, deposit);
-        LaunchpadEngine(launchpadEngine).createMarket(address(market2), bBase);
+        LaunchpadEngine(launchpadEngine).createMarket(
+            m2.market,
+            bBase,
+            "BTC 7-day TWAP >= $100k",
+            "BTC100K"
+        );
         console.log("4. LaunchpadEngine initialized");
         console.log("");
         
@@ -105,32 +130,35 @@ contract DeployV8Markets is Script {
         
         // Print summary
         console.log("=== Deployment Summary ===");
-        console.log("Market 1 (Alien Life):", address(market1));
+        console.log("Market 1 (Alien Life):", m1.market);
         console.log("  Question: Will the United Nations officially confirm the existence of extraterrestrial life?");
-        console.log("  Deadline:", deadline1);
+        console.log("  Deadline:", m1.deadline);
         console.log("");
-        console.log("Market 2 (BTC TWAP):", address(market2));
+        console.log("Market 2 (BTC TWAP):", m2.market);
         console.log("  Question: Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?");
-        console.log("  Deadline:", deadline2);
+        console.log("  Deadline:", m2.deadline);
         console.log("==========================");
         
-        // Save to JSON
-        string memory json = string.concat(
-            '{\n',
-            '  "market1": {\n',
-            '    "address": "', vm.toString(address(market1)), '",\n',
-            '    "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",\n',
-            '    "deadline": ', vm.toString(deadline1), ',\n',
-            '    "liquidity": ', vm.toString(bBase), '\n',
-            '  },\n',
-            '  "market2": {\n',
-            '    "address": "', vm.toString(address(market2)), '",\n',
-            '    "question": "Will Bitcoin\'s 7-day time-weighted average price reach or exceed $100,000?",\n',
-            '    "deadline": ', vm.toString(deadline2), ',\n',
-            '    "liquidity": ', vm.toString(bBase), '\n',
-            '  }\n',
-            '}'
-        );
+        // Save to JSON (include token addresses for UI config)
+        // Build incrementally to avoid "stack too deep" during compilation.
+        string memory json = "{\n";
+        json = string.concat(json, '  "market1": {\n');
+        json = string.concat(json, '    "address": "', vm.toString(m1.market), '",\n');
+        json = string.concat(json, '    "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",\n');
+        json = string.concat(json, '    "deadline": ', vm.toString(m1.deadline), ',\n');
+        json = string.concat(json, '    "liquidity": ', vm.toString(bBase), ',\n');
+        json = string.concat(json, '    "yesToken": "', vm.toString(m1.yesToken), '",\n');
+        json = string.concat(json, '    "noToken": "', vm.toString(m1.noToken), '"\n');
+        json = string.concat(json, "  },\n");
+        json = string.concat(json, '  "market2": {\n');
+        json = string.concat(json, '    "address": "', vm.toString(m2.market), '",\n');
+        json = string.concat(json, '    "question": "Will Bitcoin\'s 7-day time-weighted average price reach or exceed $100,000?",\n');
+        json = string.concat(json, '    "deadline": ', vm.toString(m2.deadline), ',\n');
+        json = string.concat(json, '    "liquidity": ', vm.toString(bBase), ',\n');
+        json = string.concat(json, '    "yesToken": "', vm.toString(m2.yesToken), '",\n');
+        json = string.concat(json, '    "noToken": "', vm.toString(m2.noToken), '"\n');
+        json = string.concat(json, "  }\n");
+        json = string.concat(json, "}");
         
         vm.writeFile("deployments/v8-markets.json", json);
         console.log("");

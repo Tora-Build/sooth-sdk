@@ -3,11 +3,11 @@ import { Card } from '../../ui/Card';
 import { useLaunchpadMarketDirect, useV8DirectRead, readContractSafe } from '../../../hooks/v8';
 import { useMarketStatsMath } from '../../../hooks/v8/useMarketStatsMath';
 import { useDeployments } from '../../../hooks/useDeployments';
-import { V8_ABIS } from '../../../config/abis';
+import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';
 import { CircleDollarSign, HelpCircle } from 'lucide-react';
 import { useChainStore } from '../../../store/useChainStore';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { cn } from '../../../lib/utils';
 import { Badge } from '../../ui/Badge';
 
@@ -25,7 +25,16 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     // 1. Get Launchpad Data (includes userLpBalance)
     const { launchpad } = useLaunchpadMarketDirect(marketAddress);
 
-    // 2. Get AMM State (qYes, qNo for Ceiling Calc)
+    // 2. USDC Decimals
+    const { data: usdcDecimals } = useReadContract({
+        address: deployments?.contracts?.MockUSDC as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+        query: { enabled: !!deployments?.contracts?.MockUSDC, staleTime: Infinity, refetchInterval: false },
+    });
+    const decimals = Number(usdcDecimals ?? 18);
+
+    // 3. Get AMM State (qYes, qNo for Ceiling Calc)
     const { data: ammState } = useV8DirectRead({
         queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress],
         enabled: !!marketAddress && !!chainId && !!ammEngineAddress,
@@ -41,8 +50,8 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
         },
     });
 
-    // 3. Math
-    const stats = useMarketStatsMath(launchpad as any, ammState);
+    // 4. Math
+    const stats = useMarketStatsMath(launchpad as any, ammState, decimals);
 
     if (!launchpad || !stats) {
         return null;
@@ -61,14 +70,25 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     const userCeilingVal = userLpNum * stats.ceilingRate;
 
     // Creator Stats
-    const creatorLP = launchpad.lpSupply; // In initial V8.1, creator usually holds the bulk
+    const creatorLP = launchpad.lpSupply; 
     const creatorLpNum = Number(formatUnits(creatorLP, 18));
     const creatorFloorVal = creatorLpNum * stats.floorRate;
     const creatorCeilingVal = creatorLpNum * stats.ceilingRate;
 
     // Formatters
-    const fmtUsd = (val: number) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-    const fmtLp = (val: number) => val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtUsd = (val: number) => {
+        if (val > 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(2)}B`;
+        if (val > 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
+        return val.toLocaleString('en-US', { 
+            style: 'currency', 
+            currency: 'USD',
+            maximumFractionDigits: 0 
+        });
+    };
+    const fmtLp = (val: number) => val.toLocaleString(undefined, { 
+        minimumFractionDigits: 0, 
+        maximumFractionDigits: 0 
+    });
 
     const isCreator = address && launchpad.creator.toLowerCase() === address.toLowerCase();
 
@@ -134,7 +154,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         <div className="flex items-center gap-2 text-slate-400">
                             <span>{fmtLp(userLpNum)} LP</span>
                             <span className="text-slate-600">•</span>
-                            <span className="text-emerald-500 font-bold">{userSharePct.toFixed(1)}%</span>
+                            <span className="text-emerald-500 font-bold">{userSharePct.toFixed(0)}%</span>
                         </div>
                         <div className="text-slate-500 font-mono">
                             {fmtUsd(userCeilingVal)}

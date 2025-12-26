@@ -45,7 +45,7 @@ contract SpendableProceedsTest is Test {
         usdc = new MockUSDC();
 
         // Deploy AMM
-        amm = new AMMEngine(address(usdc));
+        amm = new AMMEngine(address(usdc), address(this));
 
         // Deploy two test markets
         market1 = new TruthMarket(

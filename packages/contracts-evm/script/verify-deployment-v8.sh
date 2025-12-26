@@ -43,8 +43,15 @@ else
     OUTCOME_TOKEN="${OUTCOME_TOKEN}"
 fi
 
-# USDC address (Base Sepolia - actual deployed address)
-USDC="${USDC_ADDRESS:-0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd}"
+# USDC address (prefer env; otherwise fall back to canonical Base Sepolia MockUSDC from apps/web deployments.json)
+USDC="${USDC_ADDRESS:-}"
+if [ -z "$USDC" ] && [ -f "$DEPLOYMENTS_JSON" ]; then
+  USDC=$(jq -r '.networks.baseSepolia.contracts.MockUSDC // empty' "$DEPLOYMENTS_JSON")
+fi
+if [ -z "$USDC" ] || [ "$USDC" == "null" ]; then
+  # Legacy fallback (should be overridden)
+  USDC="0x8dD2ABE2a78BB70F8E0fFE363BbFdc6022aA00Cd"
+fi
 
 echo "V8 Contract Addresses:"
 echo "  LaunchpadEngine: $LAUNCHPAD_ENGINE"
@@ -166,61 +173,66 @@ else
 fi
 echo ""
 
-# 5. Verify test market (if exists)
-echo "--- Step 5: Verify Test Market (if deployed) ---"
-TEST_MARKET_JSON="${SCRIPT_DIR}/../deployments/test-market-latest.json"
-if [ -f "$TEST_MARKET_JSON" ]; then
-    MARKET=$(jq -r '.market // empty' "$TEST_MARKET_JSON")
-    if [ -n "$MARKET" ] && [ "$MARKET" != "null" ]; then
-        echo "Found test market: $MARKET"
-        
-        # Check market has code
-        check_code "TruthMarket" $MARKET
-        
-        # Check market is live
-        IS_LIVE=$(call_contract $MARKET "isLive()(bool)")
-        if [ "$IS_LIVE" == "true" ]; then
-            echo "✅ TruthMarket.isLive() = true"
-        else
-            echo "❌ TruthMarket.isLive() = $IS_LIVE (expected true)"
-            ERRORS=$((ERRORS + 1))
-        fi
-        
-        # Check LaunchpadEngine initialization
-        if [ -n "$LAUNCHPAD_ENGINE" ] && [ "$LAUNCHPAD_ENGINE" != "null" ]; then
-            IS_INIT=$(call_contract $LAUNCHPAD_ENGINE "isInitialized(address)(bool)" $MARKET)
-            if [ "$IS_INIT" == "true" ]; then
-                echo "✅ LaunchpadEngine.isInitialized(market) = true"
-            else
-                echo "❌ LaunchpadEngine.isInitialized(market) = $IS_INIT (expected true)"
-                ERRORS=$((ERRORS + 1))
-            fi
-            
-            # Check bBase
-            B_BASE=$(call_contract $LAUNCHPAD_ENGINE "getBBase(address)(uint256)" $MARKET)
-            if [ "$B_BASE" != "FAILED" ] && [ "$B_BASE" != "0" ]; then
-                # Convert from WAD to human-readable
-                B_BASE_HUMAN=$((B_BASE / 1000000000000000000))
-                echo "✅ LaunchpadEngine.getBBase(market) = $B_BASE_HUMAN USDC"
-            else
-                echo "❌ LaunchpadEngine.getBBase(market) failed or returned 0"
-                ERRORS=$((ERRORS + 1))
-            fi
-        fi
-        
-        # Check Collateralizer has market tokens
-        if [ -n "$COLLATERALIZER" ] && [ "$COLLATERALIZER" != "null" ]; then
-            TOKENS=$(call_contract $COLLATERALIZER "getMarketTokens(address)((address,address))" $MARKET)
-            if [ "$TOKENS" != "FAILED" ]; then
-                echo "✅ Collateralizer.getMarketTokens(market) returned tokens"
-            else
-                echo "❌ Collateralizer.getMarketTokens(market) failed"
-                ERRORS=$((ERRORS + 1))
-            fi
-        fi
+# 5. Verify V8 markets (if deployed via DeployV8Markets.s.sol)
+echo "--- Step 5: Verify V8 Markets (if deployed) ---"
+V8_MARKETS_JSON="${SCRIPT_DIR}/../deployments/v8-markets.json"
+if [ -f "$V8_MARKETS_JSON" ]; then
+  MARKET1=$(jq -r '.market1.address // empty' "$V8_MARKETS_JSON")
+  MARKET2=$(jq -r '.market2.address // empty' "$V8_MARKETS_JSON")
+
+  for MARKET in "$MARKET1" "$MARKET2"; do
+    if [ -z "$MARKET" ] || [ "$MARKET" == "null" ]; then
+      continue
     fi
+
+    echo "Market: $MARKET"
+    check_code "TruthMarket" $MARKET
+
+    IS_LIVE=$(call_contract $MARKET "isLive()(bool)")
+    if [ "$IS_LIVE" == "true" ]; then
+      echo "✅ TruthMarket.isLive() = true"
+    else
+      echo "❌ TruthMarket.isLive() = $IS_LIVE (expected true)"
+      ERRORS=$((ERRORS + 1))
+    fi
+
+    # LaunchpadEngine should have market registered (creator != 0)
+    if [ -n "$LAUNCHPAD_ENGINE" ] && [ "$LAUNCHPAD_ENGINE" != "null" ]; then
+      CREATOR=$(call_contract $LAUNCHPAD_ENGINE "markets(address)(address,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint64,uint64)" $MARKET | head -n 1)
+      if [ "$CREATOR" != "FAILED" ] && [ "$CREATOR" != "0x0000000000000000000000000000000000000000" ]; then
+        echo "✅ LaunchpadEngine.market.creator set"
+      else
+        echo "❌ LaunchpadEngine.market.creator missing (market not registered?)"
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    # Collateralizer should have market registered
+    if [ -n "$COLLATERALIZER" ] && [ "$COLLATERALIZER" != "null" ]; then
+      IS_REG=$(call_contract $COLLATERALIZER "isMarketRegistered(address)(bool)" $MARKET)
+      if [ "$IS_REG" == "true" ]; then
+        echo "✅ Collateralizer.isMarketRegistered(market) = true"
+      else
+        echo "❌ Collateralizer.isMarketRegistered(market) = $IS_REG (expected true)"
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    # AMMEngine should have initialized state (getLiquidity > 0)
+    if [ -n "$AMM_ENGINE" ] && [ "$AMM_ENGINE" != "null" ]; then
+      LIQ=$(call_contract $AMM_ENGINE "getLiquidity(address)(uint256)" $MARKET)
+      if [ "$LIQ" != "FAILED" ] && [ "$LIQ" != "0" ]; then
+        echo "✅ AMMEngine.getLiquidity(market) non-zero"
+      else
+        echo "❌ AMMEngine.getLiquidity(market) failed or returned 0"
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    echo ""
+  done
 else
-    echo "⚠️  No test market deployed (test-market-latest.json not found)"
+  echo "⚠️  No markets deployed (deployments/v8-markets.json not found)"
 fi
 echo ""
 

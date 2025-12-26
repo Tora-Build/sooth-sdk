@@ -274,7 +274,7 @@ export const Create = () => {
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m => 
-      m.version === 'v8.1' && m.chainId === chainId
+      m.version.startsWith('v8') && m.chainId === chainId
     );
   }, [chainId]);
 

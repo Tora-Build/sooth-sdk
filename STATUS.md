@@ -1,36 +1,53 @@
 # Project Status
 
-> Last Updated: 2025-12-25 (V8.1.5 Complete - Hybrid Orderbook & Unified Depth Deployed)
+> Last Updated: 2025-12-26 (AMM UI Polish + Position Tracking Hardening)
 
 ## Current Focus
-- **✅ V8.1.5 FULL STACK DEPLOYED** — Core contracts and initial markets live on Base Sepolia.
-- **✅ HYBRID CONCENTRATED ORDERBOOK** — TickBook now supports Limit (Ranged) and Market (Amount) orders.
-- **✅ UI TEXT CENTRALIZATION** — All user-facing text moved to `ui-content.json` for easier management.
-- **✅ ACTOR-CENTRIC TUTORIAL** — Interactive Learn page live, aligned with Dec 2025 Whitepaper.
-- **✅ E2E TEST SUITE: 100% PASSING** — 84/84 tests verified on latest deployment config.
-- **✅ MULTICHAIN ISOLATION** — Automatic filtering of markets based on active wallet network.
+- **✅ V8.1 UI/UX REFRESH** — Modern glass-card design system, premium typography, and refined trading signals.
+- **✅ PORTFOLIO V8.1 REFACTOR** — Completely rebuilt for modular architecture; separates self-custody from internal ledger.
+- **✅ NO-CUSTODY POSITION TRACKING** — Event-sourced balance tracking for LaunchpadEngine (Proof-of-Position).
+- **✅ NAV NAVIGATION CONSOLIDATION** — Improved hierarchy with Portfolio-first ordering and "More" dropdown.
+- **✅ RPC RESILIENCE & STABILITY** — Hardened hooks against 429 throttling; fixed multiple initialization race conditions.
 
 ## Recent Changes
 
-### ✅ V8.1.5 Full-Stack Integration (2025-12-25 Late Night)
-- **Hybrid Orderbook Protocol**:
-  - Implemented `placeLimitOrder` (supports both point and range orders).
-  - Implemented `executeMarketOrder` (immediate dollar-amount execution).
-  - Transitioned from AMM "Liquidity" terminology to Exchange "Maker/Taker" primitives.
-- **Unified Depth Architecture**:
-  - YES and NO tokens are unified into a single coordinate system ($L$) across 10,000 ticks.
-  - Directional sweeping logic (Buy YES = Sweep Up, Buy NO = Sweep Down) verified in production.
-- **UI Content Migration**:
-  - Successfully migrated all hardcoded text from `Learn.tsx`, `Pro.tsx`, `Trade.tsx`, `Create.tsx`, and `Navbar.tsx` to `apps/web/src/config/ui-content.json`.
-  - Simplifies localization and branding updates.
-- **Venue Branding Finalized**:
-  - **AMM**: Retail gaming interface.
-  - **Pro**: Professional terminal (powered by TickBook).
-  - **Launchpad**: Creator economics and graduation hub.
-- **QA & Stability**:
-  - All Playwright E2E tests passing, including those requiring precise heading selectors.
-  - Confirmed 100% graduation progress bar persistence for matured markets.
-  - Verified `/about` route serves the new actor-centric Learn content.
+### ✅ AMM Trading UI Polish + Sell Reliability (2025-12-26)
+- **Probability Cards**:
+  - Replaced “$ / share” with **Issued Shares** (more informative + less redundant vs probability).
+- **Accounting Displays**:
+  - Updated `LPHolders` + `MarketStats` to display **integer-formatted** USD / quantities (cleaner, less noise).
+  - Kept **EXRATE** precision (rates lose meaning when rounded to 0x/1x).
+- **Sell UX + State Correctness**:
+  - Added explicit “Insufficient Position / Enter Amount / Insufficient Balance” button states in `SimpleTradingPanel`.
+  - Added sell-side validation (prevent sell attempts when UI has 0 or insufficient reconstructed shares).
+  - Trigger immediate refetches after confirmed trades (position + market + allowance), reducing “stuck” feeling.
+- **Position Tracking**:
+  - Increased `useLaunchpadPositionDirect` scanning window to reduce missed historical trades on slower networks/RPCs.
+  - **Note**: current approach is event-sourced; longer scan windows can increase RPC load.
+
+### ✅ V8.1 UI/UX & Portfolio Refresh (2025-12-26 Late Night)
+- **Design System Overhaul**:
+  - Implemented modern Typography: **Inter** (UI), **JetBrains Mono** (Data), **Space Grotesk** (Headings).
+  - New **Glass-Card Premium** design system with consistent shadows, borders, and hover effects.
+  - Refined "PRO" market branding with high-contrast inline badges for graduated markets.
+- **Portfolio V8.1 Architecture**:
+  - Completely rebuilt `Portfolio.tsx` with clear domain separation: **Self-Custody (Wallet & LP)** vs. **Protocol Account (AMM Vault)**.
+  - Implemented **Row-Level Reporting Pattern** for accurate value aggregation across disparate assets.
+  - Differentiated internal balances: "AMM Sells (Reserved)" vs. "Pro Margin (Locked)".
+- **No-Custody Position Sync**:
+  - Created `useLaunchpadPositionDirect` hook to source balances from on-chain `PositionTraded` events.
+  - Fixes "0 Position" display issue caused by contract-held (non-ERC20) shares.
+  - Implemented chunked event scanning (100k blocks/request) to bypass Base Sepolia RPC limits.
+- **Navbar Consolidation**:
+  - Reordered primary navigation: **Portfolio** (first), **Trade**, **Pro**, **Launchpad**.
+  - Grouped secondary functions (**Gov**, **Faucet**, **About**) into a "More" dropdown menu.
+- **Critical Stability Fixes**:
+  - Fixed multiple initialization race conditions in `SimpleTradingPanel` (RefError for approveTxHash).
+  - Fixed chain mismatch bug where position reads were ignoring the app's selected network.
+  - Handled contract reverts (Arithmetic Overflow) during MAX buy calculations gracefully.
+- **Documentation**:
+  - Created `apps/web/src/docs/V8_AMM_FORMULAS.md` detailing the 5 core accounting formulas.
+  - Updated `STATUS.md` and `CHANGELOG.md` for current state.
 
 ### ✅ TickBook Protocol V8.1 Refactor (2025-12-25 Late Evening)
 - **Maker/Taker Protocol Shift**:
@@ -322,6 +339,7 @@
 | **Price Impact Display** | Show price impact (BPS) in AmmTradingPanel quote summary | S |
 | **Slippage Warning** | Yellow/red indicator when impact > 1% / 5% | S |
 | **Trade Confirmation** | Summary modal before executing large trades | M |
+| **Position Tracking Upgrade** | Replace long-range log scans with cached cursors and/or direct onchain view/indexer | M |
 
 ### ✅ Priority 2: Spendable Proceeds (V8.1)
 | Task | Description | Effort | Status |
@@ -399,6 +417,7 @@
 2. Configure Synpress environment variables for wallet-connected tests
 3. Run and fix 14 skipped wallet tests (create, gov, pro pages)
 4. Verify 24h lock behavior on-chain
+5. Replace/optimize `useLaunchpadPositionDirect` (avoid heavy 5M block scans; cache last scanned block per user+market)
 
 ## Session Summary (2025-12-25 Late Evening)
 **E2E Testing Infrastructure Hardened** — Replaced Synpress with a custom MetaMask fixture that directly loads the extension into a persistent browser context. Configured Playwright for hybrid execution: basic tests run headless (no window), while wallet/onchain tests run headed but off-screen to avoid focus stealing. Added Web3Modal dismissal to prevent modal-blocking-clicks failures. All 84 tests now pass in ~3.2 minutes.

@@ -13,108 +13,108 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as Address | undefined;
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
   const query = useV8DirectRead({
     queryKey: ["v8", "launchpadMarketDirect", chainId, launchpadEngineAddress, marketAddress, userAddress],
     enabled: !!marketAddress && !!chainId && !!launchpadEngineAddress,
     chainId,
     read: async (client) => {
-      const reads = [
-        readContractSafe<
-          readonly [
-            Address,
-            bigint,
-            bigint,
-            bigint,
-            boolean,
-            bigint
-          ]
-        >(client, {
-          address: launchpadEngineAddress!,
-          abi: V8_ABIS.LaunchpadEngine,
-          functionName: "getMarketState",
-          args: [marketAddress!],
-        }),
-        readContractSafe<
-          readonly [
-            Address,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            boolean,
-            bigint,
-            bigint
-          ]
-        >(client, {
-          address: launchpadEngineAddress!,
-          abi: V8_ABIS.LaunchpadEngine,
-          functionName: "markets",
-          args: [marketAddress!],
-        }),
-        readContractSafe<readonly [bigint, bigint, bigint]>(client, {
-          address: launchpadEngineAddress!,
-          abi: V8_ABIS.LaunchpadEngine,
-          functionName: "getGraduationProgress",
-          args: [marketAddress!],
-        }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
-      ];
+      // NOTE: `getMarketState()` can revert if the AMM isn't initialized for this market yet
+      // (because LaunchpadEngine computes floor value by calling AMMEngine.getMarketState()).
+      // To keep the UI resilient, we build the object primarily from the public `markets` mapping
+      // (which never reverts and returns zeroed struct for unknown markets).
 
-      // Add user LP balance read if user connected
-      if (userAddress) {
-        reads.push(
-          readContractSafe<bigint>(client, {
-            address: launchpadEngineAddress!,
-            abi: V8_ABIS.LaunchpadEngine,
-            functionName: "lpBalances",
-            args: [marketAddress!, userAddress],
-          })
-        );
-      }
-
-      const results = await Promise.all(reads);
-
-      const [marketStateDetailed, marketsMapping, graduationProgress, preGradFeeBps, postGradFeeBps, graduationMultiplier] = results as any;
-      const userLpBalance = userAddress ? results[6] as bigint : 0n;
+      const marketsMapping = await readContractSafe<
+        readonly [
+          Address,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          boolean,
+          bigint,
+          bigint
+        ]
+      >(client, {
+        address: launchpadEngineAddress!,
+        abi: V8_ABIS.LaunchpadEngine,
+        functionName: "markets",
+        args: [marketAddress!],
+      });
 
       const [
         creator,
         bBase,
         bCurrent,
-        totalLPSupply,
-        isGraduated,
-        floorValue
-      ] = marketStateDetailed;
-
-      const [
-        _c, _bB, _bC,
         creatorDeposit,
         feesAccruedFromMarket,
-        _tLS,
+        totalLPSupply,
         lpYieldPool,
-        _iG,
+        isGraduated,
+        createdAt,
+        graduatedAt
       ] = marketsMapping;
 
-      const [feesAccrued, graduationThreshold, progressBps] = graduationProgress;
-      const graduationProgressPct = Math.min(100, Number(progressBps) / 100);
+      const [preGradFeeBps, postGradFeeBps, graduationMultiplier] = await Promise.all([
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
+      ]);
+
+      const isCreated = creator !== ZERO_ADDRESS;
       const currentFeeBps = isGraduated ? postGradFeeBps : preGradFeeBps;
 
-      const result = {
+      const [feesAccrued, graduationThreshold, progressBps] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
+        address: launchpadEngineAddress!,
+        abi: V8_ABIS.LaunchpadEngine,
+        functionName: "getGraduationProgress",
+        args: [marketAddress!],
+      });
+
+      const userLpBalance = userAddress
+        ? await readContractSafe<bigint>(client, {
+            address: launchpadEngineAddress!,
+            abi: V8_ABIS.LaunchpadEngine,
+            functionName: "lpBalances",
+            args: [marketAddress!, userAddress],
+          })
+        : 0n;
+
+      // Best-effort: floorValue requires AMM state; it may revert if AMM isn't initialized.
+      let floorValue = 0n;
+      try {
+        const marketStateDetailed = await readContractSafe<
+          readonly [Address, bigint, bigint, bigint, boolean, bigint]
+        >(client, {
+          address: launchpadEngineAddress!,
+          abi: V8_ABIS.LaunchpadEngine,
+          functionName: "getMarketState",
+          args: [marketAddress!],
+        });
+        floorValue = marketStateDetailed[5];
+      } catch {
+        floorValue = 0n;
+      }
+
+      const graduationProgressPct = Math.min(100, Number(progressBps) / 100);
+
+      return {
         address: marketAddress!,
+        isCreated,
         creator,
         initialBBase: bBase,
         currentBBase: bCurrent,
+        creatorDeposit,
         feesAccrued: feesAccrued ?? feesAccruedFromMarket,
         lpSupply: totalLPSupply,
-        floorValue: floorValue,
         lpYieldPool,
-        creatorDeposit,
         isGraduated,
+        createdAt,
+        graduatedAt,
+        floorValue,
         graduationThreshold,
         graduationProgress: graduationProgressPct,
         userLpBalance: userLpBalance ?? 0n,
@@ -126,8 +126,6 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         hasLpTokens: (userLpBalance ?? 0n) > 0n,
         hasAccruedFees: (feesAccrued ?? feesAccruedFromMarket) > 0n,
       };
-
-      return result;
     },
   });
 

@@ -6,12 +6,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAvailableBalance } from '../../../hooks/v8';
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance } from '../../../hooks/v8';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { V8_ABIS, ERC20_ABI } from '../../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
+import { cn } from '../../../lib/utils';
+import { useChainStore } from '../../../store/useChainStore';
 
 interface SimpleTradingPanelProps {
   address: `0x${string}`;
@@ -25,32 +27,69 @@ export const SimpleTradingPanel = ({
   isSettled = false,
 }: SimpleTradingPanelProps) => {
   const { isConnected, address: userAddress } = useAccount();
+  const { selectedChainId } = useChainStore();
+  const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
+  const publicClient = usePublicClient({ chainId });
   const { amm, isLoading } = useAmmMarketDirect(address);
   const { launchpad } = useLaunchpadMarketDirect(address);
   const { contracts } = useDeployments();
   const ammEngineAddress = contracts.AMMEngine as `0x${string}` | undefined;
   const { available: spendableProceeds } = useAvailableBalance(ammEngineAddress);
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
   const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(0);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('10');
+  const [amountError, setAmountError] = useState<string | null>(null);
+
+  // Contract write hooks
+  const { writeContract: approve, data: approveTxHash, isPending: isApproving } = useWriteContract();
+  const { writeContract: trade, data: tradeTxHash, isPending: isTrading } = useWriteContract();
+
+  const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 2000 });
+  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ hash: tradeTxHash, pollingInterval: 2000 });
+
+  // Clear errors on mode/outcome switch
+  useEffect(() => {
+    setAmountError(null);
+  }, [tradeMode, selectedOutcome]);
+
+  const trimDecimals = (s: string, maxDecimals = 2) => {
+    if (!s.includes('.')) return s;
+    const [i, d] = s.split('.');
+    const clipped = d.slice(0, maxDecimals).replace(/0+$/, '');
+    return clipped.length ? `${i}.${clipped}` : i;
+  };
+
+  const wadToSharesInput = (wad: bigint) => trimDecimals(formatUnits(wad, 18), 2);
 
   // Bug #1 & #2: Handle amount change with validation
   const handleAmountChange = (val: string) => {
     if (val === '') {
       setAmount('');
+      setAmountError(null);
       return;
     }
     const num = parseFloat(val);
-    if (isNaN(num)) return;
+    if (isNaN(num)) {
+      setAmountError('Enter a number.');
+      return;
+    }
     
     // Prevent negative numbers (Bug #1)
-    if (num < 0) return;
+    if (num < 0) {
+      setAmountError('Enter a positive number.');
+      return;
+    }
     
     // Reasonable upper limit (Bug #2)
-    if (num > 100000000) return;
+    if (num > 100000000) {
+      setAmountError('That size is too large.');
+      return;
+    }
     
     setAmount(val);
+    setAmountError(null);
   };
 
   // Parse shares as a number for the quote hook
@@ -67,6 +106,7 @@ export const SimpleTradingPanel = ({
     address: contracts.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'decimals',
+    chainId,
     query: { 
       enabled: !!contracts.MockUSDC,
       staleTime: Infinity,
@@ -79,32 +119,70 @@ export const SimpleTradingPanel = ({
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [userAddress!],
+    chainId,
     query: { 
       enabled: !!userAddress && !!contracts.MockUSDC,
       refetchInterval: 15000,
     },
   });
 
-  const { data: usdcAllowance } = useReadContract({
+  const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [userAddress!, contracts.LaunchpadEngine as `0x${string}`],
+    chainId,
     query: { 
       enabled: !!userAddress && !!contracts.MockUSDC && !!contracts.LaunchpadEngine,
       refetchInterval: 30000,
     },
   });
 
+  // Refetch allowance after approval or trade
+  useEffect(() => {
+    if (approveTxHash && !isApprovePending) {
+      refetchAllowance();
+    }
+  }, [approveTxHash, isApprovePending, refetchAllowance]);
+
+  useEffect(() => {
+    if (tradeTxHash && !isTradePending) {
+      refetchAllowance();
+    }
+  }, [tradeTxHash, isTradePending, refetchAllowance]);
+
   // USDC decimals (default to 18 for MockUSDC on testnets)
   const decimals = Number(usdcDecimals ?? 18);
 
-  // Contract write hooks
-  const { writeContract: approve, data: approveTxHash, isPending: isApproving } = useWriteContract();
-  const { writeContract: trade, data: tradeTxHash, isPending: isTrading } = useWriteContract();
+  // --- Position + Balances (for MAX + validation) ---
 
-  const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 2000 });
-  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ hash: tradeTxHash, pollingInterval: 2000 });
+  const { data: ammPosition, isLoading: isLoadingPosition, refetch: refetchPosition } = useAMMPositionDirect(address);
+  const { refetch: refetchAmm } = useAmmMarketDirect(address);
+  const { refetch: refetchLaunchpad } = useLaunchpadMarketDirect(address);
+
+  // Refetch after trade or approval
+  useEffect(() => {
+    if (isTradeSuccess) {
+      refetchPosition();
+      refetchAmm();
+      refetchLaunchpad();
+      refetchAllowance();
+    }
+  }, [isTradeSuccess, refetchPosition, refetchAmm, refetchLaunchpad, refetchAllowance]);
+
+  const yesPositionWad = ammPosition?.yesShares ?? 0n;
+  const noPositionWad = ammPosition?.noShares ?? 0n;
+  const maxSellWad = selectedOutcome === 0 ? yesPositionWad : noPositionWad;
+
+  const walletUsdcToken = (usdcBalance as bigint | undefined) ?? 0n;
+  const walletWad = useMemo(() => {
+    if (decimals === 18) return walletUsdcToken;
+    if (decimals < 18) return walletUsdcToken * BigInt(10 ** (18 - decimals));
+    // Defensive: if token decimals > 18, downscale to WAD
+    return walletUsdcToken / BigInt(10 ** (decimals - 18));
+  }, [walletUsdcToken, decimals]);
+
+  const buyingPowerWad = walletWad + (spendableProceeds ?? 0n);
 
   // Log transaction hash when it's set
   useEffect(() => {
@@ -125,6 +203,12 @@ export const SimpleTradingPanel = ({
 
   const yesPrice = amm?.yesProbability ?? 0.5;
   const noPrice = amm?.noProbability ?? 0.5;
+  const isMarketCreated = !!launchpad && launchpad.creator !== ZERO_ADDRESS;
+  const isAmmInitialized = (amm?.liquidity ?? 0n) > 0n;
+  const canTrade = isMarketCreated && isAmmInitialized;
+
+  // Formatters
+  const fmtQty = (val: bigint) => Number(formatUnits(val, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
   // Check if approval is needed
   // MockUSDC has 6 decimals, but quote.cost is in WAD (18 decimals)
@@ -150,12 +234,24 @@ export const SimpleTradingPanel = ({
 
   // Check if user has enough balance (compare in token decimals)
   const hasEnoughBalance = useMemo(() => {
-    if (!usdcBalance || !quote.cost) return true;
+    if (!quote.cost) return true;
     // Convert cost from WAD to token decimals (ceiling division)
     const factor = BigInt(10 ** (18 - decimals));
     const costInTokenDecimals = (quote.cost + factor - 1n) / factor;
-    return (usdcBalance as bigint) >= costInTokenDecimals;
-  }, [usdcBalance, quote.cost, decimals]);
+    return walletUsdcToken >= costInTokenDecimals;
+  }, [walletUsdcToken, quote.cost, decimals]);
+
+  const hasEnoughBuyingPower = useMemo(() => {
+    if (!quote.cost) return true;
+    return buyingPowerWad >= quote.cost;
+  }, [buyingPowerWad, quote.cost]);
+
+  // Check if user has enough shares to sell
+  const hasEnoughShares = useMemo(() => {
+    if (tradeMode === 'buy') return true;
+    const sharesWad = parseUnits(amount || '0', 18);
+    return maxSellWad >= sharesWad;
+  }, [tradeMode, amount, maxSellWad]);
 
   // Connect wallet handler
   const handleConnect = () => {
@@ -186,6 +282,106 @@ export const SimpleTradingPanel = ({
     });
   };
 
+  const handleMax = async () => {
+    if (!isConnected) return;
+
+    if (tradeMode === 'sell') {
+      const sellable = selectedOutcome === 0 ? yesPositionWad : noPositionWad;
+      if (sellable <= 0n) {
+        setAmount('0');
+        setAmountError('No position to sell.');
+        return;
+      }
+      setAmount(wadToSharesInput(sellable));
+      setAmountError(null);
+      return;
+    }
+
+    // BUY MAX — use real quotes (WAD) against total buying power (wallet + spendable)
+    if (!publicClient || !ammEngineAddress || !canTrade) return;
+    if (buyingPowerWad <= 0n) {
+      setAmount('0');
+      setAmountError('No funds available.');
+      return;
+    }
+
+    const feeRateBps = Number(launchpad?.currentFeeBps ?? 500n);
+    const price = selectedOutcome === 0 ? yesPrice : noPrice;
+    const priceWad = BigInt(Math.max(1, Math.floor(price * 1e18)));
+
+    const capSharesWad = 1_000_000n * 10n ** 18n;
+    const estimate = (buyingPowerWad * 10n ** 18n) / priceWad; // sharesWad ~ budget / spot
+    let high = estimate * 2n;
+    if (high > capSharesWad) high = capSharesWad;
+
+    const totalCostForBuyShares = async (sharesWad: bigint) => {
+      const deltaShares =
+        selectedOutcome === 0
+          ? sharesWad // buy YES
+          : -sharesWad; // buy NO (short YES)
+      
+      try {
+        const [netCost] = await publicClient.readContract({
+          address: ammEngineAddress,
+          abi: V8_ABIS.AMMEngine,
+          functionName: 'getPositionQuote',
+          args: [address, deltaShares],
+        }) as readonly [bigint, bigint];
+
+        const absNet = netCost < 0n ? -netCost : netCost;
+        const fee = (absNet * BigInt(feeRateBps)) / 10000n;
+        return netCost + fee;
+      } catch (e) {
+        // If contract reverts (e.g. overflow in LMSR for huge sizes), 
+        // treat it as "too expensive" so binary search moves lower.
+        return buyingPowerWad + 1n;
+      }
+    };
+
+    try {
+      // If the 2x estimate still fits, use it (rare but nice UX)
+      const costHigh = await totalCostForBuyShares(high);
+      if (costHigh <= buyingPowerWad) {
+        setAmount(wadToSharesInput(high));
+        setAmountError(null);
+        return;
+      }
+
+      // Binary search for best share amount under budget
+      let low = 0n;
+      let hi = high;
+      let best = 0n;
+
+      // ~16 iterations gives 1e6 precision down to < 0.1 share scale, enough for UX
+      for (let i = 0; i < 18; i++) {
+        const mid = (low + hi) / 2n;
+        if (mid <= 0n) {
+          low = 0n;
+          continue;
+        }
+        const cost = await totalCostForBuyShares(mid);
+        if (cost <= buyingPowerWad) {
+          best = mid;
+          low = mid;
+        } else {
+          hi = mid;
+        }
+      }
+
+      if (best <= 0n) {
+        setAmount('0');
+        setAmountError('Not enough to buy 1 share.');
+        return;
+      }
+
+      setAmount(wadToSharesInput(best));
+      setAmountError(null);
+    } catch (e: any) {
+      console.error('[MAX] Failed to compute max buy', e);
+      toast.error('Could not compute MAX right now.');
+    }
+  };
+
     // Execute trade
     // V8 uses a position model where:
     // - Positive shares = long YES
@@ -202,6 +398,17 @@ export const SimpleTradingPanel = ({
         toast.error('LaunchpadEngine contract address not found');
         return;
       }
+
+      if (!canTrade) {
+        if (!isMarketCreated) {
+          toast.error('This market is not initialized in LaunchpadEngine on this network yet.');
+        } else if (!isAmmInitialized) {
+          toast.error('This market is not initialized in AMMEngine on this network yet.');
+        } else {
+          toast.error('Market is not ready for trading yet.');
+        }
+        return;
+      }
   
       if (quote.deltaShares === undefined || quote.deltaShares === 0n) {
         toast.error('Invalid quote - please enter shares amount');
@@ -214,15 +421,18 @@ export const SimpleTradingPanel = ({
     // - Negative deltaShares = Short YES (Long NO)
     const deltaShares = quote.deltaShares;
 
-    // Add 1% slippage buffer to maxCost
-    // Note: maxCost is in WAD (1e18) matching the contract's internal accounting
-    const maxCost = (quote.cost * 101n) / 100n;
+    // Slippage guard:
+    // - BUY: maxCost = +1% buffer
+    // - SELL: minProceeds = -1% buffer (LaunchpadEngine interprets param as min proceeds on closes)
+    const limitCost = tradeMode === 'buy'
+      ? (quote.cost * 101n) / 100n
+      : (quote.cost * 99n) / 100n;
 
     console.log('[Trade] Executing:', {
       market: address,
       deltaShares: deltaShares.toString(),
-      maxCost: maxCost.toString(),
-      maxCostUSD: (Number(maxCost) / 1e18).toFixed(2),
+      maxCost: limitCost.toString(),
+      maxCostUSD: (Number(limitCost) / 1e18).toFixed(2),
       launchpadEngine: contracts.LaunchpadEngine,
     });
 
@@ -231,13 +441,13 @@ export const SimpleTradingPanel = ({
         address: contracts.LaunchpadEngine as `0x${string}`,
         abi: V8_ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
-        args: [address, deltaShares, maxCost],
+        args: [address, deltaShares, limitCost],
         // Explicit gas limit to bypass MegaETH gas estimation issues
         gas: 500000n,
       }, {
         onSuccess: (hash) => {
           console.log('[Trade] Transaction submitted! Hash:', hash);
-          toast.success(`${tradeMode === 'buy' ? 'Bought' : 'Sold'} ${sharesNum} ${selectedOutcome === 0 ? 'YES' : 'NO'} shares!`);
+      toast.success(`${tradeMode === 'buy' ? 'Bought' : 'Sold'} ${sharesNum} ${selectedOutcome === 0 ? 'YES' : 'NO'} shares`);
           setAmount('10'); // Reset amount
         },
         onError: (error: any) => {
@@ -286,8 +496,39 @@ export const SimpleTradingPanel = ({
 
   const isPending = isApproving || isApprovePending || isTrading || isTradePending;
 
+  const getButtonContent = () => {
+    if (isPending) return <Loader2 size={16} className="mr-2 animate-spin" />;
+    if (!canTrade) return 'Market Uninitialized';
+    if (sharesNum <= 0) return 'Enter Amount';
+    if (tradeMode === 'buy') {
+      if (!hasEnoughBuyingPower) return 'Insufficient Balance';
+      return `Buy ${selectedOutcome === 0 ? 'YES' : 'NO'}`;
+    } else {
+      if (!hasEnoughShares) return 'Insufficient Position';
+      return `Sell ${selectedOutcome === 0 ? 'YES' : 'NO'}`;
+    }
+  };
+
+  const isButtonDisabled = 
+    isPending || 
+    !canTrade || 
+    sharesNum <= 0 || 
+    !!amountError ||
+    (tradeMode === 'buy' && !hasEnoughBuyingPower) ||
+    (tradeMode === 'sell' && !hasEnoughShares);
+
   return (
     <div data-testid="trading-panel" className="space-y-3">
+      {/* Initialization Warning */}
+      {!isLoading && isConnected && !canTrade && (
+        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+          <span>
+            Trading unavailable: this market hasn’t been initialized on the connected network.
+          </span>
+        </div>
+      )}
+
       {/* Probability Display */}
       <div className="grid grid-cols-2 gap-2">
         <button
@@ -304,8 +545,8 @@ export const SimpleTradingPanel = ({
           <div className="text-xl font-bold text-emerald-400 tabular-nums">
             {isLoading ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(yesPrice * 100).toFixed(1)}%`}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">
-            ${(yesPrice).toFixed(2)} / share
+          <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
+            {fmtQty(amm?.qYes ?? 0n)} issued
           </div>
         </button>
 
@@ -323,8 +564,8 @@ export const SimpleTradingPanel = ({
           <div className="text-xl font-bold text-rose-400 tabular-nums">
             {isLoading ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(noPrice * 100).toFixed(1)}%`}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">
-            ${(noPrice).toFixed(2)} / share
+          <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
+            {fmtQty(amm?.qNo ?? 0n)} issued
           </div>
         </button>
       </div>
@@ -369,22 +610,7 @@ export const SimpleTradingPanel = ({
           <label className="text-xs text-slate-500">Shares</label>
           {isConnected && (
             <button 
-              onClick={() => {
-                // If buying, calculate how many shares user can buy with their balance
-                // For simplicity, we'll just set it to a large number or 1000 for now
-                // as full LMSR max calculation is complex client-side
-                if (tradeMode === 'buy') {
-                  const balance = Number(usdcBalance || 0n) / (10 ** decimals);
-                  // Approximate max shares for current price
-                  const price = selectedOutcome === 0 ? yesPrice : noPrice;
-                  const estMax = Math.floor(balance / price);
-                  handleAmountChange(String(Math.min(estMax, 1000000)));
-                } else {
-                  // If selling, we'd need to know user's position
-                  // For now, let's just use 1000
-                  handleAmountChange('1000');
-                }
-              }}
+              onClick={handleMax}
               className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider"
             >
               MAX
@@ -403,7 +629,8 @@ export const SimpleTradingPanel = ({
             data-testid="shares-input"
             value={amount}
             onChange={(e) => handleAmountChange(e.target.value)}
-            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-12 py-2 text-sm text-white text-center focus:outline-none focus:border-cyan-500 transition-colors"
+            aria-invalid={amountError ? 'true' : 'false'}
+            className="input-field text-center px-12 py-2 text-sm"
             placeholder="10"
             min="0"
           />
@@ -414,22 +641,77 @@ export const SimpleTradingPanel = ({
             <span className="text-lg font-bold">+</span>
           </button>
         </div>
+        {amountError && (
+          <div className="mt-1 text-[10px] text-rose-300">
+            {amountError}
+          </div>
+        )}
+        {tradeMode === 'sell' && (
+          <div className="mt-1 flex justify-between text-[10px] text-slate-500">
+            <span>Position</span>
+            <span className="font-mono text-slate-300 flex items-center gap-1">
+              {isLoadingPosition ? (
+                <>
+                  <Loader2 className="w-2 h-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                selectedOutcome === 0
+                  ? `${trimDecimals(formatUnits(yesPositionWad, 18), 2)} YES`
+                  : `${trimDecimals(formatUnits(noPositionWad, 18), 2)} NO`
+              )}
+            </span>
+          </div>
+        )}
+        {tradeMode === 'buy' && (
+          <div className="mt-1 flex justify-between text-[10px] text-slate-500">
+            <span>Buying power</span>
+            <span className="font-mono text-slate-300">
+              ${(Number(buyingPowerWad) / 1e18).toFixed(2)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Quick Amount Buttons */}
       <div className="grid grid-cols-4 gap-1">
-        {[10, 50, 100, 500].map(val => (
-          <button
-            key={val}
-            onClick={() => setAmount(String(val))}
-            className={`py-1.5 text-[10px] font-mono rounded transition-all ${amount === String(val)
-              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
-              : 'bg-slate-800/50 text-slate-500 border border-slate-800 hover:border-slate-700'
-              }`}
-          >
-            {val}
-          </button>
-        ))}
+        {tradeMode === 'sell'
+          ? ([25, 50, 75, 100] as const).map((pct) => {
+              const wad = (maxSellWad * BigInt(pct)) / 100n;
+              const label = pct === 100 ? 'MAX' : `${pct}%`;
+              const target = wadToSharesInput(wad);
+              return (
+                <button
+                  key={pct}
+                  onClick={() => handleAmountChange(target)}
+                  disabled={maxSellWad <= 0n}
+                  className={cn(
+                    'py-1.5 text-[10px] font-mono rounded transition-all border',
+                    maxSellWad <= 0n
+                      ? 'bg-slate-900/30 text-slate-600 border-slate-800 cursor-not-allowed'
+                      : amount === target
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : 'bg-slate-800/40 text-slate-400 border-slate-800 hover:border-slate-700'
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })
+          : ([10, 50, 100, 500] as const).map((val) => (
+              <button
+                key={val}
+                onClick={() => handleAmountChange(String(val))}
+                className={cn(
+                  'py-1.5 text-[10px] font-mono rounded transition-all border',
+                  amount === String(val)
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                    : 'bg-slate-800/40 text-slate-400 border-slate-800 hover:border-slate-700'
+                )}
+              >
+                {val}
+              </button>
+            ))}
       </div>
 
       {/* Quote Summary */}
@@ -519,41 +801,30 @@ export const SimpleTradingPanel = ({
         )}
       </div>
 
-      {/* USDC Balance Display */}
+      {/* Balance Summary */}
       {isConnected && (
-        <div className="p-2 rounded-lg bg-slate-800/50 text-[10px] text-slate-400 space-y-1">
+        <div className="p-2 rounded-xl bg-slate-900/30 border border-slate-800/60 text-[10px] text-slate-400 space-y-1">
           <div className="flex justify-between">
-            <span>Your USDC Balance:</span>
-            <span className="font-mono text-white">
-              ${usdcBalance ? (Number(usdcBalance) / (10 ** decimals)).toFixed(2) : '0.00'}
+            <span>Wallet USDC</span>
+            <span className="font-mono text-slate-200">
+              ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
             </span>
           </div>
-          <div className="flex justify-between text-slate-600">
-            <span>Token Decimals:</span>
-            <span className="font-mono">{decimals}</span>
-          </div>
-          <div className="flex justify-between text-slate-600">
-            <span>Quote Cost:</span>
-            <span className="font-mono">
-              ${quote.cost ? (Number(quote.cost) / 1e18).toFixed(2) : '0'}
-            </span>
-          </div>
-          <div className="flex justify-between text-slate-600">
-            <span>Needs Approval:</span>
-            <span className={`font-mono ${needsApproval ? 'text-amber-400' : 'text-green-400'}`}>
-              {needsApproval ? 'Yes' : 'No'}
+          <div className="flex justify-between">
+            <span>Spendable (from sells)</span>
+            <span className="font-mono text-slate-200">
+              ${(Number(spendableProceeds ?? 0n) / 1e18).toFixed(2)}
             </span>
           </div>
         </div>
-      )
-      }
+      )}
 
       {/* Balance Warning */}
       {
-        isConnected && tradeMode === 'buy' && !hasEnoughBalance && sharesNum > 0 && (
+        isConnected && tradeMode === 'buy' && !hasEnoughBuyingPower && sharesNum > 0 && (
           <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
-            <span>Insufficient USDC balance. Visit the Faucet to get test tokens.</span>
+            <span>Not enough funds for this size. Try a smaller amount.</span>
           </div>
         )
       }
@@ -581,7 +852,7 @@ export const SimpleTradingPanel = ({
         ) : needsApproval && tradeMode === 'buy' ? (
           <Button
             onClick={handleApprove}
-            disabled={isPending}
+            disabled={isPending || !canTrade}
             className="w-full py-3 text-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold shadow-lg shadow-amber-500/25 disabled:opacity-50"
           >
             {isPending ? (
@@ -594,19 +865,14 @@ export const SimpleTradingPanel = ({
             onClick={() => {
               handleTrade();
             }}
-            disabled={isPending || !hasEnoughBalance || sharesNum <= 0}
-            className={`w-full py-3 text-sm font-bold transition-all active:scale-[0.98] ${isPending || !hasEnoughBalance || sharesNum <= 0
-              ? 'opacity-50 cursor-not-allowed'
-              : 'hover:-translate-y-0.5'
-              } ${selectedOutcome === 0
-                ? 'btn-buy'
-                : 'btn-sell'
-              }`}
+            disabled={isButtonDisabled}
+            className={cn(
+              "w-full py-3 text-sm font-bold transition-all active:scale-[0.98]",
+              isButtonDisabled ? "opacity-50 cursor-not-allowed grayscale" : "hover:-translate-y-0.5",
+              selectedOutcome === 0 ? "btn-buy" : "btn-sell"
+            )}
           >
-            {isPending ? (
-              <Loader2 size={16} className="mr-2 animate-spin" />
-            ) : null}
-            {tradeMode === 'buy' ? 'Buy' : 'Sell'} {selectedOutcome === 0 ? 'YES' : 'NO'}
+            {getButtonContent()}
           </Button>
         )}
     </div>

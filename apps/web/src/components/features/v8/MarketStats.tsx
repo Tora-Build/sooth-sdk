@@ -3,8 +3,9 @@ import { Card } from '../../ui/Card';
 import { useV8DirectRead, readContractSafe, useLaunchpadMarketDirect } from '../../../hooks/v8';
 import { useMarketStatsMath } from '../../../hooks/v8/useMarketStatsMath';
 import { useDeployments } from '../../../hooks/useDeployments';
-import { V8_ABIS } from '../../../config/abis';
+import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';
+import { useReadContract } from 'wagmi';
 import { Info, BarChart3, Scale, PieChart, Package, Anchor } from 'lucide-react';
 import { useChainStore } from '../../../store/useChainStore';
 import { cn } from '../../../lib/utils';
@@ -22,7 +23,16 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
     // 1. Get Launchpad Data (Seed, Fees, Floor)
     const { launchpad } = useLaunchpadMarketDirect(marketAddress);
 
-    // 2. Get AMM State (qYes, qNo for Liability)
+    // 2. USDC Decimals
+    const { data: usdcDecimals } = useReadContract({
+        address: deployments?.contracts?.MockUSDC as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+        query: { enabled: !!deployments?.contracts?.MockUSDC, staleTime: Infinity, refetchInterval: false },
+    });
+    const decimals = Number(usdcDecimals ?? 18);
+
+    // 3. Get AMM State (qYes, qNo for Liability)
     const { data: ammState } = useV8DirectRead({
         queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress],
         enabled: !!marketAddress && !!chainId && !!ammEngineAddress,
@@ -39,15 +49,33 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
         },
     });
 
-    // 3. Accounting Math
-    const stats = useMarketStatsMath(launchpad as any, ammState); // Type assertion until hooks types are fully aligned
+    // 4. Accounting Math
+    const stats = useMarketStatsMath(launchpad as any, ammState, decimals); 
 
     if (!stats) return null;
 
     // Formatting helpers
-    const fmtUsd = (val: bigint) => Number(formatUnits(val, 6)).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-    const fmtNum = (val: bigint | number) => Number(typeof val === 'bigint' ? formatUnits(val, 18) : val).toLocaleString(undefined, { maximumFractionDigits: 1 });
-    const fmtVal = (val: bigint) => Math.abs(Number(formatUnits(val, 6))).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    const fmtUsd = (val: bigint) => {
+        const num = Number(formatUnits(val, decimals));
+        if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
+        return num.toLocaleString('en-US', { 
+            style: 'currency', 
+            currency: 'USD',
+            maximumFractionDigits: 0
+        });
+    };
+    const fmtNum = (val: bigint | number) => Number(typeof val === 'bigint' ? formatUnits(val, 18) : val).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const fmtVal = (val: bigint) => {
+        const num = Math.abs(Number(formatUnits(val, decimals)));
+        if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
+        return num.toLocaleString('en-US', { 
+            style: 'currency', 
+            currency: 'USD',
+            maximumFractionDigits: 0
+        });
+    };
 
     // P&L Color
     const pnlColor = stats.pnl >= 0n ? 'text-emerald-400' : 'text-rose-400';
@@ -56,10 +84,10 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
     // Projection
     const yesWinLpValue = stats.gross - stats.qYes;
     const noWinLpValue = stats.gross - stats.qNo;
-    const yesProb = Number(stats.qYes) / (Number(stats.qYes) + Number(stats.qNo)); // Approx based on shares? No, use price.
-    // Actually simpler:
-    const impliedYes = Number(formatUnits(stats.qYes, 18));
-    const impliedNo = Number(formatUnits(stats.qNo, 18));
+    
+    // Percent calculation using raw WAD values for precision
+    const impliedYes = Number(formatUnits(stats.rawQYes, 18));
+    const impliedNo = Number(formatUnits(stats.rawQNo, 18));
     const totalShares = impliedYes + impliedNo;
     const yesPct = totalShares > 0 ? (impliedYes / totalShares) * 100 : 50;
 

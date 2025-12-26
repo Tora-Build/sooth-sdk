@@ -37,6 +37,7 @@ b / bBase         | Depth           | Liquidity param
 isGraduated       | Graduated       | Past bonding phase
 adjudicator       | Resolver        | Truth-providing contract
 tStar             | Truth Point     | When outcome became known
+Row-Level Report  | Aggregate Value | Portfolio value summing pattern
 ```
 
 ---
@@ -44,13 +45,13 @@ tStar             | Truth Point     | When outcome became known
 ## Precision
 ```
 WAD       = 1e18           // All internal math (AMMEngine, LaunchpadEngine)
-USDC_DEC  = 6              // Standard USDC uses 6 decimals
+USDC_DEC  = 6              // Standard USDC uses 6 decimals (CAUTION: 18 on Base Sepolia MockUSDC)
 SCALAR    = 1e12           // WAD / USDC = 1e18/1e6
 LOCK      = 24 hours       // AMM sell lock duration (Lock-on-Sell)
 
 CRITICAL BOUNDARY RULE:
   - Contract math is in WAD (18 decimals)
-  - USDC transfers are in token decimals (6)
+  - USDC transfers are in token decimals (usually 6, but check usdc.decimals())
   - Use _wadToUsdc() and _usdcToWad() at transfer boundaries
   - Ceil for transfers TO contract, floor for transfers FROM contract
 ```
@@ -63,13 +64,21 @@ CRITICAL BOUNDARY RULE:
 P(YES) = e^(qYes/b) / (e^(qYes/b) + e^(qNo/b))
 P(NO)  = 1 - P(YES)
 
-// Cost to trade
-cost = b * ln(e^(q'Yes/b) + e^(q'No/b)) - b * ln(e^(qYes/b) + e^(qNo/b))
+// Cost to reach state (qYes, qNo)
+C(q) = b * ln(e^(qYes/b) + e^(qNo/b))
 
-// Collateral (Collateralizer)
-split:  1 USDC → 1 YES + 1 NO
-merge:  1 YES + 1 NO → 1 USDC
-redeem: 1 winning token → 1 USDC (after settlement)
+// Swap P&L (AMM Revenue)
+Swap_PnL = C(q_current) - C(0, 0)
+
+// AMM Accounting (Gross Cash)
+AMM_Cash = Initial_Seed + Fees + Swap_PnL + LP_Yield
+
+// Equity Floor (Worst Case)
+Liability = max(qYes, qNo)
+Floor = max(0, AMM_Cash - Liability)
+
+// Exchange Rate
+ExRate = Floor / LP_Supply
 ```
 
 ### Launchpad Market Economics

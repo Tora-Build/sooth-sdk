@@ -75,11 +75,15 @@ interface ILaunchpadEngine {
      * @notice Create a new launchpad market
      * @param market TruthMarket address
      * @param initialLiquidity Liquidity parameter b (WAD)
+     * @param name Market name (for TickBook tokens)
+     * @param symbol Market symbol (for TickBook tokens)
      * @return lpTokens Initial LP tokens minted to creator
      */
     function createMarket(
         address market,
-        uint256 initialLiquidity
+        uint256 initialLiquidity,
+        string calldata name,
+        string calldata symbol
     ) external returns (uint256 lpTokens);
 
     // ============================================

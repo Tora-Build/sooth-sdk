@@ -8,42 +8,42 @@
  * 4. TVL: Cash + Locked = TVL
  * 5. Liquidity Anchor: b × ln(2) ≈ Supply
  */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { BarChart3, HelpCircle, AlertTriangle } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { useLaunchpadMarketDirect, useAmmMarketDirect } from '../../../hooks/v8';
+import { useMarketStatsMath } from '../../../hooks/v8/useMarketStatsMath';
+import { formatUnits } from 'viem';
+import { useReadContract } from 'wagmi';
+import { useDeployments } from '../../../hooks/useDeployments';
+import { V8_ABIS } from '../../../config/abis';
 
 interface AMMFormulasCardProps {
   address: `0x${string}`;
 }
 
-// Format currency
-const formatCurrency = (value: number): string => {
-  if (Math.abs(value) >= 1000) {
-    return `$${(value / 1000).toFixed(1)}k`;
-  }
-  return `$${value.toFixed(2)}`;
-};
-
-// Format WAD to number
-const formatWad = (value: bigint | undefined): number => {
-  if (!value) return 0;
-  return Number(value) / 1e18;
-};
-
-// ln(2) constant
-const LN2 = 0.693147;
-
 export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
   const [showHelp, setShowHelp] = useState(false);
+  const deployments = useDeployments();
   
   const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(address);
   const { amm, isLoading: ammLoading } = useAmmMarketDirect(address);
 
+  // Get USDC Decimals
+  const { data: usdcDecimals } = useReadContract({
+    address: deployments?.contracts?.MockUSDC as `0x${string}`,
+    abi: V8_ABIS.OutcomeToken,
+    functionName: 'decimals',
+    query: { enabled: !!deployments?.contracts?.MockUSDC, staleTime: Infinity, refetchInterval: false },
+  });
+  const decimals = Number(usdcDecimals ?? 18);
+
+  const stats = useMarketStatsMath(launchpad as any, amm as any, decimals);
+
   const isLoading = launchpadLoading || ammLoading;
 
-  if (isLoading) {
+  if (isLoading || !stats) {
     return (
       <Card className="p-4">
         <div className="animate-pulse space-y-3">
@@ -55,29 +55,27 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
     );
   }
 
-  // Extract values from hooks (V8 uses WAD for all internal values)
-  const creatorDeposit = formatWad(launchpad?.creatorDeposit);
-  const feesAccrued = formatWad(launchpad?.feesAccrued);
-  const currentBBase = formatWad(launchpad?.currentBBase);
-  const lpSupply = formatWad(launchpad?.lpSupply);
-  
-  const qYes = formatWad(amm?.qYes);
-  const qNo = formatWad(amm?.qNo);
-  
-  // Calculations
-  const ammLiability = Math.max(qYes, qNo);
-  const ammDelta = currentBBase - creatorDeposit; // Simplified P&L from b growth
-  const ammCash = creatorDeposit + feesAccrued + ammDelta;
-  const equityFloor = Math.max(0, ammCash - ammLiability);
-  const floorExRate = lpSupply > 0 ? equityFloor / lpSupply : 1;
-  const expectedLpFromAnchor = currentBBase * LN2;
+  // Format currency helpers
+  const fmtUsd = (val: bigint) => {
+    const num = Number(formatUnits(val, decimals));
+    if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
+    if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
+    return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  };
+  const fmtVal = (val: bigint) => {
+    const num = Math.abs(Number(formatUnits(val, decimals)));
+    if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
+    if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
+    return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  };
+  const fmtNum = (val: bigint | number) => Number(typeof val === 'bigint' ? formatUnits(val, 18) : val).toLocaleString(undefined, { maximumFractionDigits: 1 });
+
+  // P&L Sign
+  const pnlSign = stats.pnl >= 0n ? '+' : '-';
+  const pnlColor = stats.pnl >= 0n ? 'text-emerald-400' : 'text-rose-400';
   
   // Check if underwater
-  const isUnderwater = ammCash < ammLiability;
-
-  // Placeholder for locked proceeds (needs TraderVault integration)
-  const lockedProceeds = 0;
-  const tvl = ammCash + lockedProceeds;
+  const isUnderwater = stats.floor === 0n && stats.gross < stats.liability;
 
   return (
     <Card className="p-4">
@@ -134,15 +132,15 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
               <span className="text-slate-500 font-mono italic">Seed + Fees + P&L = Gross</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-400" title="Initial Seed">({formatCurrency(creatorDeposit)})</span>
+              <span className="text-slate-400" title="Initial Seed">({fmtUsd(stats.seed)})</span>
               <span className="text-slate-600">+</span>
-              <span className="text-emerald-500/70" title="Trading Fees">({formatCurrency(feesAccrued)})</span>
+              <span className="text-emerald-500/70" title="Trading Fees">({fmtUsd(stats.fees)})</span>
               <span className="text-slate-600">+</span>
-              <span className={`${ammDelta >= 0 ? 'text-cyan-500/70' : 'text-rose-500/70'}`} title="Swap P&L">
-                ({formatCurrency(ammDelta)})
+              <span className={pnlColor} title="Swap P&L (LMSR Cost)">
+                ({pnlSign}{fmtVal(stats.pnl)})
               </span>
               <span className="text-slate-600">=</span>
-              <span className="text-white font-bold ml-auto text-sm">{formatCurrency(ammCash)}</span>
+              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.gross)}</span>
             </div>
           </div>
 
@@ -153,11 +151,11 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
               <span className="text-cyan-600/60 font-mono italic">Gross - Liability = Floor</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-300">({formatCurrency(ammCash)})</span>
+              <span className="text-slate-300">({fmtUsd(stats.gross)})</span>
               <span className="text-slate-600">-</span>
-              <span className="text-rose-500/70" title="Max Liability = max(qYes, qNo)">({formatCurrency(ammLiability)})</span>
+              <span className="text-rose-500/70" title="Max Liability = max(qYes, qNo)">({fmtUsd(stats.liability)})</span>
               <span className="text-slate-600">=</span>
-              <span className="text-cyan-400 font-bold ml-auto text-sm">{formatCurrency(equityFloor)}</span>
+              <span className="text-cyan-400 font-bold ml-auto text-sm">{fmtUsd(stats.floor)}</span>
             </div>
           </div>
 
@@ -168,13 +166,13 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
               <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-cyan-400/70">({formatCurrency(equityFloor)})</span>
+              <span className="text-cyan-400/70">({fmtUsd(stats.floor)})</span>
               <span className="text-slate-600">/</span>
               <span className="text-slate-400" title="LP Supply">
-                ({lpSupply.toLocaleString(undefined, { maximumFractionDigits: 1 })})
+                ({fmtNum(stats.supply)})
               </span>
               <span className="text-slate-600">=</span>
-              <span className="text-purple-400 font-bold ml-auto text-sm">{floorExRate.toFixed(3)}x</span>
+              <span className="text-purple-400 font-bold ml-auto text-sm">{stats.floorRate.toFixed(3)}x</span>
             </div>
           </div>
 
@@ -185,11 +183,11 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
               <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-400">({formatCurrency(ammCash)})</span>
+              <span className="text-slate-400">({fmtUsd(stats.gross)})</span>
               <span className="text-slate-600">+</span>
-              <span className="text-amber-500/70" title="Locked Proceeds (24h)">({formatCurrency(lockedProceeds)})</span>
+              <span className="text-amber-500/70" title="Locked Proceeds (24h)">($0.00)</span>
               <span className="text-slate-600">=</span>
-              <span className="text-white font-bold ml-auto text-sm">{formatCurrency(tvl)}</span>
+              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.gross)}</span>
             </div>
           </div>
 
@@ -201,17 +199,17 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-slate-400" title="Liquidity Depth (b)">
-                ({currentBBase.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                ({fmtNum(stats.b)})
               </span>
               <span className="text-slate-600">×</span>
               <span className="text-slate-500">0.693</span>
               <span className="text-slate-600">≈</span>
               <span className="text-slate-300 font-bold ml-auto text-sm">
-                ({expectedLpFromAnchor.toLocaleString(undefined, { maximumFractionDigits: 1 })})
+                ({fmtNum(stats.anchorSupply)})
               </span>
             </div>
             <div className="text-[9px] text-slate-600 mt-1 text-right">
-              Actual LP Supply: {lpSupply.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+              Actual LP Supply: {fmtNum(stats.supply)}
             </div>
           </div>
         </div>

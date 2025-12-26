@@ -16,18 +16,39 @@ export function useAmmMarketDirect(marketAddress: Address | undefined) {
     enabled: !!marketAddress && !!chainId && !!ammEngineAddress,
     chainId,
     read: async (client) => {
-      const [qYes, qNo, yesPrice] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
+      // Important: `getMarketState()` reverts if the market isn't initialized yet.
+      // We first read `getLiquidity()` (does NOT revert) to detect initialization.
+      const liquidity = await readContractSafe<bigint>(client, {
         address: ammEngineAddress!,
         abi: V8_ABIS.AMMEngine,
-        functionName: "getMarketState",
+        functionName: "getLiquidity",
         args: [marketAddress!],
       });
+
       const WAD = 10n ** 18n;
+      const isInitialized = liquidity > 0n;
+
+      let qYes = 0n;
+      let qNo = 0n;
+      let yesPrice = WAD / 2n;
+
+      if (isInitialized) {
+        const state = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
+          address: ammEngineAddress!,
+          abi: V8_ABIS.AMMEngine,
+          functionName: "getMarketState",
+          args: [marketAddress!],
+        });
+        [qYes, qNo, yesPrice] = state;
+      }
+
       const noPrice = yesPrice <= WAD ? WAD - yesPrice : 0n;
       const yesProbability = Number(yesPrice) / 1e18;
       const noProbability = Number(noPrice) / 1e18;
       return {
         address: marketAddress!,
+        liquidity,
+        isInitialized,
         qYes,
         qNo,
         yesPrice,

@@ -1,7 +1,8 @@
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { useV8DirectRead, readContractSafe } from './useV8DirectRead';
 import { V8_ABIS } from '../../../config/abis';
 import { useDeployments } from '../../useDeployments';
+import { useChainStore } from '../../../store/useChainStore';
 
 /**
  * Hook to fetch user's AMM position (internal shares) for a specific market.
@@ -9,7 +10,8 @@ import { useDeployments } from '../../useDeployments';
  */
 export function useAMMPositionDirect(marketAddress?: `0x${string}`) {
   const { address: userAddress } = useAccount();
-  const chainId = useChainId();
+  const { selectedChainId } = useChainStore();
+  const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
   const ammEngineAddress = deployments?.contracts?.AMMEngine as `0x${string}`;
 
@@ -18,16 +20,19 @@ export function useAMMPositionDirect(marketAddress?: `0x${string}`) {
     enabled: !!marketAddress && !!chainId && !!ammEngineAddress && !!userAddress,
     chainId,
     read: async (client) => {
-      const result = await readContractSafe<readonly [bigint, bigint]>(client, {
+      const shares = await readContractSafe<bigint>(client, {
         address: ammEngineAddress!,
         abi: V8_ABIS.AMMEngine,
         functionName: 'getPosition',
         args: [marketAddress, userAddress],
       });
       
-      // Handle potential null/undefined from readContractSafe
-      const [qYes, qNo] = result || [0n, 0n];
-      return { qYes, qNo };
+      const s = shares ?? 0n;
+      return {
+        shares: s,
+        yesShares: s > 0n ? s : 0n,
+        noShares: s < 0n ? -s : 0n,
+      };
     },
   });
 }

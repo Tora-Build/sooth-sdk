@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 
 // Types from our other hooks
 interface LaunchpadData {
@@ -17,62 +17,67 @@ interface AMMStateData {
     qNo: bigint;
 }
 
-export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammState: AMMStateData | undefined) => {
+// Stable log-sum-exp LMSR cost function: C(q) = b * ln(e^(qYes/b) + e^(qNo/b))
+function calculateLMSRCost(qYes: bigint, qNo: bigint, b: bigint): number {
+    if (b === 0n) return 0;
+    const bNum = Number(formatUnits(b, 18));
+    const qYesNum = Number(formatUnits(qYes, 18));
+    const qNoNum = Number(formatUnits(qNo, 18));
+    
+    // Stable Log-Sum-Exp: ln(e^x + e^y) = max(x, y) + ln(1 + e^(-|x-y|))
+    const x = qYesNum / bNum;
+    const y = qNoNum / bNum;
+    const max = x > y ? x : y;
+    const diff = Math.abs(x - y);
+    
+    return bNum * (max + Math.log(1 + Math.exp(-diff)));
+}
+
+export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammState: AMMStateData | undefined, usdcDecimals: number = 18) => {
     return useMemo(() => {
         if (!launchpad || !ammState) return null;
 
-        // Helper to normalize to USDC (6 decimals)
-        const toUsdc = (val: bigint) => {
-            // If value > 1e14 (100M USDC), assume it's WAD (18 dec) and scale down
-            // This matches the logic we put in MarketStats.tsx
-            if (val > 1_000_000_000_000_000n) return val / 1_000_000_000_000n;
-            return val;
-        };
+        // Scale factors
+        const usdcFactor = BigInt(10 ** usdcDecimals);
+        const wad = 1_000_000_000_000_000_000n;
 
-        const wadToUsdc = (val: bigint) => val / 1_000_000_000_000n;
+        const seed = launchpad.creatorDeposit; 
+        const fees = launchpad.feesAccrued;    
+        const yield_ = launchpad.lpYieldPool;  
+        
+        const b = launchpad.currentBBase;      
+        const rawQYes = ammState.qYes;         
+        const rawQNo = ammState.qNo;           
 
-        const seed = toUsdc(launchpad.creatorDeposit);
-        const fees = toUsdc(launchpad.feesAccrued);
-        const floor = launchpad.floorValue !== undefined 
-            ? toUsdc(launchpad.floorValue) 
-            : toUsdc(launchpad.lpYieldPool); // Fallback to yield pool if floorValue missing
+        // 1. Calculate P&L (Swap P&L)
+        const currentCostNum = calculateLMSRCost(rawQYes, rawQNo, b);
+        const initialCostNum = Number(formatUnits(seed, usdcDecimals)); 
+        
+        const pnlNum = currentCostNum - initialCostNum;
+        const pnl = parseUnits(pnlNum.toFixed(usdcDecimals), usdcDecimals); 
 
-        // Liability
-        const rawQYes = ammState.qYes;
-        const rawQNo = ammState.qNo;
-        const qYes = wadToUsdc(rawQYes);
-        const qNo = wadToUsdc(rawQNo);
+        // 2. Calculate Gross Cash
+        const gross = seed + fees + pnl + yield_;
 
-        // Liability = Max(qYes, qNo) used for Floor calc
-        const liability = qYes > qNo ? qYes : qNo;
+        // 3. Calculate Liability
+        // Liability in USDC terms: Max(qYes, qNo) scaled to usdcDecimals
+        const qYesUsdc = usdcDecimals === 18 ? rawQYes : rawQYes / (wad / usdcFactor);
+        const qNoUsdc = usdcDecimals === 18 ? rawQNo : rawQNo / (wad / usdcFactor);
+        const liability = qYesUsdc > qNoUsdc ? qYesUsdc : qNoUsdc;
 
-        // Gross = Current Assets held by system
-        // Floor = Gross - Liability
-        // Therefore Gross = Floor + Liability
-        const gross = floor + liability;
+        // 4. Calculate Floor
+        const floor = gross > liability ? gross - liability : 0n;
 
-        // P&L
-        const pnl = gross - seed - fees;
-
-        // Supply
-        const supply = launchpad.lpSupply; // WAD
+        // 5. Supply & Rates
+        const supply = launchpad.lpSupply; 
         const supplyNum = Number(formatUnits(supply, 18));
 
-        // Rates (Price per LP token in USDC)
-        // Floor Rate (Worst Case)
-        const floorRate = supplyNum > 0 ? Number(formatUnits(floor, 6)) / supplyNum : 0;
+        const floorRate = supplyNum > 0 ? Number(formatUnits(floor, usdcDecimals)) / supplyNum : 0;
 
-        // Ceiling Rate (Best Case)
-        // Ceiling occurs when Liability is minimized (i.e. the outcome with LOWER shares wins)
-        // If Yes wins: Liability is qYes. Equity is Gross - qYes.
-        // If No wins: Liability is qNo. Equity is Gross - qNo.
-        // Ceiling Equity = Gross - Min(qYes, qNo)
-        const minLiability = qYes < qNo ? qYes : qNo;
-        const ceilingEquity = gross - minLiability; // 6 decimals
-        const ceilingRate = supplyNum > 0 ? Number(formatUnits(ceilingEquity, 6)) / supplyNum : 0;
+        const minLiability = qYesUsdc < qNoUsdc ? qYesUsdc : qNoUsdc;
+        const ceilingEquity = gross - minLiability;
+        const ceilingRate = supplyNum > 0 ? Number(formatUnits(ceilingEquity, usdcDecimals)) / supplyNum : 0;
 
-        // Liquidity Anchor
-        const b = launchpad.currentBBase;
         const anchorSupply = Number(formatUnits(b, 18)) * 0.693147;
 
         return {
@@ -88,8 +93,11 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
             ceilingRate,
             b,
             anchorSupply,
-            qYes,
-            qNo
+            qYes: qYesUsdc,
+            qNo: qNoUsdc,
+            rawQYes,
+            rawQNo,
+            decimals: usdcDecimals
         };
-    }, [launchpad, ammState]);
+    }, [launchpad, ammState, usdcDecimals]);
 };

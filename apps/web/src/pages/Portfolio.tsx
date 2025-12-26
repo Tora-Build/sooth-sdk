@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useReadContracts } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { Link } from 'react-router-dom';
@@ -15,16 +15,17 @@ import {
   Zap,
   Activity,
   Database,
-  Lock
+  Lock,
+  TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
 import { useAvailableBalance, useLockQueue, useTokenBalances } from '../hooks/v8';
-import { useLaunchpadMarketDirect, useV8DirectRead, readContractSafe } from '../hooks/v8';
+import { useLaunchpadMarketDirect, useV8DirectRead, readContractSafe, useAMMPositionDirect } from '../hooks/v8';
 import { useMarketStatsMath } from '../hooks/v8/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { V8_ABIS } from '../config/abis';
+import { ERC20_ABI, V8_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 
 // --- Components ---
@@ -32,28 +33,45 @@ import marketsConfig from '../config/markets.json';
 /**
  * AMMPositionRow - Displays internal shares from AMMEngine
  */
-const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price }: { 
+const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueUpdate }: { 
   market: typeof marketsConfig.markets[0], 
   userAddress: `0x${string}`, 
   ammEngineAddress: `0x${string}`,
-  price?: bigint
+  price?: bigint,
+  onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
-  const { data: sharesData } = useReadContract({
-    address: ammEngineAddress,
-    abi: V8_ABIS.AMMEngine,
-    functionName: 'getPosition',
-    args: [market.contractAddress, userAddress],
-    query: { enabled: !!market.contractAddress && !!userAddress && !!ammEngineAddress }
-  });
+  const { data: position, isLoading } = useAMMPositionDirect(market.contractAddress as `0x${string}`);
 
-  const shares = (sharesData as bigint) ?? 0n;
-  if (shares === 0n) return null;
-
-  const isYes = shares > 0n;
+  const shares = position?.shares ?? 0n;
   const absShares = shares > 0n ? shares : -shares;
   
   // Estimate value based on current AMM price
-  const valueUsd = price ? (Number(absShares) * Number(price)) / 1e36 : 0;
+  // price is WAD probability. Expected value (WAD USDC) = shares(WAD) * price(WAD) / 1e18
+  const valueUsd = price ? Number(formatUnits((absShares * price) / 1_000_000_000_000_000_000n, 18)) : 0;
+
+  useEffect(() => {
+    if (!isLoading && onValueUpdate) {
+      onValueUpdate(market.contractAddress, valueUsd);
+    }
+  }, [isLoading, valueUsd, market.contractAddress, onValueUpdate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2 animate-pulse">
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-slate-800 rounded" />
+          <div>
+            <div className="h-3 w-20 bg-slate-800 rounded mb-1" />
+            <div className="h-2 w-12 bg-slate-800 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (shares === 0n) return null;
+
+  const isYes = shares > 0n;
 
   return (
     <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
@@ -77,10 +95,11 @@ const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price }: {
 /**
  * OutcomeTokenRow - Displays ERC20 tokens in wallet
  */
-const OutcomeTokenRow = ({ market, userAddress, price }: { 
+const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: { 
   market: typeof marketsConfig.markets[0], 
   userAddress: `0x${string}`,
-  price?: bigint
+  price?: bigint,
+  onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
   const { data: balances } = useReadContracts({
     contracts: [
@@ -103,13 +122,19 @@ const OutcomeTokenRow = ({ market, userAddress, price }: {
   const yesBalance = balances?.[0]?.result as bigint ?? 0n;
   const noBalance = balances?.[1]?.result as bigint ?? 0n;
 
-  if (yesBalance === 0n && noBalance === 0n) return null;
-
   // Use price for YES, (1-price) for NO
   const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
   const noPriceNum = 1 - yesPriceNum;
   
   const valueUsd = (Number(yesBalance) / 1e18 * yesPriceNum) + (Number(noBalance) / 1e18 * noPriceNum);
+
+  useEffect(() => {
+    if (onValueUpdate) {
+      onValueUpdate(market.contractAddress, valueUsd);
+    }
+  }, [valueUsd, market.contractAddress, onValueUpdate]);
+
+  if (yesBalance === 0n && noBalance === 0n) return null;
 
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
@@ -135,7 +160,10 @@ const OutcomeTokenRow = ({ market, userAddress, price }: {
   );
 };
 
-const PortfolioLpRow = ({ market }: { market: typeof marketsConfig.markets[0] }) => {
+const PortfolioLpRow = ({ market, onValueUpdate }: { 
+  market: typeof marketsConfig.markets[0],
+  onValueUpdate?: (marketAddr: string, value: number) => void
+}) => {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
@@ -161,13 +189,19 @@ const PortfolioLpRow = ({ market }: { market: typeof marketsConfig.markets[0] })
 
   const stats = useMarketStatsMath(launchpad as any, ammState);
 
+  const userLpNum = launchpad?.userLpBalance ? Number(formatUnits(launchpad.userLpBalance, 18)) : 0;
+  const userFloorVal = stats ? userLpNum * stats.floorRate : 0;
+  const userCeilingVal = stats ? userLpNum * stats.ceilingRate : 0;
+
+  useEffect(() => {
+    if (launchpad && stats && onValueUpdate) {
+      onValueUpdate(market.contractAddress, userFloorVal);
+    }
+  }, [launchpad, stats, userFloorVal, market.contractAddress, onValueUpdate]);
+
   if (!launchpad?.userLpBalance || launchpad.userLpBalance === 0n || !stats) {
     return null;
   }
-
-  const userLpNum = Number(formatUnits(launchpad.userLpBalance, 18));
-  const userFloorVal = userLpNum * stats.floorRate;
-  const userCeilingVal = userLpNum * stats.ceilingRate;
 
   const totalLpNum = Number(formatUnits(launchpad.lpSupply, 18));
   const sharePct = totalLpNum > 0 ? (userLpNum / totalLpNum) * 100 : 0;
@@ -238,15 +272,47 @@ export const Portfolio = () => {
 
   // 3. Markets Data for Aggregation
   const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m => m.version === 'v8.1' && m.chainId === chainId);
+    return marketsConfig.markets.filter(m => m.version.startsWith('v8') && m.chainId === chainId);
   }, [chainId]);
+
+  // Value Tracking States
+  const [lpValues, setLpValues] = useState<Record<string, number>>({});
+  const [ammValues, setAmmValues] = useState<Record<string, number>>({});
+  const [tokenValues, setTokenValues] = useState<Record<string, number>>({});
+
+  const totalLpVal = useMemo(() => Object.values(lpValues).reduce((a, b) => a + b, 0), [lpValues]);
+  const totalAmmVal = useMemo(() => Object.values(ammValues).reduce((a, b) => a + b, 0), [ammValues]);
+  const totalTokenVal = useMemo(() => Object.values(tokenValues).reduce((a, b) => a + b, 0), [tokenValues]);
+
+  const handleLpValueUpdate = useCallback((addr: string, val: number) => {
+    setLpValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
+  }, []);
+  const handleAmmValueUpdate = useCallback((addr: string, val: number) => {
+    setAmmValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
+  }, []);
+  const handleTokenValueUpdate = useCallback((addr: string, val: number) => {
+    setTokenValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
+  }, []);
+
+  // 4. Wallet Balance & Decimals
+  const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
+  const { balances, isLoading: isLoadingWallet } = useTokenBalances(usdcAddress ? [usdcAddress] : []);
+  const walletUsdc = balances[0] ?? 0n;
+
+  const { data: usdcDecimals } = useReadContract({
+    address: usdcAddress,
+    abi: ERC20_ABI,
+    functionName: 'decimals',
+    query: { enabled: !!usdcAddress, staleTime: Infinity, refetchInterval: false },
+  });
+  const decimals = Number(usdcDecimals ?? 18);
 
   // Batch Read: Market Prices, Internal Shares, LP Balances
   const { data: batchData, isLoading: isLoadingBatch } = useReadContracts({
     contracts: v8Markets.flatMap(m => [
       { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getMarketState', args: [m.contractAddress] },
       { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getPosition', args: [m.contractAddress, userAddress] },
-      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'balanceOf', args: [userAddress] },
+      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.contractAddress, userAddress] },
       { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.contractAddress] }
     ]),
     query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && v8Markets.length > 0 }
@@ -269,36 +335,24 @@ export const Portfolio = () => {
       
       if (sharesResult) {
         const absShares = sharesResult > 0n ? sharesResult : -sharesResult;
+        // price is WAD (18 dec), absShares is WAD (18 dec)
         ammValue += (Number(absShares) * Number(price)) / 1e36;
       }
 
       if (lpBalResult && lpStateResult) {
         const lpSupply = lpStateResult[3] as bigint;
-        const floorValue = lpStateResult[5] as bigint;
+        const floorValue = lpStateResult[5] as bigint; // USDC decimals
         if (lpSupply > 0n) {
           const userLpNum = Number(formatUnits(lpBalResult, 18));
           const totalLpNum = Number(formatUnits(lpSupply, 18));
-          const floorRate = Number(formatUnits(floorValue, 18)) / totalLpNum;
+          const floorRate = Number(formatUnits(floorValue, decimals)) / totalLpNum;
           lpValue += userLpNum * floorRate;
         }
       }
     }
     return { lpValue, ammValue };
-  }, [batchData, v8Markets]);
+  }, [batchData, v8Markets, decimals]);
 
-  // 4. Wallet Balance
-  const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
-  const { balances, isLoading: isLoadingWallet } = useTokenBalances(usdcAddress ? [usdcAddress] : []);
-  const walletUsdc = balances[0] ?? 0n;
-
-  // USDC Decimals
-  const { data: usdcDecimals } = useReadContract({
-    address: usdcAddress,
-    abi: V8_ABIS.OutcomeToken,
-    functionName: 'decimals',
-    query: { enabled: !!usdcAddress, staleTime: Infinity, refetchInterval: false },
-  });
-  const decimals = Number(usdcDecimals ?? 18);
   const walletUsdcFormatted = formatUnits(walletUsdc, decimals);
 
   // Helper to extract specific market price from batch
@@ -344,7 +398,7 @@ export const Portfolio = () => {
                     <TrendingUp className="w-3 h-3" /> LP Total Value
                   </div>
                   <div className="font-mono text-cyan-400 font-bold text-lg">
-                    ${aggregates.lpValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${totalLpVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-3 border border-slate-800 opacity-50">
@@ -390,7 +444,7 @@ export const Portfolio = () => {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-slate-900/50 rounded p-3 border border-slate-800/50">
                   <div className="text-[10px] text-emerald-500 font-bold mb-1 flex items-center gap-1 uppercase">
-                    <TrendingUp className="w-3 h-3" /> Withdrawable
+                    <TrendingUpIcon className="w-3 h-3" /> Withdrawable
                   </div>
                   <div className="font-mono text-emerald-400 font-bold text-lg">
                     ${parseFloat(withdrawableFormatted).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -414,7 +468,7 @@ export const Portfolio = () => {
                   <span className="text-[9px] text-indigo-500/70 font-mono">AMM-ONLY POSITIONS</span>
                 </div>
                 <span className="text-sm text-indigo-200 font-mono font-bold">
-                  ${aggregates.ammValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${totalAmmVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </Card>
@@ -438,20 +492,20 @@ export const Portfolio = () => {
             <Card className="p-0 border-emerald-500/20 bg-slate-950/30 overflow-hidden">
               <div className="px-4 py-3 bg-emerald-950/20 border-b border-emerald-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <TrendingUpIcon className="w-4 h-4 text-emerald-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">LP Positions</h3>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-slate-500 uppercase tracking-widest">Floor Total</div>
                   <div className="text-emerald-400 font-mono font-bold text-sm">
-                    ${aggregates.lpValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${totalLpVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
 
               <div className="p-4 space-y-2">
                 {v8Markets.map(market => (
-                  <PortfolioLpRow key={market.contractAddress} market={market} />
+                  <PortfolioLpRow key={market.contractAddress} market={market} onValueUpdate={handleLpValueUpdate} />
                 ))}
               </div>
             </Card>
@@ -460,7 +514,7 @@ export const Portfolio = () => {
             <Card className="p-0 border-cyan-500/20 bg-slate-950/30 overflow-hidden">
               <div className="px-4 py-3 bg-cyan-950/20 border-b border-cyan-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-cyan-400" />
+                  <TrendingUpIcon className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Internal Shares</h3>
                 </div>
                 <Badge variant="outline" className="text-[9px] h-4 text-cyan-400 border-cyan-900">VAULT</Badge>
@@ -473,6 +527,7 @@ export const Portfolio = () => {
                     userAddress={userAddress!} 
                     ammEngineAddress={ammEngineAddress} 
                     price={getMarketPrice(market.contractAddress)}
+                    onValueUpdate={handleAmmValueUpdate}
                   />
                 ))}
               </div>
@@ -532,6 +587,7 @@ export const Portfolio = () => {
                     market={market} 
                     userAddress={userAddress!} 
                     price={getMarketPrice(market.contractAddress)}
+                    onValueUpdate={handleTokenValueUpdate}
                   />
                 ))}
               </div>

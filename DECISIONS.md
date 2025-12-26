@@ -367,18 +367,35 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - **Contract Re-Audit**: Logic verified through 100% test coverage in `TickBook.t.sol`.
     - **UI Alignment**: Pro terminal updated to use "Limit (Range)" and "Market" terminology.
 
-## ADR-045: UI Content Centralization
-- **Date**: 2025-12-25
+## ADR-046: Row-Level Reporting Pattern for Portfolio Aggregation
+- **Date**: 2025-12-26
 - **Status**: Accepted
-- **Context**: User-facing text was scattered across dozens of React components, making it difficult to maintain a consistent brand voice and perform global terminology updates (e.g., rebranding "Pro" to "TickBook" and back).
-- **Decision**: **Migrate all UI text to a centralized configuration file**:
-    - File: `apps/web/src/config/ui-content.json`
-    - Structure: Organized by page/component (e.g., `learn`, `pro`, `trade`, `create`).
-    - Governance: The JSON file becomes the "Source of Truth" for all copywriting.
+- **Context**: The Portfolio page needed to sum values (LP, AMM Shares, Outcome Tokens) across multiple markets. Initially, a centralized batch read was attempted, but this was brittle and often lagged behind the dynamic children components, leading to inaccurate totals or $0.00 displays.
+- **Decision**: Implement a **Row-Level Reporting Pattern**:
+    - **Self-Reporting Components**: Each asset row (`PortfolioLpRow`, `AMMPositionRow`, `OutcomeTokenRow`) calculates its own USD value locally.
+    - **Callback Chain**: Children report their value back to the parent `Portfolio` component via an `onValueUpdate(id, value)` callback.
+    - **Parent Aggregation**: The `Portfolio` component maintains a `Map` of reported values and sums them for the dashboard display.
 - **Rationale**:
-    - **Maintainability**: One place to update terminology across the entire app.
-    - **Scalability**: Facilitates future internationalization (i18n) and localization.
-    - **Consistency**: Ensures the same term (e.g., "Launchpad") is used identically in the Navbar and footer.
+    - **Accuracy**: The row component has the most up-to-date state for its specific market (decimals, prices, balance).
+    - **Performance**: Avoids massive multi-call reads in the parent component.
+    - **Decoupling**: New asset types can be added without modifying the parent's aggregation logic—they just need to call `onValueUpdate`.
 - **Consequences**:
-    - **Frontend Refactor**: Updated `Learn.tsx`, `Pro.tsx`, `Trade.tsx`, `Create.tsx`, and `Navbar.tsx` to consume the JSON content.
-    - **Validation**: Added a validator script (`validate-config.js`) to ensure the JSON structure matches frontend expectations.
+    - **React State**: Parent must manage a state object for the child values, triggering a re-render when children report updates.
+    - **Stability**: Fixed the persistent "Total Value: $0.00" bug.
+
+## ADR-047: AMMEngine Router Delegation (Correct Per-User Positions + Spendable Proceeds)
+- **Date**: 2025-12-26
+- **Status**: Accepted
+- **Context**: In V8.1, the frontend was forced to reconstruct AMM positions by scanning `LaunchpadEngine.PositionTraded` logs because AMM positions/balances were effectively attributed to the `LaunchpadEngine` call path instead of the trader. This was slow (multi‑million block scans), RPC‑fragile, and created on-chain ambiguity.
+- **Decision**: Introduce an **authorized router** model in `AMMEngine`:
+    - `AMMEngine` stores **positions + spendable/locked balances per trader**.
+    - `LaunchpadEngine` acts as the **router**, trading on behalf of users via `tradePositionsFor(user, ...)`.
+    - `AMMEngine` supports a one-time deployment configuration step: `setRouter(LaunchpadEngine)`.
+    - When Launchpad fees reinvest into depth (`bCurrent` growth), `LaunchpadEngine` calls `AMMEngine.increaseLiquidity(...)` so AMM pricing depth matches economics.
+- **Rationale**:
+    - **Correctness**: On-chain state should be canonical (no event-scan reconstruction).
+    - **Performance**: Removes heavy `getLogs` scanning and RPC failure modes.
+    - **Security**: Only the configured router can spend user “available balance” on their behalf.
+- **Consequences**:
+    - **Breaking Change**: `AMMEngine` now has an owner-configured router and a new constructor signature; deployments must set router.
+    - **Frontend Simplification**: Position hooks can call `AMMEngine.getPosition(market, user)` directly.

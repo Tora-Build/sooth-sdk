@@ -4,11 +4,60 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **UI/UX Design Refresh** (2025-12-26):
+  - **New Typography**: Switched to Inter (UI), JetBrains Mono (Numbers/Code), and Space Grotesk (Headings).
+  - **Glass-Card System**: Implemented premium dark-glass UI components with consistent depth and glow.
+  - **Premium Badges**: High-contrast "PRO" badges for graduated markets with refined styling.
+- **V8.1 Portfolio Overhaul** (2025-12-26):
+  - **Modular Assets**: Separated Self-Custody (Wallet USDC/LP) from Internal Ledger (AMM Shares).
+  - **Value Aggregation**: New row-level reporting pattern for accurate real-time portfolio value summing.
+- **Event-Sourced Position Tracking** (2025-12-26):
+  - `useLaunchpadPositionDirect`: New hook scanning `PositionTraded` events to track non-custodial balances.
+  - **RPC Chunking**: Implemented 100k block scanning strategy for Base Sepolia compatibility.
+- **AMM Accounting Documentation** (2025-12-26):
+  - Created `V8_AMM_FORMULAS.md` documenting Cash Basis, Equity Floor, and LP Valuation.
+
 ### Fixed
-- **Critical UI Stabilization** (2025-12-26 Late Night):
-  - **LPHolders Crash**: Added defensive null checks for `stats` object to prevent crashes during RPC 429 throttling events.
-  - **Portfolio Crash**: Added `Array.isArray` check to `useLockQueue` reducer to handle malformed RPC responses.
-  - **Trade Page ReferenceError**: Added missing import for `LPHolders` component.
+- **AMM Position Canonicalization (V8.1)** (2025-12-26):
+  - Added an authorized router flow so AMM positions and spendable balances are **attributed to the trader on-chain**.
+  - Removed the need for the frontend to scan `LaunchpadEngine.PositionTraded` logs across millions of blocks.
+- **AMM Pricing Depth Sync (V8.1)** (2025-12-26):
+  - When Launchpad fees increase `bCurrent`, Launchpad now calls `AMMEngine.increaseLiquidity(...)` so AMM quotes match Launchpad economics.
+- **Collateralizer 6-decimal Boundary Coverage** (2025-12-26):
+  - Added explicit tests validating WAD inputs map to correct **6-decimal USDC transfers** in split/merge/redeem flows.
+- **Decimal-Aware USDC Transfer Boundaries (V8.1)** (2025-12-26):
+  - Updated `AMMEngine` and `Collateralizer` to convert **WAD (1e18)** ↔ **token decimals** using `IERC20Metadata.decimals()`.
+  - Prevents silent under/over-transfers when using **18-decimal MockUSDC** today and **6-decimal USDC** in future deployments.
+- **Portfolio LP Balance Read (V8.1)** (2025-12-26):
+  - Fixed `Portfolio` multicall to use `LaunchpadEngine.getLPBalance(market, user)` instead of a non-existent `balanceOf`.
+- **AMM Sell “Stuck” UX** (2025-12-26):
+  - Added sell-side validation (disable when user has insufficient reconstructed shares).
+  - Added explicit button states: **Enter Amount / Insufficient Position / Insufficient Balance**.
+  - Triggered immediate refetch after confirmed trades (position + market + allowance) to reduce stale UI.
+- **Position Tracking Coverage** (2025-12-26):
+  - Increased `useLaunchpadPositionDirect` scan window to reduce missed historical trades due to RPC chunk limits.
+- **Critical Initialization Fixes** (2025-12-26):
+  - **SimpleTradingPanel RefError**: Fixed crash where `approveTxHash` was accessed before declaration.
+  - **Portfolio Page Crash**: Fixed missing imports (`useState`, `useEffect`, `useCallback`).
+  - **Navbar Build Errors**: Fixed duplicate `NavLink` / `MobileNavLink` declarations.
+- **Logic & Precision** (2025-12-26):
+  - **Chain Mismatch**: Fixed position reads ignoring the selected network in `SimpleTradingPanel`.
+  - **Math Overflow**: Handled contract reverts gracefully in MAX buy binary search.
+  - **Dynamic Decimals**: Standardized handling of 18-decimal MockUSDC on Base Sepolia.
+- **Input Validation** (2025-12-26):
+  - Prevented negative and excessively large quantity/price-range inputs in Trade and Pro views.
+- **Broken Social Links**: Fixed placeholder `href="#"` links in footer, landing, and about pages.
+
+### Changed
+- **AMM Probability Cards** (2025-12-26):
+  - Replaced “$ / share” display with **Issued Shares** for YES/NO (less redundant; better intuition about outstanding supply).
+- **Accounting Display Precision** (2025-12-26):
+  - `LPHolders` + `MarketStats` now format USD + quantities as **integers** for readability (EXRATE remains fractional).
+- **Navigation Consolidation** (2025-12-26):
+  - Reordered Navbar: Portfolio (Primary) → Trade → Pro → Launchpad.
+  - Consolidated Gov, Faucet, and About into a "More" dropdown.
+- **LP Leaderboard Persistence**: Refactored `LPHolders` to always display creator stats, preventing UI flicker.
 
 ### Deployment & Protocol Upgrade (2025-12-25)
 - **V8.1.5 Full Stack Deployment**: Redeployed the complete protocol stack and initial markets to Base Sepolia.
@@ -37,10 +86,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **Automated ABI Sync**: Implemented script to verify contract artifacts and sync ABIs to the frontend configuration.
 
 ### 🚨 Known Issues
-- **CRITICAL: LaunchpadEngine USDC Decimals Bug** (2025-12-24):
-  - `tradePositions()` passes WAD amounts directly to USDC transfer without decimal conversion
-  - Affects all trades when using 6-decimal USDC (standard USDC)
-  - **Fix Required**: Add `_wadToUsdc(actualCost)` before `safeTransferFrom` in line 241
+- None currently tracked in `CHANGELOG.md` (see `STATUS.md` for current risks / follow-ups).
   - **Status**: Blocking V8 trading, requires contract redeploy
 
 ### QA

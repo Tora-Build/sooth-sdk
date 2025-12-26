@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
@@ -27,6 +28,7 @@ contract Collateralizer is ICollateralizer {
 
     /// @notice USDC token
     IERC20 public immutable usdc;
+    uint8 private immutable usdcDecimals; // Cached for WAD ↔ token-decimals conversions
 
     /// @notice Market => (YES token, NO token)
     mapping(address => MarketTokens) private _marketTokens;
@@ -44,6 +46,7 @@ contract Collateralizer is ICollateralizer {
     constructor(address _usdc) {
         require(_usdc != address(0), "Collateralizer: zero address");
         usdc = IERC20(_usdc);
+        usdcDecimals = IERC20Metadata(_usdc).decimals();
     }
 
     // ============================================
@@ -100,7 +103,7 @@ contract Collateralizer is ICollateralizer {
         MarketTokens memory tokens = _getTokens(market);
 
         // Transfer USDC from user
-        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        usdc.safeTransferFrom(msg.sender, address(this), _wadToUsdcCeil(amount));
 
         // Mint equal YES and NO tokens
         tokens.yesToken.mint(msg.sender, amount);
@@ -121,7 +124,7 @@ contract Collateralizer is ICollateralizer {
         tokens.noToken.burn(msg.sender, amount);
 
         // Return USDC to user
-        usdc.safeTransfer(msg.sender, amount);
+        usdc.safeTransfer(msg.sender, _wadToUsdc(amount));
 
         emit Merged(msg.sender, market, amount, amount);
     }
@@ -155,12 +158,12 @@ contract Collateralizer is ICollateralizer {
             tokens.noToken.burn(msg.sender, amount);
         }
 
-        // Get redemption value (supports non-binary outcomes like INVALID)
+        // Get redemption value (binary convenience; INVALID should use redeemOutcome for explicit side)
         uint256 redemptionValue = truthMarket.getRedemptionValue(winningOutcome);
         usdcAmount = (amount * redemptionValue) / WAD;
 
         // Transfer USDC
-        usdc.safeTransfer(msg.sender, usdcAmount);
+        usdc.safeTransfer(msg.sender, _wadToUsdc(usdcAmount));
 
         emit Redeemed(msg.sender, market, winningOutcome, amount, usdcAmount);
     }
@@ -192,7 +195,7 @@ contract Collateralizer is ICollateralizer {
         usdcAmount = (amount * redemptionValue) / WAD;
 
         // Transfer USDC
-        usdc.safeTransfer(msg.sender, usdcAmount);
+        usdc.safeTransfer(msg.sender, _wadToUsdc(usdcAmount));
 
         emit Redeemed(msg.sender, market, outcome, amount, usdcAmount);
     }
@@ -276,5 +279,33 @@ contract Collateralizer is ICollateralizer {
         MarketTokens memory tokens = _marketTokens[market];
         require(tokens.registered, "Collateralizer: not registered");
         return tokens;
+    }
+
+    // ============================================
+    // Decimal-Aware WAD ↔ USDC Helpers
+    // ============================================
+
+    function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
+        // Floor conversion for transfers FROM the contract.
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            return wadAmount / (10 ** (18 - usdcDecimals));
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
+    }
+
+    function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
+        // Ceil conversion for transfers TO the contract.
+        if (wadAmount == 0) return 0;
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            uint256 factor = 10 ** (18 - usdcDecimals);
+            return (wadAmount + factor - 1) / factor;
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
     }
 }

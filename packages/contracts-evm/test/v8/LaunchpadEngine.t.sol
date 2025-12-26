@@ -5,12 +5,16 @@ import {Test, console2} from "forge-std/Test.sol";
 import {LaunchpadEngine} from "../../contracts/LaunchpadEngine.sol";
 import {AMMEngine} from "../../contracts/AMMEngine.sol";
 import {TruthMarket} from "../../contracts/TruthMarket.sol";
+import {Collateralizer} from "../../contracts/Collateralizer.sol";
+import {TickBook} from "../../contracts/TickBook.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract LaunchpadEngineTest is Test {
     LaunchpadEngine public launchpad;
     AMMEngine public amm;
     TruthMarket public market;
+    Collateralizer public collateralizer;
+    TickBook public tickBook;
     ERC20Mock public usdc;
 
     address public owner = address(0x1);
@@ -30,16 +34,30 @@ contract LaunchpadEngineTest is Test {
         usdc = new ERC20Mock();
 
         // Deploy AMM
-        amm = new AMMEngine(address(usdc));
+        amm = new AMMEngine(address(usdc), owner);
+
+        // Deploy Collateralizer and TickBook
+        collateralizer = new Collateralizer(address(usdc));
+        tickBook = new TickBook();
+
+        // Deploy Collateralizer and TickBook
+        collateralizer = new Collateralizer(address(usdc));
+        tickBook = new TickBook();
 
         // Deploy LaunchpadEngine
         vm.prank(owner);
         launchpad = new LaunchpadEngine(
             address(usdc),
             address(amm),
+            address(collateralizer),
+            address(tickBook),
             treasury,
             owner
         );
+
+        // Configure AMM router
+        vm.prank(owner);
+        amm.setRouter(address(launchpad));
 
         // Deploy TruthMarket
         vm.prank(creator);
@@ -72,7 +90,7 @@ contract LaunchpadEngineTest is Test {
         uint256 deposit = (INITIAL_LIQUIDITY * LN2) / WAD;
 
         vm.prank(creator);
-        uint256 lpTokens = launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        uint256 lpTokens = launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         // Check LP tokens minted
         assertEq(lpTokens, deposit, "LP tokens should equal deposit");
@@ -98,16 +116,16 @@ contract LaunchpadEngineTest is Test {
     function test_RevertWhen_NonCreatorCreatesMarket() public {
         vm.prank(trader1); // Not the creator
         vm.expectRevert("LaunchpadEngine: not creator");
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
     }
 
     function test_RevertWhen_MarketAlreadyExists() public {
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         vm.prank(creator);
         vm.expectRevert("LaunchpadEngine: already exists");
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
     }
 
     // ============================================
@@ -117,7 +135,7 @@ contract LaunchpadEngineTest is Test {
     function test_TradePositions_PreGraduation() public {
         // Create market
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         // Activate market
         vm.prank(creator);
@@ -130,6 +148,12 @@ contract LaunchpadEngineTest is Test {
         vm.prank(trader1);
         uint256 actualCost = launchpad.tradePositions(address(market), deltaShares, maxCost);
 
+        // Position should be attributed to trader (not LaunchpadEngine)
+        int256 traderShares = amm.getPosition(address(market), trader1);
+        assertEq(traderShares, deltaShares, "AMMEngine position should be attributed to trader");
+        int256 engineShares = amm.getPosition(address(market), address(launchpad));
+        assertEq(engineShares, 0, "AMMEngine should not hold user positions");
+
         // Check trader received LP tokens (pre-grad: 100% of fees)
         uint256 traderLP = launchpad.getLPBalance(address(market), trader1);
         assertGt(traderLP, 0, "Trader should have LP tokens");
@@ -137,6 +161,41 @@ contract LaunchpadEngineTest is Test {
         // Check bCurrent increased
         (, , uint256 bCurrent, , , ) = launchpad.getMarketState(address(market));
         assertGt(bCurrent, INITIAL_LIQUIDITY, "bCurrent should have increased");
+
+        // AMM liquidity should also have increased (pricing depth matches Launchpad bCurrent)
+        uint256 ammLiquidity = amm.getLiquidity(address(market));
+        assertGt(ammLiquidity, INITIAL_LIQUIDITY, "AMM liquidity should have increased");
+    }
+
+    function test_SellNO_Works() public {
+        // Create market
+        vm.prank(creator);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
+
+        // Activate market
+        vm.prank(creator);
+        market.activate();
+
+        // Buy NO (long NO = negative YES exposure)
+        int256 buyNo = -100 * int256(WAD);
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), buyNo, 1000 * WAD);
+
+        int256 posAfterBuy = amm.getPosition(address(market), trader1);
+        assertEq(posAfterBuy, buyNo, "Trader should be long NO (negative shares)");
+
+        // Sell NO (close part of NO by moving toward zero: positive delta)
+        int256 sellNo = 40 * int256(WAD);
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), sellNo, 0);
+
+        int256 posAfterSell = amm.getPosition(address(market), trader1);
+        assertEq(posAfterSell, buyNo + sellNo, "Position should move toward zero after NO sell");
+
+        // Proceeds should be locked to trader
+        (uint256 available, uint256 locked) = amm.getBalances(trader1);
+        assertGt(available, 0, "Available proceeds should increase");
+        assertEq(available, locked, "All proceeds should be locked initially");
     }
 
     // Helper function to graduate a market by trading until threshold is reached
@@ -175,7 +234,7 @@ contract LaunchpadEngineTest is Test {
     function test_Graduation() public {
         // Create market
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         // Activate market
         vm.prank(creator);
@@ -193,10 +252,47 @@ contract LaunchpadEngineTest is Test {
         assertEq(progressBps, 10000, "Progress should be 100%");
     }
 
+    function test_Graduation_AtomicRegistration() public {
+        // Create market
+        vm.prank(creator);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
+
+        // Activate market
+        vm.prank(creator);
+        market.activate();
+
+        // Check not registered yet
+        assertFalse(collateralizer.isMarketRegistered(address(market)), "Should not be in Collateralizer yet");
+        
+        bytes32 marketKey = keccak256(abi.encodePacked(address(market), address(0), address(0))); // Placeholder
+        // (Actual key needs yes/no addresses, which we don't have yet)
+
+        // Graduate market
+        _graduateMarket(address(market), trader1);
+
+        // Verify graduation
+        (, , , , bool isGraduated, ) = launchpad.getMarketState(address(market));
+        assertTrue(isGraduated, "Market should be graduated");
+
+        // Verify atomic registration in Collateralizer
+        assertTrue(collateralizer.isMarketRegistered(address(market)), "Should be atomically registered in Collateralizer");
+        (address yes, address no) = collateralizer.getOutcomeTokens(address(market));
+        assertNotEq(yes, address(0), "YES token should be deployed");
+        assertNotEq(no, address(0), "NO token should be deployed");
+
+        // Verify atomic registration in TickBook
+        bytes32 actualKey = keccak256(abi.encodePacked(address(market), yes, no));
+        (address tm, address yt, address nt, bool active) = tickBook.getMarketInfo(actualKey);
+        assertEq(tm, address(market), "TickBook: incorrect market");
+        assertEq(yt, yes, "TickBook: incorrect yes token");
+        assertEq(nt, no, "TickBook: incorrect no token");
+        assertTrue(active, "TickBook: market should be active");
+    }
+
     function test_FeeDistribution_PostGraduation() public {
         // Create market
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         vm.prank(creator);
         market.activate();
@@ -226,7 +322,7 @@ contract LaunchpadEngineTest is Test {
     function test_RedeemLP() public {
         // Create market
         vm.prank(creator);
-        uint256 creatorLP = launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        uint256 creatorLP = launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         // Activate and trade
         vm.prank(creator);
@@ -252,7 +348,7 @@ contract LaunchpadEngineTest is Test {
 
     function test_RevertWhen_InsufficientLP() public {
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         vm.prank(trader1);
         vm.expectRevert("LaunchpadEngine: insufficient LP");
@@ -265,7 +361,7 @@ contract LaunchpadEngineTest is Test {
 
     function test_IncreaseBBase() public {
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         uint256 additionalAmount = 500 * WAD;
         uint256 creatorLPBefore = launchpad.getLPBalance(address(market), creator);
@@ -288,7 +384,7 @@ contract LaunchpadEngineTest is Test {
 
     function test_RevertWhen_NonCreatorIncreasesBBase() public {
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         vm.prank(trader1);
         vm.expectRevert("LaunchpadEngine: not creator");
@@ -359,7 +455,7 @@ contract LaunchpadEngineTest is Test {
 
     function test_GetGraduationProgress() public {
         vm.prank(creator);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
         vm.prank(creator);
         market.activate();

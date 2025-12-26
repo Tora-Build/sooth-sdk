@@ -13,6 +13,16 @@
         "internalType": "address"
       },
       {
+        "name": "_collateralizer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_tickBook",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_protocolTreasury",
         "type": "address",
         "internalType": "address"
@@ -53,6 +63,19 @@
   },
   {
     "type": "function",
+    "name": "collateralizer",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICollateralizer"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "createMarket",
     "inputs": [
       {
@@ -64,6 +87,16 @@
         "name": "initialLiquidity",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "symbol",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [
@@ -461,6 +494,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "tickBook",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ITickBook"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",

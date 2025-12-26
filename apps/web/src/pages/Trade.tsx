@@ -7,7 +7,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Search, TrendingUp, Zap, Clock, ChevronRight, GraduationCap } from 'lucide-react';
-import { useChainId } from 'wagmi';
+import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { SimpleTradingPanel } from '../components/features/v8';
@@ -36,33 +36,33 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
   return (
     <button
       onClick={onSelect}
-      className={`card-lift w-full p-3 rounded-lg text-left focus-ring relative overflow-hidden ${isSelected
+      className={`card-lift w-full p-3 rounded-lg text-left focus-ring relative overflow-hidden transition-all duration-200 ${isSelected
         ? 'bg-indigo-600/20 border-indigo-500 border shadow-lg shadow-indigo-500/10'
         : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
         }`}
     >
-      {isGraduated && (
-        <div className="absolute top-0 right-0 w-8 h-8 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] font-bold py-0.5 px-4 rotate-45 translate-x-3 translate-y-[-2px] shadow-sm">
-            PRO
-          </div>
-        </div>
-      )}
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 mb-0.5">
             <p className={`font-medium truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
               {market.symbol}
             </p>
-            {isGraduated && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Graduated to TickBook" />}
+            {isGraduated && (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest leading-none">
+                <Zap className="w-2 h-2 fill-current" />
+                PRO
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-500 truncate">{market.name}</p>
+          <p className="text-[10px] text-slate-500 truncate leading-tight">{market.name}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-lg font-bold tabular-nums ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
-            }`}>
-            {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <span className={`text-lg font-bold tabular-nums block leading-none ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
+              }`}>
+              {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
+            </span>
+          </div>
           <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-0.5' : 'text-slate-600'}`} />
         </div>
       </div>
@@ -73,14 +73,15 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
 export const Trade = () => {
   const { marketId } = useParams<{ marketId?: string }>();
   const navigate = useNavigate();
-  const chainId = useChainId();
+  const { selectedChainId } = useChainStore();
+  const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
 
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
-      m.version === 'v8.1' && m.chainId === chainId
+      m.version.startsWith('v8') && m.chainId === chainId
     );
   }, [chainId]);
 
@@ -219,7 +220,7 @@ export const Trade = () => {
                 <SimpleTradingPanel
                   address={selectedMarket.contractAddress as `0x${string}`}
                   isGraduated={launchpad?.isGraduated}
-                  isSettled={truth != null && truth.isLive === false}
+                  isSettled={truth?.isSettled ?? false}
                 />
 
                 {/* Quick Links */}

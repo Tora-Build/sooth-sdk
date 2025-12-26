@@ -63,7 +63,12 @@ contract DeployTestMarket is Script {
         console.log("   USDC approved");
         
         // Create market
-        LaunchpadEngine(launchpadEngine).createMarket(address(market), bBase);
+        LaunchpadEngine(launchpadEngine).createMarket(
+            address(market),
+            bBase,
+            "ETH > $5000 by EOY 2025",
+            "ETH5K"
+        );
         console.log("   Market created in LaunchpadEngine");
         
         vm.stopBroadcast();

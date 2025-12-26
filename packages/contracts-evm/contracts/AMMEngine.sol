@@ -4,7 +4,9 @@ pragma solidity ^0.8.20;
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {LMSRMath} from "./libraries/LMSRMath.sol";
 
 /**
@@ -13,7 +15,7 @@ import {LMSRMath} from "./libraries/LMSRMath.sol";
  * @dev Positions are non-transferable ledger entries
  *      Users manage their own USDC custody (EOA, Safe, smart account, etc.)
  */
-contract AMMEngine is IAMMEngine {
+contract AMMEngine is IAMMEngine, Ownable {
     using SafeERC20 for IERC20;
 
     // ============================================
@@ -29,6 +31,10 @@ contract AMMEngine is IAMMEngine {
 
     /// @notice USDC token address
     IERC20 public immutable usdc;
+    uint8 private immutable usdcDecimals; // Cached for WAD ↔ token-decimals conversions
+
+    /// @notice Authorized router (LaunchpadEngine) that can trade on behalf of users
+    address public router;
 
     /// @notice Market state
     mapping(address => MarketState) private _markets;
@@ -56,9 +62,24 @@ contract AMMEngine is IAMMEngine {
     // Constructor
     // ============================================
 
-    constructor(address _usdc) {
+    constructor(address _usdc, address _owner) Ownable(_owner) {
         require(_usdc != address(0), "AMMEngine: zero usdc");
         usdc = IERC20(_usdc);
+        usdcDecimals = IERC20Metadata(_usdc).decimals();
+    }
+
+    // ============================================
+    // Router Configuration
+    // ============================================
+
+    function setRouter(address _router) external onlyOwner {
+        router = _router;
+        emit RouterUpdated(_router);
+    }
+
+    modifier onlyRouter() {
+        require(msg.sender == router, "AMMEngine: not router");
+        _;
     }
 
     // ============================================
@@ -96,13 +117,37 @@ contract AMMEngine is IAMMEngine {
         int256 deltaShares,
         uint256 maxCost
     ) external override returns (uint256 actualCost) {
+        return _tradePositions(msg.sender, msg.sender, market, deltaShares, maxCost);
+    }
+
+    /**
+     * @inheritdoc IAMMEngine
+     */
+    function tradePositionsFor(
+        address user,
+        address market,
+        int256 deltaShares,
+        uint256 maxCost
+    ) external override onlyRouter returns (uint256 actualCost) {
+        require(user != address(0), "AMMEngine: zero user");
+        // Payer is the router (LaunchpadEngine) which has custody of trade USDC (via fee layer).
+        return _tradePositions(user, msg.sender, market, deltaShares, maxCost);
+    }
+
+    function _tradePositions(
+        address user,
+        address payer,
+        address market,
+        int256 deltaShares,
+        uint256 maxCost
+    ) internal returns (uint256 actualCost) {
         require(deltaShares != 0, "AMMEngine: zero delta");
         require(ITruthMarket(market).isLive(), "AMMEngine: market not live");
 
         MarketState storage state = _markets[market];
         require(state.initialized, "AMMEngine: not initialized");
 
-        Position storage position = _positions[market][msg.sender];
+        Position storage position = _positions[market][user];
 
         // Calculate new quantities
         (uint256 newQYes, uint256 newQNo) = LMSRMath.calculateNewQuantities(
@@ -120,50 +165,63 @@ contract AMMEngine is IAMMEngine {
             newQNo
         );
 
-        if (deltaShares > 0) {
-            // Buying YES
-            require(actualCost <= maxCost, "AMMEngine: cost too high");
-            
-            // Spend from available balance first, then pull from wallet
-            if (_availableBalance[msg.sender] >= actualCost) {
-                // Sufficient available balance
-                _availableBalance[msg.sender] -= actualCost;
-                emit BalanceUsed(msg.sender, actualCost, _availableBalance[msg.sender]);
+        // NOTE: V8.1 position model uses a single signed "YES exposure" number:
+        //   +shares = long YES
+        //   -shares = long NO (short YES)
+        //
+        // For UX symmetry we support "sell" for both sides:
+        //   - If user is long YES (position > 0) and deltaShares < 0, that's a YES sell (close YES) → proceeds locked.
+        //   - If user is long NO  (position < 0) and deltaShares > 0, that's a NO sell (close NO)  → proceeds locked.
+        // Otherwise it's an "open / increase exposure" trade → pay cost.
+
+        bool isClosingYes = (deltaShares < 0) && (position.shares > 0);
+        bool isClosingNo = (deltaShares > 0) && (position.shares < 0);
+
+        if (isClosingYes || isClosingNo) {
+            // Closing position → lock proceeds
+            if (isClosingYes) {
+                require(position.shares >= -deltaShares, "AMMEngine: insufficient shares");
             } else {
-                // Partial or full wallet pull
-                uint256 fromBalance = _availableBalance[msg.sender];
-                uint256 fromWallet = actualCost - fromBalance;
-                
-                _availableBalance[msg.sender] = 0;
-                usdc.safeTransferFrom(msg.sender, address(this), _wadToUsdcCeil(fromWallet));
-                
-                if (fromBalance > 0) {
-                    emit BalanceUsed(msg.sender, fromBalance, 0);
-                }
-                emit WalletPull(msg.sender, fromWallet);
+                require(uint256(-position.shares) >= uint256(deltaShares), "AMMEngine: insufficient shares");
             }
-            
-            // Update position
-            position.shares += deltaShares;
-        } else {
-            // Selling YES (buying NO)
-            require(position.shares >= -deltaShares, "AMMEngine: insufficient shares");
-            
-            // Credit available balance + add to lock queue
-            _availableBalance[msg.sender] += actualCost;
-            _lockedBalance[msg.sender] += actualCost;
-            
-            _lockQueue[msg.sender].push(IAMMEngine.LockEntry({
+
+            // For closes, interpret maxCost as a *minimum proceeds* (slippage protection)
+            if (maxCost > 0) {
+                require(actualCost >= maxCost, "AMMEngine: slippage exceeded");
+            }
+
+            _availableBalance[user] += actualCost;
+            _lockedBalance[user] += actualCost;
+
+            _lockQueue[user].push(IAMMEngine.LockEntry({
                 amount: actualCost,
                 expiry: uint64(block.timestamp + LOCK_DURATION),
                 market: market
             }));
-            
-            
-            // Update position
-            position.shares += deltaShares; // deltaShares is negative
-            
-            emit ProceedsLocked(msg.sender, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
+
+            position.shares += deltaShares;
+            emit ProceedsLocked(user, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
+        } else {
+            // Opening / increasing exposure → pay cost
+            require(actualCost <= maxCost, "AMMEngine: cost too high");
+
+            if (_availableBalance[user] >= actualCost) {
+                _availableBalance[user] -= actualCost;
+                emit BalanceUsed(user, actualCost, _availableBalance[user]);
+            } else {
+                uint256 fromBalance = _availableBalance[user];
+                uint256 fromWallet = actualCost - fromBalance;
+
+                _availableBalance[user] = 0;
+                usdc.safeTransferFrom(payer, address(this), _wadToUsdcCeil(fromWallet));
+
+                if (fromBalance > 0) {
+                    emit BalanceUsed(user, fromBalance, 0);
+                }
+                emit WalletPull(user, fromWallet);
+            }
+
+            position.shares += deltaShares;
         }
 
         // Update market state
@@ -171,7 +229,7 @@ contract AMMEngine is IAMMEngine {
         state.qNo = newQNo;
 
         emit PositionTraded(
-            msg.sender,
+            user,
             market,
             deltaShares,
             actualCost,
@@ -180,6 +238,17 @@ contract AMMEngine is IAMMEngine {
         );
 
         return actualCost;
+    }
+
+    /**
+     * @inheritdoc IAMMEngine
+     */
+    function increaseLiquidity(address market, uint256 deltaLiquidity) external override onlyRouter {
+        require(deltaLiquidity > 0, "AMMEngine: zero liquidity");
+        MarketState storage state = _markets[market];
+        require(state.initialized, "AMMEngine: not initialized");
+        state.liquidity += deltaLiquidity;
+        emit LiquidityIncreased(market, deltaLiquidity, state.liquidity);
     }
 
     /**
@@ -425,12 +494,27 @@ contract AMMEngine is IAMMEngine {
     // Internal Helpers
     // ============================================
 
-    function _wadToUsdc(uint256 wad) internal pure returns (uint256) {
-        return wad / 1e12;
+    function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
+        // Floor conversion for transfers FROM the contract.
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            return wadAmount / (10 ** (18 - usdcDecimals));
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
     }
 
-    function _wadToUsdcCeil(uint256 wad) internal pure returns (uint256) {
-        if (wad == 0) return 0;
-        return (wad - 1) / 1e12 + 1;
+    function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
+        // Ceil conversion for transfers TO the contract.
+        if (wadAmount == 0) return 0;
+        if (usdcDecimals == 18) {
+            return wadAmount;
+        } else if (usdcDecimals < 18) {
+            uint256 factor = 10 ** (18 - usdcDecimals);
+            return (wadAmount + factor - 1) / factor;
+        } else {
+            return wadAmount * (10 ** (usdcDecimals - 18));
+        }
     }
 }

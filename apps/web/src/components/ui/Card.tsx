@@ -10,7 +10,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     const variants = {
       default: 'glass-card',
       premium: 'glass-card-premium',
-      interactive: 'glass-card hover:border-indigo-500/30 hover:shadow-glow-indigo transition-all duration-300',
+      interactive: 'glass-card card-lift hover:border-indigo-500/25 shadow-glow-indigo transition-all duration-200',
     };
     
     return (

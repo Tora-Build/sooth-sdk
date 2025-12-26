@@ -50,6 +50,12 @@ interface IAMMEngine {
         uint256 totalUnlocked
     );
 
+    /// @notice Router (e.g. LaunchpadEngine) authorized to trade on behalf of users
+    event RouterUpdated(address indexed router);
+
+    /// @notice Market liquidity (b) updated (WAD)
+    event LiquidityIncreased(address indexed market, uint256 deltaLiquidity, uint256 newLiquidity);
+
     // ============================================
     // Structs
     // ============================================
@@ -92,6 +98,39 @@ interface IAMMEngine {
         int256 deltaShares,
         uint256 maxCost
     ) external returns (uint256 actualCost);
+
+    /**
+     * @notice Execute trade on behalf of a user (router-only)
+     * @dev Used by LaunchpadEngine so AMM positions + balances are attributed to the trader,
+     *      while USDC can still be routed through the LaunchpadEngine economics layer.
+     * @param user Trader whose position/balances are affected
+     * @param market Market address
+     * @param deltaShares Share delta in WAD (1e18 = 1 share)
+     * @param maxCost Maximum USDC to spend (WAD precision)
+     */
+    function tradePositionsFor(
+        address user,
+        address market,
+        int256 deltaShares,
+        uint256 maxCost
+    ) external returns (uint256 actualCost);
+
+    /**
+     * @notice Increase market liquidity parameter b (WAD)
+     * @dev Router-only. LaunchpadEngine calls this when fees are reinvested into depth.
+     */
+    function increaseLiquidity(address market, uint256 deltaLiquidity) external;
+
+    /**
+     * @notice Set router address
+     * @dev Owner-only
+     */
+    function setRouter(address router) external;
+
+    /**
+     * @notice Current router address
+     */
+    function router() external view returns (address);
 
     /**
      * @notice Get quote for position trade (view-only)

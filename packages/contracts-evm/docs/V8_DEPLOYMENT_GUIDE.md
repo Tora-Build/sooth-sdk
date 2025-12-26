@@ -106,40 +106,40 @@ contract DeployV8 is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // 1. Deploy OutcomeToken implementation
-        console.log("\n1. Deploying OutcomeToken implementation...");
-        outcomeTokenImpl = address(new OutcomeToken());
-        console.log("OutcomeToken implementation:", outcomeTokenImpl);
-        
-        // 2. Deploy Collateralizer
-        console.log("\n2. Deploying Collateralizer...");
-        collateralizer = address(new Collateralizer(usdc, outcomeTokenImpl));
+        // 1. Deploy Collateralizer
+        console.log("\n1. Deploying Collateralizer...");
+        collateralizer = address(new Collateralizer(usdc));
         console.log("Collateralizer:", collateralizer);
         
-        // 3. Deploy AMMEngine
-        console.log("\n3. Deploying AMMEngine...");
-        ammEngine = address(new AMMEngine(usdc));
+        // 2. Deploy AMMEngine
+        console.log("\n2. Deploying AMMEngine...");
+        ammEngine = address(new AMMEngine(usdc, deployer));
         console.log("AMMEngine:", ammEngine);
         
-        // 4. Deploy TickBook
-        console.log("\n4. Deploying TickBook...");
+        // 3. Deploy TickBook
+        console.log("\n3. Deploying TickBook...");
         tickBook = address(new TickBook());
         console.log("TickBook:", tickBook);
         
-        // 5. Deploy LaunchpadEngine
-        console.log("\n5. Deploying LaunchpadEngine...");
+        // 4. Deploy LaunchpadEngine
+        console.log("\n4. Deploying LaunchpadEngine...");
         launchpadEngine = address(new LaunchpadEngine(
             usdc,
             ammEngine,
-            deployer // Initial owner (can transfer later)
+            collateralizer,
+            tickBook,
+            deployer, // Protocol Treasury
+            deployer  // Initial owner
         ));
         console.log("LaunchpadEngine:", launchpadEngine);
+
+        // 5. Configure AMM router
+        AMMEngine(ammEngine).setRouter(launchpadEngine);
         
         vm.stopBroadcast();
         
         // Print summary
         console.log("\n=== V8 Deployment Summary ===");
-        console.log("OutcomeToken (impl):", outcomeTokenImpl);
         console.log("Collateralizer:", collateralizer);
         console.log("AMMEngine:", ammEngine);
         console.log("TickBook:", tickBook);
@@ -149,7 +149,6 @@ contract DeployV8 is Script {
         // Save to JSON
         string memory json = string.concat(
             '{\n',
-            '  "outcomeToken": "', vm.toString(outcomeTokenImpl), '",\n',
             '  "collateralizer": "', vm.toString(collateralizer), '",\n',
             '  "ammEngine": "', vm.toString(ammEngine), '",\n',
             '  "tickBook": "', vm.toString(tickBook), '",\n',

@@ -114,6 +114,7 @@ export function useAMMQuoteDirect(
   const isLoadingAmm = amm.isLoading;
 
   const sharesWad = BigInt(Math.floor(shares * 1e18));
+  const isAmmInitialized = (amm.amm?.liquidity ?? 0n) > 0n;
 
   // V8 Position Model:
   // - Positive deltaShares = Long YES
@@ -137,7 +138,7 @@ export function useAMMQuoteDirect(
   // Note: Convert BigInt to string in queryKey since JSON.stringify can't serialize BigInt
   const { data: quoteData, isLoading: quoteLoading, error } = useV8DirectRead<readonly [bigint, bigint]>({
     queryKey: ['amm-quote', marketAddress, deltaShares.toString(), chainId],
-    enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n,
+    enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n && isAmmInitialized,
     chainId,
     read: async (client) => {
       try {
@@ -199,6 +200,13 @@ export function useAMMQuoteDirect(
     const targetNewPrice = outcome === 0 ? newYesPrice : newNoPrice;
     const priceImpact = currentPrice > 0 ? ((targetNewPrice - currentPrice) / currentPrice) * 100 : 0;
 
+    const fmtCost = (valWad: bigint) => {
+      const val = Number(valWad) / 1e18;
+      if (val === 0) return '$0.00';
+      if (Math.abs(val) < 0.01) return `$${val.toFixed(4)}`;
+      return `$${val.toFixed(2)}`;
+    };
+
     return {
       deltaShares,
       isBuy,
@@ -210,8 +218,8 @@ export function useAMMQuoteDirect(
       newYesPrice,
       newNoPrice,
       priceImpact,
-      costFormatted: `$${(Number(totalCost) / 1e18).toFixed(2)}`,
-      feeFormatted: `$${(Number(fee) / 1e18).toFixed(2)}`,
+      costFormatted: fmtCost(totalCost),
+      feeFormatted: fmtCost(fee),
       sharesFormatted: shares.toLocaleString(),
       isLoading: false,
       error: null,

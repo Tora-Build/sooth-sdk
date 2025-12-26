@@ -39,7 +39,9 @@ export {
     useTruthMarketDirect,
     useLaunchpadMarketDirect,
     useAmmMarketDirect,
+    useAMMPositionDirect,
     useCollateralizerDirect,
     useAMMQuoteDirect,
+    useLaunchpadPositionDirect,
     useTickBookDirect,
 } from "./direct";

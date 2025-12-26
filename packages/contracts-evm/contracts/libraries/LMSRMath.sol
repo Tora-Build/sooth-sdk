@@ -190,7 +190,9 @@ library LMSRMath {
         uint256 qNo
     ) internal pure returns (uint256 probability) {
         // Use log-space for numerical stability
-        int256 logOdds = int256((qYes * WAD - qNo * WAD) / b);
+        // IMPORTANT: qYes*WAD - qNo*WAD must be done in signed space to avoid uint underflow when qNo > qYes.
+        int256 diff = int256(qYes) - int256(qNo); // signed WAD shares
+        int256 logOdds = (diff * int256(WAD)) / int256(b); // signed WAD
         
         // P = 1 / (1 + e^(-logOdds)) = e^logOdds / (1 + e^logOdds)
         if (logOdds >= 0) {

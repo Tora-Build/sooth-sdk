@@ -9,7 +9,9 @@
 export { useV8DirectRead, readContractSafe } from "./useV8DirectRead";
 export { useTruthMarketDirect } from "./useTruthMarketDirect";
 export { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
+export { useLaunchpadPositionDirect } from "./useLaunchpadPositionDirect";
 export { useAmmMarketDirect } from "./useAmmMarketDirect";
+export { useAMMPositionDirect } from "./useAMMPositionDirect";
 export { useCollateralizerDirect } from "./useCollateralizerDirect";
 export { useAMMQuoteDirect } from "./useAMMQuoteDirect";
 export { useTickBookDirect } from "./useTickBookDirect";

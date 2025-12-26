@@ -54,7 +54,7 @@ contract DeployV8 is Script {
         
         // 2. Deploy AMMEngine
         console.log("2. Deploying AMMEngine...");
-        ammEngine = address(new AMMEngine(usdc));
+        ammEngine = address(new AMMEngine(usdc, deployer));
         console.log("   AMMEngine:", ammEngine);
         
         // 3. Deploy TickBook
@@ -68,9 +68,16 @@ contract DeployV8 is Script {
             usdc,
             ammEngine,
             collateralizer,
-            deployer // Initial owner (can transfer later)
+            tickBook,
+            deployer, // Protocol Treasury
+            deployer // Initial owner
         ));
         console.log("   LaunchpadEngine:", launchpadEngine);
+
+        // 5. Configure AMM router
+        console.log("5. Configuring AMM router...");
+        AMMEngine(ammEngine).setRouter(launchpadEngine);
+        console.log("   AMM router set to LaunchpadEngine");
         
         vm.stopBroadcast();
         

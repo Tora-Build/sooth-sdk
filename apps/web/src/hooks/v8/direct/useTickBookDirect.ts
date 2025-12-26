@@ -39,6 +39,20 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
       const [tickIndex, probabilityWad] = currentTickData;
       const [truthMarket, yesTokenAddr, noTokenAddr, isActive] = marketInfo;
 
+      if (!isActive) {
+        return {
+          marketKey,
+          currentTick: 5000,
+          probability: 0.5,
+          isActive: false,
+          truthMarket,
+          yesToken: yesTokenAddr,
+          noToken: noTokenAddr,
+          bids: [],
+          asks: [],
+        };
+      }
+
       // Fetch nearby active ticks for the orderbook visualization
       // We'll fetch up to 10 ticks in each direction for now
       const fetchTicks = async (start: number, count: number, isUp: boolean) => {

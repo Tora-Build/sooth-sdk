@@ -43,16 +43,34 @@ import { UserHistory } from '../components/features/v8/ProTerminal/UserHistory';
 export const Pro = () => {
   const { marketId } = useParams<{ marketId?: string }>();
   const navigate = useNavigate();
-  const { isConnected } = useAccount();
+  const { isConnected, address: userAddress } = useAccount();
   const chainId = useChainId();
   const { contracts } = useDeployments();
   const { writeContractAsync } = useWriteContract();
 
   // --------------------------------------------------------------------------
+  // UI State
+  // --------------------------------------------------------------------------
+  const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
+  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
+  const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
+  const [priceMode, setPriceMode] = useState<'ranged' | 'single'>('ranged');
+
+  // Tabs for Inventory/History
+  const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
+
+  // Price Inputs
+  const [range, setRange] = useState<[number, number]>([45, 55]);
+  const [lowerInput, setLowerInput] = useState('45');
+  const [upperInput, setUpperInput] = useState('55');
+  const [sizeInput, setSizeInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --------------------------------------------------------------------------
   // Data Fetching & Prep
   // --------------------------------------------------------------------------
   const { v8Markets, selectedMarket } = useMemo(() => {
-    const markets = marketsConfig.markets.filter(m => m.version === 'v8.1' && m.chainId === chainId);
+    const markets = marketsConfig.markets.filter(m => m.version.startsWith('v8') && m.chainId === chainId);
     return {
       v8Markets: markets,
       selectedMarket: marketId ? markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase()) : markets[0]
@@ -94,22 +112,87 @@ export const Pro = () => {
   const noBalance = collateralizer?.noToken ? (balances[2] ?? 0n) : 0n;
 
   // --------------------------------------------------------------------------
-  // UI State
+  // Approval Detection
   // --------------------------------------------------------------------------
-  const [outcome, setOutcome] = useState<'yes' | 'no'>('yes');
-  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
-  const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
-  const [priceMode, setPriceMode] = useState<'ranged' | 'single'>('ranged');
+  const { data: usdcAllowance, refetch: refetchUsdcAllowance } = useReadContract({
+    address: contracts.MockUSDC as `0x${string}`,
+    abi: V8_ABIS.OutcomeToken,
+    functionName: 'allowance',
+    args: isConnected && collateralizer ? [userAddress!, contracts.Collateralizer as `0x${string}`] : undefined,
+    query: { enabled: !!isConnected && !!contracts.Collateralizer && !!contracts.MockUSDC }
+  });
 
-  // Tabs for Inventory/History
-  const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
+  const { data: yesAllowance, refetch: refetchYesAllowance } = useReadContract({
+    address: collateralizer?.yesToken as `0x${string}`,
+    abi: V8_ABIS.OutcomeToken,
+    functionName: 'allowance',
+    args: isConnected && tickBook?.marketKey ? [userAddress!, contracts.TickBook as `0x${string}`] : undefined,
+    query: { enabled: !!isConnected && !!contracts.TickBook && !!collateralizer?.yesToken }
+  });
 
-  // Price Inputs
-  const [range, setRange] = useState<[number, number]>([45, 55]);
-  const [lowerInput, setLowerInput] = useState('45');
-  const [upperInput, setUpperInput] = useState('55');
-  const [sizeInput, setSizeInput] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: noAllowance, refetch: refetchNoAllowance } = useReadContract({
+    address: collateralizer?.noToken as `0x${string}`,
+    abi: V8_ABIS.OutcomeToken,
+    functionName: 'allowance',
+    args: isConnected && tickBook?.marketKey ? [userAddress!, contracts.TickBook as `0x${string}`] : undefined,
+    query: { enabled: !!isConnected && !!contracts.TickBook && !!collateralizer?.noToken }
+  });
+
+  const refetchAllAllowances = () => {
+    refetchUsdcAllowance();
+    refetchYesAllowance();
+    refetchNoAllowance();
+  };
+
+  const needsExecutionApproval = useMemo(() => {
+    if (!sizeInput || isSubmitting) return false;
+    const amountBg = parseUnits(sizeInput, 18);
+    
+    if (orderType === 'market') {
+      const isBuyYes = (outcome === 'yes' && tradeMode === 'buy') || (outcome === 'no' && tradeMode === 'sell');
+      const allowance = isBuyYes ? (noAllowance as bigint) : (yesAllowance as bigint);
+      return (allowance ?? 0n) < amountBg;
+    } else {
+      // For limit orders, check both YES and NO token allowances since they may both be needed
+      return ((yesAllowance as bigint) ?? 0n) < amountBg || ((noAllowance as bigint) ?? 0n) < amountBg;
+    }
+  }, [sizeInput, isSubmitting, orderType, outcome, tradeMode, yesAllowance, noAllowance]);
+
+  const needsSplitApproval = useMemo(() => {
+    if (!sizeInput || isSubmitting) return false;
+    const amountBg = parseUnits(sizeInput, 18);
+    return ((usdcAllowance as bigint) ?? 0n) < amountBg;
+  }, [sizeInput, isSubmitting, usdcAllowance]);
+
+  const handleApprove = async (type: 'usdc' | 'yes' | 'no') => {
+    setIsSubmitting(true);
+    try {
+      let tokenAddr = '';
+      let spender = '';
+      
+      if (type === 'usdc') {
+        tokenAddr = contracts.MockUSDC as string;
+        spender = contracts.Collateralizer as string;
+      } else {
+        tokenAddr = (type === 'yes' ? collateralizer?.yesToken : collateralizer?.noToken) as string;
+        spender = contracts.TickBook as string;
+      }
+
+      await writeContractAsync({
+        address: tokenAddr as `0x${string}`,
+        abi: V8_ABIS.OutcomeToken,
+        functionName: 'approve',
+        args: [spender as `0x${string}`, parseUnits('1000000000', 18)]
+      });
+      refetchAllAllowances();
+      toast.success('Approved!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Approval failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Bug #5: Prevent negative price inputs
   const handlePriceInputChange = (val: string, isLower: boolean) => {
@@ -158,12 +241,13 @@ export const Pro = () => {
   // Execution Logic
   // --------------------------------------------------------------------------
   const getActionLabel = () => {
+    if (tickBook && !tickBook.isActive) return 'MARKET INACTIVE';
     if (orderType === 'market') return `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${outcome.toUpperCase()}`;
     return `Place ${tradeMode === 'buy' ? 'Buy' : 'Sell'} Order`;
   };
 
   const executeTrade = async () => {
-    if (!sizeInput || !tickBook?.marketKey) return;
+    if (!sizeInput || !tickBook?.marketKey || !tickBook?.isActive) return;
     setIsSubmitting(true);
     const amountBg = parseUnits(sizeInput, 18);
 
@@ -189,7 +273,11 @@ export const Pro = () => {
       refetchTickBook();
       refetchBalances();
       setSizeInput('');
-    } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
+    } catch (e) { 
+      console.error(e);
+      const errorMsg = (e as any)?.cause?.reason || (e as any)?.message || 'Trade failed';
+      toast.error(errorMsg);
+    } finally { setIsSubmitting(false); }
   };
 
   const doAction = async (method: 'split' | 'merge') => {
@@ -389,16 +477,51 @@ export const Pro = () => {
                 </div>
 
                 {/* EXECUTE BUTTON */}
-                <Button
-                  onClick={executeTrade}
-                  disabled={!isConnected || !sizeInput || isSubmitting}
-                  className={cn(
-                    "w-full h-12 text-lg font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99]",
-                    tradeMode === 'buy' ? "btn-buy" : "btn-sell"
-                  )}
-                >
-                  {isSubmitting ? 'PROCESSING...' : getActionLabel()}
-                </Button>
+                {needsExecutionApproval ? (
+                  <div className="flex gap-2">
+                    {orderType === 'market' ? (
+                      <Button
+                        onClick={() => handleApprove((outcome === 'yes' && tradeMode === 'buy') || (outcome === 'no' && tradeMode === 'sell') ? 'no' : 'yes')}
+                        disabled={isSubmitting}
+                        className="w-full h-12 text-sm font-bold uppercase bg-amber-600 hover:bg-amber-500 text-white"
+                      >
+                        Approve {(outcome === 'yes' && tradeMode === 'buy') || (outcome === 'no' && tradeMode === 'sell') ? 'NO' : 'YES'} Tokens
+                      </Button>
+                    ) : (
+                      <>
+                        {((yesAllowance as bigint) ?? 0n) < parseUnits(sizeInput || '0', 18) && (
+                          <Button
+                            onClick={() => handleApprove('yes')}
+                            disabled={isSubmitting}
+                            className="w-full h-12 text-xs font-bold uppercase bg-amber-600 hover:bg-amber-500 text-white"
+                          >
+                            Approve YES
+                          </Button>
+                        )}
+                        {((noAllowance as bigint) ?? 0n) < parseUnits(sizeInput || '0', 18) && (
+                          <Button
+                            onClick={() => handleApprove('no')}
+                            disabled={isSubmitting}
+                            className="w-full h-12 text-xs font-bold uppercase bg-amber-600 hover:bg-amber-500 text-white"
+                          >
+                            Approve NO
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    onClick={executeTrade}
+                    disabled={!isConnected || !sizeInput || isSubmitting || !tickBook?.isActive}
+                    className={cn(
+                      "w-full h-12 text-lg font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99]",
+                      !tickBook?.isActive ? "bg-slate-800 text-slate-600 border-slate-700 cursor-not-allowed" : (tradeMode === 'buy' ? "btn-buy" : "btn-sell")
+                    )}
+                  >
+                    {isSubmitting ? 'PROCESSING...' : getActionLabel()}
+                  </Button>
+                )}
 
               </div>
             </GlassPanel>
@@ -432,10 +555,21 @@ export const Pro = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Button variant="secondary" onClick={() => doAction('split')} disabled={!sizeInput} className="text-xs">
-                    <ArrowUpRight className="w-3 h-3 mr-2" /> SPLIT USDC
-                  </Button>
-                  <Button variant="secondary" onClick={() => doAction('merge')} disabled={!sizeInput} className="text-xs">
+                  {needsSplitApproval ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => handleApprove('usdc')}
+                      disabled={isSubmitting}
+                      className="col-span-2 text-xs bg-amber-600 hover:bg-amber-500 text-white"
+                    >
+                      APPROVE USDC FOR COLLATERALIZER
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" onClick={() => doAction('split')} disabled={!sizeInput || isSubmitting} className="text-xs">
+                      <ArrowUpRight className="w-3 h-3 mr-2" /> SPLIT USDC
+                    </Button>
+                  )}
+                  <Button variant="secondary" onClick={() => doAction('merge')} disabled={!sizeInput || isSubmitting} className="text-xs">
                     <ArrowDownRight className="w-3 h-3 mr-2" /> MERGE TOKENS
                   </Button>
                 </div>
