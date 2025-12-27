@@ -52,11 +52,11 @@ export const Faucet = () => {
     }
 
     setIsMinting(true);
-    const tid = toast.loading('Requesting 10,000 mUSDC...');
+    const tid = toast.loading('Requesting 100,000 mUSDC...');
 
     try {
       const tokenDecimals = Number(decimals || 6);
-      const amount = parseUnits('10000', tokenDecimals);
+      const amount = parseUnits('100000', tokenDecimals);
 
       const hash = await writeContractAsync({
         address: deployments.MockUSDC as `0x${string}`,
@@ -67,7 +67,7 @@ export const Faucet = () => {
 
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
-        toast.success('10,000 mUSDC received!', { id: tid });
+        toast.success('100,000 mUSDC received!', { id: tid });
         refetchBalance();
       } else {
         toast.success('Transaction sent!', { id: tid });
@@ -108,7 +108,7 @@ export const Faucet = () => {
           </h3>
           
           <p className="text-slate-400 text-sm mb-6">
-            Mint 10,000 mUSDC to your wallet. This token is used as collateral for all trading on Sooth.
+            Mint 100,000 mUSDC to your wallet. This token is used as collateral for all trading on Sooth.
           </p>
 
           <div className="bg-slate-950/50 rounded-lg p-4 mb-6 border border-slate-800/50">
@@ -129,7 +129,7 @@ export const Faucet = () => {
             isLoading={isMinting}
             disabled={!isConnected}
           >
-            {isConnected ? 'Request 10,000 mUSDC' : 'Connect Wallet to Mint'}
+            {isConnected ? 'Request 100,000 mUSDC' : 'Connect Wallet to Mint'}
           </Button>
         </Card>
 
