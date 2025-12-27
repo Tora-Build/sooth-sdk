@@ -83,7 +83,7 @@ export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
           ) : (
             <Badge variant="warning" className="flex items-center gap-1">
               <GraduationCap className="w-3 h-3" />
-              Pre-Grad ({feePercent}% fee)
+              Bonding ({feePercent}% fee)
             </Badge>
           )}
         </div>

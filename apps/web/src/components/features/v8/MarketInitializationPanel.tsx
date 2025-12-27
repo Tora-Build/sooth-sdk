@@ -199,7 +199,7 @@ export const MarketInitializationPanel = ({ address }: MarketInitializationPanel
             <p className="text-slate-500 text-sm mb-2">Your Potential Earnings</p>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <p className="text-slate-500">Pre-Grad Fee</p>
+                <p className="text-slate-500">Bonding Fee</p>
                 <p className="text-orange-400">{preGradFee}%</p>
               </div>
               <div>

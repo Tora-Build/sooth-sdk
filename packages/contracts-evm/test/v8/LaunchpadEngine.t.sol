@@ -29,6 +29,10 @@ contract LaunchpadEngineTest is Test {
     uint256 constant LN2 = 693147180559945309; // ln(2) in WAD
     uint256 constant INITIAL_LIQUIDITY = 1000 * WAD; // $1,000
 
+    // V8.2 outcome constants
+    uint8 constant YES = 0;
+    uint8 constant NO = 1;
+
     function setUp() public {
         // Deploy mock USDC (18 decimals for simplicity)
         usdc = new ERC20Mock();
@@ -141,22 +145,25 @@ contract LaunchpadEngineTest is Test {
         vm.prank(creator);
         market.activate();
 
-        // Trade
-        int256 deltaShares = 100 * int256(WAD); // Buy 100 YES
+        // Trade: Buy 100 YES
+        int256 deltaShares = 100 * int256(WAD);
         uint256 maxCost = 1000 * WAD;
 
         vm.prank(trader1);
-        uint256 actualCost = launchpad.tradePositions(address(market), deltaShares, maxCost);
+        launchpad.tradePositions(address(market), YES, deltaShares, maxCost);
 
         // Position should be attributed to trader (not LaunchpadEngine)
-        int256 traderShares = amm.getPosition(address(market), trader1);
-        assertEq(traderShares, deltaShares, "AMMEngine position should be attributed to trader");
-        int256 engineShares = amm.getPosition(address(market), address(launchpad));
-        assertEq(engineShares, 0, "AMMEngine should not hold user positions");
+        (uint256 traderYes, uint256 traderNo) = amm.getPosition(address(market), trader1);
+        assertEq(traderYes, uint256(deltaShares), "AMMEngine YES position should be attributed to trader");
+        assertEq(traderNo, 0, "AMMEngine NO position should be zero");
+        
+        (uint256 engineYes, uint256 engineNo) = amm.getPosition(address(market), address(launchpad));
+        assertEq(engineYes, 0, "AMMEngine should not hold user YES positions");
+        assertEq(engineNo, 0, "AMMEngine should not hold user NO positions");
 
-        // Check trader received LP tokens (pre-grad: 100% of fees)
+        // V7 model: Traders get LP from fees (converts traders into stakeholders)
         uint256 traderLP = launchpad.getLPBalance(address(market), trader1);
-        assertGt(traderLP, 0, "Trader should have LP tokens");
+        assertGt(traderLP, 0, "Trader should have LP tokens from fees");
 
         // Check bCurrent increased
         (, , uint256 bCurrent, , , ) = launchpad.getMarketState(address(market));
@@ -176,21 +183,23 @@ contract LaunchpadEngineTest is Test {
         vm.prank(creator);
         market.activate();
 
-        // Buy NO (long NO = negative YES exposure)
-        int256 buyNo = -100 * int256(WAD);
+        // Buy 100 NO
+        int256 buyNo = 100 * int256(WAD);
         vm.prank(trader1);
-        launchpad.tradePositions(address(market), buyNo, 1000 * WAD);
+        launchpad.tradePositions(address(market), NO, buyNo, 1000 * WAD);
 
-        int256 posAfterBuy = amm.getPosition(address(market), trader1);
-        assertEq(posAfterBuy, buyNo, "Trader should be long NO (negative shares)");
+        (uint256 yesAfterBuy, uint256 noAfterBuy) = amm.getPosition(address(market), trader1);
+        assertEq(noAfterBuy, uint256(buyNo), "Trader should have NO shares");
+        assertEq(yesAfterBuy, 0, "Trader should have no YES shares");
 
-        // Sell NO (close part of NO by moving toward zero: positive delta)
-        int256 sellNo = 40 * int256(WAD);
+        // Sell 40 NO (negative delta = sell)
+        int256 sellNo = -40 * int256(WAD);
         vm.prank(trader1);
-        launchpad.tradePositions(address(market), sellNo, 0);
+        launchpad.tradePositions(address(market), NO, sellNo, 0);
 
-        int256 posAfterSell = amm.getPosition(address(market), trader1);
-        assertEq(posAfterSell, buyNo + sellNo, "Position should move toward zero after NO sell");
+        (uint256 yesAfterSell, uint256 noAfterSell) = amm.getPosition(address(market), trader1);
+        assertEq(noAfterSell, 60 * WAD, "NO position should decrease after sell");
+        assertEq(yesAfterSell, 0, "YES position should still be zero");
 
         // Proceeds should be locked to trader
         (uint256 available, uint256 locked) = amm.getBalances(trader1);
@@ -215,14 +224,14 @@ contract LaunchpadEngineTest is Test {
             (, , , , bool isGrad, ) = launchpad.getMarketState(_market);
             if (isGrad) break;
             
-            // Execute trade
+            // Execute trade (buy YES)
             vm.prank(trader);
-            try launchpad.tradePositions(_market, int256(batchSize), 100000 * WAD) {
+            try launchpad.tradePositions(_market, YES, int256(batchSize), 100000 * WAD) {
                 // Trade succeeded
             } catch {
                 // If trade fails (e.g., slippage), try smaller amount
                 vm.prank(trader);
-                launchpad.tradePositions(_market, int256(batchSize / 2), 100000 * WAD);
+                launchpad.tradePositions(_market, YES, int256(batchSize / 2), 100000 * WAD);
             }
         }
         
@@ -304,11 +313,11 @@ contract LaunchpadEngineTest is Test {
         (, , , , bool isGraduated, ) = launchpad.getMarketState(address(market));
         assertTrue(isGraduated, "Market should be graduated");
 
-        // Trade post-graduation
+        // Trade post-graduation (buy YES)
         uint256 treasuryBalanceBefore = usdc.balanceOf(treasury);
 
         vm.prank(trader2);
-        launchpad.tradePositions(address(market), 100 * int256(WAD), 1000 * WAD);
+        launchpad.tradePositions(address(market), YES, 100 * int256(WAD), 1000 * WAD);
 
         // Check treasury received protocol share (20% of fees)
         uint256 treasuryBalanceAfter = usdc.balanceOf(treasury);
@@ -320,16 +329,19 @@ contract LaunchpadEngineTest is Test {
     // ============================================
 
     function test_RedeemLP() public {
-        // Create market
+        // Create market - creator gets LP from initial deposit
         vm.prank(creator);
         uint256 creatorLP = launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
 
-        // Activate and trade
+        // Activate and trade (V7 model: trader gets LP from fees, NOT creator)
         vm.prank(creator);
         market.activate();
 
         vm.prank(trader1);
-        launchpad.tradePositions(address(market), 100 * int256(WAD), 1000 * WAD);
+        launchpad.tradePositions(address(market), YES, 100 * int256(WAD), 1000 * WAD);
+
+        // Creator LP should be unchanged (only got initial deposit LP)
+        assertEq(launchpad.getLPBalance(address(market), creator), creatorLP, "Creator LP unchanged after trade");
 
         // Creator redeems half their LP
         uint256 redeemAmount = creatorLP / 2;
@@ -460,9 +472,9 @@ contract LaunchpadEngineTest is Test {
         vm.prank(creator);
         market.activate();
 
-        // Trade to accumulate fees
+        // Trade to accumulate fees (buy YES)
         vm.prank(trader1);
-        launchpad.tradePositions(address(market), 100 * int256(WAD), 1000 * WAD);
+        launchpad.tradePositions(address(market), YES, 100 * int256(WAD), 1000 * WAD);
 
         (uint256 feesAccrued, uint256 threshold, uint256 progressBps) = 
             launchpad.getGraduationProgress(address(market));
@@ -471,5 +483,53 @@ contract LaunchpadEngineTest is Test {
         assertEq(threshold, (INITIAL_LIQUIDITY * 2), "Threshold should be 2x bBase");
         assertGt(progressBps, 0, "Progress should be > 0");
         assertLt(progressBps, 10000, "Progress should be < 100%");
+    }
+
+    // ============================================
+    // V8.2 Dual-Balance Tests
+    // ============================================
+
+    function test_HoldBothYesAndNo() public {
+        // Create and activate market
+        vm.prank(creator);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
+        vm.prank(creator);
+        market.activate();
+
+        // Buy YES
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), YES, 50 * int256(WAD), 500 * WAD);
+
+        // Buy NO (user can now hold both!)
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), NO, 30 * int256(WAD), 500 * WAD);
+
+        // Verify user holds both
+        (uint256 yesShares, uint256 noShares) = amm.getPosition(address(market), trader1);
+        assertEq(yesShares, 50 * WAD, "Should hold 50 YES");
+        assertEq(noShares, 30 * WAD, "Should hold 30 NO");
+    }
+
+    function test_SellYesIndependently() public {
+        // Create and activate market
+        vm.prank(creator);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
+        vm.prank(creator);
+        market.activate();
+
+        // Buy both YES and NO
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), YES, 100 * int256(WAD), 1000 * WAD);
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), NO, 50 * int256(WAD), 500 * WAD);
+
+        // Sell some YES
+        vm.prank(trader1);
+        launchpad.tradePositions(address(market), YES, -40 * int256(WAD), 0);
+
+        // Check positions
+        (uint256 yesShares, uint256 noShares) = amm.getPosition(address(market), trader1);
+        assertEq(yesShares, 60 * WAD, "YES should decrease to 60");
+        assertEq(noShares, 50 * WAD, "NO should remain 50");
     }
 }

@@ -1,5 +1,5 @@
 # Knowledge Base
-> Sooth Protocol V8.1 — Canonical Facts
+> Sooth Protocol V8.2 — Canonical Facts
 
 ---
 
@@ -29,8 +29,10 @@ Code              | User Term       | Notes
 available         | Liquid          | Withdrawable USDC
 outcome=0         | YES             | First outcome
 outcome=1         | NO              | Second outcome
-deltaShares > 0   | Long YES        | Buy YES shares
-deltaShares < 0   | Long NO         | Buy NO shares (sell YES)
+yesShares         | YES Position    | User's long YES tokens (V8.2)
+noShares          | NO Position     | User's long NO tokens (V8.2)
+deltaShares > 0   | Buy             | Buying shares of the outcome
+deltaShares < 0   | Sell            | Selling shares of the outcome
 price             | Probability     | 0.6e18 = 60%
 qYes/qNo          | Inventory       | LMSR state
 b / bBase         | Depth           | Liquidity param
@@ -38,6 +40,32 @@ isGraduated       | Graduated       | Past bonding phase
 adjudicator       | Resolver        | Truth-providing contract
 tStar             | Truth Point     | When outcome became known
 Row-Level Report  | Aggregate Value | Portfolio value summing pattern
+```
+
+## V8.2 Position Model (CRITICAL)
+```
+DUAL-BALANCE MODEL:
+  struct Position {
+      uint256 yesShares;  // User's YES position (always ≥ 0)
+      uint256 noShares;   // User's NO position (always ≥ 0)
+  }
+
+KEY CHANGE FROM V8.1:
+  - V8.1: int256 shares (positive=YES, negative=NO, forced netting)
+  - V8.2: Separate yesShares and noShares (no netting, can hold both)
+
+TRADE FUNCTION SIGNATURE:
+  tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost)
+  - outcome: 0 = YES, 1 = NO
+  - deltaShares > 0: Buy the outcome
+  - deltaShares < 0: Sell the outcome (requires sufficient shares)
+
+GET POSITION RETURNS:
+  (uint256 yesShares, uint256 noShares)
+
+FRONTEND HOOKS:
+  - useAMMPositionDirect(market) → { yesShares, noShares }
+  - useAMMQuoteDirect(market, shares, outcome, isBuy) → { cost, fee, priceImpact }
 ```
 
 ---
@@ -118,19 +146,30 @@ ExRate = Floor / LP_Supply
 
 ## Call Chains
 ```
-AMM Buy (via LaunchpadEngine):
-  LaunchpadEngine.tradePositions(market, +Δ, maxCost)
+AMM Buy YES (via LaunchpadEngine):
+  LaunchpadEngine.tradePositions(market, 0, +Δ, maxCost)
     → Calculates fee (5% pre-grad, 1% post-grad)
-    → Calls AMMEngine.tradePositions() for LMSR execution
+    → Calls AMMEngine.tradePositionsFor(user, market, 0, +Δ, ...) 
+    → Updates user's yesShares += Δ
     → Mints LP tokens to trader (pre-grad only)
     → Transfers USDC from user (WAD → USDC conversion)
 
-AMM Sell (Lock-on-Sell):
-  LaunchpadEngine.tradePositions(market, -Δ, minProceeds)
-    → AMMEngine.tradePositions() executes trade
+AMM Buy NO (via LaunchpadEngine):
+  LaunchpadEngine.tradePositions(market, 1, +Δ, maxCost)
+    → Same as above, but updates noShares += Δ
+
+AMM Sell YES (Lock-on-Sell):
+  LaunchpadEngine.tradePositions(market, 0, -Δ, minProceeds)
+    → Requires user.yesShares >= Δ
+    → AMMEngine.tradePositionsFor() executes trade
+    → Updates user's yesShares -= Δ
     → Proceeds locked for 24 hours
     → Locked funds spendable (can buy other markets)
     → After 24h: withdrawable to wallet
+
+AMM Sell NO (Lock-on-Sell):
+  LaunchpadEngine.tradePositions(market, 1, -Δ, minProceeds)
+    → Same as above, but updates noShares -= Δ
 
 Token Operations:
   Collateralizer.split(market, amount)
@@ -152,15 +191,15 @@ Settlement:
 
 ## Deployments
 
-### Base Sepolia (Chain 84532) — V8.1.0
+### Base Sepolia (Chain 84532) — V8.2.0 (Dual-Balance)
 ```
-LaunchpadEngine   = 0xFf422cc9b537BD41DD2583E3E611CA2eF1C149B4
-Collateralizer    = 0x2C60E3A96334E449C92C7d035E51EB8A6dA9245E
-AMMEngine         = 0x35089e985E23D01b4D2E453E775D570649624E8E
-TickBook          = 0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF
-Market 1 (Alien)  = 0xa67D75Bb57e6aBe59Cc6E8d102b319D894919ef1
-Market 2 (BTC)    = 0xAbEf550048C255B6513fF9B28EaFC6bF1e27b089
-Market 3 (ETH5K)  = 0xcdE5B0b2dD6b229d8d6195D14CBAb726025ECd18
+LaunchpadEngine   = 0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15
+Collateralizer    = 0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8
+AMMEngine         = 0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f
+TickBook          = 0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe
+USDC (MockUSDC)   = 0x856fbeebd91db28e3b4550e7602142cfab683796
+Market 1          = 0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe
+Market 2          = 0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05
 ```
 
 ### MegaETH Frontier (Chain 4326) — V6 (Legacy)
@@ -229,8 +268,9 @@ graduationMultiplier    | 2         | 1-10       | setGraduationMultiplier()
 ---
 
 ```
-Version: V8.1.0 | KB: v4.0 | Updated: 2025-12-25
+Version: V8.2.0 | KB: v5.0 | Updated: 2025-12-27
 Architecture: V8 Modular (Domain Isolation)
+Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
 Settlement: Pull-based via TruthMarket
 Custody: None (direct USDC transfers)

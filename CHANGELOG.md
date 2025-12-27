@@ -4,6 +4,74 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+## [8.3.0] - 2025-12-27
+
+### Added
+- **Spendable Proceeds for LaunchpadEngine Buys** (2025-12-27):
+  - `LaunchpadEngine.tradePositions` now checks user's available balance in `AMMEngine` first.
+  - Users only need wallet USDC for the difference (plus fees).
+  - Added `AMMEngine.spendBalanceFor(user, amount)` router-only function.
+- **Finalized Markets Audit Trail** (2025-12-27):
+  - Gov page now shows real contract data for settled markets.
+  - Displays outcome, adjudicator, settlement date, and veto status.
+  - Fetches `tStar` and `state` from TruthMarket contracts.
+
+### Fixed
+- **MAX > Buying Power Bug** (2025-12-27): Fixed transaction failure where MAX button calculated buying power as wallet+spendable, but LaunchpadEngine only pulled from wallet. Now both are aligned.
+- **Spendable Proceeds Decimal Display** (2025-12-27): Fixed `/1e6` → `/1e18` for correct display.
+
+### Changed
+- **Frontend Buying Power**: Now correctly shows wallet + spendable as total buying power.
+- **Balance Summary**: Spendable proceeds shown in green as "+$X".
+
+### Deployment
+- **Base Sepolia V8.3**:
+  - LaunchpadEngine: `0x1F30742c38c10b28B3960E2B067644A52592bd8f`
+  - AMMEngine: `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5`
+  - Collateralizer: `0x09A7809a33F969B0099A5d19003991592658763f`
+  - TickBook: `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd`
+  - Market 1 (Alien Life): `0xd306eb7ddbAa6394DDBFF54897aFC82A9cf39e08`
+  - Market 2 (BTC TWAP): `0xE0d986c827E3398B0f66DeEd0C681f3CD1553fBe`
+
+---
+
+## [8.2.0] - 2025-12-27
+
+### ⚠️ BREAKING CHANGES
+- **Dual-Balance Position Model**: `AMMEngine.Position` changed from `int256 shares` to `{ uint256 yesShares; uint256 noShares; }`.
+- **Trade Function Signature**: `tradePositions(market, outcome, deltaShares, maxCost)` — now requires `outcome` parameter (0=YES, 1=NO).
+- **Position Return Type**: `getPosition(market, user)` now returns `(uint256 yesShares, uint256 noShares)` tuple.
+
+### Added
+- **V8.2 Dual-Balance Model** (2025-12-27):
+  - Users can now hold both YES and NO positions simultaneously on the same market.
+  - Independent tracking eliminates forced netting behavior from V8.1.
+  - Aligns AMM position model with TickBook's independent YES/NO orderbook.
+- **Direct Position Reads** (2025-12-27):
+  - Replaced event-sourced `useLaunchpadPositionDirect` with direct `AMMEngine.getPosition()` calls.
+  - Eliminates RPC-heavy 5M-block log scans.
+- **New Tests** (2025-12-27):
+  - `test_HoldBothYesAndNo`: Verifies users can hold both positions.
+  - `test_SellYesIndependently`: Verifies independent sell logic.
+
+### Fixed
+- **"Buy NO" Slippage Error** (2025-12-27): Fixed issue where buying NO was internally treated as selling YES, causing `maxCost` to be incorrectly compared against `minProceeds`.
+- **LMSRMath Underflow** (2025-12-27): Fixed `calculateProbability()` to use signed difference `int256(qYes) - int256(qNo)` to prevent underflow when `qNo > qYes`.
+- **Position Display Issues** (2025-12-27): Fixed hook using wallet chain instead of app's selected chain.
+
+### Deployment
+- **Base Sepolia V8.2**:
+  - LaunchpadEngine: `0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15`
+  - AMMEngine: `0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f`
+  - Collateralizer: `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8`
+  - TickBook: `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe`
+  - Market 1: `0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe`
+  - Market 2: `0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05`
+
+---
+
+## [8.1.0] - 2025-12-26
+
 ### Added
 - **UI/UX Design Refresh** (2025-12-26):
   - **New Typography**: Switched to Inter (UI), JetBrains Mono (Numbers/Code), and Space Grotesk (Headings).

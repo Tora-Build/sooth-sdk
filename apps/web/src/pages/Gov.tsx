@@ -165,16 +165,44 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
   );
 };
 
-// Finalized market row for audit table
+// Finalized market row - fetches real data from contracts
 interface FinalizedRowProps {
   market: typeof marketsConfig.markets[0];
-  outcome: 'YES' | 'NO' | 'INVALID';
-  settler: string;
-  finalizedAt: Date;
-  action?: 'vetoed' | null;
 }
 
-const FinalizedRow: React.FC<FinalizedRowProps> = ({ market, outcome, settler, finalizedAt, action }) => {
+const FinalizedRow: React.FC<FinalizedRowProps> = ({ market }) => {
+  const { market: truthMarket, isLoading } = useTruthMarketDirect(market.contractAddress as `0x${string}`);
+  
+  // Only render if market is settled
+  if (isLoading) {
+    return (
+      <tr className="border-b border-slate-800">
+        <td colSpan={6} className="py-3 px-4">
+          <div className="h-4 bg-slate-700/50 rounded animate-pulse w-full" />
+        </td>
+      </tr>
+    );
+  }
+  
+  // Don't render if not settled
+  if (!truthMarket?.isSettled) {
+    return null;
+  }
+  
+  // Map outcome: 0 = NO, 1 = YES, 2+ = INVALID (per V8 contract)
+  const outcomeLabel = truthMarket.winningOutcome === 1 ? 'YES' : 
+                       truthMarket.winningOutcome === 0 ? 'NO' : 'INVALID';
+  
+  // tStar is the settlement timestamp
+  const tStar = truthMarket.tStar;
+  const finalizedDate = tStar ? new Date(tStar * 1000) : new Date();
+  
+  // The adjudicator is who settled the market
+  const settler = truthMarket.adjudicator || '0x0000000000000000000000000000000000000000';
+  
+  // Check if market was vetoed
+  const isVetoed = truthMarket.isVetoed;
+
   return (
     <tr className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
       <td className="py-3 px-4">
@@ -183,18 +211,18 @@ const FinalizedRow: React.FC<FinalizedRowProps> = ({ market, outcome, settler, f
         </Link>
       </td>
       <td className="py-3 px-4">
-        <Badge variant={outcome === 'YES' ? 'success' : outcome === 'NO' ? 'warning' : 'default'}>
-          {outcome}
+        <Badge variant={outcomeLabel === 'YES' ? 'success' : outcomeLabel === 'NO' ? 'warning' : 'default'}>
+          {outcomeLabel}
         </Badge>
       </td>
       <td className="py-3 px-4 font-mono text-xs text-slate-400">
         {settler.slice(0, 6)}...{settler.slice(-4)}
       </td>
       <td className="py-3 px-4 text-slate-400 text-sm">
-        {finalizedAt.toLocaleDateString()}
+        {finalizedDate.toLocaleDateString()}
       </td>
       <td className="py-3 px-4">
-        {action === 'vetoed' ? (
+        {isVetoed ? (
           <Badge variant="warning">Vetoed</Badge>
         ) : (
           <span className="text-slate-500">—</span>
@@ -239,14 +267,8 @@ export const Gov = () => {
     return v8Markets.length > 0 ? 3 : 0;
   }, [v8Markets]);
 
-  // Mock finalized markets for audit table
-  const finalizedMarkets = useMemo(() => {
-    if (v8Markets.length === 0) return [];
-    return [
-      { market: v8Markets[0], outcome: 'YES' as const, settler: '0x1234567890123456789012345678901234567890', finalizedAt: new Date('2025-12-20'), action: null },
-      { market: v8Markets[1] || v8Markets[0], outcome: 'NO' as const, settler: '0x2345678901234567890123456789012345678901', finalizedAt: new Date('2025-12-18'), action: 'vetoed' as const },
-    ];
-  }, [v8Markets]);
+  // All V8 markets - FinalizedRow handles filtering to settled ones
+  const allMarkets = v8Markets;
 
   const tabs = [
     { id: 'veto' as Tab, label: 'Veto Queue', icon: Clock },
@@ -354,7 +376,12 @@ export const Gov = () => {
         {activeTab === 'finalized' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">Finalized Markets (Audit Trail)</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-white">Finalized Markets (Audit Trail)</h2>
+                <Badge variant="outline" className="text-slate-400 border-slate-600">
+                  {allMarkets.length} markets scanned
+                </Badge>
+              </div>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm">
                   <Filter className="w-4 h-4 mr-2" />
@@ -365,6 +392,12 @@ export const Gov = () => {
                   Export CSV
                 </Button>
               </div>
+            </div>
+
+            {/* Info note */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-sm text-slate-400">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Only showing settled markets. Rows with no data indicate markets that are still live or pending.</span>
             </div>
 
             <Card>
@@ -381,16 +414,20 @@ export const Gov = () => {
                     </tr>
                   </thead>
                   <tbody className="text-slate-300">
-                    {finalizedMarkets.map((row, i) => (
-                      <FinalizedRow
-                        key={i}
-                        market={row.market}
-                        outcome={row.outcome}
-                        settler={row.settler}
-                        finalizedAt={row.finalizedAt}
-                        action={row.action}
-                      />
-                    ))}
+                    {allMarkets.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 px-4 text-center text-slate-500">
+                          No markets available on this chain
+                        </td>
+                      </tr>
+                    ) : (
+                      allMarkets.map((market) => (
+                        <FinalizedRow
+                          key={market.contractAddress}
+                          market={market}
+                        />
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -417,7 +454,7 @@ export const Gov = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-slate-400 mb-2">
-                      Pre-Graduation Fee
+                      Bonding Fee
                     </label>
                     <div className="relative">
                       <input

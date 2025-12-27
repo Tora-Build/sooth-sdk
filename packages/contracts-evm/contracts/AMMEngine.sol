@@ -11,8 +11,9 @@ import {LMSRMath} from "./libraries/LMSRMath.sol";
 
 /**
  * @title AMMEngine
- * @notice LMSR-based AMM with position domain, 24h locks, and T* settlement
- * @dev Positions are non-transferable ledger entries
+ * @notice LMSR-based AMM with dual-balance position domain, 24h locks, and T* settlement
+ * @dev V8.2: Users can hold both YES and NO shares simultaneously
+ *      Positions are non-transferable ledger entries
  *      Users manage their own USDC custody (EOA, Safe, smart account, etc.)
  */
 contract AMMEngine is IAMMEngine, Ownable {
@@ -39,7 +40,7 @@ contract AMMEngine is IAMMEngine, Ownable {
     /// @notice Market state
     mapping(address => MarketState) private _markets;
 
-    /// @notice User positions
+    /// @notice User positions (market => user => Position)
     mapping(address => mapping(address => Position)) private _positions;
 
     /// @notice User available balances (spendable USDC, includes locked)
@@ -114,10 +115,11 @@ contract AMMEngine is IAMMEngine, Ownable {
      */
     function tradePositions(
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external override returns (uint256 actualCost) {
-        return _tradePositions(msg.sender, msg.sender, market, deltaShares, maxCost);
+        return _tradePositions(msg.sender, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
     }
 
     /**
@@ -126,22 +128,25 @@ contract AMMEngine is IAMMEngine, Ownable {
     function tradePositionsFor(
         address user,
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external override onlyRouter returns (uint256 actualCost) {
         require(user != address(0), "AMMEngine: zero user");
         // Payer is the router (LaunchpadEngine) which has custody of trade USDC (via fee layer).
-        return _tradePositions(user, msg.sender, market, deltaShares, maxCost);
+        return _tradePositions(user, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
     }
 
     function _tradePositions(
         address user,
         address payer,
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) internal returns (uint256 actualCost) {
         require(deltaShares != 0, "AMMEngine: zero delta");
+        require(outcome <= 1, "AMMEngine: invalid outcome");
         require(ITruthMarket(market).isLive(), "AMMEngine: market not live");
 
         MarketState storage state = _markets[market];
@@ -149,62 +154,52 @@ contract AMMEngine is IAMMEngine, Ownable {
 
         Position storage position = _positions[market][user];
 
-        // Calculate new quantities
-        (uint256 newQYes, uint256 newQNo) = LMSRMath.calculateNewQuantities(
-            state.qYes,
-            state.qNo,
-            deltaShares
-        );
+        bool isBuy = deltaShares > 0;
+        uint256 absDelta = isBuy ? uint256(deltaShares) : uint256(-deltaShares);
 
-        // Calculate cost
-        actualCost = LMSRMath.calculateCost(
-            state.liquidity,
-            state.qYes,
-            state.qNo,
-            newQYes,
-            newQNo
-        );
+        // Calculate new quantities based on outcome and direction
+        uint256 newQYes;
+        uint256 newQNo;
 
-        // NOTE: V8.1 position model uses a single signed "YES exposure" number:
-        //   +shares = long YES
-        //   -shares = long NO (short YES)
-        //
-        // For UX symmetry we support "sell" for both sides:
-        //   - If user is long YES (position > 0) and deltaShares < 0, that's a YES sell (close YES) → proceeds locked.
-        //   - If user is long NO  (position < 0) and deltaShares > 0, that's a NO sell (close NO)  → proceeds locked.
-        // Otherwise it's an "open / increase exposure" trade → pay cost.
-
-        bool isClosingYes = (deltaShares < 0) && (position.shares > 0);
-        bool isClosingNo = (deltaShares > 0) && (position.shares < 0);
-
-        if (isClosingYes || isClosingNo) {
-            // Closing position → lock proceeds
-            if (isClosingYes) {
-                require(position.shares >= -deltaShares, "AMMEngine: insufficient shares");
+        if (outcome == 0) {
+            // YES outcome
+            if (isBuy) {
+                newQYes = state.qYes + absDelta;
+                newQNo = state.qNo;
             } else {
-                require(uint256(-position.shares) >= uint256(deltaShares), "AMMEngine: insufficient shares");
+                require(position.yesShares >= absDelta, "AMMEngine: insufficient YES shares");
+                require(state.qYes >= absDelta, "AMMEngine: insufficient market YES");
+                newQYes = state.qYes - absDelta;
+                newQNo = state.qNo;
             }
-
-            // For closes, interpret maxCost as a *minimum proceeds* (slippage protection)
-            if (maxCost > 0) {
-                require(actualCost >= maxCost, "AMMEngine: slippage exceeded");
-            }
-
-            _availableBalance[user] += actualCost;
-            _lockedBalance[user] += actualCost;
-
-            _lockQueue[user].push(IAMMEngine.LockEntry({
-                amount: actualCost,
-                expiry: uint64(block.timestamp + LOCK_DURATION),
-                market: market
-            }));
-
-            position.shares += deltaShares;
-            emit ProceedsLocked(user, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
         } else {
-            // Opening / increasing exposure → pay cost
-            require(actualCost <= maxCost, "AMMEngine: cost too high");
+            // NO outcome
+            if (isBuy) {
+                newQYes = state.qYes;
+                newQNo = state.qNo + absDelta;
+            } else {
+                require(position.noShares >= absDelta, "AMMEngine: insufficient NO shares");
+                require(state.qNo >= absDelta, "AMMEngine: insufficient market NO");
+                newQYes = state.qYes;
+                newQNo = state.qNo - absDelta;
+            }
+        }
 
+        // Calculate cost/proceeds using LMSR
+        if (isBuy) {
+            // Buying: cost = C(new) - C(old)
+            actualCost = LMSRMath.calculateCost(
+                state.liquidity,
+                state.qYes,
+                state.qNo,
+                newQYes,
+                newQNo
+            );
+
+            // Slippage check for buys
+            require(actualCost <= maxCostOrMinProceeds, "AMMEngine: cost too high");
+
+            // Pay cost
             if (_availableBalance[user] >= actualCost) {
                 _availableBalance[user] -= actualCost;
                 emit BalanceUsed(user, actualCost, _availableBalance[user]);
@@ -221,7 +216,45 @@ contract AMMEngine is IAMMEngine, Ownable {
                 emit WalletPull(user, fromWallet);
             }
 
-            position.shares += deltaShares;
+            // Update user position
+            if (outcome == 0) {
+                position.yesShares += absDelta;
+            } else {
+                position.noShares += absDelta;
+            }
+        } else {
+            // Selling: proceeds = C(old) - C(new)
+            actualCost = LMSRMath.calculateCost(
+                state.liquidity,
+                newQYes,
+                newQNo,
+                state.qYes,
+                state.qNo
+            );
+
+            // Slippage check for sells (minProceeds)
+            if (maxCostOrMinProceeds > 0) {
+                require(actualCost >= maxCostOrMinProceeds, "AMMEngine: slippage exceeded");
+            }
+
+            // Lock proceeds (24h before withdrawal)
+            _availableBalance[user] += actualCost;
+            _lockedBalance[user] += actualCost;
+
+            _lockQueue[user].push(IAMMEngine.LockEntry({
+                amount: actualCost,
+                expiry: uint64(block.timestamp + LOCK_DURATION),
+                market: market
+            }));
+
+            // Update user position
+            if (outcome == 0) {
+                position.yesShares -= absDelta;
+            } else {
+                position.noShares -= absDelta;
+            }
+
+            emit ProceedsLocked(user, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
         }
 
         // Update market state
@@ -231,6 +264,7 @@ contract AMMEngine is IAMMEngine, Ownable {
         emit PositionTraded(
             user,
             market,
+            outcome,
             deltaShares,
             actualCost,
             newQYes,
@@ -256,24 +290,56 @@ contract AMMEngine is IAMMEngine, Ownable {
      */
     function getPositionQuote(
         address market,
+        uint8 outcome,
         int256 deltaShares
     ) external view override returns (uint256 cost, uint256 newPrice) {
+        require(outcome <= 1, "AMMEngine: invalid outcome");
         MarketState memory state = _markets[market];
         require(state.initialized, "AMMEngine: not initialized");
 
-        (uint256 newQYes, uint256 newQNo) = LMSRMath.calculateNewQuantities(
-            state.qYes,
-            state.qNo,
-            deltaShares
-        );
+        bool isBuy = deltaShares > 0;
+        uint256 absDelta = isBuy ? uint256(deltaShares) : uint256(-deltaShares);
 
-        cost = LMSRMath.calculateCost(
-            state.liquidity,
-            state.qYes,
-            state.qNo,
-            newQYes,
-            newQNo
-        );
+        uint256 newQYes;
+        uint256 newQNo;
+
+        if (outcome == 0) {
+            // YES
+            if (isBuy) {
+                newQYes = state.qYes + absDelta;
+                newQNo = state.qNo;
+            } else {
+                newQYes = state.qYes > absDelta ? state.qYes - absDelta : 0;
+                newQNo = state.qNo;
+            }
+        } else {
+            // NO
+            if (isBuy) {
+                newQYes = state.qYes;
+                newQNo = state.qNo + absDelta;
+            } else {
+                newQYes = state.qYes;
+                newQNo = state.qNo > absDelta ? state.qNo - absDelta : 0;
+            }
+        }
+
+        if (isBuy) {
+            cost = LMSRMath.calculateCost(
+                state.liquidity,
+                state.qYes,
+                state.qNo,
+                newQYes,
+                newQNo
+            );
+        } else {
+            cost = LMSRMath.calculateCost(
+                state.liquidity,
+                newQYes,
+                newQNo,
+                state.qYes,
+                state.qNo
+            );
+        }
 
         newPrice = LMSRMath.calculateProbability(
             state.liquidity,
@@ -329,8 +395,6 @@ contract AMMEngine is IAMMEngine, Ownable {
         emit LocksProcessed(msg.sender, processed, totalUnlocked);
     }
 
-
-
     /**
      * @inheritdoc IAMMEngine
      */
@@ -338,10 +402,10 @@ contract AMMEngine is IAMMEngine, Ownable {
         external
         view
         override
-        returns (int256 shares)
+        returns (uint256 yesShares, uint256 noShares)
     {
         Position memory position = _positions[market][user];
-        return position.shares;
+        return (position.yesShares, position.noShares);
     }
 
     // ============================================
@@ -360,6 +424,36 @@ contract AMMEngine is IAMMEngine, Ownable {
         returns (uint256 available, uint256 locked) 
     {
         return (_availableBalance[user], _lockedBalance[user]);
+    }
+
+    /**
+     * @notice Spend from user's available balance (router only)
+     * @dev Called by LaunchpadEngine to use spendable proceeds for buys
+     * @param user User whose balance to spend
+     * @param amount Amount to spend (WAD)
+     * @return spent Actual amount spent (may be less if balance insufficient)
+     */
+    function spendBalanceFor(address user, uint256 amount) 
+        external 
+        override
+        onlyRouter
+        returns (uint256 spent) 
+    {
+        uint256 available = _availableBalance[user];
+        spent = amount > available ? available : amount;
+        
+        if (spent > 0) {
+            _availableBalance[user] -= spent;
+            
+            // Also reduce locked balance proportionally (locked is subset of available)
+            // This ensures locked <= available invariant holds
+            if (_lockedBalance[user] > 0) {
+                uint256 lockedReduction = (spent * _lockedBalance[user]) / available;
+                _lockedBalance[user] -= lockedReduction;
+            }
+            
+            emit BalanceUsed(user, spent, _availableBalance[user]);
+        }
     }
 
     /**
@@ -449,25 +543,23 @@ contract AMMEngine is IAMMEngine, Ownable {
         require(ITruthMarket(market).isSettled(), "AMMEngine: not settled");
 
         Position storage position = _positions[market][msg.sender];
-        require(position.shares != 0, "AMMEngine: no position");
+        require(position.yesShares > 0 || position.noShares > 0, "AMMEngine: no position");
 
         ITruthMarket truthMarket = ITruthMarket(market);
         uint8 winningOutcome = truthMarket.winningOutcome();
 
         // Calculate payout based on position and outcome
-        if (winningOutcome == 1 && position.shares > 0) {
-            // YES won, user has YES shares
-            payout = uint256(position.shares);
-        } else if (winningOutcome == 0 && position.shares < 0) {
-            // NO won, user has NO shares (negative YES)
-            payout = uint256(-position.shares);
+        if (winningOutcome == 1) {
+            // YES won
+            payout = position.yesShares;
         } else {
-            // User lost
-            payout = 0;
+            // NO won
+            payout = position.noShares;
         }
 
         // Clear position
-        position.shares = 0;
+        position.yesShares = 0;
+        position.noShares = 0;
 
         // Transfer USDC payout to user
         if (payout > 0) {
@@ -482,7 +574,7 @@ contract AMMEngine is IAMMEngine, Ownable {
         address /* market */,
         address /* user */,
         bytes calldata /* proof */
-    ) external override returns (uint256 refund) {
+    ) external pure override returns (uint256) {
         // T* settlement logic would go here
         // This requires Merkle proof verification and state reconstruction
         // Placeholder for now

@@ -333,6 +333,16 @@
         "name": "graduatedAt",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "symbol",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -518,12 +528,17 @@
         "internalType": "address"
       },
       {
+        "name": "outcome",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
         "name": "deltaShares",
         "type": "int256",
         "internalType": "int256"
       },
       {
-        "name": "maxCost",
+        "name": "maxCostOrMinProceeds",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -833,6 +848,12 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "outcome",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
       },
       {
         "name": "deltaShares",

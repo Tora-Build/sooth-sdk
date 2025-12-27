@@ -46,7 +46,7 @@ export function useLockedProceeds(marketAddress?: `0x${string}`) {
     }, [marketAddress, traderVaultAddress, claimWrite]);
 
     // Note: useLockedProceeds is handled automatically by TraderVault.tradeAMM
-    // when buying from a pre-graduation Launchpad market
+    // when buying from a bonding Launchpad market
 
     return {
         // Data

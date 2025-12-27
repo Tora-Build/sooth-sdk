@@ -1,8 +1,10 @@
-# V8 LaunchpadEngine Frontend Integration Guide
+# V8.2 LaunchpadEngine Frontend Integration Guide
 
-**Version**: 1.0.0  
-**Date**: 2025-12-23  
+**Version**: 2.0.0  
+**Date**: 2025-12-27  
 **Target**: React + TypeScript + Wagmi/Viem
+
+> **V8.2 BREAKING CHANGE**: The position model changed from `int256 shares` to `{ uint256 yesShares; uint256 noShares }`. All trading calls now require an `outcome` parameter (0=YES, 1=NO).
 
 ---
 
@@ -60,14 +62,15 @@ export const LAUNCHPAD_ENGINE_ABI = [
     outputs: [{ name: "lpTokens", type: "uint256" }]
   },
   
-  // Trading
+  // Trading (V8.2 - includes outcome parameter)
   {
     name: "tradePositions",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
       { name: "market", type: "address" },
-      { name: "deltaShares", type: "int256" },
+      { name: "outcome", type: "uint8" },      // 0 = YES, 1 = NO
+      { name: "deltaShares", type: "int256" }, // positive = buy, negative = sell
       { name: "maxCost", type: "uint256" }
     ],
     outputs: [{ name: "actualCost", type: "uint256" }]
@@ -228,7 +231,7 @@ export function useLaunchpadMarket(marketAddress: `0x${string}`) {
 }
 ```
 
-### useLaunchpadTrade.ts
+### useLaunchpadTrade.ts (V8.2)
 
 **File**: `apps/web/src/hooks/useLaunchpadTrade.ts`
 
@@ -245,8 +248,12 @@ export function useLaunchpadTrade(marketAddress: `0x${string}`) {
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  const trade = async (deltaShares: string, maxCost: string) => {
-    // Convert to WAD (18 decimals)
+  // V8.2: trade() now requires outcome parameter
+  const trade = async (
+    outcome: 0 | 1,           // 0 = YES, 1 = NO
+    deltaShares: string,      // positive = buy, negative = sell
+    maxCost: string
+  ) => {
     const deltaSharesWad = parseUnits(deltaShares, 18);
     const maxCostWad = parseUnits(maxCost, 6); // USDC decimals
 
@@ -256,7 +263,8 @@ export function useLaunchpadTrade(marketAddress: `0x${string}`) {
       functionName: 'tradePositions',
       args: [
         marketAddress,
-        BigInt(deltaSharesWad), // Can be negative for sells
+        outcome,                // V8.2: outcome parameter
+        BigInt(deltaSharesWad),
         maxCostWad,
       ],
     });
@@ -666,6 +674,33 @@ export function MarketPage({ marketAddress }: { marketAddress: `0x${string}` }) 
 
 ---
 
+## Migration from V8.1 to V8.2
+
+### Breaking Changes
+
+1. **Trade function signature changed**:
+   ```typescript
+   // OLD (V8.1)
+   launchpadEngine.tradePositions(market, deltaShares, maxCost);
+   
+   // NEW (V8.2) - includes outcome parameter
+   launchpadEngine.tradePositions(market, outcome, deltaShares, maxCost);
+   // outcome: 0 = YES, 1 = NO
+   ```
+
+2. **Position reads return tuple**:
+   ```typescript
+   // OLD (V8.1)
+   const shares = ammEngine.getPosition(market, user); // int256
+   
+   // NEW (V8.2)
+   const [yesShares, noShares] = ammEngine.getPosition(market, user); // (uint256, uint256)
+   ```
+
+3. **Users can hold both YES and NO**:
+   - Previously: `shares > 0` = long YES, `shares < 0` = long NO (forced netting)
+   - Now: Independent `yesShares` and `noShares` balances
+
 ## Migration from V7
 
 ### Changes Required
@@ -675,8 +710,8 @@ export function MarketPage({ marketAddress }: { marketAddress: `0x${string}` }) 
    // OLD (V7)
    traderVault.tradeAMM(market, deltaShares, maxCost);
    
-   // NEW (V8)
-   launchpadEngine.tradePositions(market, deltaShares, maxCost);
+   // NEW (V8.2)
+   launchpadEngine.tradePositions(market, outcome, deltaShares, maxCost);
    ```
 
 2. **Add graduation UI**:
@@ -724,6 +759,33 @@ export function MarketPage({ marketAddress }: { marketAddress: `0x${string}` }) 
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: 2025-12-23  
+**Version**: 2.0.0  
+**Last Updated**: 2025-12-27  
 **Questions?** See [V8_LAUNCHPAD_ARCHITECTURE.md](./V8_LAUNCHPAD_ARCHITECTURE.md)
+
+---
+
+## V8.2 Position Model Summary
+
+```typescript
+// Position structure (on-chain)
+interface Position {
+  yesShares: bigint;  // User's YES position (WAD)
+  noShares: bigint;   // User's NO position (WAD)
+}
+
+// Reading positions
+const { data: position } = useReadContract({
+  address: ammEngineAddress,
+  abi: AMM_ENGINE_ABI,
+  functionName: 'getPosition',
+  args: [marketAddress, userAddress],
+});
+const [yesShares, noShares] = position ?? [0n, 0n];
+
+// Trading
+// Buy YES: tradePositions(market, 0, +amount, maxCost)
+// Sell YES: tradePositions(market, 0, -amount, minProceeds)
+// Buy NO:  tradePositions(market, 1, +amount, maxCost)
+// Sell NO: tradePositions(market, 1, -amount, minProceeds)
+```

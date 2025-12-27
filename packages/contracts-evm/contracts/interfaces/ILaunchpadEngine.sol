@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 /**
  * @title ILaunchpadEngine
  * @notice Interface for Launchpad economics layer with creator deposits and LP tokens
+ * @dev V8.2: Supports dual-balance position model (users can hold both YES and NO)
  */
 interface ILaunchpadEngine {
     // ============================================
@@ -21,6 +22,7 @@ interface ILaunchpadEngine {
     event PositionTraded(
         address indexed trader,
         address indexed market,
+        uint8 outcome,
         int256 deltaShares,
         uint256 cost,
         uint256 fee
@@ -93,14 +95,16 @@ interface ILaunchpadEngine {
     /**
      * @notice Trade positions with automatic fee distribution
      * @param market Market address
-     * @param deltaShares Position change (+ for buy, - for sell)
-     * @param maxCost Maximum cost willing to pay (including fees)
-     * @return actualCost Actual cost paid (including fees)
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Position change (positive = buy, negative = sell)
+     * @param maxCostOrMinProceeds For buys: max cost (including fees); for sells: min proceeds
+     * @return actualCost Actual cost paid (buys) or proceeds received (sells)
      */
     function tradePositions(
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external returns (uint256 actualCost);
 
     // ============================================

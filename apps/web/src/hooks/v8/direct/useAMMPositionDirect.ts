@@ -5,8 +5,8 @@ import { useDeployments } from '../../useDeployments';
 import { useChainStore } from '../../../store/useChainStore';
 
 /**
- * Hook to fetch user's AMM position (internal shares) for a specific market.
- * V8 internal positions are stored in the AMMEngine.
+ * Hook to fetch user's AMM position (YES and NO shares) for a specific market.
+ * V8.2 uses dual-balance model where users can hold both YES and NO.
  */
 export function useAMMPositionDirect(marketAddress?: `0x${string}`) {
   const { address: userAddress } = useAccount();
@@ -20,18 +20,20 @@ export function useAMMPositionDirect(marketAddress?: `0x${string}`) {
     enabled: !!marketAddress && !!chainId && !!ammEngineAddress && !!userAddress,
     chainId,
     read: async (client) => {
-      const shares = await readContractSafe<bigint>(client, {
+      // V8.2: getPosition returns (uint256 yesShares, uint256 noShares)
+      const result = await readContractSafe<readonly [bigint, bigint]>(client, {
         address: ammEngineAddress!,
         abi: V8_ABIS.AMMEngine,
         functionName: 'getPosition',
         args: [marketAddress, userAddress],
       });
       
-      const s = shares ?? 0n;
+      const [yesShares, noShares] = result ?? [0n, 0n];
       return {
-        shares: s,
-        yesShares: s > 0n ? s : 0n,
-        noShares: s < 0n ? -s : 0n,
+        yesShares,
+        noShares,
+        // Legacy: shares is now the sum for backwards compat with some UI
+        shares: yesShares + noShares,
       };
     },
   });

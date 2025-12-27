@@ -205,4 +205,46 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-24*
+## V8.2 Position Model Change
+
+### ❌ Pattern: Single Signed Shares Causes "Buy NO = Sell YES" Confusion
+- **Date:** 2025-12-27
+- **Mistake:** V8.1 used `int256 shares` where positive = long YES and negative = long NO. This meant "buy NO" mathematically reduced the user's `shares` (toward negative), which triggered sell-side slippage logic.
+- **Symptom:** "Buy NO" transactions failed with "slippage exceeded" because `maxCost` was being compared against `minProceeds` logic internally.
+- **Root Cause:** The signed-shares model conflates two independent positions (YES and NO) into one value, forcing netting behavior and mixing buy/sell semantics.
+- **Fix:** Refactored to dual-balance model:
+  ```solidity
+  struct Position {
+      uint256 yesShares;
+      uint256 noShares;
+  }
+  ```
+  Added `outcome` parameter to `tradePositions(market, outcome, deltaShares, maxCost)`.
+- **Lesson:** For prediction markets, YES and NO are independent assets. Don't force netting. Let users hold both simultaneously.
+
+### ✅ Pattern: Direct Position Reads vs Event-Sourced Reconstruction
+- **Date:** 2025-12-27
+- **Issue:** `useLaunchpadPositionDirect` was scanning 5M+ blocks of logs to reconstruct user positions from `PositionTraded` events. This was slow, RPC-fragile, and often returned stale/incomplete data.
+- **Fix:** With the router delegation pattern (ADR-047) and dual-balance model (ADR-048), `AMMEngine.getPosition(market, user)` now returns canonical on-chain position state. Replaced event-scanning with a direct `readContract` call.
+- **Rule:** Always prefer on-chain view functions over event reconstruction when possible. Events are for historical/indexing use cases, not real-time UI state.
+
+---
+
+## V8.3 Spendable Proceeds Integration
+
+### ❌ Pattern: Frontend "Buying Power" Misaligned with Contract "TransferFrom"
+- **Date:** 2025-12-27
+- **Mistake:** Frontend showed `buyingPower = wallet + spendable`, but `LaunchpadEngine.tradePositions` always did `usdc.safeTransferFrom(msg.sender, ...)` for the full cost. Spendable proceeds sat unused in AMMEngine.
+- **Symptom:** MAX button allowed selecting more shares than wallet could afford, causing `ERC20InsufficientBalance` transaction failures.
+- **Root Cause:** AMMEngine's `_tradePositions` has internal logic to use `_availableBalance[user]` first, but only when called directly. LaunchpadEngine bypassed this by pulling USDC from user's wallet before calling AMMEngine.
+- **Fix:** Modified `LaunchpadEngine.tradePositions` to:
+  1. Check user's available balance via `ammEngine.getBalances(msg.sender)`
+  2. Calculate `fromBalance = min(availableBalance, baseCost)`
+  3. Only pull `(baseCost - fromBalance) + fee` from user's wallet
+  4. Approve AMMEngine for only the portion that comes from wallet
+  5. Let AMMEngine's internal logic spend from user's balance for the rest
+- **Rule:** When integrating two contracts, ensure the "money flow" matches the UX promise. If you show "X is spendable", make sure the contract actually spends it.
+
+---
+
+*Last updated: 2025-12-27*

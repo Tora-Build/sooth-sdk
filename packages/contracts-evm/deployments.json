@@ -1,53 +1,16 @@
 {
-  "version": "8.1.8",
-  "lastUpdated": "2025-12-26T16:29:49Z",
-  "status": "V8.1 Multi-Chain - Base Sepolia + MegaETH Frontier + Monad Testnet",
+  "version": "8.2.0",
+  "lastUpdated": "2025-12-26T17:55:21Z",
+  "status": "V8.2 Dual-Balance Model - Fresh Deployment",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15",
-        "Collateralizer": "0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8",
-        "AMMEngine": "0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f",
-        "TickBook": "0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe"
-      }
-    },
-    "megaethFrontier": {
-      "chainId": 4326,
-      "contracts": {
-        "MockUSDC": "0xcf670ce93325663e03ee7e502e66904133357526",
-        "LaunchpadEngine": "0x45419a4f8fc485ac548f289d1a6279b9010c11ca",
-        "Collateralizer": "0xae32be447b11ff47c4f27ef5b4dcfbfcfca584e8",
-        "AMMEngine": "0x47d14033162fcd90ef329bfcb8a901ff966c276d",
-        "TickBook": "0xb68cf3fb896fd9b3869830473917767c3f6a28cf"
-      }
-    },
-    "monadTestnet": {
-      "chainId": 10143,
-      "contracts": {
-        "MockUSDC": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
-        "LaunchpadEngine": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
-        "Collateralizer": "0x50293ad4e42593a8b081960c991c198729e81192",
-        "AMMEngine": "0x12a38bc9e3bd2359265ce70451777ede2fd875a3",
-        "TickBook": "0xbe566c267a0d350e1d647ccb621cc657fa3a1d50"
-      }
-    },
-    "baseSepoliaV7": {
-      "chainId": 84532,
-      "contracts": {
-        "MockUSDC": "0x7B61060a98D541f7C26fbC7e215FF9753c8D2a11",
-        "LaunchpadFactory": "0x2C2AdE29b81a6B47Cdd05CcAf06cF10E30d1318C",
-        "LaunchpadQuoter": "0xc2B5665F4B3f89770de2e74EEb3073EF87c59ED9",
-        "market1": "0xE467bDC870BC1AEa7401Cc0a3C34ABCcA2c3C64D",
-        "market1OutcomeToken": "0x89F5FF36A6d684B3ba121FFc7437c84a7e453BA5",
-        "market2": "0x5DBe9BB350407c604eDDABa86CbB59514F1A6EfD",
-        "market2OutcomeToken": "0x35aEA513cD336eF7c80FCAD9569B621ACfD17211",
-        "SoothTraderVault": "0x1C70bD3b70B065ACBb5AA81053D7F1aF8CF23045",
-        "SoothLiquidityVault": "0xc0413700c172817897C09b14b5643ee7cCFcf34b",
-        "SoothFeeController": "0xf2b1f87fDb1fb7c447B654647F565ad1A03227c4",
-        "ProtocolConfig": "0xEA0f15e3650AEC0c6DF89Fe8C7443EA47CD4bc88",
-        "SoothAdjudicatorRegistry": "0x4C52a6277b1B84121b3072C0c92b6Be0b7CC10F1"
+        "LaunchpadEngine": "0xACf4A0B0cD64c42785F722d4EC017a1e09ad9330",
+        "Collateralizer": "0xfBaB2a0565185f0512D9d98FD1EFeA99e696945f",
+        "AMMEngine": "0x0ae78F524a010387a9bED68586684fF15b03c6F3",
+        "TickBook": "0x5AfAf38d6EA37b153bc2AC57C434e6200D463348"
       }
     }
   }

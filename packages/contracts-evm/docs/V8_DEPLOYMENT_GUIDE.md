@@ -1,14 +1,18 @@
-# V8 Contract Deployment Guide
+# V8.2 Contract Deployment Guide
 
-**Version**: 1.0.0  
-**Last Updated**: 2025-12-23  
-**Status**: Ready for Deployment
+**Version**: 2.0.0  
+**Last Updated**: 2025-12-27  
+**Status**: Deployed (Base Sepolia)
 
 ---
 
 ## Overview
 
-This guide covers deploying the complete V8 contract stack to testnet, including the new **LaunchpadEngine** with creator economics.
+This guide covers deploying the complete V8.2 contract stack to testnet, including:
+- **LaunchpadEngine** with creator economics
+- **AMMEngine** with dual-balance position model (users can hold both YES and NO)
+- **Collateralizer** for token split/merge/redeem
+- **TickBook** for orderbook trading
 
 ---
 
@@ -315,9 +319,10 @@ forge script script/DeployTestMarket.s.sol \
 
 ### Testing
 - [ ] Call `TruthMarket.isLive()` → should return `true`
-- [ ] Call `LaunchpadEngine.isInitialized(market)` → should return `true`
-- [ ] Call `LaunchpadEngine.getBBase(market)` → should return `1000e18`
-- [ ] Call `Collateralizer.getMarketTokens(market)` → should return YES/NO addresses
+- [ ] Call `LaunchpadEngine.markets(market)` → should return market info with `bBase > 0`
+- [ ] Call `AMMEngine.getLiquidity(market)` → should return non-zero liquidity
+- [ ] Call `AMMEngine.getPosition(market, user)` → should return `(yesShares, noShares)` tuple
+- [ ] Call `Collateralizer.isMarketRegistered(market)` → should return `true`
 
 ### Frontend Integration
 - [ ] Update `apps/web/src/config/deployments.json` with new addresses

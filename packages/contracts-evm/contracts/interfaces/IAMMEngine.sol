@@ -3,8 +3,9 @@ pragma solidity ^0.8.20;
 
 /**
  * @title IAMMEngine
- * @notice Interface for LMSR-based AMM with position domain
+ * @notice Interface for LMSR-based AMM with dual-balance position domain
  * @dev Positions are non-transferable ledger entries with 24h locks and T* settlement
+ *      V8.2: Users can hold both YES and NO shares simultaneously
  */
 interface IAMMEngine {
     // ============================================
@@ -14,7 +15,8 @@ interface IAMMEngine {
     event PositionTraded(
         address indexed user,
         address indexed market,
-        int256 deltaShares,
+        uint8 outcome,         // 0 = YES, 1 = NO
+        int256 deltaShares,    // positive = buy, negative = sell
         uint256 cost,
         uint256 newQYes,
         uint256 newQNo
@@ -60,8 +62,10 @@ interface IAMMEngine {
     // Structs
     // ============================================
 
+    /// @notice User position with separate YES and NO balances
     struct Position {
-        int256 shares;           // Signed shares (positive = YES, negative = NO)
+        uint256 yesShares;    // YES shares held (WAD)
+        uint256 noShares;     // NO shares held (WAD)
     }
 
     struct LockEntry {
@@ -87,16 +91,17 @@ interface IAMMEngine {
 
     /**
      * @notice Execute trade in position domain
-     * @dev Positive deltaShares = buy YES, negative = sell YES
      * @param market Market address
-     * @param deltaShares Share delta in WAD (1e18 = 1 share)
-     * @param maxCost Maximum USDC to spend (WAD precision)
-     * @return actualCost Actual USDC spent/received
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
+     * @param maxCostOrMinProceeds For buys: max cost; for sells: min proceeds (slippage)
+     * @return actualCost Actual USDC spent (buys) or received (sells)
      */
     function tradePositions(
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external returns (uint256 actualCost);
 
     /**
@@ -105,14 +110,16 @@ interface IAMMEngine {
      *      while USDC can still be routed through the LaunchpadEngine economics layer.
      * @param user Trader whose position/balances are affected
      * @param market Market address
-     * @param deltaShares Share delta in WAD (1e18 = 1 share)
-     * @param maxCost Maximum USDC to spend (WAD precision)
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
+     * @param maxCostOrMinProceeds For buys: max cost; for sells: min proceeds
      */
     function tradePositionsFor(
         address user,
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external returns (uint256 actualCost);
 
     /**
@@ -135,12 +142,14 @@ interface IAMMEngine {
     /**
      * @notice Get quote for position trade (view-only)
      * @param market Market address
-     * @param deltaShares Share delta in WAD
-     * @return cost Estimated cost in USDC (WAD)
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
+     * @return cost Estimated cost/proceeds in USDC (WAD)
      * @return newPrice New YES probability after trade
      */
     function getPositionQuote(
         address market,
+        uint8 outcome,
         int256 deltaShares
     ) external view returns (uint256 cost, uint256 newPrice);
 
@@ -149,15 +158,16 @@ interface IAMMEngine {
     // ============================================
 
     /**
-     * @notice Get user's position
+     * @notice Get user's position (both YES and NO balances)
      * @param market Market address
      * @param user User address
-     * @return shares Current position (WAD)
+     * @return yesShares YES shares held (WAD)
+     * @return noShares NO shares held (WAD)
      */
     function getPosition(address market, address user)
         external
         view
-        returns (int256 shares);
+        returns (uint256 yesShares, uint256 noShares);
 
     // ============================================
     // Balance Management (V8.1)
@@ -190,6 +200,17 @@ interface IAMMEngine {
         external 
         view 
         returns (LockEntry[] memory entries);
+
+    /**
+     * @notice Spend from user's available balance (router only)
+     * @dev Called by LaunchpadEngine to use spendable proceeds for buys
+     * @param user User whose balance to spend
+     * @param amount Amount to spend (WAD)
+     * @return spent Actual amount spent (may be less if balance insufficient)
+     */
+    function spendBalanceFor(address user, uint256 amount) 
+        external 
+        returns (uint256 spent);
 
     /**
      * @notice Calculate currently claimable amount

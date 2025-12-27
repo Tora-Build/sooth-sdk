@@ -1,29 +1,50 @@
 # Project Status
 
-> Last Updated: 2025-12-26 (AMM UI Polish + Position Tracking Hardening)
+> Last Updated: 2025-12-27 (V8.3 Spendable Proceeds)
 
 ## Current Focus
+- **✅ V8.3 SPENDABLE PROCEEDS** — LaunchpadEngine now uses spendable proceeds for buys (proceeds from sells are truly spendable).
+- **✅ V8.2 DUAL-BALANCE MODEL** — Users can hold both YES and NO positions simultaneously on the AMM.
+- **✅ FINALIZED MARKETS AUDIT TRAIL** — Gov page shows real settlement data from contracts.
 - **✅ V8.1 UI/UX REFRESH** — Modern glass-card design system, premium typography, and refined trading signals.
-- **✅ PORTFOLIO V8.1 REFACTOR** — Completely rebuilt for modular architecture; separates self-custody from internal ledger.
-- **✅ NO-CUSTODY POSITION TRACKING** — Event-sourced balance tracking for LaunchpadEngine (Proof-of-Position).
-- **✅ NAV NAVIGATION CONSOLIDATION** — Improved hierarchy with Portfolio-first ordering and "More" dropdown.
-- **✅ RPC RESILIENCE & STABILITY** — Hardened hooks against 429 throttling; fixed multiple initialization race conditions.
 
 ## Recent Changes
 
+### ✅ V8.3 Spendable Proceeds (2025-12-27)
+- **Contract Change**: `LaunchpadEngine.tradePositions` now checks user's available balance in `AMMEngine` first.
+- **User Benefit**: Only need wallet USDC for `(baseCost - availableBalance) + fee`. Proceeds from sells are truly spendable for new buys.
+- **Added Function**: `AMMEngine.spendBalanceFor(user, amount)` — router-only function to spend from user's available balance.
+- **Frontend**: Buying power correctly shows wallet + spendable. Spendable shown in green as "+$X".
+- **Fixes**: MAX button no longer exceeds actual buying power. Spendable decimal display fixed (`/1e6` → `/1e18`).
+- **Gov Page**: Finalized Markets audit trail now shows real contract data (outcome, adjudicator, settlement date).
+- **Tests**: All 74 Foundry tests pass.
+
+### ✅ V8.2 Dual-Balance Position Model (2025-12-27)
+- **Breaking Contract Change**: Refactored `AMMEngine.Position` from single `int256 shares` to dual-balance `{ uint256 yesShares; uint256 noShares; }`.
+- **User Benefit**: Users can now hold both YES and NO positions simultaneously on the same market (aligns with TickBook behavior).
+- **API Changes**:
+  - `tradePositions(market, outcome, deltaShares, maxCost)` — Added `outcome` parameter (0=YES, 1=NO)
+  - `getPosition(market, user)` — Now returns `(uint256 yesShares, uint256 noShares)` tuple
+- **Frontend Updates**:
+  - `useAMMPositionDirect` returns `{ yesShares, noShares }` object
+  - `useAMMQuoteDirect` accepts `outcome` parameter
+  - `SimpleTradingPanel` uses outcome-aware trading
+- **Deployment**: Fresh V8.2 stack deployed to Base Sepolia with two demo markets.
+- **Tests**: All 74 Foundry tests pass, frontend build succeeds.
+
 ### ✅ AMM Trading UI Polish + Sell Reliability (2025-12-26)
 - **Probability Cards**:
-  - Replaced “$ / share” with **Issued Shares** (more informative + less redundant vs probability).
+  - Replaced "$ / share" with **Issued Shares** (more informative + less redundant vs probability).
 - **Accounting Displays**:
   - Updated `LPHolders` + `MarketStats` to display **integer-formatted** USD / quantities (cleaner, less noise).
   - Kept **EXRATE** precision (rates lose meaning when rounded to 0x/1x).
 - **Sell UX + State Correctness**:
-  - Added explicit “Insufficient Position / Enter Amount / Insufficient Balance” button states in `SimpleTradingPanel`.
+  - Added explicit "Insufficient Position / Enter Amount / Insufficient Balance" button states in `SimpleTradingPanel`.
   - Added sell-side validation (prevent sell attempts when UI has 0 or insufficient reconstructed shares).
-  - Trigger immediate refetches after confirmed trades (position + market + allowance), reducing “stuck” feeling.
+  - Trigger immediate refetches after confirmed trades (position + market + allowance), reducing "stuck" feeling.
 - **Position Tracking**:
-  - Increased `useLaunchpadPositionDirect` scanning window to reduce missed historical trades on slower networks/RPCs.
-  - **Note**: current approach is event-sourced; longer scan windows can increase RPC load.
+  - Replaced `useLaunchpadPositionDirect` (event-sourced) with direct `AMMEngine.getPosition()` reads.
+  - Fixes position display issues and eliminates RPC-heavy 5M-block log scans.
 
 ### ✅ V8.1 UI/UX & Portfolio Refresh (2025-12-26 Late Night)
 - **Design System Overhaul**:
@@ -291,16 +312,16 @@
 
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) - V8.1 Modular Architecture ✅
+### Base Sepolia (Chain 84532) - V8.2 Dual-Balance Model ✅
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0xFf422cc9b537BD41DD2583E3E611CA2eF1C149B4` |
-| **Collateralizer** | `0x2C60E3A96334E449C92C7d035E51EB8A6dA9245E` |
-| **AMMEngine** | `0x35089e985E23D01b4D2E453E775D570649624E8E` |
-| **TickBook** | `0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF` |
-| Market 1 (Alien Life) | `0xa67D75Bb57e6aBe59Cc6E8d102b319D894919ef1` |
-| Market 2 (BTC TWAP) | `0xAbEf550048C255B6513fF9B28EaFC6bF1e27b089` |
-| Market 3 (ETH5K) | `0xcdE5B0b2dD6b229d8d6195D14CBAb726025ECd18` |
+| **LaunchpadEngine** | `0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15` |
+| **Collateralizer** | `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8` |
+| **AMMEngine** | `0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f` |
+| **TickBook** | `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe` |
+| **USDC (MockUSDC)** | `0x856fbeebd91db28e3b4550e7602142cfab683796` |
+| Market 1 | `0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe` |
+| Market 2 | `0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05` |
 
 ### Base Sepolia (Chain 84532) - V7 Dual-Engine (Legacy) ✅
 | Contract | Address |
@@ -409,15 +430,17 @@
 
 ---
 
-## Session Summary (2025-12-26 Late Night)
-**Critical UI Stabilization & RPC Resilience** — Addressed multiple high-priority application crashes that were occurring under unstable network conditions (RPC 429 rate limiting). Hardened the `LPHolders` component and `useLockQueue` hook with defensive coding patterns (null checks, array validation) to ensure the UI handles missing or malformed data gracefully instead of crashing. Fixed import regressions in the `Trade` page.
+## Session Summary (2025-12-27)
+**V8.2 Dual-Balance Position Model** — Major contract refactor to allow users to hold both YES and NO positions simultaneously. Changed `AMMEngine.Position` from `int256 shares` to `{ uint256 yesShares; uint256 noShares; }`. Updated all contract interfaces, trading logic, and frontend hooks. Deployed fresh V8.2 stack to Base Sepolia with two demo markets. All 74 tests pass, frontend builds successfully. This resolves the "cannot sell" and "buy NO fails" issues from the previous session.
 
 **Pending Work for Next Session**:
-1. Monitor RPC stability (consider private endpoint if 429s persist)
-2. Configure Synpress environment variables for wallet-connected tests
-3. Run and fix 14 skipped wallet tests (create, gov, pro pages)
-4. Verify 24h lock behavior on-chain
-5. Replace/optimize `useLaunchpadPositionDirect` (avoid heavy 5M block scans; cache last scanned block per user+market)
+1. Test frontend trading with new dual-balance model
+2. Verify 24h lock behavior on-chain
+3. Configure Synpress environment variables for wallet-connected tests
+4. Run and fix 14 skipped wallet tests
+
+## Session Summary (2025-12-26 Late Night)
+**Critical UI Stabilization & RPC Resilience** — Addressed multiple high-priority application crashes that were occurring under unstable network conditions (RPC 429 rate limiting). Hardened the `LPHolders` component and `useLockQueue` hook with defensive coding patterns (null checks, array validation) to ensure the UI handles missing or malformed data gracefully instead of crashing. Fixed import regressions in the `Trade` page.
 
 ## Session Summary (2025-12-25 Late Evening)
 **E2E Testing Infrastructure Hardened** — Replaced Synpress with a custom MetaMask fixture that directly loads the extension into a persistent browser context. Configured Playwright for hybrid execution: basic tests run headless (no window), while wallet/onchain tests run headed but off-screen to avoid focus stealing. Added Web3Modal dismissal to prevent modal-blocking-clicks failures. All 84 tests now pass in ~3.2 minutes.

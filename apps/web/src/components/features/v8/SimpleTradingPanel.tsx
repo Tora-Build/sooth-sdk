@@ -182,6 +182,8 @@ export const SimpleTradingPanel = ({
     return walletUsdcToken / BigInt(10 ** (decimals - 18));
   }, [walletUsdcToken, decimals]);
 
+  // LaunchpadEngine now uses spendable proceeds first for the base cost,
+  // then pulls the remainder (+ fee) from wallet. So buying power = wallet + spendable.
   const buyingPowerWad = walletWad + (spendableProceeds ?? 0n);
 
   // Log transaction hash when it's set
@@ -315,17 +317,15 @@ export const SimpleTradingPanel = ({
     if (high > capSharesWad) high = capSharesWad;
 
     const totalCostForBuyShares = async (sharesWad: bigint) => {
-      const deltaShares =
-        selectedOutcome === 0
-          ? sharesWad // buy YES
-          : -sharesWad; // buy NO (short YES)
+      // V8.2: deltaShares is always positive for buys, outcome determines YES/NO
+      const deltaShares = sharesWad;
       
       try {
         const [netCost] = await publicClient.readContract({
           address: ammEngineAddress,
           abi: V8_ABIS.AMMEngine,
           functionName: 'getPositionQuote',
-          args: [address, deltaShares],
+          args: [address, selectedOutcome, deltaShares],
         }) as readonly [bigint, bigint];
 
         const absNet = netCost < 0n ? -netCost : netCost;
@@ -415,10 +415,7 @@ export const SimpleTradingPanel = ({
         return;
       }
 
-    // The quote hook already calculates the correct delta based on outcome and mode
-    // V8 Position Model:
-    // - Positive deltaShares = Long YES
-    // - Negative deltaShares = Short YES (Long NO)
+    // V8.2: deltaShares is always based on quote, outcome is separate parameter
     const deltaShares = quote.deltaShares;
 
     // Slippage guard:
@@ -430,6 +427,7 @@ export const SimpleTradingPanel = ({
 
     console.log('[Trade] Executing:', {
       market: address,
+      outcome: selectedOutcome,
       deltaShares: deltaShares.toString(),
       maxCost: limitCost.toString(),
       maxCostUSD: (Number(limitCost) / 1e18).toFixed(2),
@@ -437,11 +435,12 @@ export const SimpleTradingPanel = ({
     });
 
     try {
+      // V8.2 API: tradePositions(market, outcome, deltaShares, maxCostOrMinProceeds)
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,
         abi: V8_ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
-        args: [address, deltaShares, limitCost],
+        args: [address, selectedOutcome, deltaShares, limitCost],
         // Explicit gas limit to bypass MegaETH gas estimation issues
         gas: 500000n,
       }, {
@@ -774,12 +773,12 @@ export const SimpleTradingPanel = ({
           </div>
         )}
 
-        {/* Spendable Proceeds Indicator */}
+        {/* Spendable Proceeds Indicator - these ARE used for buys */}
         {tradeMode === 'buy' && spendableProceeds > 0n && quote.cost > 0n && (
           <div className="flex items-center gap-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400">
             <Unlock size={12} className="shrink-0" />
             <span>
-              Using <strong>${(Number(spendableProceeds) / 1e6).toFixed(2)}</strong> from spendable proceeds first.
+              Using up to <strong>${(Number(spendableProceeds) / 1e18).toFixed(2)}</strong> from spendable proceeds.
             </span>
           </div>
         )}
@@ -810,12 +809,14 @@ export const SimpleTradingPanel = ({
               ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span>Spendable (from sells)</span>
-            <span className="font-mono text-slate-200">
-              ${(Number(spendableProceeds ?? 0n) / 1e18).toFixed(2)}
-            </span>
-          </div>
+          {spendableProceeds > 0n && (
+            <div className="flex justify-between">
+              <span>Spendable Proceeds</span>
+              <span className="font-mono text-emerald-400">
+                +${(Number(spendableProceeds) / 1e18).toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

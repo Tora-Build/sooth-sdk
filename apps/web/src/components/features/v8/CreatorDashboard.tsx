@@ -185,7 +185,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
               <h3 className="font-semibold text-white">Graduation Progress</h3>
             </div>
             <Badge variant={isGraduated ? 'success' : 'warning'}>
-              {isGraduated ? 'Graduated 🎓' : `Pre-Graduation`}
+              {isGraduated ? 'Graduated 🎓' : 'Bonding'}
             </Badge>
           </div>
 
@@ -214,7 +214,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
               <p className="text-xs text-slate-500">Current Fee Rate</p>
               <p className={`font-mono text-lg ${isGraduated ? 'text-emerald-400' : 'text-orange-400'}`}>
                 {isGraduated ? '1.0%' : '5.0%'} 
-                <span className="text-xs text-slate-500 ml-1">{isGraduated ? '(Post-Grad)' : '(Pre-Grad)'}</span>
+                <span className="text-xs text-slate-500 ml-1">{isGraduated ? '(Graduated)' : '(Bonding)'}</span>
               </p>
             </div>
             <div>

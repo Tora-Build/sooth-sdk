@@ -395,7 +395,82 @@ User's Choice (EOA, Safe, Smart Account, etc.)
 - **Rationale**:
     - **Correctness**: On-chain state should be canonical (no event-scan reconstruction).
     - **Performance**: Removes heavy `getLogs` scanning and RPC failure modes.
-    - **Security**: Only the configured router can spend user “available balance” on their behalf.
+    - **Security**: Only the configured router can spend user "available balance" on their behalf.
 - **Consequences**:
     - **Breaking Change**: `AMMEngine` now has an owner-configured router and a new constructor signature; deployments must set router.
     - **Frontend Simplification**: Position hooks can call `AMMEngine.getPosition(market, user)` directly.
+
+## ADR-048: V8.2 Dual-Balance Position Model (YES + NO Positions)
+- **Date**: 2025-12-27
+- **Status**: Accepted (Deployed)
+- **Context**: V8.1's position model used a single `int256 shares` where positive = long YES and negative = long NO. This created problems:
+    1. Users could not hold both YES and NO positions simultaneously (forced netting).
+    2. "Buy NO" was mathematically equivalent to "Sell YES", causing slippage logic confusion.
+    3. Inconsistent with TickBook, which allows independent YES/NO limit orders.
+- **Decision**: Refactor `AMMEngine.Position` to a **dual-balance model**:
+    ```solidity
+    struct Position {
+        uint256 yesShares;
+        uint256 noShares;
+    }
+    ```
+    - **Independent Tracking**: YES and NO shares tracked separately.
+    - **Outcome Parameter**: `tradePositions(market, outcome, deltaShares, maxCost)` — `outcome` = 0 for YES, 1 for NO.
+    - **Unsigned Shares**: `deltaShares > 0` = buy, `deltaShares < 0` = sell (for the specified outcome).
+    - **Return Tuple**: `getPosition(market, user)` returns `(uint256 yesShares, uint256 noShares)`.
+- **Rationale**:
+    - **Flexibility**: Users can hedge by holding both sides (e.g., arbitrage between AMM and TickBook).
+    - **Simplicity**: No more signed math or netting logic; each outcome is independent.
+    - **Consistency**: Aligns AMM position model with TickBook's independent YES/NO orderbook.
+    - **UX Clarity**: "Buy YES" and "Buy NO" are clearly distinct actions in the UI.
+- **Implementation**:
+    - `AMMEngine.sol`: Refactored `_tradePositions` to update `yesShares` or `noShares` based on `outcome`.
+    - `LaunchpadEngine.sol`: Updated `tradePositions` to pass `outcome` through to `ammEngine.tradePositionsFor`.
+    - `IAMMEngine.sol` / `ILaunchpadEngine.sol`: Updated interfaces with new signatures.
+    - Frontend: `useAMMPositionDirect`, `useAMMQuoteDirect`, `SimpleTradingPanel` updated for dual-balance.
+- **Consequences**:
+    - **Breaking Change**: All trading calls must now include `outcome` parameter.
+    - **ABI Change**: Frontend ABIs regenerated from Foundry output.
+    - **Migration**: Existing positions on old contracts are not migrated (fresh deployment).
+    - **Test Coverage**: 74/74 Foundry tests passing (100%), including new dual-balance tests.
+- **Deployment**: V8.2 deployed to Base Sepolia on 2025-12-27.
+    - LaunchpadEngine: `0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15`
+    - AMMEngine: `0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f`
+    - Collateralizer: `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8`
+    - TickBook: `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe`
+
+## ADR-049: V8.3 Spendable Proceeds for LaunchpadEngine Buys
+- **Date**: 2025-12-27
+- **Status**: Accepted
+- **Context**: In V8.2, when users sell shares, proceeds go to their `_availableBalance` in AMMEngine and are "spendable" for new trades. However, the UI routes trades through LaunchpadEngine (for fee handling), which always pulled the full cost from the user's wallet via `safeTransferFrom`. This created a disconnect:
+    1. Frontend showed "Buying Power = Wallet + Spendable", but only wallet was actually used.
+    2. MAX button would allow selecting more shares than the wallet could afford, causing transaction failures.
+    3. Spendable proceeds sat unused, contradicting the "instantly spendable" promise.
+- **Decision**: Modify `LaunchpadEngine.tradePositions` to check and use spendable proceeds:
+    ```solidity
+    // Check user's spendable balance in AMMEngine
+    (uint256 userAvailable, ) = ammEngine.getBalances(msg.sender);
+    uint256 fromBalance = userAvailable > baseCost ? baseCost : userAvailable;
+    uint256 fromWallet = actualCost - fromBalance; // remainder + fee
+    
+    // Pull only what's needed from wallet
+    if (fromWalletUsdc > 0) {
+        usdc.safeTransferFrom(msg.sender, address(this), fromWalletUsdc);
+    }
+    ```
+    - **AMMEngine's Internal Logic**: Already spends from `_availableBalance[user]` first, then pulls remainder from payer (LaunchpadEngine).
+    - **Fee Always from Wallet**: Fees go to LaunchpadEngine, so they can't come from AMMEngine balance.
+- **Added Function**: `AMMEngine.spendBalanceFor(user, amount)` — router-only function to explicitly spend from a user's available balance (added for flexibility, though not strictly needed for this flow).
+- **Rationale**:
+    - **Correct UX**: Buying power now truly equals wallet + spendable.
+    - **Gas Efficiency**: Only transfers the minimum required USDC from wallet.
+    - **Promise Kept**: Proceeds are actually "instantly spendable" for new buys.
+- **Consequences**:
+    - **Breaking Change**: New contract deployment required.
+    - **Frontend Alignment**: No code changes needed; existing `buyingPowerWad = walletWad + spendable` is now correct.
+    - **Test Coverage**: All 74 tests passing.
+- **Deployment**: V8.3 deployed to Base Sepolia on 2025-12-27.
+    - LaunchpadEngine: `0x1F30742c38c10b28B3960E2B067644A52592bd8f`
+    - AMMEngine: `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5`
+    - Collateralizer: `0x09A7809a33F969B0099A5d19003991592658763f`
+    - TickBook: `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd`

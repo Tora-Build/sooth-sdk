@@ -32,6 +32,7 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
   const probability = amm?.yesProbability ?? 0.5;
   const probabilityPercent = (probability * 100).toFixed(0);
   const isGraduated = launchpad?.isGraduated ?? false;
+  const graduationProgress = launchpad?.graduationProgress ?? 0;
 
   return (
     <button
@@ -41,7 +42,37 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
         : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
         }`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
+        {/* Graduation Progress Ring */}
+        <div className="flex-shrink-0">
+          {isGraduated ? (
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+              <GraduationCap className="w-4 h-4 text-emerald-400" />
+            </div>
+          ) : (
+            <div className="relative w-9 h-9">
+              <svg className="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-700" />
+                <circle
+                  cx="18" cy="18" r="14"
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${graduationProgress * 0.88} 88`}
+                  className="transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[8px] font-bold text-cyan-400 tabular-nums">
+                  {graduationProgress.toFixed(0)}%
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Market Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <p className={`font-medium truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
@@ -56,13 +87,13 @@ const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect })
           </div>
           <p className="text-[10px] text-slate-500 truncate leading-tight">{market.name}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <span className={`text-lg font-bold tabular-nums block leading-none ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
-              }`}>
-              {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
-            </span>
-          </div>
+
+        {/* Probability & Chevron */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-lg font-bold tabular-nums leading-none ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
+            }`}>
+            {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
+          </span>
           <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-0.5' : 'text-slate-600'}`} />
         </div>
       </div>

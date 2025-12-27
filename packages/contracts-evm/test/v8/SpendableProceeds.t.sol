@@ -9,7 +9,7 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 /**
  * @title SpendableProceedsTest
- * @notice Test suite for V8.1 spendable proceeds feature
+ * @notice Test suite for V8.2 spendable proceeds feature with dual-balance model
  * @dev Tests cross-market spendability, lock queue management, and capital efficiency
  */
 contract MockUSDC is ERC20Mock {
@@ -32,6 +32,10 @@ contract SpendableProceedsTest is Test {
 
     uint256 constant WAD = 1e18;
     uint256 constant INITIAL_LIQUIDITY = 1000 * WAD;
+
+    // V8.2 outcome constants
+    uint8 constant YES = 0;
+    uint8 constant NO = 1;
 
     event BalanceUsed(address indexed user, uint256 amount, uint256 remaining);
     event WalletPull(address indexed user, uint256 amount);
@@ -93,10 +97,10 @@ contract SpendableProceedsTest is Test {
     function test_SpendAvailableBalance_FullCoverage() public {
         // Step 1: User sells to get locked proceeds
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD); // Buy 100 YES
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD); // Buy 100 YES
 
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0); // Sell 50 YES
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0); // Sell 50 YES
 
         // Check balances
         (uint256 available, uint256 locked) = amm.getBalances(user);
@@ -108,11 +112,11 @@ contract SpendableProceedsTest is Test {
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
         
         // Get quote for a smaller buy that will fit in available balance
-        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), 40 * int256(WAD));
+        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), YES, 40 * int256(WAD));
         require(buyCost <= sellCost, "Buy cost should be less than available");
         
         vm.prank(user);
-        amm.tradePositions(address(market2), 40 * int256(WAD), buyCost);
+        amm.tradePositions(address(market2), YES, 40 * int256(WAD), buyCost);
 
         // Verify no USDC was pulled from wallet (or minimal amount)
         assertApproxEqAbs(
@@ -131,20 +135,20 @@ contract SpendableProceedsTest is Test {
     function test_SpendAvailableBalance_PartialCoverage() public {
         // Step 1: User sells to get some locked proceeds
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
 
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // Step 2: User buys MORE than available balance (partial coverage)
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
         
         // Get quote for a large buy that will exceed available balance
-        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), 100 * int256(WAD));
+        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), YES, 100 * int256(WAD));
         require(buyCost > sellCost, "Buy cost should exceed available balance");
         
         vm.prank(user);
-        amm.tradePositions(address(market2), 100 * int256(WAD), buyCost);
+        amm.tradePositions(address(market2), YES, 100 * int256(WAD), buyCost);
 
         // Verify USDC was pulled from wallet (the difference)
         uint256 expectedPull = buyCost - sellCost;
@@ -161,7 +165,7 @@ contract SpendableProceedsTest is Test {
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
 
         vm.prank(user);
-        uint256 cost = amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        uint256 cost = amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
 
         // Verify USDC was pulled from wallet
         assertEq(usdc.balanceOf(user), usdcBalanceBefore - _wadToUsdcCeil(cost), "Should pull from wallet");
@@ -178,10 +182,10 @@ contract SpendableProceedsTest is Test {
     function test_LockQueue_SingleEntry() public {
         // Buy then sell
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
 
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // Check lock queue
         IAMMEngine.LockEntry[] memory queue = amm.getLockQueue(user);
@@ -194,14 +198,14 @@ contract SpendableProceedsTest is Test {
     function test_LockQueue_MultipleEntries() public {
         // Multiple sells in different markets
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(user);
-        uint256 sell1Cost = amm.tradePositions(address(market1), -30 * int256(WAD), 0);
+        uint256 sell1Cost = amm.tradePositions(address(market1), YES, -30 * int256(WAD), 0);
 
         vm.prank(user);
-        amm.tradePositions(address(market2), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market2), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(user);
-        uint256 sell2Cost = amm.tradePositions(address(market2), -40 * int256(WAD), 0);
+        uint256 sell2Cost = amm.tradePositions(address(market2), YES, -40 * int256(WAD), 0);
 
         // Check lock queue
         IAMMEngine.LockEntry[] memory queue = amm.getLockQueue(user);
@@ -219,9 +223,9 @@ contract SpendableProceedsTest is Test {
     function test_ClaimUnlocked_SingleEntry() public {
         // Create locked proceeds
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // Try to claim before expiry (should fail)
         vm.prank(user);
@@ -258,22 +262,22 @@ contract SpendableProceedsTest is Test {
         
         // Create 3 lock entries at different times
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         
         // Lock 1 at startTime (expires at startTime + 24h)
         vm.prank(user);
-        uint256 sell1 = amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        uint256 sell1 = amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
         uint64 expiry1 = uint64(startTime + 24 hours);
 
         // Warp to startTime + 1h, create Lock 2 (expires at startTime + 25h)
         vm.warp(startTime + 1 hours);
         vm.prank(user);
-        uint256 sell2 = amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        uint256 sell2 = amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
 
         // Warp to startTime + 2h, create Lock 3 (expires at startTime + 26h)
         vm.warp(startTime + 2 hours);
         vm.prank(user);
-        uint256 sell3 = amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        uint256 sell3 = amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
 
         // Warp to after first lock expires (startTime + 24h + 1s)
         vm.warp(expiry1 + 1);
@@ -299,12 +303,12 @@ contract SpendableProceedsTest is Test {
         
         // Create initial position
         vm.prank(user);
-        amm.tradePositions(address(market1), 200 * int256(WAD), 2000 * WAD);
+        amm.tradePositions(address(market1), YES, 200 * int256(WAD), 2000 * WAD);
         
         // Create 3 locks at the same time (will all unlock together)
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(user);
-            amm.tradePositions(address(market1), -10 * int256(WAD), 0);
+            amm.tradePositions(address(market1), YES, -10 * int256(WAD), 0);
         }
 
         // Verify we have 3 locks
@@ -326,11 +330,11 @@ contract SpendableProceedsTest is Test {
     function test_ClaimUnlocked_BoundedIteration() public {
         // Create 60 lock entries
         vm.prank(user);
-        amm.tradePositions(address(market1), 300 * int256(WAD), 3000 * WAD);
+        amm.tradePositions(address(market1), YES, 300 * int256(WAD), 3000 * WAD);
         
         for (uint256 i = 0; i < 60; i++) {
             vm.prank(user);
-            amm.tradePositions(address(market1), -2 * int256(WAD), 0);
+            amm.tradePositions(address(market1), YES, -2 * int256(WAD), 0);
         }
 
         // Fast forward 24 hours + 1 second
@@ -376,21 +380,21 @@ contract SpendableProceedsTest is Test {
     function test_CrossMarketSpendability() public {
         // Step 1: User buys in market1
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
 
         // Step 2: User sells in market1 (gets locked proceeds)
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // Step 3: User IMMEDIATELY buys in market2 using locked proceeds
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
         
         // Get quote for a smaller buy that will fit in available balance
-        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), 40 * int256(WAD));
+        (uint256 buyCost, ) = amm.getPositionQuote(address(market2), YES, 40 * int256(WAD));
         require(buyCost <= sellCost, "Buy cost should be less than available");
         
         vm.prank(user);
-        amm.tradePositions(address(market2), 40 * int256(WAD), buyCost);
+        amm.tradePositions(address(market2), YES, 40 * int256(WAD), buyCost);
 
         // Verify minimal or no USDC was pulled from wallet (cross-market spendability works!)
         assertApproxEqAbs(
@@ -406,8 +410,8 @@ contract SpendableProceedsTest is Test {
         assertEq(queue[0].market, address(market1), "Lock should be from market1");
 
         // Verify user has position in market2
-        int256 shares = amm.getPosition(address(market2), user);
-        assertGt(shares, 0, "User should have position in market2");
+        (uint256 yesShares, ) = amm.getPosition(address(market2), user);
+        assertGt(yesShares, 0, "User should have YES position in market2");
     }
 
     function test_RapidTrading_SellBuySellBuy() public {
@@ -415,19 +419,19 @@ contract SpendableProceedsTest is Test {
         vm.startPrank(user);
 
         // Buy market1
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
 
         // Sell market1 (get locked proceeds)
-        amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // Buy market2 (use locked proceeds)
-        amm.tradePositions(address(market2), 50 * int256(WAD), 500 * WAD);
+        amm.tradePositions(address(market2), YES, 50 * int256(WAD), 500 * WAD);
 
         // Sell market2 (get more locked proceeds)
-        amm.tradePositions(address(market2), -25 * int256(WAD), 0);
+        amm.tradePositions(address(market2), YES, -25 * int256(WAD), 0);
 
         // Buy market1 again (use locked proceeds)
-        amm.tradePositions(address(market1), 25 * int256(WAD), 300 * WAD);
+        amm.tradePositions(address(market1), YES, 25 * int256(WAD), 300 * WAD);
 
         vm.stopPrank();
 
@@ -448,9 +452,9 @@ contract SpendableProceedsTest is Test {
 
         // After sell
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(user);
-        uint256 sellCost = amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        uint256 sellCost = amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         (available, locked) = amm.getBalances(user);
         assertEq(available, sellCost, "Available should equal sell proceeds");
@@ -463,22 +467,22 @@ contract SpendableProceedsTest is Test {
         
         // Create 3 locks at different times
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         
         // Lock 1 at startTime (expires at startTime + 24h)
         vm.prank(user);
-        uint256 sell1 = amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        uint256 sell1 = amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
         uint64 expiry1 = uint64(startTime + 24 hours);
 
         // Lock 2 at startTime + 1h (expires at startTime + 25h)
         vm.warp(startTime + 1 hours);
         vm.prank(user);
-        uint256 sell2 = amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        uint256 sell2 = amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
 
         // Lock 3 at startTime + 2h (expires at startTime + 26h)
         vm.warp(startTime + 2 hours);
         vm.prank(user);
-        amm.tradePositions(address(market1), -20 * int256(WAD), 0);
+        amm.tradePositions(address(market1), YES, -20 * int256(WAD), 0);
 
         // Check before any unlock (at startTime + 2h)
         (uint256 claimable, uint64 nextUnlock, uint256 nextAmount) = amm.getClaimableAmount(user);
@@ -502,9 +506,9 @@ contract SpendableProceedsTest is Test {
     function test_EmptyQueueAfterClaim() public {
         // Create and claim all locks
         vm.prank(user);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(user);
-        amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         vm.warp(block.timestamp + 24 hours + 1);
         vm.prank(user);
@@ -523,15 +527,15 @@ contract SpendableProceedsTest is Test {
     function test_MultipleUsersIndependentQueues() public {
         // User 1 creates locks
         vm.prank(trader1);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(trader1);
-        amm.tradePositions(address(market1), -50 * int256(WAD), 0);
+        amm.tradePositions(address(market1), YES, -50 * int256(WAD), 0);
 
         // User 2 creates locks
         vm.prank(trader2);
-        amm.tradePositions(address(market1), 100 * int256(WAD), 1000 * WAD);
+        amm.tradePositions(address(market1), YES, 100 * int256(WAD), 1000 * WAD);
         vm.prank(trader2);
-        amm.tradePositions(address(market1), -30 * int256(WAD), 0);
+        amm.tradePositions(address(market1), YES, -30 * int256(WAD), 0);
 
         // Verify independent queues
         IAMMEngine.LockEntry[] memory queue1 = amm.getLockQueue(trader1);

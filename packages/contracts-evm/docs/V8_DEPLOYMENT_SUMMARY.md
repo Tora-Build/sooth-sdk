@@ -1,31 +1,35 @@
-# V8 Deployment Documentation Update
+# V8.2 Deployment Documentation Update
 
-**Date**: 2025-12-23  
+**Date**: 2025-12-27  
 **Status**: Complete  
-**Librarian**: Organizing V8 deployment artifacts
+**Version**: 8.2.0 (Dual-Balance Position Model)
 
 ---
 
-## 📋 V8 Deployment Summary
+## 📋 V8.2 Deployment Summary
+
+### Key Changes in V8.2
+- **Dual-Balance Model**: Position struct changed from `int256 shares` to `{ uint256 yesShares; uint256 noShares; }`
+- **Outcome Parameter**: `tradePositions` now requires `outcome` (0=YES, 1=NO)
+- **Independent Positions**: Users can hold both YES and NO simultaneously
 
 ### Deployed Contracts (Base Sepolia - Chain ID: 84532)
 
-#### Core Infrastructure
-- **LaunchpadEngine**: `0x196138C0d39eE18a6EEFbD9f889f455e67774bAe`
-- **Collateralizer**: `0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac`
-- **AMMEngine**: `0x26728543542297dc17A91D82C0B1605Dc2331537`
-- **TickBook**: `0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87`
+#### Core Infrastructure (V8.2)
+- **LaunchpadEngine**: `0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15`
+- **AMMEngine**: `0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f`
+- **Collateralizer**: `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8`
+- **TickBook**: `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe`
+- **USDC (MockUSDC)**: `0x856fbeebd91db28e3b4550e7602142cfab683796`
 
 #### Live Markets
-1. **UN Confirms Alien Life** (`0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC`)
-   - Question: "Will the United Nations officially confirm the existence of extraterrestrial life?"
+1. **Market 1** (`0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe`)
    - Liquidity: $1,000 USDC
-   - Deadline: Feb 22, 2025
+   - Status: Live ✅
 
-2. **BTC 7-day TWAP >= $100k** (`0x122E6afFd70a66183FeBd279C418186F24d9a4e2`)
-   - Question: "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?"
+2. **Market 2** (`0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05`)
    - Liquidity: $1,000 USDC
-   - Deadline: Feb 22, 2025
+   - Status: Live ✅
 
 ---
 

@@ -14,7 +14,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title LaunchpadEngine
  * @notice Creator economics layer with LP tokens, fee distribution, and graduation mechanics
- * @dev Wraps AMMEngine to add Launchpad model on top of pure trading logic
+ * @dev V8.2: Supports dual-balance position model (users can hold both YES and NO)
+ *      Wraps AMMEngine to add Launchpad model on top of pure trading logic
  */
 contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     using SafeERC20 for IERC20;
@@ -236,61 +237,70 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
      */
     function tradePositions(
         address market,
+        uint8 outcome,
         int256 deltaShares,
-        uint256 maxCost
+        uint256 maxCostOrMinProceeds
     ) external override returns (uint256 actualCost) {
         MarketState storage state = markets[market];
         require(state.creator != address(0), "LaunchpadEngine: market not found");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
         require(ammEngine.router() == address(this), "LaunchpadEngine: amm not configured");
+        require(outcome <= 1, "LaunchpadEngine: invalid outcome");
 
-        // Determine if this is a close (sell) vs open (buy) trade, so we can avoid
-        // incorrectly pulling USDC from the user during sells.
-        int256 currentShares = ammEngine.getPosition(market, msg.sender);
-        bool isClosingYes = (deltaShares < 0) && (currentShares > 0);
-        bool isClosingNo = (deltaShares > 0) && (currentShares < 0);
-        bool isClosing = isClosingYes || isClosingNo;
+        bool isBuy = deltaShares > 0;
 
         // Get quote from AMM (base cost without fees)
-        (uint256 baseCost, ) = ammEngine.getPositionQuote(market, deltaShares);
+        (uint256 baseCost, ) = ammEngine.getPositionQuote(market, outcome, deltaShares);
 
-        if (isClosing) {
-            // SELL / CLOSE: do not pull USDC from user.
-            // We interpret maxCost as minimum proceeds (slippage protection).
+        if (!isBuy) {
+            // SELL: do not pull USDC from user.
+            // We interpret maxCostOrMinProceeds as minimum proceeds (slippage protection).
             // Fees on sells are currently not applied (alpha simplification).
-            uint256 minProceeds = maxCost;
             actualCost = baseCost;
 
             // Execute trade on AMM (credits proceeds to trader, locked)
-            ammEngine.tradePositionsFor(msg.sender, market, deltaShares, minProceeds);
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
 
-            emit PositionTraded(msg.sender, market, deltaShares, actualCost, 0);
+            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, 0);
         } else {
-            // BUY / OPEN: user pays baseCost + fee
+            // BUY: user pays baseCost + fee
             uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
             uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
             actualCost = baseCost + fee;
 
-            require(actualCost <= maxCost, "LaunchpadEngine: cost too high");
+            require(actualCost <= maxCostOrMinProceeds, "LaunchpadEngine: cost too high");
+
+            // Check user's spendable balance in AMMEngine
+            // This balance can cover part of the baseCost (not the fee - fee always comes from wallet)
+            (uint256 userAvailable, ) = ammEngine.getBalances(msg.sender);
+            uint256 fromBalance = userAvailable > baseCost ? baseCost : userAvailable;
+            uint256 fromWallet = actualCost - fromBalance; // baseCost - fromBalance + fee
 
             // Convert to USDC decimals for transfers
-            uint256 actualCostUsdc = _wadToUsdcCeil(actualCost);
-            uint256 baseCostUsdc = _wadToUsdcCeil(baseCost);
-            uint256 feeUsdc = actualCostUsdc - baseCostUsdc;
+            uint256 fromWalletUsdc = _wadToUsdcCeil(fromWallet);
+            uint256 feeUsdc = _wadToUsdcCeil(fee);
+            uint256 baseCostFromWallet = fromWallet > fee ? fromWallet - fee : 0;
+            uint256 baseCostFromWalletUsdc = _wadToUsdcCeil(baseCostFromWallet);
 
-            // Transfer total cost from user
-            usdc.safeTransferFrom(msg.sender, address(this), actualCostUsdc);
+            // Pull only what's needed from user's wallet
+            if (fromWalletUsdc > 0) {
+                usdc.safeTransferFrom(msg.sender, address(this), fromWalletUsdc);
+            }
 
-            // Approve AMM to spend base cost
-            usdc.approve(address(ammEngine), baseCostUsdc);
+            // Approve AMM for the portion of baseCost that comes from wallet
+            // (AMMEngine will use user's balance for the rest)
+            if (baseCostFromWalletUsdc > 0) {
+                usdc.approve(address(ammEngine), baseCostFromWalletUsdc);
+            }
 
             // Execute trade on AMM
-            ammEngine.tradePositionsFor(msg.sender, market, deltaShares, baseCost);
+            // AMMEngine will use user's _availableBalance first, then pull remainder from us
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost);
 
-            // Distribute fee
+            // Distribute fee (fee always stays in LaunchpadEngine)
             _distributeFee(market, fee, feeUsdc, msg.sender);
 
-            emit PositionTraded(msg.sender, market, deltaShares, actualCost, fee);
+            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, fee);
         }
     }
 
@@ -306,14 +316,15 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         MarketState storage state = markets[market];
 
         if (!state.isGraduated) {
-            // PRE-GRADUATION: 100% to bBase growth + LP minting
+            // PRE-GRADUATION: 100% to bBase growth + LP minting to TRADER
+            // This converts traders into stakeholders (V7 model)
 
             // Increase liquidity parameter
             state.bCurrent += feeWad;
             // Mirror depth growth into AMM pricing
             ammEngine.increaseLiquidity(market, feeWad);
 
-            // Mint LP tokens to trader (1:1 with fee paid)
+            // Mint LP tokens to TRADER (1:1 with fees paid)
             uint256 lpTokens = feeWad;
             lpBalances[market][trader] += lpTokens;
             state.totalLPSupply += lpTokens;
