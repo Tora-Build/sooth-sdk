@@ -4,6 +4,59 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **TickBook Vault-Native Orderbook Plan (Research)** (2025-12-27):
+  - Added consolidated design doc: `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+  - Captures Phase 1: USDC-only Pro UX + internal YES/NO shares display + vault-native matching.
+
+### Changed
+- **TickBook Tick Resolution (Planned)** (2025-12-27):
+  - Design decision to reduce TickBook resolution from **10,000** ticks → **1,000** ticks (0.01% → 0.1% increments).
+  - Rationale: alpha simplicity + fewer tick crossings; consequence: coarser price grid.
+
+### Fixed
+- **🔴 CRITICAL: AMMEngine Lock Accounting Bug** (2025-12-27):
+  - **Discovery**: Invariant test `invariant_LockedNeverExceedsAvailable` caught the bug.
+  - **Root Cause**: `_tradePositions()` reduced `_availableBalance` when user bought using proceeds, but did NOT reduce `_lockedBalance` proportionally.
+  - **Impact**: `_lockedBalance > _availableBalance` could occur, causing potential underflow in `claimUnlocked()`.
+  - **Fix**: Added proportional `_lockedBalance` reduction in `AMMEngine._tradePositions()` (lines 203-217).
+  - **Verification**: All 92 tests pass including 256+ run invariant fuzzing.
+- **Graduation Revert When Collateralizer Already Registered** (2025-12-27):
+  - `LaunchpadEngine` graduation is now **idempotent** if outcome tokens were pre-registered in `Collateralizer`.
+  - Uses `Collateralizer.getOutcomeTokens()` when already registered instead of reverting.
+  - `TickBook.registerMarket` is now best-effort during graduation (ignores `"TickBook: already registered"`).
+  - Added regression test: `test_Graduation_WhenCollateralizerAlreadyRegistered_DoesNotRevert`.
+
+### Added
+- **Comprehensive QA Test Suite** (2025-12-27):
+  - **AMMSettlement.t.sol** (12 tests): Settlement scenarios for YES/NO/INVALID outcomes
+    - `test_SettlePosition_YESWins`, `test_SettlePosition_NOWins`, `test_SettlePosition_INVALIDWins`
+    - Multi-user settlement, zero payout handling, revert conditions
+    - Fuzz tests: `testFuzz_SettlePosition_RandomYESShares`, `testFuzz_SettlePosition_RandomNOShares`
+  - **TickBookEdgeCases.t.sol** (17 tests): Orderbook edge cases
+    - Cross-tick market orders, partial fills
+    - Extreme tick values (0, 9999, MAX_TICK)
+    - View functions, fee collection, revert conditions
+  - **V8Invariants.t.sol** (6 invariants): Actor-based invariant fuzzing
+    - `invariant_LockedNeverExceedsAvailable` — discovered critical bug
+    - `invariant_LPTotalMatchesSum`, `invariant_YesNoSupplySymmetry`
+    - `invariant_PricesSumToOne`, `invariant_CollateralizerSolvency`
+    - Runs 256+ iterations with multi-actor scenario
+  - **TradeFuzz.t.sol** (9 tests): Fuzz testing for trading and math
+    - `testFuzz_BuyYES_RandomAmount`, `testFuzz_BuyNO_RandomAmount`
+    - `testFuzz_LMSRProbability_Monotonic`, `testFuzz_LMSRProbability_Symmetric`
+    - `testFuzz_TickMath_ValidTick`, `testFuzz_TickMath_PriceRange`
+  - **LiveV8.t.sol** (6 tests): Fork tests against Base Sepolia
+    - Contract code verification, router configuration
+    - Fee parameter validation, market creation test
+- **ILaunchpadEngine Interface Expansion** (2025-12-27):
+  - Added `ammEngine()`, `preGradFeeBps()`, `postGradFeeBps()` getters for test compatibility.
+
+### Changed
+- **Test Count**: 74 → 92 tests (24% increase)
+- **Base Sepolia config alignment**:
+  - Synced `apps/web/src/config/deployments.json` back to the V8.3 Base Sepolia deployment so it matches `apps/web/src/config/markets.json`.
+
 ## [8.3.0] - 2025-12-27
 
 ### Added

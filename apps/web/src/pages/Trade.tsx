@@ -4,9 +4,9 @@
  * Simple, approachable trading for retail users expressing opinions or hedging risk.
  * Features: Quick trade buttons, large probability display, educational tooltips
  */
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Search, TrendingUp, Zap, Clock, ChevronRight, GraduationCap } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronRight, GraduationCap } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -107,8 +107,6 @@ export const Trade = () => {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
 
-  const [searchQuery, setSearchQuery] = useState('');
-
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
@@ -124,16 +122,6 @@ export const Trade = () => {
     return v8Markets[0];
   }, [marketId, v8Markets]);
 
-  // Filter markets by search
-  const filteredMarkets = useMemo(() => {
-    if (!searchQuery) return v8Markets;
-    const query = searchQuery.toLowerCase();
-    return v8Markets.filter(
-      m => m.name.toLowerCase().includes(query) ||
-        m.symbol.toLowerCase().includes(query) ||
-        m.description.toLowerCase().includes(query)
-    );
-  }, [searchQuery, v8Markets]);
 
   // Get market data
   const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
@@ -142,8 +130,6 @@ export const Trade = () => {
   const handleSelectMarket = (market: typeof v8Markets[0]) => {
     navigate(`/trade/${market.contractAddress}`);
   };
-
-  const categories = ['Crypto', 'AI', 'Politics', 'Sports', 'Other'];
 
   return (
     <div className="min-h-screen">
@@ -157,30 +143,6 @@ export const Trade = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Market Selector */}
           <div className="lg:col-span-3 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder={content.selector.searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-10 py-2 text-sm"
-              />
-            </div>
-
-            {/* Categories - TODO: implement category filtering */}
-            <div className="flex flex-wrap gap-2">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  className="quick-trade-btn text-xs"
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
             {/* Trending Label */}
             <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
               <Zap className="w-3 h-3" />
@@ -189,8 +151,8 @@ export const Trade = () => {
 
             {/* Market List */}
             <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar py-1 -my-1">
-              {filteredMarkets.length > 0 ? (
-                filteredMarkets.map(market => (
+              {v8Markets.length > 0 ? (
+                v8Markets.map(market => (
                   <MarketItem
                     key={market.id}
                     market={market}

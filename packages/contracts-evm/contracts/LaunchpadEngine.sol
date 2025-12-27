@@ -342,12 +342,21 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
                     state.graduatedAt = uint64(block.timestamp);
 
                     // ATOMIC GRADUATION: Register in Collateralizer and TickBook
-                    (address yes, address no) = collateralizer.registerMarket(
-                        market,
-                        state.name,
-                        state.symbol
-                    );
-                    tickBook.registerMarket(market, yes, no);
+                    (address yes, address no) = collateralizer.isMarketRegistered(market)
+                        ? collateralizer.getOutcomeTokens(market)
+                        : collateralizer.registerMarket(market, state.name, state.symbol);
+
+                    // TickBook is keyed by (market, yesToken, noToken). If already registered, ignore.
+                    try tickBook.registerMarket(market, yes, no) returns (bytes32) {
+                        // ok
+                    } catch Error(string memory reason) {
+                        // Only ignore the explicit "already registered" case.
+                        if (keccak256(bytes(reason)) != keccak256(bytes("TickBook: already registered"))) {
+                            revert(reason);
+                        }
+                    } catch {
+                        revert("LaunchpadEngine: tickbook register failed");
+                    }
 
                     emit MarketGraduated(market, state.feesAccrued, block.timestamp);
                 }

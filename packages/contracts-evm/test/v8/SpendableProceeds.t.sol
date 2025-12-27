@@ -126,10 +126,12 @@ contract SpendableProceedsTest is Test {
             "Minimal or no USDC should be pulled from wallet"
         );
 
-        // Verify available balance decreased
+        // Verify available balance decreased and locked decreased proportionally
+        // (This ensures the invariant: locked <= available)
         (available, locked) = amm.getBalances(user);
         assertLt(available, sellCost, "Available should have decreased");
-        assertEq(locked, sellCost, "Locked should remain unchanged");
+        assertLe(locked, available, "Locked should be <= available (invariant)");
+        assertLt(locked, sellCost, "Locked should have decreased proportionally");
     }
 
     function test_SpendAvailableBalance_PartialCoverage() public {

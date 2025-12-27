@@ -191,15 +191,13 @@ Settlement:
 
 ## Deployments
 
-### Base Sepolia (Chain 84532) — V8.2.0 (Dual-Balance)
+### Base Sepolia (Chain 84532) — V8.4.0 (QA Hardened)
 ```
-LaunchpadEngine   = 0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15
-Collateralizer    = 0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8
-AMMEngine         = 0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f
-TickBook          = 0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe
+LaunchpadEngine   = 0xaf8e68Dfc5e129a33735EE7Df900500D9bb37c88
+Collateralizer    = 0xc3b53dAcbEE7F240a2c9Da05cef8ac7AbE02A767
+AMMEngine         = 0x2646453758922d1500362AAbc385A8cf02D82ee9
+TickBook          = 0xDb710FA6B587ba2e6fB56a0D5166C029f6852D57
 USDC (MockUSDC)   = 0x856fbeebd91db28e3b4550e7602142cfab683796
-Market 1          = 0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe
-Market 2          = 0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05
 ```
 
 ### MegaETH Frontier (Chain 4326) — V6 (Legacy)
@@ -268,10 +266,11 @@ graduationMultiplier    | 2         | 1-10       | setGraduationMultiplier()
 ---
 
 ```
-Version: V8.2.0 | KB: v5.0 | Updated: 2025-12-27
+Version: V8.4.0 | KB: v5.1 | Updated: 2025-12-27
 Architecture: V8 Modular (Domain Isolation)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
 Settlement: Pull-based via TruthMarket
 Custody: None (direct USDC transfers)
+QA: 92 tests, invariant suite, settlement coverage added
 ```

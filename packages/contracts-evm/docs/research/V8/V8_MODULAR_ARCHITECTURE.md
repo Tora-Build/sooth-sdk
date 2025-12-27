@@ -42,23 +42,31 @@ graph TB
         AR["AdjudicatorRegistry: Brevis/Manual/Optimistic"]
     end
 
+    subgraph Economics_Layer[Economics Layer - Launchpad]
+        LP["LaunchpadEngine: Creator Economics + AMM Router"]
+    end
+
     subgraph Execution_Layer[Execution Layer - Price Discovery]
         AMM["AMMEngine: LMSR Position Domain"]
         TB["TickBook: CLT Token Domain"]
     end
 
-    subgraph Custody_Layer[Custody Layer - Asset Management]
+    subgraph Token_Layer[Token Layer - Mint/Burn]
         COL["Collateralizer: Split/Merge/Redeem"]
-        TV["TraderVaultLite: USDC Ledger"]
     end
 
-
+    subgraph Custody_Layer[Custody Layer - User Wallet / Smart Account]
+        USDC["USDC (ERC20)"]
+    end
 
     TM -->|isLive/isSettled| AMM
     TM -->|isLive/isSettled| TB
     AR -->|finalizeResolution| TM
-    TV -->|USDC Custody| AMM
-    COL -->|Token Custody| TB
+    LP -->|tradePositionsFor| AMM
+    LP -->|registerMarket / graduation| COL
+    USDC -->|transferFrom/transfer| LP
+    USDC -->|transferFrom/transfer| TB
+    USDC -->|transferFrom/transfer| COL
 ```
 
 ### Component Responsibilities
@@ -66,10 +74,10 @@ graph TB
 | Component | Responsibility | State Variables | Gas Profile |
 |-----------|---------------|-----------------|-------------|
 | **TruthMarket** | Lifecycle + $T^*$ resolution | `isLive`, `outcome`, `tStar` | ~50k (settlement) |
+| **LaunchpadEngine** | Creator economics + AMM router | `bBase`, `feesAccrued`, `lpSupply` | ~90k (trade) |
 | **AMMEngine** | LMSR pricing + position accounting | `qYes`, `qNo`, `locks[]` | ~80k (trade) |
 | **TickBook** | Tick-based liquidity + swap execution | `ticks[]`, `bitmap[]` | ~120k (multi-tick) |
 | **Collateralizer** | ERC20 split/merge/redeem | `balances[]`, `totalSupply` | ~60k (split/merge) |
-| **TraderVaultLite** | USDC ledger (deposit/withdraw only) | `userBalances[]` | ~40k (deposit) |
 
 ---
 
@@ -82,7 +90,7 @@ graph TB
 | **Asset Type** | Non-transferable ledger entries | ERC20 outcome tokens |
 | **Security Model** | 24h sell lock + $T^*$ adjustments | Instant settlement (no locks) |
 | **Composability** | Internal only | Full DeFi integration |
-| **LP Model** | Vault shares (ERC4626) | Fungible tick positions |
+| **LP Model** | Launchpad LP accounting (internal) | Fungible tick positions |
 | **Target User** | Informed traders, LPs | Arbitrageurs, market makers |
 
 ### 3.2 Domain Separation Rationale
@@ -116,7 +124,7 @@ The AMM and TickBook venues serve fundamentally different user needs:
    - Sell YES on TickBook
 2. If `AMM_Price(YES) > TickBook_Price(YES)`:
    - Buy YES on TickBook (get transferable tokens)
-   - Redeem/sell to USDC in the TickBook/custody domain
+   - Sell back to USDC on TickBook (or merge via `Collateralizer.merge(...)`)
    - Enter the AMM domain with USDC and sell exposure on AMM (subject to locks)
 
 **Expected Spread**: 1-3% due to lock duration and gas costs.
@@ -203,10 +211,10 @@ uint256[2] public tickBitmapSummary; // Level 2: 391 / 256
 
 | Metric | Uniswap v3 | Sooth V8 TickBook | Sooth V8 AMM |
 |--------|------------|-------------|--------------|
-| **Position Type** | NFT | Fungible | Vault Shares |
+| **Position Type** | NFT | Fungible | Internal ledger + LP accounting |
 | **Capital Utilization** | ~40% (wide ranges) | ~80% (1bp ticks) | ~60% (LMSR curve) |
 | **Gas per LP Action** | ~180k | ~120k | ~80k |
-| **Composability** | Limited (NFT) | High (ERC20-like) | Medium (ERC4626) |
+| **Composability** | Limited (NFT) | High (ERC20-like) | Low (non-transferable internal accounting) |
 
 ---
 
@@ -431,7 +439,7 @@ interface ITickBook {
 }
 
 // ============================================
-// Collateralizer (Custody Layer)
+// Collateralizer (Token Layer)
 // ============================================
 
 interface ICollateralizer {
@@ -463,8 +471,8 @@ interface ICollateralizer {
 ### Phase 1: Foundation
 - [ ] Implement `ITruthMarket` interface
 - [ ] Deploy `Collateralizer` with split/merge
-- [ ] Deploy `TraderVaultLite` (USDC ledger only)
-- [ ] Write unit tests for custody layer
+- [ ] Deploy `LaunchpadEngine` (creator economics + AMM router)
+- [ ] Write unit tests for Launchpad routing + economics layer
 
 ### Phase 2: AMM Engine
 - [ ] Implement LMSR math library
@@ -516,7 +524,6 @@ interface ICollateralizer {
 
 - Uniswap v3 Whitepaper: [Concentrated Liquidity](https://uniswap.org/whitepaper-v3.pdf)
 - Hanson LMSR: [Logarithmic Market Scoring Rules](http://mason.gmu.edu/~rhanson/mktscore.pdf)
-- ERC4626: [Tokenized Vault Standard](https://eips.ethereum.org/EIPS/eip-4626)
 - ADR-008: WAD Math Precision Rules
 - V8 Note: `LOCKED_PROCEEDS_SPENDABILITY.md` (lock-on-sell spendability policy)
 

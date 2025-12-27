@@ -1,16 +1,16 @@
 {
-  "version": "8.2.0",
-  "lastUpdated": "2025-12-26T17:55:21Z",
-  "status": "V8.2 Dual-Balance Model - Fresh Deployment",
+  "version": "8.3.2",
+  "lastUpdated": "2025-12-27T23:59:59Z",
+  "status": "V8.3.2 Fresh Deployment - Graduation Idempotency Fix (Base Sepolia)",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0xACf4A0B0cD64c42785F722d4EC017a1e09ad9330",
-        "Collateralizer": "0xfBaB2a0565185f0512D9d98FD1EFeA99e696945f",
-        "AMMEngine": "0x0ae78F524a010387a9bED68586684fF15b03c6F3",
-        "TickBook": "0x5AfAf38d6EA37b153bc2AC57C434e6200D463348"
+        "LaunchpadEngine": "0x5b9f7743Ffd3B30D2034A05A7a4A26f643772eB8",
+        "Collateralizer": "0x72b1CBA5a86fD00753EDA6139B7070D3b8b6D796",
+        "AMMEngine": "0x95b214A5C1a290a1786EfeD3B186709230E184Bb",
+        "TickBook": "0x1A2Ffa3e286295Ef2F65BFABa7D094a7b981c708"
       }
     }
   }

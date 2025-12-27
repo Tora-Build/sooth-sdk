@@ -112,6 +112,8 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     });
 
     const isCreator = address && launchpad.creator.toLowerCase() === address.toLowerCase();
+    const isGraduated = !!launchpad.isGraduated;
+    const feeLabel = isGraduated ? 'Graduated — no LP minting on trades' : 'Bonding — trades mint LP';
 
     return (
         <Card className="bg-slate-950/50 border-slate-800 p-6 space-y-6">
@@ -121,6 +123,27 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                     <h2 className="text-lg font-heading font-bold text-white">LP Holders</h2>
                 </div>
                 <HelpCircle className="w-4 h-4 text-slate-600" />
+            </div>
+
+            {/* Phase Note */}
+            <div className="text-[9px] text-slate-400 bg-slate-900/20 border border-slate-800/60 rounded-lg px-3 py-2 leading-snug">
+                <div className="flex items-center justify-between gap-3">
+                    <span className="uppercase tracking-wider font-bold text-slate-500">Fee Mode</span>
+                    <span className={cn("font-mono text-[9px] whitespace-nowrap", isGraduated ? "text-emerald-400" : "text-cyan-400")}>
+                        {feeLabel}
+                    </span>
+                </div>
+                <div className="mt-1 text-slate-500">
+                    {isGraduated ? (
+                        <span>
+                            Fees go to <strong>b-growth</strong>, <strong>LP yield</strong>, and <strong>protocol</strong>. LP changes only from bonding LP or redemptions.
+                        </span>
+                    ) : (
+                        <span>
+                            Fees mint LP to the <strong>trader</strong>. Trade during bonding to earn LP.
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Header Row */}

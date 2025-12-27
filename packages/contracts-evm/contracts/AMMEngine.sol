@@ -201,12 +201,20 @@ contract AMMEngine is IAMMEngine, Ownable {
 
             // Pay cost
             if (_availableBalance[user] >= actualCost) {
+                // Reduce locked balance proportionally to maintain invariant: locked <= available
+                if (_lockedBalance[user] > 0) {
+                    uint256 lockedReduction = (actualCost * _lockedBalance[user]) / _availableBalance[user];
+                    _lockedBalance[user] -= lockedReduction;
+                }
                 _availableBalance[user] -= actualCost;
                 emit BalanceUsed(user, actualCost, _availableBalance[user]);
             } else {
                 uint256 fromBalance = _availableBalance[user];
                 uint256 fromWallet = actualCost - fromBalance;
 
+                // When using full available balance, clear locked as well
+                // (locked is a subset of available, so if available goes to 0, locked must too)
+                _lockedBalance[user] = 0;
                 _availableBalance[user] = 0;
                 usdc.safeTransferFrom(payer, address(this), _wadToUsdcCeil(fromWallet));
 

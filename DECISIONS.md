@@ -439,6 +439,44 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - Collateralizer: `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8`
     - TickBook: `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe`
 
+## ADR-050: Invariant Testing Discovery — AMMEngine Lock Accounting Bug Fix
+- **Date**: 2025-12-27
+- **Status**: Accepted (Fix Pending Deployment)
+- **Context**: During comprehensive QA hardening, an actor-based invariant test discovered a critical accounting bug in `AMMEngine._tradePositions()`.
+- **Discovery Method**: Invariant test `invariant_LockedNeverExceedsAvailable` with 768+ random operations found a violation.
+- **Bug Description**:
+    - When a user buys shares using their `_availableBalance` (from previous sell proceeds), the contract correctly reduces `_availableBalance` but does NOT reduce `_lockedBalance` proportionally.
+    - This violates the invariant: `∀ user: _lockedBalance[user] ≤ _availableBalance[user]`
+    - **Impact**: Could cause underflow in `claimUnlocked()` and display incorrect locked amounts in UI.
+- **Root Cause** (Lines 203-216 in `AMMEngine.sol`):
+    ```solidity
+    // BUGGY CODE:
+    if (_availableBalance[user] >= actualCost) {
+        _availableBalance[user] -= actualCost;  // ✅ Correct
+        // ❌ MISSING: _lockedBalance[user] reduction
+    }
+    ```
+- **Fix Applied**:
+    ```solidity
+    // FIXED CODE:
+    if (_availableBalance[user] >= actualCost) {
+        if (_lockedBalance[user] > 0) {
+            uint256 lockedReduction = (actualCost * _lockedBalance[user]) / _availableBalance[user];
+            _lockedBalance[user] -= lockedReduction;
+        }
+        _availableBalance[user] -= actualCost;
+    }
+    ```
+- **Verification**: All 92 tests pass including 256+ run invariant fuzzing.
+- **Lessons Learned**:
+    1. Invariant tests are invaluable for catching subtle accounting bugs
+    2. Actor-based fuzzing with multiple scenarios (buy, sell, claim) catches edge cases unit tests miss
+    3. The `spendBalanceFor()` function had the correct logic; it was only the internal `_tradePositions()` that was missing it
+- **Consequences**:
+    - **Breaking Change**: Requires contract redeployment
+    - **Test Suite**: Added 44+ new tests across 6 files
+    - **Confidence**: High — invariant holds across 768,000+ random operations
+
 ## ADR-049: V8.3 Spendable Proceeds for LaunchpadEngine Buys
 - **Date**: 2025-12-27
 - **Status**: Accepted
@@ -474,3 +512,29 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - AMMEngine: `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5`
     - Collateralizer: `0x09A7809a33F969B0099A5d19003991592658763f`
     - TickBook: `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd`
+
+## ADR-051: TickBook Vault-Native Orderbook (USDC-Collateral) + 1,000 Tick Resolution
+- **Date**: 2025-12-27
+- **Status**: Accepted (Design Locked; Implementation Pending)
+- **Context**:
+  - The current V8 TickBook is token-inventory based (YES/NO ERC20 approvals + `transferFrom`), which makes **resting limit orders** capital-inefficient when complete sets must be minted externally.
+  - The product goal for Pro/TickBook is a V7-like capital-efficient orderbook where bids/shorts reserve only **price × size** in USDC.
+  - We also want to keep TickBook’s domain isolated from ERC20 token mechanics during Phase 1 (reduce UX complexity).
+- **Decision**:
+  1. Introduce a **TickBookVault** (global per-chain) that holds **internal balances** and provides explicit **USDC deposit/withdraw** (exchange-style).
+     - TickBook becomes **vault-native**: it reserves internal USDC for orders and performs fills via internal accounting.
+  2. Outcome assets are represented as **YES shares / NO shares** internally (non-transferable in Phase 1 UI).
+     - ERC20 YES/NO are treated as **boundary assets** for future composability (mint on withdraw, burn on deposit), but are **not required** for Phase 1 trading UX.
+  3. Reduce TickBook tick resolution from **10,000** to **1,000** ticks (0.01% → 0.1% increments) to simplify alpha execution and reduce tick-crossing loops.
+  4. TickBook maker orders remain **ranged/concentrated** (not point-only) in Phase 1; funding is via reserved internal USDC.
+- **Rationale**:
+  - **Capital efficiency**: bids/shorts require only `P × qty` (or `(1-P) × qty`) collateral rather than “mint full complete set first”.
+  - **UX**: Phase 1 Pro can be USDC-first, while still showing users “what they hold” (YES shares / NO shares) without exposing token custody flows.
+  - **Performance**: 1,000 ticks lowers UI density and reduces worst-case tick-crossing iterations for quotes/execution.
+- **Consequences**:
+  - **Breaking change** for TickBook venue (new contract set + ABI changes + UI changes).
+  - **Custody reintroduced, but only for TickBook**: AMM remains “no built-in custody”; TickBookVault is a purpose-built venue vault.
+  - TickMap/ladder UI must be updated away from 10,000-tick assumptions (e.g., 100×10 map).
+  - Requires new tests focused on vault solvency and reservation invariants.
+- **Spec / Plan**:
+  - `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`

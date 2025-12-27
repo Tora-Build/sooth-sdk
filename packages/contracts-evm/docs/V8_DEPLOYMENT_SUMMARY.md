@@ -60,7 +60,7 @@
 ## ✅ Completed Tasks
 
 1. ✅ Deployed V8 core contracts to Base Sepolia
-2. ✅ Deployed 2 test markets matching markets-v4.json
+2. ✅ Deployed 2 test markets and exported their addresses to `deployments/v8-markets.json`
 3. ✅ Initialized markets with LaunchpadEngine
 4. ✅ Created comprehensive deployment documentation
 5. ✅ Created frontend migration guide

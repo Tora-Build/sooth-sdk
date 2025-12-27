@@ -6,7 +6,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance } from '../../../hooks/v8';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { V8_ABIS, ERC20_ABI } from '../../../config/abis';
@@ -14,6 +14,8 @@ import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useChainStore } from '../../../store/useChainStore';
+import { marketConfigs } from '../../../config';
+import { getChainById } from '../../../lib/chains';
 
 interface SimpleTradingPanelProps {
   address: `0x${string}`;
@@ -26,12 +28,15 @@ export const SimpleTradingPanel = ({
   isGraduated = false,
   isSettled = false,
 }: SimpleTradingPanelProps) => {
-  const { isConnected, address: userAddress } = useAccount();
+  const { isConnected, address: userAddress, connector } = useAccount();
+  const walletChainId = useChainId();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { selectedChainId } = useChainStore();
+  const { setSelectedChain } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
   const publicClient = usePublicClient({ chainId });
-  const { amm, isLoading } = useAmmMarketDirect(address);
-  const { launchpad } = useLaunchpadMarketDirect(address);
+  const { amm, isLoading: isLoadingAmm } = useAmmMarketDirect(address);
+  const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(address);
   const { contracts } = useDeployments();
   const ammEngineAddress = contracts.AMMEngine as `0x${string}` | undefined;
   const { available: spendableProceeds } = useAvailableBalance(ammEngineAddress);
@@ -99,7 +104,7 @@ export const SimpleTradingPanel = ({
   }, [amount]);
 
   // Get real-time quote from LMSR calculator
-  const quote = useAMMQuoteDirect(address, sharesNum, selectedOutcome, tradeMode === 'buy');
+  const quote = useAMMQuoteDirect(address, amount, selectedOutcome, tradeMode === 'buy');
 
   // Get USDC decimals, balance and allowance
   const { data: usdcDecimals } = useReadContract({
@@ -208,40 +213,80 @@ export const SimpleTradingPanel = ({
   const isMarketCreated = !!launchpad && launchpad.creator !== ZERO_ADDRESS;
   const isAmmInitialized = (amm?.liquidity ?? 0n) > 0n;
   const canTrade = isMarketCreated && isAmmInitialized;
+  const isInitStateLoading = isConnected && (isLoadingAmm || isLoadingLaunchpad);
+
+  const marketConfig = useMemo(() => {
+    const addr = address?.toLowerCase();
+    return marketConfigs.find((m: any) => String(m.contractAddress).toLowerCase() === addr);
+  }, [address]);
+  const expectedChainId = Number((marketConfig as any)?.chainId || 0) || undefined;
+  const expectedChain = expectedChainId ? getChainById(expectedChainId) : undefined;
+  const selectedChain = getChainById(chainId);
+  const isWrongSelectedChain = !!expectedChainId && chainId !== expectedChainId;
+  const isWrongWalletChain = !!expectedChainId && walletChainId !== expectedChainId;
+
+  const isQuoteValid = useMemo(() => {
+    if (!canTrade) return false;
+    if (sharesNum <= 0) return false;
+    if (quote.isLoading) return false;
+    if (quote.error) return false;
+    if (!quote.deltaShares || quote.deltaShares === 0n) return false;
+    // AMM quotes return positive numbers for both cost (buys) and proceeds (sells).
+    return quote.cost > 0n;
+  }, [canTrade, sharesNum, quote.isLoading, quote.error, quote.deltaShares, quote.cost, tradeMode]);
+
+  const isPhantomConnector = useMemo(() => {
+    const name = (connector as any)?.name ? String((connector as any).name).toLowerCase() : '';
+    const id = (connector as any)?.id ? String((connector as any).id).toLowerCase() : '';
+    return name.includes('phantom') || id.includes('phantom');
+  }, [connector]);
 
   // Formatters
   const fmtQty = (val: bigint) => Number(formatUnits(val, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-  // Check if approval is needed
-  // MockUSDC has 6 decimals, but quote.cost is in WAD (18 decimals)
-  // Need to convert cost to token decimals for comparison
-  const needsApproval = useMemo(() => {
-    // If no quote cost, no approval needed
-    if (!quote.cost || quote.cost === 0n) return false;
+  const wadToTokenCeil = (wadAmount: bigint) => {
+    if (wadAmount <= 0n) return 0n;
+    if (decimals === 18) return wadAmount;
+    if (decimals < 18) {
+      const factor = 10n ** BigInt(18 - decimals);
+      return (wadAmount + factor - 1n) / factor;
+    }
+    const factor = 10n ** BigInt(decimals - 18);
+    return wadAmount * factor;
+  };
 
-    // If allowance is undefined, we're still loading - don't show approval button yet
+  // For buys, LaunchpadEngine only pulls from wallet:
+  //   fromWallet = max(0, baseCost - spendableAvailable) + fee
+  // Fee is always from wallet (even if baseCost is fully covered by spendable proceeds).
+  const requiredFromWalletWad = useMemo(() => {
+    if (tradeMode !== 'buy') return 0n;
+    const baseCost = quote.netCost ?? 0n; // baseCost (WAD)
+    const fee = quote.fee ?? 0n; // fee (WAD)
+    if (baseCost <= 0n) return 0n;
+    const available = spendableProceeds ?? 0n;
+    const fromBalance = available > baseCost ? baseCost : available;
+    return (baseCost - fromBalance) + fee;
+  }, [tradeMode, quote.netCost, quote.fee, spendableProceeds]);
+
+  // Check if approval is needed (only for the wallet portion)
+  const needsApproval = useMemo(() => {
+    if (tradeMode !== 'buy') return false;
+    if (requiredFromWalletWad <= 0n) return false;
     if (usdcAllowance === undefined) return false;
 
-    // Convert cost from WAD (18 decimals) to token decimals (6)
-    // ceiling division: (cost + 10^12 - 1) / 10^12
-    const factor = BigInt(10 ** (18 - decimals));
-    const costInTokenDecimals = (quote.cost + factor - 1n) / factor;
-
+    const requiredToken = wadToTokenCeil(requiredFromWalletWad);
     // Add 1% buffer for slippage
-    const requiredAllowance = (costInTokenDecimals * 101n) / 100n;
-    const currentAllowance = usdcAllowance as bigint;
+    const requiredAllowance = (requiredToken * 101n) / 100n;
+    return (usdcAllowance as bigint) < requiredAllowance;
+  }, [tradeMode, requiredFromWalletWad, usdcAllowance, decimals]);
 
-    return currentAllowance < requiredAllowance;
-  }, [usdcAllowance, quote.cost, decimals]);
-
-  // Check if user has enough balance (compare in token decimals)
+  // Check if user has enough wallet balance for the wallet-pulled portion
   const hasEnoughBalance = useMemo(() => {
-    if (!quote.cost) return true;
-    // Convert cost from WAD to token decimals (ceiling division)
-    const factor = BigInt(10 ** (18 - decimals));
-    const costInTokenDecimals = (quote.cost + factor - 1n) / factor;
-    return walletUsdcToken >= costInTokenDecimals;
-  }, [walletUsdcToken, quote.cost, decimals]);
+    if (tradeMode !== 'buy') return true;
+    if (requiredFromWalletWad <= 0n) return true;
+    const requiredToken = wadToTokenCeil(requiredFromWalletWad);
+    return walletUsdcToken >= requiredToken;
+  }, [tradeMode, walletUsdcToken, requiredFromWalletWad, decimals]);
 
   const hasEnoughBuyingPower = useMemo(() => {
     if (!quote.cost) return true;
@@ -499,6 +544,7 @@ export const SimpleTradingPanel = ({
     if (isPending) return <Loader2 size={16} className="mr-2 animate-spin" />;
     if (!canTrade) return 'Market Uninitialized';
     if (sharesNum <= 0) return 'Enter Amount';
+    if (!isQuoteValid) return quote.isLoading ? 'Loading Quote…' : 'Quote Unavailable';
     if (tradeMode === 'buy') {
       if (!hasEnoughBuyingPower) return 'Insufficient Balance';
       return `Buy ${selectedOutcome === 0 ? 'YES' : 'NO'}`;
@@ -513,18 +559,81 @@ export const SimpleTradingPanel = ({
     !canTrade || 
     sharesNum <= 0 || 
     !!amountError ||
+    !isQuoteValid ||
+    isPhantomConnector ||
     (tradeMode === 'buy' && !hasEnoughBuyingPower) ||
     (tradeMode === 'sell' && !hasEnoughShares);
 
   return (
     <div data-testid="trading-panel" className="space-y-3">
       {/* Initialization Warning */}
-      {!isLoading && isConnected && !canTrade && (
+      {isInitStateLoading && (
+        <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[10px] text-slate-400 flex items-start gap-2">
+          <Loader2 size={12} className="shrink-0 mt-0.5 animate-spin" />
+          <span>Checking market initialization…</span>
+        </div>
+      )}
+
+      {/* Phantom Guard */}
+      {isConnected && isPhantomConnector && (
+        <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 flex items-start gap-2">
+          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div>
+              Wallet blocked: <strong>Phantom</strong> is intercepting this transaction.
+            </div>
+            <div className="text-rose-200/70">
+              Phantom often blocks ERC20 approvals on localhost. Switch to <strong>MetaMask</strong> or <strong>Coinbase Wallet</strong> to trade.
+            </div>
+            <div className="pt-1">
+              <Button
+                onClick={handleConnect}
+                className="h-7 px-2 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
+              >
+                Switch Wallet
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isInitStateLoading && isConnected && !canTrade && (
         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
           <AlertCircle size={12} className="shrink-0 mt-0.5" />
-          <span>
-            Trading unavailable: this market hasn’t been initialized on the connected network.
-          </span>
+          <div className="space-y-1">
+            <div>
+              Trading unavailable: this market isn’t initialized on the <strong>selected network</strong>.
+            </div>
+            <div className="text-amber-200/70">
+              Selected: <strong>{selectedChain?.name ?? `Chain ${chainId}`}</strong>
+              {expectedChain ? (
+                <>
+                  {' '}• Market lives on: <strong>{expectedChain.name}</strong>
+                </>
+              ) : null}
+            </div>
+            {(isWrongSelectedChain || isWrongWalletChain) && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {isWrongSelectedChain && expectedChainId ? (
+                  <Button
+                    onClick={() => setSelectedChain(expectedChainId)}
+                    className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                  >
+                    View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
+                  </Button>
+                ) : null}
+                {isWrongWalletChain && expectedChainId ? (
+                  <Button
+                    onClick={() => switchChain?.({ chainId: expectedChainId })}
+                    disabled={isSwitchingChain}
+                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                  >
+                    {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -542,7 +651,7 @@ export const SimpleTradingPanel = ({
             <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">YES</span>
           </div>
           <div className="text-xl font-bold text-emerald-400 tabular-nums">
-            {isLoading ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(yesPrice * 100).toFixed(1)}%`}
+            {isLoadingAmm ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(yesPrice * 100).toFixed(1)}%`}
           </div>
           <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
             {fmtQty(amm?.qYes ?? 0n)} issued
@@ -561,7 +670,7 @@ export const SimpleTradingPanel = ({
             <span className="text-[10px] text-rose-400 uppercase tracking-wider font-bold">NO</span>
           </div>
           <div className="text-xl font-bold text-rose-400 tabular-nums">
-            {isLoading ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(noPrice * 100).toFixed(1)}%`}
+            {isLoadingAmm ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(noPrice * 100).toFixed(1)}%`}
           </div>
           <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
             {fmtQty(amm?.qNo ?? 0n)} issued
@@ -725,14 +834,14 @@ export const SimpleTradingPanel = ({
             {tradeMode === 'buy' ? 'Cost' : 'Proceeds'}
           </span>
           <span className="font-mono text-white tabular-nums">
-            {quote.isLoading ? <span className="skeleton w-16 h-4 inline-block rounded" /> : quote.costFormatted}
+            {quote.isLoading ? <span className="skeleton w-16 h-4 inline-block rounded" /> : (isQuoteValid ? quote.costFormatted : '—')}
           </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-slate-500">
             Fee ({(quote.feeRate / 100).toFixed(1)}%)
           </span>
-          <span className="font-mono text-slate-400 tabular-nums">{quote.feeFormatted}</span>
+          <span className="font-mono text-slate-400 tabular-nums">{isQuoteValid ? quote.feeFormatted : '—'}</span>
         </div>
 
         {/* Debug: Show b parameter */}
@@ -743,8 +852,8 @@ export const SimpleTradingPanel = ({
           </span>
         </div>
 
-        {/* Price Impact - always show when shares > 0 */}
-        {sharesNum > 0 && (
+        {/* Price Impact - only show when we have a valid quote */}
+        {isQuoteValid && (
           <div className="space-y-2 pt-2 border-t border-slate-700">
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Price Impact</span>
@@ -774,7 +883,7 @@ export const SimpleTradingPanel = ({
         )}
 
         {/* Spendable Proceeds Indicator - these ARE used for buys */}
-        {tradeMode === 'buy' && spendableProceeds > 0n && quote.cost > 0n && (
+        {tradeMode === 'buy' && isQuoteValid && spendableProceeds > 0n && quote.cost > 0n && (
           <div className="flex items-center gap-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400">
             <Unlock size={12} className="shrink-0" />
             <span>
@@ -784,7 +893,7 @@ export const SimpleTradingPanel = ({
         )}
 
         {/* New Price After Trade */}
-        {sharesNum > 0 && (
+        {isQuoteValid && (
           <div className="flex justify-between text-xs pt-2 border-t border-slate-700">
             <span className="text-slate-500">New Price</span>
             <div className="flex items-center gap-1">
@@ -799,6 +908,14 @@ export const SimpleTradingPanel = ({
           </div>
         )}
       </div>
+
+      {/* Quote Error */}
+      {isConnected && sharesNum > 0 && !quote.isLoading && quote.error && (
+        <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
+          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+          <span>Quote failed for this size. Try a smaller amount.</span>
+        </div>
+      )}
 
       {/* Balance Summary */}
       {isConnected && (
@@ -853,13 +970,13 @@ export const SimpleTradingPanel = ({
         ) : needsApproval && tradeMode === 'buy' ? (
           <Button
             onClick={handleApprove}
-            disabled={isPending || !canTrade}
+            disabled={isPending || !canTrade || isPhantomConnector}
             className="w-full py-3 text-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold shadow-lg shadow-amber-500/25 disabled:opacity-50"
           >
             {isPending ? (
               <Loader2 size={16} className="mr-2 animate-spin" />
             ) : null}
-            Approve USDC
+            {isPhantomConnector ? 'Switch Wallet to Approve' : 'Approve USDC'}
           </Button>
         ) : (
           <Button

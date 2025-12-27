@@ -1,33 +1,42 @@
 # Project Status
 
-> Last Updated: 2025-12-27 (V8.3 Deployed & Merged to Main)
+> Last Updated: 2025-12-27 (V8.4 QA Hardening Complete)
 
 ## Current Focus
-- **✅ V8.3 DEPLOYED** — Fresh deployment on Base Sepolia with spendable proceeds working.
-- **✅ MERGED TO MAIN** — Sandbox branch merged and deleted. All V8.3 changes now on `main`.
+- **✅ V8.4 QA HARDENING COMPLETE** — Comprehensive test suite expansion with invariant, fuzz, fork, and edge case tests.
+- **✅ CRITICAL BUG FIXED** — AMMEngine `_lockedBalance` accounting bug discovered via invariant testing and fixed.
+- **⏳ REDEPLOYMENT PENDING** — Bug fix requires fresh deployment to Base Sepolia.
+- **🧭 TICKBOOK NEXT (DESIGN LOCKED, IMPLEMENTATION PENDING)** — Vault-native TickBook (USDC-collateral orderbook) plan drafted for review, including 1,000-tick resolution and Phase 1 USDC-only Pro UX.
 
-## Active Deployment (Base Sepolia)
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x1F30742c38c10b28B3960E2B067644A52592bd8f` |
-| AMMEngine | `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5` |
-| Collateralizer | `0x09A7809a33F969B0099A5d19003991592658763f` |
-| TickBook | `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd` |
-| Alien Life Market | `0xd306eb7ddbAa6394DDBFF54897aFC82A9cf39e08` |
-| BTC TWAP Market | `0xE0d986c827E3398B0f66DeEd0C681f3CD1553fBe` |
+## Active Deployment (Base Sepolia) — ⚠️ Contains Bug
+| Contract | Address | Status |
+|----------|---------|--------|
+| LaunchpadEngine | `0x1F30742c38c10b28B3960E2B067644A52592bd8f` | ⚠️ Bug |
+| AMMEngine | `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5` | ⚠️ Bug |
+| Collateralizer | `0x09A7809a33F969B0099A5d19003991592658763f` | ✅ OK |
+| TickBook | `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd` | ✅ OK |
+| Alien Life Market | `0xd306eb7ddbAa6394DDBFF54897aFC82A9cf39e08` | ⚠️ |
+| BTC TWAP Market | `0xE0d986c827E3398B0f66DeEd0C681f3CD1553fBe` | ⚠️ |
 
 ## Pending Work (Next Session)
+- [ ] **Deploy V8.4 bug fix** — Redeploy AMMEngine with locked balance fix
+- [ ] **Verify contracts on Basescan** — For transparency
+- [ ] **Run /deploy-sync** — Update all configs after redeploy
 - [ ] **Test spendable proceeds flow** — Buy → Sell → Buy using proceeds (verify no wallet pull)
-- [ ] **Market Creation wizard** — Test end-to-end market deployment from UI
-- [ ] **Settlement flow** — Implement and test adjudicator settlement UI
-- [ ] **Guardian veto** — Implement veto functionality in GuardianPanel
+- [ ] **Implement TickBookVault + vault-native TickBook (Phase 1)** — Follow `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+  - [ ] Reduce tick resolution to **1,000 ticks** (0.1% increments)
+  - [ ] Vault custody for **TickBook USDC only** (explicit deposit model)
+  - [ ] Ranged maker orders + market taker orders (as per plan)
+  - [ ] Pro UI: show **USDC available/reserved** and **YES shares / NO shares** (internal), hide token deposit/withdraw until Phase 2
 
 ## Completed This Session
-- ✅ V8.3 spendable proceeds contract changes
-- ✅ Gov page Finalized Markets audit trail (real data)
-- ✅ Fresh V8.3 deployment to Base Sepolia
-- ✅ Documentation updates (CHANGELOG, DECISIONS, LESSONS_LEARNED)
-- ✅ Merged sandbox → main, deleted sandbox branch
+- ✅ **Comprehensive QA Test Suite** — Added 44+ new tests across 6 new test files
+- ✅ **AMMEngine Settlement Tests** (12 tests) — YES/NO/INVALID wins, edge cases, fuzz
+- ✅ **TickBook Edge Cases** (17 tests) — Cross-tick, partial fills, extreme values
+- ✅ **V8 Invariant Test Suite** (6 invariants) — Actor-based fuzzing with 256+ runs
+- ✅ **Fuzz Test Suite** (9 tests) — Trade amounts, LMSR math, TickMath properties
+- ✅ **Fork Tests** (6 tests) — Live Base Sepolia deployment verification
+- ✅ **Critical Bug Discovery & Fix** — `_lockedBalance` not reduced during buys from `_availableBalance`
 
 ## Recent Changes
 
@@ -259,6 +268,14 @@
   - **Lock-on-Sell**: Sellers receive proceeds in a 24h vault lock, while shares remain tradable.
 
 ### ✅ V6.2.7 Alpha Repository Cleanup (2025-12-22)
+
+### 🧭 TickBook Vault-Native Plan Drafted (2025-12-27)
+- Drafted and iterated the orderbook redesign plan:
+  - `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+- Key decisions captured:
+  - TickBook becomes **vault-native** (internal balances) for capital-efficient collateralized orders
+  - ERC20 YES/NO are boundary assets (mint/burn only at vault boundary) — Phase 2 exposure
+  - Tick resolution reduced to **1,000** for alpha speed (0.1% increments)
 - **🗑️ Purged Artifacts**: 
   - Deleted 120+ files by removing the giant `archive/contracts-evm` duplicate snapshot and root-level `lib/`.
   - Cleaned up `packages/contracts-evm/script` and `test` from accidental duplicates and backups.
@@ -451,14 +468,23 @@
 
 ---
 
-## Session Summary (2025-12-27)
-**V8.2 Dual-Balance Position Model** — Major contract refactor to allow users to hold both YES and NO positions simultaneously. Changed `AMMEngine.Position` from `int256 shares` to `{ uint256 yesShares; uint256 noShares; }`. Updated all contract interfaces, trading logic, and frontend hooks. Deployed fresh V8.2 stack to Base Sepolia with two demo markets. All 74 tests pass, frontend builds successfully. This resolves the "cannot sell" and "buy NO fails" issues from the previous session.
+## Session Summary (2025-12-27 Late)
+**V8.4 Comprehensive QA Hardening** — Completed full QA cycle requested by user. Created 6 new test files with 44+ tests covering:
+- **AMMSettlement.t.sol**: 12 settlement tests (YES/NO/INVALID outcomes, multi-user, fuzz)
+- **TickBookEdgeCases.t.sol**: 17 edge case tests (cross-tick, partial fills, extreme ticks)
+- **V8Invariants.t.sol**: 6 invariants with actor-based fuzzing (solvency, accounting, locks)
+- **TradeFuzz.t.sol**: 9 fuzz tests (trade amounts, LMSR math, TickMath)
+- **LiveV8.t.sol**: 6 fork tests against Base Sepolia deployment
+
+**Critical Bug Discovered & Fixed**: Invariant test `invariant_LockedNeverExceedsAvailable` discovered that `AMMEngine._tradePositions()` was not reducing `_lockedBalance` proportionally when spending from `_availableBalance`. Bug fixed in `AMMEngine.sol` lines 203-217. All 92 tests now pass.
 
 **Pending Work for Next Session**:
-1. Test frontend trading with new dual-balance model
-2. Verify 24h lock behavior on-chain
-3. Configure Synpress environment variables for wallet-connected tests
-4. Run and fix 14 skipped wallet tests
+1. Deploy V8.4 with bug fix to Base Sepolia
+2. Verify contracts on Basescan
+3. Run /deploy-sync to update frontend configs
+
+## Session Summary (2025-12-27 Afternoon)
+**V8.2 Dual-Balance Position Model** — Major contract refactor to allow users to hold both YES and NO positions simultaneously. Changed `AMMEngine.Position` from `int256 shares` to `{ uint256 yesShares; uint256 noShares; }`. Updated all contract interfaces, trading logic, and frontend hooks. Deployed fresh V8.2 stack to Base Sepolia with two demo markets. All 74 tests pass, frontend builds successfully. This resolves the "cannot sell" and "buy NO fails" issues from the previous session.
 
 ## Session Summary (2025-12-26 Late Night)
 **Critical UI Stabilization & RPC Resilience** — Addressed multiple high-priority application crashes that were occurring under unstable network conditions (RPC 429 rate limiting). Hardened the `LPHolders` component and `useLockQueue` hook with defensive coding patterns (null checks, array validation) to ensure the UI handles missing or malformed data gracefully instead of crashing. Fixed import regressions in the `Trade` page.

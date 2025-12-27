@@ -247,4 +247,34 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
+## V8.4 Invariant Testing Bug Discovery
+
+### ✅ Pattern: Actor-Based Invariant Fuzzing Catches Subtle Accounting Bugs
+- **Date:** 2025-12-27
+- **Discovery:** Invariant test `invariant_LockedNeverExceedsAvailable` with 768+ random operations discovered that `AMMEngine._tradePositions()` was NOT reducing `_lockedBalance` when spending from `_availableBalance`.
+- **Bug Impact:** `_lockedBalance > _availableBalance` could occur, causing underflow in `claimUnlocked()` and incorrect UI displays.
+- **Root Cause:** The `spendBalanceFor()` function correctly reduced locked proportionally, but `_tradePositions()` (the main trading path) forgot this logic:
+  ```solidity
+  // BUGGY: Only reduced available, not locked
+  if (_availableBalance[user] >= actualCost) {
+      _availableBalance[user] -= actualCost;
+      // ❌ MISSING: _lockedBalance reduction
+  }
+  ```
+- **Fix:** Added proportional locked reduction before available reduction.
+- **Why Unit Tests Missed It:** Unit tests only covered simple flows (buy, sell, claim separately). They didn't simulate the complex multi-step scenario: sell → buy using proceeds → check balances.
+- **Rule:** For accounting invariants (like "locked ≤ available"), write an explicit invariant test with an actor that performs random sequences of buy/sell/claim operations.
+- **Invariant Test Pattern:**
+  ```solidity
+  function invariant_LockedNeverExceedsAvailable() public view {
+      for (uint i = 0; i < traders.length; i++) {
+          (uint256 available, uint256 locked) = amm.getBalances(traders[i]);
+          assertTrue(locked <= available, "locked exceeds available");
+      }
+  }
+  ```
+- **Lesson:** Invariant tests are invaluable for catching edge cases that emerge from complex state transitions. Always write them for critical accounting properties BEFORE mainnet.
+
+---
+
 *Last updated: 2025-12-27*

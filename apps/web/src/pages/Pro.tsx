@@ -10,9 +10,9 @@
  * - Neon glassmorphism UI
  */
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Zap, ChevronLeft, Wallet, ArrowUpRight, ArrowDownRight, GraduationCap
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, GraduationCap
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -275,8 +275,20 @@ export const Pro = () => {
       setSizeInput('');
     } catch (e) { 
       console.error(e);
-      const errorMsg = (e as any)?.cause?.reason || (e as any)?.message || 'Trade failed';
-      toast.error(errorMsg);
+      const data = (e as any)?.cause?.data || (e as any)?.data;
+      const hex = typeof data === 'string' ? data : (typeof data?.data === 'string' ? data.data : '');
+      // OpenZeppelin ERC20 custom error selector
+      const isInsufficientAllowance = typeof hex === 'string' && hex.toLowerCase().startsWith('0xfb8f41b2');
+      const errorMsg =
+        (e as any)?.cause?.reason ||
+        (e as any)?.shortMessage ||
+        (e as any)?.message ||
+        'Trade failed';
+      toast.error(
+        isInsufficientAllowance
+          ? 'Approve outcome tokens for TickBook (YES/NO) before placing this order.'
+          : errorMsg
+      );
     } finally { setIsSubmitting(false); }
   };
 
@@ -315,49 +327,32 @@ export const Pro = () => {
       <div className="max-w-[1600px] mx-auto px-4 pt-6 pb-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Link to="/trade" className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
-              <ChevronLeft className="w-5 h-5" />
-            </Link>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-heading gradient-text font-bold tracking-tight">
-                  {selectedMarket?.name}
-                </h1>
+                <h1 className="text-2xl font-heading gradient-text font-bold tracking-tight">TickBook</h1>
                 <div className="flex items-center gap-2">
                   <Badge variant="indigo" className="font-mono text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
                     V8.1 TICKBOOK
                   </Badge>
                   <Badge variant="success" className="font-mono text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                     <GraduationCap className="w-3 h-3 mr-1" />
-                    GRADUATED
+                    PRO VENUE
                   </Badge>
                 </div>
               </div>
+              <div className="text-xs text-slate-400 mt-1">
+                For Arbitrageurs & PvP Traders: place limit/market orders on graduated markets with CEX-grade execution.
+              </div>
               <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 font-mono">
                 <span className="flex items-center gap-1.5"><div className="status-dot live" /> LIVE</span>
-                <span>ID: {selectedMarket?.symbol}</span>
+                <span>MARKET: {selectedMarket?.symbol}</span>
                 <span>NET: {chainId}</span>
               </div>
             </div>
           </div>
 
           {/* Market Ticker */}
-          <div className="flex gap-2">
-            {v8Markets.slice(0, 4).map(m => (
-              <button
-                key={m.id}
-                onClick={() => navigate(`/pro/${m.contractAddress}`)}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all font-mono border",
-                  selectedMarket?.id === m.id
-                    ? "bg-slate-800 border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_-5px_rgba(6,182,212,0.3)]"
-                    : "bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
-                )}
-              >
-                {m.symbol}
-              </button>
-            ))}
-          </div>
+          <div />
         </div>
 
         {/* 2. Main Grid */}

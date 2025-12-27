@@ -356,8 +356,8 @@
   },
   "trade": {
     "header": {
-      "title": "Trade",
-      "subtitle": "Simple AMM trading for prediction markets"
+      "title": "AMM",
+      "subtitle": "For Gaming Traders: buy/sell YES or NO with always‑available liquidity. During Bonding, each trade earns LP rewards."
     },
     "selector": {
       "searchPlaceholder": "Search markets...",

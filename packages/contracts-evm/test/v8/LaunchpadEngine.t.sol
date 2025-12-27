@@ -261,6 +261,26 @@ contract LaunchpadEngineTest is Test {
         assertEq(progressBps, 10000, "Progress should be 100%");
     }
 
+    function test_Graduation_WhenCollateralizerAlreadyRegistered_DoesNotRevert() public {
+        // Create + activate market
+        vm.prank(creator);
+        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "Test Market", "TEST");
+        vm.prank(creator);
+        market.activate();
+
+        // Pre-register the market in Collateralizer (simulates an external registerMarket call)
+        (address yesToken, address noToken) = collateralizer.registerMarket(address(market), "Test Market", "TEST");
+
+        // Also pre-register in TickBook so LaunchpadEngine's graduation is idempotent there too.
+        tickBook.registerMarket(address(market), yesToken, noToken);
+
+        // Now graduate via trading; should NOT revert due to pre-registration.
+        _graduateMarket(address(market), trader1);
+
+        (, , , , bool isGraduated, ) = launchpad.getMarketState(address(market));
+        assertTrue(isGraduated, "Market should be graduated");
+    }
+
     function test_Graduation_AtomicRegistration() public {
         // Create market
         vm.prank(creator);

@@ -13,6 +13,7 @@ import { V8_ABIS } from "../../../config/abis";
 import { useV8DirectRead } from "./useV8DirectRead";
 import { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
 import { useAmmMarketDirect } from "./useAmmMarketDirect";
+import { formatUnits, parseUnits } from "viem";
 
 type Address = `0x${string}`;
 
@@ -43,7 +44,7 @@ interface AMMQuoteResult {
 
 export function useAMMQuoteDirect(
   marketAddress: Address | undefined,
-  shares: number,
+  sharesInput: string,
   outcome: 0 | 1 = 0,
   isBuy: boolean = true
 ): AMMQuoteResult {
@@ -58,7 +59,28 @@ export function useAMMQuoteDirect(
   const isLoadingLaunchpad = launchpad.isLoading;
   const isLoadingAmm = amm.isLoading;
 
-  const sharesWad = BigInt(Math.floor(shares * 1e18));
+  const sharesWad = useMemo(() => {
+    const raw = (sharesInput ?? "").trim();
+    if (!raw) return 0n;
+    // Note: input type=number may still yield strings like "1e5" in some browsers.
+    // parseUnits doesn't support exponent notation, so we treat those as invalid.
+    if (/e/i.test(raw)) return 0n;
+    try {
+      return parseUnits(raw, 18);
+    } catch {
+      return 0n;
+    }
+  }, [sharesInput]);
+
+  const sharesFormatted = useMemo(() => {
+    if (sharesWad <= 0n) return "0";
+    const raw = formatUnits(sharesWad, 18);
+    const [i, d = ""] = raw.split(".");
+    const iComma = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const clipped = d.slice(0, 2).replace(/0+$/, "");
+    return clipped.length ? `${iComma}.${clipped}` : iComma;
+  }, [sharesWad]);
+
   const isAmmInitialized = (amm.amm?.liquidity ?? 0n) > 0n;
 
   // V8.2 Position Model:
@@ -89,9 +111,10 @@ export function useAMMQuoteDirect(
   });
 
   const quote = useMemo(() => {
-    if (!quoteData || !marketAddress || shares <= 0) {
+    const loading = isLoadingLaunchpad || isLoadingAmm || quoteLoading;
+    if (!quoteData || !marketAddress || sharesWad <= 0n) {
       return {
-        deltaShares: 0n,
+        deltaShares: sharesWad > 0n ? deltaShares : 0n,
         isBuy,
         outcome,
         cost: 0n,
@@ -103,21 +126,21 @@ export function useAMMQuoteDirect(
         priceImpact: 0,
         costFormatted: '$0.00',
         feeFormatted: '$0.00',
-        sharesFormatted: '0',
-        isLoading: isLoadingLaunchpad || isLoadingAmm || quoteLoading,
-        error: error as Error | null,
+        sharesFormatted,
+        isLoading: loading,
+        error: (error as Error | null) ?? null,
       };
     }
 
-    // getPositionQuote returns (uint256 cost, uint256 newPrice)
-    const [cost, newPrice] = quoteData as readonly [bigint, bigint];
+    // AMMEngine.getPositionQuote returns (uint256 costOrProceeds, uint256 newYesPriceWad)
+    // Cost/proceeds are always returned as a positive uint256 in WAD.
+    const [costOrProceeds, newPrice] = quoteData as readonly [bigint, bigint];
 
     const feeRate = Number(launchpad.launchpad?.currentFeeBps ?? 500n);
-    const absNetCost = cost < 0n ? -cost : cost;
-    const fee = isBuy ? (absNetCost * BigInt(feeRate)) / 10000n : 0n; // No fees on sells
+    const fee = isBuy ? (costOrProceeds * BigInt(feeRate)) / 10000n : 0n; // No fees on sells
 
     // totalCost is what the user actually pays (or receives)
-    const totalCost = cost + fee;
+    const totalCost = costOrProceeds + fee;
 
     const newYesPrice = Number(newPrice) / 1e18;
     const newNoPrice = 1 - newYesPrice;
@@ -142,10 +165,16 @@ export function useAMMQuoteDirect(
     }
 
     const fmtCost = (valWad: bigint) => {
-      const val = Number(valWad) / 1e18;
-      if (val === 0) return '$0.00';
-      if (Math.abs(val) < 0.01) return `$${val.toFixed(4)}`;
-      return `$${val.toFixed(2)}`;
+      const abs = valWad < 0n ? -valWad : valWad;
+      const raw = formatUnits(abs, 18);
+      const [i, d = ""] = raw.split(".");
+      const iComma = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      // Keep 2dp for UX; for tiny amounts, show 4dp.
+      const d4 = (d + "0000").slice(0, 4);
+      const d2 = d4.slice(0, 2);
+      const asNumber = Number(raw);
+      if (!Number.isFinite(asNumber) || asNumber >= 0.01) return `$${iComma}.${d2}`;
+      return `$${iComma}.${d4}`;
     };
 
     return {
@@ -155,17 +184,17 @@ export function useAMMQuoteDirect(
       cost: totalCost,
       fee,
       feeRate,
-      netCost: cost,
+      netCost: costOrProceeds,
       newYesPrice,
       newNoPrice,
       priceImpact,
       costFormatted: fmtCost(totalCost),
       feeFormatted: fmtCost(fee),
-      sharesFormatted: shares.toLocaleString(),
+      sharesFormatted,
       isLoading: false,
       error: null,
     };
-  }, [quoteData, launchpad.launchpad, amm.amm, shares, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm]);
+  }, [quoteData, marketAddress, launchpad.launchpad, amm.amm, sharesWad, deltaShares, sharesFormatted, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm]);
 
   return quote;
 }
