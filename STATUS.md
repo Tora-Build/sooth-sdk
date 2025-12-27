@@ -1,12 +1,33 @@
 # Project Status
 
-> Last Updated: 2025-12-27 (V8.3 Spendable Proceeds)
+> Last Updated: 2025-12-27 (V8.3 Deployed & Merged to Main)
 
 ## Current Focus
-- **✅ V8.3 SPENDABLE PROCEEDS** — LaunchpadEngine now uses spendable proceeds for buys (proceeds from sells are truly spendable).
-- **✅ V8.2 DUAL-BALANCE MODEL** — Users can hold both YES and NO positions simultaneously on the AMM.
-- **✅ FINALIZED MARKETS AUDIT TRAIL** — Gov page shows real settlement data from contracts.
-- **✅ V8.1 UI/UX REFRESH** — Modern glass-card design system, premium typography, and refined trading signals.
+- **✅ V8.3 DEPLOYED** — Fresh deployment on Base Sepolia with spendable proceeds working.
+- **✅ MERGED TO MAIN** — Sandbox branch merged and deleted. All V8.3 changes now on `main`.
+
+## Active Deployment (Base Sepolia)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x1F30742c38c10b28B3960E2B067644A52592bd8f` |
+| AMMEngine | `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5` |
+| Collateralizer | `0x09A7809a33F969B0099A5d19003991592658763f` |
+| TickBook | `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd` |
+| Alien Life Market | `0xd306eb7ddbAa6394DDBFF54897aFC82A9cf39e08` |
+| BTC TWAP Market | `0xE0d986c827E3398B0f66DeEd0C681f3CD1553fBe` |
+
+## Pending Work (Next Session)
+- [ ] **Test spendable proceeds flow** — Buy → Sell → Buy using proceeds (verify no wallet pull)
+- [ ] **Market Creation wizard** — Test end-to-end market deployment from UI
+- [ ] **Settlement flow** — Implement and test adjudicator settlement UI
+- [ ] **Guardian veto** — Implement veto functionality in GuardianPanel
+
+## Completed This Session
+- ✅ V8.3 spendable proceeds contract changes
+- ✅ Gov page Finalized Markets audit trail (real data)
+- ✅ Fresh V8.3 deployment to Base Sepolia
+- ✅ Documentation updates (CHANGELOG, DECISIONS, LESSONS_LEARNED)
+- ✅ Merged sandbox → main, deleted sandbox branch
 
 ## Recent Changes
 
