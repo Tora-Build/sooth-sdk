@@ -363,13 +363,13 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
                     // TickBook is keyed by (market, yesToken, noToken). If already registered, ignore.
                     try tickBook.registerMarket(market, yes, no, ammProbability) returns (bytes32) {
                         // ok
-                    } catch Error(string memory reason) {
-                        // Only ignore the explicit "already registered" case.
-                        if (keccak256(bytes(reason)) != keccak256(bytes("TickBook: already registered"))) {
-                            revert(reason);
+                    } catch (bytes memory reason) {
+                        // DuplicateMarket() custom error selector = bytes4(keccak256("DuplicateMarket()"))
+                        bytes4 duplicateMarketSelector = 0xedd7c146;
+                        // Only ignore if it's the DuplicateMarket custom error
+                        if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
+                            revert("LaunchpadEngine: tickbook register failed");
                         }
-                    } catch {
-                        revert("LaunchpadEngine: tickbook register failed");
                     }
 
                     emit MarketGraduated(market, state.feesAccrued, block.timestamp);
