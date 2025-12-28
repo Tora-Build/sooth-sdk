@@ -7,7 +7,7 @@ import {console} from "forge-std/console.sol";
 import {OutcomeToken} from "../contracts/OutcomeToken.sol";
 import {Collateralizer} from "../contracts/Collateralizer.sol";
 import {AMMEngine} from "../contracts/AMMEngine.sol";
-import {TickBookV2} from "../contracts/TickBookV2.sol";
+import {TickBook} from "../contracts/TickBook.sol";
 import {TickBookVault} from "../contracts/TickBookVault.sol";
 import {LaunchpadEngine} from "../contracts/LaunchpadEngine.sol";
 import {TruthMarket} from "../contracts/TruthMarket.sol";
@@ -70,9 +70,9 @@ contract DeployV8TickBookV2 is Script {
         tickBookVault = address(new TickBookVault(usdc, deployer));
         console.log("   TickBookVault:", tickBookVault);
         
-        console.log("3b. Deploying TickBookV2 (ADR-052)...");
-        tickBookV2 = address(new TickBookV2(tickBookVault));
-        console.log("   TickBookV2:", tickBookV2);
+        console.log("3b. Deploying TickBook (ADR-052)...");
+        tickBookV2 = address(new TickBook(tickBookVault));
+        console.log("   TickBook:", tickBookV2);
         
         // Link vault -> tickbook
         TickBookVault(tickBookVault).setTickBook(tickBookV2);
