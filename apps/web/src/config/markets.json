@@ -42,42 +42,42 @@
       "liquidity": "1000"
     },
     {
-      "id": "monad-v811-alien-life",
+      "id": "monad-v812-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "contractAddress": "0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2",
+      "contractAddress": "0x39f0b89Bd1110800B0A67D1F1d2509Df111e84A1",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-      "yesToken": "0x5C2688c8b349C535db6D2B702699ADB85a396380",
-      "noToken": "0xDeCdbA396dB131ee1BBfA3eB384151da6AB1D883",
+      "yesToken": "0xbea78f90A0377C305FDAE5Fd3A9376107F40AaB3",
+      "noToken": "0xADAE77990b8Aa24FDD7A9e8455d2b98d428bB332",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 10143,
-      "version": "v8.11.0",
+      "version": "v8.12.0",
       "isGraduated": false,
-      "deadline": 1769523750,
+      "deadline": 1769528368,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },
     {
-      "id": "monad-v811-btc-100k",
+      "id": "monad-v812-btc-100k",
       "name": "BTC 7-day TWAP >= $100k",
       "symbol": "BTC100K",
-      "contractAddress": "0x1cB930d768AD866C3211A14894B1E924726bac0b",
+      "contractAddress": "0x8AB78b28Dc7CF9bF64e0c65865ED573575270978",
       "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-      "yesToken": "0x7CEbE651BF455120E1FADC70E5958eb07d1a760d",
-      "noToken": "0xeB608e6419A842B5cCeb0Feb47296baCCf250C21",
+      "yesToken": "0x351fDC51b20723b312316272472e91691652280a",
+      "noToken": "0x6fB7db423ce365CaE2703FFda325B3622EE7594e",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 10143,
-      "version": "v8.11.0",
+      "version": "v8.12.0",
       "isGraduated": false,
-      "deadline": 1769523750,
+      "deadline": 1769548896,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     }

@@ -308,27 +308,49 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-## V8.6 Outcome Mapping Bug
+## ~~V8.6 Outcome Mapping Bug~~ (OBSOLETE - See V8.13.0)
 
-### ❌ Pattern: YES/NO UI Labels Inverted from Contract Values
+> ⚠️ **OBSOLETE**: This entry was correct at the time (AMMEngine used inverted semantics from TruthMarket).
+> V8.13.0 unified all contracts to use `YES=1, NO=0, INVALID=2` matching TruthMarket.
+> See the V8.13.0 entry below for the current canonical values.
+
+### ~~❌ Pattern: YES/NO UI Labels Inverted from Contract Values~~
 - **Date:** 2025-12-28
-- **Mistake:** Pro.tsx had `const outcome = isYes ? 1 : 0` but the contract uses `outcome=0` for YES and `outcome=1` for NO.
-- **Symptom:** Clicking "Buy YES" actually submitted a "Buy NO" order to the contract. User thought they were buying YES but was buying NO.
-- **Root Cause:** Developer assumed YES=1/NO=0 (common convention) but the contract uses YES=0/NO=1.
-- **Fix:** Changed to `const outcome = isYes ? 0 : 1`.
-- **Multiple Locations Affected:**
-  1. `handleTrade()` outcome calculation
-  2. `useTickBookQuoteDirect()` outcome parameter
-- **Rule:** When mapping UI labels to contract enum values, ALWAYS check the contract source:
-  ```solidity
-  // In comments or constants
-  // outcome=0 means YES, outcome=1 means NO
-  ```
-- **Lesson:** Create a shared constant file for magic numbers:
-  ```typescript
-  export const OUTCOME = { YES: 0, NO: 1 } as const;
-  ```
+- **Context:** AMMEngine had `outcome=0` for YES, but TruthMarket had `outcome=1` for YES.
+- **Resolution:** V8.13.0 refactored AMMEngine to match TruthMarket (see below).
 
 ---
 
-*Last updated: 2025-12-28*
+## V8.13.0 Unified Outcome Semantics
+
+### ✅ Pattern: Canonical Outcome Encoding (Protocol-Wide)
+- **Date:** 2025-12-29
+- **Change:** All V8 contracts now use TruthMarket as the canonical source of outcome semantics.
+- **Standard Values:**
+  | Value | Outcome | Description |
+  |-------|---------|-------------|
+  | `0`   | NO      | The "No" side of the prediction |
+  | `1`   | YES     | The "Yes" side of the prediction |
+  | `2`   | INVALID | Market invalidated (ambiguous, unresolvable) |
+- **Affected Contracts:**
+  - `TruthMarket.sol` (canonical source)
+  - `AMMEngine.sol` (refactored from `0=YES, 1=NO` to `0=NO, 1=YES`)
+  - `Collateralizer.sol`
+  - `TickBook.sol`, `TickBookV2.sol`
+  - `TickBookVault.sol`
+- **Frontend Update Required:**
+  ```typescript
+  // V8.13.0 canonical constants
+  export const OUTCOME = { YES: 1, NO: 0, INVALID: 2 } as const;
+  ```
+- **Additional V8.13.0 Changes:**
+  - ReentrancyGuard added to all state-changing functions
+  - INVALID outcome handling (50% payout)
+  - `isLive()` now checks `block.timestamp < deadline`
+  - New events: `PositionSettled`, `MarketActivated`, `MarketVetoed`
+- **Documentation:** `packages/contracts-evm/docs/review/OUTCOME_SEMANTICS.md`
+- **Rule:** Always use `YES=1, NO=0` in frontend code. Reference `OUTCOME_SEMANTICS.md` for canonical definitions.
+
+---
+
+*Last updated: 2025-12-29*

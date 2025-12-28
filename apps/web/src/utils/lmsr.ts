@@ -21,12 +21,12 @@ export function getLMSRQuote(
     currentQNo: number,
     bParam: number,
     shareAmount: number, // Positive for buy, negative usually handled by caller or interpreted as delta
-    outcomeIndex: 0 | 1 // 0=YES, 1=NO (Standard Sooth: 0=YES?? Wait, verify)
-    // In SoothMarket.sol: outcomes[0] might be YES or NO?
-    // In useTrade.ts: 0 -> qYes??
-    // Let's verify outcome mapping.
-    // useTrade.ts: newQYes = outcomeIndex === 0 ? ... (Line 144)
-    // So 0 = YES, 1 = NO in useTrade logic.
+    outcomeIndex: 0 | 1 // V8.13.0: 0=NO, 1=YES (unified with TruthMarket)
+    // NOTE: This function uses LMSR position indices where:
+    //   outcomeIndex=0 corresponds to qYes position modification
+    //   outcomeIndex=1 corresponds to qNo position modification
+    // This is internal LMSR math, NOT the same as contract outcome encoding.
+    // Contract outcome: YES=1, NO=0 per TruthMarket canonical semantics.
 ) {
     // Current State
     const currentCost = calculateLMSRCost(currentQYes, currentQNo, bParam);

@@ -1078,7 +1078,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   const { quote: tbQuote, isLoading: isQuoteLoading } = useTickBookQuoteDirect(
     tickBook?.marketKey as `0x${string}`,
-    isYes ? 0 : 1,  // YES=0, NO=1
+    isYes ? 1 : 0,  // YES=1, NO=0 (V8.13.0 unified semantics)
     amount
   );
 

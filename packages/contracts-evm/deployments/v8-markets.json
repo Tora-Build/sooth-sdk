@@ -1,18 +1,18 @@
 {
   "market1": {
-    "address": "0xa4838e6E410570438d8B074e9459082b228A460C",
+    "address": "0x39f0b89Bd1110800B0A67D1F1d2509Df111e84A1",
     "question": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-    "deadline": 1769527314,
+    "deadline": 1769528368,
     "liquidity": 1000000000000000000000,
-    "yesToken": "0x94Cc020f92351D9853ce1bdD52924979F70eE54c",
-    "noToken": "0x07527CD81fB606d897dbfa9E923Dc9c8bf136976"
+    "yesToken": "0xbea78f90A0377C305FDAE5Fd3A9376107F40AaB3",
+    "noToken": "0xADAE77990b8Aa24FDD7A9e8455d2b98d428bB332"
   },
   "market2": {
-    "address": "0x8027387f1FD1963513661A0051AdD224244e186E",
+    "address": "0xC00f59F89E7b111A0f0234eC4e58658b3Ed1BD85",
     "question": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-    "deadline": 1769527314,
+    "deadline": 1769528368,
     "liquidity": 1000000000000000000000,
-    "yesToken": "0x92831dc962c41A13b202B344B8301Fa8c4237074",
-    "noToken": "0x074F213e08c88d373d91f312fC4d056be7A531e9"
+    "yesToken": "0xde6fF1071e8C581E8513da49d83FA022Bc58F4f0",
+    "noToken": "0xB0d4957AfB846cfFdB3478e9df0BF5ea304a80E5"
   }
 }

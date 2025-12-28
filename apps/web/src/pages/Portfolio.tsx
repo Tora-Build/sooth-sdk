@@ -141,19 +141,19 @@ const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
   const { data: balances } = useReadContracts({
     contracts: [
       {
-        address: market.yesTokenAddress as `0x${string}`,
+        address: market.yesToken as `0x${string}`,
         abi: V8_ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: [userAddress],
       },
       {
-        address: market.noTokenAddress as `0x${string}`,
+        address: market.noToken as `0x${string}`,
         abi: V8_ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: [userAddress],
       }
     ],
-    query: { enabled: !!market.yesTokenAddress && !!market.noTokenAddress && !!userAddress }
+    query: { enabled: !!market.yesToken && !!market.noToken && !!userAddress }
   });
 
   const yesBalance = balances?.[0]?.result as bigint ?? 0n;
@@ -211,7 +211,7 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   const yesInternal = vault?.yesInternal ?? 0n;
   const noInternal = vault?.noInternal ?? 0n;
 
-  // Outcome: YES=0, NO=1 (V8.8 standard)
+  // Outcome: YES=1, NO=0 (V8.13.0 unified semantics)
   const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
   const noPriceNum = 1 - yesPriceNum;
 

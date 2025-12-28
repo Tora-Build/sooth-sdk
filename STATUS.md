@@ -1,10 +1,22 @@
 # Project Status
 
-> Last Updated: 2025-12-29 (V8.12.0 Limit Order Crossing Fix)
+> Last Updated: 2025-12-29 (V8.13.0 Security Refinement)
 
+- **✅ V8.13.0 MERGED** — Contract security refinement with ReentrancyGuard, INVALID handling, and outcome semantics unification.
 - **✅ CRITICAL CROSSING BUG FIXED** — Overlapping limit orders now fully cross instead of only ~0.1%.
-- **✅ V8.12.0 DEPLOYED** — Base Sepolia with corrected TickBookV2.
-- **✅ MONAD TESTNET LIVE** — V8.11.0 still active on Monad (crossing fix not yet deployed there).
+- **✅ V8.12.0 DEPLOYED** — Both Base Sepolia and Monad Testnet upgraded with corrected TickBookV2.
+
+## ⚠️ V8.13.0 Contract Changes (Merged Out-of-SOP)
+**Commit `c34678a`** merged breaking changes that require attention:
+| Change | Impact |
+|--------|--------|
+| **Outcome semantics unified** | `YES=1, NO=0, INVALID=2` (was inverted in AMMEngine) |
+| **ReentrancyGuard added** | All state-changing functions now protected |
+| **INVALID outcome handling** | 50% payout for both YES and NO |
+| **`isLive()` deadline check** | Returns `false` after deadline even if unsettled |
+| **New events** | `PositionSettled`, `MarketActivated`, `MarketVetoed` |
+
+**Documentation:** `packages/contracts-evm/docs/review/`
 
 ## Active Deployment (Base Sepolia) — V8.12.0 🔵
 | Contract | Address | Status |
@@ -22,31 +34,31 @@
 | UN Confirms Alien Life | `0xa4838e6E410570438d8B074e9459082b228A460C` | 2026-01-27 |
 | BTC 7-day TWAP >= $100k | `0x8027387f1FD1963513661A0051AdD224244e186E` | 2026-01-27 |
 
-## Active Deployment (Monad Testnet) — V8.11.0 🟣
+## Active Deployment (Monad Testnet) — V8.12.0 🟣
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0xf067C23BEE9D3d5c830ca0450A751836c181f566` | ✅ OK |
-| Collateralizer | `0xF495702a9111513b7A2F77896021193312ddA851` | ✅ OK |
-| AMMEngine | `0x65b72e4d5138AeEdF55459B8f7527505217dcEBc` | ✅ OK |
-| TickBookVault | `0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0` | ✅ OK |
-| TickBookV2 | `0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7` | ⚠️ OLD (needs crossing fix) |
-| LaunchpadEngine | `0x39975787F1fa28fc92473De8b25070616AAbc261` | ✅ OK |
+| Collateralizer | `0xc786922EB74246D058Fb76bD27E9d930B647E6EA` | ✅ NEW |
+| AMMEngine | `0x24B057b78dFC264e8d1Ed4cE8DbBF52adBA6f141` | ✅ NEW |
+| TickBookVault | `0xBdE3d08A330F52610Dc0ac8B967A9167C74e6494` | ✅ NEW |
+| TickBookV2 | `0x4D56A7a821CbDCCe817762308481e1d33CC2aa92` | ✅ NEW (crossing fix) |
+| LaunchpadEngine | `0xf6fc46bA2F7E3C3E8E79f2105c8d4AE787aC4A96` | ✅ NEW |
 
-### Monad V8.11.0 Markets
+### Monad V8.12.0 Markets
 | Market | Address | Deadline |
 |--------|---------|----------|
-| UN Confirms Alien Life | `0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0x1cB930d768AD866C3211A14894B1E924726bac0b` | 2026-01-27 |
+| UN Confirms Alien Life | `0x39f0b89Bd1110800B0A67D1F1d2509Df111e84A1` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0xC00f59F89E7b111A0f0234eC4e58658b3Ed1BD85` | 2026-01-27 |
 
 ## Pending Work (Next Session)
-- [ ] **Deploy V8.12.0 to Monad Testnet** — Apply crossing fix to Monad deployment.
-- [ ] **Verify contracts on Basescan** — For transparency.
+- [ ] **Verify contracts on Basescan/Monad Explorer** — For transparency.
 - [ ] **Test limit order crossing in UI** — Verify overlapping orders fully match.
 - [ ] **Test hybrid sell flow** — Verify executeHybridSell works correctly in UI.
 
 ## Completed This Session (2025-12-29)
 - ✅ **Critical Limit Order Crossing Fix** — `_totalLiquidity` was tracking density instead of total shares, causing only 0.1% of overlapping orders to cross.
-- ✅ **V8.12.0 Deployment** — Full Base Sepolia redeployment with corrected TickBookV2.
+- ✅ **V8.12.0 Deployment (Base Sepolia)** — Full redeployment with corrected TickBookV2.
+- ✅ **V8.12.0 Deployment (Monad Testnet)** — Crossing fix deployed to Monad with new markets.
 - ✅ **Pro-rata Fill Attribution Fix** — `_claimInternal` and `getPendingFills` now use `order.sharesTotal` instead of recalculating.
 
 ## Completed Previous Session (2025-12-28)
