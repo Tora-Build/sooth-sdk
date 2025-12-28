@@ -90,9 +90,10 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
         return ticks;
       };
 
-      // Bids/asks are “active boundaries” for each side (not per-tick FIFO depth)
+      // Bids/asks are "active boundaries" for each side (not per-tick FIFO depth)
+      // Start from 0 to ensure tick 1 is found (findNextUp is exclusive of startTick)
       const [bids, asks] = await Promise.all([
-        fetchTicks(1, 10, true, 0),  // NO depth from low → high
+        fetchTicks(0, 10, true, 0),  // NO depth from low → high (start at 0 to find tick 1)
         fetchTicks(999, 10, false, 1), // YES depth from high → low
       ]);
 

@@ -58,7 +58,10 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     /// @notice Post-grad fee split: % to protocol (default: 2000 = 20%)
     uint16 public protocolShareBps;
 
-    /// @notice Graduation multiplier (default: 2 = 2× bBase)
+    /// @notice Graduation multiplier (default: 1 = break-even at bBase×ln(2))
+    /// threshold = bBase × ln(2) × multiplier
+    /// - 1 = graduate when fees equal creator deposit (LP break-even)
+    /// - 2 = graduate when fees are 2× creator deposit
     uint16 public graduationMultiplier;
 
     // ============================================
@@ -120,7 +123,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         bBaseShareBps = 5000;       // 50%
         lpYieldShareBps = 3000;     // 30%
         protocolShareBps = 2000;    // 20%
-        graduationMultiplier = 2;   // 2× bBase
+        graduationMultiplier = 1;   // 1× = break-even (fees = bBase × ln(2))
     }
 
     // ============================================
@@ -333,8 +336,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             state.feesAccrued += feeUsdc;
 
             // Check graduation (short-circuit if already graduated)
+            // Threshold = bBase × ln(2) × multiplier
+            // - bBase × ln(2) = creator deposit = LP break-even point
+            // - multiplier = 1 means graduate at break-even, 2 means at 2× break-even, etc.
             if (!state.isGraduated) {
-                uint256 graduationThreshold = state.bBase * uint256(graduationMultiplier);
+                uint256 graduationThreshold = (state.bBase * LN2 * uint256(graduationMultiplier)) / WAD;
                 uint256 feesInWad = _usdcToWad(state.feesAccrued);
 
                 if (feesInWad >= graduationThreshold) {
@@ -346,8 +352,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
                         ? collateralizer.getOutcomeTokens(market)
                         : collateralizer.registerMarket(market, state.name, state.symbol);
 
+                    // Get current AMM probability to initialize TickBook at the same price
+                    (,, uint256 ammProbability) = ammEngine.getMarketState(market);
+
                     // TickBook is keyed by (market, yesToken, noToken). If already registered, ignore.
-                    try tickBook.registerMarket(market, yes, no) returns (bytes32) {
+                    try tickBook.registerMarket(market, yes, no, ammProbability) returns (bytes32) {
                         // ok
                     } catch Error(string memory reason) {
                         // Only ignore the explicit "already registered" case.
@@ -529,7 +538,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         MarketState memory state = markets[market];
         
         feesAccrued = state.feesAccrued;
-        uint256 thresholdWad = state.bBase * graduationMultiplier;
+        // Threshold = bBase × ln(2) × multiplier (same formula as _distributeFee)
+        uint256 thresholdWad = (state.bBase * LN2 * uint256(graduationMultiplier)) / WAD;
         threshold = _wadToUsdc(thresholdWad);
         
         if (state.isGraduated) {

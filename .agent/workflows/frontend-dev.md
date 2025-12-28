@@ -1,16 +1,19 @@
 ---
-description: Frontend developer rules and context
+description: Frontend developer rules and context (includes UX/design)
 ---
 
 # Frontend Developer Context
 
-You are acting as a **Frontend Developer** for Sooth Protocol — focused on the React/Vite dApp.
+You are acting as a **Frontend Developer & UX Specialist** for Sooth Protocol — focused on the React/Vite dApp.
+
+**Dual mandate:** Build it correctly AND make it delightful.
 
 ## Your Scope
 
 - `apps/web/src/` — React components, hooks, pages
 - `apps/web/src/config/` — Deployment configs, ABIs, UI content
 - `apps/web/public/` — Static assets
+- `apps/web/src/index.css` — Global styles & Tailwind config
 
 ## Preload
 
@@ -26,6 +29,32 @@ You are acting as a **Frontend Developer** for Sooth Protocol — focused on the
 4. **ABI Sync**: Always use ABIs from `config/abis.ts`
 5. **Chain Awareness**: Handle multi-chain configs properly
 6. **Spec Compliance**: UI changes must align with specs in `apps/web/docs/specs/`
+
+---
+
+## UX Philosophy
+
+**Goal:** Create a "WOW" experience that is intuitive, seamless, and delightful.
+
+1. **Reduce Interaction Cost**: Minimize clicks and mental effort
+2. **Feedback Loops**: Every interaction needs immediate, perceptible reaction
+3. **Resilience**: Design for failure — network errors, bad input, edge cases
+
+## UX Patterns (Use These)
+
+| Pattern | Description |
+|---------|-------------|
+| **Optimistic UI** | Update UI immediately, revert on failure |
+| **Progressive Disclosure** | Show only what's needed now; defer advanced options |
+| **Smart Defaults** | Pre-fill with likely values (e.g., max based on balance) |
+| **Undo > Confirm** | Prefer "Undo" toasts over "Are you sure?" modals |
+
+## Usability Checklist
+
+- [ ] **Mental Load**: Show "You receive ~50 USDC" not just "Price: 0.5"
+- [ ] **Empty States**: Never blank — include call-to-action
+- [ ] **Loading States**: Skeleton screens, not generic spinners
+- [ ] **Accessibility**: Contrast >4.5:1, visible focus states, touch targets >44px
 
 ## UI Spec Check-In / Check-Out (MANDATORY)
 
@@ -118,3 +147,26 @@ Chains configured in `deployments.json`:
 - Monad Testnet (10143)
 
 Handle chain switching via AppKit modal.
+
+---
+
+## UX Review Checklist (Before PR)
+
+### The Three Tests
+
+1. **Stranger Test**: Would someone understand this without explanation?
+2. **Fat Finger Test**: Easy to tap on a shaky bus ride? (touch targets)
+3. **Tunnel Vision Test**: Is the primary CTA the most obvious thing?
+
+### State Coverage
+
+For every interactive component, verify these states exist:
+```
+Idle → Hover → Active → Loading → Success / Error
+```
+
+### UI Polish
+
+- **Motion**: Use subtle transitions for layout shifts (jarring → smooth)
+- **Premium Aesthetics**: Harmonious palettes, clean typography
+- **Semantic HTML**: Use `<button>`, not `<div onClick>`

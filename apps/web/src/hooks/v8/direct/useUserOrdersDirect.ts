@@ -48,31 +48,44 @@ export function useUserOrdersDirect(
         return [];
       }
 
-      // Fetch each order's details
+      // Fetch each order's details + pending fills
       const orders: RangeOrder[] = [];
       for (const orderId of orderIds) {
-        const order = await readContractSafe<{
-          owner: Address;
-          outcome: number;
-          tickLower: number;
-          tickUpper: number;
-          sharesTotal: bigint;
-          liquidity: bigint;
-          collateralDepositedWad: bigint;
-          filledShares: bigint;
-          collateralUsedWad: bigint;
-          active: boolean;
-        }>(client, {
-          address: tickBookAddress!,
-          abi: V8_ABIS.TickBook,
-          functionName: "getOrder",
-          args: [marketKey!, orderId],
-        });
+        const [order, pendingFills] = await Promise.all([
+          readContractSafe<{
+            owner: Address;
+            outcome: number;
+            tickLower: number;
+            tickUpper: number;
+            sharesTotal: bigint;
+            liquidity: bigint;
+            collateralDepositedWad: bigint;
+            filledShares: bigint;
+            collateralUsedWad: bigint;
+            active: boolean;
+          }>(client, {
+            address: tickBookAddress!,
+            abi: V8_ABIS.TickBook,
+            functionName: "getOrder",
+            args: [marketKey!, orderId],
+          }),
+          readContractSafe<readonly [bigint, bigint]>(client, {
+            address: tickBookAddress!,
+            abi: V8_ABIS.TickBook,
+            functionName: "getPendingFills",
+            args: [marketKey!, orderId],
+          }),
+        ]);
 
         if (order) {
+          // Add pending fills to filledShares for display
+          const pendingShares = pendingFills?.[0] ?? 0n;
+          const totalFilledShares = order.filledShares + pendingShares;
+          
           orders.push({
             orderId,
             ...order,
+            filledShares: totalFilledShares,
           });
         }
       }

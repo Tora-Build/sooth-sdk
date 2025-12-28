@@ -65,11 +65,12 @@ contract V8IntegrationTest is Test {
             "ETH5K"
         );
         
-        // Register market with tickBook
+        // Register market with tickBook at 50% probability
         marketKey = tickBook.registerMarket(
             address(market),
             yesToken,
-            noToken
+            noToken,
+            0.5e18
         );
         
         // Fund users

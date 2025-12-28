@@ -27,7 +27,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     // Values are in WAD (18 decimals) from the contract
     const feesVal = feesAccrued ? parseFloat(formatUnits(feesAccrued, 18)) : 0;
     const thresholdVal = graduationThreshold ? parseFloat(formatUnits(graduationThreshold, 18)) : 10000;
-    
+
     // Use provided progress or calculate from fees/threshold
     const progressPercent = graduationProgress ?? (thresholdVal > 0 ? Math.min((feesVal / thresholdVal) * 100, 100) : 0);
     const canGraduate = canGraduateProp ?? (progressPercent >= 100 && !isGraduated);
@@ -42,8 +42,8 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isGraduated
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-blue-500/20 text-blue-400'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-blue-500/20 text-blue-400'
                         }`}>
                         {isGraduated ? <Trophy size={20} /> : <Zap size={20} />}
                     </div>
@@ -59,8 +59,8 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
 
                 {/* Fee Badge */}
                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${isGraduated
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                     }`}>
                     {feeLabel}: {feeRate}
                 </div>
@@ -79,8 +79,8 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                     {/* Background gradient */}
                     <div
                         className={`absolute inset-y-0 left-0 transition-all duration-700 ease-out ${isGraduated
-                                ? 'bg-gradient-to-r from-emerald-600 to-emerald-400'
-                                : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500'
+                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-400'
+                            : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500'
                             }`}
                         style={{ width: `${progressPercent}%` }}
                     />
@@ -93,8 +93,6 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                         />
                     )}
 
-                    {/* Threshold marker */}
-                    <div className="absolute inset-y-0 right-0 w-1 bg-white/30" />
                 </div>
 
                 <div className="flex justify-between text-xs text-slate-500">

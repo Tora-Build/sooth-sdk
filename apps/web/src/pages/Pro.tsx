@@ -8,7 +8,7 @@
  * - Shows only graduated markets
  * - Click to open trading terminal for selected market
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink
@@ -21,10 +21,12 @@ import {
   useLaunchpadMarketDirect,
   useCollateralizerDirect,
   useTickBookDirect,
+  useTickBookQuoteDirect,
   useTickBookVaultDirect,
   useTokenBalances,
   useUserOrdersDirect,
   useAmmMarketDirect,
+  useInvalidateV8Queries,
   RangeOrder
 } from '../hooks/v8';
 import { useDeployments } from '../hooks/useDeployments';
@@ -66,17 +68,18 @@ interface LiquidityMapProps {
     activeLiquidityYes?: bigint;
   } | null;
   currentProb: number;
+  ammProb: number;
   isLoading: boolean;
 }
 
-const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) => {
+const LiquidityMap = ({ tickBook, currentProb, ammProb, isLoading }: LiquidityMapProps) => {
   // Build liquidity buckets for visualization (80 columns = ~1.25% each)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
     const numBuckets = 80;
     const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
     const currentTickPercent = currentProb * 100;
-    
+
     // Initialize empty buckets
     for (let i = 0; i < numBuckets; i++) {
       buckets.push({
@@ -85,19 +88,19 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
         side: 'none'
       });
     }
-    
+
     // Use active liquidity from market state
     const activeLiqYes = tickBook?.activeLiquidityYes ?? 0n;
     const activeLiqNo = tickBook?.activeLiquidityNo ?? 0n;
-    
+
     // Get boundary ticks
     const bids = tickBook?.bids ?? [];  // YES side boundaries (YES makers)
     const asks = tickBook?.asks ?? [];  // NO side boundaries (NO makers -> YES liquidity)
-    
+
     let lowestBoundary = 100;
     let highestBoundary = 0;
     let totalLiq = 0n;
-    
+
     // Process YES side boundaries (YES makers provide NO liquidity to takers)
     for (const tick of bids) {
       const tickPercent = tick.price * 100;
@@ -106,17 +109,17 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
       const endBucket = numBuckets - 1;
       const rangeSize = Math.max(1, endBucket - startBucket + 1);
       const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      
+
       for (let b = startBucket; b <= endBucket; b++) {
         buckets[b].liquidity += liqPerBucket;
         buckets[b].side = 'no'; // YES makers provide NO liquidity
       }
-      
+
       totalLiq += tick.liquidityGross;
       lowestBoundary = Math.min(lowestBoundary, tickPercent);
       highestBoundary = Math.max(highestBoundary, 100);
     }
-    
+
     // Process NO side boundaries (NO makers provide YES liquidity to takers)
     // A NO range order means: takers can BUY YES at any tick in the range
     for (const tick of asks) {
@@ -127,17 +130,17 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
       const endBucket = numBuckets - 1;
       const rangeSize = Math.max(1, endBucket - startBucket + 1);
       const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      
+
       for (let b = startBucket; b <= endBucket; b++) {
         buckets[b].liquidity += liqPerBucket;
         buckets[b].side = 'yes'; // NO makers provide YES liquidity
       }
-      
+
       totalLiq += tick.liquidityGross;
       lowestBoundary = Math.min(lowestBoundary, tickPercent);
       highestBoundary = 100;
     }
-    
+
     // Fallback: If we have active liquidity but couldn't match boundaries, spread across range
     if (totalLiq === 0n && (activeLiqYes > 0n || activeLiqNo > 0n)) {
       // Spread active liquidity across the entire range
@@ -150,14 +153,14 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
       lowestBoundary = 0;
       highestBoundary = 100;
     }
-    
+
     // Find max liquidity for normalization
     const maxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 1n);
-    
+
     // Determine available liquidity range for display
     const hasYesLiq = activeLiqYes > 0n || buckets.some(b => b.side === 'yes');
     const hasNoLiq = activeLiqNo > 0n || buckets.some(b => b.side === 'no');
-    
+
     return {
       buckets: buckets.map(b => ({
         ...b,
@@ -170,8 +173,8 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
       hasYesLiq,
       hasNoLiq,
     };
-  }, [tickBook, currentProb]);
-  
+  }, [tickBook, currentProb, ammProb]);
+
   const midPrice = currentProb * 100;
   const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0;
 
@@ -185,7 +188,7 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
         <span>75%</span>
         <span>100%</span>
       </div>
-      
+
       {/* Pixel depth chart */}
       <div className="relative h-32 flex items-end gap-[2px] bg-slate-950 rounded-lg p-2">
         {isLoading ? (
@@ -198,20 +201,39 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
             <span className="text-sm text-slate-500">No orders yet</span>
           </div>
         ) : (
-          // Real liquidity data - color by which side can be BOUGHT
+          null
+        )}
+
+        {/* Price Indicators (Light Bars) */}
+        {!isLoading && (
+          <>
+            {/* AMM Price Indicator - Slightly Grey 'Stealth' bar */}
+            <div
+              className="absolute top-0 bottom-0 w-[1px] bg-slate-400/60 z-10 pointer-events-none"
+              style={{ left: `${ammProb * 100}%` }}
+            />
+            {/* TickBook Price Indicator - Yellow/Amber solid bar */}
+            <div
+              className="absolute top-0 bottom-0 w-[1.5px] bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+              style={{ left: `calc(${currentProb * 100}% - 0.75px)` }}
+            />
+          </>
+        )}
+
+        {!isLoading && hasRealData && (
           buckets.map((bucket, col) => {
             const blocks = Math.max(1, Math.ceil(bucket.normalized * 12));
             const hasLiquidity = bucket.liquidity > 0n;
-            
+
             // Color based on what takers can BUY at this price
             // 'yes' = YES liquidity available (green) 
             // 'no' = NO liquidity available (rose)
             const isYesLiq = bucket.side === 'yes';
             const isNoLiq = bucket.side === 'no';
-            
+
             return (
-              <div 
-                key={col} 
+              <div
+                key={col}
                 className={cn(
                   "flex-1 flex flex-col-reverse gap-[2px] relative group",
                   hasLiquidity && "cursor-pointer"
@@ -223,7 +245,7 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
                     <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap shadow-xl">
                       <div className="font-mono font-bold text-white">{bucket.price.toFixed(1)}%</div>
                       <div className="text-slate-400">
-                        {isYesLiq ? 'Buy YES' : 'Buy NO'}: 
+                        {isYesLiq ? 'Buy YES' : 'Buy NO'}:
                         <span className={isYesLiq ? 'text-emerald-400' : 'text-rose-400'}>
                           {' '}{parseFloat(formatUnits(bucket.liquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
@@ -232,12 +254,12 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
                     <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-700" />
                   </div>
                 )}
-                
+
                 {/* Blocks - uniform color across range for single order */}
                 {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
                   const intensity = 1 - (blockIdx / blocks);
                   let blockColor = 'bg-slate-800';
-                  
+
                   if (isYesLiq) {
                     // YES liquidity = green (takers can buy YES)
                     blockColor = intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700';
@@ -245,10 +267,10 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
                     // NO liquidity = rose (takers can buy NO)
                     blockColor = intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700';
                   }
-                  
+
                   return (
-                    <div 
-                      key={blockIdx} 
+                    <div
+                      key={blockIdx}
                       className={cn(
                         "w-full aspect-square rounded-[1px] transition-all",
                         blockColor,
@@ -261,14 +283,10 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
             );
           })
         )}
-        
-        {/* Current price indicator */}
-        <div 
-          className="absolute top-0 bottom-0 w-[3px] bg-white rounded-full shadow-[0_0_10px_3px_rgba(255,255,255,0.7)]"
-          style={{ left: `calc(${midPrice}% - 1px)` }}
-        />
+
+        {/* Redundant price indicator removed */}
       </div>
-      
+
       {/* Intensity legend */}
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-4 text-[9px] text-slate-500">
@@ -283,16 +301,20 @@ const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) =
         </div>
         <div className="text-[9px] text-slate-600">Height = Liquidity at price</div>
       </div>
-      
+
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800/50">
         <div className="text-center p-2 rounded-lg bg-slate-950">
           <div className="text-[9px] text-slate-500 uppercase">Range Low</div>
-          <div className="text-sm font-mono font-bold text-slate-300">{lowestBoundary.toFixed(1)}%</div>
+          <div className="text-sm font-mono font-bold text-slate-300">
+            {lowestBoundary === 100 && !hasRealData ? '—' : `${lowestBoundary.toFixed(1)}%`}
+          </div>
         </div>
-        <div className="text-center p-2 rounded-lg bg-slate-950">
+        <div className="text-center p-2 rounded-lg bg-slate-900/30">
           <div className="text-[9px] text-slate-500 uppercase">Range High</div>
-          <div className="text-sm font-mono font-bold text-slate-300">{highestBoundary.toFixed(1)}%</div>
+          <div className="text-sm font-mono font-bold text-slate-300">
+            {highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}%`}
+          </div>
         </div>
         <div className="text-center p-2 rounded-lg bg-slate-950">
           <div className="text-[9px] text-slate-500 uppercase">Available</div>
@@ -345,13 +367,13 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
         functionName: 'cancelOrder',
         args: [marketKey, orderId]
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
+
       toast.success(
         <div className="flex items-center gap-2">
           <span>Order cancelled!</span>
@@ -382,13 +404,13 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
         functionName: 'claimFills',
         args: [marketKey, orderId]
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
+
       toast.success(
         <div className="flex items-center gap-2">
           <span>Fills claimed!</span>
@@ -442,97 +464,106 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
           <p className="text-xs text-slate-600">Place a limit order to get started</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {activeOrders.map((order) => {
-            const priceRange = order.tickLower === order.tickUpper 
+            const priceRange = order.tickLower === order.tickUpper
               ? `${(order.tickLower / 10).toFixed(1)}%`
               : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
-            const fillPercent = order.sharesTotal > 0n 
-              ? Number((order.filledShares * 100n) / order.sharesTotal) 
+            const fillPercent = order.sharesTotal > 0n
+              ? Number((order.filledShares * 100n) / order.sharesTotal)
               : 0;
+            // outcome=1 → credits YES tokens on fill, outcome=0 → credits NO tokens on fill
             const isYesOrder = order.outcome === 1;
             const hasFills = order.filledShares > 0n;
             const orderId = order.orderId.toString();
 
             return (
-              <div 
+              <div
                 key={orderId}
                 className={cn(
-                  "p-3 rounded-xl border transition-all",
-                  isYesOrder 
-                    ? "bg-emerald-950/20 border-emerald-900/30" 
-                    : "bg-rose-950/20 border-rose-900/30"
+                  "relative group overflow-hidden rounded-lg border transition-all",
+                  isYesOrder
+                    ? "bg-emerald-950/10 border-emerald-900/20 hover:border-emerald-500/30"
+                    : "bg-rose-950/10 border-rose-900/20 hover:border-rose-500/30"
                 )}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between p-2 pl-3">
+                  {/* Left: Info */}
+                  <div className="flex items-center gap-3">
                     <span className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                      "w-8 py-0.5 rounded text-[9px] font-bold text-center",
                       isYesOrder ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
                     )}>
                       {isYesOrder ? 'YES' : 'NO'}
                     </span>
-                    <span className="text-sm font-mono text-white">{priceRange}</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500">#{orderId}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
-                  <div>
-                    <div className="text-slate-500">Total</div>
-                    <div className="font-mono text-white">
-                      {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    <span className="text-[11px] font-mono font-bold text-white min-w-[100px]">{priceRange}</span>
+                    <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-400 font-mono">
+                      <div className="flex gap-1.5">
+                        <span className="text-slate-500 uppercase">Total:</span>
+                        <span className="text-white">{parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString()}</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <span className="text-slate-500 uppercase">Fill:</span>
+                        <span className={cn(hasFills ? "text-amber-400" : "text-slate-500")}>
+                          {parseFloat(formatUnits(order.filledShares, 18)).toLocaleString()} ({fillPercent}%)
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500">Filled</div>
-                    <div className={cn("font-mono", hasFills ? "text-amber-400" : "text-slate-400")}>
-                      {parseFloat(formatUnits(order.filledShares, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500">Fill %</div>
-                    <div className="font-mono text-white">{fillPercent.toFixed(1)}%</div>
+
+                  {/* Right: Actions */}
+                  <div className="flex items-center gap-1.5 ml-4">
+                    <span className="text-[9px] text-slate-600 font-mono hidden md:inline">#{orderId}</span>
+                    {hasFills && (
+                      <button
+                        onClick={() => handleClaimFills(order.orderId)}
+                        disabled={actionInProgress === `claim-${orderId}`}
+                        title="Claim Settlements"
+                        className={cn(
+                          "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
+                          "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                        )}
+                      >
+                        {actionInProgress === `claim-${orderId}` ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Zap className="w-2.5 h-2.5" />
+                            <span>Claim</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleCancelOrder(order.orderId)}
+                      disabled={actionInProgress === `cancel-${orderId}`}
+                      title="Cancel Order"
+                      className={cn(
+                        "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
+                        "bg-slate-900 text-slate-500 border-slate-800 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/5"
+                      )}
+                    >
+                      {actionInProgress === `cancel-${orderId}` ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <>
+                          <AlertCircle className="w-2.5 h-2.5 opacity-60" />
+                          <span>Cancel</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                {/* Fill progress bar */}
-                <div className="h-1 bg-slate-800 rounded-full mb-3 overflow-hidden">
-                  <div 
+                {/* Micro Fill progress bar at the very bottom */}
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-800/50">
+                  <div
                     className={cn(
-                      "h-full rounded-full transition-all",
-                      isYesOrder ? "bg-emerald-500" : "bg-rose-500"
+                      "h-full transition-all",
+                      isYesOrder ? "bg-emerald-500/50" : "bg-rose-500/50"
                     )}
                     style={{ width: `${fillPercent}%` }}
                   />
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-2">
-                  {hasFills && (
-                    <Button
-                      onClick={() => handleClaimFills(order.orderId)}
-                      disabled={actionInProgress === `claim-${orderId}`}
-                      className="flex-1 py-1.5 text-xs bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-600/30"
-                    >
-                      {actionInProgress === `claim-${orderId}` ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        'Claim Fills'
-                      )}
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => handleCancelOrder(order.orderId)}
-                    disabled={actionInProgress === `cancel-${orderId}`}
-                    className="flex-1 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                  >
-                    {actionInProgress === `cancel-${orderId}` ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      'Cancel'
-                    )}
-                  </Button>
                 </div>
               </div>
             );
@@ -570,7 +601,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  
+
   // Track which markets are graduated (only these count)
   const [graduatedAddresses, setGraduatedAddresses] = useState<Set<string>>(new Set());
 
@@ -589,7 +620,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         m.symbol.toLowerCase().includes(search.toLowerCase());
       
       const matchesCategory = category === 'all' || 
-        m.category?.toLowerCase() === category.toLowerCase();
+        (m as any).category?.toLowerCase() === category.toLowerCase();
       
       return matchesSearch && matchesCategory;
     });
@@ -601,8 +632,8 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all' 
-        ? graduatedMarkets.length 
-        : graduatedMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
+        ? graduatedMarkets.length
+        : graduatedMarkets.filter((m: any) => m.category?.toLowerCase() === cat.id).length
     }));
   }, [allMarkets, graduatedAddresses]);
 
@@ -648,7 +679,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     setSelectedMarketId(market.contractAddress);
   };
 
-  const selectedMarket = filteredMarkets.find(m => m.contractAddress === selectedMarketId) || 
+  const selectedMarket = filteredMarkets.find(m => m.contractAddress === selectedMarketId) ||
     filteredMarkets.find(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
 
   return (
@@ -677,7 +708,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
           onMarketGraduationLoaded={handleMarketGraduationLoaded}
         />
       )}
-      
+
       {/* Trading Terminal for selected market */}
       {selectedMarket && (
         <ProTradingTerminal marketId={selectedMarket.contractAddress} embedded />
@@ -697,7 +728,7 @@ interface GraduatedMarketsScrollProps {
     category?: string;
   }>;
   selectedMarketId: string | null;
-  onSelect: (market: { contractAddress: string }) => void;
+  onSelect: (market: any) => void;
   scrollRef: React.RefObject<HTMLDivElement>;
   onScroll: (direction: 'left' | 'right') => void;
   onMarketGraduationLoaded?: (address: string, isGraduated: boolean) => void;
@@ -707,7 +738,7 @@ const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef
   // Track how many markets have loaded and their graduation status
   const [graduatedCount, setGraduatedCount] = React.useState<number | null>(null);
   const [loadedCount, setLoadedCount] = React.useState(0);
-  
+
   const handleMarketLoaded = React.useCallback((address: string, isGraduated: boolean) => {
     setLoadedCount(c => c + 1);
     if (isGraduated) {
@@ -746,38 +777,38 @@ const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef
 
   return (
     <div className="flex items-center gap-2">
-      {/* Left scroll button */}
-      <button
+            {/* Left scroll button */}
+            <button
         onClick={() => onScroll('left')}
         className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
-      >
-        <ChevronLeft className="w-5 h-5 text-slate-400" />
-      </button>
+            >
+              <ChevronLeft className="w-5 h-5 text-slate-400" />
+            </button>
 
-      {/* Scrollable container */}
-      <div
-        ref={scrollRef}
+            {/* Scrollable container */}
+            <div
+              ref={scrollRef}
         className="flex-1 flex gap-3 overflow-x-auto scrollbar-hide py-2"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
         {markets.map(market => (
-          <ProMarketChip
-            key={market.contractAddress}
-            market={market}
-            isSelected={market.contractAddress === selectedMarketId}
+                <ProMarketChip
+                  key={market.contractAddress}
+                  market={market}
+                  isSelected={market.contractAddress === selectedMarketId}
             onClick={() => onSelect(market)}
-            onLoaded={(addr, isGrad) => handleMarketLoaded(addr, isGrad)}
-          />
-        ))}
-      </div>
+            onLoaded={(addr: string, isGrad: boolean) => handleMarketLoaded(addr, isGrad)}
+                />
+              ))}
+            </div>
 
-      {/* Right scroll button */}
-      <button
+            {/* Right scroll button */}
+            <button
         onClick={() => onScroll('right')}
         className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
-      >
-        <ChevronRight className="w-5 h-5 text-slate-400" />
-      </button>
+            >
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            </button>
     </div>
   );
 };
@@ -799,7 +830,7 @@ interface ProMarketChipProps {
 
 const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipProps) => {
   const { launchpad, isLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
-  const { tickBook } = useTickBookDirect(market.contractAddress as `0x${string}`);
+  const { tickBook } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
   const isCreated = launchpad?.isCreated;
   const isGraduated = launchpad?.isGraduated;
   const bookPrice = tickBook?.probability ?? 0.5;
@@ -832,13 +863,13 @@ const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipP
       {/* Symbol badge - rounded-lg like AMM */}
       <div className={cn(
         "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-        isSelected 
-          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white" 
+        isSelected
+          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
           : "bg-slate-800 text-slate-400"
       )}>
         {market.symbol.slice(0, 2)}
       </div>
-      
+
       {/* Name */}
       <div className="text-left min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -978,13 +1009,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // UI State
   const [action, setAction] = useState<OrderAction>('buy_yes');
   const [orderType, setOrderType] = useState<OrderType>('limit');
-  const [priceMode, setPriceMode] = useState<'single' | 'range'>('single');
+  const [priceMode, setPriceMode] = useState<'single' | 'range'>('range');
   const [priceLow, setPriceLow] = useState('45.0');
   const [priceHigh, setPriceHigh] = useState('55.0');
   const [amount, setAmount] = useState('1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
   const [vaultInput, setVaultInput] = useState('');
+
+  // Slider dragging state
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const [isLowDragging, setIsLowDragging] = React.useState(false);
+  const [isHighDragging, setIsHighDragging] = React.useState(false);
 
   // Data
   const { v8Markets, selectedMarket } = useMemo(() => {
@@ -996,21 +1032,22 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   }, [marketId, chainId]);
 
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
+  const invalidateV8Queries = useInvalidateV8Queries();
   const { launchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
-  const { tickBook, isLoading: isTickBookLoading, refetch: refetchTickBook } = useTickBookDirect(
+  const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
     marketAddr,
     collateralizer?.yesToken,
     collateralizer?.noToken
   );
-  const { vault, refetch: refetchVault } = useTickBookVaultDirect(userAddress, marketAddr);
-  const { orders: userOrders, isLoading: isOrdersLoading, refetch: refetchOrders } = useUserOrdersDirect(
+  const { vault } = useTickBookVaultDirect(userAddress, marketAddr);
+  const { orders: userOrders, isLoading: isOrdersLoading } = useUserOrdersDirect(
     tickBook?.marketKey as `0x${string}`,
     userAddress
   );
 
-  const { balances, refetch: refetchBalances } = useTokenBalances(useMemo(() => [
+  const { balances } = useTokenBalances(useMemo(() => [
     contracts.MockUSDC as `0x${string}`
   ].filter(Boolean) as `0x${string}`[], [contracts.MockUSDC]));
 
@@ -1027,13 +1064,66 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const vaultReserved = vault?.reservedUsdcWad ?? 0n;
 
   // Approval check
-  const { data: vaultAllowance, refetch: refetchAllowance } = useReadContract({
+  const { data: vaultAllowance } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
     abi: V8_ABIS.OutcomeToken,
     functionName: 'allowance',
     args: isConnected && contracts.TickBookVault ? [userAddress!, contracts.TickBookVault as `0x${string}`] : undefined,
     query: { enabled: !!isConnected && !!contracts.TickBookVault && !!contracts.MockUSDC }
   });
+
+  // Derived UI State
+  const isBuying = action === 'buy_yes' || action === 'buy_no';
+  const isYes = action === 'buy_yes' || action === 'sell_yes';
+
+  const { quote: tbQuote, isLoading: isQuoteLoading } = useTickBookQuoteDirect(
+    tickBook?.marketKey as `0x${string}`,
+    isYes ? 0 : 1,  // YES=0, NO=1
+    amount
+  );
+
+  // Custom Slider Drag Logic - Integrated within terminal component
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    if ((!isLowDragging && !isHighDragging) || !trackRef.current) return;
+
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    let percent = Math.max(0.1, Math.min(99.9, (x / rect.width) * 100));
+    percent = Math.round(percent * 10) / 10;
+
+    // Use current numeric values for bounds
+    const curLowNum = parseFloat(priceLow);
+    const curHighNum = parseFloat(priceHigh);
+
+    if (isLowDragging) {
+      if (priceMode === 'single') {
+        setPriceLow(percent.toFixed(1));
+        setPriceHigh(percent.toFixed(1));
+      } else {
+        // Drag LOW: Must not exceed current high. Independent movement.
+        setPriceLow(Math.min(percent, curHighNum - 0.1).toFixed(1));
+      }
+    } else if (isHighDragging) {
+      // Drag HIGH: Must not go below current low. Independent movement.
+      setPriceHigh(Math.max(percent, curLowNum + 0.1).toFixed(1));
+    }
+  }, [isLowDragging, isHighDragging, priceMode, priceLow, priceHigh]);
+
+  const handlePointerUp = useCallback(() => {
+    setIsLowDragging(false);
+    setIsHighDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isLowDragging || isHighDragging) {
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+      return () => {
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+      };
+    }
+  }, [isLowDragging, isHighDragging, handlePointerMove, handlePointerUp]);
 
   const needsApproval = useMemo(() => {
     return ((vaultAllowance as bigint) ?? 0n) < parseUnits('1000', decimals);
@@ -1044,7 +1134,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const ammProb = amm?.yesProbability ?? 0.5;
   const arbSpread = Math.abs(tickBookProb - ammProb) * 100;
   const hasArb = arbSpread >= 0.5; // Show arb indicator if >= 0.5% difference
-  
+
   // Use tickBook price as primary (or fall back to AMM if no tickBook data)
   const currentProb = tickBookProb;
   const priceLowNum = parseFloat(priceLow) || 45;
@@ -1054,8 +1144,6 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const avgPrice = priceMode === 'single' ? priceLowNum : (priceLowNum + priceHighNum) / 2;
   
   // Calculate required collateral based on action
-  const isBuying = action === 'buy_yes' || action === 'buy_no';
-  const isYes = action === 'buy_yes' || action === 'sell_yes';
   
   // For buys: cost to acquire shares
   // For sells: value you receive for selling shares
@@ -1073,6 +1161,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     ? vaultAvailable >= parseUnits(estimatedValue.toFixed(2), 18)
     : true; // For sells, check if user has enough shares (handled separately)
 
+  // Determine sell type for display purposes
+  const sellType = useMemo(() => {
+    if (isBuying || !amountNum) return null;
+    const shares = isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n);
+    const needed = parseUnits(amountNum.toFixed(18), 18);
+    if (shares >= needed) return 'spot';
+    if (shares > 0n && shares < needed) return 'hybrid';
+    return 'short';
+  }, [isBuying, amountNum, isYes, vault?.yesInternal, vault?.noInternal]);
+
   // Handlers - with proper transaction tracking
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -1084,14 +1182,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         functionName: 'approve',
         args: [contracts.TickBookVault as `0x${string}`, parseUnits('1000000000', decimals)]
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
-      refetchAllowance();
+
+      invalidateV8Queries();
       toast.success(
         <div className="flex items-center gap-2">
           <span>Vault approved!</span>
@@ -1112,6 +1210,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   const handleDeposit = async () => {
     if (!vaultInput) return;
+
+    // Validate balance before submitting
+    const depositWad = parseUnits(vaultInput, decimals);
+    if (depositWad > walletUsdc) {
+      toast.error(`Insufficient balance. You have $${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()} USDC`);
+      return;
+    }
+
     setIsSubmitting(true);
     const depositAmt = vaultInput;
     const toastId = toast.loading('Submitting deposit...');
@@ -1120,17 +1226,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         address: contracts.TickBookVault as `0x${string}`,
         abi: V8_ABIS.TickBookVault,
         functionName: 'depositUsdc',
-        args: [parseUnits(vaultInput, decimals)]
+        args: [depositWad]
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
-      refetchBalances();
-      refetchVault();
+
+      invalidateV8Queries();
       setVaultInput('');
       toast.success(
         <div className="flex items-center gap-2">
@@ -1162,15 +1267,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         functionName: 'withdrawUsdc',
         args: [parseUnits(vaultInput, 18)]
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
-      refetchBalances();
-      refetchVault();
+
+      invalidateV8Queries();
       setVaultInput('');
       toast.success(
         <div className="flex items-center gap-2">
@@ -1195,23 +1299,25 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     setIsSubmitting(true);
     const amountBg = parseUnits(amount, 18);
 
-    // Determine outcome: YES=1, NO=0
+    // Determine outcome: outcome=1 credits YES, outcome=0 credits NO
     const outcome = isYes ? 1 : 0;
     const isMarketOrder = orderType === 'market';
-    const orderDesc = isMarketOrder 
+    const orderDesc = isMarketOrder
       ? `Market ${isBuying ? 'buy' : 'sell'} ${amount} ${isYes ? 'YES' : 'NO'}`
       : `Limit order ${amount} ${isYes ? 'YES' : 'NO'} @ ${priceLow}%`;
-    
+
     const toastId = toast.loading(isMarketOrder ? 'Executing market order...' : 'Placing order...');
 
     try {
       let hash: `0x${string}`;
-      
-      if (isMarketOrder) {
-        // TickBookV2 uses maxCost (WAD) instead of limitTick.
-        const estimatedCostWad = parseUnits(estimatedValue.toFixed(6), 18);
-        const maxCost = (estimatedCostWad * 110n) / 100n; // 10% buffer for alpha
-        hash = await writeContractAsync({
+
+      if (isBuying) {
+        // ============= BUY ORDERS =============
+        if (isMarketOrder) {
+          // Use real-time quote from TickBookV2 if available, otherwise fallback to estimate
+          const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+          const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
+          hash = await writeContractAsync({
           address: contracts.TickBook as `0x${string}`,
           abi: V8_ABIS.TickBook,
           functionName: 'executeMarketOrder',
@@ -1221,28 +1327,112 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         const tickLow = Math.round(priceLowNum * 10);
         const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
         const liquidity = amountBg; // TickBookV2 takes total shares across the range
-        hash = await writeContractAsync({
+          hash = await writeContractAsync({
           address: contracts.TickBook as `0x${string}`,
           abi: V8_ABIS.TickBook,
           functionName: 'placeRangeOrder',
           args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
         });
+        }
+      } else {
+        // ============= SELL ORDERS =============
+        // Determine sell type based on user's holdings:
+        // - Spot Sell: User owns shares (sells existing position)
+        // - Short Sell: User doesn't own shares (buys opposite outcome)
+        // - Hybrid Sell: User owns some but not all (spot + short combo)
+        
+        const userYesInternal = vault?.yesInternal ?? 0n;
+        const userNoInternal = vault?.noInternal ?? 0n;
+        const userHolding = isYes ? userYesInternal : userNoInternal;
+        
+        const hasFullShares = userHolding >= amountBg;
+        const hasPartialShares = userHolding > 0n && userHolding < amountBg;
+        const hasNoShares = userHolding === 0n;
+        
+        if (isMarketOrder) {
+          if (hasFullShares) {
+            // SPOT SELL: User has all shares, sell them
+            const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+            const minProceeds = (estimatedProceeds * 90n) / 100n;
+            
+            hash = await writeContractAsync({
+              address: contracts.TickBook as `0x${string}`,
+              abi: V8_ABIS.TickBook,
+              functionName: 'executeSpotSell',
+              args: [tickBook.marketKey, outcome, amountBg, minProceeds]
+            });
+          } else if (hasPartialShares) {
+            // HYBRID SELL: Spot sell owned shares + short sell remainder
+            const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+            const minProceeds = (estimatedProceeds * 90n) / 100n;
+            
+            hash = await writeContractAsync({
+              address: contracts.TickBook as `0x${string}`,
+              abi: V8_ABIS.TickBook,
+              functionName: 'executeHybridSell',
+              args: [tickBook.marketKey, outcome, amountBg, minProceeds]
+            });
+          } else {
+            // SHORT SELL: No shares, buy opposite outcome with USDC
+            // "Sell YES" without owning = "Buy NO" → need outcome=0 to get NO tokens
+            // "Sell NO" without owning = "Buy YES" → need outcome=1 to get YES tokens
+            const oppositeOutcome = isYes ? 0 : 1;
+            const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+            const maxCost = (finalCostWad * 110n) / 100n;
+            
+            hash = await writeContractAsync({
+              address: contracts.TickBook as `0x${string}`,
+              abi: V8_ABIS.TickBook,
+              functionName: 'executeMarketOrder',
+              args: [tickBook.marketKey, oppositeOutcome, amountBg, maxCost]
+            });
+          }
+        } else {
+          // LIMIT ORDERS
+          const tickLow = Math.round(priceLowNum * 10);
+          const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
+          
+          if (hasFullShares) {
+            // SPOT SELL LIMIT: Place limit order to sell owned shares
+            hash = await writeContractAsync({
+              address: contracts.TickBook as `0x${string}`,
+              abi: V8_ABIS.TickBook,
+              functionName: 'placeSpotSellOrder',
+              args: [tickBook.marketKey, outcome, tickLow, tickHigh, amountBg]
+            });
+          } else if (hasNoShares) {
+            // SHORT SELL LIMIT: Place range order on opposite side
+            // "Sell YES" without shares → want NO tokens → outcome=0
+            // "Sell NO" without shares → want YES tokens → outcome=1
+            const oppositeOutcome = isYes ? 0 : 1;
+            hash = await writeContractAsync({
+              address: contracts.TickBook as `0x${string}`,
+              abi: V8_ABIS.TickBook,
+              functionName: 'placeRangeOrder',
+              args: [tickBook.marketKey, oppositeOutcome, tickLow, tickHigh, amountBg]
+            });
+          } else {
+            // HYBRID not supported for limit orders - prompt user
+            const sharesFormatted = parseFloat(formatUnits(userHolding, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+            toast.error(`You have ${sharesFormatted} ${isYes ? 'YES' : 'NO'} shares. For limit orders, sell exactly that amount (spot) or enter 0 to short sell.`, { id: toastId });
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash });
       }
-      
-      refetchTickBook();
-      refetchVault();
-      refetchOrders();
+
+      invalidateV8Queries();
       setAmount('');
-      
+
       toast.success(
         <div className="flex items-center gap-2">
-          <span>{isMarketOrder ? 'Order executed!' : 'Order placed!'}</span>
+          <span>{isBuying ? (isMarketOrder ? 'Order executed!' : 'Order placed!') : 'Shares sold!'}</span>
           <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
@@ -1315,7 +1505,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 <div className="text-base font-mono font-bold text-amber-400">{arbSpread.toFixed(1)}%</div>
               </div>
             )}
-            <button onClick={() => refetchTickBook()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
             </button>
           </div>
@@ -1329,14 +1519,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
             <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
-          </div>
+            </div>
           {/* AMM Price (Secondary) - smaller, grey */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
-            <div className="text-base font-mono font-medium text-slate-400">
+            <div className="text-base font-mono font-medium text-slate-500">
               {(ammProb * 100).toFixed(1)}%
               {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
-            </div>
+          </div>
           </div>
           {/* Arb spread indicator */}
           {hasArb && (
@@ -1346,9 +1536,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           )}
           <div className="ml-auto">
-            <button onClick={() => refetchTickBook()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-            </button>
+            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+          </button>
           </div>
         </div>
       )}
@@ -1387,20 +1577,36 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         {showVaultPanel && (
           <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
+            <div className="relative">
             <input
               type="number"
               placeholder="Amount"
               value={vaultInput}
               onChange={(e) => setVaultInput(e.target.value)}
-              className="w-32 px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm font-mono focus:border-amber-500 focus:outline-none"
-            />
+                className={`w-32 px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
+                  ? 'border-rose-500 focus:border-rose-500'
+                  : 'border-slate-700 focus:border-amber-500'
+                  }`}
+              />
+              <button
+                type="button"
+                onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 hover:text-amber-400"
+              >
+                MAX
+              </button>
+            </div>
             {needsApproval ? (
               <Button onClick={handleApprove} disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-500 text-white text-sm px-4">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Approve USDC'}
               </Button>
             ) : (
               <>
-                <Button onClick={handleDeposit} disabled={!vaultInput || isSubmitting} className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4">
+                <Button
+                  onClick={handleDeposit}
+                  disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4"
+                >
                   <ArrowUpRight className="w-4 h-4 mr-1" /> Deposit
                 </Button>
                 <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} className="bg-slate-700 hover:bg-slate-600 text-white text-sm px-4">
@@ -1429,9 +1635,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
             
             <div className="p-4">
-              <LiquidityMap 
+              <LiquidityMap
                 tickBook={tickBook}
                 currentProb={currentProb}
+                ammProb={ammProb}
                 isLoading={isTickBookLoading}
               />
             </div>
@@ -1464,8 +1671,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             orders={userOrders}
             marketKey={tickBook?.marketKey as `0x${string}`}
             isLoading={isOrdersLoading}
-            onRefresh={() => { refetchOrders(); refetchVault(); refetchTickBook(); }}
-            contracts={contracts}
+            onRefresh={() => invalidateV8Queries()}
+            contracts={contracts as any}
             chainId={chainId}
           />
         </div>
@@ -1503,16 +1710,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 {/* Secondary: BUY/SELL + LIMIT/MARKET */}
                 <div className="flex gap-2">
                   {/* Buy/Sell Toggle - contextual colors */}
-                  <div className="flex-1 flex gap-1 p-1 bg-slate-950 rounded-lg">
+                <div className="flex-1 flex gap-2 p-1 bg-slate-950/50 rounded-xl">
                     <button
                       onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
                       className={cn(
-                        "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
+                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
                         isBuying 
                           ? isYes 
-                            ? "bg-emerald-600/30 text-emerald-400 ring-1 ring-emerald-500/50" 
-                            : "bg-rose-600/30 text-rose-400 ring-1 ring-rose-500/50"
-                          : "text-slate-500 hover:text-slate-300"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                       )}
                     >
                       Buy
@@ -1520,10 +1727,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <button
                       onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
                       className={cn(
-                        "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
+                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
                         !isBuying 
-                          ? "bg-amber-600/30 text-amber-400 ring-1 ring-amber-500/50" 
-                          : "text-slate-500 hover:text-slate-300"
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                       )}
                     >
                       Sell
@@ -1531,14 +1738,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   </div>
                   
                   {/* Limit/Market Toggle - neutral styling */}
-                  <div className="flex gap-1 p-1 bg-slate-950 rounded-lg">
+                <div className="flex gap-2 p-1 bg-slate-950/50 rounded-xl">
                     <button
                       onClick={() => setOrderType('limit')}
                       className={cn(
-                        "px-3 py-2 rounded-md font-bold text-xs uppercase transition-all",
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
                         orderType === 'limit' 
-                          ? "bg-slate-700 text-white" 
-                          : "text-slate-500 hover:text-slate-300"
+                        ? isYes
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                       )}
                     >
                       Limit
@@ -1546,10 +1755,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <button
                       onClick={() => setOrderType('market')}
                       className={cn(
-                        "px-3 py-2 rounded-md font-bold text-xs uppercase transition-all",
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
                         orderType === 'market' 
-                          ? "bg-slate-700 text-white" 
-                          : "text-slate-500 hover:text-slate-300"
+                        ? isYes
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                       )}
                     >
                       Market
@@ -1560,66 +1771,56 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Price Input (Limit only) */}
               {orderType === 'limit' && (
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Prob</label>
-                    <span className="text-[9px] text-slate-600 font-mono">0.1 – 99.9</span>
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Prob</div>
+                    <div className="text-[9px] text-slate-600 font-mono">0.1 — 99.9</div>
                   </div>
                   
-                  {/* Price input - 0.1% tick precision, min 0.1%, max 99.9% */}
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex-1 flex items-center gap-2">
                     <div className="relative flex-1">
                       <input
                         type="number"
+                          step="0.1"
                         value={priceLow}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setPriceLow(val);
-                          if (priceMode === 'single') setPriceHigh(val);
-                        }}
-                        onBlur={(e) => {
-                          // Snap to 0.1% increments, clamp to valid range
-                          const snapped = Math.max(0.1, Math.min(99.9, Math.round(parseFloat(e.target.value || '50') * 10) / 10));
-                          setPriceLow(snapped.toFixed(1));
-                          if (priceMode === 'single') setPriceHigh(snapped.toFixed(1));
-                        }}
-                        placeholder={priceMode === 'single' ? 'Price' : 'Low'}
+                          onChange={(e) => setPriceLow(e.target.value)}
+                          onBlur={() => {
+                            let val = Math.max(0.1, Math.min(99.9, Number(priceLow)));
+                            setPriceLow(val.toFixed(1));
+                            if (priceMode === 'single') setPriceHigh(val.toFixed(1));
+                            else if (val >= priceHighNum) setPriceHigh((val + 0.1).toFixed(1));
+                          }}
                         className={cn(
-                          "w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-lg font-mono font-bold focus:outline-none transition-colors",
-                          isYes ? "focus:border-emerald-500" : "focus:border-rose-500"
+                            "w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg font-mono font-bold text-center focus:outline-none transition-all",
+                            isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                         )}
-                        min="0.1"
-                        max="99.9"
-                        step="0.1"
                       />
                     </div>
                     
                     {priceMode === 'range' && (
                       <>
-                        <span className="self-center text-slate-600">–</span>
+                          <div className="text-slate-700 font-bold">—</div>
                         <div className="relative flex-1">
                           <input
                             type="number"
+                              step="0.1"
                             value={priceHigh}
                             onChange={(e) => setPriceHigh(e.target.value)}
-                            onBlur={(e) => {
-                              // Snap to 0.1% increments, clamp to valid range, ensure > priceLow
-                              const snapped = Math.max(priceLowNum + 0.1, Math.min(99.9, Math.round(parseFloat(e.target.value || '50') * 10) / 10));
-                              setPriceHigh(snapped.toFixed(1));
+                              onBlur={() => {
+                                let val = Math.max(0.1, Math.min(99.9, Number(priceHigh)));
+                                setPriceHigh(val.toFixed(1));
+                                if (val <= priceLowNum) setPriceLow((val - 0.1).toFixed(1));
                             }}
-                            placeholder="High"
                             className={cn(
-                              "w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-lg font-mono font-bold focus:outline-none transition-colors",
-                              isYes ? "focus:border-emerald-500" : "focus:border-rose-500"
+                                "w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg font-mono font-bold text-center focus:outline-none transition-all",
+                                isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                             )}
-                            min="0.1"
-                            max="99.9"
-                            step="0.1"
                           />
                         </div>
                       </>
                     )}
+                    </div>
                     
-                    {/* Range toggle button - contextual colors */}
                     <button
                       onClick={() => {
                         if (priceMode === 'single') {
@@ -1631,119 +1832,78 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                         }
                       }}
                       className={cn(
-                        "px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border",
+                        "h-[48px] px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
                         priceMode === 'range' 
                           ? isYes 
-                            ? "bg-emerald-600/20 text-emerald-400 border-emerald-600/50" 
-                            : "bg-rose-600/20 text-rose-400 border-rose-600/50"
-                          : "bg-slate-900 text-slate-500 border-slate-700 hover:text-white hover:border-slate-600"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                          : "bg-slate-900/50 text-slate-500 border-slate-800 hover:text-slate-300 hover:border-slate-700"
                       )}
                     >
                       {priceMode === 'single' ? '± Range' : 'Single'}
                     </button>
                   </div>
                   
-                  {/* Slider - available in both single and range modes */}
-                  <div className="space-y-1">
-                    <div className="relative h-10 flex items-center px-1">
-                      {/* Track background */}
-                      <div className="absolute inset-x-1 h-2 bg-slate-800 rounded-full" />
+                  {/* Slider Control */}
+                  <div className="space-y-2 mb-4 px-1">
+                    <div
+                      ref={trackRef}
+                      className="relative h-6 flex items-center group cursor-default"
+                    >
+                      <div className="absolute inset-x-0 h-1 bg-slate-800/80 rounded-full" />
                       
-                      {/* Active range/point highlight */}
                       <div 
                         className={cn(
-                          "absolute h-2 rounded-full pointer-events-none",
-                          isYes ? "bg-gradient-to-r from-emerald-600 to-emerald-400" : "bg-gradient-to-r from-rose-600 to-rose-400"
+                          "absolute h-1 rounded-full pointer-events-none",
+                          isYes
+                            ? "bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                            : "bg-gradient-to-r from-rose-600 to-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]"
                         )}
                         style={priceMode === 'single' 
-                          ? { left: '0.1%', width: `${priceLowNum}%` }
-                          : { left: `${priceLowNum}%`, width: `${Math.max(0.1, priceHighNum - priceLowNum)}%` }
+                          ? { left: '0%', width: `${priceLowNum}%` }
+                          : { left: `${priceLowNum}%`, width: `${Math.max(0.2, priceHighNum - priceLowNum)}%` }
                         }
                       />
                       
-                      {/* Single mode slider */}
-                      {priceMode === 'single' && (
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="99.9"
-                          step="0.1"
-                          value={priceLowNum}
-                          onChange={(e) => {
-                            const val = Number(e.target.value);
-                            setPriceLow(val.toFixed(1));
-                            setPriceHigh(val.toFixed(1));
+                      {/* Visual Handles - Now with pointer interaction */}
+                      <div
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          setIsLowDragging(true);
                           }}
-                          className="absolute w-full h-8 opacity-0 cursor-pointer z-20"
-                        />
-                      )}
-                      
-                      {/* Range mode: Low thumb slider (left half priority) */}
-                      {priceMode === 'range' && (
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="99.9"
-                          step="0.1"
-                          value={priceLowNum}
-                          onChange={(e) => {
-                            const val = Math.min(Number(e.target.value), priceHighNum - 0.1);
-                            setPriceLow(val.toFixed(1));
-                          }}
-                          className="absolute h-8 opacity-0 cursor-pointer z-20"
-                          style={{ left: 0, width: `${(priceLowNum + priceHighNum) / 2}%` }}
-                        />
-                      )}
-                      
-                      {/* Range mode: High thumb slider (right half priority) */}
-                      {priceMode === 'range' && (
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="99.9"
-                          step="0.1"
-                          value={priceHighNum}
-                          onChange={(e) => {
-                            const val = Math.max(Number(e.target.value), priceLowNum + 0.1);
-                            setPriceHigh(val.toFixed(1));
-                          }}
-                          className="absolute h-8 opacity-0 cursor-pointer z-20"
-                          style={{ left: `${(priceLowNum + priceHighNum) / 2}%`, width: `${100 - (priceLowNum + priceHighNum) / 2}%` }}
-                        />
-                      )}
-                      
-                      {/* Thumb(s) - visual only */}
-                      {/* Low thumb: circle */}
-                      <div 
                         className={cn(
-                          "absolute w-5 h-5 rounded-full border-2 border-white shadow-lg pointer-events-none z-10",
-                          isYes ? "bg-emerald-500" : "bg-rose-500"
+                          "absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.6)] z-20 transition-transform cursor-grab active:cursor-grabbing hover:scale-110",
+                          isYes ? "bg-emerald-500" : "bg-rose-500",
+                          isLowDragging && "scale-125"
                         )} 
                         style={{ left: `calc(${priceLowNum}% - 10px)` }} 
                       />
-                      {/* High thumb: diamond shape */}
                       {priceMode === 'range' && (
                         <div 
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            setIsHighDragging(true);
+                          }}
                           className={cn(
-                            "absolute w-4 h-4 border-2 border-white shadow-lg pointer-events-none z-10 rotate-45",
-                            isYes ? "bg-emerald-300" : "bg-rose-300"
+                            "absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.6)] z-20 transition-transform cursor-grab active:cursor-grabbing hover:scale-110",
+                            isYes ? "bg-emerald-200" : "bg-rose-200",
+                            isHighDragging && "scale-125"
                           )} 
-                          style={{ left: `calc(${priceHighNum}% - 8px)`, top: '50%', marginTop: '-8px' }} 
+                          style={{ left: `calc(${priceHighNum}% - 10px)` }}
                         />
                       )}
                     </div>
                     
-                    {/* Tick count indicator */}
-                    <div className="text-center text-[9px] text-slate-500">
+                    <div className="text-center text-[10px] font-mono">
                       {priceMode === 'single' 
-                        ? <span>Tick <span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
-                        : <span><span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{numTicks}</span> ticks</span>
+                        ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
+                        : <span className="text-slate-500"><span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{numTicks}</span> ticks</span>
                       }
                     </div>
                   </div>
 
-                  {/* Quick presets - 0.1 precision */}
-                  <div className="flex gap-1.5">
+                  {/* Presets Grid */}
+                  <div className="grid grid-cols-3 gap-2 mb-6">
                     {(priceMode === 'single' 
                       ? [[25.0], [50.0], [75.0]] 
                       : [[40.0, 60.0], [45.0, 55.0], [48.0, 52.0]]
@@ -1754,9 +1914,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                           setPriceLow(p[0].toFixed(1));
                           setPriceHigh((p[1] ?? p[0]).toFixed(1));
                         }}
-                        className="flex-1 py-1.5 text-[10px] font-mono text-slate-500 hover:text-white bg-slate-900 hover:bg-slate-800 rounded transition-colors"
+                        className="py-2 text-[10px] font-mono text-slate-500 hover:text-white bg-slate-900/40 border border-slate-800/50 hover:border-slate-700 rounded-lg transition-all"
                       >
-                        {p.length > 1 ? `${p[0]}–${p[1]}` : p[0]}
+                        {p.length > 1 ? `${p[0]}—${p[1]}` : p[0]}
                       </button>
                     ))}
                   </div>
@@ -1815,10 +1975,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">{isBuying ? 'Est. Cost' : 'Est. Return'}</span>
-                  <span className={cn("font-mono", isBuying ? "text-white" : "text-emerald-400")}>
+                  <span className="text-slate-500">
+                    {isBuying ? 'Est. Cost' : sellType === 'spot' ? 'Est. Return' : 'Est. Cost'}
+                  </span>
+                  <span className={cn(
+                    "font-mono",
+                    isBuying ? "text-white" : sellType === 'spot' ? "text-emerald-400" : "text-white"
+                  )}>
                     {amountNum > 0 
-                      ? `${isBuying ? '-' : '+'}$${estimatedValue.toFixed(2)}`
+                      ? `${sellType === 'spot' ? '+' : ''}$${estimatedValue.toFixed(2)}`
                       : '–'
                     }
                   </span>
@@ -1844,17 +2009,40 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 </div>
               )}
               
-              {/* Insufficient Shares Warning (for sells) */}
+              {/* Sell Mode Info (shows what type of sell will execute) */}
               {amount && !isBuying && (() => {
                 const shares = isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n);
                 const needed = parseUnits(amount, 18);
-                return shares < needed;
-              })() && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-rose-400 text-xs">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Not enough {isYes ? 'YES' : 'NO'} shares to sell.</span>
+                const hasAll = shares >= needed;
+                const hasPartial = shares > 0n && shares < needed;
+                const hasNone = shares === 0n;
+                
+                if (hasAll) {
+                  const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  const sharesFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-emerald-400 text-xs">
+                      <span>📦 Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
                 </div>
-              )}
+                  );
+                } else if (hasPartial) {
+                  const spotFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  const shortFmt = parseFloat(formatUnits(needed - shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-950/30 border border-amber-900/30 text-amber-400 text-xs">
+                      <span>🔀 Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
+                    </div>
+                  );
+                } else if (hasNone) {
+                  const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-950/30 border border-blue-900/30 text-blue-400 text-xs">
+                      <span>📉 Short Sell: Buying {neededFmt} {isYes ? 'NO' : 'YES'} (equivalent to selling {isYes ? 'YES' : 'NO'})</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Execute Button */}
               <Button

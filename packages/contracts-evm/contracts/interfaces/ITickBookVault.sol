@@ -16,7 +16,11 @@ interface ITickBookVault {
     event UsdcWithdrawn(address indexed user, uint256 usdcAmountWad, uint256 usdcAmountAsset);
     event UsdcReserved(address indexed user, uint256 amountWad);
     event UsdcReleased(address indexed user, uint256 amountWad);
+    event UsdcCredited(address indexed user, uint256 amountWad);
     event OutcomeCredited(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);
+    event OutcomeLocked(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);
+    event OutcomeUnlocked(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);
+    event OutcomeTransferred(address indexed market, address indexed from, address indexed to, uint8 outcome, uint256 sharesWad);
     event RedeemedResolved(address indexed market, address indexed user, uint256 payoutWad, uint256 yesBurned, uint256 noBurned);
 
     // ============================================
@@ -51,6 +55,15 @@ interface ITickBookVault {
     function spendReservedToMarket(address user, address market, uint256 amountWad) external;
     function creditOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external;
     function refundMarketToAvailable(address market, address user, uint256 amountWad) external;
+
+    // Spot sell support (lock/release internal shares)
+    function lockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external;
+    function unlockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external;
+    function getLockedOutcome(address market, address user, uint8 outcome) external view returns (uint256);
+    
+    // Spot sell settlement (transfer shares, credit USDC)
+    function transferLockedOutcome(address market, address from, address to, uint8 outcome, uint256 sharesWad) external;
+    function creditUsdcAvailable(address user, uint256 amountWad) external;
 
     // ============================================
     // Settlement / Redemption

@@ -17,9 +17,12 @@
     --font-heading: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 
     /* UI Tokens */
-    --ring: rgba(34, 211, 238, 0.35); /* cyan-400 */
-    --ring-strong: rgba(99, 102, 241, 0.45); /* indigo-500 */
-    --border: rgba(51, 65, 85, 0.65); /* slate-700 */
+    --ring: rgba(34, 211, 238, 0.35);
+    /* cyan-400 */
+    --ring-strong: rgba(99, 102, 241, 0.45);
+    /* indigo-500 */
+    --border: rgba(51, 65, 85, 0.65);
+    /* slate-700 */
     --border-strong: rgba(99, 102, 241, 0.35);
     --shadow: 0 12px 40px -18px rgba(0, 0, 0, 0.65);
     --shadow-soft: 0 6px 22px -12px rgba(0, 0, 0, 0.55);
@@ -59,7 +62,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
@@ -124,7 +130,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200;
     @apply px-6 py-2.5 text-sm;
     @apply focus-visible:outline-none;
-    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
   }
 
   .btn:focus-visible {
@@ -162,11 +168,11 @@
     @apply w-full rounded-xl px-4 py-3 text-slate-100;
     @apply bg-slate-950/40 border border-slate-800/70 placeholder:text-slate-500/80;
     @apply focus:outline-none focus:border-cyan-400/60;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .input-field:focus {
-    box-shadow: 0 0 0 4px var(--ring), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 4px var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .input-field:disabled {
@@ -174,11 +180,12 @@
   }
 
   .input-field[aria-invalid="true"] {
-    border-color: rgba(244, 63, 94, 0.45); /* rose-500 */
+    border-color: rgba(244, 63, 94, 0.45);
+    /* rose-500 */
   }
 
   .input-field[aria-invalid="true"]:focus {
-    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.18), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   /* Number Input - Hide spinners */
@@ -372,10 +379,9 @@
 
   /* Education Tooltip */
   .edu-tooltip {
-    @apply rounded-xl px-4 py-3;
+    @apply rounded-xl px-4 py-3 w-72;
     background: rgba(2, 6, 23, 0.92);
     border: 1px solid rgba(99, 102, 241, 0.28);
-    max-width: 280px;
     box-shadow: 0 14px 40px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.08);
   }
 

@@ -32,6 +32,10 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => uint256)) private _yesInternalWad; // market => user => yes shares
     mapping(address => mapping(address => uint256)) private _noInternalWad;  // market => user => no shares
 
+    // Locked shares for spot sell orders (market => user => outcome => locked amount)
+    mapping(address => mapping(address => uint256)) private _yesLockedWad;
+    mapping(address => mapping(address => uint256)) private _noLockedWad;
+
     mapping(address => uint256) private _marketCollateralWad; // market => USDC WAD backing outstanding internal shares
 
     modifier onlyTickBook() {
@@ -156,6 +160,94 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
         _marketCollateralWad[market] -= amountWad;
         _availableUsdcWad[user] += amountWad;
         emit UsdcReleased(user, amountWad);
+    }
+
+    // ============================================
+    // Spot Sell Support (lock/unlock/transfer shares)
+    // ============================================
+
+    /**
+     * @notice Lock internal shares for a spot sell order
+     */
+    function lockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external onlyTickBook {
+        require(sharesWad > 0, "TickBookVault: zero shares");
+        require(outcome <= 1, "TickBookVault: invalid outcome");
+        
+        if (outcome == 1) {
+            require(_yesInternalWad[market][user] >= sharesWad, "TickBookVault: insufficient YES");
+            _yesInternalWad[market][user] -= sharesWad;
+            _yesLockedWad[market][user] += sharesWad;
+        } else {
+            require(_noInternalWad[market][user] >= sharesWad, "TickBookVault: insufficient NO");
+            _noInternalWad[market][user] -= sharesWad;
+            _noLockedWad[market][user] += sharesWad;
+        }
+        emit OutcomeLocked(market, user, outcome, sharesWad);
+    }
+
+    /**
+     * @notice Unlock shares back to internal balance (cancel spot sell)
+     */
+    function unlockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external onlyTickBook {
+        require(sharesWad > 0, "TickBookVault: zero shares");
+        require(outcome <= 1, "TickBookVault: invalid outcome");
+        
+        if (outcome == 1) {
+            require(_yesLockedWad[market][user] >= sharesWad, "TickBookVault: insufficient locked YES");
+            _yesLockedWad[market][user] -= sharesWad;
+            _yesInternalWad[market][user] += sharesWad;
+        } else {
+            require(_noLockedWad[market][user] >= sharesWad, "TickBookVault: insufficient locked NO");
+            _noLockedWad[market][user] -= sharesWad;
+            _noInternalWad[market][user] += sharesWad;
+        }
+        emit OutcomeUnlocked(market, user, outcome, sharesWad);
+    }
+
+    /**
+     * @notice Get locked shares for a user
+     */
+    function getLockedOutcome(address market, address user, uint8 outcome) external view returns (uint256) {
+        if (outcome == 1) {
+            return _yesLockedWad[market][user];
+        } else {
+            return _noLockedWad[market][user];
+        }
+    }
+
+    /**
+     * @notice Transfer locked shares from seller to buyer (spot sell fill)
+     */
+    function transferLockedOutcome(
+        address market,
+        address from,
+        address to,
+        uint8 outcome,
+        uint256 sharesWad
+    ) external onlyTickBook {
+        require(sharesWad > 0, "TickBookVault: zero shares");
+        require(outcome <= 1, "TickBookVault: invalid outcome");
+        
+        if (outcome == 1) {
+            require(_yesLockedWad[market][from] >= sharesWad, "TickBookVault: insufficient locked YES");
+            _yesLockedWad[market][from] -= sharesWad;
+            _yesInternalWad[market][to] += sharesWad;
+        } else {
+            require(_noLockedWad[market][from] >= sharesWad, "TickBookVault: insufficient locked NO");
+            _noLockedWad[market][from] -= sharesWad;
+            _noInternalWad[market][to] += sharesWad;
+        }
+        emit OutcomeTransferred(market, from, to, outcome, sharesWad);
+    }
+
+    /**
+     * @notice Credit USDC to user's available balance (from spot sell proceeds)
+     * @dev Transfers from buyer's spending to seller
+     */
+    function creditUsdcAvailable(address user, uint256 amountWad) external onlyTickBook {
+        require(amountWad > 0, "TickBookVault: zero credit");
+        _availableUsdcWad[user] += amountWad;
+        emit UsdcCredited(user, amountWad);
     }
 
     // ============================================

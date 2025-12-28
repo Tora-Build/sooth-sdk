@@ -1,17 +1,17 @@
 {
-  "version": "8.6.0",
-  "lastUpdated": "2025-12-29T00:00:00Z",
-  "status": "V8.6 Fresh Deployment - TickBookV2 with initial price from AMM",
+  "version": "8.9.0",
+  "lastUpdated": "2025-12-28T16:00:00Z",
+  "status": "V8.9.0 - Pending Fills Display + Short Sell Fix",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x6AAFB1575601cad903C20d58df827146f6D569D9",
-        "Collateralizer": "0x7182133c4077aC8518106188597111bE06D88901",
-        "AMMEngine": "0xb363d7f759192c678C44b69aD52d5C6A91A1a273",
-        "TickBookVault": "0xf97122Ee5c471444B6E99030FB28c3Bd51Eab0a7",
-        "TickBook": "0xC311050C47946cA33452418ec2a1dcE49512737C"
+        "LaunchpadEngine": "0x082eD8B3B39D7406137d711243ED6499aD71d34D",
+        "Collateralizer": "0x1DAad522554F231FFE2316b5E07614E533820A9B",
+        "AMMEngine": "0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7",
+        "TickBookVault": "0xBe45be3082274bCA6e798A6463Db6056Caa1441C",
+        "TickBook": "0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335"
       }
     }
   }

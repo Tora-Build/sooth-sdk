@@ -277,4 +277,27 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-27*
+## V8.6 Outcome Mapping Bug
+
+### ❌ Pattern: YES/NO UI Labels Inverted from Contract Values
+- **Date:** 2025-12-28
+- **Mistake:** Pro.tsx had `const outcome = isYes ? 1 : 0` but the contract uses `outcome=0` for YES and `outcome=1` for NO.
+- **Symptom:** Clicking "Buy YES" actually submitted a "Buy NO" order to the contract. User thought they were buying YES but was buying NO.
+- **Root Cause:** Developer assumed YES=1/NO=0 (common convention) but the contract uses YES=0/NO=1.
+- **Fix:** Changed to `const outcome = isYes ? 0 : 1`.
+- **Multiple Locations Affected:**
+  1. `handleTrade()` outcome calculation
+  2. `useTickBookQuoteDirect()` outcome parameter
+- **Rule:** When mapping UI labels to contract enum values, ALWAYS check the contract source:
+  ```solidity
+  // In comments or constants
+  // outcome=0 means YES, outcome=1 means NO
+  ```
+- **Lesson:** Create a shared constant file for magic numbers:
+  ```typescript
+  export const OUTCOME = { YES: 0, NO: 1 } as const;
+  ```
+
+---
+
+*Last updated: 2025-12-28*

@@ -69,7 +69,8 @@ contract TickBook is ITickBook {
     function registerMarket(
         address market,
         address yesToken,
-        address noToken
+        address noToken,
+        uint256 initialProbabilityWad
     ) external override returns (bytes32 marketKey) {
         require(market != address(0), "TickBook: zero market");
         require(yesToken != address(0), "TickBook: zero yes token");
@@ -85,8 +86,11 @@ contract TickBook is ITickBook {
             isActive: true
         });
 
-        // Initialize at ~50/50 (tick 500 on 1,000-tick scale)
-        _lastTick[marketKey] = 500;
+        // Initialize tick from AMM probability (clamp to valid range)
+        uint16 initialTick = uint16((initialProbabilityWad * 1000) / 1e18);
+        if (initialTick < 1) initialTick = 1;
+        if (initialTick > 999) initialTick = 999;
+        _lastTick[marketKey] = initialTick;
         return marketKey;
     }
 

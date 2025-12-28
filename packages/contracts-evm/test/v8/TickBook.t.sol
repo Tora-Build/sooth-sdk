@@ -40,7 +40,7 @@ contract TickBookTest is Test {
         market.activate();
         
         (yesToken, noToken) = collateralizer.registerMarket(address(market), "YES", "YES");
-        marketKey = tickBook.registerMarket(address(market), yesToken, noToken);
+        marketKey = tickBook.registerMarket(address(market), yesToken, noToken, 0.5e18);
         
         usdc.mint(alice, 10000 * WAD);
         usdc.mint(bob, 10000 * WAD);

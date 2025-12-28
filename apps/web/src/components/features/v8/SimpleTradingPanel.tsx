@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
-import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance } from '../../../hooks/v8';
+import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateV8Queries } from '../../../hooks/v8';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { V8_ABIS, ERC20_ABI } from '../../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
@@ -56,11 +56,11 @@ export const SimpleTradingPanel = ({
   const { writeContract: trade, data: tradeTxHash, isPending: isTrading } = useWriteContract();
 
   const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 2000 });
-  
+
   // Only watch for the specific pending transaction to avoid stale success states
-  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ 
-    hash: pendingTxHash ?? undefined, 
-    pollingInterval: 2000 
+  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({
+    hash: pendingTxHash ?? undefined,
+    pollingInterval: 2000
   });
 
   // Clear errors on mode/outcome switch
@@ -166,9 +166,8 @@ export const SimpleTradingPanel = ({
 
   // --- Position + Balances (for MAX + validation) ---
 
-  const { data: ammPosition, isLoading: isLoadingPosition, refetch: refetchPosition } = useAMMPositionDirect(address);
-  const { refetch: refetchAmm } = useAmmMarketDirect(address);
-  const { refetch: refetchLaunchpad } = useLaunchpadMarketDirect(address);
+  const { data: ammPosition, isLoading: isLoadingPosition } = useAMMPositionDirect(address);
+  const invalidateV8Queries = useInvalidateV8Queries();
 
   // Refetch after trade confirmation and update toast
   useEffect(() => {
@@ -182,13 +181,11 @@ export const SimpleTradingPanel = ({
       setPendingTradeInfo(null);
       setPendingTxHash(null);
       setAmount('10');
-      // Refetch all data
-      refetchPosition();
-      refetchAmm();
-      refetchLaunchpad();
+      // Invalidate ALL V8 queries to refresh everything immediately
+      invalidateV8Queries();
       refetchAllowance();
     }
-  }, [isTradeSuccess, pendingToastId, pendingTxHash, pendingTradeInfo, refetchPosition, refetchAmm, refetchLaunchpad, refetchAllowance]);
+  }, [isTradeSuccess, pendingToastId, pendingTxHash, pendingTradeInfo, invalidateV8Queries, refetchAllowance]);
 
   // Handle trade error
   useEffect(() => {
@@ -465,7 +462,7 @@ export const SimpleTradingPanel = ({
     // - Positive shares = long YES
     // - Negative shares = long NO
     // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
-    const handleTrade = async () => {
+  const handleTrade = async () => {
       console.log('[Trade] handleTrade called', {
         launchpadEngine: contracts.LaunchpadEngine,
         deltaShares: quote.deltaShares?.toString(),
@@ -506,17 +503,17 @@ export const SimpleTradingPanel = ({
           functionName: 'getPositionQuote',
           args: [address, selectedOutcome, deltaShares]
         }) as readonly [bigint, bigint];
-        
+
         const [baseCost] = freshQuote;
         const feeRate = BigInt(launchpad?.currentFeeBps ?? 500);
         const fee = tradeMode === 'buy' ? (baseCost * feeRate) / 10000n : 0n;
         freshCost = baseCost + fee;
-        
+
         // Check for significant deviation (>5% difference suggests stale quote)
-        const quoteDiff = freshCost > quote.cost 
-          ? Number((freshCost - quote.cost) * 100n / quote.cost) 
+        const quoteDiff = freshCost > quote.cost
+          ? Number((freshCost - quote.cost) * 100n / quote.cost)
           : Number((quote.cost - freshCost) * 100n / freshCost);
-        
+
         if (quoteDiff > 5) {
           console.warn('[Trade] Quote deviation detected:', {
             cachedCost: (Number(quote.cost) / 1e18).toFixed(2),
@@ -756,14 +753,14 @@ export const SimpleTradingPanel = ({
               </span>
             </div>
             {/* Compact bar */}
-            <div className="w-20 h-2 rounded-full overflow-hidden flex bg-slate-800">
+              <div className="w-20 h-1.5 rounded-full overflow-hidden flex bg-slate-800">
               <div
-                className="h-full bg-emerald-500 transition-[width] duration-500"
-                style={{ width: `${yesPrice * 100}%` }}
+                  className="h-full bg-emerald-500 transition-all duration-500"
+                  style={{ flex: yesPrice > 0n ? Number(yesPrice) : 1 }}
               />
               <div
-                className="h-full bg-rose-500 transition-[width] duration-500"
-                style={{ width: `${noPrice * 100}%` }}
+                  className="h-full bg-rose-500 transition-all duration-500"
+                  style={{ flex: noPrice > 0n ? Number(noPrice) : 1 }}
               />
             </div>
             <div className="flex items-center gap-2">

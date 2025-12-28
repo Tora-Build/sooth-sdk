@@ -1,33 +1,33 @@
 # Project Status
 
-> Last Updated: 2025-12-28 (V8.5 TickBookV2 Deployment)
+> Last Updated: 2025-12-28 (V8.9.0 Pending Fills + Short Sell Fix)
 
 ## Current Focus
-- **✅ V8.5 DEPLOYED** — TickBookV2 (ADR-052) with continuous range orders deployed to Base Sepolia.
-- **✅ AMM Trading Panel Redesigned** — Matches Pro terminal style with unified header, improved UX, and LMSR pool stats display.
-- **✅ ADR-052 IMPLEMENTED (contracts + tests)** — TickBookV2 continuous range orders (Uniswap V3-style boundaries) with **linear** in-range pricing.
-- **⏳ PRO FRONTEND WIRING PENDING** — Pro UI hooks need update to use TickBookV2 API: `placeRangeOrder`, `getQuote`, `executeMarketOrder`, `claimFills`.
+- **✅ V8.9.0 DEPLOYED** — Fresh TickBookV2 deployment with `getPendingFills()` view function and proper short sell routing.
+- **✅ PENDING FILLS FIXED** — Orders now correctly display total fills (claimed + pending) in the UI.
+- **✅ SHORT SELL FIXED** — "Sell YES" correctly routes to buying NO tokens (opposite outcome).
+- **✅ CONTRACT SIZE OPTIMIZED** — Error messages shortened to fit TickBookV2 within 24KB EIP-170 limit.
 
-## Active Deployment (Base Sepolia) — V8.5
+## Active Deployment (Base Sepolia) — V8.9.0
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0x90B7A938b75803Db139cf54Ab19204Ae31286961` | ✅ OK |
-| AMMEngine | `0x08591B79aB7E3AD48D5a267511ce6cB1B2BaF7CE` | ✅ OK |
-| TickBookVault | `0xF3feC7e00637fad7171867047D4e732cE361FF89` | ✅ OK |
-| TickBookV2 | `0xEe1029DCDa225cB15E751fDf61F43367456fb1E9` | ✅ OK (ADR-052) |
-| LaunchpadEngine | `0x81763C661A356B35e56D2228Bf448Cd6105B9b10` | ✅ OK |
+| Collateralizer | `0x1DAad522554F231FFE2316b5E07614E533820A9B` | ✅ NEW |
+| AMMEngine | `0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7` | ✅ NEW |
+| TickBookVault | `0xBe45be3082274bCA6e798A6463Db6056Caa1441C` | ✅ NEW |
+| TickBookV2 | `0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335` | ✅ NEW (getPendingFills) |
+| LaunchpadEngine | `0x082eD8B3B39D7406137d711243ED6499aD71d34D` | ✅ NEW |
 
-### V8.5 Markets
+### V8.9.0 Markets
 | Market | Address | Deadline |
 |--------|---------|----------|
-| UN Confirms Alien Life | `0xE1465B78CA5B4Ca19e510ae84add1470e8CA255E` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0x0CA2D3a75921f3759C4dC9eaA487B619Cce72367` | 2026-01-27 |
+| UN Confirms Alien Life | `0x89632a94ad89F0BdDf0F0A66864b3808DeF9F426` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0xD82119AE06157Ab36574dD78313c77Cd1b9F070f` | 2026-01-27 |
 
 ## Pending Work (Next Session)
-- [ ] **Update Pro Frontend** — Wire Pro/TickBook UI + hooks to TickBookV2: `placeRangeOrder`, `getQuote`, `executeMarketOrder`, `claimFills`.
-- [ ] **Export TickBookV2 ABI** — Generate and place `TickBookV2.abi.json` in frontend config.
 - [ ] **Verify contracts on Basescan** — For transparency.
+- [ ] **Test hybrid sell flow** — Verify executeHybridSell works correctly in UI.
+- [ ] **Add spot sell limit order support** — Wire placeSpotSellOrder in Pro terminal.
 
 ## Completed This Session (2025-12-28)
 - ✅ **ADR-052: TickBookV2 Continuous Ranges (Linear)** — Implemented `TickBookV2.sol` + tests (17/17 passing).
@@ -473,7 +473,15 @@
 
 ---
 
-## Session Summary (2025-12-28)
+## Session Summary (2025-12-28 Evening)
+**V8.9.0 Pending Fills + Short Sell Fix** — Deployed fresh contract stack with critical fixes:
+- **getPendingFills() view function** — TickBookV2 now exposes pending fills for orders (from crossing) that haven't been claimed yet
+- **Short sell outcome fix** — "Sell YES" when user has no YES shares now correctly routes to buying NO tokens (opposite outcome)
+- **Contract size optimization** — Shortened all error messages from "TB2: xyz" to "!xyz" format to fit TickBookV2 within 24KB EIP-170 limit (24,442 bytes with 134 byte margin)
+- **Full redeployment** — All core contracts redeployed with new addresses, frontend configs synced
+- **Test updates** — All 29 TickBookV2 tests passing with new error message format
+
+## Session Summary (2025-12-28 Afternoon)
 **AMM Trading Panel Pro-Style Redesign** — Complete redesign of the AMM trading panel to match Pro terminal aesthetics and improve UX:
 - **Tab-style YES/NO toggle** — Clean underline tabs replacing the cluttered YES/bar/NO layout
 - **Current Prob display** — Separate row with probability percentages and compact bar

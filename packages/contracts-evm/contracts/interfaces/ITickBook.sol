@@ -173,7 +173,8 @@ interface ITickBook {
     function registerMarket(
         address market,
         address yesToken,
-        address noToken
+        address noToken,
+        uint256 initialProbabilityWad
     ) external returns (bytes32 marketKey);
 
     /**

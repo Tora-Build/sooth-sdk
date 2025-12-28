@@ -2,6 +2,46 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [8.9.0] - 2025-12-28
+
+### Deployed
+- **V8.9.0 Pending Fills + Short Sell Fix - Base Sepolia**:
+  - **Collateralizer**: `0x1DAad522554F231FFE2316b5E07614E533820A9B`
+  - **AMMEngine**: `0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7`
+  - **TickBookVault**: `0xBe45be3082274bCA6e798A6463Db6056Caa1441C`
+  - **TickBookV2**: `0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335`
+  - **LaunchpadEngine**: `0x082eD8B3B39D7406137d711243ED6499aD71d34D`
+  - Market 1 (Alien Life): `0x89632a94ad89F0BdDf0F0A66864b3808DeF9F426`
+  - Market 2 (BTC TWAP): `0xD82119AE06157Ab36574dD78313c77Cd1b9F070f`
+
+### Added
+- **`getPendingFills()` View Function** (2025-12-28):
+  - New view function in TickBookV2 to calculate pending (unclaimed) fills for a given order.
+  - Returns `pendingShares` and `pendingCollateral` based on global growth tracking.
+  - Frontend now displays total fills = claimed + pending.
+
+### Fixed
+- **Short Sell Outcome Mapping** (2025-12-28):
+  - "Sell YES" (when user has no YES shares) now correctly routes to buying NO tokens.
+  - Fixed `oppositeOutcome = isYes ? 0 : 1` mapping in Pro.tsx for short sell actions.
+  - Added to LESSONS_LEARNED.md as critical pattern.
+
+- **Contract Size Limit (EIP-170)** (2025-12-28):
+  - TickBookV2 was 144 bytes over the 24,576 byte limit.
+  - Shortened all error messages from "TB2: xyz" to "!xyz" format.
+  - Saved 278 bytes, now at 24,442 bytes with 134 byte margin.
+  - Updated test assertions to expect new error message format.
+
+### Changed
+- **Error Message Format** (2025-12-28):
+  - All TickBookV2 error messages shortened for contract size:
+    - `"TB2: not active"` → `"!active"`
+    - `"TB2: not owner"` → `"!own"`
+    - `"TB2: slippage exceeded"` → `"slip"`
+    - etc.
+
+---
+
 ## [Unreleased]
 
 ### Breaking Changes

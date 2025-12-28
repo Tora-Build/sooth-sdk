@@ -66,20 +66,6 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
         });
     };
     const fmtNum = (val: bigint | number) => Number(typeof val === 'bigint' ? formatUnits(val, 18) : val).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const fmtVal = (val: bigint) => {
-        const num = Math.abs(Number(formatUnits(val, decimals)));
-        if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
-        if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
-        return num.toLocaleString('en-US', { 
-            style: 'currency', 
-            currency: 'USD',
-            maximumFractionDigits: 0
-        });
-    };
-
-    // P&L Color
-    const pnlColor = stats.pnl >= 0n ? 'text-emerald-400' : 'text-rose-400';
-    const pnlSign = stats.pnl >= 0n ? '+' : '-';
 
     // Projection
     const yesWinLpValue = stats.gross - stats.qYes;
@@ -105,18 +91,18 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
 
             <div className="space-y-4 font-mono">
 
-                {/* 1. Cash Basis */}
+                {/* 1. LMSR Gross Value */}
                 <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                             <Package className="w-3 h-3 text-amber-500" />
-                            CASH BASIS FORMULA
+                            AMM CASH (LMSR COST)
                         </div>
-                        <div className="text-[10px] text-slate-500 italic">SEED + FEES + P&L = GROSS</div>
+                        <div className="text-[10px] text-slate-500 italic">C(qYes, qNo, b)</div>
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            {fmtUsd(stats.seed)} + <span className="text-emerald-400">{fmtUsd(stats.fees)}</span> + <span className={pnlColor}>{pnlSign}{fmtVal(stats.pnl)}</span> =
+                            Seed: {fmtUsd(stats.seed)} · Fees: <span className="text-emerald-400">{fmtUsd(stats.fees)}</span>
                         </div>
                         <div className="text-xl font-bold text-white tracking-tight">{fmtUsd(stats.gross)}</div>
                     </div>
@@ -156,20 +142,20 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                 </div>
 
-                {/* 4. Liquidity Anchor */}
+                {/* 4. Liquidity Growth */}
                 <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <Anchor className="w-3 h-3 text-slate-500" />
-                            LIQUIDITY ANCHOR FORMULA
+                            <Anchor className="w-3 h-3 text-emerald-500" />
+                            LIQUIDITY DEPTH
                         </div>
-                        <div className="text-[10px] text-slate-500 italic">B * LN(2) ≈ SUPPLY</div>
+                        <div className="text-[10px] text-slate-500 italic">bBase → bCurrent</div>
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            {fmtNum(stats.b)} × 0.693 ≈
+                            {fmtNum(stats.bBase)} → <span className="text-emerald-400">{fmtNum(stats.b)}</span>
                         </div>
-                        <div className="text-xl font-bold text-white tracking-tight">{fmtNum(stats.anchorSupply)}</div>
+                        <div className="text-xl font-bold text-emerald-400 tracking-tight">+{fmtNum(stats.liquidityGrowth)}</div>
                     </div>
                 </div>
 

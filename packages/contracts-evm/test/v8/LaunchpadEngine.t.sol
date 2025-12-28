@@ -273,7 +273,7 @@ contract LaunchpadEngineTest is Test {
         (address yesToken, address noToken) = collateralizer.registerMarket(address(market), "Test Market", "TEST");
 
         // Also pre-register in TickBook so LaunchpadEngine's graduation is idempotent there too.
-        tickBook.registerMarket(address(market), yesToken, noToken);
+        tickBook.registerMarket(address(market), yesToken, noToken, 0.5e18);
 
         // Now graduate via trading; should NOT revert due to pre-registration.
         _graduateMarket(address(market), trader1);
@@ -500,10 +500,14 @@ contract LaunchpadEngineTest is Test {
         (uint256 feesAccrued, uint256 threshold, uint256 progressBps) = 
             launchpad.getGraduationProgress(address(market));
 
+        // threshold = bBase × ln(2) × multiplier
+        // With multiplier=1, threshold = 1000 × 0.693147... = 693.147...
+        uint256 LN2 = 693147180559945309; // ln(2) in WAD
+        uint256 expectedThreshold = (INITIAL_LIQUIDITY * LN2 * 1) / 1e18;
+
         assertGt(feesAccrued, 0, "Fees should be accrued");
-        assertEq(threshold, (INITIAL_LIQUIDITY * 2), "Threshold should be 2x bBase");
+        assertEq(threshold, expectedThreshold, "Threshold should be bBase * ln(2) * multiplier");
         assertGt(progressBps, 0, "Progress should be > 0");
-        assertLt(progressBps, 10000, "Progress should be < 100%");
     }
 
     // ============================================

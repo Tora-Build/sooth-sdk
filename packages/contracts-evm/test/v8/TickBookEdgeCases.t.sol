@@ -48,7 +48,7 @@ contract TickBookEdgeCasesTest is Test {
         market.activate();
         
         (yesToken, noToken) = collateralizer.registerMarket(address(market), "YES", "YES");
-        marketKey = tickBook.registerMarket(address(market), yesToken, noToken);
+        marketKey = tickBook.registerMarket(address(market), yesToken, noToken, 0.5e18);
         
         usdc.mint(alice, 100000 * WAD);
         usdc.mint(bob, 100000 * WAD);
@@ -195,20 +195,20 @@ contract TickBookEdgeCasesTest is Test {
 
     function test_RevertWhen_RegisterMarketTwice() public {
         vm.expectRevert("TickBook: already registered");
-        tickBook.registerMarket(address(market), yesToken, noToken);
+        tickBook.registerMarket(address(market), yesToken, noToken, 0.5e18);
     }
 
     function test_RevertWhen_RegisterZeroAddresses() public {
         TruthMarket market2 = new TruthMarket("Test2", uint64(block.timestamp + 30 days), adjudicator, address(0x3));
         
         vm.expectRevert("TickBook: zero yes token");
-        tickBook.registerMarket(address(market2), address(0), noToken);
+        tickBook.registerMarket(address(market2), address(0), noToken, 0.5e18);
         
         vm.expectRevert("TickBook: zero no token");
-        tickBook.registerMarket(address(market2), yesToken, address(0));
+        tickBook.registerMarket(address(market2), yesToken, address(0), 0.5e18);
         
         vm.expectRevert("TickBook: zero market");
-        tickBook.registerMarket(address(0), yesToken, noToken);
+        tickBook.registerMarket(address(0), yesToken, noToken, 0.5e18);
     }
 
     // ============================================
