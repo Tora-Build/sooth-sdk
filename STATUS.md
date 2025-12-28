@@ -1,35 +1,35 @@
 # Project Status
 
-> Last Updated: 2025-12-27 (V8.4 QA Hardening Complete)
+> Last Updated: 2025-12-28 (ADR-052 TickBookV2 Continuous Ranges + Vault Collateral Flow Fix)
 
 ## Current Focus
-- **✅ V8.4 QA HARDENING COMPLETE** — Comprehensive test suite expansion with invariant, fuzz, fork, and edge case tests.
-- **✅ CRITICAL BUG FIXED** — AMMEngine `_lockedBalance` accounting bug discovered via invariant testing and fixed.
-- **⏳ REDEPLOYMENT PENDING** — Bug fix requires fresh deployment to Base Sepolia.
-- **🧭 TICKBOOK NEXT (DESIGN LOCKED, IMPLEMENTATION PENDING)** — Vault-native TickBook (USDC-collateral orderbook) plan drafted for review, including 1,000-tick resolution and Phase 1 USDC-only Pro UX.
+- **✅ ADR-052 IMPLEMENTED (contracts + tests)** — TickBookV2 continuous range orders (Uniswap V3-style boundaries) with **linear** in-range pricing.
+- **✅ Vault Collateral Flow Fixed** — Maker collateral now properly moves into `marketCollateralWad` and refunds on cancel are supported.
+- **⏳ FRONTEND + DEPLOYMENT PENDING** — Pro UI and deployment scripts/configs still point at TickBook (ADR-051), not TickBookV2.
 
-## Active Deployment (Base Sepolia) — ⚠️ Contains Bug
+## Active Deployment (Base Sepolia) — V8.4
 | Contract | Address | Status |
 |----------|---------|--------|
-| LaunchpadEngine | `0x1F30742c38c10b28B3960E2B067644A52592bd8f` | ⚠️ Bug |
-| AMMEngine | `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5` | ⚠️ Bug |
-| Collateralizer | `0x09A7809a33F969B0099A5d19003991592658763f` | ✅ OK |
-| TickBook | `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd` | ✅ OK |
-| Alien Life Market | `0xd306eb7ddbAa6394DDBFF54897aFC82A9cf39e08` | ⚠️ |
-| BTC TWAP Market | `0xE0d986c827E3398B0f66DeEd0C681f3CD1553fBe` | ⚠️ |
+| MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
+| Collateralizer | `0x43A6BDdFC1D0C382eD20a0197B4a223A8650831c` | ✅ OK |
+| AMMEngine | `0x211cbEf79b13C0ed3Ba77A765504eB4419088730` | ✅ OK |
+| TickBookVault | `0x5e712246ce7cF99164421a25C79214B3f6194395` | ✅ OK |
+| TickBook | `0x961654cE125D0FFA8f561d94922256036E44B377` | ⚠️ Tick range bug (1–998) |
+| LaunchpadEngine | `0xd600C85c0cCBf848Ae1853d47492A776ABcFb703` | ✅ OK |
 
 ## Pending Work (Next Session)
-- [ ] **Deploy V8.4 bug fix** — Redeploy AMMEngine with locked balance fix
-- [ ] **Verify contracts on Basescan** — For transparency
-- [ ] **Run /deploy-sync** — Update all configs after redeploy
-- [ ] **Test spendable proceeds flow** — Buy → Sell → Buy using proceeds (verify no wallet pull)
-- [ ] **Implement TickBookVault + vault-native TickBook (Phase 1)** — Follow `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
-  - [ ] Reduce tick resolution to **1,000 ticks** (0.1% increments)
-  - [ ] Vault custody for **TickBook USDC only** (explicit deposit model)
-  - [ ] Ranged maker orders + market taker orders (as per plan)
-  - [ ] Pro UI: show **USDC available/reserved** and **YES shares / NO shares** (internal), hide token deposit/withdraw until Phase 2
+- [ ] **Decide Cutover** — Replace TickBook (ADR-051) with TickBookV2 (ADR-052) as the canonical orderbook contract.
+- [ ] **Deploy TickBookV2** — Fresh deployment required (new contract + ABI + vault interface expansion).
+- [ ] **Update Pro Frontend** — Wire Pro/TickBook UI + hooks to TickBookV2: `placeRangeOrder`, `getQuote`, `executeMarketOrder`, `claimFills`.
+- [ ] **Verify contracts on Basescan** — For transparency.
+- [ ] **Run /deploy-sync** — Update all configs/ABIs after redeploy (and bump config version to bust caches).
 
-## Completed This Session
+## Completed This Session (2025-12-28)
+- ✅ **ADR-052: TickBookV2 Continuous Ranges (Linear)** — Implemented `TickBookV2.sol` + tests (17/17 passing).
+- ✅ **Maker Fill Attribution (Lazy Claim)** — Added cumulative fill/proceeds tracking and `claimFills(...)` (pro‑rata).
+- ✅ **Vault Collateral Model Update** — Added `refundMarketToAvailable(...)` to `TickBookVault` / `ITickBookVault` so unfilled maker collateral can be refunded from market collateral.
+
+## Completed Previous Session (2025-12-27)
 - ✅ **Comprehensive QA Test Suite** — Added 44+ new tests across 6 new test files
 - ✅ **AMMEngine Settlement Tests** (12 tests) — YES/NO/INVALID wins, edge cases, fuzz
 - ✅ **TickBook Edge Cases** (17 tests) — Cross-tick, partial fills, extreme values

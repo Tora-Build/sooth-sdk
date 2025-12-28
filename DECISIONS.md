@@ -515,7 +515,7 @@ User's Choice (EOA, Safe, Smart Account, etc.)
 
 ## ADR-051: TickBook Vault-Native Orderbook (USDC-Collateral) + 1,000 Tick Resolution
 - **Date**: 2025-12-27
-- **Status**: Accepted (Design Locked; Implementation Pending)
+- **Status**: Implemented (Contracts + Frontend Complete)
 - **Context**:
   - The current V8 TickBook is token-inventory based (YES/NO ERC20 approvals + `transferFrom`), which makes **resting limit orders** capital-inefficient when complete sets must be minted externally.
   - The product goal for Pro/TickBook is a V7-like capital-efficient orderbook where bids/shorts reserve only **price × size** in USDC.
@@ -526,6 +526,7 @@ User's Choice (EOA, Safe, Smart Account, etc.)
   2. Outcome assets are represented as **YES shares / NO shares** internally (non-transferable in Phase 1 UI).
      - ERC20 YES/NO are treated as **boundary assets** for future composability (mint on withdraw, burn on deposit), but are **not required** for Phase 1 trading UX.
   3. Reduce TickBook tick resolution from **10,000** to **1,000** ticks (0.01% → 0.1% increments) to simplify alpha execution and reduce tick-crossing loops.
+     - **Valid tick range**: 1–999 (0.1% to 99.9%). Tick 0 (0%) is excluded as it represents a resolved NO outcome.
   4. TickBook maker orders remain **ranged/concentrated** (not point-only) in Phase 1; funding is via reserved internal USDC.
 - **Rationale**:
   - **Capital efficiency**: bids/shorts require only `P × qty` (or `(1-P) × qty`) collateral rather than “mint full complete set first”.
@@ -538,3 +539,28 @@ User's Choice (EOA, Safe, Smart Account, etc.)
   - Requires new tests focused on vault solvency and reservation invariants.
 - **Spec / Plan**:
   - `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+
+## ADR-052: TickBookV2 Continuous Range Orders (Uniswap V3-style, Linear Curve)
+- **Date**: 2025-12-28
+- **Status**: Implemented (Contracts + Tests; Frontend/Deployment Pending)
+- **Context**:
+  - ADR-051’s TickBook implementation stored maker liquidity **per tick** (one `Order` per tick in the range).
+  - Wide ranges (e.g., 200–800 ticks) caused **O(range width)** SSTORE writes and became prohibitively gas-expensive for makers.
+- **Decision**:
+  1. Introduce `TickBookV2.sol` which stores **one order per range** and tracks liquidity via **tick boundary deltas** (`liquidityNet` / `liquidityGross`) similar to Uniswap V3.
+  2. Use a **linear price curve within the active range** (deterministic, low-gas, alpha simplicity).
+  3. Attribute maker fills **pro‑rata** using cumulative global counters (Uniswap V3 “feeGrowth” style snapshots):
+     - `_cumulativeFills[marketKey][outcome]`
+     - `_cumulativeProceeds[marketKey][outcome]`
+     - per-order snapshots for lazy claiming via `claimFills(...)`.
+  4. Shift maker collateral handling to a **market-collateralized model**:
+     - On order placement, maker collateral is moved into `TickBookVault.marketCollateralWad[market]` via `spendAvailableToMarket(...)`.
+     - On cancel, unfilled maker collateral is refunded from market collateral via new vault hook `refundMarketToAvailable(...)`.
+- **Rationale**:
+  - **Gas**: Maker range order placement becomes **O(1)** with respect to range width (only boundary updates), enabling deep range liquidity in alpha.
+  - **Simplicity**: Linear curve is easier to reason about and debug than constant‑product while still providing “continuous within range” behavior.
+  - **Consistency**: Keeps TickBook vault-native (ADR-051) while fixing the per-tick storage scalability issue.
+- **Consequences**:
+  - **Breaking**: `ITickBookVault` interface expanded with `refundMarketToAvailable(...)`.
+  - **UX**: TickBook becomes “continuous within range” rather than discrete per-tick FIFO execution.
+  - **Deployment**: Requires redeploying TickBook (and updating frontend ABIs/configs) to use TickBookV2.

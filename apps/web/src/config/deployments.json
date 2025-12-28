@@ -1,16 +1,17 @@
 {
-  "version": "8.3.2",
+  "version": "8.4.0",
   "lastUpdated": "2025-12-27T23:59:59Z",
-  "status": "V8.3.2 Fresh Deployment - Graduation Idempotency Fix (Base Sepolia)",
+  "status": "V8.4 ADR-051 Vault-Native TickBook + 1,000 Ticks (Base Sepolia)",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x5b9f7743Ffd3B30D2034A05A7a4A26f643772eB8",
-        "Collateralizer": "0x72b1CBA5a86fD00753EDA6139B7070D3b8b6D796",
-        "AMMEngine": "0x95b214A5C1a290a1786EfeD3B186709230E184Bb",
-        "TickBook": "0x1A2Ffa3e286295Ef2F65BFABa7D094a7b981c708"
+        "LaunchpadEngine": "0xd600C85c0cCBf848Ae1853d47492A776ABcFb703",
+        "Collateralizer": "0x43A6BDdFC1D0C382eD20a0197B4a223A8650831c",
+        "AMMEngine": "0x211cbEf79b13C0ed3Ba77A765504eB4419088730",
+        "TickBookVault": "0x5e712246ce7cF99164421a25C79214B3f6194395",
+        "TickBook": "0x961654cE125D0FFA8f561d94922256036E44B377"
       }
     }
   }

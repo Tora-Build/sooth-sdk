@@ -15,4 +15,5 @@ export { useAMMPositionDirect } from "./useAMMPositionDirect";
 export { useCollateralizerDirect } from "./useCollateralizerDirect";
 export { useAMMQuoteDirect } from "./useAMMQuoteDirect";
 export { useTickBookDirect } from "./useTickBookDirect";
+export { useTickBookVaultDirect } from "./useTickBookVaultDirect";
 

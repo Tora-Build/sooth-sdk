@@ -5,6 +5,7 @@ import LaunchpadEngineABI from "./abis/v8/LaunchpadEngine.abi.json";
 import CollateralizerABI from "./abis/v8/Collateralizer.abi.json";
 import AMMEngineABI from "./abis/v8/AMMEngine.abi.json";
 import TickBookABI from "./abis/v8/TickBook.abi.json";
+import TickBookVaultABI from "./abis/v8/TickBookVault.abi.json";
 import TruthMarketABI from "./abis/v8/TruthMarket.abi.json";
 import OutcomeTokenABI from "./abis/v8/OutcomeToken.abi.json";
 
@@ -14,6 +15,7 @@ export const V8_ABIS = {
   Collateralizer: CollateralizerABI as Abi,
   AMMEngine: AMMEngineABI as Abi,
   TickBook: TickBookABI as Abi,
+  TickBookVault: TickBookVaultABI as Abi,
   TruthMarket: TruthMarketABI as Abi,
   OutcomeToken: OutcomeTokenABI as Abi,
 };

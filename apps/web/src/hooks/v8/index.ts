@@ -44,4 +44,5 @@ export {
     useAMMQuoteDirect,
     useLaunchpadPositionDirect,
     useTickBookDirect,
+    useTickBookVaultDirect,
 } from "./direct";

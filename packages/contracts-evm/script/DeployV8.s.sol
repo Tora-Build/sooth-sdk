@@ -8,6 +8,7 @@ import {OutcomeToken} from "../contracts/OutcomeToken.sol";
 import {Collateralizer} from "../contracts/Collateralizer.sol";
 import {AMMEngine} from "../contracts/AMMEngine.sol";
 import {TickBook} from "../contracts/TickBook.sol";
+import {TickBookVault} from "../contracts/TickBookVault.sol";
 import {LaunchpadEngine} from "../contracts/LaunchpadEngine.sol";
 import {TruthMarket} from "../contracts/TruthMarket.sol";
 
@@ -15,6 +16,7 @@ contract DeployV8 is Script {
     // Deployment addresses (will be populated)
     address public collateralizer;
     address public ammEngine;
+    address public tickBookVault;
     address public tickBook;
     address public launchpadEngine;
     
@@ -57,10 +59,15 @@ contract DeployV8 is Script {
         ammEngine = address(new AMMEngine(usdc, deployer));
         console.log("   AMMEngine:", ammEngine);
         
-        // 3. Deploy TickBook
-        console.log("3. Deploying TickBook...");
-        tickBook = address(new TickBook());
+        // 3. Deploy TickBookVault + TickBook
+        console.log("3. Deploying TickBookVault...");
+        tickBookVault = address(new TickBookVault(usdc, deployer));
+        console.log("   TickBookVault:", tickBookVault);
+        console.log("3b. Deploying TickBook...");
+        tickBook = address(new TickBook(tickBookVault));
         console.log("   TickBook:", tickBook);
+        // Link vault -> tickbook
+        TickBookVault(tickBookVault).setTickBook(tickBook);
         
         // 4. Deploy LaunchpadEngine
         console.log("4. Deploying LaunchpadEngine...");
@@ -86,6 +93,7 @@ contract DeployV8 is Script {
         console.log("=== V8 Deployment Summary ===");
         console.log("Collateralizer:", collateralizer);
         console.log("AMMEngine:", ammEngine);
+        console.log("TickBookVault:", tickBookVault);
         console.log("TickBook:", tickBook);
         console.log("LaunchpadEngine:", launchpadEngine);
         console.log("============================");
@@ -95,6 +103,7 @@ contract DeployV8 is Script {
             '{\n',
             '  "collateralizer": "', vm.toString(collateralizer), '",\n',
             '  "ammEngine": "', vm.toString(ammEngine), '",\n',
+            '  "tickBookVault": "', vm.toString(tickBookVault), '",\n',
             '  "tickBook": "', vm.toString(tickBook), '",\n',
             '  "launchpadEngine": "', vm.toString(launchpadEngine), '"\n',
             '}'

@@ -4,16 +4,16 @@ pragma solidity ^0.8.20;
 /**
  * @title TickBitmap
  * @notice Two-level bitmap for O(1) tick discovery in TickBook
- * @dev 10,000 ticks organized as 100 words × 100 bits
- *      Level 1: 100 bits (one per word)
- *      Level 2: 100 words × 100 bits each
+ * @dev 1,000 ticks organized as 10 words × 100 bits
+ *      Level 1: 10 bits (one per word)
+ *      Level 2: 10 words × 100 bits each
  */
 library TickBitmap {
     // ============================================
     // Constants
     // ============================================
 
-    uint16 constant MAX_TICK = 9999;
+    uint16 constant MAX_TICK = 999;
     uint8 constant WORD_SIZE = 100; // bits per word
 
     // ============================================
@@ -32,7 +32,7 @@ library TickBitmap {
     /**
      * @notice Set bit for tick (mark as having liquidity)
      * @param bitmap Bitmap storage reference
-     * @param tick Tick index (0-9999)
+     * @param tick Tick index (0-999)
      */
     function setBit(Bitmap storage bitmap, uint16 tick) internal {
         require(tick <= MAX_TICK, "TickBitmap: tick out of range");
@@ -49,7 +49,7 @@ library TickBitmap {
     /**
      * @notice Clear bit for tick (mark as no liquidity)
      * @param bitmap Bitmap storage reference
-     * @param tick Tick index (0-9999)
+     * @param tick Tick index (0-999)
      */
     function clearBit(Bitmap storage bitmap, uint16 tick) internal {
         require(tick <= MAX_TICK, "TickBitmap: tick out of range");
@@ -68,7 +68,7 @@ library TickBitmap {
     /**
      * @notice Check if tick has liquidity
      * @param bitmap Bitmap storage reference
-     * @param tick Tick index (0-9999)
+     * @param tick Tick index (0-999)
      * @return True if tick has liquidity
      */
     function isSet(Bitmap storage bitmap, uint16 tick) internal view returns (bool) {
@@ -177,8 +177,8 @@ library TickBitmap {
 
     /**
      * @notice Get word and bit position for tick
-     * @param tick Tick index (0-9999)
-     * @return wordIndex Word index (0-99)
+     * @param tick Tick index (0-999)
+     * @return wordIndex Word index (0-9)
      * @return bitIndex Bit index within word (0-99)
      */
     function _position(uint16 tick) private pure returns (uint8 wordIndex, uint8 bitIndex) {

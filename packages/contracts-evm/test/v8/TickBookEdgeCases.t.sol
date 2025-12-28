@@ -5,24 +5,22 @@ import {Test, console2} from "forge-std/Test.sol";
 import {TruthMarket} from "../../contracts/TruthMarket.sol";
 import {Collateralizer} from "../../contracts/Collateralizer.sol";
 import {TickBook} from "../../contracts/TickBook.sol";
+import {TickBookVault} from "../../contracts/TickBookVault.sol";
+import {ITickBook} from "../../contracts/interfaces/ITickBook.sol";
+import {ITickBookVault} from "../../contracts/interfaces/ITickBookVault.sol";
 import {OutcomeToken} from "../../contracts/OutcomeToken.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {TickMath} from "../../contracts/libraries/TickMath.sol";
 
 /**
  * @title TickBookEdgeCasesTest
- * @notice Additional tests to improve TickBook coverage from 55% to 80%+
- * @dev Focuses on:
- *   - getQuote() function
- *   - Market orders in both directions (buy YES / buy NO)
- *   - Cross-tick trading scenarios
- *   - Edge ticks (0, 5000, 9999)
- *   - Revert conditions
- *   - View function coverage
+ * @notice Vault-native TickBook edge-case tests
+ * @dev Tests 1,000 tick resolution + USDC collateral reservation model
  */
 contract TickBookEdgeCasesTest is Test {
     TruthMarket public market;
     Collateralizer public collateralizer;
+    TickBookVault public vault;
     TickBook public tickBook;
     ERC20Mock public usdc;
     
@@ -40,7 +38,9 @@ contract TickBookEdgeCasesTest is Test {
     function setUp() public {
         usdc = new ERC20Mock();
         collateralizer = new Collateralizer(address(usdc));
-        tickBook = new TickBook();
+        vault = new TickBookVault(address(usdc), address(this));
+        tickBook = new TickBook(address(vault));
+        vault.setTickBook(address(tickBook));
         
         vm.prank(creator);
         market = new TruthMarket("Test Market", uint64(block.timestamp + 30 days), adjudicator, address(0x3));
@@ -52,188 +52,145 @@ contract TickBookEdgeCasesTest is Test {
         
         usdc.mint(alice, 100000 * WAD);
         usdc.mint(bob, 100000 * WAD);
-    }
-
-    // ============================================
-    // getQuote() Tests
-    // ============================================
-
-    function test_GetQuote_BuyYES() public {
-        // Setup: Alice provides liquidity at tick 6000
-        uint16 tick = 6000;
-        uint256 L = 1000 * WAD;
-        uint256 yesNeeded = TickMath.getVirtualReserveYES(L, tick) - TickMath.getVirtualReserveYES(L, tick + 1);
         
+        // Deposit into vault for tests
         vm.startPrank(alice);
-        usdc.approve(address(collateralizer), yesNeeded);
-        collateralizer.split(address(market), yesNeeded);
-        OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUsdc(50000 * WAD);
         vm.stopPrank();
-
-        // Get quote for buying YES
-        uint256 noToGive = 1 * WAD;
-        TickBook.SwapResult memory quote = tickBook.getQuote(marketKey, true, noToGive, 7000);
         
-        assertTrue(quote.amountOut > 0, "Quote should return positive output");
-        assertLt(quote.amountOut, noToGive, "Output should be less than input (fee)");
-        assertGt(quote.feeAmount, 0, "Fee should be positive");
-    }
-
-    function test_GetQuote_SellYES() public {
-        // Setup: Alice provides liquidity at tick 4000
-        uint16 tick = 4000;
-        uint256 L = 1000 * WAD;
-        uint256 noNeeded = TickMath.getVirtualReserveNO(L, tick) - TickMath.getVirtualReserveNO(L, tick - 1);
-        
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), noNeeded);
-        collateralizer.split(address(market), noNeeded);
-        OutcomeToken(noToken).approve(address(tickBook), noNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
+        vm.startPrank(bob);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUsdc(50000 * WAD);
         vm.stopPrank();
-
-        // Get quote for selling YES (isBuy=false means giving YES, getting NO)
-        uint256 yesToGive = 1 * WAD;
-        TickBook.SwapResult memory quote = tickBook.getQuote(marketKey, false, yesToGive, 3000);
-        
-        assertTrue(quote.amountOut > 0, "Quote should return positive output");
     }
 
     // ============================================
-    // Market Order Direction Tests
+    // Market Order Tests
     // ============================================
+
+    function test_MarketOrder_BuyYES() public {
+        // Alice places limit order (NO side) at tick 400
+        // When buying YES, taker matches NO-side orders
+        uint16 tick = 400;
+        uint256 shares = 100 * WAD;
+        
+        vm.prank(alice);
+        tickBook.placeLimitOrder(marketKey, 0, tick, tick, shares); // outcome=0=NO (counter-party)
+        
+        // Bob market buys YES
+        vm.startPrank(bob);
+        (uint256 yesReceived,) = tickBook.executeMarketOrder(marketKey, 1, shares, 500);
+        vm.stopPrank();
+        
+        assertTrue(yesReceived > 0, "Should receive YES shares");
+    }
 
     function test_MarketOrder_BuyNO() public {
-        // Setup: Alice provides NO liquidity at tick 4000
-        uint16 tick = 4000;
-        uint256 L = 1000 * WAD;
-        uint256 noNeeded = TickMath.getVirtualReserveNO(L, tick) - TickMath.getVirtualReserveNO(L, tick - 1);
+        // Alice places limit order (YES side) at tick 600
+        // When buying NO, taker matches YES-side orders (from high tick downward)
+        uint16 tick = 600;
+        uint256 shares = 100 * WAD;
         
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), noNeeded);
-        collateralizer.split(address(market), noNeeded);
-        OutcomeToken(noToken).approve(address(tickBook), noNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
-        vm.stopPrank();
-
-        // Bob buys NO (sells YES)
-        uint256 yesToGive = 1 * WAD;
+        vm.prank(alice);
+        tickBook.placeLimitOrder(marketKey, 1, tick, tick, shares); // outcome=1=YES (counter-party)
+        
+        // Bob market buys NO with limitTick <= maker tick
         vm.startPrank(bob);
-        usdc.approve(address(collateralizer), yesToGive);
-        collateralizer.split(address(market), yesToGive);
-        OutcomeToken(yesToken).approve(address(tickBook), yesToGive);
-        
-        uint256 noReceived = tickBook.executeMarketOrder(marketKey, false, yesToGive, 3000);
+        (uint256 noReceived,) = tickBook.executeMarketOrder(marketKey, 0, shares, 600);
         vm.stopPrank();
-
-        assertTrue(noReceived > 0, "Should receive NO tokens");
+        
+        assertTrue(noReceived > 0, "Should receive NO shares");
     }
 
     // ============================================
-    // Cross-Tick Trading Tests
+    // Limit Order Tests
     // ============================================
 
-    function test_MarketOrder_CrossesMultipleTicks() public {
-        // Setup: Provide liquidity at ticks 6000, 6500, 7000
-        uint16[] memory ticks = new uint16[](3);
-        ticks[0] = 6000;
-        ticks[1] = 6500;
-        ticks[2] = 7000;
+    function test_PlaceLimitOrder_BuyYES() public {
+        uint16 tick = 400; // 40%
+        uint256 shares = 100 * WAD;
         
-        uint256 L = 100 * WAD;
+        uint256 usdcBefore = vault.availableUsdcWad(alice);
+        
+        vm.prank(alice);
+        tickBook.placeLimitOrder(marketKey, 1, tick, tick, shares); // outcome=1=YES
+        
+        uint256 usdcAfter = vault.availableUsdcWad(alice);
+        uint256 reserved = vault.reservedUsdcWad(alice);
+        
+        assertTrue(usdcAfter < usdcBefore, "USDC should decrease");
+        assertTrue(reserved > 0, "Reserved should increase");
+        
+        // Order should reserve tick * shares / 1000 USDC = 0.4 * shares
+        uint256 expectedReserve = (uint256(tick) * shares) / 1000;
+        assertEq(reserved, expectedReserve, "Reserved should equal price * shares");
+    }
+
+    function test_CancelLimitOrder_ReleasesUsdc() public {
+        uint16 tick = 400;
+        uint256 shares = 100 * WAD;
         
         vm.startPrank(alice);
-        for (uint256 i = 0; i < ticks.length; i++) {
-            uint256 yesNeeded = TickMath.getVirtualReserveYES(L, ticks[i]) - TickMath.getVirtualReserveYES(L, ticks[i] + 1);
-            usdc.approve(address(collateralizer), yesNeeded);
-            collateralizer.split(address(market), yesNeeded);
-            OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-            tickBook.placeLimitOrder(marketKey, ticks[i], ticks[i], L);
-        }
-        vm.stopPrank();
-
-        // Bob executes large order that should cross multiple ticks
-        uint256 noToGive = 10 * WAD;
-        vm.startPrank(bob);
-        usdc.approve(address(collateralizer), noToGive);
-        collateralizer.split(address(market), noToGive);
-        OutcomeToken(noToken).approve(address(tickBook), noToGive);
+        (uint256 firstOrderId,) = tickBook.placeLimitOrder(marketKey, 1, tick, tick, shares);
         
-        uint256 yesReceived = tickBook.executeMarketOrder(marketKey, true, noToGive, 8000);
-        vm.stopPrank();
-
-        assertTrue(yesReceived > 0, "Should receive YES tokens");
+        uint256 reservedBefore = vault.reservedUsdcWad(alice);
+        assertTrue(reservedBefore > 0, "Should have reserved USDC");
         
-        // Verify tick moved
-        (uint16 finalTick, ) = tickBook.getCurrentTick(marketKey);
-        assertTrue(finalTick > 6000, "Tick should have moved up");
+        tickBook.cancelOrder(marketKey, firstOrderId);
+        
+        uint256 reservedAfter = vault.reservedUsdcWad(alice);
+        assertEq(reservedAfter, 0, "Reserved should be released");
+        vm.stopPrank();
     }
 
     // ============================================
-    // Edge Tick Tests
+    // Edge Tick Tests (1,000 tick resolution)
     // ============================================
 
-    function test_PlaceLimitOrder_TickNearMax() public {
-        uint16 tick = 9500;
-        uint256 L = 100 * WAD;
-        uint256 yesNeeded = TickMath.getVirtualReserveYES(L, tick) - TickMath.getVirtualReserveYES(L, tick + 1);
+    function test_TickNearMax() public {
+        uint16 tick = 950; // 95%
+        uint256 shares = 10 * WAD;
         
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), yesNeeded);
-        collateralizer.split(address(market), yesNeeded);
-        OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
-        vm.stopPrank();
-
-        assertEq(tickBook.getLimitOrder(marketKey, tick, tick, alice), L, "Order should be placed");
+        vm.prank(alice);
+        tickBook.placeLimitOrder(marketKey, 1, tick, tick, shares);
+        
+        ITickBook.TickData memory data = tickBook.getTick(marketKey, tick);
+        assertEq(data.yesDepth, shares, "YES depth should match");
     }
 
-    function test_PlaceLimitOrder_TickNearMin() public {
-        uint16 tick = 500;
-        uint256 L = 100 * WAD;
-        uint256 noNeeded = TickMath.getVirtualReserveNO(L, tick) - TickMath.getVirtualReserveNO(L, tick - 1);
+    function test_TickNearMin() public {
+        uint16 tick = 50; // 5%
+        uint256 shares = 10 * WAD;
         
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), noNeeded);
-        collateralizer.split(address(market), noNeeded);
-        OutcomeToken(noToken).approve(address(tickBook), noNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
-        vm.stopPrank();
+        vm.prank(alice);
+        tickBook.placeLimitOrder(marketKey, 0, tick, tick, shares);
+        
+        ITickBook.TickData memory data = tickBook.getTick(marketKey, tick);
+        assertEq(data.noDepth, shares, "NO depth should match");
+    }
 
-        assertEq(tickBook.getLimitOrder(marketKey, tick, tick, alice), L, "Order should be placed");
+    function test_InitialTick_Is500() public view {
+        (uint16 tick, uint256 probability) = tickBook.getCurrentTick(marketKey);
+        assertEq(tick, 500, "Initial tick should be 500 (50%)");
+        assertEq(probability, 5e17, "Initial probability should be 0.5");
     }
 
     // ============================================
     // Revert Condition Tests
     // ============================================
 
-    function test_RevertWhen_MarketOrderZeroAmount() public {
-        // Setup some liquidity
-        uint16 tick = 6000;
-        uint256 L = 100 * WAD;
-        uint256 yesNeeded = TickMath.getVirtualReserveYES(L, tick) - TickMath.getVirtualReserveYES(L, tick + 1);
-        
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), yesNeeded);
-        collateralizer.split(address(market), yesNeeded);
-        OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        vm.expectRevert("TickBook: zero amount");
-        tickBook.executeMarketOrder(marketKey, true, 0, 7000);
-        vm.stopPrank();
+    function test_RevertWhen_ZeroShares() public {
+        vm.prank(alice);
+        vm.expectRevert("TickBook: zero shares");
+        tickBook.placeLimitOrder(marketKey, 1, 400, 400, 0);
     }
 
     function test_RevertWhen_MarketNotActive() public {
         bytes32 fakeKey = keccak256("fake");
-        
-        vm.startPrank(bob);
+        vm.prank(bob);
         vm.expectRevert("TickBook: not active");
-        tickBook.executeMarketOrder(fakeKey, true, 1 * WAD, 7000);
-        vm.stopPrank();
+        tickBook.executeMarketOrder(fakeKey, 1, 1 * WAD, 700);
     }
 
     function test_RevertWhen_RegisterMarketTwice() public {
@@ -267,90 +224,13 @@ contract TickBookEdgeCasesTest is Test {
         assertTrue(active, "Market should be active");
     }
 
-    function test_GetCurrentTick_Initial() public view {
-        (uint16 tick, uint256 probability) = tickBook.getCurrentTick(marketKey);
-        
-        assertEq(tick, 5000, "Initial tick should be 5000");
-        assertEq(probability, 5000 * 1e14, "Initial probability should be 50%");
-    }
-
-    function test_GetTick() public {
-        // Place order at tick 6000
-        uint16 tick = 6000;
-        uint256 L = 100 * WAD;
-        uint256 yesNeeded = TickMath.getVirtualReserveYES(L, tick) - TickMath.getVirtualReserveYES(L, tick + 1);
-        
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), yesNeeded);
-        collateralizer.split(address(market), yesNeeded);
-        OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-        tickBook.placeLimitOrder(marketKey, tick, tick, L);
-        vm.stopPrank();
-
-        TickBook.TickData memory data = tickBook.getTick(marketKey, tick);
-        // TickData has liquidityYES and liquidityNO, at least one should be non-zero
-        assertTrue(data.liquidityYES > 0 || data.liquidityNO > 0, "Tick should have liquidity");
-    }
-
-    function test_FindNextActiveTick() public {
-        // Place orders at ticks 6000 and 7000
-        uint256 L = 100 * WAD;
-        
-        vm.startPrank(alice);
-        // Tick 6000
-        uint256 yes1 = TickMath.getVirtualReserveYES(L, 6000) - TickMath.getVirtualReserveYES(L, 6001);
-        usdc.approve(address(collateralizer), yes1);
-        collateralizer.split(address(market), yes1);
-        OutcomeToken(yesToken).approve(address(tickBook), yes1);
-        tickBook.placeLimitOrder(marketKey, 6000, 6000, L);
-        
-        // Tick 7000
-        uint256 yes2 = TickMath.getVirtualReserveYES(L, 7000) - TickMath.getVirtualReserveYES(L, 7001);
-        usdc.approve(address(collateralizer), yes2);
-        collateralizer.split(address(market), yes2);
-        OutcomeToken(yesToken).approve(address(tickBook), yes2);
-        tickBook.placeLimitOrder(marketKey, 7000, 7000, L);
-        vm.stopPrank();
-
-        uint16 nextUp = tickBook.findNextActiveTick(marketKey, 5500, true);
-        assertEq(nextUp, 6000, "Next up tick should be 6000");
-
-        uint16 nextDown = tickBook.findNextActiveTick(marketKey, 6500, true);
-        assertEq(nextDown, 7000, "Next up from 6500 should be 7000");
-    }
-
     function test_GetAccruedFees() public view {
-        // Placeholder function - should return 0
         uint256 fees = tickBook.getAccruedFees(marketKey, alice);
         assertEq(fees, 0, "Accrued fees should be 0 (not implemented)");
     }
 
     function test_ClaimFees() public {
-        // Placeholder function - should return 0
         uint256 claimed = tickBook.claimFees(marketKey);
         assertEq(claimed, 0, "Claimed fees should be 0 (not implemented)");
     }
-
-    // ============================================
-    // Range Order Tests
-    // ============================================
-
-    function test_PlaceLimitOrder_Range() public {
-        uint16 lower = 6000;
-        uint16 upper = 7000;
-        uint256 L = 100 * WAD;
-
-        uint256 yesNeeded = TickMath.getVirtualReserveYES(L, lower) - TickMath.getVirtualReserveYES(L, upper + 1);
-        
-        vm.startPrank(alice);
-        usdc.approve(address(collateralizer), yesNeeded);
-        collateralizer.split(address(market), yesNeeded);
-        OutcomeToken(yesToken).approve(address(tickBook), yesNeeded);
-        tickBook.placeLimitOrder(marketKey, lower, upper, L);
-        vm.stopPrank();
-
-        // Verify order exists at both boundaries
-        assertEq(tickBook.getLimitOrder(marketKey, lower, upper, alice), L);
-    }
 }
-

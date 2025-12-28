@@ -4,42 +4,43 @@ pragma solidity ^0.8.20;
 /**
  * @title ITickBook
  * @notice Interface for Continuous Linear Tick orderbook venue
- * @dev Token-based venue with 10,000 probability ticks (1bp precision)
+ * @dev Vault-native venue with 1,000 probability ticks (0.1% precision)
  */
 interface ITickBook {
     // ============================================
     // Events
     // ============================================
 
+    event RangeOrderPlaced(
+        address indexed maker,
+        bytes32 indexed marketKey,
+        uint8 indexed outcome, // 0 = NO, 1 = YES
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 sharesPerTick,
+        uint256 totalReservedUsdcWad,
+        uint256 firstOrderId,
+        uint256 orderCount
+    );
+
+    event OrderCancelled(
+        address indexed maker,
+        bytes32 indexed marketKey,
+        uint256 indexed orderId,
+        uint8 outcome,
+        uint16 tick,
+        uint256 remainingShares,
+        uint256 collateralReleasedUsdcWad
+    );
+
     event MarketOrderExecuted(
-        address indexed user,
+        address indexed taker,
         bytes32 indexed marketKey,
-        bool isBuy,
-        uint256 amountIn,
-        uint256 amountOut,
+        uint8 indexed outcome, // 0 = NO, 1 = YES
+        uint256 sharesRequested,
+        uint256 sharesFilled,
         uint16 startTick,
-        uint16 endTick,
-        uint256 feeAmount
-    );
-
-    event LimitOrderPlaced(
-        address indexed maker,
-        bytes32 indexed marketKey,
-        uint16 tickLower,
-        uint16 tickUpper,
-        uint256 amount,
-        uint256 yesAmount,
-        uint256 noAmount
-    );
-
-    event LimitOrderCancelled(
-        address indexed maker,
-        bytes32 indexed marketKey,
-        uint16 tickLower,
-        uint16 tickUpper,
-        uint256 amount,
-        uint256 yesAmount,
-        uint256 noAmount
+        uint16 endTick
     );
 
     // ============================================
@@ -47,103 +48,73 @@ interface ITickBook {
     // ============================================
 
     struct TickData {
-        uint128 liquidityYES;  // YES token liquidity at this tick
-        uint128 liquidityNO;   // NO token liquidity at this tick
+        uint128 yesDepth; // Remaining YES orders (shares) at this tick (WAD)
+        uint128 noDepth;  // Remaining NO orders (shares) at this tick (WAD)
     }
 
-    struct SwapResult {
-        uint256 amountOut;     // Output token amount
-        uint16 finalTick;      // Final tick after swap
-        uint256 feeAmount;     // Total fee charged
+    struct QuoteResult {
+        uint256 sharesFillable;      // shares that would fill (WAD)
+        uint256 takerCollateralWad;  // USDC WAD required from taker
+        uint16 finalTick;            // last tick touched
+    }
+
+    struct OrderView {
+        address owner;
+        uint8 outcome;       // 0 = NO, 1 = YES
+        uint16 tick;         // YES probability tick (1..MAX_TICK-1)
+        uint256 remaining;   // remaining shares (WAD)
+        bool active;
     }
 
     // ============================================
     // Trading
     // ============================================
 
-    /**
-     * @notice Execute a market order (immediate fill)
-     * @dev Walks ticks until amountIn is consumed or limitTick is reached
-     * @param marketKey Unique market identifier
-     * @param isBuy true = buy YES, false = sell YES
-     * @param amountIn Input token amount (WAD)
-     * @param limitTick Maximum/minimum tick to execute
-     * @return amountOut Output token amount (WAD)
-     */
+    /// @notice Execute a market order (immediate fill) funded by TickBookVault USDC.
+    /// @param outcome 0 = buy NO, 1 = buy YES
+    /// @param shares Shares to buy (WAD)
+    /// @param limitTick Price limit in YES-tick space (1..MAX_TICK-1). For YES buys: max tick. For NO buys: min tick.
+    /// @return sharesFilled Shares filled (WAD)
+    /// @return finalTick Last tick touched
     function executeMarketOrder(
         bytes32 marketKey,
-        bool isBuy,
-        uint256 amountIn,
+        uint8 outcome,
+        uint256 shares,
         uint16 limitTick
-    ) external returns (uint256 amountOut);
+    ) external returns (uint256 sharesFilled, uint16 finalTick);
 
-    /**
-     * @notice Get quote for swap (view-only)
-     * @param marketKey Market identifier
-     * @param isBuy true = buy YES, false = sell YES
-     * @param amountIn Input token amount (WAD)
-     * @param limitTick Maximum/minimum tick to execute
-     * @return result Swap result with amountOut, finalTick, and feeAmount
-     */
+    /// @notice Quote a market order without executing (view-only).
     function getQuote(
         bytes32 marketKey,
-        bool isBuy,
-        uint256 amountIn,
+        uint8 outcome,
+        uint256 shares,
         uint16 limitTick
-    ) external view returns (SwapResult memory result);
+    ) external view returns (QuoteResult memory result);
 
     // ============================================
     // Maker Order Management
     // ============================================
 
-    /**
-     * @notice Place a limit order across a range of ticks
-     * @dev Automatically calculates YES/NO requirements based on current tick.
-     *      Range can be a single tick (tickLower == tickUpper).
-     * @param marketKey Market identifier
-     * @param tickLower Lower tick of the range
-     * @param tickUpper Upper tick of the range
-     * @param amount Order amount (WAD)
-     * @return yesAmount YES tokens transferred from maker
-     * @return noAmount NO tokens transferred from maker
-     */
+    /// @notice Place a vault-native limit order across a tick range (creates 1 order per tick).
+    /// @dev `sharesPerTick` is the per-tick size (same semantics as prior TickBook range liquidity).
     function placeLimitOrder(
         bytes32 marketKey,
+        uint8 outcome,
         uint16 tickLower,
         uint16 tickUpper,
-        uint256 amount
-    ) external returns (uint256 yesAmount, uint256 noAmount);
+        uint256 sharesPerTick
+    ) external returns (uint256 firstOrderId, uint256 orderCount);
 
-    /**
-     * @notice Cancel a limit order and withdraw remaining tokens
-     * @param marketKey Market identifier
-     * @param tickLower Lower tick
-     * @param tickUpper Upper tick
-     * @param amount Amount to cancel (WAD)
-     * @return yesAmount YES tokens returned
-     * @return noAmount NO tokens returned
-     */
-    function cancelLimitOrder(
-        bytes32 marketKey,
-        uint16 tickLower,
-        uint16 tickUpper,
-        uint256 amount
-    ) external returns (uint256 yesAmount, uint256 noAmount);
+    /// @notice Cancel a single resting order by id (releases remaining collateral in the vault).
+    function cancelOrder(bytes32 marketKey, uint256 orderId)
+        external
+        returns (uint256 remainingShares, uint256 collateralReleasedUsdcWad);
 
-    /**
-     * @notice Get maker's active order size in a range
-     * @param marketKey Market identifier
-     * @param tickLower Lower tick
-     * @param tickUpper Upper tick
-     * @param maker Maker address
-     * @return amount Active order amount (WAD)
-     */
-    function getLimitOrder(
-        bytes32 marketKey,
-        uint16 tickLower,
-        uint16 tickUpper,
-        address maker
-    ) external view returns (uint256 amount);
+    /// @notice Get an order view by id.
+    function getOrder(bytes32 marketKey, uint256 orderId) external view returns (OrderView memory o);
+
+    /// @notice Get all order ids created by a user for a market (alpha convenience).
+    function getUserOrders(bytes32 marketKey, address user) external view returns (uint256[] memory orderIds);
 
     // ============================================
     // Market State
@@ -152,7 +123,7 @@ interface ITickBook {
     /**
      * @notice Get tick data
      * @param marketKey Market identifier
-     * @param tickIndex Tick index (0-9999)
+     * @param tickIndex Tick index (1..MAX_TICK-1)
      * @return data Tick liquidity data
      */
     function getTick(bytes32 marketKey, uint16 tickIndex)
@@ -176,13 +147,15 @@ interface ITickBook {
      * @dev Uses bitmap for O(1) lookup
      * @param marketKey Market identifier
      * @param startTick Starting tick
-     * @param isBuy true = search upward, false = search downward
-     * @return nextTick Next tick with liquidity (returns 0 if none)
+     * @param isUp true = search upward, false = search downward
+     * @param outcome 0 = NO book, 1 = YES book
+     * @return nextTick Next tick with liquidity (returns MAX_TICK+1 if none)
      */
     function findNextActiveTick(
         bytes32 marketKey,
         uint16 startTick,
-        bool isBuy
+        bool isUp,
+        uint8 outcome
     ) external view returns (uint16 nextTick);
 
     // ============================================

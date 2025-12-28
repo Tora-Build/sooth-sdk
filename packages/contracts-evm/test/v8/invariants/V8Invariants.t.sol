@@ -7,6 +7,7 @@ import {AMMEngine} from "../../../contracts/AMMEngine.sol";
 import {LaunchpadEngine} from "../../../contracts/LaunchpadEngine.sol";
 import {Collateralizer} from "../../../contracts/Collateralizer.sol";
 import {TickBook} from "../../../contracts/TickBook.sol";
+import {TickBookVault} from "../../../contracts/TickBookVault.sol";
 import {TruthMarket} from "../../../contracts/TruthMarket.sol";
 import {OutcomeToken} from "../../../contracts/OutcomeToken.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
@@ -28,6 +29,7 @@ contract V8InvariantsTest is StdInvariant, Test {
     AMMEngine public amm;
     LaunchpadEngine public launchpad;
     Collateralizer public collateralizer;
+    TickBookVault public tickBookVault;
     TickBook public tickBook;
     TruthMarket public market;
     ERC20Mock public usdc;
@@ -53,9 +55,12 @@ contract V8InvariantsTest is StdInvariant, Test {
         // Deploy AMM
         amm = new AMMEngine(address(usdc), owner);
 
-        // Deploy Collateralizer and TickBook
+        // Deploy Collateralizer, TickBookVault and TickBook
         collateralizer = new Collateralizer(address(usdc));
-        tickBook = new TickBook();
+        tickBookVault = new TickBookVault(address(usdc), owner);
+        tickBook = new TickBook(address(tickBookVault));
+        vm.prank(owner);
+        tickBookVault.setTickBook(address(tickBook));
 
         // Deploy LaunchpadEngine
         vm.prank(owner);
@@ -312,4 +317,3 @@ contract TraderActor is Test {
         }
     }
 }
-

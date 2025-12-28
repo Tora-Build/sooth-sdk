@@ -6,6 +6,9 @@ import { useV8DirectRead, readContractSafe } from "./useV8DirectRead";
 
 type Address = `0x${string}`;
 
+/**
+ * Hook to read TickBook state for the Pro page (vault-native, 1,000 tick)
+ */
 export function useTickBookDirect(marketAddress: Address | undefined, yesToken: Address | undefined, noToken: Address | undefined) {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
@@ -42,7 +45,7 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
       if (!isActive) {
         return {
           marketKey,
-          currentTick: 5000,
+          currentTick: 500,
           probability: 0.5,
           isActive: false,
           truthMarket,
@@ -54,8 +57,8 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
       }
 
       // Fetch nearby active ticks for the orderbook visualization
-      // We'll fetch up to 10 ticks in each direction for now
-      const fetchTicks = async (start: number, count: number, isUp: boolean) => {
+      // Use new 4-arg signature: findNextActiveTick(marketKey, startTick, isUp, outcome)
+      const fetchTicks = async (start: number, count: number, isUp: boolean, outcome: number) => {
         const ticks = [];
         let current = start;
         for (let i = 0; i < count; i++) {
@@ -63,11 +66,11 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
             address: tickBookAddress!,
             abi: V8_ABIS.TickBook,
             functionName: "findNextActiveTick",
-            args: [marketKey!, current, isUp],
+            args: [marketKey!, current, isUp, outcome],
           });
-          if (next === 0 || next > 9999) break;
+          if (next === 0 || next > 999) break;
           
-          const data = await readContractSafe<readonly [bigint, bigint]>(client, {
+          const data = await readContractSafe<{ yesDepth: bigint; noDepth: bigint }>(client, {
             address: tickBookAddress!,
             abi: V8_ABIS.TickBook,
             functionName: "getTick",
@@ -76,19 +79,21 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
           
           ticks.push({
             index: next,
-            price: next / 10000,
-            yesDepth: data[0],
-            noDepth: data[1],
+            price: next / 1000,
+            yesDepth: data.yesDepth,
+            noDepth: data.noDepth,
           });
           current = isUp ? next + 1 : next - 1;
-          if (current < 0 || current > 9999) break;
+          if (current < 1 || current > 998) break;
         }
         return ticks;
       };
 
+      // Bids are NO-side orders (bought by YES buyers going up)
+      // Asks are YES-side orders (bought by NO buyers going down)
       const [bids, asks] = await Promise.all([
-        fetchTicks(tickIndex, 10, false), 
-        fetchTicks(tickIndex + 1, 10, true), 
+        fetchTicks(1, 10, true, 0),  // NO depth from low → high
+        fetchTicks(998, 10, false, 1), // YES depth from high → low
       ]);
 
       return {
@@ -99,8 +104,8 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
         truthMarket,
         yesToken: yesTokenAddr,
         noToken: noTokenAddr,
-        bids: bids.sort((a, b) => b.index - a.index), 
-        asks: asks.sort((a, b) => a.index - b.index), 
+        bids: bids.sort((a, b) => b.index - a.index), // highest bids first
+        asks: asks.sort((a, b) => a.index - b.index), // lowest asks first
       };
     },
   });
@@ -112,4 +117,3 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
     refetch: query.refetch,
   };
 }
-

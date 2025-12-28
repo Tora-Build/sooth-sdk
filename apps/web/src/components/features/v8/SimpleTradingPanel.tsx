@@ -6,7 +6,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance } from '../../../hooks/v8';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { V8_ABIS, ERC20_ABI } from '../../../config/abis';
@@ -29,6 +29,7 @@ export const SimpleTradingPanel = ({
   isSettled = false,
 }: SimpleTradingPanelProps) => {
   const { isConnected, address: userAddress, connector } = useAccount();
+  const { disconnect } = useDisconnect();
   const walletChainId = useChainId();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { selectedChainId } = useChainStore();
@@ -300,8 +301,15 @@ export const SimpleTradingPanel = ({
     return maxSellWad >= sharesWad;
   }, [tradeMode, amount, maxSellWad]);
 
-  // Connect wallet handler
-  const handleConnect = () => {
+  // Connect/Switch wallet handler
+  const handleConnect = async () => {
+    // If already connected with Phantom, disconnect first to allow switching
+    if (isConnected && isPhantomConnector) {
+      disconnect();
+      // Wait a moment for disconnect to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    // Click the AppKit button to open wallet modal
     const connectBtn = document.querySelector('appkit-button') as HTMLElement;
     connectBtn?.click();
   };
@@ -637,76 +645,76 @@ export const SimpleTradingPanel = ({
         </div>
       )}
 
-      {/* Probability Display */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Compact Probability Row */}
+      <div className="flex items-center gap-2">
+        {/* YES Button */}
         <button
           onClick={() => setSelectedOutcome(0)}
-          className={`p-3 rounded-lg border-2 text-center transition-all focus-ring ${selectedOutcome === 0
-            ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
-            : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50 hover:-translate-y-0.5'
-            }`}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
+            selectedOutcome === 0
+              ? 'border-emerald-500 bg-emerald-500/10'
+              : 'border-slate-700/50 bg-slate-900/50 hover:border-emerald-500/50'
+          )}
         >
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <TrendingUp className={`w-3 h-3 transition-transform ${selectedOutcome === 0 ? 'text-emerald-400 scale-110' : 'text-emerald-400/70'}`} />
-            <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">YES</span>
-          </div>
-          <div className="text-xl font-bold text-emerald-400 tabular-nums">
-            {isLoadingAmm ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(yesPrice * 100).toFixed(1)}%`}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
-            {fmtQty(amm?.qYes ?? 0n)} issued
-          </div>
+          <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-xs font-bold text-emerald-400">YES</span>
+          <span className="text-sm font-bold text-emerald-400 tabular-nums">
+            {isLoadingAmm ? '—' : `${(yesPrice * 100).toFixed(1)}%`}
+          </span>
         </button>
 
+        {/* Probability Bar (compact) */}
+        <div className="flex-1 h-2 rounded-full overflow-hidden flex bg-slate-800">
+          <div
+            className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500"
+            style={{ width: `${yesPrice * 100}%` }}
+          />
+          <div
+            className="bg-gradient-to-r from-rose-400 to-rose-600 transition-[width] duration-500"
+            style={{ width: `${noPrice * 100}%` }}
+          />
+        </div>
+
+        {/* NO Button */}
         <button
           onClick={() => setSelectedOutcome(1)}
-          className={`p-3 rounded-lg border-2 text-center transition-all focus-ring ${selectedOutcome === 1
-            ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/10'
-            : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50 hover:-translate-y-0.5'
-            }`}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
+            selectedOutcome === 1
+              ? 'border-rose-500 bg-rose-500/10'
+              : 'border-slate-700/50 bg-slate-900/50 hover:border-rose-500/50'
+          )}
         >
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <TrendingDown className={`w-3 h-3 transition-transform ${selectedOutcome === 1 ? 'text-rose-400 scale-110' : 'text-rose-400/70'}`} />
-            <span className="text-[10px] text-rose-400 uppercase tracking-wider font-bold">NO</span>
-          </div>
-          <div className="text-xl font-bold text-rose-400 tabular-nums">
-            {isLoadingAmm ? <span className="skeleton w-12 h-6 inline-block rounded" /> : `${(noPrice * 100).toFixed(1)}%`}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">
-            {fmtQty(amm?.qNo ?? 0n)} issued
-          </div>
+          <span className="text-sm font-bold text-rose-400 tabular-nums">
+            {isLoadingAmm ? '—' : `${(noPrice * 100).toFixed(1)}%`}
+          </span>
+          <span className="text-xs font-bold text-rose-400">NO</span>
+          <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
         </button>
       </div>
 
-      {/* Probability Bar */}
-      <div className="h-2 rounded-full overflow-hidden flex bg-slate-800">
-        <div
-          className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500"
-          style={{ width: `${yesPrice * 100}%` }}
-        />
-        <div
-          className="bg-gradient-to-r from-rose-400 to-rose-600 transition-[width] duration-500"
-          style={{ width: `${noPrice * 100}%` }}
-        />
-      </div>
-
-      {/* Buy/Sell Toggle */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Buy/Sell Toggle (inline) */}
+      <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800 w-fit">
         <button
           onClick={() => setTradeMode('buy')}
-          className={`py-2 rounded-lg font-bold text-xs transition-all ${tradeMode === 'buy'
-            ? 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400'
-            : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-            }`}
+          className={cn(
+            "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
+            tradeMode === 'buy'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          )}
         >
           BUY
         </button>
         <button
           onClick={() => setTradeMode('sell')}
-          className={`py-2 rounded-lg font-bold text-xs transition-all ${tradeMode === 'sell'
-            ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-400'
-            : 'bg-slate-800 border-2 border-slate-700 text-slate-400 hover:border-slate-600'
-            }`}
+          className={cn(
+            "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
+            tradeMode === 'sell'
+              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          )}
         >
           SELL
         </button>

@@ -1,151 +1,118 @@
-// MarketHeader.tsx - Header component for Launchpad market detail page
-
-import React, { useState } from 'react';
-import { ArrowLeft, Copy, Check, ExternalLink, Clock, Rocket, Trophy, AlertTriangle } from 'lucide-react';
-import { Badge } from '../../ui/Badge';
+/**
+ * MarketHeader - Unified header for AMM and Pro pages
+ * 
+ * Features:
+ * - One-liner intro
+ * - Search input
+ * - Category filters
+ */
+import { Search, Zap, BookOpen } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '../../../lib/utils';
 
 interface MarketHeaderProps {
-    name: string;
-    symbol?: string;
-    address: string;
-    creator: string;
-    deadline?: number;
-    isGraduated: boolean;
-    isExpired: boolean;
-    isLive: boolean;
-    onBack: () => void;
+  title: string;
+  subtitle: string;
+  search: string;
+  onSearchChange: (value: string) => void;
+  category: string;
+  onCategoryChange: (category: string) => void;
+  categories: { id: string; label: string; count?: number }[];
+  marketCount: number;
 }
 
-export const MarketHeader: React.FC<MarketHeaderProps> = ({
-    name,
-    symbol,
-    address,
-    creator,
-    deadline,
-    isGraduated,
-    isExpired,
-    isLive,
-    onBack
-}) => {
-    const [copied, setCopied] = useState<'address' | 'creator' | null>(null);
+export const MarketHeader = ({
+  title,
+  subtitle,
+  search,
+  onSearchChange,
+  category,
+  onCategoryChange,
+  categories,
+  marketCount,
+}: MarketHeaderProps) => {
+  const location = useLocation();
+  const isProPage = location.pathname.startsWith('/pro');
 
-    const copyToClipboard = async (text: string, type: 'address' | 'creator') => {
-        await navigator.clipboard.writeText(text);
-        setCopied(type);
-        setTimeout(() => setCopied(null), 2000);
-    };
-
-    const truncate = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-
-    // Status determination
-    const getStatus = () => {
-        if (isGraduated) return { label: 'Graduated', variant: 'success' as const, icon: Trophy, emoji: '🎓' };
-        if (isExpired) return { label: 'Expired', variant: 'danger' as const, icon: AlertTriangle, emoji: '⏰' };
-        if (!isLive) return { label: 'Settled', variant: 'outline' as const, icon: Check, emoji: '✓' };
-        return { label: 'Bonding', variant: 'live' as const, icon: Rocket, emoji: '🔥' };
-    };
-
-    const status = getStatus();
-
-    // Time remaining calculation
-    const getTimeRemaining = () => {
-        if (!deadline || deadline === 0) return null;
-        const now = Date.now() / 1000;
-        const remaining = deadline - now;
-        if (remaining <= 0) return 'Expired';
-
-        const days = Math.floor(remaining / 86400);
-        const hours = Math.floor((remaining % 86400) / 3600);
-        const mins = Math.floor((remaining % 3600) / 60);
-
-        if (days > 0) return `${days}d ${hours}h remaining`;
-        if (hours > 0) return `${hours}h ${mins}m remaining`;
-        return `${mins}m remaining`;
-    };
-
-    const timeRemaining = getTimeRemaining();
-
-    return (
-        <div className="space-y-4">
-            {/* Back Button */}
-            <button
-                onClick={onBack}
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors group"
-            >
-                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                Back to Markets
-            </button>
-
-            {/* Main Header */}
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                    {/* Title Row */}
-                    <div className="flex items-start gap-3 mb-3">
-                        <h1 className="font-heading font-bold text-2xl md:text-3xl text-white break-words">
-                            {name || 'Untitled Market'}
-                        </h1>
-                        {symbol && (
-                            <Badge variant="outline" className="shrink-0 font-mono text-xs">
-                                ${symbol}
-                            </Badge>
-                        )}
-                    </div>
-
-                    {/* Status & Info Row */}
-                    <div className="flex flex-wrap items-center gap-3 text-sm">
-                        {/* Status Badge */}
-                        <Badge variant={status.variant} className="flex items-center gap-1">
-                            <span>{status.emoji}</span>
-                            <span>{status.label}</span>
-                        </Badge>
-
-                        {/* Time Remaining */}
-                        {timeRemaining && !isGraduated && !isExpired && (
-                            <div className="flex items-center gap-1 text-slate-400">
-                                <Clock size={14} />
-                                <span>{timeRemaining}</span>
-                            </div>
-                        )}
-
-                        {/* Creator */}
-                        <button
-                            onClick={() => copyToClipboard(creator, 'creator')}
-                            className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors"
-                        >
-                            <span>by</span>
-                            <span className="font-mono">{truncate(creator)}</span>
-                            {copied === 'creator' ? (
-                                <Check size={12} className="text-emerald-400" />
-                            ) : (
-                                <Copy size={12} />
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Contract Address */}
-                <div className="flex items-center gap-2 shrink-0">
-                    <button
-                        onClick={() => copyToClipboard(address, 'address')}
-                        className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg text-sm transition-colors"
-                    >
-                        <span className="font-mono text-slate-400">{truncate(address)}</span>
-                        {copied === 'address' ? (
-                            <Check size={14} className="text-emerald-400" />
-                        ) : (
-                            <Copy size={14} className="text-slate-500" />
-                        )}
-                    </button>
-                    <a
-                        href={`https://sepolia.basescan.org/address/${address}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors"
-                    >
-                        <ExternalLink size={16} className="text-slate-400" />
-                    </a>
-                </div>
-            </div>
+  return (
+    <div className="space-y-6">
+      {/* Title + One-liner */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{title}</h1>
+          <p className="text-slate-400 mt-1">{subtitle}</p>
         </div>
-    );
+        
+        {/* Page Toggle */}
+        <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800">
+          <Link
+            to="/v8"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              !isProPage 
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50" 
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+            )}
+          >
+            <Zap className="w-4 h-4" />
+            AMM
+          </Link>
+          <Link
+            to="/pro"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              isProPage 
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/50" 
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+            )}
+          >
+            <BookOpen className="w-4 h-4" />
+            Pro
+          </Link>
+        </div>
+      </div>
+
+      {/* Search + Categories + Count (all inline) */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        {/* Left side: Search + Count */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search markets..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-700 transition-colors"
+            />
+          </div>
+          <span className="text-xs text-slate-500 whitespace-nowrap">
+            <span className="text-white font-medium">{marketCount}</span> market{marketCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Right side: Categories */}
+        <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => onCategoryChange(cat.id)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                category === cat.id
+                  ? isProPage 
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                    : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              {cat.label} {cat.count !== undefined && `(${cat.count})`}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
+
+export default MarketHeader;

@@ -10,8 +10,10 @@
 
 **Decision**: Reduce tick count from **10,000** to **1,000**.
 
-- **Old**: 10,000 ticks ⇒ 0.01% increments (1 bp), `tick ∈ [0..9999]`, \(P(YES)=tick/10000\)
-- **New**: 1,000 ticks ⇒ 0.1% increments (10 bps), `tick ∈ [0..999]`, \(P(YES)=tick/1000\)
+- **Old**: 10,000 ticks ⇒ 0.01% increments (1 bp), `tick ∈ [1..9999]`, \(P(YES)=tick/10000\)
+- **New**: 1,000 ticks ⇒ 0.1% increments (10 bps), `tick ∈ [1..999]`, \(P(YES)=tick/1000\)
+
+> **Note**: Tick 0 (0% probability) is excluded — a 0% outcome is already resolved NO.
 
 **Why (alpha tradeoff)**:
 - **Pros**: fewer tick crossings in `executeMarketOrder`/quote simulation, smaller UI datasets, simpler UX.

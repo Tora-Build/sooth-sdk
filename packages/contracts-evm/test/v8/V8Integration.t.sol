@@ -5,18 +5,21 @@ import {Test} from "forge-std/Test.sol";
 import {TruthMarket} from "../../contracts/TruthMarket.sol";
 import {Collateralizer} from "../../contracts/Collateralizer.sol";
 import {TickBook} from "../../contracts/TickBook.sol";
+import {TickBookVault} from "../../contracts/TickBookVault.sol";
 import {OutcomeToken} from "../../contracts/OutcomeToken.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 /**
  * @title V8IntegrationTest
- * @notice End-to-end integration tests for V8 architecture
+ * @notice End-to-end integration tests for V8 architecture (Collateralizer domain)
+ * @dev TickBook tests are separate since it now uses TickBookVault
  */
 contract V8IntegrationTest is Test {
     // Contracts
     TruthMarket public market;
     Collateralizer public collateralizer;
     TickBook public tickBook;
+    TickBookVault public vault;
     ERC20Mock public usdc;
     
     // Actors
@@ -38,7 +41,9 @@ contract V8IntegrationTest is Test {
         // Deploy infrastructure
         usdc = new ERC20Mock();
         collateralizer = new Collateralizer(address(usdc));
-        tickBook = new TickBook();
+        vault = new TickBookVault(address(usdc), address(this));
+        tickBook = new TickBook(address(vault));
+        vault.setTickBook(address(tickBook));
         
         // Create market
         vm.prank(creator);
@@ -73,6 +78,10 @@ contract V8IntegrationTest is Test {
         usdc.mint(carol, 10000 * WAD);
     }
     
+    // ==================================================
+    // Collateralizer Split/Merge/Redeem Tests
+    // ==================================================
+    
     function test_FullLifecycle_YESWins() public {
         // === PHASE 1: Users split USDC into tokens ===
         vm.startPrank(alice);
@@ -89,28 +98,13 @@ contract V8IntegrationTest is Test {
         assertEq(OutcomeToken(yesToken).balanceOf(alice), 1000 * WAD);
         assertEq(OutcomeToken(noToken).balanceOf(alice), 1000 * WAD);
         
-        // === PHASE 2: Users provide depth to TickBook ===
-        vm.startPrank(alice);
-        OutcomeToken(yesToken).approve(address(tickBook), 500 * WAD);
-        OutcomeToken(noToken).approve(address(tickBook), 500 * WAD);
-        tickBook.placeLimitOrder(marketKey, 5000, 5000, 500 * WAD); // At 50% tick
-        vm.stopPrank();
-        
-        // === PHASE 3: Bob executes a market order ===
-        vm.startPrank(bob);
-        OutcomeToken(noToken).approve(address(tickBook), 100 * WAD);
-        uint256 yesReceived = tickBook.executeMarketOrder(marketKey, true, 100 * WAD, 6000);
-        vm.stopPrank();
-        
-        assertTrue(yesReceived > 0);
-        
-        // === PHASE 4: Market settles as YES ===
+        // === PHASE 2: Market settles as YES ===
         vm.prank(adjudicator);
         market.settle(1, 0); // YES wins, no T*
         
         assertTrue(market.isSettled());
         
-        // === PHASE 5: Users redeem winning tokens ===
+        // === PHASE 3: Users redeem winning tokens ===
         vm.startPrank(alice);
         uint256 aliceYesBalance = OutcomeToken(yesToken).balanceOf(alice);
         OutcomeToken(yesToken).approve(address(collateralizer), aliceYesBalance);
@@ -169,39 +163,6 @@ contract V8IntegrationTest is Test {
         assertEq(yesPayout, 500 * WAD); // 50% of 1000
         assertEq(noPayout, 500 * WAD);  // 50% of 1000
         assertEq(usdc.balanceOf(alice), 9000 * WAD + yesPayout + noPayout);
-    }
-    
-    function test_MultipleUsers_Trading() public {
-        // All users split tokens
-        address[3] memory users = [alice, bob, carol];
-        for (uint i = 0; i < users.length; i++) {
-            vm.startPrank(users[i]);
-            usdc.approve(address(collateralizer), 1000 * WAD);
-            collateralizer.split(address(market), 1000 * WAD);
-            vm.stopPrank();
-        }
-        
-        // Alice provides depth
-        vm.startPrank(alice);
-        OutcomeToken(yesToken).approve(address(tickBook), 1000 * WAD);
-        OutcomeToken(noToken).approve(address(tickBook), 1000 * WAD);
-        tickBook.placeLimitOrder(marketKey, 4900, 5100, 500 * WAD);
-        vm.stopPrank();
-        
-        // Bob and Carol trade
-        vm.startPrank(bob);
-        OutcomeToken(noToken).approve(address(tickBook), 100 * WAD);
-        tickBook.executeMarketOrder(marketKey, true, 100 * WAD, 6000);
-        vm.stopPrank();
-        
-        vm.startPrank(carol);
-        OutcomeToken(yesToken).approve(address(tickBook), 100 * WAD);
-        tickBook.executeMarketOrder(marketKey, false, 100 * WAD, 4000);
-        vm.stopPrank();
-        
-        // Verify total collateral is conserved
-        uint256 totalCollateral = collateralizer.getTotalCollateral(address(market));
-        assertEq(totalCollateral, 3000 * WAD);
     }
     
     function test_GuardianVeto_ThenResettle() public {

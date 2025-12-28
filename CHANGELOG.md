@@ -4,15 +4,72 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Tick Range Expanded** (2025-12-28):
+  - `TickBook.MAX_ORDER_TICK` changed from `MAX_TICK - 1` (998) to `MAX_TICK` (999).
+  - Valid tick range is now **1–999** (0.1% to 99.9%), was 1–998.
+  - Frontend updated to allow 99.9% probability orders.
+
+- **TickBookV2 Continuous Range Orders (Linear)** (2025-12-28):
+  - Added `TickBookV2.sol` implementing Uniswap V3-style **range positions stored once** (boundary `liquidityNet/liquidityGross`) with **linear** in-range price movement.
+  - Replaced per-tick order storage (O(range width) SSTORE) with boundary updates (O(1) w.r.t. range width).
+  - Added pro‑rata maker fill attribution via lazy-claim snapshots (`claimFills`) using cumulative fill/proceeds counters.
+
+### ⚠️ BREAKING CHANGES
+- **TickBook API Overhaul (ADR-051)**: Complete refactor of TickBook to vault-native architecture.
+  - `TickBook` constructor now takes `address _vault` instead of no arguments.
+  - `placeLimitOrder` signature: `(marketKey, outcome, tickLower, tickUpper, sharesPerTick)` — added `outcome` uint8.
+  - `executeMarketOrder` signature: `(marketKey, outcome, shares, limitTick)` — `isBuy` bool → `outcome` uint8.
+  - `cancelOrder` replaces `cancelLimitOrder` — simplified to `(marketKey, orderId)`.
+  - Outcome tokens no longer directly transferred; uses internal vault accounting.
+- **Tick Resolution**: 10,000 ticks → 1,000 ticks (0.01% → 0.1% increments).
+  - `TickMath.MAX_TICK` = 999 (was 9999).
+  - Initial market tick = 500 (was 5000).
+
+- **TickBookVault Interface Expansion (ADR-052)** (2025-12-28):
+  - `ITickBookVault` adds `refundMarketToAvailable(market, user, amountWad)` to support refunding unfilled maker collateral from `marketCollateralWad`.
+  - `TickBookV2` changes maker collateral flow to be **market-collateralized at placement** via `spendAvailableToMarket(...)` and refunded on cancel via `refundMarketToAvailable(...)`.
+
 ### Added
+- **TickBookVault Contract (ADR-051)** (2025-12-27):
+  - New `TickBookVault.sol` — Global per-chain USDC custody for TickBook.
+  - Manages `availableUsdcWad` and `reservedUsdcWad` per user.
+  - Tracks internal YES/NO shares per market (`yesInternal`, `noInternal`).
+  - Vault-native redemption via `redeemResolved(market)` after settlement.
+  - Capital-efficient collateralization: limit orders reserve `P * qty` (YES) or `(1-P) * qty` (NO).
+- **TickBook Vault-Native Matching** (2025-12-27):
+  - `TickBook` now integrates with `TickBookVault` for all collateral management.
+  - Removed direct ERC20 token transfers from TickBook.
+  - New vault hooks: `reserveUsdc`, `releaseUsdc`, `spendAvailableToMarket`, `spendReservedToMarket`, `creditOutcome`.
+- **Frontend TickBookVault Integration** (2025-12-27):
+  - New `useTickBookVaultDirect` hook for reading vault balances.
+  - Pro page now shows vault balances (available, reserved, internal YES/NO).
+  - Deposit/Withdraw USDC to/from vault in Pro terminal.
+  - ABIs updated: `TickBook.abi.json`, `TickBookVault.abi.json`.
 - **TickBook Vault-Native Orderbook Plan (Research)** (2025-12-27):
   - Added consolidated design doc: `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
   - Captures Phase 1: USDC-only Pro UX + internal YES/NO shares display + vault-native matching.
 
+- **TickBookV2 Spec (Research)** (2025-12-28):
+  - Added: `packages/contracts-evm/docs/research/V8/TICKBOOK_V2_CONTINUOUS_RANGE.md`
+  - Added: `packages/contracts-evm/test/v8/TickBookV2.t.sol` (17 tests)
+
 ### Changed
-- **TickBook Tick Resolution (Planned)** (2025-12-27):
-  - Design decision to reduce TickBook resolution from **10,000** ticks → **1,000** ticks (0.01% → 0.1% increments).
-  - Rationale: alpha simplicity + fewer tick crossings; consequence: coarser price grid.
+- **Tick Resolution Reduction** (2025-12-27):
+  - `TickMath`: `MAX_TICK` 9999 → 999, `NUM_TICKS` 10000 → 1000.
+  - `TickBitmap`: Updated for 1000-tick range (10 words × 100 bits).
+  - Frontend price calculations updated: `tick / 1000` instead of `tick / 10000`.
+- **DeployV8.s.sol**: Now deploys `TickBookVault` before `TickBook`, wires them together.
+- **Test Suite Updates**: All TickBook tests refactored for vault-native flow and 1,000 ticks.
+
+### Deployment
+- **Base Sepolia V8.4 (ADR-051)** (2025-12-27):
+  - MockUSDC: `0x856FbEebD91Db28e3b4550e7602142Cfab683796` (unchanged)
+  - Collateralizer: `0x43A6BDdFC1D0C382eD20a0197B4a223A8650831c`
+  - AMMEngine: `0x211cbEf79b13C0ed3Ba77A765504eB4419088730`
+  - **TickBookVault**: `0x5e712246ce7cF99164421a25C79214B3f6194395` ✨ NEW
+  - **TickBook** (vault-native): `0x961654cE125D0FFA8f561d94922256036E44B377` ✨ NEW
+  - LaunchpadEngine: `0xd600C85c0cCBf848Ae1853d47492A776ABcFb703`
 
 ### Fixed
 - **🔴 CRITICAL: AMMEngine Lock Accounting Bug** (2025-12-27):

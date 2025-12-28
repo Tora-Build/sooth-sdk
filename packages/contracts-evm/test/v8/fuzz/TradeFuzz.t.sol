@@ -7,6 +7,7 @@ import {AMMEngine} from "../../../contracts/AMMEngine.sol";
 import {TruthMarket} from "../../../contracts/TruthMarket.sol";
 import {Collateralizer} from "../../../contracts/Collateralizer.sol";
 import {TickBook} from "../../../contracts/TickBook.sol";
+import {TickBookVault} from "../../../contracts/TickBookVault.sol";
 import {LMSRMath} from "../../../contracts/libraries/LMSRMath.sol";
 import {TickMath} from "../../../contracts/libraries/TickMath.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
@@ -20,6 +21,7 @@ contract TradeFuzzTest is Test {
     LaunchpadEngine public launchpad;
     AMMEngine public amm;
     Collateralizer public collateralizer;
+    TickBookVault public tickBookVault;
     TickBook public tickBook;
     TruthMarket public market;
     ERC20Mock public usdc;
@@ -41,7 +43,10 @@ contract TradeFuzzTest is Test {
         usdc = new ERC20Mock();
         amm = new AMMEngine(address(usdc), owner);
         collateralizer = new Collateralizer(address(usdc));
-        tickBook = new TickBook();
+        tickBookVault = new TickBookVault(address(usdc), owner);
+        tickBook = new TickBook(address(tickBookVault));
+        vm.prank(owner);
+        tickBookVault.setTickBook(address(tickBook));
 
         vm.prank(owner);
         launchpad = new LaunchpadEngine(
@@ -175,8 +180,8 @@ contract TradeFuzzTest is Test {
     // ============================================
 
     function testFuzz_TickMath_ValidTick(uint16 tick) public pure {
-        // Bound tick to valid range [1, 9998] (9999 is MAX_TICK, not tradeable)
-        tick = uint16(bound(tick, 1, 9998));
+        // Bound tick to valid range [1, 998] for 1000-tick system
+        tick = uint16(bound(tick, 1, 998));
 
         // Virtual reserves should be calculable without revert
         uint256 L = 1000 * WAD;
@@ -189,25 +194,25 @@ contract TradeFuzzTest is Test {
     }
 
     function testFuzz_TickMath_ReserveSymmetry(uint16 tick, uint256 L) public pure {
-        // Bound inputs
-        tick = uint16(bound(tick, 1, 9998));
+        // Bound inputs (1,000 tick system)
+        tick = uint16(bound(tick, 1, 998));
         L = bound(L, 1 * WAD, 10000 * WAD);
 
         uint256 xv = TickMath.getVirtualReserveYES(L, tick);
         uint256 yv = TickMath.getVirtualReserveNO(L, tick);
 
-        // At tick 5000 (50%), reserves should be symmetric
-        if (tick == 5000) {
+        // At tick 500 (50%), reserves should be symmetric
+        if (tick == 500) {
             assertApproxEqRel(xv, yv, 0.01e18, "At 50%, reserves should be symmetric");
         }
 
         // At higher ticks, YES reserve should be less than NO
-        if (tick > 5000) {
+        if (tick > 500) {
             assertLe(xv, yv, "Above 50%, YES reserve should be <= NO reserve");
         }
 
         // At lower ticks, NO reserve should be less than YES
-        if (tick < 5000) {
+        if (tick < 500) {
             assertLe(yv, xv, "Below 50%, NO reserve should be <= YES reserve");
         }
     }
@@ -226,4 +231,3 @@ contract TradeFuzzTest is Test {
         assertLe(amountOut, reserveOut, "AmountOut should not exceed reserveOut");
     }
 }
-
