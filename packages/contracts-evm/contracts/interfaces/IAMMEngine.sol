@@ -15,7 +15,7 @@ interface IAMMEngine {
     event PositionTraded(
         address indexed user,
         address indexed market,
-        uint8 outcome,         // 0 = YES, 1 = NO
+        uint8 outcome,         // 0 = NO, 1 = YES (consistent with TruthMarket)
         int256 deltaShares,    // positive = buy, negative = sell
         uint256 cost,
         uint256 newQYes,
@@ -92,7 +92,7 @@ interface IAMMEngine {
     /**
      * @notice Execute trade in position domain
      * @param market Market address
-     * @param outcome 0 = YES, 1 = NO
+     * @param outcome 0 = NO, 1 = YES (consistent with TruthMarket)
      * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
      * @param maxCostOrMinProceeds For buys: max cost; for sells: min proceeds (slippage)
      * @return actualCost Actual USDC spent (buys) or received (sells)
@@ -110,7 +110,7 @@ interface IAMMEngine {
      *      while USDC can still be routed through the LaunchpadEngine economics layer.
      * @param user Trader whose position/balances are affected
      * @param market Market address
-     * @param outcome 0 = YES, 1 = NO
+     * @param outcome 0 = NO, 1 = YES (consistent with TruthMarket)
      * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
      * @param maxCostOrMinProceeds For buys: max cost; for sells: min proceeds
      */
@@ -142,7 +142,7 @@ interface IAMMEngine {
     /**
      * @notice Get quote for position trade (view-only)
      * @param market Market address
-     * @param outcome 0 = YES, 1 = NO
+     * @param outcome 0 = NO, 1 = YES (consistent with TruthMarket)
      * @param deltaShares Share delta in WAD (positive = buy, negative = sell)
      * @return cost Estimated cost/proceeds in USDC (WAD)
      * @return newPrice New YES probability after trade

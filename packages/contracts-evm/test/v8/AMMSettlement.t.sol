@@ -25,9 +25,9 @@ contract AMMSettlementTest is Test {
     uint256 constant WAD = 1e18;
     uint256 constant INITIAL_LIQUIDITY = 1000 * WAD;
 
-    // V8.2 outcome constants
-    uint8 constant YES = 0;
-    uint8 constant NO = 1;
+    // V8.2 outcome constants (aligned with TruthMarket: 0=NO, 1=YES, 2=INVALID)
+    uint8 constant YES = 1;
+    uint8 constant NO = 0;
 
     function setUp() public {
         // Deploy mock USDC (18 decimals for test simplicity)

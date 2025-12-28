@@ -84,7 +84,8 @@ library TickMath {
         pure
         returns (uint256 reserveNO)
     {
-        require(tick <= MAX_TICK && tick < MAX_TICK, "TickMath: invalid tick");
+        // tick must be less than MAX_TICK to avoid division by zero (denominator = 1000 - tick)
+        require(tick > 0 && tick < MAX_TICK, "TickMath: invalid tick");
         
         // sqrt(i/(N-i)) where N=1000
         uint256 numerator = uint256(tick);

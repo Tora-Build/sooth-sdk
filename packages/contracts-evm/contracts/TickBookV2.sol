@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
 
@@ -12,7 +13,7 @@ import {TickMath} from "./libraries/TickMath.sol";
  * @dev Range orders are stored as single entries. Price moves linearly within ranges.
  *      Uses liquidityNet at tick boundaries for O(1) order placement.
  */
-contract TickBookV2 {
+contract TickBookV2 is ReentrancyGuard {
     using TickBitmap for TickBitmap.Bitmap;
 
     // ============================================
@@ -609,13 +610,26 @@ contract TickBookV2 {
         uint8 outcome,
         uint256 shares,
         uint256 minProceeds
-    ) external returns (uint256 sharesSold, uint256 proceeds) {
+    ) external nonReentrant returns (uint256 sharesSold, uint256 proceeds) {
         Market memory m = _markets[marketKey];
         require(m.isActive, "!active");
         require(ITruthMarket(m.truthMarket).isLive(), "!live");
         require(outcome <= 1, "!out");
         require(shares > 0, "!amt");
 
+        return _executeSpotSellInternal(marketKey, m, outcome, shares, minProceeds);
+    }
+
+    /**
+     * @dev Internal implementation of executeSpotSell
+     */
+    function _executeSpotSellInternal(
+        bytes32 marketKey,
+        Market memory m,
+        uint8 outcome,
+        uint256 shares,
+        uint256 minProceeds
+    ) internal returns (uint256 sharesSold, uint256 proceeds) {
         // Debit user's internal shares
         vault.lockOutcome(m.truthMarket, msg.sender, outcome, shares);
 
@@ -644,7 +658,7 @@ contract TickBookV2 {
 
         // The sold shares effectively "burn" (they go to match with maker's new shares)
         // Proceeds are credited to seller from market collateral
-        
+
         emit MarketOrderExecuted(msg.sender, marketKey, outcome, shares, sharesSold, proceeds, startTick, state.currentTick, shares - sharesSold);
     }
 
@@ -660,12 +674,17 @@ contract TickBookV2 {
      * @return proceeds USDC received from spot portion
      * @return shortCost USDC spent on short portion
      */
+    /**
+     * @notice Execute a hybrid sell operation (spot + short)
+     * @dev Uses internal function calls instead of external `this.` calls to prevent
+     *      bypassing reentrancy guards and to save gas.
+     */
     function executeHybridSell(
         bytes32 marketKey,
         uint8 outcome,
         uint256 totalShares,
         uint256 minProceeds
-    ) external returns (uint256 spotSold, uint256 shortSold, uint256 proceeds, uint256 shortCost) {
+    ) external nonReentrant returns (uint256 spotSold, uint256 shortSold, uint256 proceeds, uint256 shortCost) {
         Market memory m = _markets[marketKey];
         require(m.isActive, "!active");
         require(ITruthMarket(m.truthMarket).isLive(), "!live");
@@ -680,19 +699,19 @@ contract TickBookV2 {
         uint256 spotPortion = ownedShares < totalShares ? ownedShares : totalShares;
         uint256 shortPortion = totalShares - spotPortion;
 
-        // Execute spot portion
+        // Execute spot portion using internal helper
         if (spotPortion > 0) {
-            (spotSold, proceeds) = this.executeSpotSell(marketKey, outcome, spotPortion, 0);
+            (spotSold, proceeds) = _executeSpotSellInternal(marketKey, m, outcome, spotPortion, 0);
             require(proceeds >= minProceeds, "slip");
         }
 
-        // Execute short portion (= buy opposite outcome)
+        // Execute short portion (= buy opposite outcome) using internal helper
         if (shortPortion > 0) {
             uint8 oppositeOutcome = outcome == 1 ? 0 : 1;
             // Calculate max cost for short (use all available USDC as upper bound)
             uint256 maxShortCost = vault.availableUsdcWad(msg.sender);
-            
-            (shortSold, shortCost, ) = this.executeMarketOrder(marketKey, oppositeOutcome, shortPortion, maxShortCost);
+
+            (shortSold, shortCost, ) = _executeMarketOrderInternal(marketKey, m, oppositeOutcome, shortPortion, maxShortCost);
         }
     }
 
@@ -854,13 +873,26 @@ contract TickBookV2 {
         uint8 outcome,
         uint256 shares,
         uint256 maxCost
-    ) external returns (uint256 sharesFilled, uint256 totalCost, uint256 refunded) {
+    ) external nonReentrant returns (uint256 sharesFilled, uint256 totalCost, uint256 refunded) {
         Market memory m = _markets[marketKey];
         require(m.isActive, "!active");
         require(ITruthMarket(m.truthMarket).isLive(), "!live");
         require(outcome <= 1, "!out");
         require(shares > 0, "!amt");
 
+        return _executeMarketOrderInternal(marketKey, m, outcome, shares, maxCost);
+    }
+
+    /**
+     * @dev Internal implementation of executeMarketOrder
+     */
+    function _executeMarketOrderInternal(
+        bytes32 marketKey,
+        Market memory m,
+        uint8 outcome,
+        uint256 shares,
+        uint256 maxCost
+    ) internal returns (uint256 sharesFilled, uint256 totalCost, uint256 refunded) {
         // Reserve max cost upfront (user already approved this amount)
         vault.spendAvailableToMarket(msg.sender, m.truthMarket, maxCost);
 
@@ -883,25 +915,25 @@ contract TickBookV2 {
         require(totalCost <= maxCost, "slip");
 
         if (sharesFilled > 0) {
-        // Churn-safe maker attribution: update per-liquidity growth at trade time
-        uint256 totalLiq = _totalLiquidity[marketKey][makerOutcome];
+            // Churn-safe maker attribution: update per-liquidity growth at trade time
+            uint256 totalLiq = _totalLiquidity[marketKey][makerOutcome];
             if (totalLiq > 0) {
                 // Maker receives opposite shares equal to sharesFilled
-        _fillGrowthGlobalX128[marketKey][makerOutcome] += (sharesFilled * Q128) / totalLiq;
+                _fillGrowthGlobalX128[marketKey][makerOutcome] += (sharesFilled * Q128) / totalLiq;
 
-        // Maker collateral used is the complement of taker cost
-        uint256 makerCollateralUsed = sharesFilled > totalCost ? (sharesFilled - totalCost) : 0;
-        _collateralUsedGrowthGlobalX128[marketKey][makerOutcome] += (makerCollateralUsed * Q128) / totalLiq;
+                // Maker collateral used is the complement of taker cost
+                uint256 makerCollateralUsed = sharesFilled > totalCost ? (sharesFilled - totalCost) : 0;
+                _collateralUsedGrowthGlobalX128[marketKey][makerOutcome] += (makerCollateralUsed * Q128) / totalLiq;
             }
-        
-        // Taker receives shares
-        vault.creditOutcome(m.truthMarket, msg.sender, outcome, sharesFilled);
+
+            // Taker receives shares
+            vault.creditOutcome(m.truthMarket, msg.sender, outcome, sharesFilled);
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // REFUND: Return unused collateral (market orders never sit in book)
         // ═══════════════════════════════════════════════════════════════════
-        
+
         if (maxCost > totalCost) {
             refunded = maxCost - totalCost;
             vault.refundMarketToAvailable(m.truthMarket, msg.sender, refunded);

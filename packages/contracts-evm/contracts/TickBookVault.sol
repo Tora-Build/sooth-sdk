@@ -53,12 +53,25 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     // Admin
     // ============================================
 
+    /**
+     * @notice Set or update the authorized TickBook contract
+     * @dev Owner can update the tickBook address for upgrades or migrations.
+     *      Previous tickBook loses authorization immediately.
+     */
     function setTickBook(address _tickBook) external onlyOwner {
         require(_tickBook != address(0), "TickBookVault: zero tickBook");
-        require(tickBook == address(0), "TickBookVault: tickBook already set");
+        address previousTickBook = tickBook;
         tickBook = _tickBook;
         emit TickBookSet(_tickBook);
+
+        // Emit event for tracking when tickBook is updated (not just initially set)
+        if (previousTickBook != address(0)) {
+            emit TickBookUpdated(previousTickBook, _tickBook);
+        }
     }
+
+    /// @notice Emitted when tickBook is updated (not just initially set)
+    event TickBookUpdated(address indexed previousTickBook, address indexed newTickBook);
 
     // ============================================
     // User USDC
