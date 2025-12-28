@@ -1,43 +1,43 @@
 {
-  "version": "8.11.0",
+  "version": "8.12.0",
   "markets": [
     {
-      "id": "base-v811-alien-life",
+      "id": "base-v812-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "contractAddress": "0xA2C0Bf2766a4E799bC55fc88d7e4B63dCFC994a7",
+      "contractAddress": "0xa4838e6E410570438d8B074e9459082b228A460C",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-      "yesToken": "0xffaa3d268fa6c20a739bdc6f45c6fb134550ff56",
-      "noToken": "0xba10a7822e9edf0aeaa0e20fcf9aa687238f401f",
+      "yesToken": "0x94Cc020f92351D9853ce1bdD52924979F70eE54c",
+      "noToken": "0x07527CD81fB606d897dbfa9E923Dc9c8bf136976",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v8.11.0",
+      "version": "v8.12.0",
       "isGraduated": false,
-      "deadline": 1769523254,
+      "deadline": 1769527314,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },
     {
-      "id": "base-v811-btc-100k",
+      "id": "base-v812-btc-100k",
       "name": "BTC 7-day TWAP >= $100k",
       "symbol": "BTC100K",
-      "contractAddress": "0xC0154e2Ad8f170B1a07a19726b29D74D62a32deD",
+      "contractAddress": "0x8027387f1FD1963513661A0051AdD224244e186E",
       "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-      "yesToken": "0x273b8cd6e4cc53b8bb57be792e6004b5690b9350",
-      "noToken": "0x25e700c3de7c7e0d249526bf2a236561fb1dbc0d",
+      "yesToken": "0x92831dc962c41A13b202B344B8301Fa8c4237074",
+      "noToken": "0x074F213e08c88d373d91f312fC4d056be7A531e9",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v8.11.0",
+      "version": "v8.12.0",
       "isGraduated": false,
-      "deadline": 1769523254,
+      "deadline": 1769527314,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },

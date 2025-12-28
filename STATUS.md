@@ -1,20 +1,36 @@
 # Project Status
 
-> Last Updated: 2025-12-29 (V8.11.0 Monad Testnet Deployment)
+> Last Updated: 2025-12-29 (V8.12.0 Limit Order Crossing Fix)
 
-- **✅ MONAD TESTNET LIVE** — V8.11.0 deployed to Monad Testnet (Chain 10143) with 2 demo markets.
-- **✅ RPC FALLBACKS CONFIGURED** — Monad uses 3 fallback RPCs (QuickNode → Ankr → Foundation).
-- **✅ LN2 CONSTANT FIX** — Fixed undefined `LN2` identifier in `getGraduationProgress()` (should be `LN2_WAD`).
+- **✅ CRITICAL CROSSING BUG FIXED** — Overlapping limit orders now fully cross instead of only ~0.1%.
+- **✅ V8.12.0 DEPLOYED** — Base Sepolia with corrected TickBookV2.
+- **✅ MONAD TESTNET LIVE** — V8.11.0 still active on Monad (crossing fix not yet deployed there).
+
+## Active Deployment (Base Sepolia) — V8.12.0 🔵
+| Contract | Address | Status |
+|----------|---------|--------|
+| MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
+| Collateralizer | `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106` | ✅ NEW |
+| AMMEngine | `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513` | ✅ NEW |
+| TickBookVault | `0x44fEbdDc46C785c00a1c84bC13787927c93B014B` | ✅ NEW |
+| TickBookV2 | `0x22A3B8d12cf5277F27A2d9a03312e643b1996492` | ✅ NEW (crossing fix) |
+| LaunchpadEngine | `0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70` | ✅ NEW |
+
+### Base Sepolia V8.12.0 Markets
+| Market | Address | Deadline |
+|--------|---------|----------|
+| UN Confirms Alien Life | `0xa4838e6E410570438d8B074e9459082b228A460C` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0x8027387f1FD1963513661A0051AdD224244e186E` | 2026-01-27 |
 
 ## Active Deployment (Monad Testnet) — V8.11.0 🟣
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0xf067C23BEE9D3d5c830ca0450A751836c181f566` | ✅ OK |
-| Collateralizer | `0xF495702a9111513b7A2F77896021193312ddA851` | ✅ NEW |
-| AMMEngine | `0x65b72e4d5138AeEdF55459B8f7527505217dcEBc` | ✅ NEW |
-| TickBookVault | `0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0` | ✅ NEW |
-| TickBookV2 | `0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7` | ✅ NEW |
-| LaunchpadEngine | `0x39975787F1fa28fc92473De8b25070616AAbc261` | ✅ NEW |
+| Collateralizer | `0xF495702a9111513b7A2F77896021193312ddA851` | ✅ OK |
+| AMMEngine | `0x65b72e4d5138AeEdF55459B8f7527505217dcEBc` | ✅ OK |
+| TickBookVault | `0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0` | ✅ OK |
+| TickBookV2 | `0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7` | ⚠️ OLD (needs crossing fix) |
+| LaunchpadEngine | `0x39975787F1fa28fc92473De8b25070616AAbc261` | ✅ OK |
 
 ### Monad V8.11.0 Markets
 | Market | Address | Deadline |
@@ -22,29 +38,18 @@
 | UN Confirms Alien Life | `0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2` | 2026-01-27 |
 | BTC 7-day TWAP >= $100k | `0x1cB930d768AD866C3211A14894B1E924726bac0b` | 2026-01-27 |
 
-## Active Deployment (Base Sepolia) — V8.11.0
-| Contract | Address | Status |
-|----------|---------|--------|
-| MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0x51762C3a51E0C53B32e234cc699F91a75AfCc24f` | ✅ OK |
-| AMMEngine | `0x895dD6997f6c0F1Ec0f71C82CA66a437a230efdc` | ✅ OK |
-| TickBookVault | `0xe67dFc6498444B5FdcaB8eD6687AfE5d9bCE08ac` | ✅ OK |
-| TickBookV2 | `0x903FD0218F1Aa061340EAf2811478f59b8Dc2260` | ✅ OK |
-| LaunchpadEngine | `0xe0e82228aE890C8BdB33C249BfB60D39CD77eD2c` | ✅ OK (LN2 fix) |
-
-### Base Sepolia V8.11.0 Markets
-| Market | Address | Deadline |
-|--------|---------|----------|
-| UN Confirms Alien Life | `0xA2C0Bf2766a4E799bC55fc88d7e4B63dCFC994a7` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0xC0154e2Ad8f170B1a07a19726b29D74D62a32deD` | 2026-01-27 |
-
 ## Pending Work (Next Session)
+- [ ] **Deploy V8.12.0 to Monad Testnet** — Apply crossing fix to Monad deployment.
 - [ ] **Verify contracts on Basescan** — For transparency.
+- [ ] **Test limit order crossing in UI** — Verify overlapping orders fully match.
 - [ ] **Test hybrid sell flow** — Verify executeHybridSell works correctly in UI.
-- [ ] **Add spot sell limit order support** — Wire placeSpotSellOrder in Pro terminal.
-- [ ] **UI Lint Cleanup** — Resolve remaining Type errors in `MarketDetail.tsx`.
 
-## Completed This Session (2025-12-28)
+## Completed This Session (2025-12-29)
+- ✅ **Critical Limit Order Crossing Fix** — `_totalLiquidity` was tracking density instead of total shares, causing only 0.1% of overlapping orders to cross.
+- ✅ **V8.12.0 Deployment** — Full Base Sepolia redeployment with corrected TickBookV2.
+- ✅ **Pro-rata Fill Attribution Fix** — `_claimInternal` and `getPendingFills` now use `order.sharesTotal` instead of recalculating.
+
+## Completed Previous Session (2025-12-28)
 - ✅ **Fixed `useDeployments` Hook Crash** — Restored nested `networks` structure in `deployments.json` and added defensive null checks.
 - ✅ **Monad Testnet Integration** — Integrated Monad Testnet (Chain 10143) contract addresses and demo markets into config.
 - ✅ **ADR-054: LP Token Unification (USD-par)** — Unified creator and trader LP minting to 1:1 USD-par, fixing the 1.44x discrepancy.

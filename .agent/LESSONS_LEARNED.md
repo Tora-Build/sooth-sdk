@@ -5,6 +5,23 @@ AI agents should read this at the start of sessions to avoid repeating errors.
 
 ---
 
+## Liquidity Tracking Consistency
+
+### ❌ Pattern: Tracking density vs total shares = crossing failures
+- **Date:** 2025-12-29 (V8.12.0)
+- **Bug:** `_totalLiquidity` tracked density (shares per tick) but `_tryCross` compared against `density × range`.
+- **Root Cause:** Inconsistent semantics between what's stored vs what's compared.
+- **Symptom:** Overlapping orders only crossed ~0.1% instead of fully matching.
+- **Detection:** User reported "FILL: 10.01 (0%)" when expecting full 10,000 share cross.
+- **Fix:** 
+  1. Store `sharesTotal` in `_totalLiquidity` (not just density)
+  2. Use `order.sharesTotal` in pro-rata calculations (not recalculated)
+- **Rule:** When tracking aggregates, ensure the unit matches how it's used:
+  - If comparing X against Y, both must be in same unit (total shares, not density)
+  - Use stored fields (e.g., `order.sharesTotal`) rather than recalculating
+
+---
+
 ## Constant Naming Consistency
 
 ### ❌ Pattern: Inconsistent constant names after refactoring = compilation errors

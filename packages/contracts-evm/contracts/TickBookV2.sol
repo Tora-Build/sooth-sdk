@@ -325,7 +325,7 @@ contract TickBookV2 {
         _collateralUsedGrowthLastX128[marketKey][orderId] = _collateralUsedGrowthGlobalX128[marketKey][outcome];
 
         // Track total liquidity
-        _totalLiquidity[marketKey][outcome] += density;
+        _totalLiquidity[marketKey][outcome] += sharesTotal;
 
         // Update tick boundaries (TWO SSTORES)
         _ticks[marketKey][outcome][tickLower].liquidityNet += int128(uint128(density));
@@ -407,8 +407,8 @@ contract TickBookV2 {
         // Legacy return slot (not used in this model)
         proceedsClaimed = 0;
 
-        // Decrement total liquidity (full)
-        _totalLiquidity[marketKey][order.outcome] -= order.liquidity;
+        // Decrement total liquidity
+        _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
 
         // Mark inactive
         order.active = false;
@@ -454,7 +454,7 @@ contract TickBookV2 {
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
         if (globalFillGrowth > lastFillGrowth) {
             uint256 delta = globalFillGrowth - lastFillGrowth;
-            filledShares = (delta * order.liquidity) / Q128;
+            filledShares = (delta * order.sharesTotal) / Q128;
             _fillGrowthLastX128[marketKey][orderId] = globalFillGrowth;
         }
 
@@ -463,7 +463,7 @@ contract TickBookV2 {
         uint256 lastUsedGrowth = _collateralUsedGrowthLastX128[marketKey][orderId];
         if (globalUsedGrowth > lastUsedGrowth) {
             uint256 delta = globalUsedGrowth - lastUsedGrowth;
-            collateralUsedWad = (delta * order.liquidity) / Q128;
+            collateralUsedWad = (delta * order.sharesTotal) / Q128;
             _collateralUsedGrowthLastX128[marketKey][orderId] = globalUsedGrowth;
         }
 
@@ -1096,7 +1096,7 @@ contract TickBookV2 {
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
         if (globalFillGrowth > lastFillGrowth) {
             uint256 delta = globalFillGrowth - lastFillGrowth;
-            pendingShares = (delta * order.liquidity) / Q128;
+            pendingShares = (delta * order.sharesTotal) / Q128;
         }
         
         // Calculate pending collateral usage from global growth
@@ -1104,7 +1104,7 @@ contract TickBookV2 {
         uint256 lastUsedGrowth = _collateralUsedGrowthLastX128[marketKey][orderId];
         if (globalUsedGrowth > lastUsedGrowth) {
             uint256 delta = globalUsedGrowth - lastUsedGrowth;
-            pendingCollateral = (delta * order.liquidity) / Q128;
+            pendingCollateral = (delta * order.sharesTotal) / Q128;
         }
     }
 

@@ -1,8 +1,8 @@
 {
-  "version": "8.11.0",
-  "collateralizer": "0x163F3A299ab690054504fFF81c191a9C2B8aC864",
-  "ammEngine": "0xDa029Cce99E0F217Ff3f31A246b39d1eD3772B88",
-  "tickBookVault": "0xfe4aE4aa822145C85b3B06caAa09C0bC776adC6e",
-  "tickBook": "0x09DdB2Cee5281BBD04c2C77324DFD5095ff02507",
-  "launchpadEngine": "0x2451fCE6f0B7819E4567EDf75323C9653D703047"
+  "version": "8.12.0",
+  "collateralizer": "0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106",
+  "ammEngine": "0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513",
+  "tickBookVault": "0x44fEbdDc46C785c00a1c84bC13787927c93B014B",
+  "tickBook": "0x22A3B8d12cf5277F27A2d9a03312e643b1996492",
+  "launchpadEngine": "0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70"
 }

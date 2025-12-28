@@ -2,13 +2,30 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
-## [8.12.0] - 2025-12-28
+## [8.12.0] - 2025-12-29
 
-### Added
+### Deployed
+- **V8.12.0 Limit Order Crossing Fix - Base Sepolia**:
+  - **Collateralizer**: `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106`
+  - **AMMEngine**: `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513`
+  - **TickBookVault**: `0x44fEbdDc46C785c00a1c84bC13787927c93B014B`
+  - **TickBookV2**: `0x22A3B8d12cf5277F27A2d9a03312e643b1996492`
+  - **LaunchpadEngine**: `0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70`
+  - Market 1 (Alien Life): `0xa4838e6E410570438d8B074e9459082b228A460C`
+  - Market 2 (BTC TWAP): `0x8027387f1FD1963513661A0051AdD224244e186E`
+
+### Fixed
+- **Critical Limit Order Crossing Bug** (2025-12-29):
+  - `_totalLiquidity` was tracking only density (shares per tick) instead of total shares (density × range).
+  - This caused overlapping orders to cross only ~0.1% of shares instead of the full order.
+  - Fix: Track `sharesTotal` in `_totalLiquidity` and use `order.sharesTotal` in pro-rata fill calculations.
+  - Verified: `test_LimitOrderCrossing_OverlappingRanges` now crosses 10,000 shares (was only 10).
+
+### Added (Previous)
 - **Monad Testnet Integration**: Added Chain ID `10143` to `deployments.json` and synchronized `markets.json`.
 - **Multi-Chain Resilience**: Application now supports Base Sepolia and Monad Testnet simultaneously.
 
-### Fixed
+### Fixed (Previous)
 - **Critical `useDeployments` Hook Crash**: 
     - Resolved `TypeError: Cannot read properties of undefined` by restoring nested `networks` structure in `deployments.json`.
     - Added defensive null-checks in the hook to prevent runtime white-screens on malformed config.
