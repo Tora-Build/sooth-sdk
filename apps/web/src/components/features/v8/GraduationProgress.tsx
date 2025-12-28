@@ -1,30 +1,36 @@
 // GraduationProgress.tsx - Visual graduation progress indicator for Launchpad markets
+// Graduation is based on FEES ACCRUED, not initial liquidity!
 
 import React from 'react';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 import { Zap, TrendingUp, Trophy } from 'lucide-react';
 
 interface GraduationProgressProps {
-    bBase: bigint;
-    graduationThreshold: bigint;
+    feesAccrued: bigint;           // WAD (18 decimals) - from getGraduationProgress
+    graduationThreshold: bigint;    // WAD (18 decimals) - from getGraduationProgress
+    graduationProgress?: number;    // 0-100 percentage (optional, calculated if not provided)
     isGraduated: boolean;
-    feesAccrued?: bigint;
+    canGraduate?: boolean;
     onGraduate?: () => void;
     isGraduatePending?: boolean;
 }
 
 export const GraduationProgress: React.FC<GraduationProgressProps> = ({
-    bBase,
-    graduationThreshold,
-    isGraduated,
     feesAccrued,
+    graduationThreshold,
+    graduationProgress,
+    isGraduated,
+    canGraduate: canGraduateProp,
     onGraduate,
     isGraduatePending
 }) => {
-    const currentLiq = bBase ? parseFloat(formatEther(bBase)) : 0;
-    const thresholdVal = graduationThreshold ? parseFloat(formatEther(graduationThreshold)) : 10000;
-    const progressPercent = Math.min((currentLiq / thresholdVal) * 100, 100);
-    const canGraduate = progressPercent >= 100 && !isGraduated;
+    // Values are in WAD (18 decimals) from the contract
+    const feesVal = feesAccrued ? parseFloat(formatUnits(feesAccrued, 18)) : 0;
+    const thresholdVal = graduationThreshold ? parseFloat(formatUnits(graduationThreshold, 18)) : 10000;
+    
+    // Use provided progress or calculate from fees/threshold
+    const progressPercent = graduationProgress ?? (thresholdVal > 0 ? Math.min((feesVal / thresholdVal) * 100, 100) : 0);
+    const canGraduate = canGraduateProp ?? (progressPercent >= 100 && !isGraduated);
 
     // Fee rate based on graduation
     const feeRate = isGraduated ? '1%' : '5%';
@@ -63,7 +69,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
             {/* Progress Bar */}
             <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Liquidity</span>
+                    <span className="text-slate-400">Fee Progress</span>
                     <span className="font-mono text-white">
                         {progressPercent.toFixed(1)}%
                     </span>
@@ -92,7 +98,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                 </div>
 
                 <div className="flex justify-between text-xs text-slate-500">
-                    <span className="font-mono">${currentLiq.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    <span className="font-mono">${feesVal.toLocaleString(undefined, { maximumFractionDigits: 0 })} earned</span>
                     <span className="font-mono">${thresholdVal.toLocaleString(undefined, { maximumFractionDigits: 0 })} target</span>
                 </div>
             </div>
@@ -121,9 +127,9 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
             {/* Stats Row */}
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
                 <div>
-                    <div className="text-xs text-slate-500 mb-1">Total Fees Earned</div>
+                    <div className="text-xs text-slate-500 mb-1">Fees Earned</div>
                     <div className="font-mono text-white">
-                        ${feesAccrued ? parseFloat(formatEther(feesAccrued)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0.00'}
+                        ${feesVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </div>
                 </div>
                 <div>
@@ -134,7 +140,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                         ) : (
                             <>
                                 <TrendingUp size={14} className="text-blue-400" />
-                                ${Math.max(0, thresholdVal - currentLiq).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                ${Math.max(0, thresholdVal - feesVal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </>
                         )}
                     </div>

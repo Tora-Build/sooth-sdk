@@ -4,7 +4,69 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking Changes
+- **TickBook `registerMarket` now requires initial probability** (2025-12-28):
+  - `ITickBook.registerMarket()` signature changed: now requires `initialProbabilityWad` (4th param).
+  - TickBook/TickBookV2 initializes `currentTick` from AMM probability instead of hardcoded 50%.
+  - LaunchpadEngine reads `ammEngine.getMarketState()` at graduation and passes probability to TickBook.
+  - **Why**: Previously, TickBook always started at 50% regardless of actual AMM price, creating false arbitrage signals when AMM price differed significantly.
+
+- **TickBookV2 `placeRangeOrder` returns 3 values** (2025-12-28):
+  - Now returns `(orderId, crossingFilled, crossingCost)` instead of just `orderId`.
+  - `crossingFilled` and `crossingCost` are currently always 0 (see Known Limitations).
+  - **Why**: Future-proofing for proper CLOB crossing semantics.
+
+- **TickBookV2 `executeMarketOrder` returns 3 values** (2025-12-28):
+  - Now returns `(sharesFilled, totalCost, refunded)` instead of just 2 values.
+  - Market orders now reserve `maxCost` upfront and refund unused collateral.
+  - **Why**: Proper market order semantics - takers should get refunds for unfilled portions.
+
+### Known Limitations
+- **TickBookV2 does not auto-match opposite orders** (2025-12-28):
+  - Placing a YES order (outcome=1) and NO order (outcome=0) at overlapping ranges does NOT cross.
+  - This is because TickBookV2 uses a **complete-set model** where makers PROVIDE liquidity (backing one half of YES+NO=$1), not a traditional bid/ask CLOB.
+  - Both orders sit passively waiting for takers to execute market orders against them.
+  - Proper CLOB crossing would require redesigning the fill mechanics to support direct token swaps.
+  - **Workaround**: Submit a market order to execute against existing liquidity.
+
+### Deployed
+- **V8.5 TickBookV2 (ADR-052) Deployed to Base Sepolia** (2025-12-28):
+  - Fresh deployment with TickBookV2 replacing TickBook v1.
+  - TickBookV2: `0xEe1029DCDa225cB15E751fDf61F43367456fb1E9` — O(1) gas range order placement.
+  - LaunchpadEngine: `0x81763C661A356B35e56D2228Bf448Cd6105B9b10`
+  - AMMEngine: `0x08591B79aB7E3AD48D5a267511ce6cB1B2BaF7CE`
+  - Collateralizer: `0x90B7A938b75803Db139cf54Ab19204Ae31286961`
+  - TickBookVault: `0xF3feC7e00637fad7171867047D4e732cE361FF89`
+  - 2 test markets deployed with $1,000 liquidity each.
+
 ### Changed
+- **AMM Trading Panel Pro-Style Redesign** (2025-12-28):
+  - Replaced cluttered YES/bar/NO layout with clean tab-style YES/NO toggle (underline + subtle tint).
+  - Added "Current Prob" row showing probability percentages with compact bar.
+  - Added "Pool Shares" row displaying qYes/qNo (LMSR virtual shares) for market depth.
+  - Buy/Sell toggle now uses contextual colors: emerald (Buy YES), rose (Buy NO), amber (Sell).
+  - Pro-styled amount input with larger text, +/- buttons, and refined quote summary.
+  - Contextual gradient action buttons matching Pro page styling.
+  - Wrapped trading panel in Card component for visual consistency.
+  - Fixed AMM/Pro toggle link (was `/v8`, now `/trade`).
+
+- **LP Holders Card Improvements** (2025-12-28):
+  - Combined fee mode badge and hint icon into card header (top right).
+  - Removed separate "Phase Note" section for cleaner layout.
+
+### Fixed
+- **React Hooks Order** (2025-12-28):
+  - Fixed "Rendered more hooks than during the previous render" error in `LPHolders.tsx`.
+  - Moved `useState` for hint display before early return to satisfy Rules of Hooks.
+
+- **Probability Bar Height** (2025-12-28):
+  - Added `h-full` to probability bar segments to ensure equal heights.
+
+- **Percentage Display** (2025-12-28):
+  - Added `%` symbols to Current Prob display (YES and NO values).
+  - Changed "New Price" label to "YES Prob" or "NO Prob" based on selected outcome.
+  - Added `%` to new price values for clarity.
+
 - **Tick Range Expanded** (2025-12-28):
   - `TickBook.MAX_ORDER_TICK` changed from `MAX_TICK - 1` (998) to `MAX_TICK` (999).
   - Valid tick range is now **1–999** (0.1% to 99.9%), was 1–998.

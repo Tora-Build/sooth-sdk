@@ -1,28 +1,33 @@
 # Project Status
 
-> Last Updated: 2025-12-28 (ADR-052 TickBookV2 Continuous Ranges + Vault Collateral Flow Fix)
+> Last Updated: 2025-12-28 (V8.5 TickBookV2 Deployment)
 
 ## Current Focus
+- **✅ V8.5 DEPLOYED** — TickBookV2 (ADR-052) with continuous range orders deployed to Base Sepolia.
+- **✅ AMM Trading Panel Redesigned** — Matches Pro terminal style with unified header, improved UX, and LMSR pool stats display.
 - **✅ ADR-052 IMPLEMENTED (contracts + tests)** — TickBookV2 continuous range orders (Uniswap V3-style boundaries) with **linear** in-range pricing.
-- **✅ Vault Collateral Flow Fixed** — Maker collateral now properly moves into `marketCollateralWad` and refunds on cancel are supported.
-- **⏳ FRONTEND + DEPLOYMENT PENDING** — Pro UI and deployment scripts/configs still point at TickBook (ADR-051), not TickBookV2.
+- **⏳ PRO FRONTEND WIRING PENDING** — Pro UI hooks need update to use TickBookV2 API: `placeRangeOrder`, `getQuote`, `executeMarketOrder`, `claimFills`.
 
-## Active Deployment (Base Sepolia) — V8.4
+## Active Deployment (Base Sepolia) — V8.5
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0x43A6BDdFC1D0C382eD20a0197B4a223A8650831c` | ✅ OK |
-| AMMEngine | `0x211cbEf79b13C0ed3Ba77A765504eB4419088730` | ✅ OK |
-| TickBookVault | `0x5e712246ce7cF99164421a25C79214B3f6194395` | ✅ OK |
-| TickBook | `0x961654cE125D0FFA8f561d94922256036E44B377` | ⚠️ Tick range bug (1–998) |
-| LaunchpadEngine | `0xd600C85c0cCBf848Ae1853d47492A776ABcFb703` | ✅ OK |
+| Collateralizer | `0x90B7A938b75803Db139cf54Ab19204Ae31286961` | ✅ OK |
+| AMMEngine | `0x08591B79aB7E3AD48D5a267511ce6cB1B2BaF7CE` | ✅ OK |
+| TickBookVault | `0xF3feC7e00637fad7171867047D4e732cE361FF89` | ✅ OK |
+| TickBookV2 | `0xEe1029DCDa225cB15E751fDf61F43367456fb1E9` | ✅ OK (ADR-052) |
+| LaunchpadEngine | `0x81763C661A356B35e56D2228Bf448Cd6105B9b10` | ✅ OK |
+
+### V8.5 Markets
+| Market | Address | Deadline |
+|--------|---------|----------|
+| UN Confirms Alien Life | `0xE1465B78CA5B4Ca19e510ae84add1470e8CA255E` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0x0CA2D3a75921f3759C4dC9eaA487B619Cce72367` | 2026-01-27 |
 
 ## Pending Work (Next Session)
-- [ ] **Decide Cutover** — Replace TickBook (ADR-051) with TickBookV2 (ADR-052) as the canonical orderbook contract.
-- [ ] **Deploy TickBookV2** — Fresh deployment required (new contract + ABI + vault interface expansion).
 - [ ] **Update Pro Frontend** — Wire Pro/TickBook UI + hooks to TickBookV2: `placeRangeOrder`, `getQuote`, `executeMarketOrder`, `claimFills`.
+- [ ] **Export TickBookV2 ABI** — Generate and place `TickBookV2.abi.json` in frontend config.
 - [ ] **Verify contracts on Basescan** — For transparency.
-- [ ] **Run /deploy-sync** — Update all configs/ABIs after redeploy (and bump config version to bust caches).
 
 ## Completed This Session (2025-12-28)
 - ✅ **ADR-052: TickBookV2 Continuous Ranges (Linear)** — Implemented `TickBookV2.sol` + tests (17/17 passing).
@@ -467,6 +472,20 @@
 - [ ] **Comment Clarification**: Update `SoothTraderVaultV4.sol` to clarify that `UserAccount.pending` is used for Orderbook collateral.
 
 ---
+
+## Session Summary (2025-12-28)
+**AMM Trading Panel Pro-Style Redesign** — Complete redesign of the AMM trading panel to match Pro terminal aesthetics and improve UX:
+- **Tab-style YES/NO toggle** — Clean underline tabs replacing the cluttered YES/bar/NO layout
+- **Current Prob display** — Separate row with probability percentages and compact bar
+- **Pool Shares display** — Shows qYes/qNo (LMSR virtual shares) for market depth visibility
+- **Buy/Sell toggle** — Contextual colors (emerald for Buy YES, rose for Buy NO, amber for Sell)
+- **Pro-styled inputs** — Larger amount input with +/- buttons, refined quote summary
+- **Gradient action buttons** — Contextual gradients matching Pro page
+- **Card wrapper** — AMM trading panel now wrapped in Card component for consistency
+- **Fixed AMM/Pro toggle** — Links now correctly point to /trade (was /v8)
+- **LP Holders improvements** — Combined fee mode badge + hint into card header
+- **Fixed React hooks order** — Moved useState before early return to satisfy Rules of Hooks
+- **Added % symbols** — Current Prob and New Price now show proper percentage notation
 
 ## Session Summary (2025-12-27 Late)
 **V8.4 Comprehensive QA Hardening** — Completed full QA cycle requested by user. Created 6 new test files with 44+ tests covering:

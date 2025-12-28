@@ -24,11 +24,11 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
     enabled: !!marketKey && !!chainId && !!tickBookAddress,
     chainId,
     read: async (client) => {
-      const [currentTickData, marketInfo] = await Promise.all([
-        readContractSafe<readonly [number, bigint]>(client, {
+      const [marketState, marketInfo] = await Promise.all([
+        readContractSafe<readonly [number, bigint, bigint, bigint]>(client, {
           address: tickBookAddress!,
           abi: V8_ABIS.TickBook,
-          functionName: "getCurrentTick",
+          functionName: "getMarketState",
           args: [marketKey!],
         }),
         readContractSafe<readonly [Address, Address, Address, boolean]>(client, {
@@ -39,7 +39,7 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
         }),
       ]);
 
-      const [tickIndex, probabilityWad] = currentTickData;
+      const [tickIndex, activeLiqNo, activeLiqYes, probabilityWad] = marketState;
       const [truthMarket, yesTokenAddr, noTokenAddr, isActive] = marketInfo;
 
       if (!isActive) {
@@ -56,8 +56,8 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
         };
       }
 
-      // Fetch nearby active ticks for the orderbook visualization
-      // Use new 4-arg signature: findNextActiveTick(marketKey, startTick, isUp, outcome)
+      // Fetch nearby active boundary ticks for visualization (TickBookV2 exposes bitmap discovery)
+      // Note: TickBookV2 getTickInfo takes (marketKey, outcome, tick) - 3 args
       const fetchTicks = async (start: number, count: number, isUp: boolean, outcome: number) => {
         const ticks = [];
         let current = start;
@@ -70,30 +70,30 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
           });
           if (next === 0 || next > 999) break;
           
-          const data = await readContractSafe<{ yesDepth: bigint; noDepth: bigint }>(client, {
+          // TickBookV2: getTickInfo(marketKey, outcome, tick) returns TickInfo struct
+          const data = await readContractSafe<{ liquidityNet: bigint; liquidityGross: bigint }>(client, {
             address: tickBookAddress!,
             abi: V8_ABIS.TickBook,
-            functionName: "getTick",
-            args: [marketKey!, next],
+            functionName: "getTickInfo",
+            args: [marketKey!, outcome, next],
           });
           
           ticks.push({
             index: next,
             price: next / 1000,
-            yesDepth: data.yesDepth,
-            noDepth: data.noDepth,
+            liquidityNet: data.liquidityNet,
+            liquidityGross: data.liquidityGross,
           });
           current = isUp ? next + 1 : next - 1;
-          if (current < 1 || current > 998) break;
+          if (current < 1 || current > 999) break;
         }
         return ticks;
       };
 
-      // Bids are NO-side orders (bought by YES buyers going up)
-      // Asks are YES-side orders (bought by NO buyers going down)
+      // Bids/asks are “active boundaries” for each side (not per-tick FIFO depth)
       const [bids, asks] = await Promise.all([
         fetchTicks(1, 10, true, 0),  // NO depth from low → high
-        fetchTicks(998, 10, false, 1), // YES depth from high → low
+        fetchTicks(999, 10, false, 1), // YES depth from high → low
       ]);
 
       return {
@@ -104,6 +104,8 @@ export function useTickBookDirect(marketAddress: Address | undefined, yesToken: 
         truthMarket,
         yesToken: yesTokenAddr,
         noToken: noTokenAddr,
+        activeLiquidityNo: activeLiqNo,
+        activeLiquidityYes: activeLiqYes,
         bids: bids.sort((a, b) => b.index - a.index), // highest bids first
         asks: asks.sort((a, b) => a.index - b.index), // lowest asks first
       };

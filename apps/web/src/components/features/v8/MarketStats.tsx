@@ -116,7 +116,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.seed)}) + <span className="text-emerald-400">({fmtUsd(stats.fees)})</span> + <span className={pnlColor}>({pnlSign}{fmtVal(stats.pnl)})</span> =
+                            {fmtUsd(stats.seed)} + <span className="text-emerald-400">{fmtUsd(stats.fees)}</span> + <span className={pnlColor}>{pnlSign}{fmtVal(stats.pnl)}</span> =
                         </div>
                         <div className="text-xl font-bold text-white tracking-tight">{fmtUsd(stats.gross)}</div>
                     </div>
@@ -133,7 +133,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.gross)}) - <span className="text-rose-400">({fmtUsd(stats.liability)})</span> =
+                            {fmtUsd(stats.gross)} − <span className="text-rose-400">{fmtUsd(stats.liability)}</span> =
                         </div>
                         <div className="text-xl font-bold text-cyan-400 tracking-tight">{fmtUsd(stats.floor)}</div>
                     </div>
@@ -150,7 +150,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.floor)}) / ({fmtNum(stats.supply)}) =
+                            {fmtUsd(stats.floor)} ÷ {fmtNum(stats.supply)} =
                         </div>
                         <div className="text-xl font-bold text-purple-400 tracking-tight">{stats.floorRate.toFixed(3)}x</div>
                     </div>
@@ -167,9 +167,9 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-slate-300">
-                            ({fmtNum(stats.b)}) * 0.693 ≈
+                            {fmtNum(stats.b)} × 0.693 ≈
                         </div>
-                        <div className="text-xl font-bold text-white tracking-tight">({fmtNum(stats.anchorSupply)})</div>
+                        <div className="text-xl font-bold text-white tracking-tight">{fmtNum(stats.anchorSupply)}</div>
                     </div>
                 </div>
 

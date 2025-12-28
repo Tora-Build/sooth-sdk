@@ -27,12 +27,12 @@
     ],
     "outputs": [
       {
-        "name": "remainingShares",
+        "name": "collateralReleased",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "collateralReleasedUsdcWad",
+        "name": "proceedsClaimed",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -41,22 +41,32 @@
   },
   {
     "type": "function",
-    "name": "claimFees",
+    "name": "claimFills",
     "inputs": [
       {
-        "name": "",
+        "name": "marketKey",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
+      },
       {
-        "name": "amount",
+        "name": "orderId",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "pure"
+    "outputs": [
+      {
+        "name": "filledShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "proceedsWad",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -78,9 +88,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "limitTick",
-        "type": "uint16",
-        "internalType": "uint16"
+        "name": "maxCost",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -90,9 +100,14 @@
         "internalType": "uint256"
       },
       {
-        "name": "finalTick",
-        "type": "uint16",
-        "internalType": "uint16"
+        "name": "totalCost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "refunded",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "nonpayable"
@@ -133,54 +148,6 @@
   },
   {
     "type": "function",
-    "name": "getAccruedFees",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
-    "type": "function",
-    "name": "getCurrentTick",
-    "inputs": [
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "tickIndex",
-        "type": "uint16",
-        "internalType": "uint16"
-      },
-      {
-        "name": "probability",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getMarketInfo",
     "inputs": [
       {
@@ -215,6 +182,40 @@
   },
   {
     "type": "function",
+    "name": "getMarketState",
+    "inputs": [
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "currentTick",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "activeLiquidityNo",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "activeLiquidityYes",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "currentProbability",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getOrder",
     "inputs": [
       {
@@ -230,9 +231,9 @@
     ],
     "outputs": [
       {
-        "name": "o",
+        "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBook.OrderView",
+        "internalType": "struct TickBookV2.RangeOrder",
         "components": [
           {
             "name": "owner",
@@ -245,12 +246,37 @@
             "internalType": "uint8"
           },
           {
-            "name": "tick",
+            "name": "tickLower",
             "type": "uint16",
             "internalType": "uint16"
           },
           {
-            "name": "remaining",
+            "name": "tickUpper",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "sharesTotal",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "liquidity",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "collateralDepositedWad",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "filledShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "collateralUsedWad",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -282,42 +308,30 @@
         "name": "shares",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "limitTick",
-        "type": "uint16",
-        "internalType": "uint16"
       }
     ],
     "outputs": [
       {
-        "name": "result",
-        "type": "tuple",
-        "internalType": "struct ITickBook.QuoteResult",
-        "components": [
-          {
-            "name": "sharesFillable",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "takerCollateralWad",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "finalTick",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
-        ]
+        "name": "sharesFillable",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "estimatedCost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "finalTick",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getTick",
+    "name": "getTickInfo",
     "inputs": [
       {
         "name": "marketKey",
@@ -325,24 +339,29 @@
         "internalType": "bytes32"
       },
       {
-        "name": "tickIndex",
+        "name": "outcome",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "tick",
         "type": "uint16",
         "internalType": "uint16"
       }
     ],
     "outputs": [
       {
-        "name": "data",
+        "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBook.TickData",
+        "internalType": "struct TickBookV2.TickInfo",
         "components": [
           {
-            "name": "yesDepth",
-            "type": "uint128",
-            "internalType": "uint128"
+            "name": "liquidityNet",
+            "type": "int128",
+            "internalType": "int128"
           },
           {
-            "name": "noDepth",
+            "name": "liquidityGross",
             "type": "uint128",
             "internalType": "uint128"
           }
@@ -368,7 +387,7 @@
     ],
     "outputs": [
       {
-        "name": "orderIds",
+        "name": "",
         "type": "uint256[]",
         "internalType": "uint256[]"
       }
@@ -377,7 +396,7 @@
   },
   {
     "type": "function",
-    "name": "placeLimitOrder",
+    "name": "placeRangeOrder",
     "inputs": [
       {
         "name": "marketKey",
@@ -400,19 +419,24 @@
         "internalType": "uint16"
       },
       {
-        "name": "sharesPerTick",
+        "name": "sharesTotal",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "firstOrderId",
+        "name": "orderId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "orderCount",
+        "name": "crossingFilled",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "crossingCost",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -437,6 +461,11 @@
         "name": "noToken",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "initialProbabilityWad",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -463,6 +492,43 @@
   },
   {
     "type": "event",
+    "name": "FillsClaimed",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "orderId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "filledShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "collateralUsedWad",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "MarketOrderExecuted",
     "inputs": [
       {
@@ -480,7 +546,7 @@
       {
         "name": "outcome",
         "type": "uint8",
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint8"
       },
       {
@@ -496,6 +562,12 @@
         "internalType": "uint256"
       },
       {
+        "name": "totalCost",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "startTick",
         "type": "uint16",
         "indexed": false,
@@ -506,16 +578,96 @@
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
+      },
+      {
+        "name": "refunded",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "OrderCancelled",
+    "name": "MarketRegistered",
     "inputs": [
       {
-        "name": "maker",
+        "name": "marketKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "yesToken",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "noToken",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RangeOrderCancelled",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "orderId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "unfilledLiquidity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "collateralReleased",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "proceedsClaimed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RangeOrderPlaced",
+    "inputs": [
+      {
+        "name": "owner",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -539,49 +691,6 @@
         "internalType": "uint8"
       },
       {
-        "name": "tick",
-        "type": "uint16",
-        "indexed": false,
-        "internalType": "uint16"
-      },
-      {
-        "name": "remainingShares",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "collateralReleasedUsdcWad",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "RangeOrderPlaced",
-    "inputs": [
-      {
-        "name": "maker",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "outcome",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "uint8"
-      },
-      {
         "name": "tickLower",
         "type": "uint16",
         "indexed": false,
@@ -594,28 +703,53 @@
         "internalType": "uint16"
       },
       {
-        "name": "sharesPerTick",
+        "name": "liquidity",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "totalReservedUsdcWad",
+        "name": "collateralReserved",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "firstOrderId",
+        "name": "crossingFilled",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "orderCount",
+        "name": "crossingCost",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TickCrossed",
+    "inputs": [
+      {
+        "name": "marketKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tick",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "liquidityDelta",
+        "type": "int128",
+        "indexed": false,
+        "internalType": "int128"
       }
     ],
     "anonymous": false

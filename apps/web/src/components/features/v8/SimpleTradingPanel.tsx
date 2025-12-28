@@ -47,13 +47,21 @@ export const SimpleTradingPanel = ({
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('10');
   const [amountError, setAmountError] = useState<string | null>(null);
+  const [pendingToastId, setPendingToastId] = useState<string | null>(null);
+  const [pendingTradeInfo, setPendingTradeInfo] = useState<{ mode: string; shares: string; outcome: string } | null>(null);
+  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | null>(null);
 
   // Contract write hooks
   const { writeContract: approve, data: approveTxHash, isPending: isApproving } = useWriteContract();
   const { writeContract: trade, data: tradeTxHash, isPending: isTrading } = useWriteContract();
 
   const { isLoading: isApprovePending } = useWaitForTransactionReceipt({ hash: approveTxHash, pollingInterval: 2000 });
-  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ hash: tradeTxHash, pollingInterval: 2000 });
+  
+  // Only watch for the specific pending transaction to avoid stale success states
+  const { isLoading: isTradePending, isSuccess: isTradeSuccess, isError: isTradeError, error: tradeReceiptError } = useWaitForTransactionReceipt({ 
+    hash: pendingTxHash ?? undefined, 
+    pollingInterval: 2000 
+  });
 
   // Clear errors on mode/outcome switch
   useEffect(() => {
@@ -151,11 +159,7 @@ export const SimpleTradingPanel = ({
     }
   }, [approveTxHash, isApprovePending, refetchAllowance]);
 
-  useEffect(() => {
-    if (tradeTxHash && !isTradePending) {
-      refetchAllowance();
-    }
-  }, [tradeTxHash, isTradePending, refetchAllowance]);
+  // Refetch allowance after trade completes - handled by isTradeSuccess effect now
 
   // USDC decimals (default to 18 for MockUSDC on testnets)
   const decimals = Number(usdcDecimals ?? 18);
@@ -166,15 +170,36 @@ export const SimpleTradingPanel = ({
   const { refetch: refetchAmm } = useAmmMarketDirect(address);
   const { refetch: refetchLaunchpad } = useLaunchpadMarketDirect(address);
 
-  // Refetch after trade or approval
+  // Refetch after trade confirmation and update toast
   useEffect(() => {
-    if (isTradeSuccess) {
+    if (isTradeSuccess && pendingToastId && pendingTxHash) {
+      const info = pendingTradeInfo;
+      toast.success(
+        `${info?.mode === 'buy' ? 'Bought' : 'Sold'} ${info?.shares} ${info?.outcome} shares!`,
+        { id: pendingToastId }
+      );
+      setPendingToastId(null);
+      setPendingTradeInfo(null);
+      setPendingTxHash(null);
+      setAmount('10');
+      // Refetch all data
       refetchPosition();
       refetchAmm();
       refetchLaunchpad();
       refetchAllowance();
     }
-  }, [isTradeSuccess, refetchPosition, refetchAmm, refetchLaunchpad, refetchAllowance]);
+  }, [isTradeSuccess, pendingToastId, pendingTxHash, pendingTradeInfo, refetchPosition, refetchAmm, refetchLaunchpad, refetchAllowance]);
+
+  // Handle trade error
+  useEffect(() => {
+    if (isTradeError && pendingToastId && pendingTxHash) {
+      const reason = tradeReceiptError?.message || 'Transaction failed';
+      toast.error(reason, { id: pendingToastId });
+      setPendingToastId(null);
+      setPendingTradeInfo(null);
+      setPendingTxHash(null);
+    }
+  }, [isTradeError, pendingToastId, pendingTxHash, tradeReceiptError]);
 
   const yesPositionWad = ammPosition?.yesShares ?? 0n;
   const noPositionWad = ammPosition?.noShares ?? 0n;
@@ -440,7 +465,7 @@ export const SimpleTradingPanel = ({
     // - Positive shares = long YES
     // - Negative shares = long NO
     // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
-    const handleTrade = () => {
+    const handleTrade = async () => {
       console.log('[Trade] handleTrade called', {
         launchpadEngine: contracts.LaunchpadEngine,
         deltaShares: quote.deltaShares?.toString(),
@@ -471,12 +496,47 @@ export const SimpleTradingPanel = ({
     // V8.2: deltaShares is always based on quote, outcome is separate parameter
     const deltaShares = quote.deltaShares;
 
+    // Fetch fresh quote directly from chain to prevent stale quote issues
+    let freshCost = quote.cost;
+    if (publicClient && ammEngineAddress) {
+      try {
+        const freshQuote = await publicClient.readContract({
+          address: ammEngineAddress,
+          abi: V8_ABIS.AMMEngine,
+          functionName: 'getPositionQuote',
+          args: [address, selectedOutcome, deltaShares]
+        }) as readonly [bigint, bigint];
+        
+        const [baseCost] = freshQuote;
+        const feeRate = BigInt(launchpad?.currentFeeBps ?? 500);
+        const fee = tradeMode === 'buy' ? (baseCost * feeRate) / 10000n : 0n;
+        freshCost = baseCost + fee;
+        
+        // Check for significant deviation (>5% difference suggests stale quote)
+        const quoteDiff = freshCost > quote.cost 
+          ? Number((freshCost - quote.cost) * 100n / quote.cost) 
+          : Number((quote.cost - freshCost) * 100n / freshCost);
+        
+        if (quoteDiff > 5) {
+          console.warn('[Trade] Quote deviation detected:', {
+            cachedCost: (Number(quote.cost) / 1e18).toFixed(2),
+            freshCost: (Number(freshCost) / 1e18).toFixed(2),
+            deviation: quoteDiff + '%'
+          });
+          toast.error(`Price moved ${quoteDiff.toFixed(0)}%. Refreshing quote...`);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Trade] Fresh quote fetch failed, using cached:', e);
+      }
+    }
+
     // Slippage guard:
-    // - BUY: maxCost = +1% buffer
-    // - SELL: minProceeds = -1% buffer (LaunchpadEngine interprets param as min proceeds on closes)
+    // - BUY: maxCost = +5% buffer (increased from 1% for volatile markets)
+    // - SELL: minProceeds = -5% buffer
     const limitCost = tradeMode === 'buy'
-      ? (quote.cost * 101n) / 100n
-      : (quote.cost * 99n) / 100n;
+      ? (freshCost * 105n) / 100n
+      : (freshCost * 95n) / 100n;
 
     console.log('[Trade] Executing:', {
       market: address,
@@ -484,8 +544,17 @@ export const SimpleTradingPanel = ({
       deltaShares: deltaShares.toString(),
       maxCost: limitCost.toString(),
       maxCostUSD: (Number(limitCost) / 1e18).toFixed(2),
+      cachedCostUSD: (Number(quote.cost) / 1e18).toFixed(2),
+      freshCostUSD: (Number(freshCost) / 1e18).toFixed(2),
       launchpadEngine: contracts.LaunchpadEngine,
     });
+
+    // Store trade info for success toast
+    const tradeInfo = {
+      mode: tradeMode,
+      shares: sharesNum.toString(),
+      outcome: selectedOutcome === 0 ? 'YES' : 'NO'
+    };
 
     try {
       // V8.2 API: tradePositions(market, outcome, deltaShares, maxCostOrMinProceeds)
@@ -499,8 +568,11 @@ export const SimpleTradingPanel = ({
       }, {
         onSuccess: (hash) => {
           console.log('[Trade] Transaction submitted! Hash:', hash);
-      toast.success(`${tradeMode === 'buy' ? 'Bought' : 'Sold'} ${sharesNum} ${selectedOutcome === 0 ? 'YES' : 'NO'} shares`);
-          setAmount('10'); // Reset amount
+          // Show loading toast that will be updated when confirmed
+          const toastId = toast.loading(`Confirming ${tradeInfo.mode} ${tradeInfo.shares} ${tradeInfo.outcome}...`);
+          setPendingTxHash(hash);
+          setPendingToastId(toastId);
+          setPendingTradeInfo(tradeInfo);
         },
         onError: (error: any) => {
           console.error('[Trade] Error:', error);
@@ -573,434 +645,455 @@ export const SimpleTradingPanel = ({
     (tradeMode === 'sell' && !hasEnoughShares);
 
   return (
-    <div data-testid="trading-panel" className="space-y-3">
-      {/* Initialization Warning */}
-      {isInitStateLoading && (
-        <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[10px] text-slate-400 flex items-start gap-2">
-          <Loader2 size={12} className="shrink-0 mt-0.5 animate-spin" />
-          <span>Checking market initialization…</span>
-        </div>
-      )}
-
-      {/* Phantom Guard */}
-      {isConnected && isPhantomConnector && (
-        <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 flex items-start gap-2">
-          <AlertCircle size={12} className="shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div>
-              Wallet blocked: <strong>Phantom</strong> is intercepting this transaction.
-            </div>
-            <div className="text-rose-200/70">
-              Phantom often blocks ERC20 approvals on localhost. Switch to <strong>MetaMask</strong> or <strong>Coinbase Wallet</strong> to trade.
-            </div>
-            <div className="pt-1">
-              <Button
-                onClick={handleConnect}
-                className="h-7 px-2 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
-              >
-                Switch Wallet
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!isInitStateLoading && isConnected && !canTrade && (
-        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
-          <AlertCircle size={12} className="shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div>
-              Trading unavailable: this market isn’t initialized on the <strong>selected network</strong>.
-            </div>
-            <div className="text-amber-200/70">
-              Selected: <strong>{selectedChain?.name ?? `Chain ${chainId}`}</strong>
-              {expectedChain ? (
-                <>
-                  {' '}• Market lives on: <strong>{expectedChain.name}</strong>
-                </>
-              ) : null}
-            </div>
-            {(isWrongSelectedChain || isWrongWalletChain) && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {isWrongSelectedChain && expectedChainId ? (
-                  <Button
-                    onClick={() => setSelectedChain(expectedChainId)}
-                    className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
-                  >
-                    View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
-                  </Button>
-                ) : null}
-                {isWrongWalletChain && expectedChainId ? (
-                  <Button
-                    onClick={() => switchChain?.({ chainId: expectedChainId })}
-                    disabled={isSwitchingChain}
-                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
-                  >
-                    {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
-                  </Button>
-                ) : null}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Compact Probability Row */}
-      <div className="flex items-center gap-2">
-        {/* YES Button */}
+    <div data-testid="trading-panel">
+      {/* Primary Toggle: YES / NO - tab style with underline */}
+      <div className="flex border-b border-slate-800/50">
         <button
           onClick={() => setSelectedOutcome(0)}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
+            "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
             selectedOutcome === 0
-              ? 'border-emerald-500 bg-emerald-500/10'
-              : 'border-slate-700/50 bg-slate-900/50 hover:border-emerald-500/50'
+              ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5"
+              : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
           )}
         >
-          <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-xs font-bold text-emerald-400">YES</span>
-          <span className="text-sm font-bold text-emerald-400 tabular-nums">
-            {isLoadingAmm ? '—' : `${(yesPrice * 100).toFixed(1)}%`}
-          </span>
+          YES
         </button>
-
-        {/* Probability Bar (compact) */}
-        <div className="flex-1 h-2 rounded-full overflow-hidden flex bg-slate-800">
-          <div
-            className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500"
-            style={{ width: `${yesPrice * 100}%` }}
-          />
-          <div
-            className="bg-gradient-to-r from-rose-400 to-rose-600 transition-[width] duration-500"
-            style={{ width: `${noPrice * 100}%` }}
-          />
-        </div>
-
-        {/* NO Button */}
         <button
           onClick={() => setSelectedOutcome(1)}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
+            "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
             selectedOutcome === 1
-              ? 'border-rose-500 bg-rose-500/10'
-              : 'border-slate-700/50 bg-slate-900/50 hover:border-rose-500/50'
+              ? "text-rose-400 border-b-2 border-rose-500 bg-rose-500/5"
+              : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
           )}
         >
-          <span className="text-sm font-bold text-rose-400 tabular-nums">
-            {isLoadingAmm ? '—' : `${(noPrice * 100).toFixed(1)}%`}
-          </span>
-          <span className="text-xs font-bold text-rose-400">NO</span>
-          <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+          NO
         </button>
       </div>
 
-      {/* Buy/Sell Toggle (inline) */}
-      <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800 w-fit">
-        <button
-          onClick={() => setTradeMode('buy')}
-          className={cn(
-            "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
-            tradeMode === 'buy'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          )}
-        >
-          BUY
-        </button>
-        <button
-          onClick={() => setTradeMode('sell')}
-          className={cn(
-            "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
-            tradeMode === 'sell'
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          )}
-        >
-          SELL
-        </button>
-      </div>
-
-      {/* Amount Input */}
-      <div>
-        <div className="flex justify-between items-end mb-1">
-          <label className="text-xs text-slate-500">Shares</label>
-          {isConnected && (
-            <button 
-              onClick={handleMax}
-              className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider"
-            >
-              MAX
-            </button>
-          )}
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setAmount(prev => String(Math.max(1, Number(prev) - 1)))}
-            className="absolute left-0 top-0 h-full px-3 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg transition-colors"
-          >
-            <span className="text-lg font-bold">−</span>
-          </button>
-          <input
-            type="number"
-            data-testid="shares-input"
-            value={amount}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            aria-invalid={amountError ? 'true' : 'false'}
-            className="input-field text-center px-12 py-2 text-sm"
-            placeholder="10"
-            min="0"
-          />
-          <button
-            onClick={() => setAmount(prev => String(Number(prev) + 1))}
-            className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg transition-colors"
-          >
-            <span className="text-lg font-bold">+</span>
-          </button>
-        </div>
-        {amountError && (
-          <div className="mt-1 text-[10px] text-rose-300">
-            {amountError}
+      <div className="p-5 space-y-4">
+        {/* Initialization Warning */}
+        {isInitStateLoading && (
+          <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[10px] text-slate-400 flex items-start gap-2">
+            <Loader2 size={12} className="shrink-0 mt-0.5 animate-spin" />
+            <span>Checking market initialization…</span>
           </div>
         )}
-        {tradeMode === 'sell' && (
-          <div className="mt-1 flex justify-between text-[10px] text-slate-500">
-            <span>Position</span>
-            <span className="font-mono text-slate-300 flex items-center gap-1">
-              {isLoadingPosition ? (
-                <>
-                  <Loader2 className="w-2 h-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                selectedOutcome === 0
-                  ? `${trimDecimals(formatUnits(yesPositionWad, 18), 2)} YES`
-                  : `${trimDecimals(formatUnits(noPositionWad, 18), 2)} NO`
+
+        {/* Phantom Guard */}
+        {isConnected && isPhantomConnector && (
+          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 flex items-start gap-2">
+            <AlertCircle size={12} className="shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div>
+                Wallet blocked: <strong>Phantom</strong> is intercepting this transaction.
+              </div>
+              <div className="text-rose-200/70">
+                Switch to <strong>MetaMask</strong> or <strong>Coinbase Wallet</strong> to trade.
+              </div>
+              <div className="pt-1">
+                <Button
+                  onClick={handleConnect}
+                  className="h-7 px-2 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
+                >
+                  Switch Wallet
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isInitStateLoading && isConnected && !canTrade && (
+          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+            <AlertCircle size={12} className="shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div>
+                Trading unavailable: this market isn't initialized on the <strong>selected network</strong>.
+              </div>
+              <div className="text-amber-200/70">
+                Selected: <strong>{selectedChain?.name ?? `Chain ${chainId}`}</strong>
+                {expectedChain ? (
+                  <>
+                    {' '}• Market lives on: <strong>{expectedChain.name}</strong>
+                  </>
+                ) : null}
+              </div>
+              {(isWrongSelectedChain || isWrongWalletChain) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {isWrongSelectedChain && expectedChainId ? (
+                    <Button
+                      onClick={() => setSelectedChain(expectedChainId)}
+                      className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                    >
+                      View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
+                    </Button>
+                  ) : null}
+                  {isWrongWalletChain && expectedChainId ? (
+                    <Button
+                      onClick={() => switchChain?.({ chainId: expectedChainId })}
+                      disabled={isSwitchingChain}
+                      className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                    >
+                      {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
+                    </Button>
+                  ) : null}
+                </div>
               )}
-            </span>
+            </div>
           </div>
         )}
-        {tradeMode === 'buy' && (
-          <div className="mt-1 flex justify-between text-[10px] text-slate-500">
-            <span>Buying power</span>
-            <span className="font-mono text-slate-300">
-              ${(Number(buyingPowerWad) / 1e18).toFixed(2)}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* Quick Amount Buttons */}
-      <div className="grid grid-cols-4 gap-1">
-        {tradeMode === 'sell'
-          ? ([25, 50, 75, 100] as const).map((pct) => {
-              const wad = (maxSellWad * BigInt(pct)) / 100n;
-              const label = pct === 100 ? 'MAX' : `${pct}%`;
-              const target = wadToSharesInput(wad);
-              return (
+        {/* Current Price Display - clean separate row */}
+        <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
+          <div className="flex items-center justify-between py-2 px-3">
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Prob</div>
+            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-lg font-mono font-bold text-emerald-400">
+                {isLoadingAmm ? '—' : `${(yesPrice * 100).toFixed(1)}%`}
+              </span>
+            </div>
+            {/* Compact bar */}
+            <div className="w-20 h-2 rounded-full overflow-hidden flex bg-slate-800">
+              <div
+                className="h-full bg-emerald-500 transition-[width] duration-500"
+                style={{ width: `${yesPrice * 100}%` }}
+              />
+              <div
+                className="h-full bg-rose-500 transition-[width] duration-500"
+                style={{ width: `${noPrice * 100}%` }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-mono font-bold text-rose-400">
+                {isLoadingAmm ? '—' : `${(noPrice * 100).toFixed(1)}%`}
+              </span>
+              <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+            </div>
+            </div>
+          </div>
+          {/* Issued Shares - compact row */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-800/50 bg-slate-900/30">
+            <div className="text-[9px] text-slate-600 uppercase tracking-wider">Pool Shares</div>
+            <div className="flex items-center gap-4 text-[10px] font-mono">
+              <span className="text-emerald-500">
+                {isLoadingAmm ? '—' : `${(Number(amm?.qYes ?? 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })} YES`}
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="text-rose-500">
+                {isLoadingAmm ? '—' : `${(Number(amm?.qNo ?? 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })} NO`}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Buy/Sell Toggle - matches Pro style, contextual colors */}
+        <div className="flex gap-1 p-1 bg-slate-950 rounded-lg">
+          <button
+            onClick={() => setTradeMode('buy')}
+            className={cn(
+              "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
+              tradeMode === 'buy'
+                ? selectedOutcome === 0
+                  ? "bg-emerald-600/30 text-emerald-400 ring-1 ring-emerald-500/50"
+                  : "bg-rose-600/30 text-rose-400 ring-1 ring-rose-500/50"
+                : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Buy
+          </button>
+          <button
+            onClick={() => setTradeMode('sell')}
+            className={cn(
+              "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
+              tradeMode === 'sell'
+                ? "bg-amber-600/30 text-amber-400 ring-1 ring-amber-500/50"
+                : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Sell
+          </button>
+        </div>
+
+        {/* Amount Input - Pro style */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Shares</label>
+            {isConnected && (
+              <button 
+                onClick={handleMax}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
+              >
+                MAX
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setAmount(prev => String(Math.max(1, Number(prev) - 1)))}
+              className="absolute left-0 top-0 h-full px-4 flex items-center justify-center text-slate-500 hover:text-white transition-colors z-10"
+            >
+              <span className="text-lg font-bold">−</span>
+            </button>
+            <input
+              type="number"
+              data-testid="shares-input"
+              value={amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              aria-invalid={amountError ? 'true' : 'false'}
+              className="w-full px-14 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold text-center focus:border-amber-500 focus:outline-none transition-colors"
+              placeholder="10"
+              min="0"
+            />
+            <button
+              onClick={() => setAmount(prev => String(Number(prev) + 1))}
+              className="absolute right-0 top-0 h-full px-4 flex items-center justify-center text-slate-500 hover:text-white transition-colors z-10"
+            >
+              <span className="text-lg font-bold">+</span>
+            </button>
+          </div>
+          {amountError && (
+            <div className="mt-1 text-[10px] text-rose-300">
+              {amountError}
+            </div>
+          )}
+          {tradeMode === 'sell' && (
+            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+              <span>Position</span>
+              <span className="font-mono text-slate-300 flex items-center gap-1">
+                {isLoadingPosition ? (
+                  <>
+                    <Loader2 className="w-2 h-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  selectedOutcome === 0
+                    ? `${trimDecimals(formatUnits(yesPositionWad, 18), 2)} YES`
+                    : `${trimDecimals(formatUnits(noPositionWad, 18), 2)} NO`
+                )}
+              </span>
+            </div>
+          )}
+          {tradeMode === 'buy' && (
+            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+              <span>Buying power</span>
+              <span className="font-mono text-slate-300">
+                ${(Number(buyingPowerWad) / 1e18).toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Amount Buttons - Pro style */}
+        <div className="flex gap-2">
+          {tradeMode === 'sell'
+            ? ([25, 50, 75, 100] as const).map((pct) => {
+                const wad = (maxSellWad * BigInt(pct)) / 100n;
+                const label = pct === 100 ? 'MAX' : `${pct}%`;
+                const target = wadToSharesInput(wad);
+                return (
+                  <button
+                    key={pct}
+                    onClick={() => handleAmountChange(target)}
+                    disabled={maxSellWad <= 0n}
+                    className={cn(
+                      'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
+                      maxSellWad <= 0n
+                        ? 'bg-slate-900/30 text-slate-600 cursor-not-allowed'
+                        : amount === target
+                          ? 'bg-amber-500/20 text-amber-400'
+                          : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })
+            : ([10, 50, 100, 500] as const).map((val) => (
                 <button
-                  key={pct}
-                  onClick={() => handleAmountChange(target)}
-                  disabled={maxSellWad <= 0n}
+                  key={val}
+                  onClick={() => handleAmountChange(String(val))}
                   className={cn(
-                    'py-1.5 text-[10px] font-mono rounded transition-all border',
-                    maxSellWad <= 0n
-                      ? 'bg-slate-900/30 text-slate-600 border-slate-800 cursor-not-allowed'
-                      : amount === target
-                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                        : 'bg-slate-800/40 text-slate-400 border-slate-800 hover:border-slate-700'
+                    'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
+                    amount === String(val)
+                      ? selectedOutcome === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                      : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
                   )}
                 >
-                  {label}
+                  {val}
                 </button>
-              );
-            })
-          : ([10, 50, 100, 500] as const).map((val) => (
-              <button
-                key={val}
-                onClick={() => handleAmountChange(String(val))}
-                className={cn(
-                  'py-1.5 text-[10px] font-mono rounded transition-all border',
-                  amount === String(val)
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                    : 'bg-slate-800/40 text-slate-400 border-slate-800 hover:border-slate-700'
-                )}
-              >
-                {val}
-              </button>
-            ))}
-      </div>
-
-      {/* Quote Summary */}
-      <div className="p-3 bg-slate-800/30 rounded-lg space-y-2 border border-slate-700/30">
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">Shares</span>
-          <span className="font-mono text-white tabular-nums">{quote.sharesFormatted}</span>
-        </div>
-        <div className="divider-gradient my-2" />
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">
-            {tradeMode === 'buy' ? 'Cost' : 'Proceeds'}
-          </span>
-          <span className="font-mono text-white tabular-nums">
-            {quote.isLoading ? <span className="skeleton w-16 h-4 inline-block rounded" /> : (isQuoteValid ? quote.costFormatted : '—')}
-          </span>
-        </div>
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">
-            Fee ({(quote.feeRate / 100).toFixed(1)}%)
-          </span>
-          <span className="font-mono text-slate-400 tabular-nums">{isQuoteValid ? quote.feeFormatted : '—'}</span>
+              ))}
         </div>
 
-        {/* Debug: Show b parameter */}
-        <div className="flex justify-between text-xs pt-1 border-t border-slate-700/50">
-          <span className="text-slate-600">Liquidity (b)</span>
-          <span className="font-mono text-slate-500">
-            {launchpad?.currentBBase ? `$${(Number(launchpad.currentBBase) / 1e18).toFixed(2)}` : 'Not initialized'}
-          </span>
-        </div>
-
-        {/* Price Impact - only show when we have a valid quote */}
-        {isQuoteValid && (
-          <div className="space-y-2 pt-2 border-t border-slate-700">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Price Impact</span>
-              <span className={`font-mono ${Math.abs(quote.priceImpact) > 5
-                ? 'text-rose-400 font-bold'
-                : Math.abs(quote.priceImpact) > 2
-                  ? 'text-amber-400 font-bold'
-                  : 'text-slate-400'
-                }`}>
-                {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
-              </span>
-            </div>
-            
-            {/* Impact Warnings */}
-            {Math.abs(quote.priceImpact) > 5 ? (
-              <div className="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2 animate-pulse">
-                <AlertCircle size={12} className="shrink-0 mt-0.5" />
-                <span><strong>High Price Impact!</strong> You are moving the market significantly. Consider trading in smaller sizes.</span>
-              </div>
-            ) : Math.abs(quote.priceImpact) > 2 ? (
-              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 flex items-start gap-2">
-                <AlertCircle size={12} className="shrink-0 mt-0.5" />
-                <span>Significant price impact. Check your execution price carefully.</span>
-              </div>
-            ) : null}
+        {/* Quote Summary - Pro style */}
+        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Shares</span>
+            <span className="font-mono text-white">{quote.sharesFormatted}</span>
           </div>
-        )}
-
-        {/* Spendable Proceeds Indicator - these ARE used for buys */}
-        {tradeMode === 'buy' && isQuoteValid && spendableProceeds > 0n && quote.cost > 0n && (
-          <div className="flex items-center gap-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400">
-            <Unlock size={12} className="shrink-0" />
-            <span>
-              Using up to <strong>${(Number(spendableProceeds) / 1e18).toFixed(2)}</strong> from spendable proceeds.
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">
+              {tradeMode === 'buy' ? 'Cost' : 'Proceeds'}
+            </span>
+            <span className={cn("font-mono", tradeMode === 'buy' ? "text-white" : "text-emerald-400")}>
+              {quote.isLoading ? <span className="skeleton w-16 h-4 inline-block rounded" /> : (isQuoteValid ? quote.costFormatted : '—')}
             </span>
           </div>
-        )}
-
-        {/* New Price After Trade */}
-        {isQuoteValid && (
-          <div className="flex justify-between text-xs pt-2 border-t border-slate-700">
-            <span className="text-slate-500">New Price</span>
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-slate-400">
-                {(selectedOutcome === 0 ? yesPrice * 100 : noPrice * 100).toFixed(1)}%
-              </span>
-              <ArrowRight className="w-3 h-3 text-slate-600" />
-              <span className={`font-mono ${selectedOutcome === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {((selectedOutcome === 0 ? quote.newYesPrice : quote.newNoPrice) * 100).toFixed(1)}%
-              </span>
-            </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">
+              Fee ({(quote.feeRate / 100).toFixed(1)}%)
+            </span>
+            <span className="font-mono text-slate-400">{isQuoteValid ? quote.feeFormatted : '—'}</span>
           </div>
-        )}
-      </div>
 
-      {/* Quote Error */}
-      {isConnected && sharesNum > 0 && !quote.isLoading && quote.error && (
-        <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
-          <AlertCircle size={12} className="shrink-0 mt-0.5" />
-          <span>Quote failed for this size. Try a smaller amount.</span>
-        </div>
-      )}
-
-      {/* Balance Summary */}
-      {isConnected && (
-        <div className="p-2 rounded-xl bg-slate-900/30 border border-slate-800/60 text-[10px] text-slate-400 space-y-1">
-          <div className="flex justify-between">
-            <span>Wallet USDC</span>
-            <span className="font-mono text-slate-200">
-              ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
+          {/* Liquidity (b) */}
+          <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
+            <span className="text-slate-600">Liquidity (b)</span>
+            <span className="font-mono text-slate-500">
+              {launchpad?.currentBBase ? `$${(Number(launchpad.currentBBase) / 1e18).toFixed(2)}` : 'Not initialized'}
             </span>
           </div>
-          {spendableProceeds > 0n && (
-            <div className="flex justify-between">
-              <span>Spendable Proceeds</span>
-              <span className="font-mono text-emerald-400">
-                +${(Number(spendableProceeds) / 1e18).toFixed(2)}
+
+          {/* Price Impact - only show when we have a valid quote */}
+          {isQuoteValid && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Price Impact</span>
+                <span className={cn(
+                  "font-mono",
+                  Math.abs(quote.priceImpact) > 5 ? 'text-rose-400 font-bold' :
+                  Math.abs(quote.priceImpact) > 2 ? 'text-amber-400 font-bold' : 'text-slate-400'
+                )}>
+                  {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
+                </span>
+              </div>
+              
+              {/* Impact Warnings */}
+              {Math.abs(quote.priceImpact) > 5 ? (
+                <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-[10px] text-rose-400 flex items-start gap-2">
+                  <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                  <span><strong>High Impact!</strong> Consider trading in smaller sizes.</span>
+                </div>
+              ) : Math.abs(quote.priceImpact) > 2 ? (
+                <div className="p-2 rounded-lg bg-amber-950/30 border border-amber-900/30 text-[10px] text-amber-400 flex items-start gap-2">
+                  <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                  <span>Significant price impact. Check execution price.</span>
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {/* Spendable Proceeds Indicator */}
+          {tradeMode === 'buy' && isQuoteValid && spendableProceeds > 0n && quote.cost > 0n && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-[10px] text-emerald-400">
+              <Unlock size={12} className="shrink-0" />
+              <span>
+                Using up to <strong>${(Number(spendableProceeds) / 1e18).toFixed(2)}</strong> from spendable proceeds.
               </span>
             </div>
           )}
+
+          {/* New Price After Trade */}
+          {isQuoteValid && (
+            <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
+              <span className="text-slate-500">
+                {selectedOutcome === 0 ? 'YES' : 'NO'} Prob
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-slate-400">
+                  {(selectedOutcome === 0 ? yesPrice * 100 : noPrice * 100).toFixed(1)}%
+                </span>
+                <ArrowRight className="w-3 h-3 text-slate-600" />
+                <span className={cn("font-mono", selectedOutcome === 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                  {((selectedOutcome === 0 ? quote.newYesPrice : quote.newNoPrice) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Balance Warning */}
-      {
-        isConnected && tradeMode === 'buy' && !hasEnoughBuyingPower && sharesNum > 0 && (
-          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
-            <AlertCircle size={12} className="shrink-0 mt-0.5" />
-            <span>Not enough funds for this size. Try a smaller amount.</span>
+        {/* Quote Error */}
+        {isConnected && sharesNum > 0 && !quote.isLoading && quote.error && (
+          <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-xs text-rose-400 flex items-center gap-2">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>Quote failed for this size. Try a smaller amount.</span>
           </div>
-        )
-      }
+        )}
 
-      {/* Spendable Proceeds Notice */}
-      {
-        tradeMode === 'sell' && (
-          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-400 flex items-start gap-2">
-            <Info size={12} className="shrink-0 mt-0.5" />
+        {/* Balance Summary */}
+        {isConnected && (
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Wallet USDC</span>
+              <span className="font-mono text-slate-200">
+                ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
+              </span>
+            </div>
+            {spendableProceeds > 0n && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Spendable Proceeds</span>
+                <span className="font-mono text-emerald-400">
+                  +${(Number(spendableProceeds) / 1e18).toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Balance Warning */}
+        {isConnected && tradeMode === 'buy' && !hasEnoughBuyingPower && sharesNum > 0 && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-rose-400 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>Insufficient balance. <span className="text-rose-300">Try a smaller amount.</span></span>
+          </div>
+        )}
+
+        {/* Spendable Proceeds Notice */}
+        {tradeMode === 'sell' && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-indigo-950/30 border border-indigo-900/30 text-indigo-400 text-xs">
+            <Info size={14} className="shrink-0" />
             <span>Proceeds are <strong>instantly spendable</strong> but locked for withdrawal for 24h.</span>
           </div>
-        )
-      }
+        )}
 
-      {/* Action Buttons */}
-      {
-        !isConnected ? (
+        {/* Action Button - Pro style with contextual gradient */}
+        {!isConnected ? (
           <Button
             onClick={handleConnect}
-            className="w-full py-3 text-sm cta-pulse bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white font-bold shadow-lg shadow-cyan-500/25"
+            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white shadow-lg shadow-amber-600/25"
           >
-            <Wallet size={16} className="mr-2" />
+            <Wallet size={18} className="mr-2" />
             Connect Wallet
           </Button>
         ) : needsApproval && tradeMode === 'buy' ? (
           <Button
             onClick={handleApprove}
             disabled={isPending || !canTrade || isPhantomConnector}
-            className="w-full py-3 text-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold shadow-lg shadow-amber-500/25 disabled:opacity-50"
+            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white shadow-lg shadow-amber-600/25 disabled:opacity-50"
           >
             {isPending ? (
-              <Loader2 size={16} className="mr-2 animate-spin" />
+              <Loader2 size={18} className="mr-2 animate-spin" />
             ) : null}
-            {isPhantomConnector ? 'Switch Wallet to Approve' : 'Approve USDC'}
+            {isPhantomConnector ? 'Switch Wallet' : 'Approve USDC'}
           </Button>
         ) : (
           <Button
-            onClick={() => {
-              handleTrade();
-            }}
+            onClick={handleTrade}
             disabled={isButtonDisabled}
             className={cn(
-              "w-full py-3 text-sm font-bold transition-all active:scale-[0.98]",
-              isButtonDisabled ? "opacity-50 cursor-not-allowed grayscale" : "hover:-translate-y-0.5",
-              selectedOutcome === 0 ? "btn-buy" : "btn-sell"
+              "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
+              tradeMode === 'buy' && selectedOutcome === 0 && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
+              tradeMode === 'buy' && selectedOutcome === 1 && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
+              tradeMode === 'sell' && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
+              isButtonDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
             {getButtonContent()}
           </Button>
         )}
+      </div>
     </div>
   );
 };

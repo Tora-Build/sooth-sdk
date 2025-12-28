@@ -11,9 +11,9 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
-import { useAccount, useChainId, useWriteContract, useReadContract } from 'wagmi';
+import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
 import { MarketHeader } from '../components/features/v8';
@@ -22,7 +22,10 @@ import {
   useCollateralizerDirect,
   useTickBookDirect,
   useTickBookVaultDirect,
-  useTokenBalances
+  useTokenBalances,
+  useUserOrdersDirect,
+  useAmmMarketDirect,
+  RangeOrder
 } from '../hooks/v8';
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS } from '../config/abis';
@@ -44,6 +47,501 @@ const CATEGORIES = [
   { id: 'science', label: 'Science' },
   { id: 'sports', label: 'Sports' },
 ];
+
+// ============================================================================
+// Liquidity Map Component - Uses real orderbook data
+// ============================================================================
+interface TickData {
+  index: number;
+  price: number;
+  liquidityNet: bigint;
+  liquidityGross: bigint;
+}
+
+interface LiquidityMapProps {
+  tickBook: {
+    bids: TickData[];
+    asks: TickData[];
+    activeLiquidityNo?: bigint;
+    activeLiquidityYes?: bigint;
+  } | null;
+  currentProb: number;
+  isLoading: boolean;
+}
+
+const LiquidityMap = ({ tickBook, currentProb, isLoading }: LiquidityMapProps) => {
+  // Build liquidity buckets for visualization (80 columns = ~1.25% each)
+  // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
+  const { buckets, lowestBoundary, highestBoundary, totalLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
+    const numBuckets = 80;
+    const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
+    const currentTickPercent = currentProb * 100;
+    
+    // Initialize empty buckets
+    for (let i = 0; i < numBuckets; i++) {
+      buckets.push({
+        price: ((i + 1) * 100) / numBuckets, // 1.25% to 100%
+        liquidity: 0n,
+        side: 'none'
+      });
+    }
+    
+    // Use active liquidity from market state
+    const activeLiqYes = tickBook?.activeLiquidityYes ?? 0n;
+    const activeLiqNo = tickBook?.activeLiquidityNo ?? 0n;
+    
+    // Get boundary ticks
+    const bids = tickBook?.bids ?? [];  // YES side boundaries (YES makers)
+    const asks = tickBook?.asks ?? [];  // NO side boundaries (NO makers -> YES liquidity)
+    
+    let lowestBoundary = 100;
+    let highestBoundary = 0;
+    let totalLiq = 0n;
+    
+    // Process YES side boundaries (YES makers provide NO liquidity to takers)
+    for (const tick of bids) {
+      const tickPercent = tick.price * 100;
+      // Spread liquidity uniformly from this boundary to 100%
+      const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
+      const endBucket = numBuckets - 1;
+      const rangeSize = Math.max(1, endBucket - startBucket + 1);
+      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
+      
+      for (let b = startBucket; b <= endBucket; b++) {
+        buckets[b].liquidity += liqPerBucket;
+        buckets[b].side = 'no'; // YES makers provide NO liquidity
+      }
+      
+      totalLiq += tick.liquidityGross;
+      lowestBoundary = Math.min(lowestBoundary, tickPercent);
+      highestBoundary = Math.max(highestBoundary, 100);
+    }
+    
+    // Process NO side boundaries (NO makers provide YES liquidity to takers)
+    // A NO range order means: takers can BUY YES at any tick in the range
+    for (const tick of asks) {
+      const tickPercent = tick.price * 100;
+      // Spread liquidity uniformly from this boundary to 100%
+      // (NO maker's range spans from tickLower up)
+      const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
+      const endBucket = numBuckets - 1;
+      const rangeSize = Math.max(1, endBucket - startBucket + 1);
+      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
+      
+      for (let b = startBucket; b <= endBucket; b++) {
+        buckets[b].liquidity += liqPerBucket;
+        buckets[b].side = 'yes'; // NO makers provide YES liquidity
+      }
+      
+      totalLiq += tick.liquidityGross;
+      lowestBoundary = Math.min(lowestBoundary, tickPercent);
+      highestBoundary = 100;
+    }
+    
+    // Fallback: If we have active liquidity but couldn't match boundaries, spread across range
+    if (totalLiq === 0n && (activeLiqYes > 0n || activeLiqNo > 0n)) {
+      // Spread active liquidity across the entire range
+      const liqPerBucket = (activeLiqYes + activeLiqNo) / BigInt(numBuckets);
+      for (let b = 0; b < numBuckets; b++) {
+        buckets[b].liquidity = liqPerBucket;
+        buckets[b].side = activeLiqYes > activeLiqNo ? 'yes' : 'no';
+      }
+      totalLiq = activeLiqYes + activeLiqNo;
+      lowestBoundary = 0;
+      highestBoundary = 100;
+    }
+    
+    // Find max liquidity for normalization
+    const maxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 1n);
+    
+    // Determine available liquidity range for display
+    const hasYesLiq = activeLiqYes > 0n || buckets.some(b => b.side === 'yes');
+    const hasNoLiq = activeLiqNo > 0n || buckets.some(b => b.side === 'no');
+    
+    return {
+      buckets: buckets.map(b => ({
+        ...b,
+        normalized: maxLiq > 0n ? Number((b.liquidity * 100n) / maxLiq) / 100 : 0
+      })),
+      // Show range bounds instead of bid/ask
+      lowestBoundary,
+      highestBoundary,
+      totalLiquidity: totalLiq,
+      hasYesLiq,
+      hasNoLiq,
+    };
+  }, [tickBook, currentProb]);
+  
+  const midPrice = currentProb * 100;
+  const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0;
+
+  return (
+    <div className="relative">
+      {/* Price scale */}
+      <div className="flex justify-between text-[9px] text-slate-600 font-mono mb-1 px-1">
+        <span>0%</span>
+        <span>25%</span>
+        <span>50%</span>
+        <span>75%</span>
+        <span>100%</span>
+      </div>
+      
+      {/* Pixel depth chart */}
+      <div className="relative h-32 flex items-end gap-[2px] bg-slate-950 rounded-lg p-2">
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+          </div>
+        ) : !hasRealData ? (
+          // No liquidity - simple empty state
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-sm text-slate-500">No orders yet</span>
+          </div>
+        ) : (
+          // Real liquidity data - color by which side can be BOUGHT
+          buckets.map((bucket, col) => {
+            const blocks = Math.max(1, Math.ceil(bucket.normalized * 12));
+            const hasLiquidity = bucket.liquidity > 0n;
+            
+            // Color based on what takers can BUY at this price
+            // 'yes' = YES liquidity available (green) 
+            // 'no' = NO liquidity available (rose)
+            const isYesLiq = bucket.side === 'yes';
+            const isNoLiq = bucket.side === 'no';
+            
+            return (
+              <div 
+                key={col} 
+                className={cn(
+                  "flex-1 flex flex-col-reverse gap-[2px] relative group",
+                  hasLiquidity && "cursor-pointer"
+                )}
+              >
+                {/* Hover tooltip */}
+                {hasLiquidity && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                    <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap shadow-xl">
+                      <div className="font-mono font-bold text-white">{bucket.price.toFixed(1)}%</div>
+                      <div className="text-slate-400">
+                        {isYesLiq ? 'Buy YES' : 'Buy NO'}: 
+                        <span className={isYesLiq ? 'text-emerald-400' : 'text-rose-400'}>
+                          {' '}{parseFloat(formatUnits(bucket.liquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-700" />
+                  </div>
+                )}
+                
+                {/* Blocks - uniform color across range for single order */}
+                {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
+                  const intensity = 1 - (blockIdx / blocks);
+                  let blockColor = 'bg-slate-800';
+                  
+                  if (isYesLiq) {
+                    // YES liquidity = green (takers can buy YES)
+                    blockColor = intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700';
+                  } else if (isNoLiq) {
+                    // NO liquidity = rose (takers can buy NO)
+                    blockColor = intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700';
+                  }
+                  
+                  return (
+                    <div 
+                      key={blockIdx} 
+                      className={cn(
+                        "w-full aspect-square rounded-[1px] transition-all",
+                        blockColor,
+                        "group-hover:ring-1 group-hover:ring-white/30"
+                      )}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
+        
+        {/* Current price indicator */}
+        <div 
+          className="absolute top-0 bottom-0 w-[3px] bg-white rounded-full shadow-[0_0_10px_3px_rgba(255,255,255,0.7)]"
+          style={{ left: `calc(${midPrice}% - 1px)` }}
+        />
+      </div>
+      
+      {/* Intensity legend */}
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center gap-4 text-[9px] text-slate-500">
+          <div className="flex items-center gap-1">
+            <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-emerald-700 to-emerald-400" />
+            <span>YES Liquidity</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-rose-700 to-rose-400" />
+            <span>NO Liquidity</span>
+          </div>
+        </div>
+        <div className="text-[9px] text-slate-600">Height = Liquidity at price</div>
+      </div>
+      
+      {/* Stats Row */}
+      <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800/50">
+        <div className="text-center p-2 rounded-lg bg-slate-950">
+          <div className="text-[9px] text-slate-500 uppercase">Range Low</div>
+          <div className="text-sm font-mono font-bold text-slate-300">{lowestBoundary.toFixed(1)}%</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-slate-950">
+          <div className="text-[9px] text-slate-500 uppercase">Range High</div>
+          <div className="text-sm font-mono font-bold text-slate-300">{highestBoundary.toFixed(1)}%</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-slate-950">
+          <div className="text-[9px] text-slate-500 uppercase">Available</div>
+          <div className="text-sm font-mono font-bold">
+            {hasYesLiq && <span className="text-emerald-400">YES</span>}
+            {hasYesLiq && hasNoLiq && <span className="text-slate-500"> / </span>}
+            {hasNoLiq && <span className="text-rose-400">NO</span>}
+            {!hasYesLiq && !hasNoLiq && <span className="text-slate-500">—</span>}
+          </div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-slate-950">
+          <div className="text-[9px] text-slate-500 uppercase">Total Liq</div>
+          <div className="text-sm font-mono font-bold text-white">
+            ${parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// User Orders Panel - View, Cancel, Claim orders
+// ============================================================================
+interface UserOrdersPanelProps {
+  orders: RangeOrder[];
+  marketKey: `0x${string}` | undefined;
+  isLoading: boolean;
+  onRefresh: () => void;
+  contracts: Record<string, string>;
+  chainId: number;
+}
+
+const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId }: UserOrdersPanelProps) => {
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
+  const activeOrders = orders.filter(o => o.active);
+  const hasPartialFills = orders.some(o => o.filledShares > 0n && o.active);
+
+  const handleCancelOrder = async (orderId: bigint) => {
+    if (!marketKey) return;
+    setActionInProgress(`cancel-${orderId.toString()}`);
+    const toastId = toast.loading('Cancelling order...');
+    try {
+      const hash = await writeContractAsync({
+        address: contracts.TickBook as `0x${string}`,
+        abi: V8_ABIS.TickBook,
+        functionName: 'cancelOrder',
+        args: [marketKey, orderId]
+      });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Order cancelled!</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+      onRefresh();
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Cancel failed';
+      toast.error(msg, { id: toastId });
+      console.error(e);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleClaimFills = async (orderId: bigint) => {
+    if (!marketKey) return;
+    setActionInProgress(`claim-${orderId.toString()}`);
+    const toastId = toast.loading('Claiming fills...');
+    try {
+      const hash = await writeContractAsync({
+        address: contracts.TickBook as `0x${string}`,
+        abi: V8_ABIS.TickBook,
+        functionName: 'claimFills',
+        args: [marketKey, orderId]
+      });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Fills claimed!</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+      onRefresh();
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Claim failed';
+      toast.error(msg, { id: toastId });
+      console.error(e);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Orders</span>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Orders</span>
+        <div className="flex items-center gap-2">
+          {hasPartialFills && (
+            <span className="px-2 py-1 text-[9px] bg-amber-500/20 text-amber-400 rounded-full">Has fills to claim</span>
+          )}
+          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors">
+            <RefreshCw className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+      </div>
+
+      {activeOrders.length === 0 ? (
+        <div className="text-center py-8">
+          <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">No active orders</p>
+          <p className="text-xs text-slate-600">Place a limit order to get started</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activeOrders.map((order) => {
+            const priceRange = order.tickLower === order.tickUpper 
+              ? `${(order.tickLower / 10).toFixed(1)}%`
+              : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
+            const fillPercent = order.sharesTotal > 0n 
+              ? Number((order.filledShares * 100n) / order.sharesTotal) 
+              : 0;
+            const isYesOrder = order.outcome === 1;
+            const hasFills = order.filledShares > 0n;
+            const orderId = order.orderId.toString();
+
+            return (
+              <div 
+                key={orderId}
+                className={cn(
+                  "p-3 rounded-xl border transition-all",
+                  isYesOrder 
+                    ? "bg-emerald-950/20 border-emerald-900/30" 
+                    : "bg-rose-950/20 border-rose-900/30"
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                      isYesOrder ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    )}>
+                      {isYesOrder ? 'YES' : 'NO'}
+                    </span>
+                    <span className="text-sm font-mono text-white">{priceRange}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500">#{orderId}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                  <div>
+                    <div className="text-slate-500">Total</div>
+                    <div className="font-mono text-white">
+                      {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Filled</div>
+                    <div className={cn("font-mono", hasFills ? "text-amber-400" : "text-slate-400")}>
+                      {parseFloat(formatUnits(order.filledShares, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Fill %</div>
+                    <div className="font-mono text-white">{fillPercent.toFixed(1)}%</div>
+                  </div>
+                </div>
+
+                {/* Fill progress bar */}
+                <div className="h-1 bg-slate-800 rounded-full mb-3 overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      isYesOrder ? "bg-emerald-500" : "bg-rose-500"
+                    )}
+                    style={{ width: `${fillPercent}%` }}
+                  />
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  {hasFills && (
+                    <Button
+                      onClick={() => handleClaimFills(order.orderId)}
+                      disabled={actionInProgress === `claim-${orderId}`}
+                      className="flex-1 py-1.5 text-xs bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-600/30"
+                    >
+                      {actionInProgress === `claim-${orderId}` ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        'Claim Fills'
+                      )}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => handleCancelOrder(order.orderId)}
+                    disabled={actionInProgress === `cancel-${orderId}`}
+                    className="flex-1 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                  >
+                    {actionInProgress === `cancel-${orderId}` ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      'Cancel'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ============================================================================
 // Main Component
@@ -72,6 +570,9 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  
+  // Track which markets are graduated (only these count)
+  const [graduatedAddresses, setGraduatedAddresses] = useState<Set<string>>(new Set());
 
   // Get all V8 markets
   const allMarkets = useMemo(() => {
@@ -94,22 +595,44 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     });
   }, [allMarkets, search, category]);
 
-  // Generate category counts
+  // Generate category counts - only count GRADUATED markets
   const categoriesWithCounts = useMemo(() => {
+    const graduatedMarkets = allMarkets.filter(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all' 
-        ? allMarkets.length 
-        : allMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
+        ? graduatedMarkets.length 
+        : graduatedMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
     }));
-  }, [allMarkets]);
+  }, [allMarkets, graduatedAddresses]);
 
-  // Auto-select first market
+  // Graduated market count for display
+  const graduatedMarketCount = useMemo(() => {
+    return filteredMarkets.filter(m => graduatedAddresses.has(m.contractAddress.toLowerCase())).length;
+  }, [filteredMarkets, graduatedAddresses]);
+
+  // Callback when a market's graduation status is determined
+  const handleMarketGraduationLoaded = React.useCallback((address: string, isGraduated: boolean) => {
+    setGraduatedAddresses(prev => {
+      const newSet = new Set(prev);
+      if (isGraduated) {
+        newSet.add(address.toLowerCase());
+      } else {
+        newSet.delete(address.toLowerCase());
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Auto-select first graduated market
   React.useEffect(() => {
-    if (filteredMarkets.length > 0 && !selectedMarketId) {
-      setSelectedMarketId(filteredMarkets[0].contractAddress);
+    if (!selectedMarketId && graduatedAddresses.size > 0) {
+      const firstGraduated = filteredMarkets.find(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
+      if (firstGraduated) {
+        setSelectedMarketId(firstGraduated.contractAddress);
+      }
     }
-  }, [filteredMarkets, selectedMarketId]);
+  }, [filteredMarkets, selectedMarketId, graduatedAddresses]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -125,66 +648,136 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     setSelectedMarketId(market.contractAddress);
   };
 
-  const selectedMarket = filteredMarkets.find(m => m.contractAddress === selectedMarketId) || filteredMarkets[0];
+  const selectedMarket = filteredMarkets.find(m => m.contractAddress === selectedMarketId) || 
+    filteredMarkets.find(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
 
   return (
     <div className="space-y-6">
       <MarketHeader
-        title="Pro Trading"
-        subtitle="Order book trading for graduated markets — deeper liquidity, tighter spreads"
+        title="Pro"
+        hint="Pro trading uses a continuous range orderbook (TickBookV2) with Uniswap V3-style liquidity. Place limit orders at any probability from 0.1% to 99.9% with 0.1% tick precision. Range orders let you provide liquidity across a price range and earn from taker fills. Markets must graduate from AMM before Pro trading unlocks."
         search={search}
         onSearchChange={setSearch}
         category={category}
         onCategoryChange={setCategory}
         categories={categoriesWithCounts}
-        marketCount={filteredMarkets.length}
+        marketCount={graduatedMarketCount}
       />
 
       {/* Horizontal Market Scroll */}
       {filteredMarkets.length === 0 ? (
         <EmptyState search={search} />
       ) : (
-        <>
-          <div className="relative">
-            {/* Left scroll button */}
-            <button
-              onClick={() => scroll('left')}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors shadow-lg"
-            >
-              <ChevronLeft className="w-5 h-5 text-slate-400" />
-            </button>
-
-            {/* Scrollable container */}
-            <div
-              ref={scrollRef}
-              className="flex gap-3 overflow-x-auto scrollbar-hide px-12 py-2 -mx-4"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {filteredMarkets.map(market => (
-                <ProMarketChip
-                  key={market.contractAddress}
-                  market={market}
-                  isSelected={market.contractAddress === selectedMarketId}
-                  onClick={() => handleMarketSelect(market)}
-                />
-              ))}
-            </div>
-
-            {/* Right scroll button */}
-            <button
-              onClick={() => scroll('right')}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors shadow-lg"
-            >
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
-          </div>
-
-          {/* Trading Terminal for selected market */}
-          {selectedMarket && (
-            <ProTradingTerminal marketId={selectedMarket.contractAddress} embedded />
-          )}
-        </>
+        <GraduatedMarketsScroll
+          markets={filteredMarkets}
+          selectedMarketId={selectedMarketId}
+          onSelect={handleMarketSelect}
+          scrollRef={scrollRef}
+          onScroll={scroll}
+          onMarketGraduationLoaded={handleMarketGraduationLoaded}
+        />
       )}
+      
+      {/* Trading Terminal for selected market */}
+      {selectedMarket && (
+        <ProTradingTerminal marketId={selectedMarket.contractAddress} embedded />
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// Graduated Markets Scroll - Only shows graduated markets
+// ============================================================================
+interface GraduatedMarketsScrollProps {
+  markets: Array<{
+    contractAddress: string;
+    name: string;
+    symbol: string;
+    category?: string;
+  }>;
+  selectedMarketId: string | null;
+  onSelect: (market: { contractAddress: string }) => void;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  onScroll: (direction: 'left' | 'right') => void;
+  onMarketGraduationLoaded?: (address: string, isGraduated: boolean) => void;
+}
+
+const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef, onScroll, onMarketGraduationLoaded }: GraduatedMarketsScrollProps) => {
+  // Track how many markets have loaded and their graduation status
+  const [graduatedCount, setGraduatedCount] = React.useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = React.useState(0);
+  
+  const handleMarketLoaded = React.useCallback((address: string, isGraduated: boolean) => {
+    setLoadedCount(c => c + 1);
+    if (isGraduated) {
+      setGraduatedCount(c => (c ?? 0) + 1);
+    }
+    // Report up to parent for count tracking
+    onMarketGraduationLoaded?.(address, isGraduated);
+  }, [onMarketGraduationLoaded]);
+
+  // Reset counts when markets change
+  React.useEffect(() => {
+    setGraduatedCount(null);
+    setLoadedCount(0);
+  }, [markets.length]);
+
+  const allLoaded = loadedCount >= markets.length;
+  const hasGraduated = graduatedCount !== null && graduatedCount > 0;
+
+  // Show empty state if all loaded and none graduated
+  if (allLoaded && !hasGraduated) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-slate-900/50 border border-dashed border-slate-700 flex items-center justify-center">
+          <BookOpen className="w-6 h-6 text-slate-600" />
+        </div>
+        <h3 className="text-lg font-bold text-white mb-2">No Graduated Markets</h3>
+        <p className="text-slate-400 text-sm mb-4">
+          Pro trading is only available for graduated markets
+        </p>
+        <Link to="/trade" className="text-amber-400 hover:text-amber-300 text-sm font-medium">
+          Trade on AMM to help markets graduate →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Left scroll button */}
+      <button
+        onClick={() => onScroll('left')}
+        className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-400" />
+      </button>
+
+      {/* Scrollable container */}
+      <div
+        ref={scrollRef}
+        className="flex-1 flex gap-3 overflow-x-auto scrollbar-hide py-2"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {markets.map(market => (
+          <ProMarketChip
+            key={market.contractAddress}
+            market={market}
+            isSelected={market.contractAddress === selectedMarketId}
+            onClick={() => onSelect(market)}
+            onLoaded={(addr, isGrad) => handleMarketLoaded(addr, isGrad)}
+          />
+        ))}
+      </div>
+
+      {/* Right scroll button */}
+      <button
+        onClick={() => onScroll('right')}
+        className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
+      >
+        <ChevronRight className="w-5 h-5 text-slate-400" />
+      </button>
     </div>
   );
 };
@@ -201,44 +794,67 @@ interface ProMarketChipProps {
   };
   isSelected: boolean;
   onClick: () => void;
+  onLoaded?: (address: string, isGraduated: boolean) => void;
 }
 
-const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
+const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipProps) => {
   const { launchpad, isLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
+  const { tickBook } = useTickBookDirect(market.contractAddress as `0x${string}`);
+  const isCreated = launchpad?.isCreated;
   const isGraduated = launchpad?.isGraduated;
+  const bookPrice = tickBook?.probability ?? 0.5;
+  const hasReportedRef = React.useRef(false);
+
+  // Report graduation status once loaded
+  React.useEffect(() => {
+    if (!isLoading && !hasReportedRef.current) {
+      hasReportedRef.current = true;
+      // Only count as graduated if both created AND graduated
+      onLoaded?.(market.contractAddress, !!isCreated && !!isGraduated);
+    }
+  }, [isLoading, isCreated, isGraduated, onLoaded, market.contractAddress]);
+
+  // Filter out non-graduated markets - only show created AND graduated ones
+  if (!isLoading && (!isCreated || !isGraduated)) {
+    return null;
+  }
 
   return (
     <button
       onClick={onClick}
-      disabled={!isGraduated && !isLoading}
       className={cn(
         "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-w-[200px]",
         isSelected
           ? "bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10"
-          : isGraduated
-            ? "bg-slate-900/80 border-slate-800 hover:border-slate-700"
-            : "bg-slate-900/30 border-slate-800/30 opacity-50 cursor-not-allowed"
+          : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
       )}
     >
+      {/* Symbol badge - rounded-lg like AMM */}
       <div className={cn(
-        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
-        isGraduated 
-          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
-          : "bg-slate-800 text-slate-500"
+        "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
+        isSelected 
+          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white" 
+          : "bg-slate-800 text-slate-400"
       )}>
         {market.symbol.slice(0, 2)}
       </div>
-      <div className="text-left min-w-0">
-        <div className="font-semibold text-white text-sm truncate">{market.symbol}</div>
+      
+      {/* Name */}
+      <div className="text-left min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
+          <BookOpen className="w-3 h-3 text-amber-400 flex-shrink-0" />
+        </div>
         <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
-      {isLoading ? (
-        <Loader2 className="w-4 h-4 text-slate-500 animate-spin flex-shrink-0" />
-      ) : isGraduated ? (
-        <TrendingUp className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-      ) : (
-        <Zap className="w-4 h-4 text-amber-500 flex-shrink-0" />
-      )}
+
+      {/* Book Price */}
+      <span className={cn(
+        "text-sm font-bold tabular-nums flex-shrink-0",
+        bookPrice > 0.5 ? "text-emerald-400" : bookPrice < 0.5 ? "text-rose-400" : "text-slate-400"
+      )}>
+        {isLoading ? '—' : `${(bookPrice * 100).toFixed(0)}%`}
+      </span>
     </button>
   );
 };
@@ -342,12 +958,22 @@ const EmptyState = ({ search }: { search?: string }) => (
 // ============================================================================
 // Trading Terminal
 // ============================================================================
+// Helper: Get block explorer URL
+const getExplorerUrl = (chainId: number, txHash: string) => {
+  const explorers: Record<number, string> = {
+    84532: 'https://sepolia.basescan.org',
+    8453: 'https://basescan.org',
+  };
+  return `${explorers[chainId] || 'https://sepolia.basescan.org'}/tx/${txHash}`;
+};
+
 const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; embedded?: boolean }) => {
   const navigate = useNavigate();
   const { isConnected, address: userAddress } = useAccount();
   const chainId = useChainId();
   const { contracts } = useDeployments();
   const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   // UI State
   const [action, setAction] = useState<OrderAction>('buy_yes');
@@ -372,12 +998,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
   const { launchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer } = useCollateralizerDirect(marketAddr);
+  const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading, refetch: refetchTickBook } = useTickBookDirect(
     marketAddr,
     collateralizer?.yesToken,
     collateralizer?.noToken
   );
   const { vault, refetch: refetchVault } = useTickBookVaultDirect(userAddress, marketAddr);
+  const { orders: userOrders, isLoading: isOrdersLoading, refetch: refetchOrders } = useUserOrdersDirect(
+    tickBook?.marketKey as `0x${string}`,
+    userAddress
+  );
 
   const { balances, refetch: refetchBalances } = useTokenBalances(useMemo(() => [
     contracts.MockUSDC as `0x${string}`
@@ -409,7 +1040,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   }, [vaultAllowance, decimals]);
 
   // Derived values
-  const currentProb = tickBook?.probability ?? 0.5;
+  const tickBookProb = tickBook?.probability ?? 0.5;
+  const ammProb = amm?.yesProbability ?? 0.5;
+  const arbSpread = Math.abs(tickBookProb - ammProb) * 100;
+  const hasArb = arbSpread >= 0.5; // Show arb indicator if >= 0.5% difference
+  
+  // Use tickBook price as primary (or fall back to AMM if no tickBook data)
+  const currentProb = tickBookProb;
   const priceLowNum = parseFloat(priceLow) || 45;
   const priceHighNum = parseFloat(priceHigh) || 55;
   const amountNum = parseFloat(amount) || 0;
@@ -436,20 +1073,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     ? vaultAvailable >= parseUnits(estimatedValue.toFixed(2), 18)
     : true; // For sells, check if user has enough shares (handled separately)
 
-  // Handlers
+  // Handlers - with proper transaction tracking
   const handleApprove = async () => {
     setIsSubmitting(true);
+    const toastId = toast.loading('Submitting approval...');
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: contracts.MockUSDC as `0x${string}`,
         abi: V8_ABIS.OutcomeToken,
         functionName: 'approve',
         args: [contracts.TickBookVault as `0x${string}`, parseUnits('1000000000', decimals)]
       });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
       refetchAllowance();
-      toast.success('Vault approved!');
-    } catch (e) {
-      toast.error('Approval failed');
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Vault approved!</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Approval failed';
+      toast.error(msg, { id: toastId });
       console.error(e);
     } finally {
       setIsSubmitting(false);
@@ -459,19 +1113,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const handleDeposit = async () => {
     if (!vaultInput) return;
     setIsSubmitting(true);
+    const depositAmt = vaultInput;
+    const toastId = toast.loading('Submitting deposit...');
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
         abi: V8_ABIS.TickBookVault,
         functionName: 'depositUsdc',
         args: [parseUnits(vaultInput, decimals)]
       });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
       refetchBalances();
       refetchVault();
       setVaultInput('');
-      toast.success(`Deposited $${vaultInput}`);
-    } catch (e) {
-      toast.error('Deposit failed');
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Deposited ${depositAmt}</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Deposit failed';
+      toast.error(msg, { id: toastId });
       console.error(e);
     } finally {
       setIsSubmitting(false);
@@ -481,19 +1153,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const handleWithdraw = async () => {
     if (!vaultInput) return;
     setIsSubmitting(true);
+    const withdrawAmt = vaultInput;
+    const toastId = toast.loading('Submitting withdrawal...');
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
         abi: V8_ABIS.TickBookVault,
         functionName: 'withdrawUsdc',
         args: [parseUnits(vaultInput, 18)]
       });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
       refetchBalances();
       refetchVault();
       setVaultInput('');
-      toast.success(`Withdrew $${vaultInput}`);
-    } catch (e) {
-      toast.error('Withdrawal failed');
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Withdrew ${withdrawAmt}</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Withdrawal failed';
+      toast.error(msg, { id: toastId });
       console.error(e);
     } finally {
       setIsSubmitting(false);
@@ -507,39 +1197,61 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
     // Determine outcome: YES=1, NO=0
     const outcome = isYes ? 1 : 0;
+    const isMarketOrder = orderType === 'market';
+    const orderDesc = isMarketOrder 
+      ? `Market ${isBuying ? 'buy' : 'sell'} ${amount} ${isYes ? 'YES' : 'NO'}`
+      : `Limit order ${amount} ${isYes ? 'YES' : 'NO'} @ ${priceLow}%`;
+    
+    const toastId = toast.loading(isMarketOrder ? 'Executing market order...' : 'Placing order...');
 
     try {
-      // Selling is placing a limit order on the opposite side
-      // sell_yes @ P = buy_no @ (1-P) from maker perspective
-      // For now, we treat sell as placing a limit order that others can take
+      let hash: `0x${string}`;
       
-      if (orderType === 'market') {
-        await writeContractAsync({
+      if (isMarketOrder) {
+        // TickBookV2 uses maxCost (WAD) instead of limitTick.
+        const estimatedCostWad = parseUnits(estimatedValue.toFixed(6), 18);
+        const maxCost = (estimatedCostWad * 110n) / 100n; // 10% buffer for alpha
+        hash = await writeContractAsync({
           address: contracts.TickBook as `0x${string}`,
           abi: V8_ABIS.TickBook,
           functionName: 'executeMarketOrder',
-          args: [tickBook.marketKey, outcome, amountBg, outcome === 1 ? 999 : 0]
+          args: [tickBook.marketKey, outcome, amountBg, maxCost]
         });
-        toast.success('Market order executed!');
       } else {
         const tickLow = Math.round(priceLowNum * 10);
         const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
-        const tickCount = BigInt(tickHigh - tickLow + 1);
-        const sharesPerTick = amountBg / tickCount;
-        await writeContractAsync({
+        const liquidity = amountBg; // TickBookV2 takes total shares across the range
+        hash = await writeContractAsync({
           address: contracts.TickBook as `0x${string}`,
           abi: V8_ABIS.TickBook,
-          functionName: 'placeLimitOrder',
-          args: [tickBook.marketKey, outcome, tickLow, tickHigh, sharesPerTick]
+          functionName: 'placeRangeOrder',
+          args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
         });
-        toast.success(priceMode === 'single' ? 'Limit order placed!' : `Range order placed across ${tickCount} ticks!`);
       }
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      
       refetchTickBook();
       refetchVault();
+      refetchOrders();
       setAmount('');
-    } catch (e) {
-      const msg = (e as any)?.cause?.reason || (e as any)?.shortMessage || 'Trade failed';
-      toast.error(msg);
+      
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>{isMarketOrder ? 'Order executed!' : 'Order placed!'}</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || 'Trade failed';
+      toast.error(msg, { id: toastId });
       console.error(e);
     } finally {
       setIsSubmitting(false);
@@ -582,11 +1294,27 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <div className="text-xs text-slate-500">{selectedMarket?.name?.slice(0, 50) || '—'}</div>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Prob</div>
-              <div className="text-2xl font-mono font-bold text-amber-400">{(currentProb * 100).toFixed(1)}%</div>
+          <div className="ml-auto flex items-center gap-3">
+            {/* TickBook Price (Primary) - larger, amber */}
+            <div className="text-center p-2 rounded-lg bg-slate-950">
+              <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
+              <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
             </div>
+            {/* AMM Price (Secondary) - smaller, grey */}
+            <div className="text-center p-2 rounded-lg bg-slate-950">
+              <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
+              <div className="text-base font-mono font-medium text-slate-400">
+                {(ammProb * 100).toFixed(1)}%
+                {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
+              </div>
+            </div>
+            {/* Arb spread indicator */}
+            {hasArb && (
+              <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div className="text-[9px] text-amber-500/70 uppercase">Arb</div>
+                <div className="text-base font-mono font-bold text-amber-400">{arbSpread.toFixed(1)}%</div>
+              </div>
+            )}
             <button onClick={() => refetchTickBook()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
             </button>
@@ -594,18 +1322,34 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         </div>
       )}
 
-      {/* Embedded: Compact header with current prob */}
+      {/* Embedded: Compact header with prices */}
       {embedded && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Prob</div>
-              <div className="text-2xl font-mono font-bold text-amber-400">{(currentProb * 100).toFixed(1)}%</div>
+        <div className="flex items-center gap-3">
+          {/* TickBook Price (Primary) - larger, amber */}
+          <div className="text-center p-2 rounded-lg bg-slate-950">
+            <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
+            <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
+          </div>
+          {/* AMM Price (Secondary) - smaller, grey */}
+          <div className="text-center p-2 rounded-lg bg-slate-950">
+            <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
+            <div className="text-base font-mono font-medium text-slate-400">
+              {(ammProb * 100).toFixed(1)}%
+              {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
             </div>
           </div>
-          <button onClick={() => refetchTickBook()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
-            <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-          </button>
+          {/* Arb spread indicator */}
+          {hasArb && (
+            <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="text-[9px] text-amber-500/70 uppercase">Arb</div>
+              <div className="text-base font-mono font-bold text-amber-400">{arbSpread.toFixed(1)}%</div>
+            </div>
+          )}
+          <div className="ml-auto">
+            <button onClick={() => refetchTickBook()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -679,139 +1423,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
               <div className="flex items-center gap-3 text-[10px]">
                 <span className="text-emerald-400">◀ YES Bids</span>
-                <span className="text-amber-400 font-bold">{(currentProb * 100).toFixed(1)}%</span>
+                <span className="text-white font-bold">{(tickBookProb * 100).toFixed(1)}%</span>
                 <span className="text-rose-400">NO Asks ▶</span>
               </div>
             </div>
             
             <div className="p-4">
-              {/* Single Row Heatmap - Height = Depth */}
-              <div className="relative">
-                {/* Price scale */}
-                <div className="flex justify-between text-[9px] text-slate-600 font-mono mb-1 px-1">
-                  <span>0%</span>
-                  <span>25%</span>
-                  <span>50%</span>
-                  <span>75%</span>
-                  <span>100%</span>
-                </div>
-                
-                {/* Pixel depth chart - blocky stacked squares with hover info */}
-                <div className="relative h-32 flex items-end gap-[2px] bg-slate-950 rounded-lg p-2">
-                  {[...Array(80)].map((_, col) => {
-                    const price = (col + 1) * 1.25; // ~1.25% per column
-                    const midPrice = currentProb * 100;
-                    const distFromMid = Math.abs(price - midPrice);
-                    
-                    // Mock liquidity - more detail near mid
-                    const baseLiquidity = Math.max(0, 1 - distFromMid / 25);
-                    const noise = (Math.sin(col * 0.6) + 1) * 0.25;
-                    const liquidity = Math.min(1, Math.max(0.05, baseLiquidity * (0.4 + noise)));
-                    
-                    // Mock order size (more realistic near mid)
-                    const orderSize = Math.round(liquidity * 5000 + Math.random() * 2000);
-                    const orderCount = Math.ceil(liquidity * 8);
-                    
-                    // Number of blocks (max 12)
-                    const blocks = Math.ceil(liquidity * 12);
-                    
-                    const isYesSide = price < midPrice;
-                    const isMid = distFromMid < 2;
-                    const isNearMid = distFromMid < 10; // Show detailed hover near spread
-                    
-                    return (
-                      <div 
-                        key={col} 
-                        className={cn(
-                          "flex-1 flex flex-col-reverse gap-[2px] relative group",
-                          isNearMid && "cursor-pointer"
-                        )}
-                      >
-                        {/* Hover tooltip - only near mid */}
-                        {isNearMid && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                            <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap shadow-xl">
-                              <div className="font-mono font-bold text-white">{price.toFixed(1)}%</div>
-                              <div className="text-slate-400">
-                                {isYesSide ? 'Bid' : 'Ask'}: <span className={isYesSide ? 'text-emerald-400' : 'text-rose-400'}>{orderSize.toLocaleString()}</span>
-                              </div>
-                              <div className="text-slate-500">{orderCount} orders</div>
-                            </div>
-                            {/* Arrow */}
-                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-700" />
-                          </div>
-                        )}
-                        
-                        {/* Blocks */}
-                        {[...Array(blocks)].map((_, blockIdx) => {
-                          const intensity = 1 - (blockIdx / blocks);
-                          let blockColor = 'bg-slate-800';
-                          
-                          if (isMid) {
-                            blockColor = intensity > 0.6 ? 'bg-amber-400' : intensity > 0.3 ? 'bg-amber-500' : 'bg-amber-700';
-                          } else if (isYesSide) {
-                            blockColor = intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700';
-                          } else {
-                            blockColor = intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700';
-                          }
-                          
-                          return (
-                            <div 
-                              key={blockIdx} 
-                              className={cn(
-                                "w-full aspect-square rounded-[1px] transition-all",
-                                blockColor,
-                                isNearMid && "group-hover:ring-1 group-hover:ring-white/30"
-                              )}
-                            />
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Current price indicator */}
-                  <div 
-                    className="absolute top-0 bottom-0 w-[3px] bg-white rounded-full shadow-[0_0_10px_3px_rgba(255,255,255,0.7)]"
-                    style={{ left: `calc(${currentProb * 100}% - 1px)` }}
-                  />
-                </div>
-                
-                {/* Intensity legend */}
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-4 text-[9px] text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-emerald-700 to-emerald-400" />
-                      <span>Bid Depth</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-rose-700 to-rose-400" />
-                      <span>Ask Depth</span>
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-slate-600">Height = Liquidity at price</div>
-                </div>
-              </div>
-              
-              {/* Stats Row */}
-              <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800/50">
-                <div className="text-center p-2 rounded-lg bg-slate-950">
-                  <div className="text-[9px] text-slate-500 uppercase">Best Bid</div>
-                  <div className="text-sm font-mono font-bold text-emerald-400">{((currentProb - 0.01) * 100).toFixed(1)}%</div>
-                </div>
-                <div className="text-center p-2 rounded-lg bg-slate-950">
-                  <div className="text-[9px] text-slate-500 uppercase">Best Ask</div>
-                  <div className="text-sm font-mono font-bold text-rose-400">{((currentProb + 0.01) * 100).toFixed(1)}%</div>
-                </div>
-                <div className="text-center p-2 rounded-lg bg-slate-950">
-                  <div className="text-[9px] text-slate-500 uppercase">Spread</div>
-                  <div className="text-sm font-mono font-bold text-amber-400">2.0%</div>
-                </div>
-                <div className="text-center p-2 rounded-lg bg-slate-950">
-                  <div className="text-[9px] text-slate-500 uppercase">Total Liq</div>
-                  <div className="text-sm font-mono font-bold text-white">$12.4K</div>
-                </div>
-              </div>
+              <LiquidityMap 
+                tickBook={tickBook}
+                currentProb={currentProb}
+                isLoading={isTickBookLoading}
+              />
             </div>
           </div>
 
@@ -836,6 +1458,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </div>
             </div>
           </div>
+
+          {/* Your Orders */}
+          <UserOrdersPanel
+            orders={userOrders}
+            marketKey={tickBook?.marketKey as `0x${string}`}
+            isLoading={isOrdersLoading}
+            onRefresh={() => { refetchOrders(); refetchVault(); refetchTickBook(); }}
+            contracts={contracts}
+            chainId={chainId}
+          />
         </div>
 
           {/* RIGHT: Trading Panel */}

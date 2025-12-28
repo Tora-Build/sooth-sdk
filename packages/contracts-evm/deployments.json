@@ -1,16 +1,17 @@
 {
-  "version": "8.3.2",
-  "lastUpdated": "2025-12-27T23:59:59Z",
-  "status": "V8.3.2 Fresh Deployment - Graduation Idempotency Fix (Base Sepolia)",
+  "version": "8.6.0",
+  "lastUpdated": "2025-12-29T00:00:00Z",
+  "status": "V8.6 Fresh Deployment - TickBookV2 with initial price from AMM",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x5b9f7743Ffd3B30D2034A05A7a4A26f643772eB8",
-        "Collateralizer": "0x72b1CBA5a86fD00753EDA6139B7070D3b8b6D796",
-        "AMMEngine": "0x95b214A5C1a290a1786EfeD3B186709230E184Bb",
-        "TickBook": "0x1A2Ffa3e286295Ef2F65BFABa7D094a7b981c708"
+        "LaunchpadEngine": "0x6AAFB1575601cad903C20d58df827146f6D569D9",
+        "Collateralizer": "0x7182133c4077aC8518106188597111bE06D88901",
+        "AMMEngine": "0xb363d7f759192c678C44b69aD52d5C6A91A1a273",
+        "TickBookVault": "0xf97122Ee5c471444B6E99030FB28c3Bd51Eab0a7",
+        "TickBook": "0xC311050C47946cA33452418ec2a1dcE49512737C"
       }
     }
   }

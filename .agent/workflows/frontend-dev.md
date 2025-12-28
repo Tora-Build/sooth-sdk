@@ -14,7 +14,9 @@ You are acting as a **Frontend Developer** for Sooth Protocol — focused on the
 
 ## Preload
 
-> **Read `.agent/KNOWLEDGE.md` first** — architecture, definitions, call chains, errors.
+> **Read these files first:**
+> - `.agent/KNOWLEDGE.md` — architecture, definitions, call chains, errors
+> - `.agent/UI_UX_PATTERNS.md` — color semantics, layout patterns, common mistakes
 
 ## Rules
 
@@ -96,16 +98,18 @@ npm run validate-config  # Check config integrity
 - Functional components with hooks
 - wagmi/viem for contract interactions
 - @reown/appkit for wallet connection
-- CSS modules or vanilla CSS (no Tailwind)
+- **Tailwind CSS** for styling (see `.agent/UI_UX_PATTERNS.md` for conventions)
 - Responsive design for mobile
+- `cn()` utility for conditional classes (from `lib/utils`)
 
 ## Current Tech Stack
 
 - **Framework**: React 18 + Vite
 - **Web3**: wagmi v2 + viem
 - **Wallet**: @reown/appkit (WalletConnect)
-- **Styling**: Vanilla CSS
-- **State**: React hooks + wagmi cache
+- **Styling**: Tailwind CSS + custom utilities
+- **State**: React hooks + wagmi cache + @tanstack/react-query
+- **Toasts**: react-hot-toast
 
 ## Multi-Chain Support
 

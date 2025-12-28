@@ -16,4 +16,5 @@ export { useCollateralizerDirect } from "./useCollateralizerDirect";
 export { useAMMQuoteDirect } from "./useAMMQuoteDirect";
 export { useTickBookDirect } from "./useTickBookDirect";
 export { useTickBookVaultDirect } from "./useTickBookVaultDirect";
-
+export { useUserOrdersDirect } from "./useUserOrdersDirect";
+export type { RangeOrder } from "./useUserOrdersDirect";

@@ -35,15 +35,22 @@ export const megaethFrontier = defineChain({
   testnet: false, // Frontier is mainnet beta
 });
 
+// Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { 
+      http: [
+        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
+        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
+        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
+      ] 
+    },
   },
   blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
   },
   testnet: true,
 });

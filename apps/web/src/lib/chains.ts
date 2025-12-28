@@ -119,7 +119,7 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
-  // Monad Testnet
+  // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
   {
     id: 10143,
     type: 'evm',
@@ -127,7 +127,7 @@ export const allowedChains: AllowedChain[] = [
     displayName: 'Monad',
     shortName: 'Monad',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
-    explorerUrl: 'https://testnet.monadexplorer.com',
+    explorerUrl: 'https://testnet.monadvision.com',
     icon: '🟣',
     nativeCurrency: {
       name: 'Monad',
@@ -168,15 +168,22 @@ export const megaethTestnet = defineChain({
 });
 
 // Define Monad Testnet using viem
+// RPCs: https://docs.monad.xyz/developer-essentials/testnets
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { 
+      http: [
+        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
+        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
+        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
+      ] 
+    },
   },
   blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
   },
   testnet: true,
 });

@@ -45,4 +45,6 @@ export {
     useLaunchpadPositionDirect,
     useTickBookDirect,
     useTickBookVaultDirect,
+    useUserOrdersDirect,
 } from "./direct";
+export type { RangeOrder } from "./direct";

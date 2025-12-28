@@ -2,17 +2,19 @@
  * MarketHeader - Unified header for AMM and Pro pages
  * 
  * Features:
- * - One-liner intro
+ * - Title with expandable hint
  * - Search input
  * - Category filters
  */
-import { Search, Zap, BookOpen } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Zap, BookOpen, HelpCircle, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../../lib/utils';
 
 interface MarketHeaderProps {
   title: string;
-  subtitle: string;
+  hint?: string;
+  subtitle?: string; // deprecated, use hint
   search: string;
   onSearchChange: (value: string) => void;
   category: string;
@@ -23,6 +25,7 @@ interface MarketHeaderProps {
 
 export const MarketHeader = ({
   title,
+  hint,
   subtitle,
   search,
   onSearchChange,
@@ -33,23 +36,40 @@ export const MarketHeader = ({
 }: MarketHeaderProps) => {
   const location = useLocation();
   const isProPage = location.pathname.startsWith('/pro');
+  const isAmmPage = location.pathname.startsWith('/trade') || location.pathname === '/v8';
+  const [showHint, setShowHint] = useState(false);
+  
+  const hintText = hint || subtitle;
 
   return (
-    <div className="space-y-6">
-      {/* Title + One-liner */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">{title}</h1>
-          <p className="text-slate-400 mt-1">{subtitle}</p>
+    <div className="space-y-4">
+      {/* Title + Toggle */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Title with hint icon */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white tracking-tight">{title}</h1>
+          {hintText && (
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className={cn(
+                "p-1.5 rounded-lg transition-all",
+                showHint 
+                  ? "bg-slate-700 text-white" 
+                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
+              )}
+            >
+              {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
+            </button>
+          )}
         </div>
         
         {/* Page Toggle */}
         <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800">
           <Link
-            to="/v8"
+            to="/trade"
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              !isProPage 
+              isAmmPage 
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50" 
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
@@ -71,6 +91,13 @@ export const MarketHeader = ({
           </Link>
         </div>
       </div>
+      
+      {/* Expandable Hint */}
+      {showHint && hintText && (
+        <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-400 leading-relaxed">
+          {hintText}
+        </div>
+      )}
 
       {/* Search + Categories + Count (all inline) */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -100,9 +127,9 @@ export const MarketHeader = ({
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                 category === cat.id
-                  ? isProPage 
-                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
-                    : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                  ? isAmmPage 
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                    : "bg-amber-500/20 text-amber-400 border border-amber-500/50"
                   : "text-slate-400 hover:text-white hover:bg-slate-800"
               )}
             >

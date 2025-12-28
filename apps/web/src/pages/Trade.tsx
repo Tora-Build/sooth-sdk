@@ -4,99 +4,79 @@
  * Simple, approachable trading for retail users expressing opinions or hedging risk.
  * Features: Quick trade buttons, large probability display, educational tooltips
  */
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronRight, GraduationCap } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { SimpleTradingPanel } from '../components/features/v8';
+import { SimpleTradingPanel, MarketHeader, GraduationProgress } from '../components/features/v8';
 import { MarketStats } from '../components/features/v8/MarketStats';
 import { LPHolders } from '../components/features/v8/LPHolders';
 import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks/v8';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
+import { cn } from '../lib/utils';
 
 const { trade: content } = uiContent;
 
-// Market card for the selector
-interface MarketItemProps {
+const CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'politics', label: 'Politics' },
+  { id: 'science', label: 'Science' },
+  { id: 'sports', label: 'Sports' },
+];
+
+// Market chip for horizontal scroll
+interface MarketChipProps {
   market: typeof marketsConfig.markets[0];
   isSelected: boolean;
   onSelect: () => void;
 }
 
-const MarketItem: React.FC<MarketItemProps> = ({ market, isSelected, onSelect }) => {
-  const { amm, isLoading: isAmmLoading } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
-  const { launchpad, isLoading: isLaunchpadLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
+const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect }) => {
+  const { amm, isLoading } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
+  const { launchpad } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const probability = amm?.yesProbability ?? 0.5;
-  const probabilityPercent = (probability * 100).toFixed(0);
   const isGraduated = launchpad?.isGraduated ?? false;
-  const graduationProgress = launchpad?.graduationProgress ?? 0;
 
   return (
     <button
       onClick={onSelect}
-      className={`card-lift w-full p-3 rounded-lg text-left focus-ring relative overflow-hidden transition-all duration-200 ${isSelected
-        ? 'bg-indigo-600/20 border-indigo-500 border shadow-lg shadow-indigo-500/10'
-        : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600'
-        }`}
+      className={cn(
+        "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-w-[200px]",
+        isSelected
+          ? "bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-500/10"
+          : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
+      )}
     >
-      <div className="flex items-center justify-between gap-2">
-        {/* Graduation Progress Ring */}
-        <div className="flex-shrink-0">
-          {isGraduated ? (
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-              <GraduationCap className="w-4 h-4 text-emerald-400" />
-            </div>
-          ) : (
-            <div className="relative w-9 h-9">
-              <svg className="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-700" />
-                <circle
-                  cx="18" cy="18" r="14"
-                  fill="none"
-                  stroke="#22d3ee"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeDasharray={`${graduationProgress * 0.88} 88`}
-                  className="transition-all duration-500"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[8px] font-bold text-cyan-400 tabular-nums">
-                  {graduationProgress.toFixed(0)}%
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Market Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <p className={`font-medium truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-              {market.symbol}
-            </p>
-            {isGraduated && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest leading-none">
-                <Zap className="w-2 h-2 fill-current" />
-                PRO
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-slate-500 truncate leading-tight">{market.name}</p>
-        </div>
-
-        {/* Probability & Chevron */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`text-lg font-bold tabular-nums leading-none ${probability > 0.5 ? 'text-emerald-400' : probability < 0.5 ? 'text-rose-400' : 'text-slate-400'
-            }`}>
-            {isAmmLoading ? <span className="skeleton w-8 h-5 inline-block" /> : `${probabilityPercent}%`}
-          </span>
-          <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-0.5' : 'text-slate-600'}`} />
-        </div>
+      {/* Symbol badge */}
+      <div className={cn(
+        "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
+        isSelected 
+          ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white" 
+          : "bg-slate-800 text-slate-400"
+      )}>
+        {market.symbol.slice(0, 2)}
       </div>
+      
+      {/* Name */}
+      <div className="text-left min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
+          {isGraduated && <Zap className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+        </div>
+        <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
+      </div>
+
+      {/* Probability */}
+      <span className={cn(
+        "text-sm font-bold tabular-nums flex-shrink-0",
+        probability > 0.5 ? "text-emerald-400" : probability < 0.5 ? "text-rose-400" : "text-slate-400"
+      )}>
+        {isLoading ? '—' : `${(probability * 100).toFixed(0)}%`}
+      </span>
     </button>
   );
 };
@@ -106,6 +86,14 @@ export const Trade = () => {
   const navigate = useNavigate();
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
+  
+  // Search and filter state
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
+  const [selectedMarketAddress, setSelectedMarketAddress] = useState<string | null>(null);
+  
+  // Scroll ref
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
@@ -114,133 +102,196 @@ export const Trade = () => {
     );
   }, [chainId]);
 
-  // Find selected market or default to first
-  const selectedMarket = useMemo(() => {
-    if (marketId) {
-      return v8Markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase());
-    }
-    return v8Markets[0];
-  }, [marketId, v8Markets]);
+  // Apply search and category filters
+  const filteredMarkets = useMemo(() => {
+    return v8Markets.filter(m => {
+      const matchesSearch = search === '' || 
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.symbol.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = category === 'all' || m.category === category;
+      return matchesSearch && matchesCategory;
+    });
+  }, [v8Markets, search, category]);
 
+  // Get category counts
+  const categoriesWithCounts = useMemo(() => {
+    return CATEGORIES.map(cat => ({
+      ...cat,
+      count: cat.id === 'all' 
+        ? v8Markets.length 
+        : v8Markets.filter(m => m.category === cat.id).length
+    }));
+  }, [v8Markets]);
+
+  // Handle URL-based market selection or auto-select first market
+  useEffect(() => {
+    if (marketId) {
+      setSelectedMarketAddress(marketId);
+    } else if (filteredMarkets.length > 0 && !selectedMarketAddress) {
+      setSelectedMarketAddress(filteredMarkets[0].contractAddress);
+    }
+  }, [marketId, filteredMarkets, selectedMarketAddress]);
+
+  // Find selected market
+  const selectedMarket = useMemo(() => {
+    if (selectedMarketAddress) {
+      return filteredMarkets.find(m => m.contractAddress.toLowerCase() === selectedMarketAddress.toLowerCase()) || filteredMarkets[0];
+    }
+    return filteredMarkets[0];
+  }, [selectedMarketAddress, filteredMarkets]);
 
   // Get market data
   const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
   const handleSelectMarket = (market: typeof v8Markets[0]) => {
-    navigate(`/trade/${market.contractAddress}`);
+    setSelectedMarketAddress(market.contractAddress);
+  };
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 300;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-1">{content.header.title}</h1>
-          <p className="text-slate-400 text-sm">{content.header.subtitle}</p>
+    <div className="space-y-6">
+      {/* Unified Header */}
+      <MarketHeader
+        title="AMM"
+        hint="Automated Market Maker for casual traders. Buy or sell YES/NO tokens instantly with always-available liquidity. During the bonding phase, every trade earns you LP tokens as rewards. Perfect for expressing quick opinions or hedging your positions without worrying about order matching."
+        search={search}
+        onSearchChange={setSearch}
+        category={category}
+        onCategoryChange={setCategory}
+        categories={categoriesWithCounts}
+        marketCount={filteredMarkets.length}
+      />
+
+      {/* Horizontal Market Scroll - matches Pro page layout */}
+      {filteredMarkets.length === 0 ? (
+        <div className="text-center py-8 text-slate-500">
+          <p className="text-sm">No markets found</p>
         </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          {/* Left scroll button */}
+          <button
+            onClick={() => scroll('left')}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-slate-400" />
+          </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Market Selector */}
-          <div className="lg:col-span-3 space-y-4">
-            {/* Trending Label */}
-            <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
-              <Zap className="w-3 h-3" />
-              <span>{content.selector.trending}</span>
-            </div>
-
-            {/* Market List */}
-            <div className="space-y-2 max-h-[400px] overflow-y-auto no-scrollbar py-1 -my-1">
-              {v8Markets.length > 0 ? (
-                v8Markets.map(market => (
-                  <MarketItem
-                    key={market.id}
-                    market={market}
-                    isSelected={selectedMarket?.id === market.id}
-                    onSelect={() => handleSelectMarket(market)}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  <p className="text-sm">{content.selector.noMarkets}</p>
-                </div>
-              )}
-            </div>
+          {/* Scrollable container */}
+          <div
+            ref={scrollRef}
+            className="flex-1 flex gap-3 overflow-x-auto scrollbar-hide py-2"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {filteredMarkets.map(market => (
+              <MarketChip
+                key={market.id}
+                market={market}
+                isSelected={selectedMarket?.id === market.id}
+                onSelect={() => handleSelectMarket(market)}
+              />
+            ))}
           </div>
 
-          {/* Center Column: Trading Panel */}
-          <div className="lg:col-span-5 space-y-4">
-            {selectedMarket ? (
-              <>
-                {/* Market Header */}
-                <Card className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
-                      <p className="text-sm text-slate-400 mt-1">{selectedMarket.description}</p>
-                      {selectedMarket.deadline && (
-                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                          <Clock className="w-3 h-3" />
-                          <span>{content.panel.deadline}: {new Date(selectedMarket.deadline * 1000).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge variant={launchpad?.isGraduated ? 'success' : 'warning'} className={launchpad?.isGraduated ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}>
-                        {launchpad?.isGraduated ? (
-                          <span className="flex items-center gap-1">
-                            <GraduationCap className="w-3.5 h-3.5" />
-                            {content.panel.graduated}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1">
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            {content.panel.preGrad}
-                          </span>
-                        )}
-                      </Badge>
-                      {launchpad?.isGraduated && (
-                        <div className="flex items-center gap-1 text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider animate-pulse">
-                          <Zap className="w-2.5 h-2.5" />
-                          TickBook Live
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
+          {/* Right scroll button */}
+          <button
+            onClick={() => scroll('right')}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+      )}
 
-                {/* Trading Panel */}
-                <SimpleTradingPanel
-                  address={selectedMarket.contractAddress as `0x${string}`}
-                  isGraduated={launchpad?.isGraduated}
-                  isSettled={truth?.isSettled ?? false}
-                />
+      {/* Main Content Grid */}
+      {selectedMarket && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Trading Panel */}
+          <div className="lg:col-span-7 space-y-4">
+            {/* Market Header Card */}
+            <Card className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
+                  <p className="text-sm text-slate-400 mt-1">{selectedMarket.description}</p>
+                  {selectedMarket.deadline && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                      <Clock className="w-3 h-3" />
+                      <span>{content.panel.deadline}: {new Date(selectedMarket.deadline * 1000).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant={launchpad?.isGraduated ? 'success' : 'warning'} className={launchpad?.isGraduated ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}>
+                    {launchpad?.isGraduated ? (
+                      <span className="flex items-center gap-1">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        {content.panel.graduated}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        {content.panel.preGrad}
+                      </span>
+                    )}
+                  </Badge>
+                  {launchpad?.isGraduated && (
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider animate-pulse">
+                      <Zap className="w-2.5 h-2.5" />
+                      TickBook Live
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
 
-                {/* Quick Links */}
-                {launchpad?.isGraduated && (
-                  <div className="flex items-center justify-end text-sm">
-                    <Link
-                      to={`/pro/${selectedMarket.contractAddress}`}
-                      className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
-                    >
-                      <Zap className="w-3 h-3" />
-                      {content.panel.goPro}
-                    </Link>
-                  </div>
-                )}
-              </>
-            ) : (
-              <Card className="p-8 text-center">
-                <TrendingUp className="w-12 h-12 mx-auto text-slate-600 mb-4" />
-                <p className="text-slate-400">{content.panel.selectToStart}</p>
-              </Card>
+            {/* Trading Panel - wrapped in Card for consistent styling */}
+            <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
+              <SimpleTradingPanel
+                address={selectedMarket.contractAddress as `0x${string}`}
+                isGraduated={launchpad?.isGraduated}
+                isSettled={truth?.isSettled ?? false}
+              />
+            </Card>
+
+            {/* Quick Links */}
+            {launchpad?.isGraduated && (
+              <div className="flex items-center justify-end text-sm">
+                <Link
+                  to={`/pro/${selectedMarket.contractAddress}`}
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
+                >
+                  <Zap className="w-3 h-3" />
+                  {content.panel.goPro}
+                </Link>
+              </div>
             )}
           </div>
 
-          {/* Right Column: LP & Stats */}
-          <div className="lg:col-span-4 space-y-4">
-            {/* Market Details & Stats */}
-            {!isLoadingLaunchpad && selectedMarket && (
+          {/* Right Column: Graduation Progress, LP & Stats */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Graduation Progress */}
+            {!isLoadingLaunchpad && launchpad && (
+              <GraduationProgress
+                feesAccrued={launchpad.feesAccrued ?? 0n}
+                graduationThreshold={launchpad.graduationThreshold ?? 0n}
+                graduationProgress={launchpad.graduationProgress}
+                isGraduated={launchpad.isGraduated}
+                canGraduate={launchpad.canGraduate}
+              />
+            )}
+
+            {!isLoadingLaunchpad && (
               <>
                 <LPHolders marketAddress={selectedMarket.contractAddress as `0x${string}`} />
                 <MarketStats marketAddress={selectedMarket.contractAddress as `0x${string}`} />
@@ -258,10 +309,9 @@ export const Trade = () => {
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 export default Trade;
-
