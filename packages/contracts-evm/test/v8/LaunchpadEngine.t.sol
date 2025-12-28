@@ -32,8 +32,8 @@ contract LaunchpadEngineTest is Test {
     uint256 constant INITIAL_LIQUIDITY = 1000 * WAD; // $1,000
 
     // V8.2 outcome constants
-    uint8 constant YES = 0;
-    uint8 constant NO = 1;
+    uint8 constant YES = 1;  // Aligned with TruthMarket: 0=NO, 1=YES, 2=INVALID
+    uint8 constant NO = 0;
 
     function setUp() public {
         // Deploy mock USDC (18 decimals for simplicity)

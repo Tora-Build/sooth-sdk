@@ -15,6 +15,7 @@ interface ITruthMarket {
     event MarketCreated(address indexed market, string question, uint64 deadline);
     event MarketSettled(address indexed market, uint8 outcome, uint64 tStar);
     event MarketFinalized(address indexed market);
+    event MarketVetoed(address indexed market, uint8 previousOutcome, uint64 previousTStar);
 
     // ============================================
     // Lifecycle State

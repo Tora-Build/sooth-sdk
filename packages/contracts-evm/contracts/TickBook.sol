@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ITickBook} from "./interfaces/ITickBook.sol";
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
 
@@ -13,7 +14,7 @@ import {TickMath} from "./libraries/TickMath.sol";
  * @dev Orders are funded by internal USDC balances in TickBookVault.
  *      This contract does NOT transfer/mint/burn ERC20 outcome tokens.
  */
-contract TickBook is ITickBook {
+contract TickBook is ITickBook, ReentrancyGuard {
     using TickBitmap for TickBitmap.Bitmap;
 
     uint256 private constant WAD = 1e18;
@@ -104,7 +105,7 @@ contract TickBook is ITickBook {
         uint16 tickLower,
         uint16 tickUpper,
         uint256 sharesPerTick
-    ) external override returns (uint256 firstOrderId, uint256 orderCount) {
+    ) external override nonReentrant returns (uint256 firstOrderId, uint256 orderCount) {
         Market memory m = _markets[marketKey];
         require(m.isActive, "TickBook: not active");
         require(ITruthMarket(m.truthMarket).isLive(), "TickBook: not live");
@@ -156,6 +157,7 @@ contract TickBook is ITickBook {
     function cancelOrder(bytes32 marketKey, uint256 orderId)
         external
         override
+        nonReentrant
         returns (uint256 remainingShares, uint256 collateralReleasedUsdcWad)
     {
         Order storage o = _orders[marketKey][orderId];
@@ -189,7 +191,7 @@ contract TickBook is ITickBook {
         uint8 outcome,
         uint256 shares,
         uint16 limitTick
-    ) external override returns (uint256 sharesFilled, uint16 finalTick) {
+    ) external override nonReentrant returns (uint256 sharesFilled, uint16 finalTick) {
         Market memory m = _markets[marketKey];
         require(m.isActive, "TickBook: not active");
         require(ITruthMarket(m.truthMarket).isLive(), "TickBook: not live");

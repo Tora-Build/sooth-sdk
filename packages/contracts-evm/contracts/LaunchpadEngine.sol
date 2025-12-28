@@ -10,6 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title LaunchpadEngine
@@ -17,7 +18,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @dev V8.2: Supports dual-balance position model (users can hold both YES and NO)
  *      Wraps AMMEngine to add Launchpad model on top of pure trading logic
  */
-contract LaunchpadEngine is ILaunchpadEngine, Ownable {
+contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ============================================
@@ -193,7 +194,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         uint256 initialLiquidity,
         string calldata name,
         string calldata symbol
-    ) external override returns (uint256 lpTokens) {
+    ) external override nonReentrant returns (uint256 lpTokens) {
         require(ITruthMarket(market).creator() == msg.sender, "LaunchpadEngine: not creator");
         require(markets[market].creator == address(0), "LaunchpadEngine: already exists");
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
@@ -244,7 +245,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         uint8 outcome,
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
-    ) external override returns (uint256 actualCost) {
+    ) external override nonReentrant returns (uint256 actualCost) {
         MarketState storage state = markets[market];
         require(state.creator != address(0), "LaunchpadEngine: market not found");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
@@ -293,8 +294,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
             // Approve AMM for the portion of baseCost that comes from wallet
             // (AMMEngine will use user's balance for the rest)
+            // Using forceApprove to handle tokens that don't allow approve() when current allowance is non-zero
             if (baseCostFromWalletUsdc > 0) {
-                usdc.approve(address(ammEngine), baseCostFromWalletUsdc);
+                usdc.forceApprove(address(ammEngine), baseCostFromWalletUsdc);
             }
 
             // Execute trade on AMM
@@ -412,7 +414,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     function redeemLP(
         address market,
         uint256 lpAmount
-    ) external override returns (uint256 usdcAmount) {
+    ) external override nonReentrant returns (uint256 usdcAmount) {
         MarketState storage state = markets[market];
         require(lpBalances[market][msg.sender] >= lpAmount, "LaunchpadEngine: insufficient LP");
 
@@ -467,7 +469,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     function increaseBBase(
         address market,
         uint256 amount
-    ) external override {
+    ) external override nonReentrant {
         MarketState storage state = markets[market];
         require(msg.sender == state.creator, "LaunchpadEngine: not creator");
 

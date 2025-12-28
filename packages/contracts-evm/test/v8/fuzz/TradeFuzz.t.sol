@@ -36,8 +36,9 @@ contract TradeFuzzTest is Test {
     uint256 constant WAD = 1e18;
     uint256 constant INITIAL_LIQUIDITY = 1000 * WAD;
 
-    uint8 constant YES = 0;
-    uint8 constant NO = 1;
+    // Outcome constants (aligned with TruthMarket: 0=NO, 1=YES, 2=INVALID)
+    uint8 constant YES = 1;
+    uint8 constant NO = 0;
 
     function setUp() public {
         usdc = new ERC20Mock();

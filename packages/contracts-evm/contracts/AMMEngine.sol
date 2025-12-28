@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {LMSRMath} from "./libraries/LMSRMath.sol";
 
 /**
@@ -16,7 +17,7 @@ import {LMSRMath} from "./libraries/LMSRMath.sol";
  *      Positions are non-transferable ledger entries
  *      Users manage their own USDC custody (EOA, Safe, smart account, etc.)
  */
-contract AMMEngine is IAMMEngine, Ownable {
+contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ============================================
@@ -161,8 +162,8 @@ contract AMMEngine is IAMMEngine, Ownable {
         uint256 newQYes;
         uint256 newQNo;
 
-        if (outcome == 0) {
-            // YES outcome
+        if (outcome == 1) {
+            // YES outcome (1 = YES, consistent with TruthMarket)
             if (isBuy) {
                 newQYes = state.qYes + absDelta;
                 newQNo = state.qNo;
@@ -173,7 +174,7 @@ contract AMMEngine is IAMMEngine, Ownable {
                 newQNo = state.qNo;
             }
         } else {
-            // NO outcome
+            // NO outcome (0 = NO, consistent with TruthMarket)
             if (isBuy) {
                 newQYes = state.qYes;
                 newQNo = state.qNo + absDelta;
@@ -225,7 +226,7 @@ contract AMMEngine is IAMMEngine, Ownable {
             }
 
             // Update user position
-            if (outcome == 0) {
+            if (outcome == 1) {
                 position.yesShares += absDelta;
             } else {
                 position.noShares += absDelta;
@@ -256,7 +257,7 @@ contract AMMEngine is IAMMEngine, Ownable {
             }));
 
             // Update user position
-            if (outcome == 0) {
+            if (outcome == 1) {
                 position.yesShares -= absDelta;
             } else {
                 position.noShares -= absDelta;
@@ -311,8 +312,8 @@ contract AMMEngine is IAMMEngine, Ownable {
         uint256 newQYes;
         uint256 newQNo;
 
-        if (outcome == 0) {
-            // YES
+        if (outcome == 1) {
+            // YES (1 = YES, consistent with TruthMarket)
             if (isBuy) {
                 newQYes = state.qYes + absDelta;
                 newQNo = state.qNo;
@@ -321,7 +322,7 @@ contract AMMEngine is IAMMEngine, Ownable {
                 newQNo = state.qNo;
             }
         } else {
-            // NO
+            // NO (0 = NO, consistent with TruthMarket)
             if (isBuy) {
                 newQYes = state.qYes;
                 newQNo = state.qNo + absDelta;
@@ -546,8 +547,10 @@ contract AMMEngine is IAMMEngine, Ownable {
 
     /**
      * @inheritdoc IAMMEngine
+     * @dev Handles all three outcomes: YES (1), NO (0), INVALID (2)
+     *      INVALID returns 50% of total shares (both YES and NO)
      */
-    function settlePosition(address market) external override returns (uint256 payout) {
+    function settlePosition(address market) external override nonReentrant returns (uint256 payout) {
         require(ITruthMarket(market).isSettled(), "AMMEngine: not settled");
 
         Position storage position = _positions[market][msg.sender];
@@ -556,24 +559,43 @@ contract AMMEngine is IAMMEngine, Ownable {
         ITruthMarket truthMarket = ITruthMarket(market);
         uint8 winningOutcome = truthMarket.winningOutcome();
 
-        // Calculate payout based on position and outcome
-        if (winningOutcome == 1) {
-            // YES won
-            payout = position.yesShares;
-        } else {
-            // NO won
-            payout = position.noShares;
-        }
+        uint256 yesShares = position.yesShares;
+        uint256 noShares = position.noShares;
 
-        // Clear position
+        // Clear position first (CEI pattern)
         position.yesShares = 0;
         position.noShares = 0;
+
+        // Calculate payout based on position and outcome
+        if (winningOutcome == 1) {
+            // YES won: pay full value for YES shares
+            payout = yesShares;
+        } else if (winningOutcome == 0) {
+            // NO won: pay full value for NO shares
+            payout = noShares;
+        } else {
+            // INVALID (2): return 50% of total position value
+            // Both YES and NO get 50% redemption value
+            payout = (yesShares + noShares) / 2;
+        }
 
         // Transfer USDC payout to user
         if (payout > 0) {
             usdc.safeTransfer(msg.sender, _wadToUsdc(payout));
         }
+
+        emit PositionSettled(msg.sender, market, winningOutcome, yesShares, noShares, payout);
     }
+
+    /// @notice Emitted when a position is settled after market resolution
+    event PositionSettled(
+        address indexed user,
+        address indexed market,
+        uint8 winningOutcome,
+        uint256 yesShares,
+        uint256 noShares,
+        uint256 payout
+    );
 
     /**
      * @inheritdoc IAMMEngine
