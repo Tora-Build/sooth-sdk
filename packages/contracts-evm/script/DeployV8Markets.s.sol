@@ -15,6 +15,7 @@ contract DeployV8Markets is Script {
         address noToken;
         uint64 deadline;
     }
+    uint256 constant LN2_WAD = 693147180559945309; // ln(2) in WAD
 
     function run() public {
         // Load addresses from deployment
@@ -35,7 +36,7 @@ contract DeployV8Markets is Script {
         
         // Market parameters
         uint256 bBase = 1000e18; // $1,000 liquidity per market
-        uint256 deposit = (bBase * 693147180559945309) / 1e18; // b * ln(2)
+        uint256 deposit = (bBase * LN2_WAD) / 1e18; // b * ln(2)
         
         console.log("Liquidity per market:", bBase / 1e18, "USDC");
         console.log("Deposit per market:", deposit / 1e18, "USDC");

@@ -564,3 +564,53 @@ User's Choice (EOA, Safe, Smart Account, etc.)
   - **Breaking**: `ITickBookVault` interface expanded with `refundMarketToAvailable(...)`.
   - **UX**: TickBook becomes “continuous within range” rather than discrete per-tick FIFO execution.
   - **Deployment**: Requires redeploying TickBook (and updating frontend ABIs/configs) to use TickBookV2.
+## ADR-053: Pre-Graduation Liquidity Scaling (1/ln(2))
+- **Date**: 2025-12-28
+- **Status**: Accepted (Deployed)
+- **Context**: 
+    - In the Launchpad model, $MaxLoss = b \times \ln(2)$. 
+    - To maintain a 1:1 relationship between accumulated fees and the pool's maximum loss capacity, every \$1 of fee must increase $MaxLoss$ by \$1.
+    - Previous implementation was adding `feeWad` directly to `bCurrent`, which resulted in only ~\$0.69 of capacity growth per \$1 of fee.
+- **Decision**: **Scale liquidity parameter $b$ by $1/\ln(2)$** during pre-graduation fee distribution:
+    - $\Delta b = \frac{\text{fee}}{\ln(2)}$
+    - Implemented using the high-precision constant `LN2_INV_WAD = 1442695040888963407`.
+    - Formula: `deltaB = (feeWad * LN2_INV_WAD) / WAD;`
+- **Rationale**:
+    - **Incentive Alignment**: Ensures that every dollar paid by traders fully backs the pool's ability to absorb future losses, maximizing capital efficiency.
+    - **Precision**: Uses the standardized 18-decimal constant from `LN2_CONSTANTS_REFERENCE.md`.
+- **Consequences**:
+    - **Capacity Growth**: Liquidity parameter `b` now grows ~1.44x faster relative to fee input.
+    - **Code Alignment**: Standardized on `LN2_WAD` and `LN2_INV_WAD` across `LaunchpadEngine.sol`, `LMSRMath.sol`, and deployment scripts.
+    - **UI Accuracy**: `MarketStats.tsx` and `AMMFormulasCard.tsx` now reflect this "Liquidity Anchor" growth correctly.
+## ADR-054: LP Token Unification (USD-par Model)
+- **Date**: 2025-12-28
+- **Status**: Accepted (Implemented)
+- **Context**: 
+    - In `LaunchpadEngine.sol`, the creator received LP tokens 1:1 with their USDC deposit (USD-par).
+    - However, traders received LP tokens proportional to the liquidity parameter growth ($\Delta b$), which is depth-scaled ($1/\ln(2) \approx 1.44$).
+    - This resulted in an unfair distribution where traders received ~4.4% more ownership share per dollar than creators, causing confusion (e.g., $465 fee resulting in 671 LP).
+- **Decision**: **Unify all LP token minting to a USD-par model**.
+    - Both creators and traders now receive LP tokens exactly **1:1 with the USD value** contributed (deposit or fee).
+    - Formula for traders changed from `lpTokens = deltaB` to `lpTokens = feeWad`.
+- **Rationale**:
+    - **Fairness**: Ownership share in the bonding curve is now strictly proportional to the actual USDC contributed by each participant.
+    - **Clarity**: Users can immediately verify their LP balance against the fee paid ($1 paid = 1 LP earned).
+    - **Simplicity**: Removes hidden scaling factors from the accounting layer seen by users.
+- **Consequences**:
+    - **Stakeholder Alignment**: Creators and traders are now treated equally in terms of pool ownership per dollar.
+    - **Math Consistency**: While liquidity depth $b$ still scales by $1/\ln(2)$ to maintain capacity (ADR-053), the ownership layer (LP) is decoupled to reflect cash basis.
+    - **Deployment**: Integrated into corrected `LaunchpadEngine.sol` (V8.11.0).
+
+---
+
+## V8 Architecture Summary (V8.11.0)
+
+**Status**: ✅ **V8.11.0 PRODUCTION READY**  
+**Contracts**: 9 core (V8.11.0)  
+**Multichain**: Base Sepolia (84532) + Monad Testnet (10143)
+
+### Core Stack (Sync)
+- **LaunchpadEngine**: Creator economics + LP management + USD-par ownership.
+- **TickBookV2**: Range-based orderbook with O(1) gas placement.
+- **AMMEngine**: Pure LMSR / Dual-Balance position model.
+- **TickBookVault**: Unified USDC custody for Pro terminal.

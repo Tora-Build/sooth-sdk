@@ -9,6 +9,7 @@ import {Collateralizer} from "../contracts/Collateralizer.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployTestMarket is Script {
+    uint256 constant LN2_WAD = 693147180559945309; // ln(2) in WAD
     function run() public {
         // Load addresses from deployment
         address launchpadEngine = vm.envAddress("LAUNCHPAD_ENGINE");
@@ -52,7 +53,7 @@ contract DeployTestMarket is Script {
         
         // 4. Create market in LaunchpadEngine (requires USDC approval)
         uint256 bBase = 1000e18; // $1,000 liquidity
-        uint256 deposit = (bBase * 693147180559945309) / 1e18; // b * ln(2)
+        uint256 deposit = (bBase * LN2_WAD) / 1e18; // b * ln(2)
         
         console.log("4. Creating market in LaunchpadEngine...");
         console.log("   Liquidity (b):", bBase / 1e18, "USDC");

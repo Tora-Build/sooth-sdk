@@ -1410,8 +1410,9 @@ contract TickBookV2 {
 
     /**
      * @dev Attempt to cross a newly placed order against opposite-side liquidity
-     *      Crossing occurs when: YES order at price P_yes + NO order at price P_no >= 1.00
-     *      This allows minting a complete set and distributing to both sides.
+     *      Crossing occurs when YES + NO orders overlap in price ranges.
+     *      This version matches the FULL order against all available opposite liquidity
+     *      when both sides include the current tick.
      * 
      * @param marketKey The market identifier
      * @param newOrderId The ID of the newly placed order
@@ -1427,90 +1428,83 @@ contract TickBookV2 {
         Market memory m = _markets[marketKey];
         MarketState storage state = _state[marketKey];
 
-        // Check if new order is active at current tick
+        // New order must include current tick to cross
         if (state.currentTick < newOrder.tickLower || state.currentTick > newOrder.tickUpper) {
             return (0, 0, 0); // New order doesn't include current tick
         }
 
-        // Get opposite side's active liquidity at current tick
         uint8 opposite = newOrder.outcome == 0 ? 1 : 0;
-        uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         
+        // Check if there's opposite liquidity active at current tick
+        uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         if (oppActiveLiq == 0) {
-            return (0, 0, 0); // No opposite liquidity to cross with
+            return (0, 0, 0); // No opposite liquidity at current tick
         }
 
-        // Calculate matchable density (minimum of both sides)
-        // The new order just added its liquidity, so we use its density directly
-        uint256 newOrderLiquidity = newOrder.liquidity;
+        // Calculate new order's TOTAL shares (density * range width)
+        uint256 newOrderRange = uint256(newOrder.tickUpper) - uint256(newOrder.tickLower) + 1;
+        uint256 newOrderTotal = newOrder.liquidity * newOrderRange;
         
-        // Match is limited by the lesser of: new order's density, opposite side's total density
-        uint256 matchDensity = newOrderLiquidity < uint256(oppActiveLiq) 
-            ? newOrderLiquidity 
-            : uint256(oppActiveLiq);
+        // Get total opposite-side liquidity
+        uint256 oppTotalLiq = _totalLiquidity[marketKey][opposite];
+        
+        // Cross the minimum of: new order total, opposite total
+        crossedShares = newOrderTotal < oppTotalLiq ? newOrderTotal : oppTotalLiq;
+        
+        if (crossedShares == 0) {
+            return (0, 0, 0);
+        }
 
-        // Cross one tick's worth of shares at the current tick
-        crossedShares = matchDensity;
-
-        // Calculate costs at current tick price
-        // At tick T: YES price = T/1000, NO price = (1000-T)/1000
+        // Calculate costs at CURRENT tick price (fair mid-market)
         uint256 currentPrice = TickMath.tickToProbability(state.currentTick);
         uint256 yesCost = (currentPrice * crossedShares) / WAD;
-        uint256 noCost = crossedShares - yesCost; // Complement (together = 1 complete set)
+        uint256 noCost = crossedShares - yesCost;
 
-        // Assign costs based on outcome
-        // outcome=0 orders want YES, so they pay the YES price portion
-        // outcome=1 orders want NO, so they pay the NO price portion
+        // Assign costs: each side pays for the token they receive
         if (newOrder.outcome == 0) {
-            // New order is buying YES
-            newOrderCost = yesCost;
-            oppositeCost = noCost;
-        } else {
-            // New order is buying NO
+            // outcome=0 receives NO tokens → pays NO portion
             newOrderCost = noCost;
             oppositeCost = yesCost;
+        } else {
+            // outcome=1 receives YES tokens → pays YES portion
+            newOrderCost = yesCost;
+            oppositeCost = noCost;
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // Execute the cross: update fill tracking for both sides
         // ═══════════════════════════════════════════════════════════════════
 
-        // 1. Credit tokens to the new order's owner immediately
+        // 1. Credit tokens to the new order's owner
         vault.creditOutcome(m.truthMarket, newOrder.owner, newOrder.outcome, crossedShares);
 
-        // 2. Update new order's fill tracking (direct update since we know the order)
+        // 2. Update new order's fill tracking
         newOrder.filledShares += crossedShares;
         newOrder.collateralUsedWad += newOrderCost;
 
         // 3. Update opposite side's global fill growth (pro-rata distribution)
-        uint256 totalOppLiq = _totalLiquidity[marketKey][opposite];
-        if (totalOppLiq > 0) {
-            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / totalOppLiq;
-            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / totalOppLiq;
+        // NOTE: We do NOT reduce _totalLiquidity because orders remain on the book
+        // (they're just "filled"). The total liquidity is used for pro-rata calculations.
+        if (oppTotalLiq > 0) {
+            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppTotalLiq;
+            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
         }
 
-        // 4. Reduce active liquidity on both sides (liquidity was "consumed" by the cross)
-        // Note: We don't reduce tick boundary liquidity - orders remain on the book for future fills
-        // We only reduce active liquidity to prevent double-crossing
-        if (newOrder.outcome == 0) {
-            // Reduce the portion of NO liquidity that was just added and consumed
-            if (state.activeLiquidityNo >= uint128(matchDensity)) {
-                state.activeLiquidityNo -= uint128(matchDensity);
-            }
-        } else {
-            if (state.activeLiquidityYes >= uint128(matchDensity)) {
-                state.activeLiquidityYes -= uint128(matchDensity);
-            }
-        }
-        // Also reduce opposite side's active liquidity
+        // 4. Reduce active liquidity at current tick proportionally
+        uint128 activeFilled = uint128(crossedShares < uint256(oppActiveLiq) ? crossedShares : uint256(oppActiveLiq));
         if (opposite == 0) {
-            if (state.activeLiquidityNo >= uint128(matchDensity)) {
-                state.activeLiquidityNo -= uint128(matchDensity);
-            }
+            state.activeLiquidityNo -= activeFilled;
         } else {
-            if (state.activeLiquidityYes >= uint128(matchDensity)) {
-                state.activeLiquidityYes -= uint128(matchDensity);
-            }
+            state.activeLiquidityYes -= activeFilled;
+        }
+        
+        // Also reduce new order's side active liquidity
+        uint128 newActiveLiq = newOrder.outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
+        uint128 newFilled = uint128(crossedShares < uint256(newActiveLiq) ? crossedShares : uint256(newActiveLiq));
+        if (newOrder.outcome == 0) {
+            state.activeLiquidityNo -= newFilled;
+        } else {
+            state.activeLiquidityYes -= newFilled;
         }
 
         emit OrdersCrossed(marketKey, newOrderId, newOrder.outcome, crossedShares, newOrderCost, oppositeCost, state.currentTick);

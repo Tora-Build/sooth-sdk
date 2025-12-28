@@ -1,38 +1,64 @@
 # Project Status
 
-> Last Updated: 2025-12-28 (V8.9.0 Pending Fills + Short Sell Fix)
+> Last Updated: 2025-12-29 (V8.11.0 Monad Testnet Deployment)
 
-## Current Focus
-- **✅ V8.9.0 DEPLOYED** — Fresh TickBookV2 deployment with `getPendingFills()` view function and proper short sell routing.
-- **✅ PENDING FILLS FIXED** — Orders now correctly display total fills (claimed + pending) in the UI.
-- **✅ SHORT SELL FIXED** — "Sell YES" correctly routes to buying NO tokens (opposite outcome).
-- **✅ CONTRACT SIZE OPTIMIZED** — Error messages shortened to fit TickBookV2 within 24KB EIP-170 limit.
+- **✅ MONAD TESTNET LIVE** — V8.11.0 deployed to Monad Testnet (Chain 10143) with 2 demo markets.
+- **✅ RPC FALLBACKS CONFIGURED** — Monad uses 3 fallback RPCs (QuickNode → Ankr → Foundation).
+- **✅ LN2 CONSTANT FIX** — Fixed undefined `LN2` identifier in `getGraduationProgress()` (should be `LN2_WAD`).
 
-## Active Deployment (Base Sepolia) — V8.9.0
+## Active Deployment (Monad Testnet) — V8.11.0 🟣
+| Contract | Address | Status |
+|----------|---------|--------|
+| MockUSDC | `0xf067C23BEE9D3d5c830ca0450A751836c181f566` | ✅ OK |
+| Collateralizer | `0xF495702a9111513b7A2F77896021193312ddA851` | ✅ NEW |
+| AMMEngine | `0x65b72e4d5138AeEdF55459B8f7527505217dcEBc` | ✅ NEW |
+| TickBookVault | `0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0` | ✅ NEW |
+| TickBookV2 | `0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7` | ✅ NEW |
+| LaunchpadEngine | `0x39975787F1fa28fc92473De8b25070616AAbc261` | ✅ NEW |
+
+### Monad V8.11.0 Markets
+| Market | Address | Deadline |
+|--------|---------|----------|
+| UN Confirms Alien Life | `0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0x1cB930d768AD866C3211A14894B1E924726bac0b` | 2026-01-27 |
+
+## Active Deployment (Base Sepolia) — V8.11.0
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0x1DAad522554F231FFE2316b5E07614E533820A9B` | ✅ NEW |
-| AMMEngine | `0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7` | ✅ NEW |
-| TickBookVault | `0xBe45be3082274bCA6e798A6463Db6056Caa1441C` | ✅ NEW |
-| TickBookV2 | `0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335` | ✅ NEW (getPendingFills) |
-| LaunchpadEngine | `0x082eD8B3B39D7406137d711243ED6499aD71d34D` | ✅ NEW |
+| Collateralizer | `0x51762C3a51E0C53B32e234cc699F91a75AfCc24f` | ✅ OK |
+| AMMEngine | `0x895dD6997f6c0F1Ec0f71C82CA66a437a230efdc` | ✅ OK |
+| TickBookVault | `0xe67dFc6498444B5FdcaB8eD6687AfE5d9bCE08ac` | ✅ OK |
+| TickBookV2 | `0x903FD0218F1Aa061340EAf2811478f59b8Dc2260` | ✅ OK |
+| LaunchpadEngine | `0xe0e82228aE890C8BdB33C249BfB60D39CD77eD2c` | ✅ OK (LN2 fix) |
 
-### V8.9.0 Markets
+### Base Sepolia V8.11.0 Markets
 | Market | Address | Deadline |
 |--------|---------|----------|
-| UN Confirms Alien Life | `0x89632a94ad89F0BdDf0F0A66864b3808DeF9F426` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0xD82119AE06157Ab36574dD78313c77Cd1b9F070f` | 2026-01-27 |
+| UN Confirms Alien Life | `0xA2C0Bf2766a4E799bC55fc88d7e4B63dCFC994a7` | 2026-01-27 |
+| BTC 7-day TWAP >= $100k | `0xC0154e2Ad8f170B1a07a19726b29D74D62a32deD` | 2026-01-27 |
 
 ## Pending Work (Next Session)
 - [ ] **Verify contracts on Basescan** — For transparency.
 - [ ] **Test hybrid sell flow** — Verify executeHybridSell works correctly in UI.
 - [ ] **Add spot sell limit order support** — Wire placeSpotSellOrder in Pro terminal.
+- [ ] **UI Lint Cleanup** — Resolve remaining Type errors in `MarketDetail.tsx`.
 
 ## Completed This Session (2025-12-28)
+- ✅ **Fixed `useDeployments` Hook Crash** — Restored nested `networks` structure in `deployments.json` and added defensive null checks.
+- ✅ **Monad Testnet Integration** — Integrated Monad Testnet (Chain 10143) contract addresses and demo markets into config.
+- ✅ **ADR-054: LP Token Unification (USD-par)** — Unified creator and trader LP minting to 1:1 USD-par, fixing the 1.44x discrepancy.
+- ✅ **LaunchpadEngine LN2 Fix** — Standardized `LN2_WAD` usage across all view functions.
+- ✅ **Base Sepolia Market Restore** — Merged previously lost Base Sepolia market data back into `markets.json`.
+
+
+## Completed Previous Session (2025-12-28)
+- ✅ **ADR-053: Pre-Graduation Liquidity Scaling (1/ln(2))** — Fixed `LaunchpadEngine.sol` and standardized `LN2_WAD/LN2_INV_WAD`.
+- ✅ **Rich AMM Stats Synchronization** — `MarketStats.tsx` now matches `AMMFormulasCard.tsx` design.
+- ✅ **"Prob" → "Price" Terminology Flip** — Global search/replace in UI for clarity.
 - ✅ **ADR-052: TickBookV2 Continuous Ranges (Linear)** — Implemented `TickBookV2.sol` + tests (17/17 passing).
 - ✅ **Maker Fill Attribution (Lazy Claim)** — Added cumulative fill/proceeds tracking and `claimFills(...)` (pro‑rata).
-- ✅ **Vault Collateral Model Update** — Added `refundMarketToAvailable(...)` to `TickBookVault` / `ITickBookVault` so unfilled maker collateral can be refunded from market collateral.
+- ✅ **Vault Collateral Model Update** — Added `refundMarketToAvailable(...)` to `TickBookVault` / `ITickBookVault`.
 
 ## Completed Previous Session (2025-12-27)
 - ✅ **Comprehensive QA Test Suite** — Added 44+ new tests across 6 new test files

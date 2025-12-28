@@ -1,17 +1,26 @@
 {
-  "version": "8.9.0",
-  "lastUpdated": "2025-12-28T16:00:00Z",
-  "status": "V8.9.0 - Pending Fills Display + Short Sell Fix",
+  "version": "8.11.0",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x082eD8B3B39D7406137d711243ED6499aD71d34D",
-        "Collateralizer": "0x1DAad522554F231FFE2316b5E07614E533820A9B",
-        "AMMEngine": "0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7",
-        "TickBookVault": "0xBe45be3082274bCA6e798A6463Db6056Caa1441C",
-        "TickBook": "0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335"
+        "MockUSDC": "0x856FbEebD91Db28e3b4550e7602142Cfab683796",
+        "Collateralizer": "0x51762C3a51E0C53B32e234cc699F91a75AfCc24f",
+        "AMMEngine": "0x895dD6997f6c0F1Ec0f71C82CA66a437a230efdc",
+        "TickBookVault": "0xe67dFc6498444B5FdcaB8eD6687AfE5d9bCE08ac",
+        "TickBook": "0x903FD0218F1Aa061340EAf2811478f59b8Dc2260",
+        "LaunchpadEngine": "0xe0e82228aE890C8BdB33C249BfB60D39CD77eD2c"
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "contracts": {
+        "MockUSDC": "0xf067C23BEE9D3d5c830ca0450A751836c181f566",
+        "Collateralizer": "0xf495702a9111513b7a2f77896021193312dda851",
+        "AMMEngine": "0x65b72e4d5138aeedf55459b8f7527505217dcebc",
+        "TickBookVault": "0x1888474ff5f2e5b939b335f5e9e1625aa6abbea0",
+        "TickBook": "0xc1a50be14964f7bef7d58ccbef53b0081fc8f3b7",
+        "LaunchpadEngine": "0x39975787f1fa28fc92473de8b25070616aabc261"
       }
     }
   }

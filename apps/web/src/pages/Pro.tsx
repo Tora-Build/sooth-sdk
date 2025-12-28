@@ -615,13 +615,13 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   // Filter by search and category
   const filteredMarkets = useMemo(() => {
     return allMarkets.filter(m => {
-      const matchesSearch = !search || 
+      const matchesSearch = !search ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
-      
-      const matchesCategory = category === 'all' || 
+
+      const matchesCategory = category === 'all' ||
         (m as any).category?.toLowerCase() === category.toLowerCase();
-      
+
       return matchesSearch && matchesCategory;
     });
   }, [allMarkets, search, category]);
@@ -631,7 +631,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     const graduatedMarkets = allMarkets.filter(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
     return CATEGORIES.map(cat => ({
       ...cat,
-      count: cat.id === 'all' 
+      count: cat.id === 'all'
         ? graduatedMarkets.length
         : graduatedMarkets.filter((m: any) => m.category?.toLowerCase() === cat.id).length
     }));
@@ -686,7 +686,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     <div className="space-y-6">
       <MarketHeader
         title="Pro"
-        hint="Pro trading uses a continuous range orderbook (TickBookV2) with Uniswap V3-style liquidity. Place limit orders at any probability from 0.1% to 99.9% with 0.1% tick precision. Range orders let you provide liquidity across a price range and earn from taker fills. Markets must graduate from AMM before Pro trading unlocks."
+        hint="Pro trading uses a continuous range orderbook (TickBookV2) with Uniswap V3-style liquidity. Place limit orders at any price from 0.1% to 99.9% with 0.1% tick precision. Range orders let you provide liquidity across a price range and earn from taker fills. Markets must graduate from AMM before Pro trading unlocks."
         search={search}
         onSearchChange={setSearch}
         category={category}
@@ -777,38 +777,38 @@ const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef
 
   return (
     <div className="flex items-center gap-2">
-            {/* Left scroll button */}
-            <button
+      {/* Left scroll button */}
+      <button
         onClick={() => onScroll('left')}
         className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-slate-400" />
-            </button>
+      >
+        <ChevronLeft className="w-5 h-5 text-slate-400" />
+      </button>
 
-            {/* Scrollable container */}
-            <div
-              ref={scrollRef}
+      {/* Scrollable container */}
+      <div
+        ref={scrollRef}
         className="flex-1 flex gap-3 overflow-x-auto scrollbar-hide py-2"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {markets.map(market => (
-                <ProMarketChip
-                  key={market.contractAddress}
-                  market={market}
-                  isSelected={market.contractAddress === selectedMarketId}
+          <ProMarketChip
+            key={market.contractAddress}
+            market={market}
+            isSelected={market.contractAddress === selectedMarketId}
             onClick={() => onSelect(market)}
             onLoaded={(addr: string, isGrad: boolean) => handleMarketLoaded(addr, isGrad)}
-                />
-              ))}
-            </div>
+          />
+        ))}
+      </div>
 
-            {/* Right scroll button */}
-            <button
+      {/* Right scroll button */}
+      <button
         onClick={() => onScroll('right')}
         className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center hover:bg-slate-800 hover:border-slate-600 transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
+      >
+        <ChevronRight className="w-5 h-5 text-slate-400" />
+      </button>
     </div>
   );
 };
@@ -913,7 +913,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
       disabled={!isGraduated && !isLoading}
       className={cn(
         "w-full p-5 rounded-2xl border text-left transition-all",
-        isGraduated 
+        isGraduated
           ? "bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer"
           : "bg-slate-900/30 border-slate-800/30 cursor-not-allowed opacity-60"
       )}
@@ -922,7 +922,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
         <div className="flex items-center gap-3">
           <div className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-            isGraduated 
+            isGraduated
               ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
               : "bg-slate-800 text-slate-500"
           )}>
@@ -933,7 +933,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
             <div className="text-xs text-slate-500">{market.category || 'Uncategorized'}</div>
           </div>
         </div>
-        
+
         {/* Status Badge */}
         {isLoading ? (
           <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-[10px] font-medium">
@@ -975,7 +975,7 @@ const EmptyState = ({ search }: { search?: string }) => (
       {search ? 'No markets found' : 'No Graduated Markets'}
     </h3>
     <p className="text-slate-400 mb-6 max-w-md mx-auto">
-      {search 
+      {search
         ? `No markets match "${search}". Try a different search term.`
         : 'Pro trading is available for graduated markets. Check the AMM for early-stage markets.'
       }
@@ -1142,9 +1142,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const amountNum = parseFloat(amount) || 0;
   const numTicks = priceMode === 'single' ? 1 : Math.max(1, Math.round((priceHighNum - priceLowNum) * 10) + 1);
   const avgPrice = priceMode === 'single' ? priceLowNum : (priceLowNum + priceHighNum) / 2;
-  
+
   // Calculate required collateral based on action
-  
+
   // For buys: cost to acquire shares
   // For sells: value you receive for selling shares
   const estimatedValue = useMemo(() => {
@@ -1157,7 +1157,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     return 0;
   }, [amountNum, avgPrice, action]);
 
-  const hasEnoughBalance = isBuying 
+  const hasEnoughBalance = isBuying
     ? vaultAvailable >= parseUnits(estimatedValue.toFixed(2), 18)
     : true; // For sells, check if user has enough shares (handled separately)
 
@@ -1318,21 +1318,21 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
           const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
           hash = await writeContractAsync({
-          address: contracts.TickBook as `0x${string}`,
-          abi: V8_ABIS.TickBook,
-          functionName: 'executeMarketOrder',
-          args: [tickBook.marketKey, outcome, amountBg, maxCost]
-        });
-      } else {
-        const tickLow = Math.round(priceLowNum * 10);
-        const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
-        const liquidity = amountBg; // TickBookV2 takes total shares across the range
+            address: contracts.TickBook as `0x${string}`,
+            abi: V8_ABIS.TickBook,
+            functionName: 'executeMarketOrder',
+            args: [tickBook.marketKey, outcome, amountBg, maxCost]
+          });
+        } else {
+          const tickLow = Math.round(priceLowNum * 10);
+          const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
+          const liquidity = amountBg; // TickBookV2 takes total shares across the range
           hash = await writeContractAsync({
-          address: contracts.TickBook as `0x${string}`,
-          abi: V8_ABIS.TickBook,
-          functionName: 'placeRangeOrder',
-          args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
-        });
+            address: contracts.TickBook as `0x${string}`,
+            abi: V8_ABIS.TickBook,
+            functionName: 'placeRangeOrder',
+            args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
+          });
         }
       } else {
         // ============= SELL ORDERS =============
@@ -1340,21 +1340,21 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         // - Spot Sell: User owns shares (sells existing position)
         // - Short Sell: User doesn't own shares (buys opposite outcome)
         // - Hybrid Sell: User owns some but not all (spot + short combo)
-        
+
         const userYesInternal = vault?.yesInternal ?? 0n;
         const userNoInternal = vault?.noInternal ?? 0n;
         const userHolding = isYes ? userYesInternal : userNoInternal;
-        
+
         const hasFullShares = userHolding >= amountBg;
         const hasPartialShares = userHolding > 0n && userHolding < amountBg;
         const hasNoShares = userHolding === 0n;
-        
+
         if (isMarketOrder) {
           if (hasFullShares) {
             // SPOT SELL: User has all shares, sell them
             const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const minProceeds = (estimatedProceeds * 90n) / 100n;
-            
+
             hash = await writeContractAsync({
               address: contracts.TickBook as `0x${string}`,
               abi: V8_ABIS.TickBook,
@@ -1365,7 +1365,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             // HYBRID SELL: Spot sell owned shares + short sell remainder
             const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const minProceeds = (estimatedProceeds * 90n) / 100n;
-            
+
             hash = await writeContractAsync({
               address: contracts.TickBook as `0x${string}`,
               abi: V8_ABIS.TickBook,
@@ -1379,7 +1379,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const oppositeOutcome = isYes ? 0 : 1;
             const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const maxCost = (finalCostWad * 110n) / 100n;
-            
+
             hash = await writeContractAsync({
               address: contracts.TickBook as `0x${string}`,
               abi: V8_ABIS.TickBook,
@@ -1391,7 +1391,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           // LIMIT ORDERS
           const tickLow = Math.round(priceLowNum * 10);
           const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
-          
+
           if (hasFullShares) {
             // SPOT SELL LIMIT: Place limit order to sell owned shares
             hash = await writeContractAsync({
@@ -1519,14 +1519,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
             <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
-            </div>
+          </div>
           {/* AMM Price (Secondary) - smaller, grey */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
             <div className="text-base font-mono font-medium text-slate-500">
               {(ammProb * 100).toFixed(1)}%
               {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
-          </div>
+            </div>
           </div>
           {/* Arb spread indicator */}
           {hasArb && (
@@ -1537,8 +1537,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           )}
           <div className="ml-auto">
             <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
-            <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-          </button>
+              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+            </button>
           </div>
         </div>
       )}
@@ -1566,7 +1566,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </div>
             </div>
           </div>
-          
+
           <button
             onClick={() => setShowVaultPanel(!showVaultPanel)}
             className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1"
@@ -1578,11 +1578,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         {showVaultPanel && (
           <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
             <div className="relative">
-            <input
-              type="number"
-              placeholder="Amount"
-              value={vaultInput}
-              onChange={(e) => setVaultInput(e.target.value)}
+              <input
+                type="number"
+                placeholder="Amount"
+                value={vaultInput}
+                onChange={(e) => setVaultInput(e.target.value)}
                 className={`w-32 px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
                   ? 'border-rose-500 focus:border-rose-500'
                   : 'border-slate-700 focus:border-amber-500'
@@ -1620,7 +1620,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* LEFT: Orderbook Visualization */}
         <div className="lg:col-span-2 space-y-4">
           {/* Pixel Liquidity Map */}
@@ -1633,7 +1633,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 <span className="text-rose-400">NO Asks ▶</span>
               </div>
             </div>
-            
+
             <div className="p-4">
               <LiquidityMap
                 tickBook={tickBook}
@@ -1649,7 +1649,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Positions</span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/30">
                 <div className="text-[10px] text-emerald-500 uppercase mb-1">YES Shares</div>
@@ -1677,112 +1677,112 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           />
         </div>
 
-          {/* RIGHT: Trading Panel */}
-          <div className="lg:col-span-1">
-            <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
-              {/* Primary Toggle: YES / NO - subtle underline style */}
-              <div className="flex border-b border-slate-800">
-                <button
-                  onClick={() => setAction(isBuying ? 'buy_yes' : 'sell_yes')}
-                  className={cn(
-                    "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
-                    isYes 
-                      ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5" 
-                      : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
-                  )}
-                >
-                  YES
-                </button>
-                <button
-                  onClick={() => setAction(isBuying ? 'buy_no' : 'sell_no')}
-                  className={cn(
-                    "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
-                    !isYes 
-                      ? "text-rose-400 border-b-2 border-rose-500 bg-rose-500/5" 
-                      : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
-                  )}
-                >
-                  NO
-                </button>
-              </div>
+        {/* RIGHT: Trading Panel */}
+        <div className="lg:col-span-1">
+          <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
+            {/* Primary Toggle: YES / NO - subtle underline style */}
+            <div className="flex border-b border-slate-800">
+              <button
+                onClick={() => setAction(isBuying ? 'buy_yes' : 'sell_yes')}
+                className={cn(
+                  "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
+                  isYes
+                    ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5"
+                    : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
+                )}
+              >
+                YES
+              </button>
+              <button
+                onClick={() => setAction(isBuying ? 'buy_no' : 'sell_no')}
+                className={cn(
+                  "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
+                  !isYes
+                    ? "text-rose-400 border-b-2 border-rose-500 bg-rose-500/5"
+                    : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
+                )}
+              >
+                NO
+              </button>
+            </div>
 
-              <div className="p-5 space-y-4">
-                {/* Secondary: BUY/SELL + LIMIT/MARKET */}
-                <div className="flex gap-2">
-                  {/* Buy/Sell Toggle - contextual colors */}
+            <div className="p-5 space-y-4">
+              {/* Secondary: BUY/SELL + LIMIT/MARKET */}
+              <div className="flex gap-2">
+                {/* Buy/Sell Toggle - contextual colors */}
                 <div className="flex-1 flex gap-2 p-1 bg-slate-950/50 rounded-xl">
-                    <button
-                      onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
-                      className={cn(
+                  <button
+                    onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
+                    className={cn(
                       "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                        isBuying 
-                          ? isYes 
+                      isBuying
+                        ? isYes
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
                           : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
                         : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                      )}
-                    >
-                      Buy
-                    </button>
-                    <button
-                      onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
-                      className={cn(
+                    )}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
+                    className={cn(
                       "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                        !isBuying 
+                      !isBuying
                         ? "bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
                         : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                      )}
-                    >
-                      Sell
-                    </button>
-                  </div>
-                  
-                  {/* Limit/Market Toggle - neutral styling */}
-                <div className="flex gap-2 p-1 bg-slate-950/50 rounded-xl">
-                    <button
-                      onClick={() => setOrderType('limit')}
-                      className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                        orderType === 'limit' 
-                        ? isYes
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
-                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                      )}
-                    >
-                      Limit
-                    </button>
-                    <button
-                      onClick={() => setOrderType('market')}
-                      className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                        orderType === 'market' 
-                        ? isYes
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
-                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                      )}
-                    >
-                      Market
-                    </button>
-                  </div>
+                    )}
+                  >
+                    Sell
+                  </button>
                 </div>
+
+                {/* Limit/Market Toggle - neutral styling */}
+                <div className="flex gap-2 p-1 bg-slate-950/50 rounded-xl">
+                  <button
+                    onClick={() => setOrderType('limit')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      orderType === 'limit'
+                        ? isYes
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
+                    )}
+                  >
+                    Limit
+                  </button>
+                  <button
+                    onClick={() => setOrderType('market')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      orderType === 'market'
+                        ? isYes
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
+                    )}
+                  >
+                    Market
+                  </button>
+                </div>
+              </div>
 
               {/* Price Input (Limit only) */}
               {orderType === 'limit' && (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center mb-1">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Prob</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Price</div>
                     <div className="text-[9px] text-slate-600 font-mono">0.1 — 99.9</div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex-1 flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
                           step="0.1"
-                        value={priceLow}
+                          value={priceLow}
                           onChange={(e) => setPriceLow(e.target.value)}
                           onBlur={() => {
                             let val = Math.max(0.1, Math.min(99.9, Number(priceLow)));
@@ -1790,37 +1790,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                             if (priceMode === 'single') setPriceHigh(val.toFixed(1));
                             else if (val >= priceHighNum) setPriceHigh((val + 0.1).toFixed(1));
                           }}
-                        className={cn(
+                          className={cn(
                             "w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg font-mono font-bold text-center focus:outline-none transition-all",
                             isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
-                        )}
-                      />
-                    </div>
-                    
-                    {priceMode === 'range' && (
-                      <>
+                          )}
+                        />
+                      </div>
+
+                      {priceMode === 'range' && (
+                        <>
                           <div className="text-slate-700 font-bold">—</div>
-                        <div className="relative flex-1">
-                          <input
-                            type="number"
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
                               step="0.1"
-                            value={priceHigh}
-                            onChange={(e) => setPriceHigh(e.target.value)}
+                              value={priceHigh}
+                              onChange={(e) => setPriceHigh(e.target.value)}
                               onBlur={() => {
                                 let val = Math.max(0.1, Math.min(99.9, Number(priceHigh)));
                                 setPriceHigh(val.toFixed(1));
                                 if (val <= priceLowNum) setPriceLow((val - 0.1).toFixed(1));
-                            }}
-                            className={cn(
+                              }}
+                              className={cn(
                                 "w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg font-mono font-bold text-center focus:outline-none transition-all",
                                 isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
-                            )}
-                          />
-                        </div>
-                      </>
-                    )}
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
-                    
+
                     <button
                       onClick={() => {
                         if (priceMode === 'single') {
@@ -1833,8 +1833,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       }}
                       className={cn(
                         "h-[48px] px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
-                        priceMode === 'range' 
-                          ? isYes 
+                        priceMode === 'range'
+                          ? isYes
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
                             : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
                           : "bg-slate-900/50 text-slate-500 border-slate-800 hover:text-slate-300 hover:border-slate-700"
@@ -1843,7 +1843,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       {priceMode === 'single' ? '± Range' : 'Single'}
                     </button>
                   </div>
-                  
+
                   {/* Slider Control */}
                   <div className="space-y-2 mb-4 px-1">
                     <div
@@ -1851,35 +1851,35 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       className="relative h-6 flex items-center group cursor-default"
                     >
                       <div className="absolute inset-x-0 h-1 bg-slate-800/80 rounded-full" />
-                      
-                      <div 
+
+                      <div
                         className={cn(
                           "absolute h-1 rounded-full pointer-events-none",
                           isYes
                             ? "bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
                             : "bg-gradient-to-r from-rose-600 to-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]"
                         )}
-                        style={priceMode === 'single' 
+                        style={priceMode === 'single'
                           ? { left: '0%', width: `${priceLowNum}%` }
                           : { left: `${priceLowNum}%`, width: `${Math.max(0.2, priceHighNum - priceLowNum)}%` }
                         }
                       />
-                      
+
                       {/* Visual Handles - Now with pointer interaction */}
                       <div
                         onPointerDown={(e) => {
                           e.preventDefault();
                           setIsLowDragging(true);
-                          }}
+                        }}
                         className={cn(
                           "absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.6)] z-20 transition-transform cursor-grab active:cursor-grabbing hover:scale-110",
                           isYes ? "bg-emerald-500" : "bg-rose-500",
                           isLowDragging && "scale-125"
-                        )} 
-                        style={{ left: `calc(${priceLowNum}% - 10px)` }} 
+                        )}
+                        style={{ left: `calc(${priceLowNum}% - 10px)` }}
                       />
                       {priceMode === 'range' && (
-                        <div 
+                        <div
                           onPointerDown={(e) => {
                             e.preventDefault();
                             setIsHighDragging(true);
@@ -1888,14 +1888,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                             "absolute w-5 h-5 rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.6)] z-20 transition-transform cursor-grab active:cursor-grabbing hover:scale-110",
                             isYes ? "bg-emerald-200" : "bg-rose-200",
                             isHighDragging && "scale-125"
-                          )} 
+                          )}
                           style={{ left: `calc(${priceHighNum}% - 10px)` }}
                         />
                       )}
                     </div>
-                    
+
                     <div className="text-center text-[10px] font-mono">
-                      {priceMode === 'single' 
+                      {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
                         : <span className="text-slate-500"><span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{numTicks}</span> ticks</span>
                       }
@@ -1904,8 +1904,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
                   {/* Presets Grid */}
                   <div className="grid grid-cols-3 gap-2 mb-6">
-                    {(priceMode === 'single' 
-                      ? [[25.0], [50.0], [75.0]] 
+                    {(priceMode === 'single'
+                      ? [[25.0], [50.0], [75.0]]
                       : [[40.0, 60.0], [45.0, 55.0], [48.0, 52.0]]
                     ).map((p, i) => (
                       <button
@@ -1957,10 +1957,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 {orderType === 'limit' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">
-                      {priceMode === 'single' ? 'Prob' : 'Prob Range'}
+                      {priceMode === 'single' ? 'Price' : 'Price Range'}
                     </span>
                     <span className="font-mono text-amber-400">
-                      {priceMode === 'single' 
+                      {priceMode === 'single'
                         ? priceLowNum.toFixed(1)
                         : `${priceLowNum.toFixed(1)} – ${priceHighNum.toFixed(1)}`}
                     </span>
@@ -1982,7 +1982,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     "font-mono",
                     isBuying ? "text-white" : sellType === 'spot' ? "text-emerald-400" : "text-white"
                   )}>
-                    {amountNum > 0 
+                    {amountNum > 0
                       ? `${sellType === 'spot' ? '+' : ''}$${estimatedValue.toFixed(2)}`
                       : '–'
                     }
@@ -1993,7 +1993,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     {isBuying ? 'Available USDC' : `Your ${isYes ? 'YES' : 'NO'} Shares`}
                   </span>
                   <span className={cn("font-mono", hasEnoughBalance ? "text-emerald-400" : "text-rose-400")}>
-                    {isBuying 
+                    {isBuying
                       ? `$${parseFloat(formatUnits(vaultAvailable, 18)).toFixed(2)}`
                       : parseFloat(formatUnits(isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n), 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })
                     }
@@ -2008,7 +2008,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <span>Insufficient vault balance. <button onClick={() => setShowVaultPanel(true)} className="underline">Deposit more</button></span>
                 </div>
               )}
-              
+
               {/* Sell Mode Info (shows what type of sell will execute) */}
               {amount && !isBuying && (() => {
                 const shares = isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n);
@@ -2016,14 +2016,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 const hasAll = shares >= needed;
                 const hasPartial = shares > 0n && shares < needed;
                 const hasNone = shares === 0n;
-                
+
                 if (hasAll) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   const sharesFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-emerald-400 text-xs">
                       <span>📦 Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
-                </div>
+                    </div>
                   );
                 } else if (hasPartial) {
                   const spotFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });

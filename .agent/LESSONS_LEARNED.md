@@ -5,6 +5,20 @@ AI agents should read this at the start of sessions to avoid repeating errors.
 
 ---
 
+## Constant Naming Consistency
+
+### ❌ Pattern: Inconsistent constant names after refactoring = compilation errors
+- **Date:** 2025-12-29 (V8.11.0)
+- **Bug:** `getGraduationProgress()` in LaunchpadEngine.sol used `LN2` instead of `LN2_WAD`.
+- **Root Cause:** ADR-053 refactor renamed constants but missed one usage.
+- **Symptom:** Contract doesn't compile from source (`Error 7576: Undeclared identifier`).
+- **Detection:** Running `forge build` before deployment.
+- **Rule:** After renaming any constant, grep the entire codebase:
+  - `grep -r "OLD_NAME" contracts/` to find all usages
+  - Verify contract compiles: `forge build 2>&1 | grep -i error`
+
+---
+
 ## Fork Testing (Avoid Manual UI Testing)
 
 ### ✅ Use `LiveAmmBuy.t.sol` for repeatable AMM tests

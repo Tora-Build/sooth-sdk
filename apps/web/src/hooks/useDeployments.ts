@@ -43,10 +43,12 @@ const CHAIN_ID_MAP: Record<number, string> = {
 };
 
 function resolveNetworkName(chainId: number): string | undefined {
+  if (!deploymentsConfig?.networks) return undefined;
+
   const mapped = CHAIN_ID_MAP[chainId];
   if (mapped && deploymentsConfig.networks[mapped]) return mapped;
 
-  // Fallback: find by chainId in deployments.json (more robust than name mapping).
+  // Fallback: find by chainId in deployments.json
   const found = Object.entries(deploymentsConfig.networks).find(([, cfg]) => cfg?.chainId === chainId);
   return found?.[0];
 }
@@ -60,8 +62,10 @@ export function useDeployments() {
   const resolvedName = resolveNetworkName(chainId);
   const fallbackName = resolveNetworkName(DEFAULT_CHAIN_ID);
   const networkName = resolvedName ?? fallbackName;
-  const chainDeployments = networkName ? deploymentsConfig.networks[networkName]?.contracts : undefined;
-  const configVersion = deploymentsConfig.version;
+  const chainDeployments = (networkName && deploymentsConfig?.networks)
+    ? deploymentsConfig.networks[networkName]?.contracts
+    : undefined;
+  const configVersion = deploymentsConfig?.version || '0.0.0';
 
   // Runtime guard: Detect stale browser cache
   useEffect(() => {

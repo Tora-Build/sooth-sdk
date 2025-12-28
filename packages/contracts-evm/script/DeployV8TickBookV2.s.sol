@@ -14,8 +14,9 @@ import {TruthMarket} from "../contracts/TruthMarket.sol";
 
 /**
  * @title DeployV8TickBookV2
- * @notice Deploys V8.5 stack with TickBookV2 (ADR-052 continuous range orders)
+ * @notice Deploys V8.11 stack with TickBookV2 (ADR-052 continuous range orders)
  * @dev Key change: TickBookV2 replaces TickBook for O(1) gas range order placement
+ *      V8.11: LaunchpadEngine LN2 fix, getPendingFills, short sell fix
  */
 contract DeployV8TickBookV2 is Script {
     // Deployment addresses (will be populated)
@@ -45,7 +46,7 @@ contract DeployV8TickBookV2 is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
-        console.log("=== V8.5 Deployment (TickBookV2 / ADR-052) ===");
+        console.log("=== V8.11 Deployment (TickBookV2 / ADR-052) ===");
         console.log("Deployer:", deployer);
         console.log("USDC:", usdc);
         console.log("Guardian:", guardian);
@@ -98,7 +99,7 @@ contract DeployV8TickBookV2 is Script {
         
         // Print summary
         console.log("");
-        console.log("=== V8.5 Deployment Summary (TickBookV2) ===");
+        console.log("=== V8.11 Deployment Summary (TickBookV2) ===");
         console.log("Collateralizer:", collateralizer);
         console.log("AMMEngine:", ammEngine);
         console.log("TickBookVault:", tickBookVault);
@@ -109,7 +110,7 @@ contract DeployV8TickBookV2 is Script {
         // Save to JSON
         string memory json = string.concat(
             '{\n',
-            '  "version": "8.5.0",\n',
+            '  "version": "8.11.0",\n',
             '  "collateralizer": "', vm.toString(collateralizer), '",\n',
             '  "ammEngine": "', vm.toString(ammEngine), '",\n',
             '  "tickBookVault": "', vm.toString(tickBookVault), '",\n',

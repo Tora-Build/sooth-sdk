@@ -24,22 +24,41 @@ export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   monadTestnet as unknown as AppKitNetwork
 ];
 
+// Monad RPC config with retry and rate limit handling
+// Docs: https://docs.monad.xyz/developer-essentials/testnets
+// Rate limits: QuickNode 25 rps, Ankr 300/10s, Foundation 20 rps
+const monadHttpOptions = {
+  retryCount: 3,
+  retryDelay: 1000, // 1 second between retries
+  timeout: 30_000,  // 30 second timeout
+};
+
 // Create Wagmi Adapter with custom RPC
-// Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
 export const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId,
   ssr: false,
   transports: {
-    // Prefer higher-limit public RPC; fallback to Base's official endpoint.
-    [baseSepolia.id]: fallback([http('https://sepolia.base.org'), http('https://base-sepolia-rpc.publicnode.com')]),
-    [megaethFrontier.id]: http('https://mainnet.megaeth.com/rpc'),
-    // Monad: QuickNode (25 rps) → Ankr (300/10s) → Foundation (20 rps)
-    [monadTestnet.id]: fallback([
-      http('https://testnet-rpc.monad.xyz'),
-      http('https://rpc.ankr.com/monad_testnet'),
-      http('https://rpc-testnet.monadinfra.com'),
+    // Base Sepolia: Official + PublicNode fallback
+    [baseSepolia.id]: fallback([
+      http('https://sepolia.base.org'),
+      http('https://base-sepolia-rpc.publicnode.com')
     ]),
+    [megaethFrontier.id]: http('https://mainnet.megaeth.com/rpc'),
+    // Monad: Fallback with retry config - start with Ankr (higher limits)
+    // then QuickNode, then Foundation
+    [monadTestnet.id]: fallback(
+      [
+        http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),  // 300/10s - highest
+        http('https://testnet-rpc.monad.xyz', monadHttpOptions),       // 25 rps
+        http('https://rpc-testnet.monadinfra.com', monadHttpOptions),  // 20 rps
+      ],
+      { 
+        rank: true,           // Rank endpoints by latency
+        retryCount: 3,        // Retry across all endpoints
+        retryDelay: 500,      // 500ms between fallback attempts
+      }
+    ),
   },
 });
 

@@ -25,7 +25,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     // ============================================
 
     uint256 private constant WAD = 1e18;
-    uint256 private constant LN2 = 693147180559945309; // ln(2) in WAD
+    uint256 private constant LN2_WAD = 693147180559945309; // ln(2) in WAD
+    uint256 private constant LN2_INV_WAD = 1442695040888963407; // 1/ln(2) in WAD
     uint256 private constant BPS_DENOMINATOR = 10000;
 
     // ============================================
@@ -198,7 +199,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
         // Calculate required deposit: b × ln(2)
-        uint256 depositWad = (initialLiquidity * LN2) / WAD;
+        uint256 depositWad = (initialLiquidity * LN2_WAD) / WAD;
         uint256 deposit = _wadToUsdcCeil(depositWad);
 
         // Transfer deposit from creator
@@ -322,12 +323,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             // PRE-GRADUATION: 100% to bBase growth + LP minting to TRADER
             // This converts traders into stakeholders (V7 model)
 
-            // Increase liquidity parameter
-            state.bCurrent += feeWad;
+            // Increase liquidity parameter: scale fee by 1/ln(2) to preserve max loss capacity
+            // maxLoss = b * ln(2). If we want maxLoss to increase by feeUSD, then deltaB = feeUSD / ln(2).
+            uint256 deltaB = (feeWad * LN2_INV_WAD) / WAD;
+            state.bCurrent += deltaB;
             // Mirror depth growth into AMM pricing
-            ammEngine.increaseLiquidity(market, feeWad);
+            ammEngine.increaseLiquidity(market, deltaB);
 
-            // Mint LP tokens to TRADER (1:1 with fees paid)
+            // Mint LP tokens to TRADER (1:1 with fee paid, matching creator's USD-par model)
             uint256 lpTokens = feeWad;
             lpBalances[market][trader] += lpTokens;
             state.totalLPSupply += lpTokens;
@@ -340,7 +343,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             // - bBase × ln(2) = creator deposit = LP break-even point
             // - multiplier = 1 means graduate at break-even, 2 means at 2× break-even, etc.
             if (!state.isGraduated) {
-                uint256 graduationThreshold = (state.bBase * LN2 * uint256(graduationMultiplier)) / WAD;
+                uint256 graduationThreshold = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
                 uint256 feesInWad = _usdcToWad(state.feesAccrued);
 
                 if (feesInWad >= graduationThreshold) {
@@ -539,7 +542,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         
         feesAccrued = state.feesAccrued;
         // Threshold = bBase × ln(2) × multiplier (same formula as _distributeFee)
-        uint256 thresholdWad = (state.bBase * LN2 * uint256(graduationMultiplier)) / WAD;
+        uint256 thresholdWad = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
         threshold = _wadToUsdc(thresholdWad);
         
         if (state.isGraduated) {

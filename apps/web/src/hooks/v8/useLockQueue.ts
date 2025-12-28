@@ -1,6 +1,7 @@
-import { useReadContract, useAccount } from 'wagmi';
+import { useReadContract, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
 import { V8_ABIS } from '../../config/abis';
+import { getPollingInterval, getStaleTime } from '../../lib/polling';
 
 export interface LockEntry {
     amount: bigint;
@@ -29,6 +30,7 @@ export function useLockQueue(
     ammEngineAddress: `0x${string}` | undefined
 ): LockQueueData {
     const { address } = useAccount();
+    const chainId = useChainId();
 
     const { data, isLoading, error } = useReadContract({
         address: ammEngineAddress,
@@ -37,7 +39,8 @@ export function useLockQueue(
         args: address ? [address] : undefined,
         query: {
             enabled: !!address && !!ammEngineAddress,
-            refetchInterval: 15000,
+            refetchInterval: getPollingInterval(chainId, 'normal'),
+            staleTime: getStaleTime(chainId),
         },
     });
 

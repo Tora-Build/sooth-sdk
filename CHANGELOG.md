@@ -2,6 +2,60 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [8.12.0] - 2025-12-28
+
+### Added
+- **Monad Testnet Integration**: Added Chain ID `10143` to `deployments.json` and synchronized `markets.json`.
+- **Multi-Chain Resilience**: Application now supports Base Sepolia and Monad Testnet simultaneously.
+
+### Fixed
+- **Critical `useDeployments` Hook Crash**: 
+    - Resolved `TypeError: Cannot read properties of undefined` by restoring nested `networks` structure in `deployments.json`.
+    - Added defensive null-checks in the hook to prevent runtime white-screens on malformed config.
+- **LP/Fee Discrepancy (ADR-054)**:
+    - Unified LP token minting to **USD-par** (1:1 with USD contributed).
+    - Removed the 1.44x depth-scaling for trader LP tokens ensures fair ownership shares.
+- **Base Sepolia Market visibility**: Restored missing Base Sepolia market configurations in `markets.json`.
+
+
+## [8.11.0] - 2025-12-29
+
+### Deployed
+- **V8.11.0 LaunchpadEngine LN2 Fix - Base Sepolia**:
+  - **Collateralizer**: `0x51762C3a51E0C53B32e234cc699F91a75AfCc24f`
+  - **AMMEngine**: `0x895dD6997f6c0F1Ec0f71C82CA66a437a230efdc`
+  - **TickBookVault**: `0xe67dFc6498444B5FdcaB8eD6687AfE5d9bCE08ac`
+  - **TickBookV2**: `0x903FD0218F1Aa061340EAf2811478f59b8Dc2260`
+  - **LaunchpadEngine**: `0xe0e82228aE890C8BdB33C249BfB60D39CD77eD2c`
+  - Market 1 (Alien Life): `0xA2C0Bf2766a4E799bC55fc88d7e4B63dCFC994a7`
+  - Market 2 (BTC TWAP): `0xC0154e2Ad8f170B1a07a19726b29D74D62a32deD`
+
+### Fixed
+- **LaunchpadEngine `LN2` Undefined Identifier** (2025-12-29):
+  - Fixed `getGraduationProgress()` view function using undefined `LN2` instead of `LN2_WAD`.
+  - This was a compilation error that prevented building from source.
+  - Root cause: inconsistent constant naming after ADR-053 refactor.
+
+## [8.9.1] - 2025-12-28
+
+### Added
+- **Rich AMM Accounting UI** (2025-12-28):
+  - Completely overhauled `MarketStats.tsx` with a professional "Pure AMM Accounting" design.
+  - Implemented 5 clear formula-driven cards: Cash Basis, Equity Floor, Valuation, TVL, and Liquidity Anchor.
+  - Synchronized visual styling with `AMMFormulasCard.tsx`.
+
+### Changed
+- **"Price" vs "Prob" Terminology Alignment** (2025-12-28):
+  - Replaced all instances of "Prob" and "Probability" with **"Price"** across AMM, Pro, and Create views.
+  - Simplifies the conceptual model for traders while maintaining mathematical correctness.
+
+### Fixed
+- **Pre-Graduation Liquidity Scaling Math (ADR-053)** (2025-12-28):
+  - Corrected `LaunchpadEngine.sol` fee distribution math.
+  - Fees now increase the liquidity parameter `b` by `Fee * 1/ln(2)` (~1.44x).
+  - This ensures a 1:1 relationship between fee accumulation and maximum loss capacity growth.
+  - Standardized on `LN2_WAD` and `LN2_INV_WAD` constants across contracts and scripts.
+
 ## [8.9.0] - 2025-12-28
 
 ### Deployed

@@ -1,6 +1,7 @@
-import { useReadContract, useAccount } from 'wagmi';
+import { useReadContract, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
 import { V8_ABIS } from '../../config/abis';
+import { getPollingInterval, getStaleTime } from '../../lib/polling';
 
 export interface ClaimableAmountData {
     claimable: bigint;
@@ -22,6 +23,7 @@ export function useClaimableAmount(
     ammEngineAddress: `0x${string}` | undefined
 ): ClaimableAmountData {
     const { address } = useAccount();
+    const chainId = useChainId();
 
     const { data, isLoading, error } = useReadContract({
         address: ammEngineAddress,
@@ -30,7 +32,8 @@ export function useClaimableAmount(
         args: address ? [address] : undefined,
         query: {
             enabled: !!address && !!ammEngineAddress,
-            refetchInterval: 5000,
+            refetchInterval: getPollingInterval(chainId, 'fast'),
+            staleTime: getStaleTime(chainId),
         },
     });
 

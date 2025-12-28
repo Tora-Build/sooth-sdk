@@ -2,15 +2,12 @@
  * Market Stats Math Hook
  * 
  * LMSR Accounting Model:
- * - Gross Cash = C(qYes, qNo, bCurrent) = the LMSR cost function value
- *   This represents the total cash in the AMM system
+ * - Seed = bBase * ln(2)
+ * - Fees = feesAccrued
+ * - P&L = C(qYes, qNo, bCurrent) - C(0, 0, bCurrent)
+ * - Gross Cash = Seed + Fees + P&L
  * - Liability = max(qYes, qNo) = worst-case payout to traders
  * - Floor = Gross - Liability = LP's guaranteed minimum equity
- * - Ceiling = Gross - min(qYes, qNo) = LP's best-case equity
- * 
- * Note: We don't try to decompose Gross into "Seed + Fees + P&L" because
- * with dynamic b (liquidity grows via fee reinvestment), the cost function
- * changes non-linearly and such decomposition becomes meaningless.
  */
 import { useMemo } from 'react';
 import { formatUnits, parseUnits } from 'viem';
@@ -39,18 +36,14 @@ function calculateLMSRCost(qYes: bigint, qNo: bigint, b: bigint): number {
     const bNum = Number(formatUnits(b, 18));
     const qYesNum = Number(formatUnits(qYes, 18));
     const qNoNum = Number(formatUnits(qNo, 18));
-    
-    // At (0, 0): C = b * ln(2) = creator deposit
-    if (qYesNum === 0 && qNoNum === 0) {
-        return bNum * LN2;
-    }
-    
+
     // Stable Log-Sum-Exp: ln(e^x + e^y) = max(x, y) + ln(1 + e^(-|x-y|))
     const x = qYesNum / bNum;
     const y = qNoNum / bNum;
     const max = x > y ? x : y;
     const diff = Math.abs(x - y);
-    
+
+    // C = b * (max(x, y) + ln(1 + e^-|diff|))
     return bNum * (max + Math.log(1 + Math.exp(-diff)));
 }
 
@@ -62,48 +55,57 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
         const usdcFactor = BigInt(10 ** usdcDecimals);
         const wad = 1_000_000_000_000_000_000n;
 
-        const seed = launchpad.creatorDeposit; 
-        const fees = launchpad.feesAccrued;    
-        const yield_ = launchpad.lpYieldPool;  
-        
+        const seed = launchpad.creatorDeposit;
+        const fees = launchpad.feesAccrued;
+
         const bCurrent = launchpad.currentBBase;
-        const bBase = launchpad.initialBBase;      
-        const rawQYes = ammState.qYes;         
-        const rawQNo = ammState.qNo;           
+        const bBase = launchpad.initialBBase;
+        const rawQYes = ammState.qYes;
+        const rawQNo = ammState.qNo;
 
-        // 1. Gross Cash = LMSR Cost Function Value
-        // This is the total cash in the AMM system: C(qYes, qNo, bCurrent)
-        const grossNum = calculateLMSRCost(rawQYes, rawQNo, bCurrent);
-        const gross = parseUnits(grossNum.toFixed(usdcDecimals), usdcDecimals);
+        // 1. LMSR Cost Components
+        const currentCostNum = calculateLMSRCost(rawQYes, rawQNo, bCurrent);
+        const initialCostNum = calculateLMSRCost(0n, 0n, bCurrent); // C(0,0,bCurrent)
 
-        // 2. Liability = max(qYes, qNo) - worst case payout
+        // P&L is the profit/loss compared to the "flat" state at current liquidity
+        const pnlNum = currentCostNum - initialCostNum;
+        const pnl = parseUnits(pnlNum.toFixed(usdcDecimals), usdcDecimals);
+
+        // 2. Gross Cash = Seed + Fees + P&L
+        // Seed is the original bBase * ln(2)
+        // Fees are accrued from trades
+        // P&L is current cost deviation
+        const gross = seed + fees + pnl;
+
+        // 3. Liability = max(qYes, qNo) - worst case payout
         const qYesUsdc = usdcDecimals === 18 ? rawQYes : rawQYes / (wad / usdcFactor);
         const qNoUsdc = usdcDecimals === 18 ? rawQNo : rawQNo / (wad / usdcFactor);
         const liability = qYesUsdc > qNoUsdc ? qYesUsdc : qNoUsdc;
 
-        // 3. Floor = Gross - max(qYes, qNo) - guaranteed LP equity
+        // 4. Floor = Gross - max(qYes, qNo) - guaranteed LP equity
         const floor = gross > liability ? gross - liability : 0n;
 
-        // 4. Ceiling = Gross - min(qYes, qNo) - best case LP equity
+        // 5. Ceiling = Gross - min(qYes, qNo) - best case LP equity
         const minLiability = qYesUsdc < qNoUsdc ? qYesUsdc : qNoUsdc;
         const ceilingEquity = gross > minLiability ? gross - minLiability : 0n;
 
-        // 5. Supply & Rates
-        const supply = launchpad.lpSupply; 
+        // 6. Supply & Rates
+        const supply = launchpad.lpSupply;
         const supplyNum = Number(formatUnits(supply, 18));
 
         const floorRate = supplyNum > 0 ? Number(formatUnits(floor, usdcDecimals)) / supplyNum : 0;
         const ceilingRate = supplyNum > 0 ? Number(formatUnits(ceilingEquity, usdcDecimals)) / supplyNum : 0;
 
-        // 6. Anchor Supply = b × ln(2) ≈ initial LP supply at creation
+        // 7. Anchor Supply = b × ln(2) ≈ initial LP supply at creation
         const anchorSupply = Number(formatUnits(bBase, 18)) * LN2;
 
-        // 7. Liquidity growth = bCurrent - bBase (from fee reinvestment)
+        // 8. Liquidity growth = bCurrent - bBase (from fee reinvestment)
         const liquidityGrowth = bCurrent > bBase ? bCurrent - bBase : 0n;
 
         return {
             seed,
             fees,
+            pnl,
             gross,
             liability,
             floor,

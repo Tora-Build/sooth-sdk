@@ -14,6 +14,7 @@ library LMSRMath {
 
     uint256 private constant WAD = 1e18;
     int256 private constant WAD_INT = int256(WAD);
+    int256 private constant LN2_WAD = 693147180559945309; // ln(2) in WAD
 
     // ============================================
     // Core LMSR Functions
@@ -89,8 +90,7 @@ library LMSRMath {
         
         // For small x, use Taylor series: ln(1 + e^(-x)) ≈ ln(2) - x/2 + x^2/8
         if (x < WAD_INT / 10) {
-            int256 ln2 = 693147180559945309; // ln(2) in WAD
-            int256 term1 = ln2;
+            int256 term1 = LN2_WAD;
             int256 term2 = -x / 2;
             int256 term3 = (x * x) / (8 * WAD_INT);
             return term1 + term2 + term3;
@@ -116,12 +116,12 @@ library LMSRMath {
         
         while (normalized > (3 * WAD_INT) / 2) {
             normalized = normalized / 2;
-            exp_val += 693147180559945309; // ln(2)
+            exp_val += LN2_WAD; // ln(2)
         }
         
         while (normalized < WAD_INT / 2) {
             normalized = normalized * 2;
-            exp_val -= 693147180559945309; // ln(2)
+            exp_val -= LN2_WAD; // ln(2)
         }
         
         // Taylor series for ln(1 + y) where y = normalized - 1

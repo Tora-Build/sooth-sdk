@@ -89,19 +89,19 @@ export const SimpleTradingPanel = ({
       setAmountError('Enter a number.');
       return;
     }
-    
+
     // Prevent negative numbers (Bug #1)
     if (num < 0) {
       setAmountError('Enter a positive number.');
       return;
     }
-    
+
     // Reasonable upper limit (Bug #2)
     if (num > 100000000) {
       setAmountError('That size is too large.');
       return;
     }
-    
+
     setAmount(val);
     setAmountError(null);
   };
@@ -121,7 +121,7 @@ export const SimpleTradingPanel = ({
     abi: ERC20_ABI,
     functionName: 'decimals',
     chainId,
-    query: { 
+    query: {
       enabled: !!contracts.MockUSDC,
       staleTime: Infinity,
       refetchInterval: false,
@@ -134,7 +134,7 @@ export const SimpleTradingPanel = ({
     functionName: 'balanceOf',
     args: [userAddress!],
     chainId,
-    query: { 
+    query: {
       enabled: !!userAddress && !!contracts.MockUSDC,
       refetchInterval: 15000,
     },
@@ -146,7 +146,7 @@ export const SimpleTradingPanel = ({
     functionName: 'allowance',
     args: [userAddress!, contracts.LaunchpadEngine as `0x${string}`],
     chainId,
-    query: { 
+    query: {
       enabled: !!userAddress && !!contracts.MockUSDC && !!contracts.LaunchpadEngine,
       refetchInterval: 30000,
     },
@@ -394,7 +394,7 @@ export const SimpleTradingPanel = ({
     const totalCostForBuyShares = async (sharesWad: bigint) => {
       // V8.2: deltaShares is always positive for buys, outcome determines YES/NO
       const deltaShares = sharesWad;
-      
+
       try {
         const [netCost] = await publicClient.readContract({
           address: ammEngineAddress,
@@ -457,38 +457,38 @@ export const SimpleTradingPanel = ({
     }
   };
 
-    // Execute trade
-    // V8 uses a position model where:
-    // - Positive shares = long YES
-    // - Negative shares = long NO
-    // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
+  // Execute trade
+  // V8 uses a position model where:
+  // - Positive shares = long YES
+  // - Negative shares = long NO
+  // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
   const handleTrade = async () => {
-      console.log('[Trade] handleTrade called', {
-        launchpadEngine: contracts.LaunchpadEngine,
-        deltaShares: quote.deltaShares?.toString(),
-        sharesNum,
-      });
-  
-      if (!contracts.LaunchpadEngine) {
-        toast.error('LaunchpadEngine contract address not found');
-        return;
-      }
+    console.log('[Trade] handleTrade called', {
+      launchpadEngine: contracts.LaunchpadEngine,
+      deltaShares: quote.deltaShares?.toString(),
+      sharesNum,
+    });
 
-      if (!canTrade) {
-        if (!isMarketCreated) {
-          toast.error('This market is not initialized in LaunchpadEngine on this network yet.');
-        } else if (!isAmmInitialized) {
-          toast.error('This market is not initialized in AMMEngine on this network yet.');
-        } else {
-          toast.error('Market is not ready for trading yet.');
-        }
-        return;
+    if (!contracts.LaunchpadEngine) {
+      toast.error('LaunchpadEngine contract address not found');
+      return;
+    }
+
+    if (!canTrade) {
+      if (!isMarketCreated) {
+        toast.error('This market is not initialized in LaunchpadEngine on this network yet.');
+      } else if (!isAmmInitialized) {
+        toast.error('This market is not initialized in AMMEngine on this network yet.');
+      } else {
+        toast.error('Market is not ready for trading yet.');
       }
-  
-      if (quote.deltaShares === undefined || quote.deltaShares === 0n) {
-        toast.error('Invalid quote - please enter shares amount');
-        return;
-      }
+      return;
+    }
+
+    if (quote.deltaShares === undefined || quote.deltaShares === 0n) {
+      toast.error('Invalid quote - please enter shares amount');
+      return;
+    }
 
     // V8.2: deltaShares is always based on quote, outcome is separate parameter
     const deltaShares = quote.deltaShares;
@@ -631,10 +631,10 @@ export const SimpleTradingPanel = ({
     }
   };
 
-  const isButtonDisabled = 
-    isPending || 
-    !canTrade || 
-    sharesNum <= 0 || 
+  const isButtonDisabled =
+    isPending ||
+    !canTrade ||
+    sharesNum <= 0 ||
     !!amountError ||
     !isQuoteValid ||
     isPhantomConnector ||
@@ -744,31 +744,31 @@ export const SimpleTradingPanel = ({
         {/* Current Price Display - clean separate row */}
         <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
           <div className="flex items-center justify-between py-2 px-3">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Prob</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Price</div>
             <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-lg font-mono font-bold text-emerald-400">
-                {isLoadingAmm ? '—' : `${(yesPrice * 100).toFixed(1)}%`}
-              </span>
-            </div>
-            {/* Compact bar */}
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-lg font-mono font-bold text-emerald-400">
+                  {isLoadingAmm ? '—' : `${(yesPrice * 100).toFixed(1)}%`}
+                </span>
+              </div>
+              {/* Compact bar */}
               <div className="w-20 h-1.5 rounded-full overflow-hidden flex bg-slate-800">
-              <div
+                <div
                   className="h-full bg-emerald-500 transition-all duration-500"
                   style={{ flex: yesPrice > 0n ? Number(yesPrice) : 1 }}
-              />
-              <div
+                />
+                <div
                   className="h-full bg-rose-500 transition-all duration-500"
                   style={{ flex: noPrice > 0n ? Number(noPrice) : 1 }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-mono font-bold text-rose-400">
-                {isLoadingAmm ? '—' : `${(noPrice * 100).toFixed(1)}%`}
-              </span>
-              <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-            </div>
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-mono font-bold text-rose-400">
+                  {isLoadingAmm ? '—' : `${(noPrice * 100).toFixed(1)}%`}
+                </span>
+                <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+              </div>
             </div>
           </div>
           {/* Issued Shares - compact row */}
@@ -819,7 +819,7 @@ export const SimpleTradingPanel = ({
           <div className="flex justify-between items-center mb-2">
             <label className="text-[10px] text-slate-500 uppercase tracking-wider">Shares</label>
             {isConnected && (
-              <button 
+              <button
                 onClick={handleMax}
                 className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
               >
@@ -887,41 +887,41 @@ export const SimpleTradingPanel = ({
         <div className="flex gap-2">
           {tradeMode === 'sell'
             ? ([25, 50, 75, 100] as const).map((pct) => {
-                const wad = (maxSellWad * BigInt(pct)) / 100n;
-                const label = pct === 100 ? 'MAX' : `${pct}%`;
-                const target = wadToSharesInput(wad);
-                return (
-                  <button
-                    key={pct}
-                    onClick={() => handleAmountChange(target)}
-                    disabled={maxSellWad <= 0n}
-                    className={cn(
-                      'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
-                      maxSellWad <= 0n
-                        ? 'bg-slate-900/30 text-slate-600 cursor-not-allowed'
-                        : amount === target
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })
-            : ([10, 50, 100, 500] as const).map((val) => (
+              const wad = (maxSellWad * BigInt(pct)) / 100n;
+              const label = pct === 100 ? 'MAX' : `${pct}%`;
+              const target = wadToSharesInput(wad);
+              return (
                 <button
-                  key={val}
-                  onClick={() => handleAmountChange(String(val))}
+                  key={pct}
+                  onClick={() => handleAmountChange(target)}
+                  disabled={maxSellWad <= 0n}
                   className={cn(
                     'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
-                    amount === String(val)
-                      ? selectedOutcome === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                      : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
+                    maxSellWad <= 0n
+                      ? 'bg-slate-900/30 text-slate-600 cursor-not-allowed'
+                      : amount === target
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
                   )}
                 >
-                  {val}
+                  {label}
                 </button>
-              ))}
+              );
+            })
+            : ([10, 50, 100, 500] as const).map((val) => (
+              <button
+                key={val}
+                onClick={() => handleAmountChange(String(val))}
+                className={cn(
+                  'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
+                  amount === String(val)
+                    ? selectedOutcome === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                    : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
+                )}
+              >
+                {val}
+              </button>
+            ))}
         </div>
 
         {/* Quote Summary - Pro style */}
@@ -947,9 +947,9 @@ export const SimpleTradingPanel = ({
 
           {/* Liquidity (b) */}
           <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
-            <span className="text-slate-600">Liquidity (b)</span>
+            <span className="text-slate-600">Liquidity Depth (b)</span>
             <span className="font-mono text-slate-500">
-              {launchpad?.currentBBase ? `$${(Number(launchpad.currentBBase) / 1e18).toFixed(2)}` : 'Not initialized'}
+              {launchpad?.currentBBase ? `${(Number(launchpad.currentBBase) / 1e18).toFixed(2)}` : 'Not initialized'}
             </span>
           </div>
 
@@ -961,12 +961,12 @@ export const SimpleTradingPanel = ({
                 <span className={cn(
                   "font-mono",
                   Math.abs(quote.priceImpact) > 5 ? 'text-rose-400 font-bold' :
-                  Math.abs(quote.priceImpact) > 2 ? 'text-amber-400 font-bold' : 'text-slate-400'
+                    Math.abs(quote.priceImpact) > 2 ? 'text-amber-400 font-bold' : 'text-slate-400'
                 )}>
                   {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
                 </span>
               </div>
-              
+
               {/* Impact Warnings */}
               {Math.abs(quote.priceImpact) > 5 ? (
                 <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-[10px] text-rose-400 flex items-start gap-2">
@@ -996,7 +996,7 @@ export const SimpleTradingPanel = ({
           {isQuoteValid && (
             <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
               <span className="text-slate-500">
-                {selectedOutcome === 0 ? 'YES' : 'NO'} Prob
+                {selectedOutcome === 0 ? 'YES' : 'NO'} Price
               </span>
               <div className="flex items-center gap-1">
                 <span className="font-mono text-slate-400">

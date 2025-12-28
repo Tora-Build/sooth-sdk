@@ -93,7 +93,7 @@ export const About = () => {
                     </div>
 
                     <div className="pt-3 border-t border-slate-800">
-                      <div className="text-slate-500 text-xs mb-1">Current Implied Probability</div>
+                      <div className="text-slate-500 text-xs mb-1">Current Implied Price</div>
                       <div className="text-slate-500 text-xs mb-1">Vault-backed LMSR</div>
                       <div className="font-mono text-white text-lg">62% YES · 38% NO</div>
                     </div>
