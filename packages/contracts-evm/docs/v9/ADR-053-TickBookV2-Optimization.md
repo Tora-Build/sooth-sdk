@@ -294,6 +294,36 @@ All existing tests pass with the optimized implementation.
 
 ---
 
+## Key Takeaways
+
+### Applied Immediately (V9)
+
+| Optimization | Impact | File |
+|--------------|--------|------|
+| **256-bit bitmap words** | EVM native size, fewer storage ops | `TickBitmap.sol` |
+| **Assembly LSB/MSB** | 65% gas reduction on tick searches | `TickBitmap.sol` |
+| **Struct packing** | 7 slots → 4 slots (60k gas/order) | `TickBook.sol` |
+| **Custom errors** | ~500 bytes saved | `TickBook.sol` |
+| **Spot sell extraction** | ~5KB saved, modular architecture | `TickBookSpotSell.sol` |
+
+### Ready to Integrate (Phase 1)
+
+| Feature | Purpose | File |
+|---------|---------|------|
+| **Transient storage** | Batch operations, flash accounting | `TransientDelta.sol` |
+| **Hooks interface** | Extensibility (dynamic fees, oracles) | `ITickBookHooks.sol` |
+| **Permission encoding** | Zero-storage permission checks | `ITickBookHooks.sol` |
+
+### Future Consideration
+
+| Feature | Trigger | Notes |
+|---------|---------|-------|
+| **Singleton architecture** | Market count > 50 | Single PoolManager for all markets |
+| **Tick spacing** | High-volume markets | Reduce initialized ticks |
+| **Position NFTs** | Secondary market demand | ERC-721 for positions |
+
+---
+
 ## References
 
 - [Uniswap V3 Whitepaper](https://app.uniswap.org/whitepaper-v3.pdf)
