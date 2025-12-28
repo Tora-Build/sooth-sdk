@@ -222,8 +222,9 @@ contract TraderActor is Test {
     address public market;
     address[] public traders;
 
-    uint8 constant YES = 0;
-    uint8 constant NO = 1;
+    // Outcome constants (aligned with TruthMarket: 0=NO, 1=YES, 2=INVALID)
+    uint8 constant YES = 1;
+    uint8 constant NO = 0;
     uint256 constant WAD = 1e18;
 
     constructor(

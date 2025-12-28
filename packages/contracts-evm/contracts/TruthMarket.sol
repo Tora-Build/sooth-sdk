@@ -7,6 +7,13 @@ import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
  * @title TruthMarket
  * @notice Canonical source of truth for market lifecycle and settlement
  * @dev All execution venues query this contract for market state
+ *
+ * Lifecycle: CREATED → LIVE → SETTLING → SETTLED → FINALIZED
+ *   - CREATED: Market created but not activated
+ *   - LIVE: Trading active (before deadline)
+ *   - SETTLING: Deadline passed, awaiting adjudicator resolution
+ *   - SETTLED: Outcome determined, guardian can veto
+ *   - FINALIZED: Settlement locked, redemption enabled
  */
 contract TruthMarket is ITruthMarket {
     // ============================================
@@ -77,7 +84,12 @@ contract TruthMarket is ITruthMarket {
         require(block.timestamp < deadline, "TruthMarket: past deadline");
 
         state = MarketState.LIVE;
+
+        emit MarketActivated(address(this), block.timestamp);
     }
+
+    /// @notice Emitted when market is activated for trading
+    event MarketActivated(address indexed market, uint256 activatedAt);
 
     /**
      * @notice Settle market with outcome
@@ -114,15 +126,20 @@ contract TruthMarket is ITruthMarket {
 
     /**
      * @notice Guardian veto (emergency only)
-     * @dev Reverts market to SETTLING state
+     * @dev Reverts market to SETTLING state for re-adjudication
      */
     function veto() external {
         require(msg.sender == guardian, "TruthMarket: not guardian");
         require(state == MarketState.SETTLED, "TruthMarket: not settled");
 
+        uint8 previousOutcome = winningOutcome;
+        uint64 previousTStar = tStar;
+
         state = MarketState.SETTLING;
         winningOutcome = 0;
         tStar = 0;
+
+        emit MarketVetoed(address(this), previousOutcome, previousTStar);
     }
 
     // ============================================
@@ -131,9 +148,20 @@ contract TruthMarket is ITruthMarket {
 
     /**
      * @inheritdoc ITruthMarket
+     * @dev Market is live if in LIVE state AND before deadline.
+     *      After deadline, trading should stop even if settle() hasn't been called yet.
      */
     function isLive() external view override returns (bool) {
-        return state == MarketState.LIVE;
+        return state == MarketState.LIVE && block.timestamp < deadline;
+    }
+
+    /**
+     * @notice Check if market is awaiting settlement (past deadline, not yet settled)
+     * @return True if market is in settling period
+     */
+    function isSettling() external view returns (bool) {
+        return (state == MarketState.LIVE && block.timestamp >= deadline) ||
+               state == MarketState.SETTLING;
     }
 
     /**
@@ -141,6 +169,14 @@ contract TruthMarket is ITruthMarket {
      */
     function isSettled() external view override returns (bool) {
         return state == MarketState.SETTLED || state == MarketState.FINALIZED;
+    }
+
+    /**
+     * @notice Check if market is fully finalized (irreversible)
+     * @return True if market is finalized
+     */
+    function isFinalized() external view returns (bool) {
+        return state == MarketState.FINALIZED;
     }
 
     // ============================================
