@@ -330,6 +330,49 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         emit MarketRegistered(marketKey, key.truthMarket, key.yesToken, key.noToken, key.hook);
     }
 
+    /**
+     * @notice Register market with legacy 4-param signature (ITickBook compatibility)
+     * @dev Used by LaunchpadEngine - creates market with no hook
+     */
+    function registerMarket(
+        address market,
+        address yesToken,
+        address noToken,
+        uint256 initialProbabilityWad
+    ) external returns (bytes32 marketKey) {
+        if (market == address(0)) revert ZeroAddress();
+        if (yesToken == address(0)) revert ZeroAddress();
+        if (noToken == address(0)) revert ZeroAddress();
+
+        marketKey = _getPoolKeyFromMemory(PoolKey({
+            truthMarket: market,
+            yesToken: yesToken,
+            noToken: noToken,
+            hook: address(0)
+        }));
+        if (_markets[marketKey].isActive) revert DuplicateMarket();
+
+        _markets[marketKey] = Market({
+            truthMarket: market,
+            yesToken: yesToken,
+            noToken: noToken,
+            hook: address(0),
+            isActive: true
+        });
+
+        uint16 initialTick = TickMath.probabilityToTick(initialProbabilityWad);
+        if (initialTick < MIN_TICK) initialTick = MIN_TICK;
+        if (initialTick > MAX_TICK) initialTick = MAX_TICK;
+
+        _state[marketKey] = MarketState({
+            currentTick: initialTick,
+            activeLiquidityNo: 0,
+            activeLiquidityYes: 0
+        });
+
+        emit MarketRegistered(marketKey, market, yesToken, noToken, address(0));
+    }
+
     // ============================================
     // Range Orders with Hooks
     // ============================================
@@ -439,7 +482,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             if (selector != ITickBookHooks.beforeCancelOrder.selector) revert InvalidHookResponse();
         }
 
-        _claimInternal(marketKey, orderId, msg.sender);
+        _claimInternal(marketKey, orderId);
         _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
         _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
 
@@ -618,21 +661,57 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Claims
     // ============================================
 
+    /**
+     * @notice Claim fills for your own order
+     * @param marketKey The market
+     * @param orderId The order ID
+     */
     function claimFills(bytes32 marketKey, uint256 orderId)
         external
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
-        return _claimInternal(marketKey, orderId, msg.sender);
+        RangeOrder storage order = _orders[marketKey][orderId];
+        if (order.owner != msg.sender) revert NotOwner();
+        return _claimInternal(marketKey, orderId);
     }
 
-    function _claimInternal(bytes32 marketKey, uint256 orderId, address owner)
+    /**
+     * @notice Permissionless claim - anyone can trigger claims for any order
+     * @dev Enables takers/keepers to auto-settle makers, preventing order flow blockage
+     * @param marketKey The market
+     * @param orderId The order ID
+     */
+    function claimFillsFor(bytes32 marketKey, uint256 orderId)
+        external
+        returns (uint256 filledShares, uint256 collateralUsedWad)
+    {
+        return _claimInternal(marketKey, orderId);
+    }
+
+    /**
+     * @notice Batch claim for multiple orders (gas efficient for keepers)
+     * @param marketKey The market
+     * @param orderIds Array of order IDs to claim
+     */
+    function batchClaimFills(bytes32 marketKey, uint256[] calldata orderIds)
+        external
+        returns (uint256 totalFilledShares, uint256 totalCollateralUsed)
+    {
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i]);
+            totalFilledShares += filled;
+            totalCollateralUsed += used;
+        }
+    }
+
+    function _claimInternal(bytes32 marketKey, uint256 orderId)
         internal
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
         RangeOrder storage order = _orders[marketKey][orderId];
         if (!order.active) revert OrderNotActive();
-        if (order.owner != owner) revert NotOwner();
 
+        address owner = order.owner;
         Market memory m = _markets[marketKey];
 
         // Before hook
@@ -695,6 +774,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // ============================================
 
     function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
+        return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken, key.hook));
+    }
+
+    function _getPoolKeyFromMemory(PoolKey memory key) internal pure returns (bytes32) {
         return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken, key.hook));
     }
 
