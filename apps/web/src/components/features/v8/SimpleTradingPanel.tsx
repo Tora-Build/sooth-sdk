@@ -9,7 +9,7 @@ import { Button } from '../../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateV8Queries } from '../../../hooks/v8';
 import { useDeployments } from '../../../hooks/useDeployments';
-import { V8_ABIS, ERC20_ABI } from '../../../config/abis';
+import { V8_ABIS, V9_ABIS, ERC20_ABI } from '../../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
@@ -458,10 +458,6 @@ export const SimpleTradingPanel = ({
   };
 
   // Execute trade
-  // V8 uses a position model where:
-  // - Positive shares = long YES
-  // - Negative shares = long NO
-  // So: Buy YES = +delta, Buy NO = -delta, Sell YES = -delta, Sell NO = +delta
   const handleTrade = async () => {
     console.log('[Trade] handleTrade called', {
       launchpadEngine: contracts.LaunchpadEngine,
@@ -475,13 +471,7 @@ export const SimpleTradingPanel = ({
     }
 
     if (!canTrade) {
-      if (!isMarketCreated) {
-        toast.error('This market is not initialized in LaunchpadEngine on this network yet.');
-      } else if (!isAmmInitialized) {
-        toast.error('This market is not initialized in AMMEngine on this network yet.');
-      } else {
-        toast.error('Market is not ready for trading yet.');
-      }
+      toast.error('Market is not ready for trading yet.');
       return;
     }
 
@@ -490,63 +480,22 @@ export const SimpleTradingPanel = ({
       return;
     }
 
-    // V8.2: deltaShares is always based on quote, outcome is separate parameter
     const deltaShares = quote.deltaShares;
 
-    // Fetch fresh quote directly from chain to prevent stale quote issues
-    let freshCost = quote.cost;
-    if (publicClient && ammEngineAddress) {
-      try {
-        const freshQuote = await publicClient.readContract({
-          address: ammEngineAddress,
-          abi: V8_ABIS.AMMEngine,
-          functionName: 'getPositionQuote',
-          args: [address, selectedOutcome, deltaShares]
-        }) as readonly [bigint, bigint];
-
-        const [baseCost] = freshQuote;
-        const feeRate = BigInt(launchpad?.currentFeeBps ?? 500);
-        const fee = tradeMode === 'buy' ? (baseCost * feeRate) / 10000n : 0n;
-        freshCost = baseCost + fee;
-
-        // Check for significant deviation (>5% difference suggests stale quote)
-        const quoteDiff = freshCost > quote.cost
-          ? Number((freshCost - quote.cost) * 100n / quote.cost)
-          : Number((quote.cost - freshCost) * 100n / freshCost);
-
-        if (quoteDiff > 5) {
-          console.warn('[Trade] Quote deviation detected:', {
-            cachedCost: (Number(quote.cost) / 1e18).toFixed(2),
-            freshCost: (Number(freshCost) / 1e18).toFixed(2),
-            deviation: quoteDiff + '%'
-          });
-          toast.error(`Price moved ${quoteDiff.toFixed(0)}%. Refreshing quote...`);
-          return;
-        }
-      } catch (e) {
-        console.warn('[Trade] Fresh quote fetch failed, using cached:', e);
-      }
-    }
-
     // Slippage guard:
-    // - BUY: maxCost = +5% buffer (increased from 1% for volatile markets)
+    // - BUY: maxCost = +5% buffer
     // - SELL: minProceeds = -5% buffer
     const limitCost = tradeMode === 'buy'
-      ? (freshCost * 105n) / 100n
-      : (freshCost * 95n) / 100n;
+      ? (quote.cost * 105n) / 100n
+      : (quote.cost * 95n) / 100n;
 
-    console.log('[Trade] Executing:', {
+    console.log('[Trade] Executing (V9):', {
       market: address,
       outcome: selectedOutcome,
       deltaShares: deltaShares.toString(),
-      maxCost: limitCost.toString(),
-      maxCostUSD: (Number(limitCost) / 1e18).toFixed(2),
-      cachedCostUSD: (Number(quote.cost) / 1e18).toFixed(2),
-      freshCostUSD: (Number(freshCost) / 1e18).toFixed(2),
-      launchpadEngine: contracts.LaunchpadEngine,
+      limitCost: limitCost.toString(),
     });
 
-    // Store trade info for success toast
     const tradeInfo = {
       mode: tradeMode,
       shares: sharesNum.toString(),
@@ -554,18 +503,20 @@ export const SimpleTradingPanel = ({
     };
 
     try {
-      // V8.2 API: tradePositions(market, outcome, deltaShares, maxCostOrMinProceeds)
+      // V9 LaunchpadEngine logic:
+      // 1. Unified function 'tradePositions'
+      // 2. Contract automatically checks availableProceeds in AMMEngine
+      // 3. Contract pulls ONLY needed remainder from wallet
+      // 4. No need for manual 'depositAndTradeAMM'
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,
-        abi: V8_ABIS.LaunchpadEngine,
+        abi: V9_ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [address, selectedOutcome, deltaShares, limitCost],
-        // Explicit gas limit to bypass MegaETH gas estimation issues
-        gas: 500000n,
+        gas: 600000n,
       }, {
         onSuccess: (hash) => {
           console.log('[Trade] Transaction submitted! Hash:', hash);
-          // Show loading toast that will be updated when confirmed
           const toastId = toast.loading(`Confirming ${tradeInfo.mode} ${tradeInfo.shares} ${tradeInfo.outcome}...`);
           setPendingTxHash(hash);
           setPendingToastId(toastId);
@@ -573,33 +524,10 @@ export const SimpleTradingPanel = ({
         },
         onError: (error: any) => {
           console.error('[Trade] Error:', error);
-          console.error('[Trade] Error cause:', error?.cause);
-          console.error('[Trade] Error data:', error?.data);
-
-          // Try to extract the actual revert reason from various error formats
-          let errorMsg = 'Unknown error';
-          if (error?.cause?.reason) {
-            errorMsg = error.cause.reason;
-          } else if (error?.cause?.shortMessage) {
-            errorMsg = error.cause.shortMessage;
-          } else if (error?.data?.message) {
-            errorMsg = error.data.message;
-          } else if (error?.shortMessage) {
-            errorMsg = error.shortMessage;
-          } else if (error?.message) {
-            // Try to extract revert reason from message
-            const match = error.message.match(/reason[:\s]+["']?([^"'\n]+)["']?/i);
-            if (match) {
-              errorMsg = match[1];
-            } else {
-              errorMsg = error.message;
-            }
-          }
-
+          const errorMsg = error?.cause?.shortMessage || error?.message || 'Transaction failed';
           toast.error(`Trade failed: ${errorMsg}`);
         },
       });
-      console.log('[Trade] writeContract called - waiting for wallet confirmation...');
     } catch (err) {
       console.error('[Trade] Unexpected error:', err);
       toast.error('Unexpected error during trade');

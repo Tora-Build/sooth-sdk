@@ -22,13 +22,14 @@ contract DeployV9 is Script {
         // Get environment variables
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address usdc = vm.envAddress("USDC_ADDRESS");
+        address deployer = vm.addr(deployerPrivateKey);
 
         require(usdc != address(0), "DeployV9: USDC_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy TickBookVault
-        TickBookVault vault = new TickBookVault(usdc, msg.sender);
+        TickBookVault vault = new TickBookVault(usdc, deployer);
         console.log("TickBookVault deployed at:", address(vault));
 
         // 2. Deploy TickBookPoolManager

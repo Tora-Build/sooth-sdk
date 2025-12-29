@@ -1,5 +1,5 @@
 {
-  "version": "8.12.0",
+  "version": "9.0.0",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -7,9 +7,11 @@
         "MockUSDC": "0x856FbEebD91Db28e3b4550e7602142Cfab683796",
         "Collateralizer": "0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106",
         "AMMEngine": "0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513",
-        "TickBookVault": "0x44fEbdDc46C785c00a1c84bC13787927c93B014B",
-        "TickBook": "0x22A3B8d12cf5277F27A2d9a03312e643b1996492",
-        "LaunchpadEngine": "0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70"
+        "TickBookVault": "0xa15521a773956237f954ebA18bFd1c3279d80e7D",
+        "TickBookPoolManager": "0x550CE2264FEc124b8341b8793e9AA31C386E5A7C",
+        "TickBook": "0x550CE2264FEc124b8341b8793e9AA31C386E5A7C",
+        "DynamicFeeHook": "0x354314db0584F92Fc3fc432FF6B3B79fBA8eF64A",
+        "LaunchpadEngine": "0x4C9dF48ED7f2063a74Bc9Ad6Cc0134B3A1E96940"
       }
     },
     "monadTestnet": {

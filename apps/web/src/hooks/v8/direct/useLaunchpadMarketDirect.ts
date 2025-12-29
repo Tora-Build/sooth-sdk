@@ -1,12 +1,15 @@
 import { useChainStore } from "../../../store/useChainStore";
 import { useDeployments } from "../../useDeployments";
-import { V8_ABIS } from "../../../config/abis";
+import { V9_ABIS } from "../../../config/abis";
 import { useV8DirectRead, readContractSafe } from "./useV8DirectRead";
 
 type Address = `0x${string}`;
 
 import { useAccount } from "wagmi";
 
+/**
+ * Hook to read Launchpad market state (V9 Architecture)
+ */
 export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
   const { selectedChainId } = useChainStore();
   const { address: userAddress } = useAccount();
@@ -16,31 +19,29 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
   const query = useV8DirectRead({
-    queryKey: ["v8", "launchpadMarketDirect", chainId, launchpadEngineAddress, marketAddress, userAddress],
+    queryKey: ["v9", "launchpadMarketDirect", chainId, launchpadEngineAddress, marketAddress, userAddress],
     enabled: !!marketAddress && !!chainId && !!launchpadEngineAddress,
     chainId,
     read: async (client) => {
-      // NOTE: `getMarketState()` can revert if the AMM isn't initialized for this market yet
-      // (because LaunchpadEngine computes floor value by calling AMMEngine.getMarketState()).
-      // To keep the UI resilient, we build the object primarily from the public `markets` mapping
-      // (which never reverts and returns zeroed struct for unknown markets).
-
+      // Build the object primarily from the public `markets` mapping
       const marketsMapping = await readContractSafe<
         readonly [
-          Address,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          boolean,
-          bigint,
-          bigint
+          Address, // creator
+          bigint,  // bBase
+          bigint,  // bCurrent
+          bigint,  // creatorDeposit
+          bigint,  // feesAccrued
+          bigint,  // totalLPSupply
+          bigint,  // lpYieldPool
+          boolean, // isGraduated
+          bigint,  // createdAt (uint64)
+          bigint,  // graduatedAt (uint64)
+          string,  // name
+          string   // symbol
         ]
       >(client, {
         address: launchpadEngineAddress!,
-        abi: V8_ABIS.LaunchpadEngine,
+        abi: V9_ABIS.LaunchpadEngine,
         functionName: "markets",
         args: [marketAddress!],
       });
@@ -55,13 +56,15 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         lpYieldPool,
         isGraduated,
         createdAt,
-        graduatedAt
+        graduatedAt,
+        marketName,
+        marketSymbol
       ] = marketsMapping;
 
       const [preGradFeeBps, postGradFeeBps, graduationMultiplier] = await Promise.all([
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V8_ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
       ]);
 
       const isCreated = creator !== ZERO_ADDRESS;
@@ -69,18 +72,18 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
 
       const [feesAccrued, graduationThreshold, progressBps] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
         address: launchpadEngineAddress!,
-        abi: V8_ABIS.LaunchpadEngine,
+        abi: V9_ABIS.LaunchpadEngine,
         functionName: "getGraduationProgress",
         args: [marketAddress!],
       });
 
       const userLpBalance = userAddress
         ? await readContractSafe<bigint>(client, {
-            address: launchpadEngineAddress!,
-            abi: V8_ABIS.LaunchpadEngine,
-            functionName: "lpBalances",
-            args: [marketAddress!, userAddress],
-          })
+          address: launchpadEngineAddress!,
+          abi: V9_ABIS.LaunchpadEngine,
+          functionName: "lpBalances",
+          args: [marketAddress!, userAddress],
+        })
         : 0n;
 
       // Best-effort: floorValue requires AMM state; it may revert if AMM isn't initialized.
@@ -90,7 +93,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
           readonly [Address, bigint, bigint, bigint, boolean, bigint]
         >(client, {
           address: launchpadEngineAddress!,
-          abi: V8_ABIS.LaunchpadEngine,
+          abi: V9_ABIS.LaunchpadEngine,
           functionName: "getMarketState",
           args: [marketAddress!],
         });
@@ -114,6 +117,8 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         isGraduated,
         createdAt,
         graduatedAt,
+        name: marketName,
+        symbol: marketSymbol,
         floorValue,
         graduationThreshold,
         graduationProgress: graduationProgressPct,

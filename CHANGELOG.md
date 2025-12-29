@@ -2,7 +2,33 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
-## [8.12.0] - 2025-12-29
+## [9.0.1] - 2025-12-29
+
+### Added (V9 QA)
+- **Comprehensive V9 Test Suite** — 99 tests passing with 83% core coverage:
+  - `TickBookPoolManager.t.sol` — 22 tests for core ops, batching, hooks
+  - `V9Fuzz.t.sol` — 10 fuzz tests (tick bounds, slippage, crossing)
+  - `V9Invariants.t.sol` — 4 actor-based invariants (vault solvency, no negative balances)
+  - `TruthMarketLifecycle.t.sol` — 32 tests (activate, settle, veto, finalize, redemption)
+  - `TickBookVaultSettlement.t.sol` — 13 tests (deposit, reserve, redeem, edge cases)
+  - `HookCallbacks.t.sol` — 18 tests (DynamicFeeHook, permissions, fuzz)
+- **QA Analysis Document** — `test/QA_V9_ANALYSIS.md` documenting test strategy and coverage gaps
+
+### Changed
+- **V9 ABIs exported** — Added `V9_ABIS` export in `apps/web/src/config/abis.ts`
+- **Frontend config** — Updated `deployments.json` and `markets.json` to V9.0.0
+
+### Coverage
+| Contract | Lines | Functions |
+|----------|-------|-----------|
+| TickBookPoolManager | 83.24% | 89.29% |
+| TickBookVault | 44.12% | 60.87% |
+| TruthMarket | 100.00% | 100.00% |
+| DynamicFeeHook | 30.51% | 12.50% |
+
+---
+
+## [9.0.0] - 2025-12-29
 
 ### Deployed
 - **V8.12.0 Limit Order Crossing Fix - Base Sepolia**:

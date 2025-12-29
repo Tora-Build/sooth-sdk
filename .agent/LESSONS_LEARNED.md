@@ -5,6 +5,34 @@ AI agents should read this at the start of sessions to avoid repeating errors.
 
 ---
 
+## V9 Testing Patterns (2025-12-29)
+
+### ✅ Actor-Based Invariant Testing Pattern
+- **Location:** `test/v9/V9Invariants.t.sol`
+- **Pattern:** Create `TraderActor` contracts that wrap target contracts
+- **Purpose:** Multi-user fuzz testing with independent state
+- **Key invariants tested:**
+  - Vault Solvency: Total claims <= vault balance
+  - No Negative Balances: Reserved never exceeds initial
+  - Market State Consistency: Tick always in valid range
+  - Order Integrity: Active orders have collateral
+
+### ✅ Fuzz Test Edge Cases to Watch
+- **Date:** 2025-12-29
+- **Pattern:** Use `bound()` to constrain fuzz inputs
+- **Pitfalls:**
+  - Tick ranges: Must be 1-999, tickLower < tickUpper
+  - Fee configs: MIN_FEE=1, MAX_FEE=1000 in DynamicFeeHook
+  - Multi-order tests: Limit numOrders to avoid tick overflow
+- **Rule:** Always check contract constraints before fuzzing
+
+### ✅ Vault API Usage
+- **Correct:** `vault.availableUsdcWad(user)`, `vault.reservedUsdcWad(user)`
+- **Deprecated:** No `getUserPosition()` in V9 TickBookVault
+- **Internal outcomes:** `vault.getInternalOutcomes(market, user)` → (yesShares, noShares)
+
+---
+
 ## Liquidity Tracking Consistency
 
 ### ❌ Pattern: Tracking density vs total shares = crossing failures
@@ -350,6 +378,33 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
   - New events: `PositionSettled`, `MarketActivated`, `MarketVetoed`
 - **Documentation:** `packages/contracts-evm/docs/review/OUTCOME_SEMANTICS.md`
 - **Rule:** Always use `YES=1, NO=0` in frontend code. Reference `OUTCOME_SEMANTICS.md` for canonical definitions.
+
+---
+
+## V9.0 Singleton Architecture
+
+### ✅ Pattern: Uniswap V4-Style PoolManager
+- **Date:** 2025-12-29
+- **Change:** Replaced per-market `TickBook` contracts with singleton `TickBookPoolManager`.
+- **Rationale:**
+  - Simpler deployment (1 contract vs N contracts)
+  - Cross-market arbitrage in single transaction
+  - Flash accounting for 200x cheaper batch operations
+  - Unified state management
+- **Key Features:**
+  - **Flash Accounting**: EIP-1153 transient storage (`TSTORE`/`TLOAD` at 100 gas vs `SSTORE` at 20,000 gas)
+  - **Hooks System**: 13 callback points (beforePlaceOrder, afterPlaceOrder, getDynamicFee, etc.)
+  - **Permissionless Claims**: `claimFillsFor()` allows keepers to settle fills
+  - **Batch Operations**: `batchClaimFills()` for gas-efficient settlement
+- **Frontend Migration:**
+  | V8 | V9 |
+  |----|-----|
+  | Per-market `TickBook` address | Single `TickBookPoolManager` address |
+  | `registerMarket` on each TickBook | `registerMarket` on PoolManager |
+  | Manual claims only | Permissionless `claimFillsFor()` |
+  | No batch operations | Flash accounting + batch APIs |
+- **Documentation:** `packages/contracts-evm/docs/v9/`
+- **ABIs:** `packages/contracts-evm/abi/v9/`
 
 ---
 

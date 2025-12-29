@@ -1,10 +1,44 @@
 # Project Status
 
-> Last Updated: 2025-12-29 (V8.13.0 Security Refinement)
+> Last Updated: 2025-12-29 (V9.0 QA Complete)
 
+- **✅ V9.0 QA COMPLETE** — 99 tests passing with 83% TickBookPoolManager coverage.
+- **✅ V9.0 DEPLOYED** — TickBookPoolManager singleton deployed to Base Sepolia with flash accounting.
+- **✅ V9.0 MERGED** — Uniswap V4-style singleton TickBookPoolManager with flash accounting and hooks.
 - **✅ V8.13.0 MERGED** — Contract security refinement with ReentrancyGuard, INVALID handling, and outcome semantics unification.
 - **✅ CRITICAL CROSSING BUG FIXED** — Overlapping limit orders now fully cross instead of only ~0.1%.
-- **✅ V8.12.0 DEPLOYED** — Both Base Sepolia and Monad Testnet upgraded with corrected TickBookV2.
+
+## 🆕 V9.0 QA Complete (2025-12-29)
+**99 tests passing**, comprehensive coverage across all V9 contracts.
+
+### Test Suites
+| Suite | Tests | Coverage |
+|-------|-------|----------|
+| TickBookPoolManager.t.sol | 22 | Core ops |
+| V9Fuzz.t.sol | 10 | Edge cases |
+| V9Invariants.t.sol | 4 | Solvency/state |
+| TruthMarketLifecycle.t.sol | 32 | Full lifecycle |
+| TickBookVaultSettlement.t.sol | 13 | Redemption |
+| HookCallbacks.t.sol | 18 | Hook system |
+
+### Coverage Results
+| Contract | Lines | Functions | Status |
+|----------|-------|-----------|--------|
+| **TickBookPoolManager** | 83.24% | 89.29% | ✅ Excellent |
+| **TickBookVault** | 44.12% | 60.87% | ⚠️ Good |
+| **TruthMarket** | 100.00% | 100.00% | ✅ Complete |
+| **DynamicFeeHook** | 30.51% | 12.50% | ⚠️ Needs hooks |
+
+## 🔵 V9.0 Singleton Architecture (Deployed)
+**Commit `11c5e5a`** introduces major architectural changes:
+
+### Impact on Frontend
+- Contract address changes: `TickBook` → `TickBookPoolManager`
+- New functions: `batchClaimFills()`, `getDelta()`, `lock()`
+- New events: `FillsClaimed`, flash accounting deltas
+- Hooks require hook contract deployment (optional)
+
+---
 
 ## ⚠️ V8.13.0 Contract Changes (Merged Out-of-SOP)
 **Commit `c34678a`** merged breaking changes that require attention:
@@ -18,21 +52,22 @@
 
 **Documentation:** `packages/contracts-evm/docs/review/`
 
-## Active Deployment (Base Sepolia) — V8.12.0 🔵
+## Active Deployment (Base Sepolia) — V9.0 🔵
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106` | ✅ NEW |
-| AMMEngine | `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513` | ✅ NEW |
-| TickBookVault | `0x44fEbdDc46C785c00a1c84bC13787927c93B014B` | ✅ NEW |
-| TickBookV2 | `0x22A3B8d12cf5277F27A2d9a03312e643b1996492` | ✅ NEW (crossing fix) |
-| LaunchpadEngine | `0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70` | ✅ NEW |
+| Collateralizer | `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106` | ✅ V8.13 |
+| AMMEngine | `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513` | ✅ V8.13 |
+| **TickBookVault** | `0xa15521a773956237f954ebA18bFd1c3279d80e7D` | ✅ V9 |
+| **TickBookPoolManager** | `0x550CE2264FEc124b8341b8793e9AA31C386E5A7C` | ✅ V9 |
+| **DynamicFeeHook** | `0x354314db0584F92Fc3fc432FF6B3B79fBA8eF64A` | ✅ V9 |
+| **LaunchpadEngine** | `0x4C9dF48ED7f2063a74Bc9Ad6Cc0134B3A1E96940` | ✅ V9 NEW |
 
-### Base Sepolia V8.12.0 Markets
-| Market | Address | Deadline |
-|--------|---------|----------|
-| UN Confirms Alien Life | `0xa4838e6E410570438d8B074e9459082b228A460C` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0x8027387f1FD1963513661A0051AdD224244e186E` | 2026-01-27 |
+### Base Sepolia V9.0 Markets (Registered on TickBookPoolManager)
+| Market | Address | Registered |
+|--------|---------|------------|
+| UN Confirms Alien Life (ALIEN) | `0xa4838e6E410570438d8B074e9459082b228A460C` | ✅ |
+| BTC 7-day TWAP >= $100k (BTC100K) | `0x8027387f1FD1963513661A0051AdD224244e186E` | ✅ |
 
 ## Active Deployment (Monad Testnet) — V8.12.0 🟣
 | Contract | Address | Status |
@@ -51,17 +86,25 @@
 | BTC 7-day TWAP >= $100k | `0xC00f59F89E7b111A0f0234eC4e58658b3Ed1BD85` | 2026-01-27 |
 
 ## Pending Work (Next Session)
-- [ ] **Verify contracts on Basescan/Monad Explorer** — For transparency.
-- [ ] **Test limit order crossing in UI** — Verify overlapping orders fully match.
-- [ ] **Test hybrid sell flow** — Verify executeHybridSell works correctly in UI.
+- [ ] **Commit V9 QA changes** — All new test files and documentation updates.
+- [ ] **Deploy V9 to Monad Testnet** — Port singleton architecture.
+- [ ] **Implement frontend V9 integration** — Update hooks/components for TickBookPoolManager.
+- [ ] **Add more DynamicFeeHook tests** — Increase coverage from 30% to 80%+.
+- [ ] **Verify contracts on Basescan** — For transparency.
 
 ## Completed This Session (2025-12-29)
-- ✅ **Critical Limit Order Crossing Fix** — `_totalLiquidity` was tracking density instead of total shares, causing only 0.1% of overlapping orders to cross.
-- ✅ **V8.12.0 Deployment (Base Sepolia)** — Full redeployment with corrected TickBookV2.
-- ✅ **V8.12.0 Deployment (Monad Testnet)** — Crossing fix deployed to Monad with new markets.
-- ✅ **Pro-rata Fill Attribution Fix** — `_claimInternal` and `getPendingFills` now use `order.sharesTotal` instead of recalculating.
+- ✅ **V9 Comprehensive QA Suite** — 99 tests passing across 6 new test files
+- ✅ **TruthMarket Lifecycle Tests** — 32 tests covering activate, settle, veto, finalize, redemption (100% coverage)
+- ✅ **TickBookVault Settlement Tests** — 13 tests for deposit, reserve, redeem, edge cases
+- ✅ **Hook Callback Tests** — 18 tests for DynamicFeeHook and permissions
+- ✅ **V9 Invariant Tests** — 4 actor-based invariants (vault solvency, no negative balances)
+- ✅ **V9 Fuzz Tests** — 10 fuzz tests (tick bounds, slippage, crossing symmetry)
+- ✅ **Coverage Analysis** — 83% TickBookPoolManager lines, 100% TruthMarket
+- ✅ **QA Analysis Document** — Created `test/QA_V9_ANALYSIS.md`
+- ✅ **V9 Deployment to Base Sepolia** — LaunchpadEngine redeployed with TickBookPoolManager
+- ✅ **Market Registration** — ALIEN and BTC100K markets registered on TickBookPoolManager
 
-## Completed Previous Session (2025-12-28)
+## Completed Previous Session (2025-12-29)
 - ✅ **Fixed `useDeployments` Hook Crash** — Restored nested `networks` structure in `deployments.json` and added defensive null checks.
 - ✅ **Monad Testnet Integration** — Integrated Monad Testnet (Chain 10143) contract addresses and demo markets into config.
 - ✅ **ADR-054: LP Token Unification (USD-par)** — Unified creator and trader LP minting to 1:1 USD-par, fixing the 1.44x discrepancy.

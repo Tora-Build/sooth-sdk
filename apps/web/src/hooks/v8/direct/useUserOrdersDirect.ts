@@ -1,6 +1,6 @@
 import { useChainStore } from "../../../store/useChainStore";
 import { useDeployments } from "../../useDeployments";
-import { V8_ABIS } from "../../../config/abis";
+import { V9_ABIS } from "../../../config/abis";
 import { useV8DirectRead, readContractSafe } from "./useV8DirectRead";
 
 type Address = `0x${string}`;
@@ -20,7 +20,7 @@ export interface RangeOrder {
 }
 
 /**
- * Hook to fetch user's orders from TickBookV2
+ * Hook to fetch user's orders from TickBookPoolManager (V9 Architecture)
  */
 export function useUserOrdersDirect(
   marketKey: `0x${string}` | undefined,
@@ -29,17 +29,17 @@ export function useUserOrdersDirect(
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
-  const tickBookAddress = deployments?.contracts?.TickBook as Address | undefined;
+  const tickBookManagerAddress = deployments?.contracts?.TickBookPoolManager as Address | undefined;
 
   const query = useV8DirectRead({
-    queryKey: ["v8", "userOrders", chainId, tickBookAddress, marketKey, userAddress],
-    enabled: !!marketKey && !!userAddress && !!chainId && !!tickBookAddress,
+    queryKey: ["v9", "userOrders", chainId, tickBookManagerAddress, marketKey, userAddress],
+    enabled: !!marketKey && !!userAddress && !!chainId && !!tickBookManagerAddress,
     chainId,
     read: async (client) => {
-      // Get user's order IDs
+      // Get user's order IDs from TickBookPoolManager
       const orderIds = await readContractSafe<bigint[]>(client, {
-        address: tickBookAddress!,
-        abi: V8_ABIS.TickBook,
+        address: tickBookManagerAddress!,
+        abi: V9_ABIS.TickBookPoolManager,
         functionName: "getUserOrders",
         args: [marketKey!, userAddress!],
       });
@@ -64,24 +64,23 @@ export function useUserOrdersDirect(
             collateralUsedWad: bigint;
             active: boolean;
           }>(client, {
-            address: tickBookAddress!,
-            abi: V8_ABIS.TickBook,
+            address: tickBookManagerAddress!,
+            abi: V9_ABIS.TickBookPoolManager,
             functionName: "getOrder",
             args: [marketKey!, orderId],
           }),
           readContractSafe<readonly [bigint, bigint]>(client, {
-            address: tickBookAddress!,
-            abi: V8_ABIS.TickBook,
+            address: tickBookManagerAddress!,
+            abi: V9_ABIS.TickBookPoolManager,
             functionName: "getPendingFills",
             args: [marketKey!, orderId],
           }),
         ]);
 
         if (order) {
-          // Add pending fills to filledShares for display
           const pendingShares = pendingFills?.[0] ?? 0n;
           const totalFilledShares = order.filledShares + pendingShares;
-          
+
           orders.push({
             orderId,
             ...order,
