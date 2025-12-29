@@ -2,6 +2,38 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.1.0] - 2025-12-29
+
+### ⚠️ BREAKING CHANGE
+- **IAMMEngine.tradePositionsFor signature changed**: Now accepts `fee` parameter (6th argument).
+
+### Fixed
+- **Critical Sell-Side Fee Bug** (2025-12-29):
+  - Sells now correctly deduct fees from proceeds before locking.
+  - Fee is transferred from AMMEngine to LaunchpadEngine (router).
+  - Slippage check now correctly uses net proceeds (after fee).
+  - Previously: Sells bypassed fees entirely, effectively giving traders 0% sell fees.
+  - Now: Sells apply the correct fee rate (5% pre-grad, 1% post-grad).
+
+### Added
+- **SellSideFeeIntegration.t.sol** (12 tests):
+  - P0: Fee deduction from YES/NO sells, transfer to router, accrual, slippage
+  - P1: Pre-grad rate verification, excessive fee protection
+  - P2: Sell-then-buy flow, lock queue verification, multiple sells
+  - 256-run fuzz test for random sell amounts
+
+### Deployed
+- **Base Sepolia V9.1.0**:
+  - **AMMEngine**: `0xc30b15912BD5EBC275CBc8CdA88FA881509F3029`
+  - **LaunchpadEngine**: `0xEff2d8dF8Fa9dFf67953273Ec6151e250693DEa1`
+
+### Coverage
+- 114 tests passing (12 new)
+- AMMEngine: 60.50% lines, 61.90% functions
+- LaunchpadEngine: 48.09% lines, 41.18% functions
+
+---
+
 ## [9.0.1] - 2025-12-29
 
 ### Added (V9 QA)
