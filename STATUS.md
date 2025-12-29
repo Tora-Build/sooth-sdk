@@ -1,16 +1,46 @@
 # Project Status
 
-> Last Updated: 2025-12-29 (V9.0 QA Complete)
+> Last Updated: 2025-12-29 (V9.1.0 Sell-Side Fee Fix)
 
+- **✅ V9.1.0 DEPLOYED** — Sell-side fee deduction now implemented and tested (12 new tests, 114 total passing).
 - **✅ V9.0 QA COMPLETE** — 99 tests passing with 83% TickBookPoolManager coverage.
 - **✅ V9.0 DEPLOYED** — TickBookPoolManager singleton deployed to Base Sepolia with flash accounting.
 - **✅ V9.0 MERGED** — Uniswap V4-style singleton TickBookPoolManager with flash accounting and hooks.
 - **✅ V8.13.0 MERGED** — Contract security refinement with ReentrancyGuard, INVALID handling, and outcome semantics unification.
 - **✅ CRITICAL CROSSING BUG FIXED** — Overlapping limit orders now fully cross instead of only ~0.1%.
-- **⚠️ KNOWN ISSUE** — LaunchpadEngine currently charges 0% fees on sells (alpha simplification), though UI displays base fee. Recorded for future fix.
+- **~~⚠️ KNOWN ISSUE~~ FIXED** — ~~LaunchpadEngine currently charges 0% fees on sells (alpha simplification)~~ → V9.1.0 implements proper sell-side fee deduction.
 
-## 🆕 V9.0 QA Complete (2025-12-29)
-**99 tests passing**, comprehensive coverage across all V9 contracts.
+## 🆕 V9.1.0 Sell-Side Fee Fix (2025-12-29)
+**Critical bug fix**: Sell transactions now correctly deduct fees from proceeds before locking.
+
+### Contract Changes
+| Contract | Change |
+|----------|--------|
+| **IAMMEngine** | Added `fee` parameter to `tradePositionsFor()` |
+| **AMMEngine** | Deducts fee from sell proceeds, transfers to router, slippage checks net amount |
+| **LaunchpadEngine** | Calculates fee on sells (5% pre-grad / 1% post-grad) and routes to `_distributeFee()` |
+
+### New Tests (12)
+| Test | Priority | Status |
+|------|----------|--------|
+| `test_SellYes_DeductsFeeFromProceeds` | P0 | ✅ |
+| `test_SellNo_DeductsFeeFromProceeds` | P0 | ✅ |
+| `test_SellFee_TransferredToRouter` | P0 | ✅ |
+| `test_SellFee_AccruesToMarket` | P0 | ✅ |
+| `test_SellSlippage_ChecksNetProceeds` | P0 | ✅ |
+| `test_SellFee_PreGradRate` | P1 | ✅ |
+| `test_SellFee_RevertsIfExceedsProceeds` | P1 | ✅ |
+| `testFuzz_SellFee_RandomAmounts` | P1 | ✅ (256 runs) |
+| `test_SellThenBuy_FeeAccountingCorrect` | P2 | ✅ |
+| `test_BuyThenSell_LocksNetProceeds` | P2 | ✅ |
+| `test_MultipleSells_AccumulateFees` | P2 | ✅ |
+| `test_SellEmits_PositionTradedWithFee` | P2 | ✅ |
+
+### V9.1.0 Deployed Addresses (Base Sepolia)
+| Contract | Address |
+|----------|---------|
+| **AMMEngine** | `0xc30b15912BD5EBC275CBc8CdA88FA881509F3029` |
+| **LaunchpadEngine** | `0xEff2d8dF8Fa9dFf67953273Ec6151e250693DEa1` |
 
 ### Test Suites
 | Suite | Tests | Coverage |
@@ -53,16 +83,16 @@
 
 **Documentation:** `packages/contracts-evm/docs/review/`
 
-## Active Deployment (Base Sepolia) — V9.0.1 🔵
+## Active Deployment (Base Sepolia) — V9.1.0 🔵
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
 | Collateralizer | `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106` | ✅ V8.13 |
-| AMMEngine | `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513` | ✅ V8.13 |
-| **TickBookVault** | `0xa15521a773956237f954ebA18bFd1c3279d80e7D` | ✅ V9 |
-| **TickBookPoolManager** | `0x550CE2264FEc124b8341b8793e9AA31C386E5A7C` | ✅ V9 |
-| **DynamicFeeHook** | `0x354314db0584F92Fc3fc432FF6B3B79fBA8eF64A` | ✅ V9 |
-| **LaunchpadEngine** | `0x1d87596C24e413f23f029E1d4Bf1b4191B3a9968` | ✅ V9 FIXED |
+| **AMMEngine** | `0xc30b15912BD5EBC275CBc8CdA88FA881509F3029` | ✅ **V9.1.0** |
+| TickBookVault | `0xa15521a773956237f954ebA18bFd1c3279d80e7D` | ✅ V9 |
+| TickBookPoolManager | `0x550CE2264FEc124b8341b8793e9AA31C386E5A7C` | ✅ V9 |
+| DynamicFeeHook | `0x354314db0584F92Fc3fc432FF6B3B79fBA8eF64A` | ✅ V9 |
+| **LaunchpadEngine** | `0xEff2d8dF8Fa9dFf67953273Ec6151e250693DEa1` | ✅ **V9.1.0 SELL FEE** |
 
 ### Base Sepolia V9.0 Markets (Fully Initialized)
 | Market | Address | AMM Status |
