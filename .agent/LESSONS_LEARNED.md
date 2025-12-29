@@ -408,4 +408,26 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
+## V9 Graduation Gas Requirements
+
+### ❌ Pattern: Hardcoded Gas Limit Causes Graduation Trades to Fail
+- **Date:** 2025-12-29
+- **Bug:** Frontend hardcoded `gas: 600000n` for all `tradePositions` calls. Graduation trades require ~1.5M gas.
+- **Root Cause:** LaunchpadEngine's graduation flow deploys 2 ERC20 outcome tokens (~500k gas each) + TickBook registration (~118k gas).
+- **Symptom:** Trades that would trigger graduation fail with `status: 0` and no logs. Gas used is ~589k (hitting limit).
+- **Detection:** `cast receipt` shows `gasUsed ≈ gasLimit` and `status: 0`. `cast call` simulation succeeds (no gas limit enforced).
+- **Fix:** Dynamic gas estimation in frontend:
+  ```typescript
+  const isNearGraduation = !isGraduated && (launchpad?.graduationProgress ?? 0) > 80;
+  const gasLimit = (tradeMode === 'buy' && isNearGraduation) ? 2000000n : 600000n;
+  ```
+- **Alternative Fix:** Pre-register markets in Collateralizer + TickBook before graduation trades:
+  ```bash
+  cast send $COLLATERALIZER "registerMarket(address,string,string)" $MARKET "Name" "SYMBOL"
+  cast send $TICKBOOK "registerMarket(address,address,address,uint256)" $MARKET $YES $NO $PROB
+  ```
+- **Rule:** When contract state transitions involve deploying new contracts, gas requirements spike dramatically. Use dynamic gas estimation based on state.
+
+---
+
 *Last updated: 2025-12-29*

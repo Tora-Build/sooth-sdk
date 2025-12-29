@@ -14,7 +14,8 @@
       "mode": "real",
       "chainId": 84532,
       "version": "v9.2.0",
-      "isGraduated": false,
+      "category": "science",
+      "isGraduated": true,
       "deadline": 1769587368,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
@@ -32,6 +33,7 @@
       "mode": "real",
       "chainId": 84532,
       "version": "v9.2.0",
+      "category": "crypto",
       "isGraduated": false,
       "deadline": 1769587368,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",

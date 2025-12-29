@@ -626,30 +626,28 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     });
   }, [allMarkets, search, category]);
 
-  // Generate category counts - only count GRADUATED markets
+  // Generate category counts - count ALL for now to avoid confusion
   const categoriesWithCounts = useMemo(() => {
-    const graduatedMarkets = allMarkets.filter(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all'
-        ? graduatedMarkets.length
-        : graduatedMarkets.filter((m: any) => m.category?.toLowerCase() === cat.id).length
+        ? allMarkets.length
+        : allMarkets.filter((m: any) => m.category?.toLowerCase() === cat.id).length
     }));
-  }, [allMarkets, graduatedAddresses]);
+  }, [allMarkets]);
 
   // Graduated market count for display
-  const graduatedMarketCount = useMemo(() => {
-    return filteredMarkets.filter(m => graduatedAddresses.has(m.contractAddress.toLowerCase())).length;
-  }, [filteredMarkets, graduatedAddresses]);
+  const totalMarketCount = filteredMarkets.length;
 
   // Callback when a market's graduation status is determined
   const handleMarketGraduationLoaded = React.useCallback((address: string, isGraduated: boolean) => {
     setGraduatedAddresses(prev => {
       const newSet = new Set(prev);
+      const addr = address.toLowerCase();
       if (isGraduated) {
-        newSet.add(address.toLowerCase());
+        newSet.add(addr);
       } else {
-        newSet.delete(address.toLowerCase());
+        newSet.delete(addr);
       }
       return newSet;
     });
@@ -692,7 +690,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         category={category}
         onCategoryChange={setCategory}
         categories={categoriesWithCounts}
-        marketCount={graduatedMarketCount}
+        marketCount={totalMarketCount}
       />
 
       {/* Horizontal Market Scroll */}
@@ -757,20 +755,11 @@ const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef
   const allLoaded = loadedCount >= markets.length;
   const hasGraduated = graduatedCount !== null && graduatedCount > 0;
 
-  // Show empty state if all loaded and none graduated
-  if (allLoaded && !hasGraduated) {
+  // Show empty state only if there are truly no markets at all
+  if (allLoaded && markets.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-slate-900/50 border border-dashed border-slate-700 flex items-center justify-center">
-          <BookOpen className="w-6 h-6 text-slate-600" />
-        </div>
-        <h3 className="text-lg font-bold text-white mb-2">No Graduated Markets</h3>
-        <p className="text-slate-400 text-sm mb-4">
-          Pro trading is only available for graduated markets
-        </p>
-        <Link to="/trade" className="text-amber-400 hover:text-amber-300 text-sm font-medium">
-          Trade on AMM to help markets graduate →
-        </Link>
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-sm">No markets found</p>
       </div>
     );
   }
@@ -849,10 +838,10 @@ const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipP
     }
   }, [isLoading, isEffectiveGraduated, onLoaded, market.contractAddress]);
 
-  // Filter out non-graduated markets - only show created AND graduated ones
-  if (!isLoading && !isEffectiveGraduated) {
-    return null;
-  }
+  // Show all markets in Pro list so they can be initialized/viewed
+  // if (!isLoading && !isEffectiveGraduated) {
+  //   return null;
+  // }
 
   return (
     <button
@@ -1031,7 +1020,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     const markets = marketsConfig.markets.filter(m => m.version.startsWith('v') && m.chainId === chainId);
     return {
       v8Markets: markets,
-      selectedMarket: markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase())
+      selectedMarket: markets.find(m =>
+        m.contractAddress.toLowerCase() === marketId.toLowerCase() ||
+        m.id.toLowerCase() === marketId.toLowerCase()
+      )
     };
   }, [marketId, chainId]);
 
@@ -1455,33 +1447,34 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   // Not graduated - only show if NOT loading AND NOT ready
   // (If ready, we allow access to terminal to handle stale isGraduated flag)
-  if (!launchpad?.isGraduated && !isReady && !isLoadingLaunchpad && !isTickBookLoading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
-          <Zap className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Pro Trading Locked</h2>
-          <p className="text-slate-400 mb-6">This market hasn't graduated yet. Trade on the AMM first.</p>
+  // allow all markets to be viewed/traded in Pro even if not graduated
+  // if (!launchpad?.isGraduated && !isReady && !isLoadingLaunchpad && !isTickBookLoading) {
+  //   return (
+  //     <div className="min-h-[60vh] flex items-center justify-center p-6">
+  //       <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
+  //         <Zap className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+  //         <h2 className="text-2xl font-bold text-white mb-2">Pro Trading Locked</h2>
+  //         <p className="text-slate-400 mb-6">This market hasn't graduated yet. Trade on the AMM first.</p>
 
-          {launchpad && (
-            <div className="mb-8 text-left bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-              <GraduationProgress
-                feesAccrued={launchpad.feesAccrued ?? 0n}
-                graduationThreshold={launchpad.graduationThreshold ?? 0n}
-                graduationProgress={launchpad.graduationProgress ?? 0}
-                isGraduated={false}
-                canGraduate={launchpad.canGraduate ?? false}
-              />
-            </div>
-          )}
+  //         {launchpad && (
+  //           <div className="mb-8 text-left bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+  //             <GraduationProgress
+  //               feesAccrued={launchpad.feesAccrued ?? 0n}
+  //               graduationThreshold={launchpad.graduationThreshold ?? 0n}
+  //               graduationProgress={launchpad.graduationProgress ?? 0}
+  //               isGraduated={false}
+  //               canGraduate={launchpad.canGraduate ?? false}
+  //             />
+  //           </div>
+  //         )}
 
-          <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-amber-600 hover:bg-amber-500 text-white">
-            Go to AMM Trading
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  //         <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-amber-600 hover:bg-amber-500 text-white">
+  //           Go to AMM Trading
+  //         </Button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-6">
@@ -2085,12 +2078,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 ) : !isConnected ? (
                   'Connect Wallet'
-                ) : isTickBookLoading || isCollateralizerLoading ? (
+                ) : (isTickBookLoading || isCollateralizerLoading || !tickBook) ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading TickBook...
+                    Initializing...
                   </span>
-                ) : !tickBook?.isActive ? (
+                ) : !tickBook.isActive ? (
                   'TickBook Not Initialized'
                 ) : !amount ? (
                   'Enter Amount'

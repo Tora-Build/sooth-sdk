@@ -2,6 +2,7 @@
 
 > Last Updated: 2025-12-29 (V9.1.0 Sell-Side Fee Fix)
 
+- **✅ TICKBOOK INITIALIZATION FIXED** — Resolved "TickBook Not Initialized" error by hardening FE address normalization and manually registering BTC100K.
 - **✅ V9.1.0 DEPLOYED** — Sell-side fee deduction now implemented and tested (12 new tests, 114 total passing).
 - **✅ V9.0 QA COMPLETE** — 99 tests passing with 83% TickBookPoolManager coverage.
 - **✅ V9.0 DEPLOYED** — TickBookPoolManager singleton deployed to Base Sepolia with flash accounting.
@@ -95,10 +96,10 @@
 | **LaunchpadEngine** | `0xEff2d8dF8Fa9dFf67953273Ec6151e250693DEa1` | ✅ **V9.1.0 SELL FEE** |
 
 ### Base Sepolia V9.0 Markets (Fully Initialized)
-| Market | Address | AMM Status |
-|--------|---------|------------|
-| UN Confirms Alien Life (ALIEN) | `0xa4838e6E410570438d8B074e9459082b228A460C` | ✅ Initialized |
-| BTC 7-day TWAP >= $100k (BTC100K) | `0x8027387f1FD1963513661A0051AdD224244e186E` | ✅ Initialized |
+| Market | Address | AMM Status | TickBook Status |
+|--------|---------|------------|-----------------|
+| UN Confirms Alien Life (ALIEN) | `0xa4838e6E410570438d8B074e9459082b228A460C` | ✅ Initialized | ✅ Active |
+| BTC 7-day TWAP >= $100k (BTC100K) | `0x8027387f1FD1963513661A0051AdD224244e186E` | ✅ Initialized | ✅ Active (Manual) |
 
 ## Active Deployment (Monad Testnet) — V9.0.1 🟣
 | Contract | Address | Status |

@@ -102,24 +102,21 @@ export const Trade = () => {
     );
   }, [chainId]);
 
-  // Apply search and category filters
+  // Apply search filter (category filter disabled - markets.json has no category field)
   const filteredMarkets = useMemo(() => {
     return v8Markets.filter(m => {
       const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = category === 'all' || m.category === category;
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     });
-  }, [v8Markets, search, category]);
+  }, [v8Markets, search]);
 
-  // Get category counts
+  // Get category counts (all markets since no category field exists)
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
-      count: cat.id === 'all'
-        ? v8Markets.length
-        : v8Markets.filter(m => m.category === cat.id).length
+      count: v8Markets.length  // All categories show total count
     }));
   }, [v8Markets]);
 
@@ -230,14 +227,15 @@ export const Trade = () => {
                     <Clock className="w-3 h-3" />
                     {selectedMarket.deadline ? new Date(selectedMarket.deadline * 1000).toLocaleDateString() : 'Open-end'}
                   </div>
-                  {/* Pre-Graduation Badge */}
-                  {!launchpad?.isGraduated && (
-                    <Badge variant="warning" className="bg-amber-500/20 text-amber-400 border-amber-500/50">
-                      <span className="flex items-center gap-1">
-                        <TrendingUp className="w-3.5 h-3.5" />
-                        {content.panel.preGrad}
-                      </span>
-                    </Badge>
+                  {/* Status Badge - Graduated or Bonding */}
+                  {launchpad?.isGraduated ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Graduated
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      Bonding
+                    </span>
                   )}
                 </div>
               </div>
@@ -245,58 +243,58 @@ export const Trade = () => {
               <p className="text-sm text-slate-400 mt-2">{selectedMarket.description}</p>
               {/* Row 3: Contract Addresses (full width) */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
-                    {/* Market Address */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-600">Market:</span>
-                      <span className="font-mono text-slate-500">
-                        {selectedMarket.contractAddress.slice(0, 6)}...{selectedMarket.contractAddress.slice(-4)}
-                      </span>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(selectedMarket.contractAddress)}
-                        className="text-slate-600 hover:text-slate-400 transition-colors"
-                        title="Copy market address"
-                      >
-                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
-                    {/* Adjudicator Address */}
-                    {truth?.adjudicator && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-600">Adjudicator:</span>
-                        <span className="font-mono text-slate-500">
-                          {truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}
-                        </span>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(truth.adjudicator)}
-                          className="text-slate-600 hover:text-slate-400 transition-colors"
-                          title="Copy adjudicator address"
-                        >
-                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                    {/* Guardian Address */}
-                    {truth?.guardian && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-600">Guardian:</span>
-                        <span className="font-mono text-slate-500">
-                          {truth.guardian.slice(0, 6)}...{truth.guardian.slice(-4)}
-                        </span>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(truth.guardian)}
-                          className="text-slate-600 hover:text-slate-400 transition-colors"
-                          title="Copy guardian address"
-                        >
-                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
+                {/* Market Address */}
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-600">Market:</span>
+                  <span className="font-mono text-slate-500">
+                    {selectedMarket.contractAddress.slice(0, 6)}...{selectedMarket.contractAddress.slice(-4)}
+                  </span>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(selectedMarket.contractAddress)}
+                    className="text-slate-600 hover:text-slate-400 transition-colors"
+                    title="Copy market address"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Adjudicator Address */}
+                {truth?.adjudicator && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-600">Adjudicator:</span>
+                    <span className="font-mono text-slate-500">
+                      {truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(truth.adjudicator)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors"
+                      title="Copy adjudicator address"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {/* Guardian Address */}
+                {truth?.guardian && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-600">Guardian:</span>
+                    <span className="font-mono text-slate-500">
+                      {truth.guardian.slice(0, 6)}...{truth.guardian.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(truth.guardian)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors"
+                      title="Copy guardian address"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             </Card>
 

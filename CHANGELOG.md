@@ -2,6 +2,22 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.2.0] - 2025-12-29
+
+### Fixed
+- **TickBook Initialization & Market Key Robustness** (2025-12-29):
+  - Resolved "TickBook Not Initialized" error in Pro Trading Terminal.
+  - Hardened address normalization in `useTickBookDirect` hook to handle padded addresses (32-byte words from contract RPC) and missing leading zeros.
+  - Removed non-existent `findNextActiveTick` and `getTickInfo` direct RPC calls (V9 currently requires Ponder or Subgraph for orderbook depth; direct reading is limited to market state).
+  - Ensured correct token resolution (YES/NO) from Collateralizer before calculating market keys.
+
+### Manual Actions
+- **BTC 100k Market Registration**:
+  - Manually registered the `BTC 100k` market in the `TickBookPoolManager` singleton on Base Sepolia.
+  - This enables Pro Trading functionality for this market before its official Launchpad graduation.
+  - Verified on-chain: `isActive` status returned for both ALIEN and BTC 100k using deterministic market keys.
+
+
 ## [9.1.0] - 2025-12-29
 
 ### ⚠️ BREAKING CHANGE

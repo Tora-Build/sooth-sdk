@@ -82,7 +82,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     }
 
     // User LP
-    const hasUserLp = launchpad.userLpBalance && launchpad.userLpBalance > 0n;
+    const hasUserLp = launchpad.userLpBalance !== undefined && launchpad.userLpBalance > 0n;
     const userLP = launchpad.userLpBalance ?? 0n;
     const userLpNum = Number(formatUnits(userLP, 18));
     const userFloorVal = userLpNum * stats.floorRate;
@@ -93,7 +93,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     const creatorLpNum = Number(formatUnits(creatorLP, 18));
     const creatorFloorVal = creatorLpNum * stats.floorRate;
     const creatorCeilingVal = creatorLpNum * stats.ceilingRate;
-    
+
     // Total LP for market floor/ceiling display
     const totalLpNum = Number(formatUnits(launchpad.lpSupply, 18));
     const marketFloorVal = totalLpNum * stats.floorRate;
@@ -113,59 +113,46 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     const fmtUsd = (val: number) => {
         if (val > 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(2)}B`;
         if (val > 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
-        return val.toLocaleString('en-US', { 
-            style: 'currency', 
+        return val.toLocaleString('en-US', {
+            style: 'currency',
             currency: 'USD',
-            maximumFractionDigits: 0 
+            maximumFractionDigits: 0
         });
     };
-    const fmtLp = (val: number) => val.toLocaleString(undefined, { 
-        minimumFractionDigits: 0, 
-        maximumFractionDigits: 0 
+    const fmtLp = (val: number) => val.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
     });
 
     const isCreator = address && launchpad.creator.toLowerCase() === address.toLowerCase();
     const isGraduated = !!launchpad.isGraduated;
-    const feeLabel = isGraduated ? 'Graduated' : 'Bonding';
 
     return (
         <Card className="bg-slate-950/50 border-slate-800 p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
                     <CircleDollarSign className="w-5 h-5 text-emerald-500" />
-                    <h2 className="text-lg font-heading font-bold text-white">LP Holders</h2>
+                    <h2 className="text-lg font-heading font-bold text-white">LP Leaderboard</h2>
                 </div>
-                
-                {/* Fee Mode Badge + Hint */}
-                <div className="flex items-center gap-2">
-                    <span className={cn(
-                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-                        isGraduated 
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-                            : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                    )}>
-                        {feeLabel}
-                    </span>
-                    
-                    {/* Hint icon */}
-                    <div className="relative">
-                        <button
-                            onMouseEnter={() => setShowHint(true)}
-                            onMouseLeave={() => setShowHint(false)}
-                            onClick={() => setShowHint(!showHint)}
-                            className="p-1 rounded-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
-                        >
-                            <HelpCircle className="w-3.5 h-3.5" />
-                        </button>
-                        
-                        {showHint && (
-                            <div className="absolute right-0 top-full mt-2 z-50 w-72 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
-                                <p className="text-[10px] text-slate-300 leading-relaxed">
-                                    {isGraduated ? GRADUATED_HINT : BONDING_HINT}
-                                </p>
-                            </div>
-                        )}
-                    </div>
+
+                {/* Hint icon */}
+                <div className="relative">
+                    <button
+                        onMouseEnter={() => setShowHint(true)}
+                        onMouseLeave={() => setShowHint(false)}
+                        onClick={() => setShowHint(!showHint)}
+                        className="p-1 rounded-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
+                    >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+
+                    {showHint && (
+                        <div className="absolute right-0 top-full mt-2 z-50 w-72 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
+                            <p className="text-[10px] text-slate-300 leading-relaxed">
+                                {isGraduated ? GRADUATED_HINT : BONDING_HINT}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -260,7 +247,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         {fmtUsd(lpYieldPoolNum)}
                     </span>
                 </div>
-                
+
                 {/* User's yield share */}
                 {(hasUserLp || isCreator) && lpYieldPoolNum > 0 && (
                     <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-900/20">
@@ -270,10 +257,10 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         </span>
                     </div>
                 )}
-                
+
                 {lpYieldPoolNum === 0 && (
                     <div className="text-[10px] text-slate-500 italic">
-                        {isGraduated 
+                        {isGraduated
                             ? 'No yield accrued yet — yield accumulates from post-graduation trading fees.'
                             : 'Yield pool is empty during bonding. LP yield accrues only after graduation.'}
                     </div>

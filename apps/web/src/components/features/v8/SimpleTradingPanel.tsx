@@ -510,12 +510,19 @@ export const SimpleTradingPanel = ({
       // 2. Contract automatically checks availableProceeds in AMMEngine
       // 3. Contract pulls ONLY needed remainder from wallet
       // 4. No need for manual 'depositAndTradeAMM'
+      // Dynamic gas estimation:
+      // - Normal trades: 600k gas
+      // - Near-graduation buys (>80% progress): 2M gas to cover graduation deployment
+      //   Graduation deploys 2 ERC20 outcome tokens (~500k each) + TickBook registration
+      const isNearGraduation = !isGraduated && (launchpad?.graduationProgress ?? 0) > 80;
+      const gasLimit = (tradeMode === 'buy' && isNearGraduation) ? 2000000n : 600000n;
+
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,
         abi: V9_ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [address, selectedOutcome, deltaShares, limitCost],
-        gas: 600000n,
+        gas: gasLimit,
       }, {
         onSuccess: (hash) => {
           console.log('[Trade] Transaction submitted! Hash:', hash);
