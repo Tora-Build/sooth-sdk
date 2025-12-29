@@ -263,15 +263,25 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         (uint256 baseCost, ) = ammEngine.getPositionQuote(market, outcome, deltaShares);
 
         if (!isBuy) {
-            // SELL: do not pull USDC from user.
-            // We interpret maxCostOrMinProceeds as minimum proceeds (slippage protection).
-            // Fees on sells are currently not applied (alpha simplification).
-            actualCost = baseCost;
+            // SELL: Calculate and deduct fee
+            uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
+            uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
+            uint256 feeUsdc = _wadToUsdc(fee); // Floor for AMM push
+            
+            // Calculate net proceeds
+            uint256 netProceeds = baseCost > fee ? baseCost - fee : 0;
+            actualCost = netProceeds;
 
-            // Execute trade on AMM (credits proceeds to trader, locked)
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
+            // Execute trade on AMM (pass fee to be routed to us)
+            // AMMEngine checks slippage against netProceeds
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds, fee);
 
-            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, 0);
+            // Accrue fee
+            if (feeUsdc > 0) {
+                 _distributeFee(market, fee, feeUsdc, msg.sender);
+            }
+
+            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, fee);
         } else {
             // BUY: user pays baseCost + fee
             uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
@@ -306,7 +316,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
             // Execute trade on AMM
             // AMMEngine will use user's _availableBalance first, then pull remainder from us
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost);
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost, 0);
 
             // Distribute fee (fee always stays in LaunchpadEngine)
             _distributeFee(market, fee, feeUsdc, msg.sender);

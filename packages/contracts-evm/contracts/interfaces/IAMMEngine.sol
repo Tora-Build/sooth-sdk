@@ -119,7 +119,8 @@ interface IAMMEngine {
         address market,
         uint8 outcome,
         int256 deltaShares,
-        uint256 maxCostOrMinProceeds
+        uint256 maxCostOrMinProceeds,
+        uint256 fee
     ) external returns (uint256 actualCost);
 
     /**

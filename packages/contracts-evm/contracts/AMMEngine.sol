@@ -120,7 +120,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
     ) external override returns (uint256 actualCost) {
-        return _tradePositions(msg.sender, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
+        return _tradePositions(msg.sender, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds, 0);
     }
 
     /**
@@ -131,11 +131,12 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         address market,
         uint8 outcome,
         int256 deltaShares,
-        uint256 maxCostOrMinProceeds
+        uint256 maxCostOrMinProceeds,
+        uint256 fee
     ) external override onlyRouter returns (uint256 actualCost) {
         require(user != address(0), "AMMEngine: zero user");
         // Payer is the router (LaunchpadEngine) which has custody of trade USDC (via fee layer).
-        return _tradePositions(user, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
+        return _tradePositions(user, msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds, fee);
     }
 
     function _tradePositions(
@@ -144,7 +145,8 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         address market,
         uint8 outcome,
         int256 deltaShares,
-        uint256 maxCostOrMinProceeds
+        uint256 maxCostOrMinProceeds,
+        uint256 fee
     ) internal returns (uint256 actualCost) {
         require(deltaShares != 0, "AMMEngine: zero delta");
         require(outcome <= 1, "AMMEngine: invalid outcome");
@@ -241,17 +243,26 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
                 state.qNo
             );
 
+            // Apply fee (Router Only)
+            uint256 proceedsToUser = actualCost;
+            if (fee > 0) {
+                require(fee <= actualCost, "AMMEngine: fee exceeds proceeds");
+                proceedsToUser = actualCost - fee;
+                // Send fee to payer (Router)
+                usdc.safeTransfer(payer, _wadToUsdc(fee));
+            }
+
             // Slippage check for sells (minProceeds)
             if (maxCostOrMinProceeds > 0) {
-                require(actualCost >= maxCostOrMinProceeds, "AMMEngine: slippage exceeded");
+                require(proceedsToUser >= maxCostOrMinProceeds, "AMMEngine: slippage exceeded");
             }
 
             // Lock proceeds (24h before withdrawal)
-            _availableBalance[user] += actualCost;
-            _lockedBalance[user] += actualCost;
-
+            _availableBalance[user] += uint224(proceedsToUser);
+            _lockedBalance[user] += uint224(proceedsToUser);
+            
             _lockQueue[user].push(IAMMEngine.LockEntry({
-                amount: actualCost,
+                amount: proceedsToUser,
                 expiry: uint64(block.timestamp + LOCK_DURATION),
                 market: market
             }));
@@ -263,7 +274,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
                 position.noShares -= absDelta;
             }
 
-            emit ProceedsLocked(user, market, actualCost, uint64(block.timestamp + LOCK_DURATION));
+            emit ProceedsLocked(user, market, proceedsToUser, uint64(block.timestamp + LOCK_DURATION));
         }
 
         // Update market state
