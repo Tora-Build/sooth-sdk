@@ -1,35 +1,41 @@
 {
-  "version": "9.3.0",
+  "version": "9.4.0",
   "markets": [
     {
-      "id": "base-v93-alien-life",
+      "id": "base-v94-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "contractAddress": "0x3FF3E6A3C8829BbB5DfEd440AafF92e608934Dc2",
+      "contractAddress": "0x83cf7A6fE826788D04F7210E0F16a15A606FBB02",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life by 2026?",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v9.3.0",
+      "version": "v9.4.0",
       "category": "science",
       "isGraduated": false,
-      "deadline": 1769617828,
+      "deadline": 1738282067,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "500"
     },
     {
-      "id": "base-v93-btc-100k",
+      "id": "base-v94-btc-100k",
       "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "contractAddress": "0x3Be7CC1529276E1c921A24844FC158514feF0544",
+      "contractAddress": "0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2",
       "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000 by EOY 2025?",
-      "outcomes": ["YES", "NO"],
+      "outcomes": [
+        "YES",
+        "NO"
+      ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v9.3.0",
+      "version": "v9.4.0",
       "category": "crypto",
       "isGraduated": false,
-      "deadline": 1769617828,
+      "deadline": 1738282067,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "500"
     }

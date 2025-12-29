@@ -1,8 +1,8 @@
 # Project Status
 
-> Last Updated: 2025-12-30 (V9.3.1 Frontend Fixes + Contract getUserOrders Fix)
+> Last Updated: 2025-12-30 (V9.4.0 Fresh Deployment)
 
-- **✅ V9.3.0 DEPLOYED** — Fresh deployment with TickBook registrar access control
+- **✅ V9.4.0 DEPLOYED** — Fresh deployment with TickBook registrar access control
 - **✅ REGISTRAR ACCESS CONTROL** — Only LaunchpadEngine (or owner) can register markets in TickBook
 - **✅ FRONTEND GRADUATION GUARD** — Non-graduated markets show "Pro Trading Locked" screen
 - **✅ V9.1.0 SELL-SIDE FEES** — Implemented proper sell-side fee deduction
@@ -10,31 +10,26 @@
 - **🔧 GRADUATION GAS FIX** — Frontend now uses 2M gas for trades >50% graduation progress
 - **🔧 USER ORDERS FIX** — Added getUserOrders() to contract + event fallback in frontend
 
-## 🆕 V9.3.0 Registrar Access Control (2025-12-29)
+## 🆕 V9.4.0 Fresh Deployment (2025-12-30)
 
-### Contract Changes
-| Contract | Change |
-|----------|--------|
-| **TickBookPoolManager** | Added `registrar` storage, `onlyRegistrar` modifier, `setRegistrar()` function |
-| **TickBookPoolManager** | Both `registerMarket()` overloads now require registrar/owner |
+### Deployment Summary
+- **Date**: 2025-12-30T00:22:47+07:00
+- **Network**: Base Sepolia (Chain ID: 84532)
+- **Gas Used**: ~16.8M gas (~0.00002 ETH)
+- **Deployer**: `0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F`
 
-### Frontend Changes
-| Component | Change |
-|-----------|--------|
-| **Pro.tsx** | Re-enabled graduation check (removed `isTickBookLoading` dependency) |
-| **Pro.tsx** | Non-graduated markets show "Pro Trading Locked" with graduation progress |
-
-### V9.3.0 Deployed Addresses (Base Sepolia)
+### V9.4.0 Deployed Addresses (Base Sepolia)
 | Contract | Address |
 |----------|---------|
-| **Collateralizer** | `0x84f9d5B33d2393B26320a70370635008E2cF90A7` |
-| **AMMEngine** | `0xC2BF5E82AcB56c0f76F4692f2698293F29934695` |
-| **TickBookVault** | `0x86cb494DFb00De52e076Bd7203a8D5d3d0c0D3a5` |
-| **TickBookPoolManager** | `0x2ab1751a396EF779ca4Ab0DF5854a4F830D664F3` |
-| **DynamicFeeHook** | `0xffA90FE3262f9FDa72A585eFc635caF2c7622CAF` |
-| **LaunchpadEngine** | `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A` |
-| **ALIEN Market** | `0x3FF3E6A3C8829BbB5DfEd440AafF92e608934Dc2` |
-| **BTC100K Market** | `0x3Be7CC1529276E1c921A24844FC158514feF0544` |
+| **MockUSDC** | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` |
+| **Collateralizer** | `0xec9dce70520656250E92Fd0e11cF2b52C0E82F99` |
+| **AMMEngine** | `0x0C7D8A35D15D8f471acF3C6d5d18983033C73660` |
+| **TickBookVault** | `0x9733E1641DEEF3cC810F8635697288C36a8ff966` |
+| **TickBookPoolManager** | `0x36beA8f418B32387e88E44510d09944b681b8E67` |
+| **DynamicFeeHook** | `0x5930f5F266F57DE3929dA4E674341B0b069E703c` |
+| **LaunchpadEngine** | `0xD44eF417a6124031DB529B14AB279A36Caeb4338` |
+| **ALIEN Market** | `0x83cf7A6fE826788D04F7210E0F16a15A606FBB02` |
+| **BTC100K Market** | `0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2` |
 
 ### Flow Summary
 1. Markets created via `LaunchpadEngine.createMarket()` → trade on AMM
@@ -44,22 +39,22 @@
 
 ---
 
-## Active Deployment (Base Sepolia) — V9.3.0 🔵
+## Active Deployment (Base Sepolia) — V9.4.0 🔵
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0x84f9d5B33d2393B26320a70370635008E2cF90A7` | ✅ V9.3 |
-| AMMEngine | `0xC2BF5E82AcB56c0f76F4692f2698293F29934695` | ✅ V9.3 |
-| TickBookVault | `0x86cb494DFb00De52e076Bd7203a8D5d3d0c0D3a5` | ✅ V9.3 |
-| TickBookPoolManager | `0x2ab1751a396EF779ca4Ab0DF5854a4F830D664F3` | ✅ V9.3 + Registrar |
-| DynamicFeeHook | `0xffA90FE3262f9FDa72A585eFc635caF2c7622CAF` | ✅ V9.3 |
-| LaunchpadEngine | `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A` | ✅ V9.3 (Registrar) |
+| Collateralizer | `0xec9dce70520656250E92Fd0e11cF2b52C0E82F99` | ✅ V9.4 |
+| AMMEngine | `0x0C7D8A35D15D8f471acF3C6d5d18983033C73660` | ✅ V9.4 |
+| TickBookVault | `0x9733E1641DEEF3cC810F8635697288C36a8ff966` | ✅ V9.4 |
+| TickBookPoolManager | `0x36beA8f418B32387e88E44510d09944b681b8E67` | ✅ V9.4 + Registrar |
+| DynamicFeeHook | `0x5930f5F266F57DE3929dA4E674341B0b069E703c` | ✅ V9.4 |
+| LaunchpadEngine | `0xD44eF417a6124031DB529B14AB279A36Caeb4338` | ✅ V9.4 (Registrar) |
 
-### Base Sepolia V9.3 Markets
+### Base Sepolia V9.4 Markets
 | Market | Address | Graduated | TickBook |
 |--------|---------|-----------|----------|
-| UN Confirms Alien Life (ALIEN) | `0x3FF3E6A3C8829BbB5DfEd440AafF92e608934Dc2` | ❌ Not yet | ❌ Pending |
-| BTC TWAP >= $100k (BTC100K) | `0x3Be7CC1529276E1c921A24844FC158514feF0544` | ❌ Not yet | ❌ Pending |
+| UN Confirms Alien Life (ALIEN) | `0x83cf7A6fE826788D04F7210E0F16a15A606FBB02` | ❌ Not yet | ❌ Pending |
+| BTC TWAP >= $100k (BTC100K) | `0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2` | ❌ Not yet | ❌ Pending |
 
 ---
 
@@ -140,4 +135,4 @@
 
 ---
 
-*Last updated: 2025-12-29 (V9.3.0)*
+*Last updated: 2025-12-30 (V9.4.0)*
