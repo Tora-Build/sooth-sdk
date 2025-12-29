@@ -1,12 +1,14 @@
 # Project Status
 
-> Last Updated: 2025-12-29 (V9.3.0 Fresh Deployment + Registrar Access Control)
+> Last Updated: 2025-12-30 (V9.3.1 Frontend Fixes + Contract getUserOrders Fix)
 
 - **✅ V9.3.0 DEPLOYED** — Fresh deployment with TickBook registrar access control
 - **✅ REGISTRAR ACCESS CONTROL** — Only LaunchpadEngine (or owner) can register markets in TickBook
 - **✅ FRONTEND GRADUATION GUARD** — Non-graduated markets show "Pro Trading Locked" screen
 - **✅ V9.1.0 SELL-SIDE FEES** — Implemented proper sell-side fee deduction
 - **✅ V9.0 QA COMPLETE** — 99 tests passing with 83% TickBookPoolManager coverage
+- **🔧 GRADUATION GAS FIX** — Frontend now uses 2M gas for trades >50% graduation progress
+- **🔧 USER ORDERS FIX** — Added getUserOrders() to contract + event fallback in frontend
 
 ## 🆕 V9.3.0 Registrar Access Control (2025-12-29)
 
@@ -62,12 +64,19 @@
 ---
 
 ## Pending Work (Next Session)
-- [ ] **Trade on AMM to graduate markets** — Generate fees to trigger graduation
+- [ ] **Redeploy TickBookPoolManager** — Add getUserOrders() function to deployed contract
 - [ ] **Verify contracts on Basescan** — For transparency
 - [ ] **Add more DynamicFeeHook tests** — Increase coverage from 30% to 80%+
 - [ ] **Test hybrid sell flow in UI** — Validate spot/short/hybrid sell modes
 
-## Completed This Session (2025-12-29)
+## Completed This Session (2025-12-30)
+- ✅ **Graduation Gas Fix** — Frontend uses 2M gas for trades >50% progress (was 80%, caused OOG)
+- ✅ **Category Count Fix** — Trade page now shows correct per-category market counts
+- ✅ **LP Value Display Fix** — "No active liquidity" only shows when user has no LP balance
+- ✅ **User Orders Detection** — Added getUserOrders() to contract + event log fallback in frontend
+- ✅ **LESSONS_LEARNED.md Updated** — Documented graduation gas fix with 50% threshold rationale
+
+## Completed Previous Session (2025-12-29)
 - ✅ **TickBook Registrar Access Control** — Contract-level graduation lock
 - ✅ **Fresh V9.3.0 Deployment** — All core contracts + 2 markets
 - ✅ **Frontend Graduation Guard Fix** — Removed `isTickBookLoading` dependency

@@ -1088,6 +1088,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _orders[marketKey][orderId];
     }
 
+    function getUserOrders(bytes32 marketKey, address user) external view returns (uint256[] memory) {
+        return _userOrders[marketKey][user];
+    }
+
     function getMarketInfo(bytes32 marketKey) external view returns (
         address market,
         address yesToken,

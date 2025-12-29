@@ -357,9 +357,10 @@ export const Portfolio = () => {
 
   // Aggregate values
   const aggregates = useMemo(() => {
-    if (!batchData || batchData.length === 0) return { lpValue: 0, ammValue: 0 };
+    if (!batchData || batchData.length === 0) return { lpValue: 0, ammValue: 0, hasAnyLpBalance: false };
     let lpValue = 0;
     let ammValue = 0;
+    let hasAnyLpBalance = false;
 
     for (let i = 0; i < v8Markets.length; i++) {
       const baseIdx = i * 4;
@@ -379,6 +380,10 @@ export const Portfolio = () => {
         ammValue += (yesShares * priceYes) + (noShares * priceNo);
       }
 
+      if (lpBalResult && lpBalResult > 0n) {
+        hasAnyLpBalance = true;
+      }
+
       if (lpBalResult && lpStateResult) {
         // totalLPSupply is index 3, floorValue is index 5
         const lpSupply = lpStateResult[3] as bigint;
@@ -391,7 +396,7 @@ export const Portfolio = () => {
         }
       }
     }
-    return { lpValue, ammValue };
+    return { lpValue, ammValue, hasAnyLpBalance };
   }, [batchData, v8Markets, decimals]);
 
   const walletUsdcFormatted = formatUnits(walletUsdc, decimals);
@@ -584,7 +589,7 @@ export const Portfolio = () => {
                 ) : (
                   <EmptyState message="No liquidity positions found" />
                 )}
-                {aggregates.lpValue === 0 && !isLoadingBatch && v8Markets.length > 0 && (
+                {aggregates.lpValue === 0 && !aggregates.hasAnyLpBalance && !isLoadingBatch && v8Markets.length > 0 && (
                   <div className="mt-[-8px]">
                     <EmptyState message="No active liquidity" />
                   </div>

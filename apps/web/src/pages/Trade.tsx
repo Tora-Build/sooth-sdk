@@ -102,21 +102,25 @@ export const Trade = () => {
     );
   }, [chainId]);
 
-  // Apply search filter (category filter disabled - markets.json has no category field)
+  // Apply search and category filters
   const filteredMarkets = useMemo(() => {
     return v8Markets.filter(m => {
       const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch;
+      const matchesCategory = category === 'all' ||
+        (m as any).category?.toLowerCase() === category.toLowerCase();
+      return matchesSearch && matchesCategory;
     });
-  }, [v8Markets, search]);
+  }, [v8Markets, search, category]);
 
-  // Get category counts (all markets since no category field exists)
+  // Get category counts based on actual market categories
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
-      count: v8Markets.length  // All categories show total count
+      count: cat.id === 'all'
+        ? v8Markets.length
+        : v8Markets.filter(m => (m as any).category?.toLowerCase() === cat.id.toLowerCase()).length
     }));
   }, [v8Markets]);
 

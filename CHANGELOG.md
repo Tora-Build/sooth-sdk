@@ -2,6 +2,35 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased] - 2025-12-30
+
+### Fixed
+- **Graduation Gas Limit OOG Bug**: Large trades could push graduation progress from <80% to 100%, causing out-of-gas failures
+  - Changed threshold from >80% to >50% for applying 2M gas limit
+  - Used `launchpad?.isGraduated` from hook data instead of prop (avoids stale data)
+  - Files: `SimpleTradingPanel.tsx`, `LESSONS_LEARNED.md`
+
+- **Category Count Display Bug**: All categories showed total market count (2) instead of per-category counts
+  - Now correctly filters by `category` field in markets.json
+  - Also applies category filter when filtering displayed markets
+  - File: `Trade.tsx`
+
+- **LP "No Active Liquidity" Display Bug**: Message showed even when user had LP shares with $0 value
+  - Added `hasAnyLpBalance` tracking to only show message when user truly has no LP
+  - File: `Portfolio.tsx`
+
+- **User Orders Not Detected**: Orders placed in TickBookPoolManager weren't showing in Pro Terminal
+  - Root cause: `getUserOrders()` function was missing from deployed contract
+  - Added `getUserOrders(bytes32,address)` to `TickBookPoolManager.sol`
+  - Added event log fallback in `useUserOrdersDirect.ts` for current deployment
+  - Files: `TickBookPoolManager.sol`, `useUserOrdersDirect.ts`
+
+### Notes
+- **Contract Redeployment Required**: TickBookPoolManager needs redeployment for `getUserOrders()` to work directly
+- Frontend uses event log fallback until redeployment
+
+---
+
 ## [9.3.0] - 2025-12-29
 
 ### Added

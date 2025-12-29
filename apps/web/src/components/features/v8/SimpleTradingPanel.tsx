@@ -512,9 +512,11 @@ export const SimpleTradingPanel = ({
       // 4. No need for manual 'depositAndTradeAMM'
       // Dynamic gas estimation:
       // - Normal trades: 600k gas
-      // - Near-graduation buys (>80% progress): 2M gas to cover graduation deployment
+      // - Near-graduation buys (>50% progress): 2M gas to cover graduation deployment
       //   Graduation deploys 2 ERC20 outcome tokens (~500k each) + TickBook registration
-      const isNearGraduation = !isGraduated && (launchpad?.graduationProgress ?? 0) > 80;
+      //   Note: Use 50% threshold (not 80%) because large trades can push from <80% to 100%
+      //   in a single transaction, causing OOG if gas limit wasn't increased
+      const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
       const gasLimit = (tradeMode === 'buy' && isNearGraduation) ? 2000000n : 600000n;
 
       trade({

@@ -411,22 +411,25 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 ## V9 Graduation Gas Requirements
 
 ### ❌ Pattern: Hardcoded Gas Limit Causes Graduation Trades to Fail
-- **Date:** 2025-12-29
+- **Date:** 2025-12-29 (updated 2025-12-29)
 - **Bug:** Frontend hardcoded `gas: 600000n` for all `tradePositions` calls. Graduation trades require ~1.5M gas.
 - **Root Cause:** LaunchpadEngine's graduation flow deploys 2 ERC20 outcome tokens (~500k gas each) + TickBook registration (~118k gas).
 - **Symptom:** Trades that would trigger graduation fail with `status: 0` and no logs. Gas used is ~589k (hitting limit).
 - **Detection:** `cast receipt` shows `gasUsed ≈ gasLimit` and `status: 0`. `cast call` simulation succeeds (no gas limit enforced).
-- **Fix:** Dynamic gas estimation in frontend:
+- **Fix:** Dynamic gas estimation in frontend (use 50% threshold, not 80%):
   ```typescript
-  const isNearGraduation = !isGraduated && (launchpad?.graduationProgress ?? 0) > 80;
+  // Use launchpad?.isGraduated from hook, not the prop (avoids stale data)
+  // Use 50% threshold because large trades can jump from <80% to 100% in one tx
+  const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
   const gasLimit = (tradeMode === 'buy' && isNearGraduation) ? 2000000n : 600000n;
   ```
+- **Why 50% not 80%:** A large trade (e.g., 5000 shares) can push graduation progress from <80% to >100% in a single transaction. If the pre-trade progress is 79%, the 80% check fails, gas limit stays at 600k, and the graduation OOGs.
 - **Alternative Fix:** Pre-register markets in Collateralizer + TickBook before graduation trades:
   ```bash
   cast send $COLLATERALIZER "registerMarket(address,string,string)" $MARKET "Name" "SYMBOL"
   cast send $TICKBOOK "registerMarket(address,address,address,uint256)" $MARKET $YES $NO $PROB
   ```
-- **Rule:** When contract state transitions involve deploying new contracts, gas requirements spike dramatically. Use dynamic gas estimation based on state.
+- **Rule:** When contract state transitions involve deploying new contracts, gas requirements spike dramatically. Use conservative thresholds for dynamic gas estimation.
 
 ---
 
