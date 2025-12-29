@@ -2,6 +2,36 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.3.0] - 2025-12-29
+
+### Added
+- **TickBook Registrar Access Control**: Only LaunchpadEngine (or owner) can register markets in TickBook
+  - Added `registrar` storage variable and `setRegistrar(address)` function
+  - Added `onlyRegistrar` modifier to both `registerMarket()` overloads
+  - Ensures markets can only be added to TickBook after graduation (contract-level lock)
+
+### Fixed
+- **Frontend Graduation Guard**: Re-enabled Pro Terminal graduation check
+  - Non-graduated markets now show "Pro Trading Locked" screen with graduation progress
+  - Previously disabled to allow testing, now enforced for proper UX
+
+### Deployed
+- **Base Sepolia V9.3.0** (Fresh deployment):
+  - **Collateralizer**: `0x84f9d5B33d2393B26320a70370635008E2cF90A7`
+  - **AMMEngine**: `0xC2BF5E82AcB56c0f76F4692f2698293F29934695`
+  - **TickBookVault**: `0x86cb494DFb00De52e076Bd7203a8D5d3d0c0D3a5`
+  - **TickBookPoolManager**: `0x2ab1751a396EF779ca4Ab0DF5854a4F830D664F3` (with registrar)
+  - **DynamicFeeHook**: `0xffA90FE3262f9FDa72A585eFc635caF2c7622CAF`
+  - **LaunchpadEngine**: `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A`
+  - **ALIEN Market**: `0x3FF3E6A3C8829BbB5DfEd440AafF92e608934Dc2`
+  - **BTC100K Market**: `0x3Be7CC1529276E1c921A24844FC158514feF0544`
+
+### Notes
+- Registrar set to LaunchpadEngine: `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A`
+- Markets NOT graduated yet - trade on AMM to accumulate fees and trigger graduation
+
+---
+
 ## [9.2.0] - 2025-12-29
 
 ### Fixed

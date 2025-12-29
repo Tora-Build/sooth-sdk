@@ -430,4 +430,39 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
+## 22. TickBook Registrar Access Control
+
+### Symptom
+Non-graduated markets could be registered in TickBook via direct `registerMarket()` calls, bypassing the LaunchpadEngine graduation flow.
+
+### Root Cause
+`TickBookPoolManager.registerMarket()` had no access control - anyone could register any market.
+
+### Fix
+Added `registrar` role pattern:
+```solidity
+address public registrar;
+error UnauthorizedRegistrar();
+
+modifier onlyRegistrar() {
+    if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
+    _;
+}
+
+function registerMarket(...) external onlyRegistrar returns (bytes32) { ... }
+
+function setRegistrar(address _registrar) external onlyOwner { ... }
+```
+
+### Deployment Steps
+After deploying TickBookPoolManager, set LaunchpadEngine as registrar:
+```bash
+cast send $TICKBOOK "setRegistrar(address)" $LAUNCHPAD_ENGINE --rpc-url $RPC --private-key $PK
+```
+
+### Rule
+Access-controlled registration ensures only graduated markets (via LaunchpadEngine) can be added to TickBook. Owner can still register manually if needed.
+
+---
+
 *Last updated: 2025-12-29*

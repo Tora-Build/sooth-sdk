@@ -74,6 +74,10 @@ contract DeployFreshV9 is Script {
         // Link AMMEngine to LaunchpadEngine
         ammEngine.setRouter(address(launchpad));
         
+        // Set LaunchpadEngine as registrar for TickBook (graduation access control)
+        poolManager.setRegistrar(address(launchpad));
+        console.log("Registrar set to LaunchpadEngine");
+        
         // ===== 2. Create Test Markets =====
         
         uint64 deadline = uint64(block.timestamp + 30 days);
@@ -92,7 +96,7 @@ contract DeployFreshV9 is Script {
         
         // Initialize with liquidity via LaunchpadEngine
         IERC20(USDC).approve(address(launchpad), type(uint256).max);
-        uint256 liquidity = 1000 * 1e18; // 1000 MockUSDC (18 decimals)
+        uint256 liquidity = 500 * 1e18; // 500 MockUSDC (18 decimals) - reduced to fit deployment budget
         launchpad.createMarket(address(alienMarket), liquidity, "UN Confirms Alien Life", "ALIEN");
         console.log("ALIEN market initialized");
         
@@ -113,7 +117,7 @@ contract DeployFreshV9 is Script {
 
         // ===== 3. Output Summary =====
         console.log("\n========================================");
-        console.log("  V9.1.0 FRESH DEPLOYMENT COMPLETE");
+        console.log("  V9.2.0 FRESH DEPLOYMENT COMPLETE");
         console.log("========================================");
         console.log("\nCore Contracts:");
         console.log("  Collateralizer:", address(collateralizer));
@@ -122,10 +126,11 @@ contract DeployFreshV9 is Script {
         console.log("  TickBookPoolManager:", address(poolManager));
         console.log("  DynamicFeeHook:", address(feeHook));
         console.log("  LaunchpadEngine:", address(launchpad));
-        console.log("\nMarkets:");
+        console.log("\nMarkets (NOT graduated - tokens created on graduation):");
         console.log("  ALIEN:", address(alienMarket));
         console.log("  BTC100K:", address(btcMarket));
-        console.log("\n>>> Update apps/web/src/config/deployments.json with these addresses");
+        console.log("\n>>> Update apps/web/src/config/deployments.json and markets.json");
+        console.log(">>> Token addresses will be created when markets graduate via AMM trading");
     }
 }
 

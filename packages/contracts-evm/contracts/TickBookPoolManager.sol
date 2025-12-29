@@ -49,6 +49,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     error InvalidTickRange();
     error ZeroDensity();
     error NotOwner();
+    error UnauthorizedRegistrar();
     error OrderNotActive();
     error NoLiquidity();
     error SlippageExceeded();
@@ -132,11 +133,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     mapping(bytes32 => mapping(uint256 => uint256)) private _fillGrowthLastX128;
     mapping(bytes32 => mapping(uint256 => uint256)) private _collateralUsedGrowthLastX128;
 
+    // Access control: only registrar (LaunchpadEngine) can register markets
+    address public registrar;
+
     // ============================================
     // Events
     // ============================================
 
     event MarketRegistered(bytes32 indexed marketKey, address market, address yesToken, address noToken, address hook);
+    event RegistrarChanged(address indexed oldRegistrar, address indexed newRegistrar);
     event LockerChanged(address indexed oldLocker, address indexed newLocker);
 
     event RangeOrderPlaced(
@@ -207,6 +212,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         _;
     }
 
+    /// @notice Ensures caller is the registrar (LaunchpadEngine) or owner
+    modifier onlyRegistrar() {
+        if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
+        _;
+    }
+
     // ============================================
     // Constructor
     // ============================================
@@ -214,6 +225,17 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     constructor(address _vault) Ownable(msg.sender) {
         if (_vault == address(0)) revert ZeroAddress();
         vault = ITickBookVault(_vault);
+    }
+
+    /**
+     * @notice Set the registrar address (only LaunchpadEngine should register markets)
+     * @dev Only owner can change registrar. Set to LaunchpadEngine after deployment.
+     * @param _registrar The new registrar address
+     */
+    function setRegistrar(address _registrar) external onlyOwner {
+        address old = registrar;
+        registrar = _registrar;
+        emit RegistrarChanged(old, _registrar);
     }
 
     // ============================================
@@ -295,7 +317,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     function registerMarket(
         PoolKey calldata key,
         uint256 initialProbabilityWad
-    ) external returns (bytes32 marketKey) {
+    ) external onlyRegistrar returns (bytes32 marketKey) {
         if (key.truthMarket == address(0)) revert ZeroAddress();
         if (key.yesToken == address(0)) revert ZeroAddress();
         if (key.noToken == address(0)) revert ZeroAddress();
@@ -339,7 +361,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address yesToken,
         address noToken,
         uint256 initialProbabilityWad
-    ) external returns (bytes32 marketKey) {
+    ) external onlyRegistrar returns (bytes32 marketKey) {
         if (market == address(0)) revert ZeroAddress();
         if (yesToken == address(0)) revert ZeroAddress();
         if (noToken == address(0)) revert ZeroAddress();
