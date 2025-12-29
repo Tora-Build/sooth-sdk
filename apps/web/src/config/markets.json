@@ -1,23 +1,21 @@
 {
-  "version": "9.0.1",
+  "version": "9.2.0",
   "markets": [
     {
       "id": "base-v9-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "contractAddress": "0xa4838e6E410570438d8B074e9459082b228A460C",
-      "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-      "yesToken": "0x94Cc020f92351D9853ce1bdD52924979F70eE54c",
-      "noToken": "0x07527CD81fB606d897dbfa9E923Dc9c8bf136976",
+      "contractAddress": "0x2FA17b79B92077B2c444ebB9aBbb567E9f7be40B",
+      "description": "Will the United Nations officially confirm the existence of extraterrestrial life by 2026?",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v9.0.0",
+      "version": "v9.2.0",
       "isGraduated": false,
-      "deadline": 1769527314,
+      "deadline": 1769587368,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     },
@@ -25,59 +23,17 @@
       "id": "base-v9-btc-100k",
       "name": "BTC 7-day TWAP >= $100k",
       "symbol": "BTC100K",
-      "contractAddress": "0x8027387f1FD1963513661A0051AdD224244e186E",
-      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-      "yesToken": "0x92831dc962c41A13b202B344B8301Fa8c4237074",
-      "noToken": "0x074F213e08c88d373d91f312fC4d056be7A531e9",
+      "contractAddress": "0x55e9a42D090A64c05E4CB6fb7d69F63C3883F258",
+      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000 by EOY 2025?",
       "outcomes": [
         "YES",
         "NO"
       ],
       "mode": "real",
       "chainId": 84532,
-      "version": "v9.0.0",
+      "version": "v9.2.0",
       "isGraduated": false,
-      "deadline": 1769527314,
-      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "liquidity": "1000"
-    },
-    {
-      "id": "monad-v9-alien-life",
-      "name": "UN Confirms Alien Life",
-      "symbol": "ALIEN",
-      "contractAddress": "0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2",
-      "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
-      "yesToken": "0x5C2688c8b349C535db6D2B702699ADB85a396380",
-      "noToken": "0xDeCdbA396dB131ee1BBfA3eB384151da6AB1D883",
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "mode": "real",
-      "chainId": 10143,
-      "version": "v9.0.0",
-      "isGraduated": false,
-      "deadline": 1769523750,
-      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "liquidity": "1000"
-    },
-    {
-      "id": "monad-v9-btc-100k",
-      "name": "BTC 7-day TWAP >= $100k",
-      "symbol": "BTC100K",
-      "contractAddress": "0x1cB930d768AD866C3211A14894B1E924726bac0b",
-      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
-      "yesToken": "0x7CEbE651BF455120E1FADC70E5958eb07d1a760d",
-      "noToken": "0xeB608e6419A842B5cCeb0Feb47296baCCf250C21",
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "mode": "real",
-      "chainId": 10143,
-      "version": "v9.0.0",
-      "isGraduated": false,
-      "deadline": 1769523750,
+      "deadline": 1769587368,
       "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "liquidity": "1000"
     }
