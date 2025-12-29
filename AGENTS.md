@@ -79,6 +79,78 @@ Use the following slash commands to adopt specific personas:
 - **Frontend**: Passing `npm run build` and `npm run test:e2e`.
 - **Docs**: Updated `STATUS.md` and `CHANGELOG.md`.
 
+## Critical Patterns
+
+### Outcome Encoding (V8.13.0+)
+```solidity
+// Canonical encoding - all contracts use this
+uint8 NO = 0;       // "No" outcome
+uint8 YES = 1;      // "Yes" outcome
+uint8 INVALID = 2;  // Market invalidated (50% payout to both)
+```
+
+### Decimal Handling
+```
+CONTRACT BOUNDARY RULE:
+- Internal math: WAD (18 decimals)
+- USDC transfers: Token decimals (usually 6)
+- ALWAYS use _wadToUsdc() and _usdcToWad() at transfer boundaries
+- Ceil for transfers TO contract, floor for transfers FROM contract
+```
+
+### WAD Math (Avoid Overflow)
+```solidity
+// WRONG: WAD × WAD = overflow
+uint256 bad = wadA * wadB;
+
+// CORRECT: Divide by 1e18
+uint256 good = (wadA * wadB) / 1e18;
+```
+
+### Position Model (V8.2+)
+```solidity
+// Dual-balance model (NOT signed shares)
+struct Position {
+    uint256 yesShares;
+    uint256 noShares;
+}
+
+// Trade signature: outcome 1=YES, 0=NO; deltaShares >0=Buy, <0=Sell
+tradePositions(market, outcome, deltaShares, maxCost)
+```
+
+### Direct Reads over Event Scanning
+```typescript
+// AVOID: Event scanning (slow, RPC-heavy)
+const position = await scanPositionTradedEvents(market, user);
+
+// PREFER: Direct contract reads
+const position = await ammEngine.getPosition(market, user);
+```
+
+## Common Issues & Solutions
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| "Insufficient allowance" | Decimal mismatch (WAD vs USDC) | Use `_wadToUsdc()` before `safeTransferFrom` |
+| Position shows 0 after trade | 24h AMM lock or event scanning | Use `ammEngine.getPosition()` directly |
+| Frontend shows stale data | Config cache | Bump `version` in `deployments.json`, clear localStorage |
+| Limit orders only partially crossing | Old TickBookV2 | Use latest deployment (V8.12.0 fix) |
+| Transaction reverts | Various | `cast receipt <hash> --rpc-url <url>`, check `revertReason` |
+
+## Key Documentation
+
+| File | Purpose |
+|------|---------|
+| `STATUS.md` | Current project state and deployments |
+| `CHANGELOG.md` | Release history |
+| `DECISIONS.md` | Architecture Decision Records |
+| `.agent/KNOWLEDGE.md` | Protocol facts and formulas |
+| `.agent/LESSONS_LEARNED.md` | Mistakes to avoid |
+| `.agent/UI_UX_PATTERNS.md` | Design patterns (frontend) |
+| `apps/web/src/config/deployments.json` | Contract addresses (source of truth) |
+| `apps/web/src/config/markets.json` | Market configurations |
+
 ## Recovery Playbook
 
 If you are confused or repeating mistakes:
