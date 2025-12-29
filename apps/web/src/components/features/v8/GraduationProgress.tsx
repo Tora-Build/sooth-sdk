@@ -36,32 +36,44 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     const feeRate = isGraduated ? '1%' : '5%';
     const feeLabel = isGraduated ? 'Graduated Fee' : 'Bonding Fee';
 
+    // Minimized view for graduated markets
+    if (isGraduated) {
+        return (
+            <div className="rounded-lg bg-emerald-950/30 border border-emerald-900/30 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-emerald-500/80 font-bold uppercase tracking-wider animate-pulse">
+                        <Zap size={14} />
+                        <span className="text-[11px]">TickBook Live</span>
+                    </div>
+                </div>
+                <div className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    1% Fee
+                </div>
+            </div>
+        );
+    }
+
+    // Full view for bonding markets
     return (
         <div className="rounded-xl bg-slate-900/50 border border-slate-800 p-6 space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isGraduated
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-blue-500/20 text-blue-400'
-                        }`}>
-                        {isGraduated ? <Trophy size={20} /> : <Zap size={20} />}
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400">
+                        <Zap size={20} />
                     </div>
                     <div>
                         <div className="font-heading font-semibold text-white">
-                            {isGraduated ? 'Graduated' : 'Bonding Curve Progress'}
+                            Bonding Curve Progress
                         </div>
                         <div className="text-xs text-slate-500">
-                            {isGraduated ? 'Market is now fully liquid' : 'Liquidity grows with each trade'}
+                            Liquidity grows with each trade
                         </div>
                     </div>
                 </div>
 
                 {/* Fee Badge */}
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${isGraduated
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                    }`}>
+                <div className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                     {feeLabel}: {feeRate}
                 </div>
             </div>
@@ -78,15 +90,12 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                 <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
                     {/* Background gradient */}
                     <div
-                        className={`absolute inset-y-0 left-0 transition-all duration-700 ease-out ${isGraduated
-                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-400'
-                            : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500'
-                            }`}
+                        className="absolute inset-y-0 left-0 transition-all duration-700 ease-out bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500"
                         style={{ width: `${progressPercent}%` }}
                     />
 
                     {/* Animated shimmer for bonding */}
-                    {!isGraduated && progressPercent > 0 && (
+                    {progressPercent > 0 && (
                         <div
                             className="absolute inset-y-0 left-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
                             style={{ width: `${progressPercent}%` }}
@@ -133,14 +142,8 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                 <div>
                     <div className="text-xs text-slate-500 mb-1">To Graduation</div>
                     <div className="font-mono text-white flex items-center gap-1">
-                        {isGraduated ? (
-                            <span className="text-emerald-400">✓ Complete</span>
-                        ) : (
-                            <>
-                                <TrendingUp size={14} className="text-blue-400" />
-                                ${Math.max(0, thresholdVal - feesVal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </>
-                        )}
+                        <TrendingUp size={14} className="text-blue-400" />
+                        ${Math.max(0, thresholdVal - feesVal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
             </div>

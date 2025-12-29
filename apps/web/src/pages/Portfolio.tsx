@@ -397,7 +397,7 @@ export const Portfolio = () => {
   const walletUsdcFormatted = formatUnits(walletUsdc, decimals);
 
   // Account Aggregates
-  const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalTokenVal + totalAmmVal;
+  const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalTokenVal + totalAmmVal + parseFloat(queueTotalFormatted);
   const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal;
 
   // Helper to extract specific market price from batch

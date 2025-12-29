@@ -1038,7 +1038,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
   const invalidateV8Queries = useInvalidateV8Queries();
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
-  const { collateralizer } = useCollateralizerDirect(marketAddr);
+  const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
     marketAddr,
@@ -1517,13 +1517,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
               </div>
             </div>
-            {/* Arb spread indicator */}
-            {hasArb && (
-              <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                <div className="text-[9px] text-amber-500/70 uppercase">Arb</div>
-                <div className="text-base font-mono font-bold text-amber-400">{arbSpread.toFixed(1)}%</div>
+            {/* Diff indicator - always show */}
+            <div className={cn(
+              "text-center p-2 rounded-lg",
+              hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
+            )}>
+              <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
+              <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
+                {arbSpread.toFixed(1)}%
               </div>
-            )}
+            </div>
             <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
             </button>
@@ -1547,13 +1550,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
             </div>
           </div>
-          {/* Arb spread indicator */}
-          {hasArb && (
-            <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-              <div className="text-[9px] text-amber-500/70 uppercase">Arb</div>
-              <div className="text-base font-mono font-bold text-amber-400">{arbSpread.toFixed(1)}%</div>
+          {/* Diff indicator - always show */}
+          <div className={cn(
+            "text-center p-2 rounded-lg",
+            hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
+          )}>
+            <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
+            <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
+              {arbSpread.toFixed(1)}%
             </div>
-          )}
+          </div>
           <div className="ml-auto">
             <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
@@ -2066,21 +2072,30 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Execute Button */}
               <Button
                 onClick={handleTrade}
-                disabled={!isConnected || !amount || isSubmitting || !tickBook?.isActive || (isBuying && !hasEnoughBalance)}
+                disabled={!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)}
                 className={cn(
                   "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
                   action === 'buy_yes' && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
                   action === 'buy_no' && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
                   (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
-                  (!isConnected || !amount || isSubmitting || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
+                  (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isSubmitting ? (
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 ) : !isConnected ? (
                   'Connect Wallet'
+                ) : isTickBookLoading || isCollateralizerLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading TickBook...
+                  </span>
+                ) : !tickBook?.isActive ? (
+                  'TickBook Not Initialized'
+                ) : !amount ? (
+                  'Enter Amount'
                 ) : (
-                  `${action.replace('_', ' ').toUpperCase()} ${amount || '0'}`
+                  `${isBuying ? 'Buy' : 'Sell'} ${isYes ? 'YES' : 'NO'} ${isBuying ? 'with' : 'for'} $${estimatedValue.toFixed(2)}`
                 )}
               </Button>
             </div>

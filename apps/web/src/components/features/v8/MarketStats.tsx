@@ -6,7 +6,7 @@ import { useDeployments } from '../../../hooks/useDeployments';
 import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';
 import { useReadContract } from 'wagmi';
-import { Info, BarChart3, Scale, PieChart, Package, Anchor, Zap } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useChainStore } from '../../../store/useChainStore';
 import { cn } from '../../../lib/utils';
 
@@ -32,20 +32,30 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
     });
     const decimals = Number(usdcDecimals ?? 18);
 
-    // 3. Get AMM State (qYes, qNo for Liability)
+    // 3. Get AMM State (qYes, qNo for Liability) + AMMEngine USDC balance (locked proceeds)
+    const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
     const { data: ammState } = useV8DirectRead({
-        queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress],
-        enabled: !!marketAddress && !!chainId && !!ammEngineAddress,
+        queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress, usdcAddress],
+        enabled: !!marketAddress && !!chainId && !!ammEngineAddress && !!usdcAddress,
         chainId,
         read: async (client) => {
             // Need qYes, qNo. Using getMarketState
-            const [qYes, qNo, price] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
-                address: ammEngineAddress!,
-                abi: V8_ABIS.AMMEngine,
-                functionName: 'getMarketState',
-                args: [marketAddress],
-            });
-            return { qYes, qNo, price };
+            const [[qYes, qNo, price], ammEngineUsdcBalance] = await Promise.all([
+                readContractSafe<readonly [bigint, bigint, bigint]>(client, {
+                    address: ammEngineAddress!,
+                    abi: V8_ABIS.AMMEngine,
+                    functionName: 'getMarketState',
+                    args: [marketAddress],
+                }),
+                // Get USDC balance of AMMEngine (total locked proceeds across all users)
+                readContractSafe<bigint>(client, {
+                    address: usdcAddress!,
+                    abi: ERC20_ABI,
+                    functionName: 'balanceOf',
+                    args: [ammEngineAddress!],
+                }),
+            ]);
+            return { qYes, qNo, price, lockedProceeds: ammEngineUsdcBalance };
         },
     });
 
@@ -94,20 +104,20 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                 <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
                     <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
-                        <span className="text-slate-500 font-mono italic">Seed + Fees + P&L = Gross</span>
+                        <span className="text-slate-500 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className="text-slate-400" title="Initial Seed">{fmtUsd(stats.seed)}</span>
+                            <span className="text-slate-400" title="Max Loss (b × ln(2))">{fmtUsd(stats.maxLoss)}</span>
                             <span className="text-slate-600">+</span>
-                            <span className="text-emerald-500/70" title="Trading Fees">{fmtUsd(stats.fees)}</span>
+                            <span className="text-emerald-500/70" title="LP Yield Pool">{fmtUsd(stats.lpYieldPool)}</span>
                             <span className="text-slate-600">+</span>
                             <span className={cn("transition-colors", stats.pnl >= 0n ? 'text-emerald-400/80' : 'text-rose-400/80')} title="Swap P&L (LMSR Cost)">
                                 {stats.pnl >= 0n ? '+' : '-'}{fmtUsd(stats.pnl < 0n ? -stats.pnl : stats.pnl)}
                             </span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.gross)}</div>
+                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.cash)}</div>
                     </div>
                 </div>
 
@@ -115,11 +125,11 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                 <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
                     <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
-                        <span className="text-cyan-600/60 font-mono italic">Gross - Liability = Floor</span>
+                        <span className="text-cyan-600/60 font-mono italic">Cash - Liability = Floor</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className="text-slate-400">{fmtUsd(stats.gross)}</span>
+                            <span className="text-slate-400">{fmtUsd(stats.cash)}</span>
                             <span className="text-slate-600">−</span>
                             <span className="text-rose-500/70" title="Max Liability (max(qY, qN))">{fmtUsd(stats.liability)}</span>
                             <span className="text-slate-600">=</span>
@@ -153,12 +163,12 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className="text-slate-400">{fmtUsd(stats.gross)}</span>
+                            <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
                             <span className="text-slate-600">+</span>
-                            <span className="text-amber-500/70" title="Locked Proceeds (24h)">$0.00</span>
+                            <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.gross)}</div>
+                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.tvl)}</div>
                     </div>
                 </div>
 
@@ -175,34 +185,10 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                             <span className="text-slate-500">0.693</span>
                             <span className="text-slate-600">≈</span>
                         </div>
-                        <div className="text-lg font-bold text-slate-300 font-mono ml-auto">{fmtNum(stats.anchorSupply)}</div>
-                    </div>
-                    <div className="text-[9px] text-slate-600 mt-1 text-right font-mono italic">
-                        Real Supply: {fmtNum(stats.supply)}
+                        <div className="text-lg font-bold text-slate-300 font-mono ml-auto">{fmtNum(stats.supply)}</div>
                     </div>
                 </div>
 
-                {/* LP EXRATE RANGE */}
-                <div className="pt-4 border-t border-slate-800/50">
-                    <div className="flex items-center justify-center gap-4 mb-4">
-                        <div className="h-px bg-slate-800 flex-1" />
-                        <div className="text-[9px] uppercase font-bold text-purple-400/70 tracking-[0.2em] flex items-center gap-2">
-                            <Zap className="w-3 h-3" /> LP EXRATE RANGE <Zap className="w-3 h-3" />
-                        </div>
-                        <div className="h-px bg-slate-800 flex-1" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-px bg-slate-800/30 rounded-lg overflow-hidden border border-slate-800/50">
-                        <div className="bg-slate-950/40 p-3 text-center">
-                            <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-1">Floor</div>
-                            <div className="text-xl font-bold text-white tracking-tight">{stats.floorRate.toFixed(3)}x</div>
-                        </div>
-                        <div className="bg-slate-950/40 p-3 text-center border-l border-slate-800/50">
-                            <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-1">Ceiling</div>
-                            <div className="text-xl font-bold text-white tracking-tight">{stats.ceilingRate.toFixed(3)}x</div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </Card>
     );

@@ -335,9 +335,9 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         {quote && Math.abs(quote.inputAmount) === amountNum ? formatCurrency(quote.fee) : '--'}
                     </span>
                 </div>
-                <div className="flex justify-between border-t border-slate-700/50 pt-1">
-                    <span className="text-slate-400 font-medium">{tradeMode === 'buy' ? 'Total Cost' : 'Min Received'}</span>
-                    <span className="font-mono font-bold text-white">
+                <div className="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                    <span className="text-slate-400">{tradeMode === 'buy' ? 'You Pay' : 'You Receive'}</span>
+                    <span className={`font-mono text-lg font-bold ${tradeMode === 'buy' ? 'text-white' : 'text-emerald-400'}`}>
                         {quote && Math.abs(quote.inputAmount) === amountNum ? formatCurrency(quote.maxWithSlippage) : '--'}
                     </span>
                 </div>
@@ -455,6 +455,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         'Insufficient shares'
                     ) : insufficientBalance ? (
                         'Insufficient USDC'
+                    ) : quote && Math.abs(quote.inputAmount) === amountNum ? (
+                        `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${selectedOutcome === 0 ? 'YES' : 'NO'} ${tradeMode === 'buy' ? 'with' : 'for'} ${formatCurrency(quote.maxWithSlippage)}`
                     ) : (
                         `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${selectedOutcome === 0 ? 'YES' : 'NO'}`
                     )}

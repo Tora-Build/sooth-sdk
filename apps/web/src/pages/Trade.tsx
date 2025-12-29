@@ -6,7 +6,7 @@
  */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -73,7 +73,7 @@ const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect })
       {/* Probability */}
       <span className={cn(
         "text-sm font-bold tabular-nums flex-shrink-0",
-        probability > 0.5 ? "text-emerald-400" : probability < 0.5 ? "text-rose-400" : "text-slate-400"
+        probability > 0.501 ? "text-emerald-400" : probability < 0.499 ? "text-rose-400" : "text-slate-400"
       )}>
         {isLoading ? '—' : `${(probability * 100).toFixed(0)}%`}
       </span>
@@ -215,43 +215,88 @@ export const Trade = () => {
 
       {/* Main Content Grid */}
       {selectedMarket && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Trading Panel */}
-          <div className="lg:col-span-7 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          {/* Left Column: Trading Panel (60%) */}
+          <div className="lg:col-span-6 space-y-4">
             {/* Market Header Card */}
             <Card className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
-                  <p className="text-sm text-slate-400 mt-1">{selectedMarket.description}</p>
-                  {selectedMarket.deadline && (
-                    <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                      <Clock className="w-3 h-3" />
-                      <span>{content.panel.deadline}: {new Date(selectedMarket.deadline * 1000).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant={launchpad?.isGraduated ? 'success' : 'warning'} className={launchpad?.isGraduated ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}>
-                    {launchpad?.isGraduated ? (
-                      <span className="flex items-center gap-1">
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        {content.panel.graduated}
-                      </span>
-                    ) : (
+              {/* Row 1: Title + Badges */}
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
+                {/* Top Right Badges */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Deadline Badge */}
+                  <div className="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {selectedMarket.deadline ? new Date(selectedMarket.deadline * 1000).toLocaleDateString() : 'Open-end'}
+                  </div>
+                  {/* Pre-Graduation Badge */}
+                  {!launchpad?.isGraduated && (
+                    <Badge variant="warning" className="bg-amber-500/20 text-amber-400 border-amber-500/50">
                       <span className="flex items-center gap-1">
                         <TrendingUp className="w-3.5 h-3.5" />
                         {content.panel.preGrad}
                       </span>
-                    )}
-                  </Badge>
-                  {launchpad?.isGraduated && (
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider animate-pulse">
-                      <Zap className="w-2.5 h-2.5" />
-                      TickBook Live
-                    </div>
+                    </Badge>
                   )}
                 </div>
+              </div>
+              {/* Row 2: Description (full width) */}
+              <p className="text-sm text-slate-400 mt-2">{selectedMarket.description}</p>
+              {/* Row 3: Contract Addresses (full width) */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
+                    {/* Market Address */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-600">Market:</span>
+                      <span className="font-mono text-slate-500">
+                        {selectedMarket.contractAddress.slice(0, 6)}...{selectedMarket.contractAddress.slice(-4)}
+                      </span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(selectedMarket.contractAddress)}
+                        className="text-slate-600 hover:text-slate-400 transition-colors"
+                        title="Copy market address"
+                      >
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Adjudicator Address */}
+                    {truth?.adjudicator && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-600">Adjudicator:</span>
+                        <span className="font-mono text-slate-500">
+                          {truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}
+                        </span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(truth.adjudicator)}
+                          className="text-slate-600 hover:text-slate-400 transition-colors"
+                          title="Copy adjudicator address"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {/* Guardian Address */}
+                    {truth?.guardian && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-600">Guardian:</span>
+                        <span className="font-mono text-slate-500">
+                          {truth.guardian.slice(0, 6)}...{truth.guardian.slice(-4)}
+                        </span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(truth.guardian)}
+                          className="text-slate-600 hover:text-slate-400 transition-colors"
+                          title="Copy guardian address"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
               </div>
             </Card>
 
@@ -278,8 +323,8 @@ export const Trade = () => {
             )}
           </div>
 
-          {/* Right Column: Graduation Progress, LP & Stats */}
-          <div className="lg:col-span-5 space-y-4">
+          {/* Right Column: Graduation Progress, LP & Stats (40%) */}
+          <div className="lg:col-span-4 space-y-4">
             {/* Graduation Progress */}
             {!isLoadingLaunchpad && launchpad && (
               <GraduationProgress

@@ -182,6 +182,32 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         emit GraduationMultiplierUpdated(multiplier);
     }
 
+    /**
+     * @notice Register a graduated market in TickBook (admin function for migration)
+     * @dev Use this to register markets that graduated before TickBook integration
+     * @param market The market address to register
+     */
+    function registerGraduatedMarketInTickBook(address market) external onlyOwner {
+        MarketState storage state = markets[market];
+        require(state.creator != address(0), "LaunchpadEngine: market not found");
+        require(state.isGraduated, "LaunchpadEngine: not graduated");
+
+        // Get outcome tokens
+        (address yes, address no) = collateralizer.getOutcomeTokens(market);
+        require(yes != address(0) && no != address(0), "LaunchpadEngine: tokens not registered");
+
+        // Get current AMM probability
+        (,, uint256 ammProbability) = ammEngine.getMarketState(market);
+
+        // Register in TickBook (will revert if already registered)
+        tickBook.registerMarket(market, yes, no, ammProbability);
+
+        emit MarketRegisteredInTickBook(market, yes, no, ammProbability);
+    }
+
+    /// @notice Emitted when a graduated market is manually registered in TickBook
+    event MarketRegisteredInTickBook(address indexed market, address yesToken, address noToken, uint256 initialProbability);
+
     // ============================================
     // Market Creation
     // ============================================

@@ -21,8 +21,9 @@ export function useTickBookDirect(
   const deployments = useDeployments();
   const poolManagerAddress = deployments?.contracts?.TickBookPoolManager as Address | undefined;
 
-  // Default to DynamicFeeHook address if not provided and it exists in deployments
-  const effectiveHook = hookAddress || (deployments?.contracts?.DynamicFeeHook as Address) || "0x0000000000000000000000000000000000000000";
+  // Default to zero address (no hook) - LaunchpadEngine registers markets without hooks
+  // The DynamicFeeHook is only used when explicitly registering via PoolKey struct
+  const effectiveHook = hookAddress || "0x0000000000000000000000000000000000000000" as Address;
 
   // V9 Market Key: keccak256(truthMarket, yesToken, noToken, hook)
   const marketKey = marketAddress && yesToken && noToken

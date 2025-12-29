@@ -280,15 +280,21 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                 )}
             </div>
 
-            {/* Stats Summary - Shows TOTAL market values, not just creator */}
+            {/* Stats Summary - Shows TOTAL market values with exchange rates */}
             <div className="bg-slate-900/20 rounded-lg p-4 border border-slate-800/30">
-                <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Market Floor</span>
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Ceiling Value</span>
-                </div>
-                <div className="flex justify-between items-baseline mb-4">
-                    <span className="text-2xl font-bold text-emerald-400 tracking-tight">{fmtUsd(marketFloorVal)}</span>
-                    <span className="text-xl font-bold text-white tracking-tight">{fmtUsd(marketCeilingVal)}</span>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* Floor */}
+                    <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
+                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">{fmtUsd(marketFloorVal)}</div>
+                        <div className="text-sm font-mono text-slate-400">{stats.floorRate.toFixed(3)}x</div>
+                    </div>
+                    {/* Ceiling */}
+                    <div className="text-right">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
+                        <div className="text-2xl font-bold text-white tracking-tight">{fmtUsd(marketCeilingVal)}</div>
+                        <div className="text-sm font-mono text-slate-400">{stats.ceilingRate.toFixed(3)}x</div>
+                    </div>
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-800/50 text-xs font-mono">

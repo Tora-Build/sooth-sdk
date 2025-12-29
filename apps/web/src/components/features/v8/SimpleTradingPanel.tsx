@@ -554,10 +554,10 @@ export const SimpleTradingPanel = ({
     if (!isQuoteValid) return quote.isLoading ? 'Loading Quote…' : 'Quote Unavailable';
     if (tradeMode === 'buy') {
       if (!hasEnoughBuyingPower) return 'Insufficient Balance';
-      return `Buy ${selectedOutcome === 1 ? 'YES' : 'NO'}`;
+      return `Buy ${selectedOutcome === 1 ? 'YES' : 'NO'} with ${quote.costFormatted}`;
     } else {
       if (!hasEnoughShares) return 'Insufficient Position';
-      return `Sell ${selectedOutcome === 1 ? 'YES' : 'NO'}`;
+      return `Sell ${selectedOutcome === 1 ? 'YES' : 'NO'} for ${quote.costFormatted}`;
     }
   };
 
@@ -723,7 +723,7 @@ export const SimpleTradingPanel = ({
             className={cn(
               "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
               tradeMode === 'buy'
-                ? selectedOutcome === 0
+                ? selectedOutcome === 1
                   ? "bg-emerald-600/30 text-emerald-400 ring-1 ring-emerald-500/50"
                   : "bg-rose-600/30 text-rose-400 ring-1 ring-rose-500/50"
                 : "text-slate-500 hover:text-slate-300"
@@ -845,7 +845,7 @@ export const SimpleTradingPanel = ({
                 className={cn(
                   'flex-1 py-1.5 text-xs font-mono rounded transition-colors',
                   amount === String(val)
-                    ? selectedOutcome === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                    ? selectedOutcome === 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
                     : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
                 )}
               >
@@ -856,23 +856,22 @@ export const SimpleTradingPanel = ({
 
         {/* Quote Summary - Pro style */}
         <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-500">Shares</span>
-            <span className="font-mono text-white">{quote.sharesFormatted}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-500">
-              {tradeMode === 'buy' ? 'Cost' : 'Proceeds'}
+          {/* USDC Amount - Primary Display */}
+          <div className="flex justify-between items-center">
+            <span className="text-slate-400 text-sm">
+              {tradeMode === 'buy' ? 'You Pay' : 'You Receive'}
             </span>
-            <span className={cn("font-mono", tradeMode === 'buy' ? "text-white" : "text-emerald-400")}>
-              {quote.isLoading ? <span className="skeleton w-16 h-4 inline-block rounded" /> : (isQuoteValid ? quote.costFormatted : '—')}
+            <span data-testid="quote-cost" className={cn("font-mono text-lg font-bold", tradeMode === 'buy' ? "text-white" : "text-emerald-400")}>
+              {quote.isLoading ? <span className="skeleton w-20 h-6 inline-block rounded" /> : (isQuoteValid ? quote.costFormatted : '—')}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">
-              Fee ({tradeMode === 'sell' ? '0.0%' : (quote.feeRate / 100).toFixed(1) + '%'})
+              Fee ({(quote.feeRate / 100).toFixed(1)}%)
             </span>
-            <span className="font-mono text-slate-400">{isQuoteValid ? quote.feeFormatted : '—'}</span>
+            <span data-testid="quote-fee" className="font-mono text-slate-400">
+              {isQuoteValid ? quote.feeFormatted : '—'}
+            </span>
           </div>
 
           {/* Liquidity (b) */}
@@ -926,15 +925,15 @@ export const SimpleTradingPanel = ({
           {isQuoteValid && (
             <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
               <span className="text-slate-500">
-                {selectedOutcome === 0 ? 'YES' : 'NO'} Price
+                {selectedOutcome === 1 ? 'YES' : 'NO'} Price
               </span>
               <div className="flex items-center gap-1">
                 <span className="font-mono text-slate-400">
-                  {(selectedOutcome === 0 ? yesPrice * 100 : noPrice * 100).toFixed(1)}%
+                  {(selectedOutcome === 1 ? yesPrice * 100 : noPrice * 100).toFixed(1)}%
                 </span>
                 <ArrowRight className="w-3 h-3 text-slate-600" />
-                <span className={cn("font-mono", selectedOutcome === 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                  {((selectedOutcome === 0 ? quote.newYesPrice : quote.newNoPrice) * 100).toFixed(1)}%
+                <span className={cn("font-mono", selectedOutcome === 1 ? 'text-emerald-400' : 'text-rose-400')}>
+                  {((selectedOutcome === 1 ? quote.newYesPrice : quote.newNoPrice) * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
@@ -962,7 +961,7 @@ export const SimpleTradingPanel = ({
               <div className="flex justify-between">
                 <span className="text-slate-500">Spendable Proceeds</span>
                 <span className="font-mono text-emerald-400">
-                  +${(Number(spendableProceeds) / 1e18).toFixed(2)}
+                  ${(Number(spendableProceeds) / 1e18).toFixed(2)}
                 </span>
               </div>
             )}
@@ -1009,10 +1008,11 @@ export const SimpleTradingPanel = ({
           <Button
             onClick={handleTrade}
             disabled={isButtonDisabled}
+            data-testid={tradeMode === 'buy' ? 'buy-button' : 'sell-button'}
             className={cn(
               "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
-              tradeMode === 'buy' && selectedOutcome === 0 && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
-              tradeMode === 'buy' && selectedOutcome === 1 && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
+              tradeMode === 'buy' && selectedOutcome === 1 && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
+              tradeMode === 'buy' && selectedOutcome === 0 && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
               tradeMode === 'sell' && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
               isButtonDisabled && "opacity-50 cursor-not-allowed"
             )}

@@ -117,16 +117,20 @@ export function useAMMQuoteDirect(
 
     const [costOrProceeds, newPrice] = quoteData as readonly [bigint, bigint];
     const feeRate = Number(launchpad.launchpad?.currentFeeBps ?? 500n);
-    const fee = isBuy ? (costOrProceeds * BigInt(feeRate)) / 10000n : 0n;
-    const totalCost = costOrProceeds + fee;
+    // V9.1: Both buy and sell have fees
+    // Buy: actualCost = baseCost + fee (fee added to cost)
+    // Sell: netProceeds = baseCost - fee (fee deducted from proceeds)
+    const fee = (costOrProceeds * BigInt(feeRate)) / 10000n;
+    const totalCost = isBuy ? costOrProceeds + fee : costOrProceeds - fee;
 
     const newYesPrice = Number(newPrice) / 1e18;
     const newNoPrice = 1 - newYesPrice;
 
-    const currentPrice = outcome === 0
+    // outcome: 1 = YES, 0 = NO
+    const currentPrice = outcome === 1
       ? (amm.amm?.yesProbability ?? 0.5)
       : (amm.amm?.noProbability ?? 0.5);
-    const targetNewPrice = outcome === 0 ? newYesPrice : newNoPrice;
+    const targetNewPrice = outcome === 1 ? newYesPrice : newNoPrice;
 
     let priceImpact = 0;
     if (currentPrice > 0) {

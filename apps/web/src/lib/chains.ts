@@ -210,3 +210,36 @@ export function isSolanaChain(chain: AllowedChain): boolean {
 
 // Default chain (Base Sepolia)
 export const DEFAULT_CHAIN_ID = 84532;
+
+/**
+ * Get recommended refetch interval for a chain
+ * Different chains have different rate limits and block times
+ */
+export function getRefetchInterval(chainId: number): number {
+  switch (chainId) {
+    case 4326: // MegaETH Frontier - rate limited RPC
+      return 8_000;
+    case 10143: // Monad Testnet - rate limited (25 rps via QuickNode)
+      return 5_000;
+    case 84532: // Base Sepolia - reliable public RPC
+      return 4_000;
+    default:
+      return 5_000;
+  }
+}
+
+/**
+ * Get recommended stale time for a chain
+ */
+export function getStaleTime(chainId: number): number {
+  switch (chainId) {
+    case 4326: // MegaETH Frontier
+      return 5_000;
+    case 10143: // Monad Testnet
+      return 3_000;
+    case 84532: // Base Sepolia
+      return 2_000;
+    default:
+      return 3_000;
+  }
+}

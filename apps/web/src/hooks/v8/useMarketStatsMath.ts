@@ -26,6 +26,7 @@ interface LaunchpadData {
 interface AMMStateData {
     qYes: bigint;
     qNo: bigint;
+    lockedProceeds?: bigint; // USDC balance of AMMEngine (total locked proceeds)
 }
 
 const LN2 = 0.693147180559945309;
@@ -57,6 +58,7 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
 
         const seed = launchpad.creatorDeposit;
         const fees = launchpad.feesAccrued;
+        const lpYieldPool = launchpad.lpYieldPool;
 
         const bCurrent = launchpad.currentBBase;
         const bBase = launchpad.initialBBase;
@@ -71,10 +73,15 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
         const pnlNum = currentCostNum - initialCostNum;
         const pnl = parseUnits(pnlNum.toFixed(usdcDecimals), usdcDecimals);
 
-        // 2. Gross Cash = Seed + Fees + P&L
-        // Seed is the original bBase * ln(2)
-        // Fees are accrued from trades
-        // P&L is current cost deviation
+        // 2. Cash = MaxLoss + Yield + P&L
+        // MaxLoss = bCurrent × ln(2) (LMSR max loss capacity)
+        // Yield = lpYieldPool (accumulated LP yield)
+        // P&L = pnl (current cost deviation)
+        const maxLossNum = Number(formatUnits(bCurrent, 18)) * LN2;
+        const maxLoss = parseUnits(maxLossNum.toFixed(usdcDecimals), usdcDecimals);
+        const cash = maxLoss + lpYieldPool + pnl;
+
+        // Keep gross for backwards compatibility (Seed + Fees + P&L)
         const gross = seed + fees + pnl;
 
         // 3. Liability = max(qYes, qNo) - worst case payout
@@ -82,12 +89,12 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
         const qNoUsdc = usdcDecimals === 18 ? rawQNo : rawQNo / (wad / usdcFactor);
         const liability = qYesUsdc > qNoUsdc ? qYesUsdc : qNoUsdc;
 
-        // 4. Floor = Gross - max(qYes, qNo) - guaranteed LP equity
-        const floor = gross > liability ? gross - liability : 0n;
+        // 4. Floor = Cash - max(qYes, qNo) - guaranteed LP equity
+        const floor = cash > liability ? cash - liability : 0n;
 
-        // 5. Ceiling = Gross - min(qYes, qNo) - best case LP equity
+        // 5. Ceiling = Cash - min(qYes, qNo) - best case LP equity
         const minLiability = qYesUsdc < qNoUsdc ? qYesUsdc : qNoUsdc;
-        const ceilingEquity = gross > minLiability ? gross - minLiability : 0n;
+        const ceilingEquity = cash > minLiability ? cash - minLiability : 0n;
 
         // 6. Supply & Rates
         const supply = launchpad.lpSupply;
@@ -102,11 +109,21 @@ export const useMarketStatsMath = (launchpad: LaunchpadData | undefined, ammStat
         // 8. Liquidity growth = bCurrent - bBase (from fee reinvestment)
         const liquidityGrowth = bCurrent > bBase ? bCurrent - bBase : 0n;
 
+        // 9. TVL = Cash + Locked
+        // Locked = Total spendable proceeds in AMMEngine (USDC balance of AMMEngine)
+        const lockedProceeds = ammState.lockedProceeds ?? 0n;
+        const tvl = cash + lockedProceeds;
+
         return {
             seed,
             fees,
             pnl,
             gross,
+            lpYieldPool,
+            maxLoss,
+            cash,
+            lockedProceeds,
+            tvl,
             liability,
             floor,
             ceilingEquity,
