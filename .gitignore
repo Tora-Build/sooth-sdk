@@ -49,3 +49,6 @@ apps/web/.metamask/
 generated/
 graph-data/
 
+
+# Playwright test results
+apps/web/test-results/
