@@ -1,0 +1,14 @@
+{
+  "id": "megaeth-deployment",
+  "category": "Core",
+  "title": "Deploy V9.0 to MegaETH",
+  "description": "Port V9.0 architecture to MegaETH testnet with address synchronization and deployment verification.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "moderate",
+  "dependencies": [
+    "monad-v9-deployment"
+  ],
+  "createdAt": "2025-12-29T01:42:09.819Z",
+  "updatedAt": "2025-12-29T01:42:09.819Z"
+}

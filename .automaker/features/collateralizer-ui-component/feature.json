@@ -1,0 +1,12 @@
+{
+  "id": "collateralizer-ui-component",
+  "category": "UI",
+  "title": "Atomic Split/Merge Collateralizer UI",
+  "description": "Build intuitive component for 1:1 atomic token split (USDC to YES+NO) and merge operations with visual balance updates.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "simple",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.814Z",
+  "updatedAt": "2025-12-29T01:42:09.814Z"
+}

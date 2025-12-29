@@ -16,7 +16,7 @@ import {
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
-import { MarketHeader } from '../components/features/v8';
+import { MarketHeader, GraduationProgress } from '../components/features/v8';
 import {
   useLaunchpadMarketDirect,
   useCollateralizerDirect,
@@ -608,7 +608,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   // Get all V8 markets
   const allMarkets = useMemo(() => {
     return marketsConfig.markets?.filter(m =>
-      m.chainId === chainId && m.version.startsWith('v8')
+      m.chainId === chainId && m.version.startsWith('v')
     ) || [];
   }, [chainId]);
 
@@ -833,6 +833,10 @@ const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipP
   const { tickBook } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
   const isCreated = launchpad?.isCreated;
   const isGraduated = launchpad?.isGraduated;
+  const isReady = launchpad ? (launchpad.canGraduate || (launchpad.graduationProgress ?? 0) >= 100) : false;
+  // effectively graduated if flag is set OR if fees are sufficient (handles stale data)
+  const isEffectiveGraduated = !!isCreated && (!!isGraduated || isReady);
+
   const bookPrice = tickBook?.probability ?? 0.5;
   const hasReportedRef = React.useRef(false);
 
@@ -840,13 +844,13 @@ const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipP
   React.useEffect(() => {
     if (!isLoading && !hasReportedRef.current) {
       hasReportedRef.current = true;
-      // Only count as graduated if both created AND graduated
-      onLoaded?.(market.contractAddress, !!isCreated && !!isGraduated);
+      // Only count as graduated if both created AND graduated (or ready)
+      onLoaded?.(market.contractAddress, isEffectiveGraduated);
     }
-  }, [isLoading, isCreated, isGraduated, onLoaded, market.contractAddress]);
+  }, [isLoading, isEffectiveGraduated, onLoaded, market.contractAddress]);
 
   // Filter out non-graduated markets - only show created AND graduated ones
-  if (!isLoading && (!isCreated || !isGraduated)) {
+  if (!isLoading && !isEffectiveGraduated) {
     return null;
   }
 
@@ -1024,7 +1028,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   // Data
   const { v8Markets, selectedMarket } = useMemo(() => {
-    const markets = marketsConfig.markets.filter(m => m.version.startsWith('v8') && m.chainId === chainId);
+    const markets = marketsConfig.markets.filter(m => m.version.startsWith('v') && m.chainId === chainId);
     return {
       v8Markets: markets,
       selectedMarket: markets.find(m => m.contractAddress.toLowerCase() === marketId.toLowerCase())
@@ -1033,7 +1037,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
   const invalidateV8Queries = useInvalidateV8Queries();
-  const { launchpad } = useLaunchpadMarketDirect(marketAddr);
+  const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
@@ -1401,15 +1405,14 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               args: [tickBook.marketKey, outcome, tickLow, tickHigh, amountBg]
             });
           } else if (hasNoShares) {
-            // SHORT SELL LIMIT: Place range order on opposite side
-            // "Sell YES" without shares → want NO tokens → outcome=0
-            // "Sell NO" without shares → want YES tokens → outcome=1
+            // SHORT SELL LIMIT: No shares, place limit order to buy opposite outcome
+            // This is effectively a limit order to BUY NO (if selling YES)
             const oppositeOutcome = isYes ? 0 : 1;
             hash = await writeContractAsync({
               address: contracts.TickBook as `0x${string}`,
               abi: V8_ABIS.TickBook,
               functionName: 'placeRangeOrder',
-              args: [tickBook.marketKey, oppositeOutcome, tickLow, tickHigh, amountBg]
+              args: [tickBook.marketKey, oppositeOutcome, 1000 - tickHigh, 1000 - tickLow, amountBg]
             });
           } else {
             // HYBRID not supported for limit orders - prompt user
@@ -1448,14 +1451,30 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     }
   };
 
-  // Not graduated
-  if (!launchpad?.isGraduated && !isTickBookLoading) {
+  const isReady = launchpad ? (launchpad.canGraduate || (launchpad.graduationProgress ?? 0) >= 100) : false;
+
+  // Not graduated - only show if NOT loading AND NOT ready
+  // (If ready, we allow access to terminal to handle stale isGraduated flag)
+  if (!launchpad?.isGraduated && !isReady && !isLoadingLaunchpad && !isTickBookLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="max-w-md p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
           <Zap className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Pro Trading Locked</h2>
           <p className="text-slate-400 mb-6">This market hasn't graduated yet. Trade on the AMM first.</p>
+
+          {launchpad && (
+            <div className="mb-8 text-left bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+              <GraduationProgress
+                feesAccrued={launchpad.feesAccrued ?? 0n}
+                graduationThreshold={launchpad.graduationThreshold ?? 0n}
+                graduationProgress={launchpad.graduationProgress ?? 0}
+                isGraduated={false}
+                canGraduate={launchpad.canGraduate ?? false}
+              />
+            </div>
+          )}
+
           <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-amber-600 hover:bg-amber-500 text-white">
             Go to AMM Trading
           </Button>

@@ -49,19 +49,7 @@ contract DeployV9LaunchpadAndRegister is Script {
         );
         console.log("LaunchpadEngine deployed at:", address(launchpad));
 
-        // 2. Register markets on TickBookPoolManager
-        // Initial probability: 50% = 500e15 (0.5 WAD)
-        uint256 initialProb = 500e15;
-        
-        ITickBook poolManager = ITickBook(POOL_MANAGER);
-        
-        // Register ALIEN market
-        poolManager.registerMarket(ALIEN_MARKET, ALIEN_YES, ALIEN_NO, initialProb);
-        console.log("Registered ALIEN market");
-        
-        // Register BTC100K market
-        poolManager.registerMarket(BTC100K_MARKET, BTC100K_YES, BTC100K_NO, initialProb);
-        console.log("Registered BTC100K market");
+
 
         vm.stopBroadcast();
 

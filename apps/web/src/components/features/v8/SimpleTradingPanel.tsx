@@ -43,7 +43,8 @@ export const SimpleTradingPanel = ({
   const { available: spendableProceeds } = useAvailableBalance(ammEngineAddress);
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-  const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(0);
+  // Contract State: 1 = YES, 0 = NO
+  const [selectedOutcome, setSelectedOutcome] = useState<0 | 1>(1);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('10');
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -200,7 +201,8 @@ export const SimpleTradingPanel = ({
 
   const yesPositionWad = ammPosition?.yesShares ?? 0n;
   const noPositionWad = ammPosition?.noShares ?? 0n;
-  const maxSellWad = selectedOutcome === 0 ? yesPositionWad : noPositionWad;
+  // 1=YES, 0=NO
+  const maxSellWad = selectedOutcome === 1 ? yesPositionWad : noPositionWad;
 
   const walletUsdcToken = (usdcBalance as bigint | undefined) ?? 0n;
   const walletWad = useMemo(() => {
@@ -363,7 +365,7 @@ export const SimpleTradingPanel = ({
     if (!isConnected) return;
 
     if (tradeMode === 'sell') {
-      const sellable = selectedOutcome === 0 ? yesPositionWad : noPositionWad;
+      const sellable = selectedOutcome === 1 ? yesPositionWad : noPositionWad;
       if (sellable <= 0n) {
         setAmount('0');
         setAmountError('No position to sell.');
@@ -383,7 +385,7 @@ export const SimpleTradingPanel = ({
     }
 
     const feeRateBps = Number(launchpad?.currentFeeBps ?? 500n);
-    const price = selectedOutcome === 0 ? yesPrice : noPrice;
+    const price = selectedOutcome === 1 ? yesPrice : noPrice;
     const priceWad = BigInt(Math.max(1, Math.floor(price * 1e18)));
 
     const capSharesWad = 1_000_000n * 10n ** 18n;
@@ -499,7 +501,7 @@ export const SimpleTradingPanel = ({
     const tradeInfo = {
       mode: tradeMode,
       shares: sharesNum.toString(),
-      outcome: selectedOutcome === 0 ? 'YES' : 'NO'
+      outcome: selectedOutcome === 1 ? 'YES' : 'NO'
     };
 
     try {
@@ -552,10 +554,10 @@ export const SimpleTradingPanel = ({
     if (!isQuoteValid) return quote.isLoading ? 'Loading Quote…' : 'Quote Unavailable';
     if (tradeMode === 'buy') {
       if (!hasEnoughBuyingPower) return 'Insufficient Balance';
-      return `Buy ${selectedOutcome === 0 ? 'YES' : 'NO'}`;
+      return `Buy ${selectedOutcome === 1 ? 'YES' : 'NO'}`;
     } else {
       if (!hasEnoughShares) return 'Insufficient Position';
-      return `Sell ${selectedOutcome === 0 ? 'YES' : 'NO'}`;
+      return `Sell ${selectedOutcome === 1 ? 'YES' : 'NO'}`;
     }
   };
 
@@ -574,10 +576,10 @@ export const SimpleTradingPanel = ({
       {/* Primary Toggle: YES / NO - tab style with underline */}
       <div className="flex border-b border-slate-800/50">
         <button
-          onClick={() => setSelectedOutcome(0)}
+          onClick={() => setSelectedOutcome(1)}
           className={cn(
             "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
-            selectedOutcome === 0
+            selectedOutcome === 1
               ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5"
               : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
           )}
@@ -585,10 +587,10 @@ export const SimpleTradingPanel = ({
           YES
         </button>
         <button
-          onClick={() => setSelectedOutcome(1)}
+          onClick={() => setSelectedOutcome(0)}
           className={cn(
             "flex-1 py-3 font-bold text-sm uppercase tracking-wider transition-all",
-            selectedOutcome === 1
+            selectedOutcome === 0
               ? "text-rose-400 border-b-2 border-rose-500 bg-rose-500/5"
               : "text-slate-500 hover:text-slate-300 border-b-2 border-transparent"
           )}
@@ -868,7 +870,7 @@ export const SimpleTradingPanel = ({
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">
-              Fee ({(quote.feeRate / 100).toFixed(1)}%)
+              Fee ({tradeMode === 'sell' ? '0.0%' : (quote.feeRate / 100).toFixed(1) + '%'})
             </span>
             <span className="font-mono text-slate-400">{isQuoteValid ? quote.feeFormatted : '—'}</span>
           </div>

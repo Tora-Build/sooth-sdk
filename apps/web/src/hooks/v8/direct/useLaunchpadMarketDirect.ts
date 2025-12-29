@@ -68,7 +68,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
       ]);
 
       const isCreated = creator !== ZERO_ADDRESS;
-      const currentFeeBps = isGraduated ? postGradFeeBps : preGradFeeBps;
+
 
       const [feesAccrued, graduationThreshold, progressBps] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
         address: launchpadEngineAddress!,
@@ -76,6 +76,10 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         functionName: "getGraduationProgress",
         args: [marketAddress!],
       });
+
+      // Calculate effective graduation (handling stale RPC data)
+      const isEffectiveGraduated = isGraduated || (!!progressBps && progressBps >= 10000n);
+      const currentFeeBps = isEffectiveGraduated ? postGradFeeBps : preGradFeeBps;
 
       const userLpBalance = userAddress
         ? await readContractSafe<bigint>(client, {
@@ -114,7 +118,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         feesAccrued: feesAccrued ?? feesAccruedFromMarket,
         lpSupply: totalLPSupply,
         lpYieldPool,
-        isGraduated,
+        isGraduated: isEffectiveGraduated,
         createdAt,
         graduatedAt,
         name: marketName,
@@ -127,7 +131,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         postGradFeeBps,
         currentFeeBps,
         graduationMultiplier,
-        canGraduate: progressBps >= 10000n && !isGraduated,
+        canGraduate: (progressBps ? progressBps >= 10000n : false) && !isEffectiveGraduated,
         hasLpTokens: (userLpBalance ?? 0n) > 0n,
         hasAccruedFees: (feesAccrued ?? feesAccruedFromMarket) > 0n,
       };

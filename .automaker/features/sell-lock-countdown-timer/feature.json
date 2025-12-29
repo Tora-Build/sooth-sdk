@@ -1,0 +1,14 @@
+{
+  "id": "sell-lock-countdown-timer",
+  "category": "UI",
+  "title": "24-Hour FIFO Sell Lock Timer",
+  "description": "Display intuitive countdown timers for each position's 24-hour FIFO sell lock with visual progress indicators and unlock notifications.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "simple",
+  "dependencies": [
+    "position-management-dashboard"
+  ],
+  "createdAt": "2025-12-29T01:42:09.813Z",
+  "updatedAt": "2025-12-29T01:42:09.813Z"
+}

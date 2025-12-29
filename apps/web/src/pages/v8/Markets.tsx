@@ -21,20 +21,20 @@ export const Markets = () => {
   // Get V8 markets from config for the current chain
   const allMarkets = useMemo(() => {
     return marketsConfig.markets?.filter(m =>
-      m.chainId === chainId && m.version.startsWith('v8')
+      m.chainId === chainId && m.version.startsWith('v')
     ) || [];
   }, [chainId]);
 
   // Filter by search and category
   const filteredMarkets = useMemo(() => {
     return allMarkets.filter(m => {
-      const matchesSearch = !search || 
+      const matchesSearch = !search ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
-      
-      const matchesCategory = category === 'all' || 
+
+      const matchesCategory = category === 'all' ||
         m.category?.toLowerCase() === category.toLowerCase();
-      
+
       return matchesSearch && matchesCategory;
     });
   }, [allMarkets, search, category]);
@@ -43,8 +43,8 @@ export const Markets = () => {
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
-      count: cat.id === 'all' 
-        ? allMarkets.length 
+      count: cat.id === 'all'
+        ? allMarkets.length
         : allMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
     }));
   }, [allMarkets]);
@@ -90,7 +90,7 @@ const EmptyState = ({ search }: { search?: string }) => (
       {search ? 'No markets found' : 'No V8 Markets Yet'}
     </h3>
     <p className="text-slate-400 mb-6 max-w-md mx-auto">
-      {search 
+      {search
         ? `No markets match "${search}". Try a different search term.`
         : 'V8 markets will appear here once deployed.'
       }

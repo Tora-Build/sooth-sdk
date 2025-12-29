@@ -6,8 +6,8 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  PlusCircle, Coins, Scale, GraduationCap, Clock, 
+import {
+  PlusCircle, Coins, Scale, GraduationCap, Clock,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
   ExternalLink, ChevronRight, Calendar, DollarSign, Loader2
 } from 'lucide-react';
@@ -134,7 +134,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
               <span>{isGraduated ? '100' : graduationProgress.toFixed(0)}%</span>
             </div>
             <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all"
                 style={{ width: `${isGraduated ? 100 : Math.min(100, graduationProgress)}%` }}
               />
@@ -269,7 +269,7 @@ export const Create = () => {
   const config = useConfig();
   const navigate = useNavigate();
   const deployments = useDeployments();
-  
+
   const [activeTab, setActiveTab] = useState<Tab>('markets');
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardData, setWizardData] = useState({
@@ -279,16 +279,16 @@ export const Create = () => {
     adjudicator: '',
     guardian: '',
   });
-  
+
   // Deployment state
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployedMarketAddress, setDeployedMarketAddress] = useState<`0x${string}` | null>(null);
   const [deploymentStep, setDeploymentStep] = useState<'idle' | 'approve' | 'deploying' | 'creating' | 'done' | 'error'>('idle');
-  
+
   // Contract addresses
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
   const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
-  
+
   // USDC allowance check
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: usdcAddress,
@@ -297,30 +297,30 @@ export const Create = () => {
     args: userAddress && launchpadEngineAddress ? [userAddress, launchpadEngineAddress] : undefined,
     query: { enabled: !!userAddress && !!launchpadEngineAddress && !!usdcAddress }
   });
-  
+
   // Approve USDC
   const { writeContract: writeApprove, data: approveTxHash, isPending: isApprovePending } = useWriteContract();
   const { isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({ hash: approveTxHash });
-  
+
   // Create market
   const { writeContract: writeCreate, data: createTxHash, isPending: isCreatePending } = useWriteContract();
   const { isSuccess: isCreateConfirmed } = useWaitForTransactionReceipt({ hash: createTxHash });
-  
+
   // Calculate deposit based on liquidity (b)
   const depositAmount = Math.floor(parseInt(wizardData.liquidity) * 0.693);
-  const depositAmountWei = BigInt(depositAmount) * 10n**18n;
+  const depositAmountWei = BigInt(depositAmount) * 10n ** 18n;
   const isApproved = allowance !== undefined && allowance >= depositAmountWei;
-  
+
   // Handle deploy market
   const handleDeployMarket = useCallback(async () => {
     if (!wizardData.question || !wizardData.deadline || !launchpadEngineAddress) {
       toast.error('Please fill in all required fields');
       return;
     }
-    
+
     try {
       setIsDeploying(true);
-      
+
       // Step 1: Check/request approval if needed
       if (!isApproved) {
         setDeploymentStep('approve');
@@ -333,37 +333,37 @@ export const Create = () => {
         toast('Approving USDC...');
         return; // Will continue after approval confirmed
       }
-      
+
       // Step 2: Deploy TruthMarket
       setDeploymentStep('deploying');
       toast('Deploying TruthMarket contract...');
-      
+
       const deadline = Math.floor(new Date(wizardData.deadline).getTime() / 1000);
       const adjudicatorAddr = (wizardData.adjudicator || userAddress!) as `0x${string}`;
       const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
-      
+
       const truthMarketAddr = await deployContract(config, {
         abi: V8_ABIS.TruthMarket,
         bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
         args: [wizardData.question, BigInt(deadline), adjudicatorAddr, guardianAddr],
       });
-      
+
       toast.success(`TruthMarket deployed: ${truthMarketAddr.slice(0, 10)}...`);
-      
+
       // Step 3: Create in LaunchpadEngine
       setDeploymentStep('creating');
       toast('Initializing in LaunchpadEngine...');
-      
-      const liquidityWei = BigInt(wizardData.liquidity) * 10n**18n;
+
+      const liquidityWei = BigInt(wizardData.liquidity) * 10n ** 18n;
       writeCreate({
         address: launchpadEngineAddress,
         abi: V8_ABIS.LaunchpadEngine,
         functionName: 'createMarket',
         args: [truthMarketAddr, liquidityWei, wizardData.question.slice(0, 50), wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '')],
       });
-      
+
       setDeployedMarketAddress(truthMarketAddr);
-      
+
     } catch (err: any) {
       console.error('Deployment failed:', err);
       toast.error(err.message || 'Deployment failed');
@@ -371,14 +371,14 @@ export const Create = () => {
       setIsDeploying(false);
     }
   }, [wizardData, launchpadEngineAddress, usdcAddress, userAddress, isApproved, config, writeApprove, writeCreate]);
-  
+
   // Continue deployment after approval
   const handleContinueAfterApproval = useCallback(async () => {
     await refetchAllowance();
     setDeploymentStep('idle');
     handleDeployMarket();
   }, [refetchAllowance, handleDeployMarket]);
-  
+
   // Handle successful create
   if (isCreateConfirmed && deployedMarketAddress && deploymentStep === 'creating') {
     setDeploymentStep('done');
@@ -388,8 +388,8 @@ export const Create = () => {
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m => 
-      m.version.startsWith('v8') && m.chainId === chainId
+    return marketsConfig.markets.filter(m =>
+      m.version.startsWith('v') && m.chainId === chainId
     );
   }, [chainId]);
 
@@ -415,14 +415,14 @@ export const Create = () => {
   // Process roles data
   const marketRoles = useMemo(() => {
     if (!rolesData || !userAddress) return [];
-    
+
     return v8Markets.map((m, i) => {
       const creator = rolesData[i * 2]?.result as string;
       const adjudicator = rolesData[i * 2 + 1]?.result as string;
-      
+
       const isCreator = creator?.toLowerCase() === userAddress.toLowerCase();
       const isAdjudicator = adjudicator?.toLowerCase() === userAddress.toLowerCase();
-      
+
       return {
         ...m,
         isCreator,
@@ -510,11 +510,10 @@ export const Create = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-indigo-500 text-white'
                   : 'border-transparent text-slate-400 hover:text-slate-300'
-              }`}
+                }`}
             >
               <tab.icon className="w-4 h-4" />
               <span>{content.tabs[tab.id as keyof typeof content.tabs]}</span>
@@ -556,7 +555,7 @@ export const Create = () => {
                 <p className="text-slate-400 mb-6">
                   {content.emptyMarkets.description}
                 </p>
-                <Button 
+                <Button
                   variant="primary"
                   onClick={() => setActiveTab('create')}
                 >
@@ -599,14 +598,12 @@ export const Create = () => {
               <div className="flex items-center justify-between mb-8">
                 {[1, 2, 3, 4].map(step => (
                   <div key={step} className="flex items-center">
-                    <div className={`progress-step ${
-                      step < wizardStep ? 'completed' :
-                      step === wizardStep ? 'current' : 'pending'
-                    }`} />
-                    {step < 4 && (
-                      <div className={`w-16 h-0.5 ${
-                        step < wizardStep ? 'bg-indigo-500' : 'bg-slate-700'
+                    <div className={`progress-step ${step < wizardStep ? 'completed' :
+                        step === wizardStep ? 'current' : 'pending'
                       }`} />
+                    {step < 4 && (
+                      <div className={`w-16 h-0.5 ${step < wizardStep ? 'bg-indigo-500' : 'bg-slate-700'
+                        }`} />
                     )}
                   </div>
                 ))}
@@ -652,7 +649,7 @@ export const Create = () => {
                 <p className="text-slate-400 text-sm mb-4">
                   {content.wizard.l.description}
                 </p>
-                
+
                 {/* Fixed tier buttons - deposit amounts with b shown as secondary */}
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   {[
@@ -666,18 +663,15 @@ export const Create = () => {
                       <button
                         key={b}
                         onClick={() => setWizardData(prev => ({ ...prev, liquidity: b }))}
-                        className={`p-4 rounded-xl border-2 text-center transition-all ${
-                          isSelected
+                        className={`p-4 rounded-xl border-2 text-center transition-all ${isSelected
                             ? 'border-indigo-500 bg-indigo-500/20'
                             : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                        }`}
+                          }`}
                       >
-                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${
-                          isSelected ? 'text-indigo-400' : 'text-slate-500'
-                        }`} />
-                        <p className={`font-bold text-lg ${
-                          isSelected ? 'text-white' : 'text-slate-400'
-                        }`}>
+                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-indigo-400' : 'text-slate-500'
+                          }`} />
+                        <p className={`font-bold text-lg ${isSelected ? 'text-white' : 'text-slate-400'
+                          }`}>
                           ${deposit.toLocaleString()}
                         </p>
                         <p className="text-xs text-slate-500 mt-1">
@@ -687,7 +681,7 @@ export const Create = () => {
                     );
                   })}
                 </div>
-                
+
                 {/* Custom deposit input - user enters deposit, we calculate b */}
                 <div className="p-4 rounded-xl border-2 border-slate-700 bg-slate-800/30">
                   <div className="flex items-center gap-3">
@@ -714,7 +708,7 @@ export const Create = () => {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
                   <AlertTriangle className="w-4 h-4 text-amber-400 inline mr-2" />
                   <span className="text-amber-200">
@@ -803,7 +797,7 @@ export const Create = () => {
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   {content.wizard.review.transactionDesc}
                 </div>
-                
+
                 {/* Validation warnings */}
                 {(!wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress) && (
                   <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300">
@@ -834,8 +828,8 @@ export const Create = () => {
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 ) : deploymentStep === 'done' && deployedMarketAddress ? (
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     onClick={() => navigate(`/trade/${deployedMarketAddress}`)}
                     className="bg-emerald-600 hover:bg-emerald-500"
                   >
@@ -843,16 +837,16 @@ export const Create = () => {
                     View Market
                   </Button>
                 ) : isApproveConfirmed && deploymentStep === 'approve' ? (
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     onClick={handleContinueAfterApproval}
                   >
                     <ChevronRight className="w-4 h-4 mr-2" />
                     Continue Deployment
                   </Button>
                 ) : (
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     onClick={handleDeployMarket}
                     disabled={isDeploying || !wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress}
                   >
@@ -860,8 +854,8 @@ export const Create = () => {
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         {deploymentStep === 'approve' ? 'Approving USDC...' :
-                         deploymentStep === 'deploying' ? 'Deploying TruthMarket...' :
-                         deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
+                          deploymentStep === 'deploying' ? 'Deploying TruthMarket...' :
+                            deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
                       </>
                     ) : !isApproved ? (
                       <>

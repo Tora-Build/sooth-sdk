@@ -20,7 +20,7 @@ import { Badge } from '../components/ui/Badge';
 import { ERC20_ABI, V8_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 
-const CURRENT_VERSION_PREFIX = 'v8.8'; // Current canonical version
+const CURRENT_VERSION_PREFIX = 'v9.0'; // Current canonical version
 
 // --- Components ---
 
@@ -303,7 +303,7 @@ export const Portfolio = () => {
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
       m.chainId === chainId &&
-      m.version.startsWith('v8')
+      m.version.startsWith('v')
     );
   }, [chainId]);
 
@@ -683,7 +683,10 @@ export const Portfolio = () => {
                           </span>
                           {!isUnlocked && (
                             <div className="text-[8px] text-slate-600 font-mono">
-                              {Math.ceil(item.timeUntilUnlock / (1000 * 60 * 60 * 24))}d remaining
+                              {item.timeUntilUnlock < 86400000
+                                ? `${Math.ceil(item.timeUntilUnlock / 3600000)}h remaining`
+                                : `${Math.ceil(item.timeUntilUnlock / 86400000)}d remaining`
+                              }
                             </div>
                           )}
                         </div>
@@ -767,11 +770,11 @@ export const Portfolio = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V8.6 Hardened</p>
+                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V9.0 Unified (Shared AMM)</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sooth V8 implements a dual-account system. The <span className="text-emerald-400">AMM Engine</span> manages bonding curve liquidity and LP positions. The <span className="text-indigo-400">Trader Vault</span> provides margin for continuous limit orders on the TickBook. Positions can be held as internal shares or withdrawn to the wallet as standard outcome shares.
+                Sooth V9 uses a singleton Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) for new market creation and fee management. Core liquidity and balances are maintained in the shared AMM Engine (`{ammEngineAddress?.slice(0, 6)}...`), preserving your existing V8 positions and lock history.
               </p>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">

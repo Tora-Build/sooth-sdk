@@ -1,0 +1,14 @@
+{
+  "id": "contract-verification-basescan",
+  "category": "Core",
+  "title": "Verify V9.0 Contracts on Basescan",
+  "description": "Verify all V9.0 contracts on Basescan and other block explorers for transparency. Implement automated verification in deployment scripts.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "simple",
+  "dependencies": [
+    "monad-v9-deployment"
+  ],
+  "createdAt": "2025-12-29T01:42:09.803Z",
+  "updatedAt": "2025-12-29T01:42:09.803Z"
+}

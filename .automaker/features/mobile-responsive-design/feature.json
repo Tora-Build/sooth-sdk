@@ -1,0 +1,12 @@
+{
+  "id": "mobile-responsive-design",
+  "category": "UI",
+  "title": "Mobile-First Responsive Design",
+  "description": "Audit and enhance all pages for mobile responsiveness with touch-friendly trading controls and optimized layouts.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "moderate",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.820Z",
+  "updatedAt": "2025-12-29T01:42:09.820Z"
+}

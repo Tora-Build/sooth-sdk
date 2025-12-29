@@ -1,0 +1,12 @@
+{
+  "id": "market-discovery-filters",
+  "category": "UI",
+  "title": "Advanced Market Discovery Filters",
+  "description": "Add filtering, sorting, and search capabilities to Markets page including status, volume, creator, outcome probability, and creation date.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "simple",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.810Z",
+  "updatedAt": "2025-12-29T01:42:09.810Z"
+}

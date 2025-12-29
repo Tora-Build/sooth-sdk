@@ -1,0 +1,12 @@
+{
+  "id": "retroactive-settlement-ui",
+  "category": "UI",
+  "title": "Retroactive Settlement Timeline UI",
+  "description": "Build interactive timeline component showing market lifecycle with truth time (T*) markers, settlement events, and retroactive adjustments.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.806Z",
+  "updatedAt": "2025-12-29T01:42:09.806Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "position-management-dashboard",
+  "category": "UI",
+  "title": "Enhanced Portfolio Position Management",
+  "description": "Build detailed position tracking with dual-balance YES/NO holdings visualization, PnL calculations, and position history timeline.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.813Z",
+  "updatedAt": "2025-12-29T01:42:09.813Z"
+}

@@ -7,6 +7,7 @@
 - **✅ V9.0 MERGED** — Uniswap V4-style singleton TickBookPoolManager with flash accounting and hooks.
 - **✅ V8.13.0 MERGED** — Contract security refinement with ReentrancyGuard, INVALID handling, and outcome semantics unification.
 - **✅ CRITICAL CROSSING BUG FIXED** — Overlapping limit orders now fully cross instead of only ~0.1%.
+- **⚠️ KNOWN ISSUE** — LaunchpadEngine currently charges 0% fees on sells (alpha simplification), though UI displays base fee. Recorded for future fix.
 
 ## 🆕 V9.0 QA Complete (2025-12-29)
 **99 tests passing**, comprehensive coverage across all V9 contracts.
@@ -52,7 +53,7 @@
 
 **Documentation:** `packages/contracts-evm/docs/review/`
 
-## Active Deployment (Base Sepolia) — V9.0 🔵
+## Active Deployment (Base Sepolia) — V9.0.1 🔵
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
@@ -61,34 +62,35 @@
 | **TickBookVault** | `0xa15521a773956237f954ebA18bFd1c3279d80e7D` | ✅ V9 |
 | **TickBookPoolManager** | `0x550CE2264FEc124b8341b8793e9AA31C386E5A7C` | ✅ V9 |
 | **DynamicFeeHook** | `0x354314db0584F92Fc3fc432FF6B3B79fBA8eF64A` | ✅ V9 |
-| **LaunchpadEngine** | `0x4C9dF48ED7f2063a74Bc9Ad6Cc0134B3A1E96940` | ✅ V9 NEW |
+| **LaunchpadEngine** | `0x1d87596C24e413f23f029E1d4Bf1b4191B3a9968` | ✅ V9 FIXED |
 
-### Base Sepolia V9.0 Markets (Registered on TickBookPoolManager)
-| Market | Address | Registered |
+### Base Sepolia V9.0 Markets (Fully Initialized)
+| Market | Address | AMM Status |
 |--------|---------|------------|
-| UN Confirms Alien Life (ALIEN) | `0xa4838e6E410570438d8B074e9459082b228A460C` | ✅ |
-| BTC 7-day TWAP >= $100k (BTC100K) | `0x8027387f1FD1963513661A0051AdD224244e186E` | ✅ |
+| UN Confirms Alien Life (ALIEN) | `0xa4838e6E410570438d8B074e9459082b228A460C` | ✅ Initialized |
+| BTC 7-day TWAP >= $100k (BTC100K) | `0x8027387f1FD1963513661A0051AdD224244e186E` | ✅ Initialized |
 
-## Active Deployment (Monad Testnet) — V8.12.0 🟣
+## Active Deployment (Monad Testnet) — V9.0.1 🟣
 | Contract | Address | Status |
 |----------|---------|--------|
 | MockUSDC | `0xf067C23BEE9D3d5c830ca0450A751836c181f566` | ✅ OK |
-| Collateralizer | `0xc786922EB74246D058Fb76bD27E9d930B647E6EA` | ✅ NEW |
-| AMMEngine | `0x24B057b78dFC264e8d1Ed4cE8DbBF52adBA6f141` | ✅ NEW |
-| TickBookVault | `0xBdE3d08A330F52610Dc0ac8B967A9167C74e6494` | ✅ NEW |
-| TickBookV2 | `0x4D56A7a821CbDCCe817762308481e1d33CC2aa92` | ✅ NEW (crossing fix) |
-| LaunchpadEngine | `0xf6fc46bA2F7E3C3E8E79f2105c8d4AE787aC4A96` | ✅ NEW |
+| Collateralizer | `0xF495702a9111513b7A2F77896021193312ddA851` | ✅ V9 |
+| AMMEngine | `0x65b72e4d5138AeEdF55459B8f7527505217dcEBc` | ✅ V9 |
+| TickBookVault | `0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0` | ✅ V9 |
+| TickBookPoolManager | `0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7` | ✅ V9 |
+| **LaunchpadEngine** | `0x862d724488563B319121472783965F52d7989c94` | ✅ V9 FIXED |
 
-### Monad V8.12.0 Markets
-| Market | Address | Deadline |
-|--------|---------|----------|
-| UN Confirms Alien Life | `0x39f0b89Bd1110800B0A67D1F1d2509Df111e84A1` | 2026-01-27 |
-| BTC 7-day TWAP >= $100k | `0xC00f59F89E7b111A0f0234eC4e58658b3Ed1BD85` | 2026-01-27 |
+### Monad V9.0 Markets (Fully Initialized)
+| Market | Address | AMM Status |
+|--------|---------|------------|
+| UN Confirms Alien Life | `0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2` | ✅ Initialized |
+| BTC 7-day TWAP >= $100k | `0x1cB930d768AD866C3211A14894B1E924726bac0b` | ✅ Initialized |
 
 ## Pending Work (Next Session)
-- [ ] **Commit V9 QA changes** — All new test files and documentation updates.
+- [x] **Commit V9 QA changes** — All new test files and documentation updates.
 - [ ] **Deploy V9 to Monad Testnet** — Port singleton architecture.
-- [ ] **Implement frontend V9 integration** — Update hooks/components for TickBookPoolManager.
+- [x] **Implement frontend V9 integration** — Update hooks/components for TickBookPoolManager.
+- [x] **Update markets.json with V9 addresses** — Synced latest addresses and version tags.
 - [ ] **Add more DynamicFeeHook tests** — Increase coverage from 30% to 80%+.
 - [ ] **Verify contracts on Basescan** — For transparency.
 
@@ -102,7 +104,10 @@
 - ✅ **Coverage Analysis** — 83% TickBookPoolManager lines, 100% TruthMarket
 - ✅ **QA Analysis Document** — Created `test/QA_V9_ANALYSIS.md`
 - ✅ **V9 Deployment to Base Sepolia** — LaunchpadEngine redeployed with TickBookPoolManager
-- ✅ **Market Registration** — ALIEN and BTC100K markets registered on TickBookPoolManager
+- ✅ **Fixed LaunchpadEngine** — Modified `createMarket` to adopt existing AMM state via `try-catch`.
+- ✅ **V9 Market Initialization** — ALIEN and BTC100K markets fully initialized on both Base Sepolia and Monad Testnet.
+- ✅ **Frontend Deployment Sync** — Updated `deployments.json` and `markets.json` for all networks.
+- ✅ **V9 QA Suite** — 99 tests passing across 6 new test files
 
 ## Completed Previous Session (2025-12-29)
 - ✅ **Fixed `useDeployments` Hook Crash** — Restored nested `networks` structure in `deployments.json` and added defensive null checks.

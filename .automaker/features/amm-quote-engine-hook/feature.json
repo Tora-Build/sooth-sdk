@@ -1,0 +1,14 @@
+{
+  "id": "amm-quote-engine-hook",
+  "category": "API",
+  "title": "Enhanced AMM Quote Engine Hook",
+  "description": "Build custom React hook that fetches real-time LMSR quotes with slippage estimation and multi-order simulations.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [
+    "dual-dex-trading-ui"
+  ],
+  "createdAt": "2025-12-29T01:42:09.807Z",
+  "updatedAt": "2025-12-29T01:42:09.807Z"
+}

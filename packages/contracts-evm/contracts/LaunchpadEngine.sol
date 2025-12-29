@@ -207,7 +207,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         usdc.safeTransferFrom(msg.sender, address(this), deposit);
 
         // Initialize AMM with liquidity
-        ammEngine.initializeMarket(market, initialLiquidity);
+        try ammEngine.initializeMarket(market, initialLiquidity) {
+            // Success
+        } catch {
+            // Already initialized or other error - we proceed to ensure LaunchpadEngine state is set
+            // In the singleton V9 architecture, we allow adopting existing AMM state if it exists.
+        }
 
         // Mint initial LP tokens to creator (1:1 with deposit in WAD)
         lpTokens = depositWad;

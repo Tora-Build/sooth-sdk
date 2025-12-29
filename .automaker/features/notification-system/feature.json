@@ -1,0 +1,12 @@
+{
+  "id": "notification-system",
+  "category": "UI",
+  "title": "Push & In-App Notifications",
+  "description": "Implement in-app toast notifications and optional push notifications for market events, settlements, and order fills.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "simple",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.820Z",
+  "updatedAt": "2025-12-29T01:42:09.820Z"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "batch-operations-support",
+  "category": "Core",
+  "title": "Batch Operations for Multiple Markets",
+  "description": "Implement smart contracts and UI hooks for batch trading across multiple markets in single transaction.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "complex",
+  "dependencies": [
+    "amm-quote-engine-hook",
+    "orderbook-quote-engine-hook"
+  ],
+  "createdAt": "2025-12-29T01:42:09.818Z",
+  "updatedAt": "2025-12-29T01:42:09.818Z"
+}

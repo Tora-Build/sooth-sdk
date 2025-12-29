@@ -54,13 +54,13 @@ const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect })
       {/* Symbol badge */}
       <div className={cn(
         "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-        isSelected 
-          ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white" 
+        isSelected
+          ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
           : "bg-slate-800 text-slate-400"
       )}>
         {market.symbol.slice(0, 2)}
       </div>
-      
+
       {/* Name */}
       <div className="text-left min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -86,26 +86,26 @@ export const Trade = () => {
   const navigate = useNavigate();
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
-  
+
   // Search and filter state
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [selectedMarketAddress, setSelectedMarketAddress] = useState<string | null>(null);
-  
+
   // Scroll ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
-      m.version.startsWith('v8') && m.chainId === chainId
+      m.version.startsWith('v') && m.chainId === chainId
     );
   }, [chainId]);
 
   // Apply search and category filters
   const filteredMarkets = useMemo(() => {
     return v8Markets.filter(m => {
-      const matchesSearch = search === '' || 
+      const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = category === 'all' || m.category === category;
@@ -117,8 +117,8 @@ export const Trade = () => {
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
-      count: cat.id === 'all' 
-        ? v8Markets.length 
+      count: cat.id === 'all'
+        ? v8Markets.length
         : v8Markets.filter(m => m.category === cat.id).length
     }));
   }, [v8Markets]);
