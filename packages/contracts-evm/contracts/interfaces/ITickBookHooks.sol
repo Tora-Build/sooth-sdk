@@ -29,7 +29,7 @@ pragma solidity ^0.8.20;
  * Bit 10: afterClaim
  * Bit 11: beforeSpotSell
  * Bit 12: afterSpotSell
- * Bit 13: (reserved)
+ * Bit 13: getMakerFee
  */
 interface ITickBookHooks {
     // ============================================
@@ -225,8 +225,8 @@ interface ITickBookHooks {
     // ============================================
 
     /**
-     * @notice Calculate dynamic fee for an order
-     * @dev Can implement time-weighted fees, volume-based fees, etc.
+     * @notice Calculate dynamic fee for a taker (market order)
+     * @dev Taker fee = baseFee + volatilityFee (no volume discount)
      * @param marketKey The market
      * @param outcome The outcome being traded
      * @param shares Number of shares
@@ -239,6 +239,23 @@ interface ITickBookHooks {
         uint256 shares,
         uint24 baseFee
     ) external view returns (uint24 fee);
+
+    /**
+     * @notice Calculate fee/rebate for a maker (limit order fill)
+     * @dev Maker fee = makerBaseFee - volumeDiscount (can result in rebate)
+     * @param marketKey The market
+     * @param outcome The outcome being filled
+     * @param shares Number of shares filled
+     * @param baseFee The default fee (in basis points)
+     * @return fee The fee amount in basis points (or rebate if isRebate=true)
+     * @return isRebate True if maker receives a rebate instead of paying fee
+     */
+    function getMakerFee(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint24 baseFee
+    ) external view returns (uint24 fee, bool isRebate);
 }
 
 /**
@@ -259,6 +276,7 @@ library HookPermissions {
     uint256 constant AFTER_CLAIM_FLAG = 1 << 10;
     uint256 constant BEFORE_SPOT_SELL_FLAG = 1 << 11;
     uint256 constant AFTER_SPOT_SELL_FLAG = 1 << 12;
+    uint256 constant GET_MAKER_FEE_FLAG = 1 << 13;
 
     function hasPermission(address hook, uint256 flag) internal pure returns (bool) {
         return uint256(uint160(hook)) & flag != 0;
@@ -314,5 +332,9 @@ library HookPermissions {
 
     function afterSpotSell(address hook) internal pure returns (bool) {
         return hasPermission(hook, AFTER_SPOT_SELL_FLAG);
+    }
+
+    function getMakerFee(address hook) internal pure returns (bool) {
+        return hasPermission(hook, GET_MAKER_FEE_FLAG);
     }
 }

@@ -357,37 +357,41 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
         // Configure fee
         feeHook.setFeeConfig(
             marketKey,
-            10,   // 0.1% base
+            10,   // 0.1% base taker fee
+            0,    // 0% maker base fee
             100,  // 1% max
-            5,    // volume discount
-            2     // volatility premium
+            5,    // volume discount (for makers)
+            2     // volatility fee
         );
 
         uint24 fee = feeHook.getDynamicFee(marketKey, 1, 1000e18, 10);
-        assertEq(fee, 10); // Should be base fee with no volume/volatility
+        assertEq(fee, 10); // Should be base fee with no volatility
     }
 
     function test_DynamicFeeHook_SetConfig() public {
         feeHook.setFeeConfig(
             marketKey,
-            20,   // 0.2% base
+            20,   // 0.2% base taker fee
+            0,    // 0% maker base fee
             200,  // 2% max
-            10,   // volume discount
-            5     // volatility premium
+            10,   // volume discount (for makers)
+            5     // volatility fee
         );
 
         (
             uint24 baseFee,
+            uint24 makerBaseFee,
             uint24 maxFee,
             uint24 volumeDiscount,
-            uint24 volatilityPremium,
+            uint24 volatilityFee,
             ,,,
         ) = feeHook.feeConfigs(marketKey);
 
         assertEq(baseFee, 20);
+        assertEq(makerBaseFee, 0);
         assertEq(maxFee, 200);
         assertEq(volumeDiscount, 10);
-        assertEq(volatilityPremium, 5);
+        assertEq(volatilityFee, 5);
     }
 
     // ============================================

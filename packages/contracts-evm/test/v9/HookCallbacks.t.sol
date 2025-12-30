@@ -85,33 +85,37 @@ contract HookCallbackTest is Test {
     function test_FeeHook_SetConfig() public {
         feeHook.setFeeConfig(
             marketKey,
-            50,   // 0.5% base fee
+            50,   // 0.5% base taker fee
+            0,    // 0% maker base fee
             500,  // 5% max fee
             10,   // volume discount
-            5     // volatility premium
+            5     // volatility fee
         );
 
         (
             uint24 baseFee,
+            uint24 makerBaseFee,
             uint24 maxFee,
             uint24 volumeDiscount,
-            uint24 volatilityPremium,
+            uint24 volatilityFee,
             ,,,
         ) = feeHook.feeConfigs(marketKey);
 
         assertEq(baseFee, 50);
+        assertEq(makerBaseFee, 0);
         assertEq(maxFee, 500);
         assertEq(volumeDiscount, 10);
-        assertEq(volatilityPremium, 5);
+        assertEq(volatilityFee, 5);
     }
 
     function test_FeeHook_GetDynamicFee_BaseFee() public {
         feeHook.setFeeConfig(
             marketKey,
-            100,  // 1% base
+            100,  // 1% base taker fee
+            0,    // 0% maker base fee
             200,  // 2% max
             0,    // no volume discount
-            0     // no volatility premium
+            0     // no volatility fee
         );
 
         uint24 fee = feeHook.getDynamicFee(marketKey, 1, 1000e18, 0);
@@ -119,46 +123,50 @@ contract HookCallbackTest is Test {
     }
 
     function test_FeeHook_GetDynamicFee_WithVolumeDiscount() public {
+        // Note: Volume discount now applies to makers only (getMakerFee), not takers (getDynamicFee)
+        // This test just verifies that getDynamicFee returns the base fee without volume discount
         feeHook.setFeeConfig(
             marketKey,
-            100,  // 1% base
+            100,  // 1% base taker fee
+            0,    // 0% maker base fee
             200,  // 2% max
-            50,   // 0.5% volume discount per unit
-            0
+            50,   // 0.5% volume discount (for makers)
+            0     // no volatility fee
         );
 
-        // Higher volume should reduce fee
+        // Taker fee should be base fee (no volume discount for takers)
         uint24 feeSmall = feeHook.getDynamicFee(marketKey, 1, 100e18, 0);
         uint24 feeLarge = feeHook.getDynamicFee(marketKey, 1, 10000e18, 0);
 
-        // Large volume should have same or lower fee (depending on implementation)
-        assertLe(feeLarge, feeSmall);
+        // Both should be the same base fee for takers
+        assertEq(feeSmall, 100);
+        assertEq(feeLarge, 100);
     }
 
-    function test_FeeHook_GetDynamicFee_WithVolatilityPremium() public {
+    function test_FeeHook_GetDynamicFee_WithVolatilityFee() public {
         feeHook.setFeeConfig(
             marketKey,
-            100,  // 1% base
+            100,  // 1% base taker fee
+            0,    // 0% maker base fee
             500,  // 5% max
-            0,
-            10    // volatility premium
+            0,    // no volume discount
+            10    // volatility fee
         );
 
-        // Higher price movement should increase fee
-        uint24 feeNoMove = feeHook.getDynamicFee(marketKey, 1, 1000e18, 0);
-        uint24 feeBigMove = feeHook.getDynamicFee(marketKey, 1, 1000e18, 100);
-
-        // More volatility = higher fee
-        assertGe(feeBigMove, feeNoMove);
+        // Volatility fee is based on tick movement which requires trading
+        // Without trading, tickMovement is 0, so fee should be base
+        uint24 fee = feeHook.getDynamicFee(marketKey, 1, 1000e18, 0);
+        assertEq(fee, 100); // Base fee when no tick movement
     }
 
     function test_FeeHook_FeeNeverExceedsMax() public {
         feeHook.setFeeConfig(
             marketKey,
-            100,  // 1% base
+            100,  // 1% base taker fee
+            0,    // 0% maker base fee
             200,  // 2% max
-            0,
-            1000  // very high volatility premium
+            0,    // no volume discount
+            1000  // very high volatility fee
         );
 
         // Even with extreme conditions, fee should not exceed max
@@ -242,13 +250,13 @@ contract HookCallbackTest is Test {
         bytes32 fakeMarketKey = keccak256("fake_market");
 
         // Configure for fake market
-        feeHook.setFeeConfig(fakeMarketKey, 75, 300, 15, 8);
+        feeHook.setFeeConfig(fakeMarketKey, 75, 0, 300, 15, 8);
 
-        (uint24 baseFee,,,,,,, ) = feeHook.feeConfigs(fakeMarketKey);
+        (uint24 baseFee,,,,,,,, ) = feeHook.feeConfigs(fakeMarketKey);
         assertEq(baseFee, 75);
 
         // Original market should still have its config (if any)
-        (uint24 origBase,,,,,,, ) = feeHook.feeConfigs(marketKey);
+        (uint24 origBase,,,,,,,, ) = feeHook.feeConfigs(marketKey);
         // This would be 0 or whatever was set earlier
     }
 
@@ -260,20 +268,21 @@ contract HookCallbackTest is Test {
         uint24 baseFee,
         uint24 maxFee,
         uint24 volumeDiscount,
-        uint24 volatilityPremium
+        uint24 volatilityFee
     ) public {
         // DynamicFeeHook has MIN_FEE=1, MAX_FEE=1000
         baseFee = uint24(bound(baseFee, 1, 1000)); // MIN_FEE to MAX_FEE
         maxFee = uint24(bound(maxFee, baseFee, 1000)); // baseFee to MAX_FEE
         volumeDiscount = uint24(bound(volumeDiscount, 0, 500));
-        volatilityPremium = uint24(bound(volatilityPremium, 0, 500));
+        volatilityFee = uint24(bound(volatilityFee, 0, 500));
 
         feeHook.setFeeConfig(
             marketKey,
             baseFee,
+            0,    // makerBaseFee
             maxFee,
             volumeDiscount,
-            volatilityPremium
+            volatilityFee
         );
 
         uint24 fee = feeHook.getDynamicFee(marketKey, 1, 1000e18, 50);
@@ -296,7 +305,7 @@ contract HookCallbackTest is Test {
     // ============================================
 
     function test_FeeHook_ZeroSharesAmount() public {
-        feeHook.setFeeConfig(marketKey, 100, 200, 10, 5);
+        feeHook.setFeeConfig(marketKey, 100, 0, 200, 10, 5);
 
         // Zero shares should still return valid fee
         uint24 fee = feeHook.getDynamicFee(marketKey, 1, 0, 0);
@@ -304,7 +313,7 @@ contract HookCallbackTest is Test {
     }
 
     function test_FeeHook_MaxUint256Shares() public {
-        feeHook.setFeeConfig(marketKey, 100, 200, 10, 5);
+        feeHook.setFeeConfig(marketKey, 100, 0, 200, 10, 5);
 
         // Very large shares
         uint24 fee = feeHook.getDynamicFee(marketKey, 1, type(uint256).max, 0);

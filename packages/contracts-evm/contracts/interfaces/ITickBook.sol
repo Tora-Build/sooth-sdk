@@ -13,12 +13,14 @@ interface ITickBook {
      * @param yesToken YES outcome token address
      * @param noToken NO outcome token address
      * @param initialProbabilityWad Initial probability (0-1e18)
+     * @param hook Optional hook contract for dynamic fees (address(0) for no hook)
      * @return marketKey Unique market identifier
      */
     function registerMarket(
         address market,
         address yesToken,
         address noToken,
-        uint256 initialProbabilityWad
+        uint256 initialProbabilityWad,
+        address hook
     ) external returns (bytes32 marketKey);
 }

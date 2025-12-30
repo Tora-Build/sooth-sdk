@@ -136,12 +136,16 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Access control: only registrar (LaunchpadEngine) can register markets
     address public registrar;
 
+    // Fee recipient for collected trading fees
+    address public feeRecipient;
+
     // ============================================
     // Events
     // ============================================
 
     event MarketRegistered(bytes32 indexed marketKey, address market, address yesToken, address noToken, address hook);
     event RegistrarChanged(address indexed oldRegistrar, address indexed newRegistrar);
+    event FeeRecipientChanged(address indexed newFeeRecipient);
     event LockerChanged(address indexed oldLocker, address indexed newLocker);
 
     event RangeOrderPlaced(
@@ -236,6 +240,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address old = registrar;
         registrar = _registrar;
         emit RegistrarChanged(old, _registrar);
+    }
+
+    /**
+     * @notice Set the fee recipient address for collected trading fees
+     * @param _feeRecipient The address to receive trading fees
+     */
+    function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        feeRecipient = _feeRecipient;
+        emit FeeRecipientChanged(_feeRecipient);
     }
 
     // ============================================
@@ -353,14 +366,20 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @notice Register market with legacy 4-param signature (ITickBook compatibility)
-     * @dev Used by LaunchpadEngine - creates market with no hook
+     * @notice Register market with legacy signature (ITickBook compatibility)
+     * @dev Used by LaunchpadEngine - supports optional hook for dynamic fees
+     * @param market Truth market address
+     * @param yesToken YES outcome token
+     * @param noToken NO outcome token
+     * @param initialProbabilityWad Initial probability (0-1e18)
+     * @param hook Optional hook contract for dynamic fees (address(0) for no hook)
      */
     function registerMarket(
         address market,
         address yesToken,
         address noToken,
-        uint256 initialProbabilityWad
+        uint256 initialProbabilityWad,
+        address hook
     ) external onlyRegistrar returns (bytes32 marketKey) {
         if (market == address(0)) revert ZeroAddress();
         if (yesToken == address(0)) revert ZeroAddress();
@@ -370,7 +389,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             truthMarket: market,
             yesToken: yesToken,
             noToken: noToken,
-            hook: address(0)
+            hook: hook
         }));
         if (_markets[marketKey].isActive) revert DuplicateMarket();
 
@@ -378,7 +397,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             truthMarket: market,
             yesToken: yesToken,
             noToken: noToken,
-            hook: address(0),
+            hook: hook,
             isActive: true
         });
 
@@ -392,7 +411,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             activeLiquidityYes: 0
         });
 
-        emit MarketRegistered(marketKey, market, yesToken, noToken, address(0));
+        emit MarketRegistered(marketKey, market, yesToken, noToken, hook);
     }
 
     // ============================================
@@ -572,11 +591,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         (sharesFilled, totalCost) = _fill(marketKey, state, shares, makerOutcome, isUp);
 
-        // Apply dynamic fee if hook supports it
+        // Apply dynamic taker fee if hook supports it
+        uint256 feeAmount = 0;
         if (m.hook != address(0) && m.hook.getDynamicFee()) {
             uint24 baseFee = 10; // 0.1% default
             uint24 fee = ITickBookHooks(m.hook).getDynamicFee(marketKey, outcome, sharesFilled, baseFee);
-            uint256 feeAmount = (totalCost * fee) / 10000;
+            feeAmount = (totalCost * fee) / 10000;
             totalCost += feeAmount;
         }
 
@@ -587,7 +607,23 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             uint256 totalLiq = _totalLiquidity[marketKey][makerOutcome];
             if (totalLiq > 0) {
                 _fillGrowthGlobalX128[marketKey][makerOutcome] += (sharesFilled * Q128) / totalLiq;
+
+                // Calculate maker's collateral used (how much USDC makers effectively paid)
                 uint256 makerCollateralUsed = sharesFilled > totalCost ? (sharesFilled - totalCost) : 0;
+
+                // Apply maker rebate if hook supports it
+                if (m.hook != address(0) && m.hook.getMakerFee()) {
+                    (uint24 makerFee, bool isRebate) = ITickBookHooks(m.hook).getMakerFee(
+                        marketKey, makerOutcome, sharesFilled, 0
+                    );
+                    if (isRebate && makerFee > 0) {
+                        // Reduce maker's collateral used (they get more USDC back)
+                        uint256 rebateAmount = (sharesFilled * makerFee) / 10000;
+                        makerCollateralUsed = makerCollateralUsed > rebateAmount
+                            ? makerCollateralUsed - rebateAmount : 0;
+                    }
+                }
+
                 _collateralUsedGrowthGlobalX128[marketKey][makerOutcome] += (makerCollateralUsed * Q128) / totalLiq;
             }
             vault.creditOutcome(m.truthMarket, msg.sender, outcome, sharesFilled);
@@ -596,6 +632,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (maxCost > totalCost) {
             refunded = maxCost - totalCost;
             vault.refundMarketToAvailable(m.truthMarket, msg.sender, refunded);
+        }
+
+        // Transfer collected fee to recipient
+        if (feeAmount > 0 && feeRecipient != address(0)) {
+            vault.transferFee(m.truthMarket, feeRecipient, feeAmount);
         }
 
         // After hook

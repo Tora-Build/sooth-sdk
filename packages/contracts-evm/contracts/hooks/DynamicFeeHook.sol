@@ -6,15 +6,15 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title DynamicFeeHook
- * @notice Hook implementation for dynamic fee adjustment based on market conditions
- * @dev Implements getDynamicFee hook to adjust fees based on:
- *      - Volume: Higher volume = lower fees (rewards liquidity)
- *      - Volatility: Higher volatility = higher fees (protects makers)
- *      - Time: Fees increase near market resolution
+ * @notice Hook implementation for maker/taker fee adjustment based on market conditions
+ * @dev Implements separate fee logic for makers and takers:
+ *      - Takers (market orders): baseFee + volatilityFee (protects makers)
+ *      - Makers (limit order fills): makerBaseFee - volumeDiscount (rewards liquidity)
  *
  * Hook Permission Address:
  * This contract must be deployed at an address where:
  *   uint256(address) & (1 << 8) != 0  (GET_DYNAMIC_FEE_FLAG)
+ *   uint256(address) & (1 << 13) != 0 (GET_MAKER_FEE_FLAG)
  *
  * Use CREATE2 with salt mining to achieve the correct address bits.
  */
@@ -23,9 +23,10 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
     // Constants
     // ============================================
 
-    uint24 public constant MIN_FEE = 1;      // 0.01%
-    uint24 public constant MAX_FEE = 1000;   // 10%
-    uint24 public constant DEFAULT_FEE = 10; // 0.1%
+    uint24 public constant MIN_FEE = 1;       // 0.01%
+    uint24 public constant MAX_FEE = 1000;    // 10%
+    uint24 public constant DEFAULT_FEE = 10;  // 0.1%
+    uint24 public constant MAX_REBATE = 50;   // 0.5% max maker rebate
 
     // ============================================
     // State
@@ -33,10 +34,11 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
 
     /// @notice Fee configuration per market
     struct FeeConfig {
-        uint24 baseFee;           // Base fee in bps
-        uint24 maxFee;            // Maximum fee in bps
-        uint24 volumeDiscount;    // Discount per 1000 USDC volume (in bps)
-        uint24 volatilityPremium; // Premium per 1% price move (in bps)
+        uint24 baseFee;           // Base taker fee in bps
+        uint24 makerBaseFee;      // Base maker fee in bps (typically 0)
+        uint24 maxFee;            // Maximum taker fee in bps
+        uint24 volumeDiscount;    // Maker discount per 1000 USDC volume (in bps)
+        uint24 volatilityFee;     // Taker fee per tick movement (in bps)
         uint256 windowStart;      // Start of tracking window
         uint256 windowVolume;     // Volume in current window
         uint16 lastTick;          // Last known tick (for volatility)
@@ -68,18 +70,20 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
     function setFeeConfig(
         bytes32 marketKey,
         uint24 baseFee,
+        uint24 makerBaseFee,
         uint24 maxFee,
         uint24 volumeDiscount,
-        uint24 volatilityPremium
+        uint24 volatilityFee
     ) external onlyOwner {
         require(baseFee >= MIN_FEE && baseFee <= MAX_FEE, "Invalid base fee");
         require(maxFee >= baseFee && maxFee <= MAX_FEE, "Invalid max fee");
 
         feeConfigs[marketKey] = FeeConfig({
             baseFee: baseFee,
+            makerBaseFee: makerBaseFee,
             maxFee: maxFee,
             volumeDiscount: volumeDiscount,
-            volatilityPremium: volatilityPremium,
+            volatilityFee: volatilityFee,
             windowStart: block.timestamp,
             windowVolume: 0,
             lastTick: 500, // 50% default
@@ -94,7 +98,8 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
     // ============================================
 
     /**
-     * @notice Calculate dynamic fee based on market conditions
+     * @notice Calculate dynamic fee for takers (market orders)
+     * @dev Taker fee = baseFee + volatilityFee (no volume discount for takers)
      * @param marketKey The market
      * @param outcome The outcome being traded
      * @param shares Number of shares
@@ -112,25 +117,14 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
         // Use config base fee if set, otherwise use passed baseFee
         uint24 effectiveBase = config.baseFee > 0 ? config.baseFee : baseFee;
 
-        // Calculate volume discount
-        // More volume in window = lower fee (rewards active markets)
-        uint256 volumeInWindow = config.windowVolume;
-        uint256 discount = (volumeInWindow / 1000e18) * config.volumeDiscount;
-        if (discount > effectiveBase - MIN_FEE) {
-            discount = effectiveBase - MIN_FEE;
-        }
+        // Calculate volatility fee (protects makers during high volatility)
+        // More tick movement = higher fee
+        uint256 volFee = uint256(config.tickMovement) * config.volatilityFee / 100;
 
-        // Calculate volatility premium
-        // More tick movement = higher fee (protects makers)
-        uint256 premium = uint256(config.tickMovement) * config.volatilityPremium / 100;
-
-        // Combine
+        // Combine: taker pays base + volatility
         fee = effectiveBase;
-        if (discount > 0) {
-            fee -= uint24(discount);
-        }
-        if (premium > 0) {
-            fee += uint24(premium);
+        if (volFee > 0) {
+            fee += uint24(volFee);
         }
 
         // Clamp to bounds
@@ -140,6 +134,48 @@ contract DynamicFeeHook is ITickBookHooks, Ownable {
 
         // Suppress unused parameter warning
         (outcome, shares, marketKey);
+    }
+
+    /**
+     * @notice Calculate fee/rebate for makers (limit order fills)
+     * @dev Maker fee = makerBaseFee - volumeDiscount (rewards liquidity provision)
+     * @param marketKey The market
+     * @param outcome The outcome being filled
+     * @param shares Number of shares filled
+     * @param baseFee Default fee from protocol (unused, uses makerBaseFee)
+     * @return fee The fee amount in basis points (or rebate if isRebate=true)
+     * @return isRebate True if maker receives a rebate instead of paying fee
+     */
+    function getMakerFee(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint24 baseFee
+    ) external view override returns (uint24 fee, bool isRebate) {
+        FeeConfig storage config = feeConfigs[marketKey];
+
+        // Maker base fee (typically 0)
+        uint24 effectiveBase = config.makerBaseFee;
+
+        // Calculate volume discount (rewards liquidity provision)
+        uint256 volumeInWindow = config.windowVolume;
+        uint256 discount = (volumeInWindow / 1000e18) * config.volumeDiscount;
+
+        // If discount exceeds base, it becomes a rebate
+        if (discount >= effectiveBase) {
+            fee = uint24(discount - effectiveBase);
+            isRebate = true;
+            // Cap rebate
+            if (fee > MAX_REBATE) {
+                fee = MAX_REBATE;
+            }
+        } else {
+            fee = effectiveBase - uint24(discount);
+            isRebate = false;
+        }
+
+        // Suppress unused parameter warning
+        (outcome, shares, baseFee, marketKey);
     }
 
     // ============================================

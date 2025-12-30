@@ -66,6 +66,12 @@ interface ITickBookVault {
     function creditUsdcAvailable(address user, uint256 amountWad) external;
 
     // ============================================
+    // Fee Collection
+    // ============================================
+
+    function transferFee(address market, address recipient, uint256 amountWad) external;
+
+    // ============================================
     // Settlement / Redemption
     // ============================================
 
