@@ -10,6 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title LaunchpadEngine
@@ -17,7 +18,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @dev V8.2: Supports dual-balance position model (users can hold both YES and NO)
  *      Wraps AMMEngine to add Launchpad model on top of pure trading logic
  */
-contract LaunchpadEngine is ILaunchpadEngine, Ownable {
+contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ============================================
@@ -25,7 +26,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     // ============================================
 
     uint256 private constant WAD = 1e18;
-    uint256 private constant LN2 = 693147180559945309; // ln(2) in WAD
+    uint256 private constant LN2_WAD = 693147180559945309; // ln(2) in WAD
+    uint256 private constant LN2_INV_WAD = 1442695040888963407; // 1/ln(2) in WAD
     uint256 private constant BPS_DENOMINATOR = 10000;
 
     // ============================================
@@ -58,7 +60,10 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     /// @notice Post-grad fee split: % to protocol (default: 2000 = 20%)
     uint16 public protocolShareBps;
 
-    /// @notice Graduation multiplier (default: 2 = 2× bBase)
+    /// @notice Graduation multiplier (default: 1 = break-even at bBase×ln(2))
+    /// threshold = bBase × ln(2) × multiplier
+    /// - 1 = graduate when fees equal creator deposit (LP break-even)
+    /// - 2 = graduate when fees are 2× creator deposit
     uint16 public graduationMultiplier;
 
     // ============================================
@@ -120,7 +125,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         bBaseShareBps = 5000;       // 50%
         lpYieldShareBps = 3000;     // 30%
         protocolShareBps = 2000;    // 20%
-        graduationMultiplier = 2;   // 2× bBase
+        graduationMultiplier = 1;   // 1× = break-even (fees = bBase × ln(2))
     }
 
     // ============================================
@@ -177,6 +182,32 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         emit GraduationMultiplierUpdated(multiplier);
     }
 
+    /**
+     * @notice Register a graduated market in TickBook (admin function for migration)
+     * @dev Use this to register markets that graduated before TickBook integration
+     * @param market The market address to register
+     */
+    function registerGraduatedMarketInTickBook(address market) external onlyOwner {
+        MarketState storage state = markets[market];
+        require(state.creator != address(0), "LaunchpadEngine: market not found");
+        require(state.isGraduated, "LaunchpadEngine: not graduated");
+
+        // Get outcome tokens
+        (address yes, address no) = collateralizer.getOutcomeTokens(market);
+        require(yes != address(0) && no != address(0), "LaunchpadEngine: tokens not registered");
+
+        // Get current AMM probability
+        (,, uint256 ammProbability) = ammEngine.getMarketState(market);
+
+        // Register in TickBook (will revert if already registered)
+        tickBook.registerMarket(market, yes, no, ammProbability);
+
+        emit MarketRegisteredInTickBook(market, yes, no, ammProbability);
+    }
+
+    /// @notice Emitted when a graduated market is manually registered in TickBook
+    event MarketRegisteredInTickBook(address indexed market, address yesToken, address noToken, uint256 initialProbability);
+
     // ============================================
     // Market Creation
     // ============================================
@@ -189,20 +220,25 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         uint256 initialLiquidity,
         string calldata name,
         string calldata symbol
-    ) external override returns (uint256 lpTokens) {
+    ) external override nonReentrant returns (uint256 lpTokens) {
         require(ITruthMarket(market).creator() == msg.sender, "LaunchpadEngine: not creator");
         require(markets[market].creator == address(0), "LaunchpadEngine: already exists");
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
         // Calculate required deposit: b × ln(2)
-        uint256 depositWad = (initialLiquidity * LN2) / WAD;
+        uint256 depositWad = (initialLiquidity * LN2_WAD) / WAD;
         uint256 deposit = _wadToUsdcCeil(depositWad);
 
         // Transfer deposit from creator
         usdc.safeTransferFrom(msg.sender, address(this), deposit);
 
         // Initialize AMM with liquidity
-        ammEngine.initializeMarket(market, initialLiquidity);
+        try ammEngine.initializeMarket(market, initialLiquidity) {
+            // Success
+        } catch {
+            // Already initialized or other error - we proceed to ensure LaunchpadEngine state is set
+            // In the singleton V9 architecture, we allow adopting existing AMM state if it exists.
+        }
 
         // Mint initial LP tokens to creator (1:1 with deposit in WAD)
         lpTokens = depositWad;
@@ -240,7 +276,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         uint8 outcome,
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
-    ) external override returns (uint256 actualCost) {
+    ) external override nonReentrant returns (uint256 actualCost) {
         MarketState storage state = markets[market];
         require(state.creator != address(0), "LaunchpadEngine: market not found");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
@@ -253,15 +289,25 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         (uint256 baseCost, ) = ammEngine.getPositionQuote(market, outcome, deltaShares);
 
         if (!isBuy) {
-            // SELL: do not pull USDC from user.
-            // We interpret maxCostOrMinProceeds as minimum proceeds (slippage protection).
-            // Fees on sells are currently not applied (alpha simplification).
-            actualCost = baseCost;
+            // SELL: Calculate and deduct fee
+            uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
+            uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
+            uint256 feeUsdc = _wadToUsdc(fee); // Floor for AMM push
+            
+            // Calculate net proceeds
+            uint256 netProceeds = baseCost > fee ? baseCost - fee : 0;
+            actualCost = netProceeds;
 
-            // Execute trade on AMM (credits proceeds to trader, locked)
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds);
+            // Execute trade on AMM (pass fee to be routed to us)
+            // AMMEngine checks slippage against netProceeds
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds, fee);
 
-            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, 0);
+            // Accrue fee
+            if (feeUsdc > 0) {
+                 _distributeFee(market, fee, feeUsdc, msg.sender);
+            }
+
+            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, fee);
         } else {
             // BUY: user pays baseCost + fee
             uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
@@ -289,13 +335,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
 
             // Approve AMM for the portion of baseCost that comes from wallet
             // (AMMEngine will use user's balance for the rest)
+            // Using forceApprove to handle tokens that don't allow approve() when current allowance is non-zero
             if (baseCostFromWalletUsdc > 0) {
-                usdc.approve(address(ammEngine), baseCostFromWalletUsdc);
+                usdc.forceApprove(address(ammEngine), baseCostFromWalletUsdc);
             }
 
             // Execute trade on AMM
             // AMMEngine will use user's _availableBalance first, then pull remainder from us
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost);
+            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost, 0);
 
             // Distribute fee (fee always stays in LaunchpadEngine)
             _distributeFee(market, fee, feeUsdc, msg.sender);
@@ -319,12 +366,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             // PRE-GRADUATION: 100% to bBase growth + LP minting to TRADER
             // This converts traders into stakeholders (V7 model)
 
-            // Increase liquidity parameter
-            state.bCurrent += feeWad;
+            // Increase liquidity parameter: scale fee by 1/ln(2) to preserve max loss capacity
+            // maxLoss = b * ln(2). If we want maxLoss to increase by feeUSD, then deltaB = feeUSD / ln(2).
+            uint256 deltaB = (feeWad * LN2_INV_WAD) / WAD;
+            state.bCurrent += deltaB;
             // Mirror depth growth into AMM pricing
-            ammEngine.increaseLiquidity(market, feeWad);
+            ammEngine.increaseLiquidity(market, deltaB);
 
-            // Mint LP tokens to TRADER (1:1 with fees paid)
+            // Mint LP tokens to TRADER (1:1 with fee paid, matching creator's USD-par model)
             uint256 lpTokens = feeWad;
             lpBalances[market][trader] += lpTokens;
             state.totalLPSupply += lpTokens;
@@ -333,8 +382,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
             state.feesAccrued += feeUsdc;
 
             // Check graduation (short-circuit if already graduated)
+            // Threshold = bBase × ln(2) × multiplier
+            // - bBase × ln(2) = creator deposit = LP break-even point
+            // - multiplier = 1 means graduate at break-even, 2 means at 2× break-even, etc.
             if (!state.isGraduated) {
-                uint256 graduationThreshold = state.bBase * uint256(graduationMultiplier);
+                uint256 graduationThreshold = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
                 uint256 feesInWad = _usdcToWad(state.feesAccrued);
 
                 if (feesInWad >= graduationThreshold) {
@@ -342,12 +394,24 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
                     state.graduatedAt = uint64(block.timestamp);
 
                     // ATOMIC GRADUATION: Register in Collateralizer and TickBook
-                    (address yes, address no) = collateralizer.registerMarket(
-                        market,
-                        state.name,
-                        state.symbol
-                    );
-                    tickBook.registerMarket(market, yes, no);
+                    (address yes, address no) = collateralizer.isMarketRegistered(market)
+                        ? collateralizer.getOutcomeTokens(market)
+                        : collateralizer.registerMarket(market, state.name, state.symbol);
+
+                    // Get current AMM probability to initialize TickBook at the same price
+                    (,, uint256 ammProbability) = ammEngine.getMarketState(market);
+
+                    // TickBook is keyed by (market, yesToken, noToken). If already registered, ignore.
+                    try tickBook.registerMarket(market, yes, no, ammProbability) returns (bytes32) {
+                        // ok
+                    } catch (bytes memory reason) {
+                        // DuplicateMarket() custom error selector = bytes4(keccak256("DuplicateMarket()"))
+                        bytes4 duplicateMarketSelector = 0xedd7c146;
+                        // Only ignore if it's the DuplicateMarket custom error
+                        if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
+                            revert("LaunchpadEngine: tickbook register failed");
+                        }
+                    }
 
                     emit MarketGraduated(market, state.feesAccrued, block.timestamp);
                 }
@@ -391,7 +455,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     function redeemLP(
         address market,
         uint256 lpAmount
-    ) external override returns (uint256 usdcAmount) {
+    ) external override nonReentrant returns (uint256 usdcAmount) {
         MarketState storage state = markets[market];
         require(lpBalances[market][msg.sender] >= lpAmount, "LaunchpadEngine: insufficient LP");
 
@@ -446,7 +510,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
     function increaseBBase(
         address market,
         uint256 amount
-    ) external override {
+    ) external override nonReentrant {
         MarketState storage state = markets[market];
         require(msg.sender == state.creator, "LaunchpadEngine: not creator");
 
@@ -520,7 +584,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable {
         MarketState memory state = markets[market];
         
         feesAccrued = state.feesAccrued;
-        uint256 thresholdWad = state.bBase * graduationMultiplier;
+        // Threshold = bBase × ln(2) × multiplier (same formula as _distributeFee)
+        uint256 thresholdWad = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
         threshold = _wadToUsdc(thresholdWad);
         
         if (state.isGraduated) {

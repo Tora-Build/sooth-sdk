@@ -6,6 +6,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { wagmiAdapter, projectId, metadata, networks } from './lib/wagmi';
+import { preferInjectedProvider } from './lib/preferInjectedProvider';
 // NOTE (alpha): `ActivityListener` currently depends on removed V5 hooks (hooks/v5/*),
 // which causes Vite to 404 those module URLs and breaks the app. Re-introduce a V8 version later.
 
@@ -25,6 +26,9 @@ import { Learn } from './pages/Learn';
 import './index.css';
 
 const queryClient = new QueryClient();
+
+// Prefer MetaMask/Coinbase when multiple injected EVM providers exist (prevents Phantom "hijack")
+preferInjectedProvider();
 
 // Create AppKit modal with EVM only
 createAppKit({

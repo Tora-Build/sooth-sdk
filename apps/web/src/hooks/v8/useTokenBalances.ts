@@ -1,10 +1,12 @@
-import { useReadContracts, useAccount } from 'wagmi';
+import { useReadContracts, useAccount, useChainId } from 'wagmi';
 import { V8_ABIS } from '../../config/abis';
+import { getPollingInterval, getStaleTime } from '../../lib/polling';
 
 type Address = `0x${string}`;
 
 export function useTokenBalances(tokens: Address[]) {
   const { address } = useAccount();
+  const chainId = useChainId();
 
   const { data, isLoading, refetch } = useReadContracts({
     contracts: tokens.map(token => ({
@@ -15,7 +17,8 @@ export function useTokenBalances(tokens: Address[]) {
     })),
     query: {
       enabled: !!address && tokens.length > 0,
-      refetchInterval: 15000,
+      refetchInterval: getPollingInterval(chainId, 'normal'),
+      staleTime: getStaleTime(chainId),
     }
   });
 

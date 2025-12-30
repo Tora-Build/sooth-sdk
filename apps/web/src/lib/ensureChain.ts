@@ -106,17 +106,48 @@ export async function ensureChain(
 
 /**
  * Get the raw ethereum provider from window
- * Works with MetaMask, Phantom, and other injected wallets
+ * Prefers MetaMask/Coinbase when multiple injected providers exist.
+ *
+ * Notes:
+ * - Some wallets (including Phantom) inject EVM providers that can "win" as the default.
+ * - When multiple providers exist, `window.ethereum.providers` is commonly populated.
+ * - We only fall back to Phantom if no better EVM provider is present.
  */
-export function getEthereumProvider(): any {
+export function getEthereumProvider(opts?: { allowPhantom?: boolean }): any {
   if (typeof window === 'undefined') return null;
-  
-  // Phantom EVM uses window.phantom.ethereum
+
+  const allowPhantom = opts?.allowPhantom ?? false;
+  const eth = (window as any).ethereum;
   const phantom = (window as any).phantom?.ethereum;
-  if (phantom?.isPhantom) {
-    return phantom;
+
+  const candidates: any[] = [];
+
+  // Multi-injected providers array (MetaMask + others)
+  if (eth && Array.isArray(eth.providers)) {
+    candidates.push(...eth.providers);
+  } else if (eth) {
+    candidates.push(eth);
   }
-  
-  // Standard injected provider
-  return (window as any).ethereum;
+
+  // Phantom can also expose a separate provider
+  if (phantom && phantom !== eth) {
+    candidates.push(phantom);
+  }
+
+  const uniq = Array.from(new Set(candidates.filter(Boolean)));
+  if (uniq.length === 0) return null;
+
+  const pick = (pred: (p: any) => boolean) => uniq.find(pred);
+
+  // Prefer MetaMask, then Coinbase Wallet, then any non-Phantom provider
+  const mm = pick((p) => !!p?.isMetaMask);
+  if (mm) return mm;
+
+  const cb = pick((p) => !!p?.isCoinbaseWallet);
+  if (cb) return cb;
+
+  const nonPhantom = pick((p) => !p?.isPhantom);
+  if (nonPhantom) return nonPhantom;
+
+  return allowPhantom ? uniq[0] : null;
 }

@@ -23,11 +23,10 @@ Quick reference for when to use which workflow or rule.
 | `/deploy` | Before/during contract deployment |
 | `/deploy-sync` | After `forge script --broadcast` |
 | `/evm-dev` | Solidity development |
-| `/frontend-dev` | React/TypeScript work |
+| `/frontend-dev` | React/TypeScript work + UI/UX design |
 | `/fullstack-dev` | Mixed contract + frontend work |
 | `/auditor` | Code review, bug hunting |
 | `/researcher` | Documentation, design exploration |
-| `/designer` | UI/UX design |
 | `/qa` | Test strategy, coverage, quality assurance |
 | `/librarian` | Repo maintenance, dead code removal, and documentation reorganization |
 
@@ -42,7 +41,7 @@ Quick reference for when to use which workflow or rule.
 | Deploying contracts | `/deploy` → `/deploy-sync` |
 | Updating project status | `/coordinator` |
 | Writing Solidity | `/evm-dev` |
-| Writing React | `/frontend-dev` |
+| Writing React / UI polish | `/frontend-dev` |
 | End of work session | `/coordinator` |
 | Repo cleanup/Docs sync | `/librarian` |
 | Agent repeating errors | "Read LESSONS_LEARNED.md" |

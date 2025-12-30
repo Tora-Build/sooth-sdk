@@ -6,7 +6,7 @@ import { useDeployments } from '../../../hooks/useDeployments';
 import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';
 import { useReadContract } from 'wagmi';
-import { Info, BarChart3, Scale, PieChart, Package, Anchor } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useChainStore } from '../../../store/useChainStore';
 import { cn } from '../../../lib/utils';
 
@@ -32,25 +32,35 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
     });
     const decimals = Number(usdcDecimals ?? 18);
 
-    // 3. Get AMM State (qYes, qNo for Liability)
+    // 3. Get AMM State (qYes, qNo for Liability) + AMMEngine USDC balance (locked proceeds)
+    const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
     const { data: ammState } = useV8DirectRead({
-        queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress],
-        enabled: !!marketAddress && !!chainId && !!ammEngineAddress,
+        queryKey: ['v8', 'ammState', chainId, ammEngineAddress, marketAddress, usdcAddress],
+        enabled: !!marketAddress && !!chainId && !!ammEngineAddress && !!usdcAddress,
         chainId,
         read: async (client) => {
             // Need qYes, qNo. Using getMarketState
-            const [qYes, qNo, price] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
-                address: ammEngineAddress!,
-                abi: V8_ABIS.AMMEngine,
-                functionName: 'getMarketState',
-                args: [marketAddress],
-            });
-            return { qYes, qNo, price };
+            const [[qYes, qNo, price], ammEngineUsdcBalance] = await Promise.all([
+                readContractSafe<readonly [bigint, bigint, bigint]>(client, {
+                    address: ammEngineAddress!,
+                    abi: V8_ABIS.AMMEngine,
+                    functionName: 'getMarketState',
+                    args: [marketAddress],
+                }),
+                // Get USDC balance of AMMEngine (total locked proceeds across all users)
+                readContractSafe<bigint>(client, {
+                    address: usdcAddress!,
+                    abi: ERC20_ABI,
+                    functionName: 'balanceOf',
+                    args: [ammEngineAddress!],
+                }),
+            ]);
+            return { qYes, qNo, price, lockedProceeds: ammEngineUsdcBalance };
         },
     });
 
     // 4. Accounting Math
-    const stats = useMarketStatsMath(launchpad as any, ammState, decimals); 
+    const stats = useMarketStatsMath(launchpad as any, ammState, decimals);
 
     if (!stats) return null;
 
@@ -59,32 +69,18 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
         const num = Number(formatUnits(val, decimals));
         if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
         if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
-        return num.toLocaleString('en-US', { 
-            style: 'currency', 
+        return num.toLocaleString('en-US', {
+            style: 'currency',
             currency: 'USD',
             maximumFractionDigits: 0
         });
     };
     const fmtNum = (val: bigint | number) => Number(typeof val === 'bigint' ? formatUnits(val, 18) : val).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const fmtVal = (val: bigint) => {
-        const num = Math.abs(Number(formatUnits(val, decimals)));
-        if (num > 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
-        if (num > 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
-        return num.toLocaleString('en-US', { 
-            style: 'currency', 
-            currency: 'USD',
-            maximumFractionDigits: 0
-        });
-    };
-
-    // P&L Color
-    const pnlColor = stats.pnl >= 0n ? 'text-emerald-400' : 'text-rose-400';
-    const pnlSign = stats.pnl >= 0n ? '+' : '-';
 
     // Projection
     const yesWinLpValue = stats.gross - stats.qYes;
     const noWinLpValue = stats.gross - stats.qNo;
-    
+
     // Percent calculation using raw WAD values for precision
     const impliedYes = Number(formatUnits(stats.rawQYes, 18));
     const impliedNo = Number(formatUnits(stats.rawQNo, 18));
@@ -103,99 +99,93 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                 </div>
             </div>
 
-            <div className="space-y-4 font-mono">
-
+            <div className="space-y-4">
                 {/* 1. Cash Basis */}
-                <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <Package className="w-3 h-3 text-amber-500" />
-                            CASH BASIS FORMULA
-                        </div>
-                        <div className="text-[10px] text-slate-500 italic">SEED + FEES + P&L = GROSS</div>
+                <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
+                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
+                        <span className="text-slate-500 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.seed)}) + <span className="text-emerald-400">({fmtUsd(stats.fees)})</span> + <span className={pnlColor}>({pnlSign}{fmtVal(stats.pnl)})</span> =
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400" title="Max Loss (b × ln(2))">{fmtUsd(stats.maxLoss)}</span>
+                            <span className="text-slate-600">+</span>
+                            <span className="text-emerald-500/70" title="LP Yield Pool">{fmtUsd(stats.lpYieldPool)}</span>
+                            <span className="text-slate-600">+</span>
+                            <span className={cn("transition-colors", stats.pnl >= 0n ? 'text-emerald-400/80' : 'text-rose-400/80')} title="Swap P&L (LMSR Cost)">
+                                {stats.pnl >= 0n ? '+' : '-'}{fmtUsd(stats.pnl < 0n ? -stats.pnl : stats.pnl)}
+                            </span>
+                            <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-xl font-bold text-white tracking-tight">{fmtUsd(stats.gross)}</div>
+                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.cash)}</div>
                     </div>
                 </div>
 
                 {/* 2. Equity Floor */}
-                <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <Scale className="w-3 h-3 text-cyan-500" />
-                            EQUITY FLOOR FORMULA
-                        </div>
-                        <div className="text-[10px] text-slate-500 italic">GROSS - LIABILITY = FLOOR</div>
+                <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+                    <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
+                        <span className="text-cyan-600/60 font-mono italic">Cash - Liability = Floor</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.gross)}) - <span className="text-rose-400">({fmtUsd(stats.liability)})</span> =
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400">{fmtUsd(stats.cash)}</span>
+                            <span className="text-slate-600">−</span>
+                            <span className="text-rose-500/70" title="Max Liability (max(qY, qN))">{fmtUsd(stats.liability)}</span>
+                            <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-xl font-bold text-cyan-400 tracking-tight">{fmtUsd(stats.floor)}</div>
+                        <div className="text-lg font-bold text-cyan-400 font-mono ml-auto">{fmtUsd(stats.floor)}</div>
                     </div>
                 </div>
 
                 {/* 3. Valuation */}
-                <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <PieChart className="w-3 h-3 text-purple-500" />
-                            VALUATION (EXRATE)
-                        </div>
-                        <div className="text-[10px] text-slate-500 italic">EQUITY / SUPPLY = RATE</div>
+                <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
+                    <div className="text-[9px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
+                        <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-slate-300">
-                            ({fmtUsd(stats.floor)}) / ({fmtNum(stats.supply)}) =
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400">{fmtUsd(stats.floor)}</span>
+                            <span className="text-slate-600">/</span>
+                            <span className="text-slate-400" title="LP Supply">{fmtNum(stats.supply)}</span>
+                            <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-xl font-bold text-purple-400 tracking-tight">{stats.floorRate.toFixed(3)}x</div>
-                    </div>
-                </div>
-
-                {/* 4. Liquidity Anchor */}
-                <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <Anchor className="w-3 h-3 text-slate-500" />
-                            LIQUIDITY ANCHOR FORMULA
-                        </div>
-                        <div className="text-[10px] text-slate-500 italic">B * LN(2) ≈ SUPPLY</div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-slate-300">
-                            ({fmtNum(stats.b)}) * 0.693 ≈
-                        </div>
-                        <div className="text-xl font-bold text-white tracking-tight">({fmtNum(stats.anchorSupply)})</div>
+                        <div className="text-lg font-bold text-purple-400 font-mono ml-auto">{stats.floorRate.toFixed(3)}x</div>
                     </div>
                 </div>
 
-                {/* 5. LP Payout Sim */}
-                <div className="pt-4 border-t border-slate-800">
-                    <div className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider text-center">LP Payout Simulation</div>
-
-                    <div className="flex justify-between items-end mb-2 px-1">
-                        <div className="text-left">
-                            <div className="text-[10px] text-emerald-500 font-bold mb-1">IF YES WINS</div>
-                            <div className="text-lg font-bold text-white">{fmtUsd(yesWinLpValue)}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-[10px] text-rose-500 font-bold mb-1">IF NO WINS</div>
-                            <div className="text-lg font-bold text-white">{fmtUsd(noWinLpValue)}</div>
-                        </div>
+                {/* 4. TVL */}
+                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
+                    <div className="text-[9px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">📦 TVL Formula</span>
+                        <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
                     </div>
-
-                    <div className="h-2 rounded-full overflow-hidden bg-slate-800 flex">
-                        <div className="bg-emerald-500/50 h-full transition-all duration-500" style={{ width: `${yesPct}%` }} />
-                        <div className="bg-rose-500/50 h-full transition-all duration-500" style={{ width: `${100 - yesPct}%` }} />
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
+                            <span className="text-slate-600">+</span>
+                            <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
+                            <span className="text-slate-600">=</span>
+                        </div>
+                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.tvl)}</div>
                     </div>
+                </div>
 
-                    <div className="flex justify-between mt-1 text-[10px] font-mono text-slate-500 px-1">
-                        <span>YES Liability: {fmtUsd(stats.qYes)}</span>
-                        <span>NO Liability: {fmtUsd(stats.qNo)}</span>
+                {/* 5. Liquidity Anchor */}
+                <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
+                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>
+                        <span className="text-slate-500 font-mono italic">b × ln(2) ≈ Supply</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400" title="Liquidity Depth (b)">{fmtNum(stats.b)}</span>
+                            <span className="text-slate-600">×</span>
+                            <span className="text-slate-500">0.693</span>
+                            <span className="text-slate-600">≈</span>
+                        </div>
+                        <div className="text-lg font-bold text-slate-300 font-mono ml-auto">{fmtNum(stats.supply)}</div>
                     </div>
                 </div>
 

@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 /**
  * @title TickMath
  * @notice Math library for Continuous Linear Tick calculations
- * @dev 10,000 ticks linear in probability space (1bp precision)
+ * @dev 1,000 ticks linear in probability space (0.1% precision)
  */
 library TickMath {
     // ============================================
@@ -12,8 +12,8 @@ library TickMath {
     // ============================================
 
     uint256 private constant WAD = 1e18;
-    uint16 constant MAX_TICK = 9999;
-    uint16 constant NUM_TICKS = 10000;
+    uint16 constant MAX_TICK = 999;
+    uint16 constant NUM_TICKS = 1000;
 
     // ============================================
     // Tick ↔ Probability
@@ -21,8 +21,8 @@ library TickMath {
 
     /**
      * @notice Convert tick to probability
-     * @dev p = tick / 10000
-     * @param tick Tick index (0-9999)
+     * @dev p = tick / 1000
+     * @param tick Tick index (0-999)
      * @return probability Probability in WAD (0-1e18)
      */
     function tickToProbability(uint16 tick) internal pure returns (uint256 probability) {
@@ -32,9 +32,9 @@ library TickMath {
 
     /**
      * @notice Convert probability to tick
-     * @dev tick = floor(p * 10000)
+     * @dev tick = floor(p * 1000)
      * @param probability Probability in WAD (0-1e18)
-     * @return tick Tick index (0-9999)
+     * @return tick Tick index (0-999)
      */
     function probabilityToTick(uint256 probability) internal pure returns (uint16 tick) {
         require(probability <= WAD, "TickMath: probability out of range");
@@ -51,7 +51,7 @@ library TickMath {
      * @notice Calculate virtual YES reserves at tick
      * @dev x_YES = L * sqrt((1-p)/p) = L * sqrt((N-i)/i)
      * @param liquidity Liquidity amount L (WAD)
-     * @param tick Tick index (0-9999)
+     * @param tick Tick index (0-999)
      * @return reserveYES Virtual YES reserves (WAD)
      */
     function getVirtualReserveYES(uint256 liquidity, uint16 tick)
@@ -61,7 +61,7 @@ library TickMath {
     {
         require(tick <= MAX_TICK && tick > 0, "TickMath: invalid tick");
         
-        // sqrt((N-i)/i) where N=10000
+        // sqrt((N-i)/i) where N=1000
         uint256 numerator = NUM_TICKS - uint256(tick);
         uint256 denominator = uint256(tick);
         
@@ -76,7 +76,7 @@ library TickMath {
      * @notice Calculate virtual NO reserves at tick
      * @dev y_NO = L * sqrt(p/(1-p)) = L * sqrt(i/(N-i))
      * @param liquidity Liquidity amount L (WAD)
-     * @param tick Tick index (0-9999)
+     * @param tick Tick index (0-999)
      * @return reserveNO Virtual NO reserves (WAD)
      */
     function getVirtualReserveNO(uint256 liquidity, uint16 tick)
@@ -84,9 +84,10 @@ library TickMath {
         pure
         returns (uint256 reserveNO)
     {
-        require(tick <= MAX_TICK && tick < MAX_TICK, "TickMath: invalid tick");
+        // tick must be less than MAX_TICK to avoid division by zero (denominator = 1000 - tick)
+        require(tick > 0 && tick < MAX_TICK, "TickMath: invalid tick");
         
-        // sqrt(i/(N-i)) where N=10000
+        // sqrt(i/(N-i)) where N=1000
         uint256 numerator = uint256(tick);
         uint256 denominator = NUM_TICKS - uint256(tick);
         

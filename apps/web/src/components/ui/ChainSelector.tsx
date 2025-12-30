@@ -37,7 +37,7 @@ export const ChainSelector: React.FC = () => {
         
         // Fallback: Try direct EIP-3085/3326 (for Phantom and wallets that need chain added)
         try {
-          const provider = getEthereumProvider();
+          const provider = getEthereumProvider({ allowPhantom: false });
           if (provider) {
             const success = await ensureChain(provider, chainId);
             if (success) {

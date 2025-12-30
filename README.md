@@ -2,7 +2,7 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V8.0.0  
+**Current Version**: V8.4.x  
 **Status**: Alpha (breaking changes allowed)
 
 ## Structure
@@ -12,8 +12,7 @@ sooth-alpha/
 ├── apps/
 │   └── web/                      # Frontend dApp (Vite + React 18)
 ├── packages/
-│   ├── contracts-evm/            # Solidity smart contracts (Foundry)
-│   └── sdk/                      # Shared types, ABIs, and config
+│   └── contracts-evm/            # Solidity smart contracts (Foundry)
 ├── .agent/                       # Agent workflows and knowledge base
 ├── package.json                  # pnpm workspace root
 ├── pnpm-workspace.yaml
@@ -100,25 +99,12 @@ Foundry project containing:
 - `Collateralizer` — Token management
 - `OutcomeToken` — Outcome token contract
 
-### `packages/sdk`
-
-Shared TypeScript package:
-
-- ABIs exported from contracts
-- Type definitions
-- Deployment configurations
-
 ## Active Deployments
 
-### Base Sepolia (Chain 84532) — V8 ✅
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x196138C0d39eE18a6EEFbD9f889f455e67774bAe` |
-| Collateralizer | `0x33CEF938B38C0449d9DA786c27168F6F7Dc4FFac` |
-| AMMEngine | `0x26728543542297dc17A91D82C0B1605Dc2331537` |
-| TickBook | `0x10dC96D3A82FE35b2FF4571B90D8FE5984c60A87` |
+Deployment addresses change frequently in alpha.
 
-See `apps/web/src/config/deployments.json` for full addresses + markets.
+- **Source of truth (frontend config)**: `apps/web/src/config/deployments.json` + `apps/web/src/config/markets.json`
+- **Current status / known issues**: `STATUS.md`
 
 ## Agent Workflows
 

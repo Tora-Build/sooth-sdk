@@ -111,12 +111,15 @@ ExRate = Floor / LP_Supply
 
 ### Launchpad Market Economics
 ```
-// Creator Deposit
-maxLoss = bBase × 0.693 (ln(2))
+// Creator Deposit = Max Loss
+deposit = bBase × ln(2) ≈ bBase × 0.693
 
-// Graduation Threshold (default)
-graduated when: feesAccrued >= bBase × graduationMultiplier
-default: graduationMultiplier = 2 (2× bBase)
+// Graduation Threshold
+threshold = bBase × ln(2) × multiplier
+graduated when: feesAccrued >= threshold
+
+default: multiplier = 1 (break-even: fees = creator deposit)
+option:  multiplier = 2 (2× break-even for extra safety margin)
 
 // Pre-Graduation Fees (default 5%)
 100% → bBase growth + 1:1 LP token mint to trader
@@ -127,19 +130,26 @@ default: graduationMultiplier = 2 (2× bBase)
 20% → Protocol treasury
 ```
 
-### LP Valuation (Honest Floor Model)
+### LP Valuation (LMSR Accounting)
 ```
-// AMM Ledger (Pure Accounting)
-AMM_Cash = Initial_Seed + Fees + (Current_LMSR_Cost - Initial_LMSR_Cost)
+// Gross Cash = LMSR Cost Function Value
+// This represents total cash in the AMM needed to cover all obligations
+Gross = C(qYes, qNo, bCurrent) = bCurrent × ln(e^(qYes/b) + e^(qNo/b))
 
-// Floor Value (Worst Case)
-Floor = AMM_Cash - max(qYes, qNo)
+// Liability = worst-case payout to traders
+Liability = max(qYes, qNo)
 
-// Ceiling Value (Best Case)
-Ceiling = AMM_Cash - min(qYes, qNo)
+// Floor Value (Guaranteed LP Equity)
+Floor = Gross - max(qYes, qNo)
 
-// Exchange Rate
+// Ceiling Value (Best Case LP Equity)
+Ceiling = Gross - min(qYes, qNo)
+
+// Exchange Rate (LP token value)
 ExRate = Floor / LP_Supply
+
+// Note: With dynamic b (fee reinvestment), don't try to decompose
+// Gross into "Seed + Fees + P&L" - the cost function changes non-linearly.
 ```
 
 ---
@@ -191,15 +201,13 @@ Settlement:
 
 ## Deployments
 
-### Base Sepolia (Chain 84532) — V8.2.0 (Dual-Balance)
+### Base Sepolia (Chain 84532) — V8.4.0 (QA Hardened)
 ```
-LaunchpadEngine   = 0x5B7be7DbfE6035544546F70E4fcAaB5531fBeF15
-Collateralizer    = 0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8
-AMMEngine         = 0xC4b7fe6CF6c55aE0212d2c045d6fcd3aac9d1a3f
-TickBook          = 0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe
+LaunchpadEngine   = 0xaf8e68Dfc5e129a33735EE7Df900500D9bb37c88
+Collateralizer    = 0xc3b53dAcbEE7F240a2c9Da05cef8ac7AbE02A767
+AMMEngine         = 0x2646453758922d1500362AAbc385A8cf02D82ee9
+TickBook          = 0xDb710FA6B587ba2e6fB56a0D5166C029f6852D57
 USDC (MockUSDC)   = 0x856fbeebd91db28e3b4550e7602142cfab683796
-Market 1          = 0xF0f854ecdEFa9d28D6B23B63b99aC27bD052ACEe
-Market 2          = 0x6f4AAC19f115bDcE484D3209C4AA37af05aeBc05
 ```
 
 ### MegaETH Frontier (Chain 4326) — V6 (Legacy)
@@ -262,16 +270,22 @@ postGradFeeBps          | 100 (1%)  | 0-500      | setPostGradFeeBps()
 bBaseShareBps           | 5000 (50%)| 0-10000    | setFeeSplits()
 lpYieldShareBps         | 3000 (30%)| 0-10000    | setFeeSplits()
 protocolShareBps        | 2000 (20%)| 0-10000    | setFeeSplits()
-graduationMultiplier    | 2         | 1-10       | setGraduationMultiplier()
+graduationMultiplier    | 1         | 1-10       | setGraduationMultiplier()
+
+Graduation formula: threshold = bBase × ln(2) × multiplier
+  - multiplier=1: graduate at break-even (fees = creator deposit)
+  - multiplier=2: graduate at 2× break-even
 ```
 
 ---
 
 ```
-Version: V8.2.0 | KB: v5.0 | Updated: 2025-12-27
+Version: V8.6.1 | KB: v5.2 | Updated: 2025-12-28
 Architecture: V8 Modular (Domain Isolation)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
 Settlement: Pull-based via TruthMarket
 Custody: None (direct USDC transfers)
+Graduation: threshold = bBase × ln(2) × multiplier (LP break-even based)
+QA: 92 tests, invariant suite, settlement coverage added
 ```

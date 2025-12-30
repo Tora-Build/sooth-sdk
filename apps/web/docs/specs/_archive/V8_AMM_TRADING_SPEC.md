@@ -1,8 +1,8 @@
 # V8 AMM Trading Terminal Specification
 
-**Version**: 1.2.0 (V8.1)
-**Last Updated**: 2025-12-24  
-**Status**: Active
+**Version**: 1.1.0  
+**Last Updated**: 2025-12-23  
+**Status**: Draft
 
 ---
 
@@ -20,8 +20,8 @@ The AMM Trading Terminal provides a **simple, instant trading experience** for c
 - ✅ Instant execution (no matching required)
 - ✅ Always available liquidity (creator-funded)
 - ✅ Simple UX (no limit orders)
-- ⚡ Instant reinvestment (Spendable Proceeds)
-- ⚠️ 24-hour withdrawal lock (prevents informed trading)
+- ✅ Dynamic fees (5% pre-graduation, 1% post-graduation)
+- ⚠️ 24-hour sell lock (prevents informed trading)
 - ⚠️ Non-transferable positions (ledger-based)
 - ⚠️ Higher slippage on large trades
 
@@ -284,7 +284,6 @@ You can claim after: [Countdown Timer]
 - `LaunchpadEngine.getCurrentFee(market)`
 - `LaunchpadEngine.isGraduated(market)`
 - `AMMEngine.getMarketState(market)` → `(qYes, qNo, price)`
-- `AMMEngine.availableBalance(user)` → Spendable USDC
 - `TruthMarket.isLive()`
 - `TruthMarket.isSettled()`
 

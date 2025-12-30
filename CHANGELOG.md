@@ -2,7 +2,446 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.5.0] - 2025-12-30
+
+### Added
+- **`getPendingFills()` View Function** (2025-12-30):
+  - New view function in `TickBookPoolManager` that calculates pending fills from growth accumulator
+  - Returns `(pendingShares, pendingCollateralUsed)` without modifying state
+  - Enables frontend to show total fills = `order.filledShares + pendingShares`
+  - Critical for proper display of crossed order fills
+
+- **LiquidityMap User Orders Visualization** (2025-12-30):
+  - LiquidityMap component now accepts `userOrders` prop
+  - When tick data unavailable, visualizes active user orders
+  - Shows YES/NO liquidity distribution across price range
+
+### Fixed
+- **User Orders Not Showing in Pro Terminal** (2025-12-30):
+  - Root cause 1: `getPendingFills` was being called but didn't exist in contract (silent failure)
+  - Root cause 2: ABI was missing `getUserOrders` function definition
+  - Solution: Added `getPendingFills` view function, regenerated ABI
+  
+- **Order Fill Display for Crossed Orders** (2025-12-30):
+  - Issue: Orders crossed via `_tryCross` showed 0 fills because accumulator wasn't being read
+  - Crossed orders use lazy-claim pattern: fills tracked in `_fillGrowthGlobalX128[outcome]`
+  - Frontend now calls `getPendingFills` and adds result to `order.filledShares`
+  - CLAIM button now appears correctly for crossed orders
+
+### Changed
+- **`useUserOrdersDirect` Hook** (2025-12-30):
+  - Now calls `getOrder` + `getPendingFills` in parallel for each order
+  - Displays total fills including pending accumulator amounts
+  - Better logging for debugging order state
+
+### Deployed
+- **Base Sepolia V9.5.0** (Fresh deployment):
+  - **Collateralizer**: `0xF90d9241398c3f9C76E378739920b84DE5a5eEd0`
+  - **AMMEngine**: `0x7b57918F88dD7e0006B40988B9f73B26a27FF292`
+  - **TickBookVault**: `0xDF7cc6186d96b13c095dB64D4589fDec07af03f8`
+  - **TickBookPoolManager**: `0x432b75E95bD1aE44D6393351B256ecfAf7753556` (with `getPendingFills`)
+  - **DynamicFeeHook**: `0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307`
+  - **LaunchpadEngine**: `0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a`
+  - **ALIEN Market**: `0x4Cb558160602004D5b6C023Ad469DF0E2585F007`
+  - **BTC100K Market**: `0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68`
+
+### Technical Notes
+- **Order Crossing Mechanics Clarified**:
+  - When Order A (YES) exists and Order B (NO) is placed with overlapping range, `_tryCross` executes
+  - Order B (new) gets immediate `filledShares` credit + tokens via `vault.creditOutcome`
+  - Order A (existing) gets fills tracked via `_fillGrowthGlobalX128[outcome]` accumulator
+  - Order A maker must call `claimFills()` or frontend shows pending via `getPendingFills()`
+
+---
+
+## [9.4.0] - 2025-12-30 (Superseded)
+
+### Added
+- **TickBook Registrar Access Control**: Only LaunchpadEngine (or owner) can register markets in TickBook
+  - Added `registrar` storage variable and `setRegistrar(address)` function
+  - Added `onlyRegistrar` modifier to both `registerMarket()` overloads
+  - Ensures markets can only be added to TickBook after graduation (contract-level lock)
+
+### Fixed
+- **Frontend Graduation Guard**: Re-enabled Pro Terminal graduation check
+  - Non-graduated markets now show "Pro Trading Locked" screen with graduation progress
+  - Previously disabled to allow testing, now enforced for proper UX
+
+### Deployed
+- **Base Sepolia V9.3.0** (Fresh deployment):
+  - **Collateralizer**: `0x84f9d5B33d2393B26320a70370635008E2cF90A7`
+  - **AMMEngine**: `0xC2BF5E82AcB56c0f76F4692f2698293F29934695`
+  - **TickBookVault**: `0x86cb494DFb00De52e076Bd7203a8D5d3d0c0D3a5`
+  - **TickBookPoolManager**: `0x2ab1751a396EF779ca4Ab0DF5854a4F830D664F3` (with registrar)
+  - **DynamicFeeHook**: `0xffA90FE3262f9FDa72A585eFc635caF2c7622CAF`
+  - **LaunchpadEngine**: `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A`
+  - **ALIEN Market**: `0x3FF3E6A3C8829BbB5DfEd440AafF92e608934Dc2`
+  - **BTC100K Market**: `0x3Be7CC1529276E1c921A24844FC158514feF0544`
+
+### Notes
+- Registrar set to LaunchpadEngine: `0xFdEa0f983820f73e97A6a81C38565B48bE7b6c7A`
+- Markets NOT graduated yet - trade on AMM to accumulate fees and trigger graduation
+
+---
+
+## [9.2.0] - 2025-12-29
+
+### Fixed
+- **TickBook Initialization & Market Key Robustness** (2025-12-29):
+  - Resolved "TickBook Not Initialized" error in Pro Trading Terminal.
+  - Hardened address normalization in `useTickBookDirect` hook to handle padded addresses (32-byte words from contract RPC) and missing leading zeros.
+  - Removed non-existent `findNextActiveTick` and `getTickInfo` direct RPC calls (V9 currently requires Ponder or Subgraph for orderbook depth; direct reading is limited to market state).
+  - Ensured correct token resolution (YES/NO) from Collateralizer before calculating market keys.
+
+### Manual Actions
+- **BTC 100k Market Registration**:
+  - Manually registered the `BTC 100k` market in the `TickBookPoolManager` singleton on Base Sepolia.
+  - This enables Pro Trading functionality for this market before its official Launchpad graduation.
+  - Verified on-chain: `isActive` status returned for both ALIEN and BTC 100k using deterministic market keys.
+
+
+## [9.1.0] - 2025-12-29
+
+### ⚠️ BREAKING CHANGE
+- **IAMMEngine.tradePositionsFor signature changed**: Now accepts `fee` parameter (6th argument).
+
+### Fixed
+- **Critical Sell-Side Fee Bug** (2025-12-29):
+  - Sells now correctly deduct fees from proceeds before locking.
+  - Fee is transferred from AMMEngine to LaunchpadEngine (router).
+  - Slippage check now correctly uses net proceeds (after fee).
+  - Previously: Sells bypassed fees entirely, effectively giving traders 0% sell fees.
+  - Now: Sells apply the correct fee rate (5% pre-grad, 1% post-grad).
+
+### Added
+- **SellSideFeeIntegration.t.sol** (12 tests):
+  - P0: Fee deduction from YES/NO sells, transfer to router, accrual, slippage
+  - P1: Pre-grad rate verification, excessive fee protection
+  - P2: Sell-then-buy flow, lock queue verification, multiple sells
+  - 256-run fuzz test for random sell amounts
+
+### Deployed
+- **Base Sepolia V9.1.0**:
+  - **AMMEngine**: `0xc30b15912BD5EBC275CBc8CdA88FA881509F3029`
+  - **LaunchpadEngine**: `0xEff2d8dF8Fa9dFf67953273Ec6151e250693DEa1`
+
+### Coverage
+- 114 tests passing (12 new)
+- AMMEngine: 60.50% lines, 61.90% functions
+- LaunchpadEngine: 48.09% lines, 41.18% functions
+
+---
+
+## [9.0.1] - 2025-12-29
+
+### Added (V9 QA)
+- **Comprehensive V9 Test Suite** — 99 tests passing with 83% core coverage:
+  - `TickBookPoolManager.t.sol` — 22 tests for core ops, batching, hooks
+  - `V9Fuzz.t.sol` — 10 fuzz tests (tick bounds, slippage, crossing)
+  - `V9Invariants.t.sol` — 4 actor-based invariants (vault solvency, no negative balances)
+  - `TruthMarketLifecycle.t.sol` — 32 tests (activate, settle, veto, finalize, redemption)
+  - `TickBookVaultSettlement.t.sol` — 13 tests (deposit, reserve, redeem, edge cases)
+  - `HookCallbacks.t.sol` — 18 tests (DynamicFeeHook, permissions, fuzz)
+- **QA Analysis Document** — `test/QA_V9_ANALYSIS.md` documenting test strategy and coverage gaps
+
+### Changed
+- **V9 ABIs exported** — Added `V9_ABIS` export in `apps/web/src/config/abis.ts`
+- **Frontend config** — Updated `deployments.json` and `markets.json` to V9.0.0
+
+### Coverage
+| Contract | Lines | Functions |
+|----------|-------|-----------|
+| TickBookPoolManager | 83.24% | 89.29% |
+| TickBookVault | 44.12% | 60.87% |
+| TruthMarket | 100.00% | 100.00% |
+| DynamicFeeHook | 30.51% | 12.50% |
+
+---
+
+## [9.0.0] - 2025-12-29
+
+### Deployed
+- **V8.12.0 Limit Order Crossing Fix - Base Sepolia**:
+  - **Collateralizer**: `0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106`
+  - **AMMEngine**: `0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513`
+  - **TickBookVault**: `0x44fEbdDc46C785c00a1c84bC13787927c93B014B`
+  - **TickBookV2**: `0x22A3B8d12cf5277F27A2d9a03312e643b1996492`
+  - **LaunchpadEngine**: `0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70`
+  - Market 1 (Alien Life): `0xa4838e6E410570438d8B074e9459082b228A460C`
+  - Market 2 (BTC TWAP): `0x8027387f1FD1963513661A0051AdD224244e186E`
+
+### Fixed
+- **Critical Limit Order Crossing Bug** (2025-12-29):
+  - `_totalLiquidity` was tracking only density (shares per tick) instead of total shares (density × range).
+  - This caused overlapping orders to cross only ~0.1% of shares instead of the full order.
+  - Fix: Track `sharesTotal` in `_totalLiquidity` and use `order.sharesTotal` in pro-rata fill calculations.
+  - Verified: `test_LimitOrderCrossing_OverlappingRanges` now crosses 10,000 shares (was only 10).
+
+### Added (Previous)
+- **Monad Testnet Integration**: Added Chain ID `10143` to `deployments.json` and synchronized `markets.json`.
+- **Multi-Chain Resilience**: Application now supports Base Sepolia and Monad Testnet simultaneously.
+
+### Fixed (Previous)
+- **Critical `useDeployments` Hook Crash**: 
+    - Resolved `TypeError: Cannot read properties of undefined` by restoring nested `networks` structure in `deployments.json`.
+    - Added defensive null-checks in the hook to prevent runtime white-screens on malformed config.
+- **LP/Fee Discrepancy (ADR-054)**:
+    - Unified LP token minting to **USD-par** (1:1 with USD contributed).
+    - Removed the 1.44x depth-scaling for trader LP tokens ensures fair ownership shares.
+- **Base Sepolia Market visibility**: Restored missing Base Sepolia market configurations in `markets.json`.
+
+
+## [8.11.0] - 2025-12-29
+
+### Deployed
+- **V8.11.0 LaunchpadEngine LN2 Fix - Base Sepolia**:
+  - **Collateralizer**: `0x51762C3a51E0C53B32e234cc699F91a75AfCc24f`
+  - **AMMEngine**: `0x895dD6997f6c0F1Ec0f71C82CA66a437a230efdc`
+  - **TickBookVault**: `0xe67dFc6498444B5FdcaB8eD6687AfE5d9bCE08ac`
+  - **TickBookV2**: `0x903FD0218F1Aa061340EAf2811478f59b8Dc2260`
+  - **LaunchpadEngine**: `0xe0e82228aE890C8BdB33C249BfB60D39CD77eD2c`
+  - Market 1 (Alien Life): `0xA2C0Bf2766a4E799bC55fc88d7e4B63dCFC994a7`
+  - Market 2 (BTC TWAP): `0xC0154e2Ad8f170B1a07a19726b29D74D62a32deD`
+
+### Fixed
+- **LaunchpadEngine `LN2` Undefined Identifier** (2025-12-29):
+  - Fixed `getGraduationProgress()` view function using undefined `LN2` instead of `LN2_WAD`.
+  - This was a compilation error that prevented building from source.
+  - Root cause: inconsistent constant naming after ADR-053 refactor.
+
+## [8.9.1] - 2025-12-28
+
+### Added
+- **Rich AMM Accounting UI** (2025-12-28):
+  - Completely overhauled `MarketStats.tsx` with a professional "Pure AMM Accounting" design.
+  - Implemented 5 clear formula-driven cards: Cash Basis, Equity Floor, Valuation, TVL, and Liquidity Anchor.
+  - Synchronized visual styling with `AMMFormulasCard.tsx`.
+
+### Changed
+- **"Price" vs "Prob" Terminology Alignment** (2025-12-28):
+  - Replaced all instances of "Prob" and "Probability" with **"Price"** across AMM, Pro, and Create views.
+  - Simplifies the conceptual model for traders while maintaining mathematical correctness.
+
+### Fixed
+- **Pre-Graduation Liquidity Scaling Math (ADR-053)** (2025-12-28):
+  - Corrected `LaunchpadEngine.sol` fee distribution math.
+  - Fees now increase the liquidity parameter `b` by `Fee * 1/ln(2)` (~1.44x).
+  - This ensures a 1:1 relationship between fee accumulation and maximum loss capacity growth.
+  - Standardized on `LN2_WAD` and `LN2_INV_WAD` constants across contracts and scripts.
+
+## [8.9.0] - 2025-12-28
+
+### Deployed
+- **V8.9.0 Pending Fills + Short Sell Fix - Base Sepolia**:
+  - **Collateralizer**: `0x1DAad522554F231FFE2316b5E07614E533820A9B`
+  - **AMMEngine**: `0x6F880db15AD0CB89Df65455fdceD756Da45e6aE7`
+  - **TickBookVault**: `0xBe45be3082274bCA6e798A6463Db6056Caa1441C`
+  - **TickBookV2**: `0x875b354d082FAa992B9Bf2B7BF49d6b4f6736335`
+  - **LaunchpadEngine**: `0x082eD8B3B39D7406137d711243ED6499aD71d34D`
+  - Market 1 (Alien Life): `0x89632a94ad89F0BdDf0F0A66864b3808DeF9F426`
+  - Market 2 (BTC TWAP): `0xD82119AE06157Ab36574dD78313c77Cd1b9F070f`
+
+### Added
+- **`getPendingFills()` View Function** (2025-12-28):
+  - New view function in TickBookV2 to calculate pending (unclaimed) fills for a given order.
+  - Returns `pendingShares` and `pendingCollateral` based on global growth tracking.
+  - Frontend now displays total fills = claimed + pending.
+
+### Fixed
+- **Short Sell Outcome Mapping** (2025-12-28):
+  - "Sell YES" (when user has no YES shares) now correctly routes to buying NO tokens.
+  - Fixed `oppositeOutcome = isYes ? 0 : 1` mapping in Pro.tsx for short sell actions.
+  - Added to LESSONS_LEARNED.md as critical pattern.
+
+- **Contract Size Limit (EIP-170)** (2025-12-28):
+  - TickBookV2 was 144 bytes over the 24,576 byte limit.
+  - Shortened all error messages from "TB2: xyz" to "!xyz" format.
+  - Saved 278 bytes, now at 24,442 bytes with 134 byte margin.
+  - Updated test assertions to expect new error message format.
+
+### Changed
+- **Error Message Format** (2025-12-28):
+  - All TickBookV2 error messages shortened for contract size:
+    - `"TB2: not active"` → `"!active"`
+    - `"TB2: not owner"` → `"!own"`
+    - `"TB2: slippage exceeded"` → `"slip"`
+    - etc.
+
+---
+
 ## [Unreleased]
+
+### Breaking Changes
+- **TickBook `registerMarket` now requires initial probability** (2025-12-28):
+  - `ITickBook.registerMarket()` signature changed: now requires `initialProbabilityWad` (4th param).
+  - TickBook/TickBookV2 initializes `currentTick` from AMM probability instead of hardcoded 50%.
+  - LaunchpadEngine reads `ammEngine.getMarketState()` at graduation and passes probability to TickBook.
+  - **Why**: Previously, TickBook always started at 50% regardless of actual AMM price, creating false arbitrage signals when AMM price differed significantly.
+
+- **TickBookV2 `placeRangeOrder` returns 3 values** (2025-12-28):
+  - Now returns `(orderId, crossingFilled, crossingCost)` instead of just `orderId`.
+  - `crossingFilled` and `crossingCost` are currently always 0 (see Known Limitations).
+  - **Why**: Future-proofing for proper CLOB crossing semantics.
+
+- **TickBookV2 `executeMarketOrder` returns 3 values** (2025-12-28):
+  - Now returns `(sharesFilled, totalCost, refunded)` instead of just 2 values.
+  - Market orders now reserve `maxCost` upfront and refund unused collateral.
+  - **Why**: Proper market order semantics - takers should get refunds for unfilled portions.
+
+### Known Limitations
+- **TickBookV2 does not auto-match opposite orders** (2025-12-28):
+  - Placing a YES order (outcome=1) and NO order (outcome=0) at overlapping ranges does NOT cross.
+  - This is because TickBookV2 uses a **complete-set model** where makers PROVIDE liquidity (backing one half of YES+NO=$1), not a traditional bid/ask CLOB.
+  - Both orders sit passively waiting for takers to execute market orders against them.
+  - Proper CLOB crossing would require redesigning the fill mechanics to support direct token swaps.
+  - **Workaround**: Submit a market order to execute against existing liquidity.
+
+### Deployed
+- **V8.5 TickBookV2 (ADR-052) Deployed to Base Sepolia** (2025-12-28):
+  - Fresh deployment with TickBookV2 replacing TickBook v1.
+  - TickBookV2: `0xEe1029DCDa225cB15E751fDf61F43367456fb1E9` — O(1) gas range order placement.
+  - LaunchpadEngine: `0x81763C661A356B35e56D2228Bf448Cd6105B9b10`
+  - AMMEngine: `0x08591B79aB7E3AD48D5a267511ce6cB1B2BaF7CE`
+  - Collateralizer: `0x90B7A938b75803Db139cf54Ab19204Ae31286961`
+  - TickBookVault: `0xF3feC7e00637fad7171867047D4e732cE361FF89`
+  - 2 test markets deployed with $1,000 liquidity each.
+
+### Changed
+- **AMM Trading Panel Pro-Style Redesign** (2025-12-28):
+  - Replaced cluttered YES/bar/NO layout with clean tab-style YES/NO toggle (underline + subtle tint).
+  - Added "Current Prob" row showing probability percentages with compact bar.
+  - Added "Pool Shares" row displaying qYes/qNo (LMSR virtual shares) for market depth.
+  - Buy/Sell toggle now uses contextual colors: emerald (Buy YES), rose (Buy NO), amber (Sell).
+  - Pro-styled amount input with larger text, +/- buttons, and refined quote summary.
+  - Contextual gradient action buttons matching Pro page styling.
+  - Wrapped trading panel in Card component for visual consistency.
+  - Fixed AMM/Pro toggle link (was `/v8`, now `/trade`).
+
+- **LP Holders Card Improvements** (2025-12-28):
+  - Combined fee mode badge and hint icon into card header (top right).
+  - Removed separate "Phase Note" section for cleaner layout.
+
+### Fixed
+- **React Hooks Order** (2025-12-28):
+  - Fixed "Rendered more hooks than during the previous render" error in `LPHolders.tsx`.
+  - Moved `useState` for hint display before early return to satisfy Rules of Hooks.
+
+- **Probability Bar Height** (2025-12-28):
+  - Added `h-full` to probability bar segments to ensure equal heights.
+
+- **Percentage Display** (2025-12-28):
+  - Added `%` symbols to Current Prob display (YES and NO values).
+  - Changed "New Price" label to "YES Prob" or "NO Prob" based on selected outcome.
+  - Added `%` to new price values for clarity.
+
+- **Tick Range Expanded** (2025-12-28):
+  - `TickBook.MAX_ORDER_TICK` changed from `MAX_TICK - 1` (998) to `MAX_TICK` (999).
+  - Valid tick range is now **1–999** (0.1% to 99.9%), was 1–998.
+  - Frontend updated to allow 99.9% probability orders.
+
+- **TickBookV2 Continuous Range Orders (Linear)** (2025-12-28):
+  - Added `TickBookV2.sol` implementing Uniswap V3-style **range positions stored once** (boundary `liquidityNet/liquidityGross`) with **linear** in-range price movement.
+  - Replaced per-tick order storage (O(range width) SSTORE) with boundary updates (O(1) w.r.t. range width).
+  - Added pro‑rata maker fill attribution via lazy-claim snapshots (`claimFills`) using cumulative fill/proceeds counters.
+
+### ⚠️ BREAKING CHANGES
+- **TickBook API Overhaul (ADR-051)**: Complete refactor of TickBook to vault-native architecture.
+  - `TickBook` constructor now takes `address _vault` instead of no arguments.
+  - `placeLimitOrder` signature: `(marketKey, outcome, tickLower, tickUpper, sharesPerTick)` — added `outcome` uint8.
+  - `executeMarketOrder` signature: `(marketKey, outcome, shares, limitTick)` — `isBuy` bool → `outcome` uint8.
+  - `cancelOrder` replaces `cancelLimitOrder` — simplified to `(marketKey, orderId)`.
+  - Outcome tokens no longer directly transferred; uses internal vault accounting.
+- **Tick Resolution**: 10,000 ticks → 1,000 ticks (0.01% → 0.1% increments).
+  - `TickMath.MAX_TICK` = 999 (was 9999).
+  - Initial market tick = 500 (was 5000).
+
+- **TickBookVault Interface Expansion (ADR-052)** (2025-12-28):
+  - `ITickBookVault` adds `refundMarketToAvailable(market, user, amountWad)` to support refunding unfilled maker collateral from `marketCollateralWad`.
+  - `TickBookV2` changes maker collateral flow to be **market-collateralized at placement** via `spendAvailableToMarket(...)` and refunded on cancel via `refundMarketToAvailable(...)`.
+
+### Added
+- **TickBookVault Contract (ADR-051)** (2025-12-27):
+  - New `TickBookVault.sol` — Global per-chain USDC custody for TickBook.
+  - Manages `availableUsdcWad` and `reservedUsdcWad` per user.
+  - Tracks internal YES/NO shares per market (`yesInternal`, `noInternal`).
+  - Vault-native redemption via `redeemResolved(market)` after settlement.
+  - Capital-efficient collateralization: limit orders reserve `P * qty` (YES) or `(1-P) * qty` (NO).
+- **TickBook Vault-Native Matching** (2025-12-27):
+  - `TickBook` now integrates with `TickBookVault` for all collateral management.
+  - Removed direct ERC20 token transfers from TickBook.
+  - New vault hooks: `reserveUsdc`, `releaseUsdc`, `spendAvailableToMarket`, `spendReservedToMarket`, `creditOutcome`.
+- **Frontend TickBookVault Integration** (2025-12-27):
+  - New `useTickBookVaultDirect` hook for reading vault balances.
+  - Pro page now shows vault balances (available, reserved, internal YES/NO).
+  - Deposit/Withdraw USDC to/from vault in Pro terminal.
+  - ABIs updated: `TickBook.abi.json`, `TickBookVault.abi.json`.
+- **TickBook Vault-Native Orderbook Plan (Research)** (2025-12-27):
+  - Added consolidated design doc: `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+  - Captures Phase 1: USDC-only Pro UX + internal YES/NO shares display + vault-native matching.
+
+- **TickBookV2 Spec (Research)** (2025-12-28):
+  - Added: `packages/contracts-evm/docs/research/V8/TICKBOOK_V2_CONTINUOUS_RANGE.md`
+  - Added: `packages/contracts-evm/test/v8/TickBookV2.t.sol` (17 tests)
+
+### Changed
+- **Tick Resolution Reduction** (2025-12-27):
+  - `TickMath`: `MAX_TICK` 9999 → 999, `NUM_TICKS` 10000 → 1000.
+  - `TickBitmap`: Updated for 1000-tick range (10 words × 100 bits).
+  - Frontend price calculations updated: `tick / 1000` instead of `tick / 10000`.
+- **DeployV8.s.sol**: Now deploys `TickBookVault` before `TickBook`, wires them together.
+- **Test Suite Updates**: All TickBook tests refactored for vault-native flow and 1,000 ticks.
+
+### Deployment
+- **Base Sepolia V8.4 (ADR-051)** (2025-12-27):
+  - MockUSDC: `0x856FbEebD91Db28e3b4550e7602142Cfab683796` (unchanged)
+  - Collateralizer: `0x43A6BDdFC1D0C382eD20a0197B4a223A8650831c`
+  - AMMEngine: `0x211cbEf79b13C0ed3Ba77A765504eB4419088730`
+  - **TickBookVault**: `0x5e712246ce7cF99164421a25C79214B3f6194395` ✨ NEW
+  - **TickBook** (vault-native): `0x961654cE125D0FFA8f561d94922256036E44B377` ✨ NEW
+  - LaunchpadEngine: `0xd600C85c0cCBf848Ae1853d47492A776ABcFb703`
+
+### Fixed
+- **🔴 CRITICAL: AMMEngine Lock Accounting Bug** (2025-12-27):
+  - **Discovery**: Invariant test `invariant_LockedNeverExceedsAvailable` caught the bug.
+  - **Root Cause**: `_tradePositions()` reduced `_availableBalance` when user bought using proceeds, but did NOT reduce `_lockedBalance` proportionally.
+  - **Impact**: `_lockedBalance > _availableBalance` could occur, causing potential underflow in `claimUnlocked()`.
+  - **Fix**: Added proportional `_lockedBalance` reduction in `AMMEngine._tradePositions()` (lines 203-217).
+  - **Verification**: All 92 tests pass including 256+ run invariant fuzzing.
+- **Graduation Revert When Collateralizer Already Registered** (2025-12-27):
+  - `LaunchpadEngine` graduation is now **idempotent** if outcome tokens were pre-registered in `Collateralizer`.
+  - Uses `Collateralizer.getOutcomeTokens()` when already registered instead of reverting.
+  - `TickBook.registerMarket` is now best-effort during graduation (ignores `"TickBook: already registered"`).
+  - Added regression test: `test_Graduation_WhenCollateralizerAlreadyRegistered_DoesNotRevert`.
+
+### Added
+- **Comprehensive QA Test Suite** (2025-12-27):
+  - **AMMSettlement.t.sol** (12 tests): Settlement scenarios for YES/NO/INVALID outcomes
+    - `test_SettlePosition_YESWins`, `test_SettlePosition_NOWins`, `test_SettlePosition_INVALIDWins`
+    - Multi-user settlement, zero payout handling, revert conditions
+    - Fuzz tests: `testFuzz_SettlePosition_RandomYESShares`, `testFuzz_SettlePosition_RandomNOShares`
+  - **TickBookEdgeCases.t.sol** (17 tests): Orderbook edge cases
+    - Cross-tick market orders, partial fills
+    - Extreme tick values (0, 9999, MAX_TICK)
+    - View functions, fee collection, revert conditions
+  - **V8Invariants.t.sol** (6 invariants): Actor-based invariant fuzzing
+    - `invariant_LockedNeverExceedsAvailable` — discovered critical bug
+    - `invariant_LPTotalMatchesSum`, `invariant_YesNoSupplySymmetry`
+    - `invariant_PricesSumToOne`, `invariant_CollateralizerSolvency`
+    - Runs 256+ iterations with multi-actor scenario
+  - **TradeFuzz.t.sol** (9 tests): Fuzz testing for trading and math
+    - `testFuzz_BuyYES_RandomAmount`, `testFuzz_BuyNO_RandomAmount`
+    - `testFuzz_LMSRProbability_Monotonic`, `testFuzz_LMSRProbability_Symmetric`
+    - `testFuzz_TickMath_ValidTick`, `testFuzz_TickMath_PriceRange`
+  - **LiveV8.t.sol** (6 tests): Fork tests against Base Sepolia
+    - Contract code verification, router configuration
+    - Fee parameter validation, market creation test
+- **ILaunchpadEngine Interface Expansion** (2025-12-27):
+  - Added `ammEngine()`, `preGradFeeBps()`, `postGradFeeBps()` getters for test compatibility.
+
+### Changed
+- **Test Count**: 74 → 92 tests (24% increase)
+- **Base Sepolia config alignment**:
+  - Synced `apps/web/src/config/deployments.json` back to the V8.3 Base Sepolia deployment so it matches `apps/web/src/config/markets.json`.
 
 ## [8.3.0] - 2025-12-27
 

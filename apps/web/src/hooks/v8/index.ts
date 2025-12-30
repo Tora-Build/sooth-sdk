@@ -36,6 +36,7 @@ export { useTokenBalances } from "./useTokenBalances";
 export {
     useV8DirectRead,
     readContractSafe,
+    useInvalidateV8Queries,
     useTruthMarketDirect,
     useLaunchpadMarketDirect,
     useAmmMarketDirect,
@@ -44,4 +45,8 @@ export {
     useAMMQuoteDirect,
     useLaunchpadPositionDirect,
     useTickBookDirect,
+    useTickBookQuoteDirect,
+    useTickBookVaultDirect,
+    useUserOrdersDirect,
 } from "./direct";
+export type { RangeOrder } from "./direct";

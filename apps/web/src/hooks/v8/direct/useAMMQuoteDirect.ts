@@ -1,18 +1,11 @@
-/**
- * useAMMQuoteDirect - Real-time trade quote calculation per V8.2 API
- * 
- * V8.2 uses dual-balance model with explicit outcome parameter:
- * - getPositionQuote(market, outcome, deltaShares) -> (cost, newPrice)
- * - outcome: 0 = YES, 1 = NO
- * - deltaShares: positive = buy, negative = sell
- */
 import { useMemo } from 'react';
 import { useChainStore } from "../../../store/useChainStore";
 import { useDeployments } from "../../useDeployments";
-import { V8_ABIS } from "../../../config/abis";
+import { V9_ABIS } from "../../../config/abis";
 import { useV8DirectRead } from "./useV8DirectRead";
 import { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
 import { useAmmMarketDirect } from "./useAmmMarketDirect";
+import { formatUnits, parseUnits } from "viem";
 
 type Address = `0x${string}`;
 
@@ -41,9 +34,12 @@ interface AMMQuoteResult {
   error: Error | null;
 }
 
+/**
+ * Hook to get AMM trade quotes (V9 Architecture)
+ */
 export function useAMMQuoteDirect(
   marketAddress: Address | undefined,
-  shares: number,
+  sharesInput: string,
   outcome: 0 | 1 = 0,
   isBuy: boolean = true
 ): AMMQuoteResult {
@@ -58,40 +54,50 @@ export function useAMMQuoteDirect(
   const isLoadingLaunchpad = launchpad.isLoading;
   const isLoadingAmm = amm.isLoading;
 
-  const sharesWad = BigInt(Math.floor(shares * 1e18));
-  const isAmmInitialized = (amm.amm?.liquidity ?? 0n) > 0n;
+  const sharesWad = useMemo(() => {
+    const raw = (sharesInput ?? "").trim();
+    if (!raw) return 0n;
+    if (/e/i.test(raw)) return 0n;
+    try {
+      return parseUnits(raw, 18);
+    } catch {
+      return 0n;
+    }
+  }, [sharesInput]);
 
-  // V8.2 Position Model:
-  // - deltaShares > 0 = buy shares
-  // - deltaShares < 0 = sell shares
-  // - outcome specifies which side (YES or NO)
+  const sharesFormatted = useMemo(() => {
+    if (sharesWad <= 0n) return "0";
+    const raw = formatUnits(sharesWad, 18);
+    const [i, d = ""] = raw.split(".");
+    const iComma = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const clipped = d.slice(0, 2).replace(/0+$/, "");
+    return clipped.length ? `${iComma}.${clipped}` : iComma;
+  }, [sharesWad]);
+
+  const isAmmInitialized = (amm.amm?.liquidity ?? 0n) > 0n;
   const deltaShares = isBuy ? sharesWad : -sharesWad;
 
-  // Use the direct read hook to call getPositionQuote
   const { data: quoteData, isLoading: quoteLoading, error } = useV8DirectRead<readonly [bigint, bigint]>({
-    queryKey: ['amm-quote', marketAddress, outcome, deltaShares.toString(), chainId],
+    queryKey: ['v9-amm-quote', marketAddress, outcome, deltaShares.toString(), chainId],
     enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n && isAmmInitialized,
     chainId,
     read: async (client) => {
-      try {
-        // V8.2 API: getPositionQuote(market, outcome, deltaShares)
-        const result = await client.readContract({
-          address: ammEngineAddress!,
-          abi: V8_ABIS.AMMEngine,
-          functionName: 'getPositionQuote',
-          args: [marketAddress!, outcome, deltaShares]
-        }) as readonly [bigint, bigint];
-        return result;
-      } catch (err: any) {
-        throw err;
-      }
+      // getPositionQuote(market, outcome, deltaShares) returns (uint256 cost, uint256 newPrice)
+      const result = await client.readContract({
+        address: ammEngineAddress!,
+        abi: V9_ABIS.AMMEngine,
+        functionName: 'getPositionQuote',
+        args: [marketAddress!, outcome, deltaShares]
+      }) as readonly [bigint, bigint];
+      return result;
     }
   });
 
   const quote = useMemo(() => {
-    if (!quoteData || !marketAddress || shares <= 0) {
+    const loading = isLoadingLaunchpad || isLoadingAmm || quoteLoading;
+    if (!quoteData || !marketAddress || sharesWad <= 0n) {
       return {
-        deltaShares: 0n,
+        deltaShares: sharesWad > 0n ? deltaShares : 0n,
         isBuy,
         outcome,
         cost: 0n,
@@ -103,49 +109,45 @@ export function useAMMQuoteDirect(
         priceImpact: 0,
         costFormatted: '$0.00',
         feeFormatted: '$0.00',
-        sharesFormatted: '0',
-        isLoading: isLoadingLaunchpad || isLoadingAmm || quoteLoading,
-        error: error as Error | null,
+        sharesFormatted,
+        isLoading: loading,
+        error: (error as Error | null) ?? null,
       };
     }
 
-    // getPositionQuote returns (uint256 cost, uint256 newPrice)
-    const [cost, newPrice] = quoteData as readonly [bigint, bigint];
-
+    const [costOrProceeds, newPrice] = quoteData as readonly [bigint, bigint];
     const feeRate = Number(launchpad.launchpad?.currentFeeBps ?? 500n);
-    const absNetCost = cost < 0n ? -cost : cost;
-    const fee = isBuy ? (absNetCost * BigInt(feeRate)) / 10000n : 0n; // No fees on sells
-
-    // totalCost is what the user actually pays (or receives)
-    const totalCost = cost + fee;
+    // V9.1: Both buy and sell have fees
+    // Buy: actualCost = baseCost + fee (fee added to cost)
+    // Sell: netProceeds = baseCost - fee (fee deducted from proceeds)
+    const fee = (costOrProceeds * BigInt(feeRate)) / 10000n;
+    const totalCost = isBuy ? costOrProceeds + fee : costOrProceeds - fee;
 
     const newYesPrice = Number(newPrice) / 1e18;
     const newNoPrice = 1 - newYesPrice;
 
-    // Price impact calculation
-    // For YES trades: compare YES price before vs after
-    // For NO trades: compare NO price before vs after
-    const currentPrice = outcome === 0 
-      ? (amm.amm?.yesProbability ?? 0.5) 
+    // outcome: 1 = YES, 0 = NO
+    const currentPrice = outcome === 1
+      ? (amm.amm?.yesProbability ?? 0.5)
       : (amm.amm?.noProbability ?? 0.5);
-    const targetNewPrice = outcome === 0 ? newYesPrice : newNoPrice;
-    
-    // Price impact: how much does the price move as a percentage
-    // Positive = price increases, Negative = price decreases
-    // For buys: price should increase (positive impact)
-    // For sells: price should decrease (negative impact)
+    const targetNewPrice = outcome === 1 ? newYesPrice : newNoPrice;
+
     let priceImpact = 0;
     if (currentPrice > 0) {
       priceImpact = ((targetNewPrice - currentPrice) / currentPrice) * 100;
-      // Cap at reasonable values to avoid display bugs from edge cases
       priceImpact = Math.max(-99.99, Math.min(99.99, priceImpact));
     }
 
     const fmtCost = (valWad: bigint) => {
-      const val = Number(valWad) / 1e18;
-      if (val === 0) return '$0.00';
-      if (Math.abs(val) < 0.01) return `$${val.toFixed(4)}`;
-      return `$${val.toFixed(2)}`;
+      const abs = valWad < 0n ? -valWad : valWad;
+      const raw = formatUnits(abs, 18);
+      const [i, d = ""] = raw.split(".");
+      const iComma = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      const d4 = (d + "0000").slice(0, 4);
+      const d2 = d4.slice(0, 2);
+      const asNumber = Number(raw);
+      if (!Number.isFinite(asNumber) || asNumber >= 0.01) return `$${iComma}.${d2}`;
+      return `$${iComma}.${d4}`;
     };
 
     return {
@@ -155,17 +157,17 @@ export function useAMMQuoteDirect(
       cost: totalCost,
       fee,
       feeRate,
-      netCost: cost,
+      netCost: costOrProceeds,
       newYesPrice,
       newNoPrice,
       priceImpact,
       costFormatted: fmtCost(totalCost),
       feeFormatted: fmtCost(fee),
-      sharesFormatted: shares.toLocaleString(),
+      sharesFormatted,
       isLoading: false,
       error: null,
     };
-  }, [quoteData, launchpad.launchpad, amm.amm, shares, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm]);
+  }, [quoteData, marketAddress, launchpad.launchpad, amm.amm, sharesWad, deltaShares, sharesFormatted, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm]);
 
   return quote;
 }

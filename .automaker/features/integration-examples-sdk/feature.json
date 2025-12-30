@@ -1,0 +1,14 @@
+{
+  "id": "integration-examples-sdk",
+  "category": "API",
+  "title": "Integration Examples & SDK",
+  "description": "Build TypeScript SDK with documented examples for integrating Sooth protocol into external applications.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "moderate",
+  "dependencies": [
+    "protocol-documentation-site"
+  ],
+  "createdAt": "2025-12-29T01:42:09.821Z",
+  "updatedAt": "2025-12-29T01:42:09.821Z"
+}

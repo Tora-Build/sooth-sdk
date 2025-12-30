@@ -6,7 +6,7 @@
  * have issues with batched calls.
  */
 
-export { useV8DirectRead, readContractSafe } from "./useV8DirectRead";
+export { useV8DirectRead, readContractSafe, useInvalidateV8Queries } from "./useV8DirectRead";
 export { useTruthMarketDirect } from "./useTruthMarketDirect";
 export { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
 export { useLaunchpadPositionDirect } from "./useLaunchpadPositionDirect";
@@ -15,4 +15,7 @@ export { useAMMPositionDirect } from "./useAMMPositionDirect";
 export { useCollateralizerDirect } from "./useCollateralizerDirect";
 export { useAMMQuoteDirect } from "./useAMMQuoteDirect";
 export { useTickBookDirect } from "./useTickBookDirect";
-
+export { useTickBookQuoteDirect } from "./useTickBookQuoteDirect";
+export { useTickBookVaultDirect } from "./useTickBookVaultDirect";
+export { useUserOrdersDirect } from "./useUserOrdersDirect";
+export type { RangeOrder } from "./useUserOrdersDirect";

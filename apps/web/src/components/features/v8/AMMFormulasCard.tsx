@@ -129,18 +129,18 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
           <div className="p-2.5 rounded border border-slate-700/30 bg-slate-900/40 group hover:border-slate-600/50 transition-colors">
             <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
-              <span className="text-slate-500 font-mono italic">Seed + Fees + P&L = Gross</span>
+              <span className="text-slate-500 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-400" title="Initial Seed">({fmtUsd(stats.seed)})</span>
+              <span className="text-slate-400" title="Max Loss (b × ln(2))">({fmtUsd(stats.maxLoss)})</span>
               <span className="text-slate-600">+</span>
-              <span className="text-emerald-500/70" title="Trading Fees">({fmtUsd(stats.fees)})</span>
+              <span className="text-emerald-500/70" title="LP Yield Pool">({fmtUsd(stats.lpYieldPool)})</span>
               <span className="text-slate-600">+</span>
               <span className={pnlColor} title="Swap P&L (LMSR Cost)">
                 ({pnlSign}{fmtVal(stats.pnl)})
               </span>
               <span className="text-slate-600">=</span>
-              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.gross)}</span>
+              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.cash)}</span>
             </div>
           </div>
 
@@ -148,10 +148,10 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
           <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
             <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
-              <span className="text-cyan-600/60 font-mono italic">Gross - Liability = Floor</span>
+              <span className="text-cyan-600/60 font-mono italic">Cash - Liability = Floor</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-300">({fmtUsd(stats.gross)})</span>
+              <span className="text-slate-300">({fmtUsd(stats.cash)})</span>
               <span className="text-slate-600">-</span>
               <span className="text-rose-500/70" title="Max Liability = max(qYes, qNo)">({fmtUsd(stats.liability)})</span>
               <span className="text-slate-600">=</span>
@@ -183,11 +183,11 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
               <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-              <span className="text-slate-400">({fmtUsd(stats.gross)})</span>
+              <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
               <span className="text-slate-600">+</span>
-              <span className="text-amber-500/70" title="Locked Proceeds (24h)">($0.00)</span>
+              <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
               <span className="text-slate-600">=</span>
-              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.gross)}</span>
+              <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.tvl)}</span>
             </div>
           </div>
 
@@ -199,17 +199,14 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-slate-400" title="Liquidity Depth (b)">
-                ({fmtNum(stats.b)})
+                {fmtNum(stats.b)}
               </span>
               <span className="text-slate-600">×</span>
               <span className="text-slate-500">0.693</span>
               <span className="text-slate-600">≈</span>
               <span className="text-slate-300 font-bold ml-auto text-sm">
-                ({fmtNum(stats.anchorSupply)})
+                {fmtNum(stats.supply)}
               </span>
-            </div>
-            <div className="text-[9px] text-slate-600 mt-1 text-right">
-              Actual LP Supply: {fmtNum(stats.supply)}
             </div>
           </div>
         </div>

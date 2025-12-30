@@ -36,9 +36,9 @@ const formatPercent = (value: bigint): string => {
 export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
   const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(address);
   const { amm, isLoading: ammLoading } = useAmmMarketDirect(address);
-  
+
   const isLoading = launchpadLoading || ammLoading;
-  
+
   if (isLoading) {
     return (
       <Card>
@@ -94,10 +94,10 @@ export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <Droplets className="w-3.5 h-3.5 text-cyan-400" />
-              Liquidity (b)
+              Liquidity Depth (b)
             </div>
             <div className="text-lg font-bold text-cyan-400">
-              {formatWadUSD(currentBBase)}
+              {formatWad(currentBBase)}
             </div>
           </div>
 
@@ -164,7 +164,7 @@ export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
             <span>NO {formatPercent(amm?.noPrice ?? 500000000000000000n)}</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden bg-slate-700/50">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
               style={{ width: `${Number(yesPrice) / 1e16}%` }}
             />

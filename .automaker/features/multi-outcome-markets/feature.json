@@ -1,0 +1,14 @@
+{
+  "id": "multi-outcome-markets",
+  "category": "Core",
+  "title": "Multi-Outcome Markets (Beyond Binary)",
+  "description": "Extend protocol beyond binary YES/NO to support 3+ outcomes with modified LMSR and orderbook logic.",
+  "status": "backlog",
+  "priority": 3,
+  "complexity": "complex",
+  "dependencies": [
+    "conditional-markets-support"
+  ],
+  "createdAt": "2025-12-29T01:42:09.819Z",
+  "updatedAt": "2025-12-29T01:42:09.819Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "adjudicator-settlement-interface",
+  "category": "UI",
+  "title": "Adjudicator Settlement Interface",
+  "description": "Build interface for adjudicators to submit YES/NO/INVALID verdicts with evidence attachment and multi-sig confirmation.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [],
+  "createdAt": "2025-12-29T01:42:09.815Z",
+  "updatedAt": "2025-12-29T02:22:53.440Z",
+  "startedAt": "2025-12-29T02:22:53.263Z"
+}

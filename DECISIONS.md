@@ -1,8 +1,49 @@
 # Architectural Decision Records (ADRs)
 
-[... existing ADRs 001-031 ...]
+## ADR-055: getPendingFills View Function for Crossed Order Fills
+- **Date**: 2025-12-30
+- **Status**: Accepted (Deployed in V9.5.0)
+- **Context**:
+  - TickBookPoolManager uses a Uniswap V3-style growth accumulator pattern for tracking fills on crossed orders.
+  - When Order A (YES) exists and Order B (NO) is placed with overlapping range, `_tryCross` executes.
+  - Order B (the NEW order) gets immediate `filledShares` credit + tokens via `vault.creditOutcome`.
+  - Order A (the EXISTING order) gets fills tracked via `_fillGrowthGlobalX128[outcome]` accumulator.
+  - The frontend was calling `getOrder()` which returns `order.filledShares`, but this does NOT include pending accumulator fills.
+  - Result: Crossed orders showed 0% filled and no CLAIM button, even though they had claimable fills.
+- **Decision**: Add a new view function `getPendingFills(bytes32 marketKey, uint256 orderId)`:
+  ```solidity
+  function getPendingFills(bytes32 marketKey, uint256 orderId)
+      external view returns (uint256 pendingShares, uint256 pendingCollateralUsed)
+  {
+      // Calculate fills from growth accumulator without modifying state
+      uint256 delta = globalFillGrowth - lastFillGrowth;
+      pendingShares = (delta * order.sharesTotal) / Q128;
+      // ... similar for collateralUsed
+  }
+  ```
+  - Frontend calls `getOrder()` + `getPendingFills()` in parallel for each order.
+  - Displays total fills = `order.filledShares + pendingShares`.
+  - CLAIM button appears when `pendingShares > 0`.
+- **Rationale**:
+  - **Transparency**: Users can see their actual claimable fills without calling `claimFills()`.
+  - **UX**: CLAIM button now correctly appears for crossed orders.
+  - **Gas Efficiency**: View function doesn't modify state, can be called freely.
+  - **Consistency**: Matches the pattern used in Uniswap V3 for pending fees.
+- **Technical Note on Order Crossing**:
+  - The `_tryCross` function in V9 matches orders when new orders overlap with existing opposite orders.
+  - Crossing is immediate (no separate matching step).
+  - The new order maker gets tokens immediately via `vault.creditOutcome`.
+  - The existing order maker's fills are tracked lazily via the growth accumulator.
+  - This is a capital-efficient design where position tokens are only minted when needed.
+- **Consequences**:
+  - **Contract Addition**: New view function in `TickBookPoolManager.sol`.
+  - **ABI Update**: Added to `TickBookPoolManager.json`.
+  - **Frontend Update**: `useUserOrdersDirect` hook now calls `getPendingFills`.
+  - **Breaking Change**: Requires V9.5.0 deployment to use; older deployments lack this function.
 
-## ADR-032: V8 Modular Architecture - Tri-Engine Stack
+---
+
+[... existing ADRs 001-031 ...]
 - **Date**: 2025-12-23
 - **Status**: Accepted (Deployed)
 - **Context**: V7 achieved dual-engine separation (AMM + Orderbook), but still had complexity around custody, settlement coordination, and venue isolation. The protocol needed a clean, modular architecture that maximizes flexibility and composability.
@@ -439,6 +480,44 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - Collateralizer: `0xdf6aAb7C606B120e9d4BEe83Fcf307Aa03148CD8`
     - TickBook: `0xe0476837584c4bAAbF53e48d2F6cF42f57604CDe`
 
+## ADR-050: Invariant Testing Discovery — AMMEngine Lock Accounting Bug Fix
+- **Date**: 2025-12-27
+- **Status**: Accepted (Fix Pending Deployment)
+- **Context**: During comprehensive QA hardening, an actor-based invariant test discovered a critical accounting bug in `AMMEngine._tradePositions()`.
+- **Discovery Method**: Invariant test `invariant_LockedNeverExceedsAvailable` with 768+ random operations found a violation.
+- **Bug Description**:
+    - When a user buys shares using their `_availableBalance` (from previous sell proceeds), the contract correctly reduces `_availableBalance` but does NOT reduce `_lockedBalance` proportionally.
+    - This violates the invariant: `∀ user: _lockedBalance[user] ≤ _availableBalance[user]`
+    - **Impact**: Could cause underflow in `claimUnlocked()` and display incorrect locked amounts in UI.
+- **Root Cause** (Lines 203-216 in `AMMEngine.sol`):
+    ```solidity
+    // BUGGY CODE:
+    if (_availableBalance[user] >= actualCost) {
+        _availableBalance[user] -= actualCost;  // ✅ Correct
+        // ❌ MISSING: _lockedBalance[user] reduction
+    }
+    ```
+- **Fix Applied**:
+    ```solidity
+    // FIXED CODE:
+    if (_availableBalance[user] >= actualCost) {
+        if (_lockedBalance[user] > 0) {
+            uint256 lockedReduction = (actualCost * _lockedBalance[user]) / _availableBalance[user];
+            _lockedBalance[user] -= lockedReduction;
+        }
+        _availableBalance[user] -= actualCost;
+    }
+    ```
+- **Verification**: All 92 tests pass including 256+ run invariant fuzzing.
+- **Lessons Learned**:
+    1. Invariant tests are invaluable for catching subtle accounting bugs
+    2. Actor-based fuzzing with multiple scenarios (buy, sell, claim) catches edge cases unit tests miss
+    3. The `spendBalanceFor()` function had the correct logic; it was only the internal `_tradePositions()` that was missing it
+- **Consequences**:
+    - **Breaking Change**: Requires contract redeployment
+    - **Test Suite**: Added 44+ new tests across 6 files
+    - **Confidence**: High — invariant holds across 768,000+ random operations
+
 ## ADR-049: V8.3 Spendable Proceeds for LaunchpadEngine Buys
 - **Date**: 2025-12-27
 - **Status**: Accepted
@@ -474,3 +553,105 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - AMMEngine: `0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5`
     - Collateralizer: `0x09A7809a33F969B0099A5d19003991592658763f`
     - TickBook: `0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd`
+
+## ADR-051: TickBook Vault-Native Orderbook (USDC-Collateral) + 1,000 Tick Resolution
+- **Date**: 2025-12-27
+- **Status**: Implemented (Contracts + Frontend Complete)
+- **Context**:
+  - The current V8 TickBook is token-inventory based (YES/NO ERC20 approvals + `transferFrom`), which makes **resting limit orders** capital-inefficient when complete sets must be minted externally.
+  - The product goal for Pro/TickBook is a V7-like capital-efficient orderbook where bids/shorts reserve only **price × size** in USDC.
+  - We also want to keep TickBook’s domain isolated from ERC20 token mechanics during Phase 1 (reduce UX complexity).
+- **Decision**:
+  1. Introduce a **TickBookVault** (global per-chain) that holds **internal balances** and provides explicit **USDC deposit/withdraw** (exchange-style).
+     - TickBook becomes **vault-native**: it reserves internal USDC for orders and performs fills via internal accounting.
+  2. Outcome assets are represented as **YES shares / NO shares** internally (non-transferable in Phase 1 UI).
+     - ERC20 YES/NO are treated as **boundary assets** for future composability (mint on withdraw, burn on deposit), but are **not required** for Phase 1 trading UX.
+  3. Reduce TickBook tick resolution from **10,000** to **1,000** ticks (0.01% → 0.1% increments) to simplify alpha execution and reduce tick-crossing loops.
+     - **Valid tick range**: 1–999 (0.1% to 99.9%). Tick 0 (0%) is excluded as it represents a resolved NO outcome.
+  4. TickBook maker orders remain **ranged/concentrated** (not point-only) in Phase 1; funding is via reserved internal USDC.
+- **Rationale**:
+  - **Capital efficiency**: bids/shorts require only `P × qty` (or `(1-P) × qty`) collateral rather than “mint full complete set first”.
+  - **UX**: Phase 1 Pro can be USDC-first, while still showing users “what they hold” (YES shares / NO shares) without exposing token custody flows.
+  - **Performance**: 1,000 ticks lowers UI density and reduces worst-case tick-crossing iterations for quotes/execution.
+- **Consequences**:
+  - **Breaking change** for TickBook venue (new contract set + ABI changes + UI changes).
+  - **Custody reintroduced, but only for TickBook**: AMM remains “no built-in custody”; TickBookVault is a purpose-built venue vault.
+  - TickMap/ladder UI must be updated away from 10,000-tick assumptions (e.g., 100×10 map).
+  - Requires new tests focused on vault solvency and reservation invariants.
+- **Spec / Plan**:
+  - `packages/contracts-evm/docs/research/V8/TICKBOOK_VAULT_NATIVE_PLAN.md`
+
+## ADR-052: TickBookV2 Continuous Range Orders (Uniswap V3-style, Linear Curve)
+- **Date**: 2025-12-28
+- **Status**: Implemented (Contracts + Tests; Frontend/Deployment Pending)
+- **Context**:
+  - ADR-051’s TickBook implementation stored maker liquidity **per tick** (one `Order` per tick in the range).
+  - Wide ranges (e.g., 200–800 ticks) caused **O(range width)** SSTORE writes and became prohibitively gas-expensive for makers.
+- **Decision**:
+  1. Introduce `TickBookV2.sol` which stores **one order per range** and tracks liquidity via **tick boundary deltas** (`liquidityNet` / `liquidityGross`) similar to Uniswap V3.
+  2. Use a **linear price curve within the active range** (deterministic, low-gas, alpha simplicity).
+  3. Attribute maker fills **pro‑rata** using cumulative global counters (Uniswap V3 “feeGrowth” style snapshots):
+     - `_cumulativeFills[marketKey][outcome]`
+     - `_cumulativeProceeds[marketKey][outcome]`
+     - per-order snapshots for lazy claiming via `claimFills(...)`.
+  4. Shift maker collateral handling to a **market-collateralized model**:
+     - On order placement, maker collateral is moved into `TickBookVault.marketCollateralWad[market]` via `spendAvailableToMarket(...)`.
+     - On cancel, unfilled maker collateral is refunded from market collateral via new vault hook `refundMarketToAvailable(...)`.
+- **Rationale**:
+  - **Gas**: Maker range order placement becomes **O(1)** with respect to range width (only boundary updates), enabling deep range liquidity in alpha.
+  - **Simplicity**: Linear curve is easier to reason about and debug than constant‑product while still providing “continuous within range” behavior.
+  - **Consistency**: Keeps TickBook vault-native (ADR-051) while fixing the per-tick storage scalability issue.
+- **Consequences**:
+  - **Breaking**: `ITickBookVault` interface expanded with `refundMarketToAvailable(...)`.
+  - **UX**: TickBook becomes “continuous within range” rather than discrete per-tick FIFO execution.
+  - **Deployment**: Requires redeploying TickBook (and updating frontend ABIs/configs) to use TickBookV2.
+## ADR-053: Pre-Graduation Liquidity Scaling (1/ln(2))
+- **Date**: 2025-12-28
+- **Status**: Accepted (Deployed)
+- **Context**: 
+    - In the Launchpad model, $MaxLoss = b \times \ln(2)$. 
+    - To maintain a 1:1 relationship between accumulated fees and the pool's maximum loss capacity, every \$1 of fee must increase $MaxLoss$ by \$1.
+    - Previous implementation was adding `feeWad` directly to `bCurrent`, which resulted in only ~\$0.69 of capacity growth per \$1 of fee.
+- **Decision**: **Scale liquidity parameter $b$ by $1/\ln(2)$** during pre-graduation fee distribution:
+    - $\Delta b = \frac{\text{fee}}{\ln(2)}$
+    - Implemented using the high-precision constant `LN2_INV_WAD = 1442695040888963407`.
+    - Formula: `deltaB = (feeWad * LN2_INV_WAD) / WAD;`
+- **Rationale**:
+    - **Incentive Alignment**: Ensures that every dollar paid by traders fully backs the pool's ability to absorb future losses, maximizing capital efficiency.
+    - **Precision**: Uses the standardized 18-decimal constant from `LN2_CONSTANTS_REFERENCE.md`.
+- **Consequences**:
+    - **Capacity Growth**: Liquidity parameter `b` now grows ~1.44x faster relative to fee input.
+    - **Code Alignment**: Standardized on `LN2_WAD` and `LN2_INV_WAD` across `LaunchpadEngine.sol`, `LMSRMath.sol`, and deployment scripts.
+    - **UI Accuracy**: `MarketStats.tsx` and `AMMFormulasCard.tsx` now reflect this "Liquidity Anchor" growth correctly.
+## ADR-054: LP Token Unification (USD-par Model)
+- **Date**: 2025-12-28
+- **Status**: Accepted (Implemented)
+- **Context**: 
+    - In `LaunchpadEngine.sol`, the creator received LP tokens 1:1 with their USDC deposit (USD-par).
+    - However, traders received LP tokens proportional to the liquidity parameter growth ($\Delta b$), which is depth-scaled ($1/\ln(2) \approx 1.44$).
+    - This resulted in an unfair distribution where traders received ~4.4% more ownership share per dollar than creators, causing confusion (e.g., $465 fee resulting in 671 LP).
+- **Decision**: **Unify all LP token minting to a USD-par model**.
+    - Both creators and traders now receive LP tokens exactly **1:1 with the USD value** contributed (deposit or fee).
+    - Formula for traders changed from `lpTokens = deltaB` to `lpTokens = feeWad`.
+- **Rationale**:
+    - **Fairness**: Ownership share in the bonding curve is now strictly proportional to the actual USDC contributed by each participant.
+    - **Clarity**: Users can immediately verify their LP balance against the fee paid ($1 paid = 1 LP earned).
+    - **Simplicity**: Removes hidden scaling factors from the accounting layer seen by users.
+- **Consequences**:
+    - **Stakeholder Alignment**: Creators and traders are now treated equally in terms of pool ownership per dollar.
+    - **Math Consistency**: While liquidity depth $b$ still scales by $1/\ln(2)$ to maintain capacity (ADR-053), the ownership layer (LP) is decoupled to reflect cash basis.
+    - **Deployment**: Integrated into corrected `LaunchpadEngine.sol` (V8.11.0).
+
+---
+
+## V8 Architecture Summary (V8.11.0)
+
+**Status**: ✅ **V8.11.0 PRODUCTION READY**  
+**Contracts**: 9 core (V8.11.0)  
+**Multichain**: Base Sepolia (84532) + Monad Testnet (10143)
+
+### Core Stack (Sync)
+- **LaunchpadEngine**: Creator economics + LP management + USD-par ownership.
+- **TickBookV2**: Range-based orderbook with O(1) gas placement.
+- **AMMEngine**: Pure LMSR / Dual-Balance position model.
+- **TickBookVault**: Unified USDC custody for Pro terminal.

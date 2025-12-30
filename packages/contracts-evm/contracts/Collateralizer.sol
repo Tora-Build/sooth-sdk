@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {OutcomeToken} from "./OutcomeToken.sol";
@@ -13,7 +14,7 @@ import {OutcomeToken} from "./OutcomeToken.sol";
  * @notice Manages outcome token split/merge/redeem operations for TickBook domain
  * @dev 1 USDC = 1 YES + 1 NO (WAD precision)
  */
-contract Collateralizer is ICollateralizer {
+contract Collateralizer is ICollateralizer, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ============================================
@@ -98,11 +99,11 @@ contract Collateralizer is ICollateralizer {
     /**
      * @inheritdoc ICollateralizer
      */
-    function split(address market, uint256 amount) external override {
+    function split(address market, uint256 amount) external override nonReentrant {
         require(amount > 0, "Collateralizer: zero amount");
         MarketTokens memory tokens = _getTokens(market);
 
-        // Transfer USDC from user
+        // Transfer USDC from user (CEI: check-effects-interactions)
         usdc.safeTransferFrom(msg.sender, address(this), _wadToUsdcCeil(amount));
 
         // Mint equal YES and NO tokens
@@ -115,11 +116,11 @@ contract Collateralizer is ICollateralizer {
     /**
      * @inheritdoc ICollateralizer
      */
-    function merge(address market, uint256 amount) external override {
+    function merge(address market, uint256 amount) external override nonReentrant {
         require(amount > 0, "Collateralizer: zero amount");
         MarketTokens memory tokens = _getTokens(market);
 
-        // Burn equal YES and NO tokens
+        // Burn equal YES and NO tokens (CEI pattern: burn before transfer)
         tokens.yesToken.burn(msg.sender, amount);
         tokens.noToken.burn(msg.sender, amount);
 
@@ -135,10 +136,13 @@ contract Collateralizer is ICollateralizer {
 
     /**
      * @inheritdoc ICollateralizer
+     * @dev For INVALID outcome (2), both YES and NO tokens can be redeemed for 50% each.
+     *      Use redeemOutcome() for granular control over which tokens to redeem.
      */
     function redeem(address market, uint256 amount)
         external
         override
+        nonReentrant
         returns (uint256 usdcAmount)
     {
         require(amount > 0, "Collateralizer: zero amount");
@@ -147,20 +151,29 @@ contract Collateralizer is ICollateralizer {
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);
 
-        // Get winning outcome
+        // Get winning outcome: 0=NO, 1=YES, 2=INVALID
         uint8 winningOutcome = truthMarket.winningOutcome();
-        require(winningOutcome <= 1, "Collateralizer: invalid outcome");
 
-        // Burn winning tokens
-        if (winningOutcome == 1) {
+        if (winningOutcome == 2) {
+            // INVALID: burn amount from BOTH tokens, each pays 50%
+            // User must have `amount` of BOTH YES and NO tokens
             tokens.yesToken.burn(msg.sender, amount);
-        } else {
             tokens.noToken.burn(msg.sender, amount);
-        }
 
-        // Get redemption value (binary convenience; INVALID should use redeemOutcome for explicit side)
-        uint256 redemptionValue = truthMarket.getRedemptionValue(winningOutcome);
-        usdcAmount = (amount * redemptionValue) / WAD;
+            // Each token redeems for 50%, so burning both gives full amount back
+            usdcAmount = amount;
+        } else {
+            // Binary outcome: burn only winning tokens
+            if (winningOutcome == 1) {
+                tokens.yesToken.burn(msg.sender, amount);
+            } else {
+                tokens.noToken.burn(msg.sender, amount);
+            }
+
+            // Get redemption value (1 WAD for winner)
+            uint256 redemptionValue = truthMarket.getRedemptionValue(winningOutcome);
+            usdcAmount = (amount * redemptionValue) / WAD;
+        }
 
         // Transfer USDC
         usdc.safeTransfer(msg.sender, _wadToUsdc(usdcAmount));
@@ -170,12 +183,15 @@ contract Collateralizer is ICollateralizer {
 
     /**
      * @inheritdoc ICollateralizer
+     * @dev This function allows redeeming a specific outcome token.
+     *      For INVALID markets, each token redeems for 50% of its face value.
+     *      For binary outcomes, losing tokens redeem for 0.
      */
     function redeemOutcome(
         address market,
         uint8 outcome,
         uint256 amount
-    ) external override returns (uint256 usdcAmount) {
+    ) external override nonReentrant returns (uint256 usdcAmount) {
         require(amount > 0, "Collateralizer: zero amount");
         require(outcome <= 1, "Collateralizer: invalid outcome");
         require(isMarketSettled(market), "Collateralizer: not settled");
@@ -183,7 +199,7 @@ contract Collateralizer is ICollateralizer {
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);
 
-        // Burn specified outcome tokens
+        // Burn specified outcome tokens (CEI pattern: burn before transfer)
         if (outcome == 1) {
             tokens.yesToken.burn(msg.sender, amount);
         } else {
@@ -191,11 +207,14 @@ contract Collateralizer is ICollateralizer {
         }
 
         // Get redemption value for this outcome
+        // For winners: 1 WAD, for losers: 0, for INVALID: 0.5 WAD
         uint256 redemptionValue = truthMarket.getRedemptionValue(outcome);
         usdcAmount = (amount * redemptionValue) / WAD;
 
-        // Transfer USDC
-        usdc.safeTransfer(msg.sender, _wadToUsdc(usdcAmount));
+        // Transfer USDC (only if there's something to transfer)
+        if (usdcAmount > 0) {
+            usdc.safeTransfer(msg.sender, _wadToUsdc(usdcAmount));
+        }
 
         emit Redeemed(msg.sender, market, outcome, amount, usdcAmount);
     }

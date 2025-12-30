@@ -6,7 +6,7 @@
  */
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   Shield, Clock, CheckCircle, XCircle, AlertTriangle,
   TrendingUp, TrendingDown, Settings, Eye, ExternalLink,
   Filter, Download
@@ -113,10 +113,9 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
         <div className="bg-slate-800/50 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-400">Settled Outcome:</span>
-            <span className={`font-bold ${
-              winningOutcome === 1 ? 'text-emerald-400' :
-              winningOutcome === 2 ? 'text-rose-400' : 'text-amber-400'
-            }`}>
+            <span className={`font-bold ${winningOutcome === 1 ? 'text-emerald-400' :
+                winningOutcome === 2 ? 'text-rose-400' : 'text-amber-400'
+              }`}>
               {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
             </span>
           </div>
@@ -172,7 +171,7 @@ interface FinalizedRowProps {
 
 const FinalizedRow: React.FC<FinalizedRowProps> = ({ market }) => {
   const { market: truthMarket, isLoading } = useTruthMarketDirect(market.contractAddress as `0x${string}`);
-  
+
   // Only render if market is settled
   if (isLoading) {
     return (
@@ -183,23 +182,23 @@ const FinalizedRow: React.FC<FinalizedRowProps> = ({ market }) => {
       </tr>
     );
   }
-  
+
   // Don't render if not settled
   if (!truthMarket?.isSettled) {
     return null;
   }
-  
+
   // Map outcome: 0 = NO, 1 = YES, 2+ = INVALID (per V8 contract)
-  const outcomeLabel = truthMarket.winningOutcome === 1 ? 'YES' : 
-                       truthMarket.winningOutcome === 0 ? 'NO' : 'INVALID';
-  
+  const outcomeLabel = truthMarket.winningOutcome === 1 ? 'YES' :
+    truthMarket.winningOutcome === 0 ? 'NO' : 'INVALID';
+
   // tStar is the settlement timestamp
   const tStar = truthMarket.tStar;
   const finalizedDate = tStar ? new Date(tStar * 1000) : new Date();
-  
+
   // The adjudicator is who settled the market
   const settler = truthMarket.adjudicator || '0x0000000000000000000000000000000000000000';
-  
+
   // Check if market was vetoed
   const isVetoed = truthMarket.isVetoed;
 
@@ -246,8 +245,8 @@ export const Gov = () => {
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m => 
-      m.version.startsWith('v8') && m.chainId === chainId
+    return marketsConfig.markets.filter(m =>
+      m.version.startsWith('v') && m.chainId === chainId
     );
   }, [chainId]);
 
@@ -331,11 +330,10 @@ export const Gov = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-rose-500 text-white'
                   : 'border-transparent text-slate-400 hover:text-slate-300'
-              }`}
+                }`}
             >
               <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
@@ -542,16 +540,14 @@ export const Gov = () => {
                 </div>
 
                 {/* Total validation */}
-                <div className={`p-3 rounded-lg ${
-                  totalShares === 100
+                <div className={`p-3 rounded-lg ${totalShares === 100
                     ? 'bg-emerald-500/10 border border-emerald-500/30'
                     : 'bg-rose-500/10 border border-rose-500/30'
-                }`}>
+                  }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Total</span>
-                    <span className={`font-bold ${
-                      totalShares === 100 ? 'text-emerald-400' : 'text-rose-400'
-                    }`}>
+                    <span className={`font-bold ${totalShares === 100 ? 'text-emerald-400' : 'text-rose-400'
+                      }`}>
                       {totalShares}% {totalShares === 100 ? '✓' : '(must equal 100%)'}
                     </span>
                   </div>

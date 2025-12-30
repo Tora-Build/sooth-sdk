@@ -119,7 +119,7 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
-  // Monad Testnet
+  // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
   {
     id: 10143,
     type: 'evm',
@@ -127,7 +127,7 @@ export const allowedChains: AllowedChain[] = [
     displayName: 'Monad',
     shortName: 'Monad',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
-    explorerUrl: 'https://testnet.monadexplorer.com',
+    explorerUrl: 'https://testnet.monadvision.com',
     icon: '🟣',
     nativeCurrency: {
       name: 'Monad',
@@ -168,15 +168,22 @@ export const megaethTestnet = defineChain({
 });
 
 // Define Monad Testnet using viem
+// RPCs: https://docs.monad.xyz/developer-essentials/testnets
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { 
+      http: [
+        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
+        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
+        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
+      ] 
+    },
   },
   blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
   },
   testnet: true,
 });
@@ -203,3 +210,36 @@ export function isSolanaChain(chain: AllowedChain): boolean {
 
 // Default chain (Base Sepolia)
 export const DEFAULT_CHAIN_ID = 84532;
+
+/**
+ * Get recommended refetch interval for a chain
+ * Different chains have different rate limits and block times
+ */
+export function getRefetchInterval(chainId: number): number {
+  switch (chainId) {
+    case 4326: // MegaETH Frontier - rate limited RPC
+      return 8_000;
+    case 10143: // Monad Testnet - rate limited (25 rps via QuickNode)
+      return 5_000;
+    case 84532: // Base Sepolia - reliable public RPC
+      return 4_000;
+    default:
+      return 5_000;
+  }
+}
+
+/**
+ * Get recommended stale time for a chain
+ */
+export function getStaleTime(chainId: number): number {
+  switch (chainId) {
+    case 4326: // MegaETH Frontier
+      return 5_000;
+    case 10143: // Monad Testnet
+      return 3_000;
+    case 84532: // Base Sepolia
+      return 2_000;
+    default:
+      return 3_000;
+  }
+}

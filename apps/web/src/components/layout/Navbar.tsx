@@ -59,6 +59,11 @@ export const Navbar = () => {
               Portfolio
             </NavLink>
 
+            <NavLink to="/create" active={isActive('/create')}>
+              <PlusCircle className="w-4 h-4" />
+              {content.launchpad}
+            </NavLink>
+
             <NavLink to="/trade" active={isActive('/trade') || location.pathname.startsWith('/trade/')}>
               <TrendingUp className="w-4 h-4" />
               {content.amm}
@@ -67,11 +72,6 @@ export const Navbar = () => {
             <NavLink to="/pro" active={isActive('/pro') || location.pathname.startsWith('/pro/')}>
               <Zap className="w-4 h-4" />
               {content.pro}
-            </NavLink>
-
-            <NavLink to="/create" active={isActive('/create')}>
-              <PlusCircle className="w-4 h-4" />
-              {content.launchpad}
             </NavLink>
 
             {/* More Dropdown */}
@@ -161,6 +161,15 @@ export const Navbar = () => {
           </MobileNavLink>
 
           <MobileNavLink
+            to="/create"
+            active={isActive('/create')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span>{content.launchpad}</span>
+          </MobileNavLink>
+
+          <MobileNavLink
             to="/trade"
             active={isActive('/trade') || location.pathname.startsWith('/trade/')}
             onClick={() => setIsMobileMenuOpen(false)}
@@ -178,17 +187,8 @@ export const Navbar = () => {
             <span>{content.pro}</span>
           </MobileNavLink>
 
-          <MobileNavLink
-            to="/create"
-            active={isActive('/create')}
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span>{content.launchpad}</span>
-          </MobileNavLink>
-
           <div className="px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 border-t border-slate-800/50 pt-4">More</div>
-          
+
           <MobileNavLink
             to="/gov"
             active={isActive('/gov')}
@@ -197,7 +197,7 @@ export const Navbar = () => {
             <Shield className="w-5 h-5" />
             <span>{content.gov}</span>
           </MobileNavLink>
-          
+
           <MobileNavLink
             to="/about"
             active={isActive('/about')}

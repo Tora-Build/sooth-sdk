@@ -1,0 +1,14 @@
+{
+  "id": "dual-dex-trading-ui",
+  "category": "UI",
+  "title": "Unified Dual DEX Trading Interface",
+  "description": "Create side-by-side trading interface showing both LMSR AMM and TickBook orderbook with price comparison and liquidity visualization.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [
+    "retroactive-settlement-ui"
+  ],
+  "createdAt": "2025-12-29T01:42:09.806Z",
+  "updatedAt": "2025-12-29T01:42:09.806Z"
+}

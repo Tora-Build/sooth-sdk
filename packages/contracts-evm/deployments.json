@@ -1,17 +1,8 @@
 {
-  "version": "8.2.0",
-  "lastUpdated": "2025-12-26T17:55:21Z",
-  "status": "V8.2 Dual-Balance Model - Fresh Deployment",
-  "networks": {
-    "baseSepolia": {
-      "chainId": 84532,
-      "contracts": {
-        "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0xACf4A0B0cD64c42785F722d4EC017a1e09ad9330",
-        "Collateralizer": "0xfBaB2a0565185f0512D9d98FD1EFeA99e696945f",
-        "AMMEngine": "0x0ae78F524a010387a9bED68586684fF15b03c6F3",
-        "TickBook": "0x5AfAf38d6EA37b153bc2AC57C434e6200D463348"
-      }
-    }
-  }
+  "version": "8.12.0",
+  "collateralizer": "0xaB31D6CC191Ccd41b9f834a4Eb2cE84a82922106",
+  "ammEngine": "0x8B621BDc1c52981845BF6cfffdCe99fE4DDD4513",
+  "tickBookVault": "0x44fEbdDc46C785c00a1c84bC13787927c93B014B",
+  "tickBook": "0x22A3B8d12cf5277F27A2d9a03312e643b1996492",
+  "launchpadEngine": "0xb037b3919595Ba56BA88Ba3C4A45e041E0732b70"
 }

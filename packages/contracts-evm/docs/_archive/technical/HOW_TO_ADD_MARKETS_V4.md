@@ -251,6 +251,6 @@ export function AdminMarketCreator() {
    - Then deploy production markets
 
 3. **Track Deployments**
-   - Save addresses to `markets-v4.json`
+   - Save addresses to `docs/_archive/v4/markets-v4.json`
    - Update frontend config
    - Document market metadata

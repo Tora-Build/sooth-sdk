@@ -1,0 +1,14 @@
+{
+  "id": "orderbook-quote-engine-hook",
+  "category": "API",
+  "title": "TickBook Quote Engine Hook",
+  "description": "Implement React hook for TickBook orderbook quoting with order matching simulation and execution probability calculation.",
+  "status": "backlog",
+  "priority": 1,
+  "complexity": "moderate",
+  "dependencies": [
+    "amm-quote-engine-hook"
+  ],
+  "createdAt": "2025-12-29T01:42:09.807Z",
+  "updatedAt": "2025-12-29T01:42:09.807Z"
+}

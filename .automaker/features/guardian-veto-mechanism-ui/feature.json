@@ -1,0 +1,14 @@
+{
+  "id": "guardian-veto-mechanism-ui",
+  "category": "UI",
+  "title": "Guardian Emergency Veto Interface",
+  "description": "Create guardian-only interface for emergency market veto with reason submission and governance proposal triggering.",
+  "status": "backlog",
+  "priority": 2,
+  "complexity": "simple",
+  "dependencies": [
+    "adjudicator-settlement-interface"
+  ],
+  "createdAt": "2025-12-29T01:42:09.816Z",
+  "updatedAt": "2025-12-29T01:42:09.816Z"
+}

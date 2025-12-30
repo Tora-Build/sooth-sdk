@@ -81,7 +81,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({
 
             {/* Column Headers */}
             <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                <span className="col-span-4 pl-1">Price (Prob)</span>
+                <span className="col-span-4 pl-1">Price %</span>
                 <span className="col-span-4 text-right">Size (Shares)</span>
                 <span className="col-span-4 text-right pr-1">Total</span>
             </div>
@@ -96,8 +96,8 @@ export const Orderbook: React.FC<OrderbookProps> = ({
             {/* Spread Indicator */}
             <div className="py-1.5 bg-slate-900 border-y border-slate-800 flex items-center justify-between px-4 font-mono text-xs">
                 <span className="text-slate-500">Spread</span>
-                <span className="text-amber-400 font-bold">{asks.length && bids.length ? ((asks[0].index - bids[0].index) / 100).toFixed(2) : '0.00'}%</span>
-                <span className="text-slate-500">Mid: {((currentTick / 10000) * 100).toFixed(2)}%</span>
+                <span className="text-amber-400 font-bold">{asks.length && bids.length ? ((asks[0].index - bids[0].index) / 10).toFixed(1) : '0.0'}%</span>
+                <span className="text-slate-500">Mid: {((currentTick / 1000) * 100).toFixed(1)}%</span>
             </div>
 
             {/* Bids (Buy) */}

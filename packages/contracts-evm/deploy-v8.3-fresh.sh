@@ -1,16 +1,17 @@
 #!/bin/bash
-# Fresh V8.3 Deployment Script for Base Sepolia
-# V8.3: Spendable proceeds now work for LaunchpadEngine buys
+# Fresh V8.3.1 Deployment Script for Base Sepolia
+# V8.3.1: Graduation is idempotent if Collateralizer/TickBook are already registered
 
 set -e
 
 echo "============================================"
-echo "  V8.3 Fresh Deployment - Base Sepolia"
+echo "  V8.3.1 Fresh Deployment - Base Sepolia"
 echo "============================================"
 echo ""
-echo "V8.3 Changes:"
+echo "V8.3.1 Changes:"
 echo "  - LaunchpadEngine uses spendable proceeds for buys"
 echo "  - Added spendBalanceFor to AMMEngine"
+echo "  - Graduation idempotent if Collateralizer already registered"
 echo ""
 
 # Check for required environment variables
@@ -39,9 +40,9 @@ echo "Step 1: Clean build..."
 forge clean
 forge build
 
-# Step 2: Deploy core V8.3 contracts
+# Step 2: Deploy core V8.3.1 contracts
 echo ""
-echo "Step 2: Deploying V8.3 core contracts..."
+echo "Step 2: Deploying V8.3.1 core contracts..."
 forge script script/DeployV8.s.sol:DeployV8 \
     --rpc-url $RPC_URL \
     --broadcast \
@@ -98,9 +99,9 @@ echo "Market 2 (BTC TWAP): $M2_ADDR"
 # Create updated deployments.json for frontend
 cat > ../../apps/web/src/config/deployments.json << EOF
 {
-  "version": "8.3.0",
+  "version": "8.3.1",
   "lastUpdated": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "status": "V8.3 Spendable Proceeds - Fresh Deployment",
+  "status": "V8.3.1 Fresh Deployment - Graduation Idempotency Fix",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -121,10 +122,10 @@ echo "✅ Updated apps/web/src/config/deployments.json"
 # Create updated markets.json for frontend
 cat > ../../apps/web/src/config/markets.json << EOF
 {
-  "version": "8.3.0",
+  "version": "8.3.1",
   "markets": [
     {
-      "id": "v8.3-btc-100k",
+      "id": "v8.3.1-btc-100k",
       "name": "BTC 7-day TWAP >= \$100k",
       "symbol": "BTC100K",
       "contractAddress": "$M2_ADDR",
@@ -134,14 +135,14 @@ cat > ../../apps/web/src/config/markets.json << EOF
       "outcomes": ["YES", "NO"],
       "mode": "real",
       "chainId": 84532,
-      "version": "v8.3",
+      "version": "v8.3.1",
       "isGraduated": false,
       "deadline": $M2_DEADLINE,
       "creator": "$GUARDIAN_ADDRESS",
       "liquidity": "1000"
     },
     {
-      "id": "v8.3-alien-life",
+      "id": "v8.3.1-alien-life",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
       "contractAddress": "$M1_ADDR",
@@ -151,7 +152,7 @@ cat > ../../apps/web/src/config/markets.json << EOF
       "outcomes": ["YES", "NO"],
       "mode": "real",
       "chainId": 84532,
-      "version": "v8.3",
+      "version": "v8.3.1",
       "isGraduated": false,
       "deadline": $M1_DEADLINE,
       "creator": "$GUARDIAN_ADDRESS",
@@ -163,12 +164,24 @@ EOF
 
 echo "✅ Updated apps/web/src/config/markets.json"
 
+# Step 5: Sync deployments.json to packages/contracts-evm (monorepo canonicalization)
+echo ""
+echo "Step 5: Syncing deployments.json across monorepo..."
+(cd ../../ && ./sync-deployments.sh)
+echo "✅ Synced deployments.json"
+
+# Step 6: Verify deployment (V8) now that frontend configs are updated
+echo ""
+echo "Step 6: Verifying deployment..."
+RPC_URL="$RPC_URL" CHAIN_ID="$CHAIN_ID" USDC_ADDRESS="$USDC_ADDRESS" \
+  ./script/verify-deployment-v8.sh
+
 echo ""
 echo "============================================"
-echo "  ✅ V8.3 Deployment Complete!"
+echo "  ✅ V8.3.1 Deployment Complete!"
 echo "============================================"
 echo ""
-echo "New V8.3 Contracts (Fresh State):"
+echo "New V8.3.1 Contracts (Fresh State):"
 echo "  LaunchpadEngine: $LAUNCHPAD"
 echo "  AMMEngine: $AMM_ENGINE"
 echo "  Collateralizer: $COLLATERALIZER"
@@ -181,5 +194,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Restart frontend: cd apps/web && npm run dev"
 echo "  2. Hard refresh browser (Cmd+Shift+R)"
-echo "  3. Test trading with spendable proceeds!"
+echo "  3. Test graduation on large trades (should NOT revert with 'already registered')"
 

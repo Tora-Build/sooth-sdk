@@ -1,16 +1,17 @@
 {
-  "version": "8.3.0",
-  "lastUpdated": "2025-12-27T01:50:58Z",
-  "status": "V8.3 Spendable Proceeds - Fresh Deployment",
+  "version": "9.5.0",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0x856fbeebd91db28e3b4550e7602142cfab683796",
-        "LaunchpadEngine": "0x1F30742c38c10b28B3960E2B067644A52592bd8f",
-        "Collateralizer": "0x09A7809a33F969B0099A5d19003991592658763f",
-        "AMMEngine": "0x8a2E95D54E39F838Fd3Dc1a6f841CF012c22aDC5",
-        "TickBook": "0x91A2243Fe5e12194539Dcc3AD0BBb23824d9C8Fd"
+        "MockUSDC": "0x856FbEebD91Db28e3b4550e7602142Cfab683796",
+        "Collateralizer": "0xF90d9241398c3f9C76E378739920b84DE5a5eEd0",
+        "AMMEngine": "0x7b57918F88dD7e0006B40988B9f73B26a27FF292",
+        "TickBookVault": "0xDF7cc6186d96b13c095dB64D4589fDec07af03f8",
+        "TickBookPoolManager": "0x432b75E95bD1aE44D6393351B256ecfAf7753556",
+        "TickBook": "0x432b75E95bD1aE44D6393351B256ecfAf7753556",
+        "DynamicFeeHook": "0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307",
+        "LaunchpadEngine": "0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a"
       }
     }
   }

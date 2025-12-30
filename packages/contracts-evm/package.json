@@ -1,9 +1,9 @@
 {
   "name": "contracts-evm",
-  "version": "8.0.0",
+  "version": "9.1.0",
   "private": true,
   "type": "module",
-  "description": "Sooth Protocol V8 EVM Contracts",
+  "description": "Sooth Protocol V9 EVM Contracts",
   "scripts": {
     "build": "forge build",
     "test": "forge test",

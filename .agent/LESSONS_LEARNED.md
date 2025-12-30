@@ -5,6 +5,65 @@ AI agents should read this at the start of sessions to avoid repeating errors.
 
 ---
 
+## V9 Testing Patterns (2025-12-29)
+
+### ✅ Actor-Based Invariant Testing Pattern
+- **Location:** `test/v9/V9Invariants.t.sol`
+- **Pattern:** Create `TraderActor` contracts that wrap target contracts
+- **Purpose:** Multi-user fuzz testing with independent state
+- **Key invariants tested:**
+  - Vault Solvency: Total claims <= vault balance
+  - No Negative Balances: Reserved never exceeds initial
+  - Market State Consistency: Tick always in valid range
+  - Order Integrity: Active orders have collateral
+
+### ✅ Fuzz Test Edge Cases to Watch
+- **Date:** 2025-12-29
+- **Pattern:** Use `bound()` to constrain fuzz inputs
+- **Pitfalls:**
+  - Tick ranges: Must be 1-999, tickLower < tickUpper
+  - Fee configs: MIN_FEE=1, MAX_FEE=1000 in DynamicFeeHook
+  - Multi-order tests: Limit numOrders to avoid tick overflow
+- **Rule:** Always check contract constraints before fuzzing
+
+### ✅ Vault API Usage
+- **Correct:** `vault.availableUsdcWad(user)`, `vault.reservedUsdcWad(user)`
+- **Deprecated:** No `getUserPosition()` in V9 TickBookVault
+- **Internal outcomes:** `vault.getInternalOutcomes(market, user)` → (yesShares, noShares)
+
+---
+
+## Liquidity Tracking Consistency
+
+### ❌ Pattern: Tracking density vs total shares = crossing failures
+- **Date:** 2025-12-29 (V8.12.0)
+- **Bug:** `_totalLiquidity` tracked density (shares per tick) but `_tryCross` compared against `density × range`.
+- **Root Cause:** Inconsistent semantics between what's stored vs what's compared.
+- **Symptom:** Overlapping orders only crossed ~0.1% instead of fully matching.
+- **Detection:** User reported "FILL: 10.01 (0%)" when expecting full 10,000 share cross.
+- **Fix:** 
+  1. Store `sharesTotal` in `_totalLiquidity` (not just density)
+  2. Use `order.sharesTotal` in pro-rata calculations (not recalculated)
+- **Rule:** When tracking aggregates, ensure the unit matches how it's used:
+  - If comparing X against Y, both must be in same unit (total shares, not density)
+  - Use stored fields (e.g., `order.sharesTotal`) rather than recalculating
+
+---
+
+## Constant Naming Consistency
+
+### ❌ Pattern: Inconsistent constant names after refactoring = compilation errors
+- **Date:** 2025-12-29 (V8.11.0)
+- **Bug:** `getGraduationProgress()` in LaunchpadEngine.sol used `LN2` instead of `LN2_WAD`.
+- **Root Cause:** ADR-053 refactor renamed constants but missed one usage.
+- **Symptom:** Contract doesn't compile from source (`Error 7576: Undeclared identifier`).
+- **Detection:** Running `forge build` before deployment.
+- **Rule:** After renaming any constant, grep the entire codebase:
+  - `grep -r "OLD_NAME" contracts/` to find all usages
+  - Verify contract compiles: `forge build 2>&1 | grep -i error`
+
+---
+
 ## Fork Testing (Avoid Manual UI Testing)
 
 ### ✅ Use `LiveAmmBuy.t.sol` for repeatable AMM tests
@@ -247,4 +306,166 @@ TraderVault (0x8348...) ─────┬──► GovernorVault (0x6c60...)
 
 ---
 
-*Last updated: 2025-12-27*
+## V8.4 Invariant Testing Bug Discovery
+
+### ✅ Pattern: Actor-Based Invariant Fuzzing Catches Subtle Accounting Bugs
+- **Date:** 2025-12-27
+- **Discovery:** Invariant test `invariant_LockedNeverExceedsAvailable` with 768+ random operations discovered that `AMMEngine._tradePositions()` was NOT reducing `_lockedBalance` when spending from `_availableBalance`.
+- **Bug Impact:** `_lockedBalance > _availableBalance` could occur, causing underflow in `claimUnlocked()` and incorrect UI displays.
+- **Root Cause:** The `spendBalanceFor()` function correctly reduced locked proportionally, but `_tradePositions()` (the main trading path) forgot this logic:
+  ```solidity
+  // BUGGY: Only reduced available, not locked
+  if (_availableBalance[user] >= actualCost) {
+      _availableBalance[user] -= actualCost;
+      // ❌ MISSING: _lockedBalance reduction
+  }
+  ```
+- **Fix:** Added proportional locked reduction before available reduction.
+- **Why Unit Tests Missed It:** Unit tests only covered simple flows (buy, sell, claim separately). They didn't simulate the complex multi-step scenario: sell → buy using proceeds → check balances.
+- **Rule:** For accounting invariants (like "locked ≤ available"), write an explicit invariant test with an actor that performs random sequences of buy/sell/claim operations.
+- **Invariant Test Pattern:**
+  ```solidity
+  function invariant_LockedNeverExceedsAvailable() public view {
+      for (uint i = 0; i < traders.length; i++) {
+          (uint256 available, uint256 locked) = amm.getBalances(traders[i]);
+          assertTrue(locked <= available, "locked exceeds available");
+      }
+  }
+  ```
+- **Lesson:** Invariant tests are invaluable for catching edge cases that emerge from complex state transitions. Always write them for critical accounting properties BEFORE mainnet.
+
+---
+
+## ~~V8.6 Outcome Mapping Bug~~ (OBSOLETE - See V8.13.0)
+
+> ⚠️ **OBSOLETE**: This entry was correct at the time (AMMEngine used inverted semantics from TruthMarket).
+> V8.13.0 unified all contracts to use `YES=1, NO=0, INVALID=2` matching TruthMarket.
+> See the V8.13.0 entry below for the current canonical values.
+
+### ~~❌ Pattern: YES/NO UI Labels Inverted from Contract Values~~
+- **Date:** 2025-12-28
+- **Context:** AMMEngine had `outcome=0` for YES, but TruthMarket had `outcome=1` for YES.
+- **Resolution:** V8.13.0 refactored AMMEngine to match TruthMarket (see below).
+
+---
+
+## V8.13.0 Unified Outcome Semantics
+
+### ✅ Pattern: Canonical Outcome Encoding (Protocol-Wide)
+- **Date:** 2025-12-29
+- **Change:** All V8 contracts now use TruthMarket as the canonical source of outcome semantics.
+- **Standard Values:**
+  | Value | Outcome | Description |
+  |-------|---------|-------------|
+  | `0`   | NO      | The "No" side of the prediction |
+  | `1`   | YES     | The "Yes" side of the prediction |
+  | `2`   | INVALID | Market invalidated (ambiguous, unresolvable) |
+- **Affected Contracts:**
+  - `TruthMarket.sol` (canonical source)
+  - `AMMEngine.sol` (refactored from `0=YES, 1=NO` to `0=NO, 1=YES`)
+  - `Collateralizer.sol`
+  - `TickBook.sol`, `TickBookV2.sol`
+  - `TickBookVault.sol`
+- **Frontend Update Required:**
+  ```typescript
+  // V8.13.0 canonical constants
+  export const OUTCOME = { YES: 1, NO: 0, INVALID: 2 } as const;
+  ```
+- **Additional V8.13.0 Changes:**
+  - ReentrancyGuard added to all state-changing functions
+  - INVALID outcome handling (50% payout)
+  - `isLive()` now checks `block.timestamp < deadline`
+  - New events: `PositionSettled`, `MarketActivated`, `MarketVetoed`
+- **Documentation:** `packages/contracts-evm/docs/review/OUTCOME_SEMANTICS.md`
+- **Rule:** Always use `YES=1, NO=0` in frontend code. Reference `OUTCOME_SEMANTICS.md` for canonical definitions.
+
+---
+
+## V9.0 Singleton Architecture
+
+### ✅ Pattern: Uniswap V4-Style PoolManager
+- **Date:** 2025-12-29
+- **Change:** Replaced per-market `TickBook` contracts with singleton `TickBookPoolManager`.
+- **Rationale:**
+  - Simpler deployment (1 contract vs N contracts)
+  - Cross-market arbitrage in single transaction
+  - Flash accounting for 200x cheaper batch operations
+  - Unified state management
+- **Key Features:**
+  - **Flash Accounting**: EIP-1153 transient storage (`TSTORE`/`TLOAD` at 100 gas vs `SSTORE` at 20,000 gas)
+  - **Hooks System**: 13 callback points (beforePlaceOrder, afterPlaceOrder, getDynamicFee, etc.)
+  - **Permissionless Claims**: `claimFillsFor()` allows keepers to settle fills
+  - **Batch Operations**: `batchClaimFills()` for gas-efficient settlement
+- **Frontend Migration:**
+  | V8 | V9 |
+  |----|-----|
+  | Per-market `TickBook` address | Single `TickBookPoolManager` address |
+  | `registerMarket` on each TickBook | `registerMarket` on PoolManager |
+  | Manual claims only | Permissionless `claimFillsFor()` |
+  | No batch operations | Flash accounting + batch APIs |
+- **Documentation:** `packages/contracts-evm/docs/v9/`
+- **ABIs:** `packages/contracts-evm/abi/v9/`
+
+---
+
+## V9 Graduation Gas Requirements
+
+### ❌ Pattern: Hardcoded Gas Limit Causes Graduation Trades to Fail
+- **Date:** 2025-12-29 (updated 2025-12-29)
+- **Bug:** Frontend hardcoded `gas: 600000n` for all `tradePositions` calls. Graduation trades require ~1.5M gas.
+- **Root Cause:** LaunchpadEngine's graduation flow deploys 2 ERC20 outcome tokens (~500k gas each) + TickBook registration (~118k gas).
+- **Symptom:** Trades that would trigger graduation fail with `status: 0` and no logs. Gas used is ~589k (hitting limit).
+- **Detection:** `cast receipt` shows `gasUsed ≈ gasLimit` and `status: 0`. `cast call` simulation succeeds (no gas limit enforced).
+- **Fix:** Dynamic gas estimation in frontend (use 50% threshold, not 80%):
+  ```typescript
+  // Use launchpad?.isGraduated from hook, not the prop (avoids stale data)
+  // Use 50% threshold because large trades can jump from <80% to 100% in one tx
+  const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
+  const gasLimit = (tradeMode === 'buy' && isNearGraduation) ? 2000000n : 600000n;
+  ```
+- **Why 50% not 80%:** A large trade (e.g., 5000 shares) can push graduation progress from <80% to >100% in a single transaction. If the pre-trade progress is 79%, the 80% check fails, gas limit stays at 600k, and the graduation OOGs.
+- **Alternative Fix:** Pre-register markets in Collateralizer + TickBook before graduation trades:
+  ```bash
+  cast send $COLLATERALIZER "registerMarket(address,string,string)" $MARKET "Name" "SYMBOL"
+  cast send $TICKBOOK "registerMarket(address,address,address,uint256)" $MARKET $YES $NO $PROB
+  ```
+- **Rule:** When contract state transitions involve deploying new contracts, gas requirements spike dramatically. Use conservative thresholds for dynamic gas estimation.
+
+---
+
+## 22. TickBook Registrar Access Control
+
+### Symptom
+Non-graduated markets could be registered in TickBook via direct `registerMarket()` calls, bypassing the LaunchpadEngine graduation flow.
+
+### Root Cause
+`TickBookPoolManager.registerMarket()` had no access control - anyone could register any market.
+
+### Fix
+Added `registrar` role pattern:
+```solidity
+address public registrar;
+error UnauthorizedRegistrar();
+
+modifier onlyRegistrar() {
+    if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
+    _;
+}
+
+function registerMarket(...) external onlyRegistrar returns (bytes32) { ... }
+
+function setRegistrar(address _registrar) external onlyOwner { ... }
+```
+
+### Deployment Steps
+After deploying TickBookPoolManager, set LaunchpadEngine as registrar:
+```bash
+cast send $TICKBOOK "setRegistrar(address)" $LAUNCHPAD_ENGINE --rpc-url $RPC --private-key $PK
+```
+
+### Rule
+Access-controlled registration ensures only graduated markets (via LaunchpadEngine) can be added to TickBook. Owner can still register manually if needed.
+
+---
+
+*Last updated: 2025-12-29*
