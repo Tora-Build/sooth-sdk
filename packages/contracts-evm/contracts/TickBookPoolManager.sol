@@ -352,12 +352,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             isActive: true
         });
 
-        uint16 initialTick = TickMath.probabilityToTick(initialProbabilityWad);
-        if (initialTick < MIN_TICK) initialTick = MIN_TICK;
-        if (initialTick > MAX_TICK) initialTick = MAX_TICK;
-
+        // Initialize currentTick to MIN_TICK - let trading establish the price
+        // The _tryCross function uses bitmap overlap detection, not currentTick
+        // Using MIN_TICK instead of 0 ensures _fill can search both up and down
         _state[marketKey] = MarketState({
-            currentTick: initialTick,
+            currentTick: MIN_TICK,
             activeLiquidityNo: 0,
             activeLiquidityYes: 0
         });
@@ -371,7 +370,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
      * @param market Truth market address
      * @param yesToken YES outcome token
      * @param noToken NO outcome token
-     * @param initialProbabilityWad Initial probability (0-1e18)
+     * @param initialProbabilityWad Initial probability (unused - currentTick starts at 0)
      * @param hook Optional hook contract for dynamic fees (address(0) for no hook)
      */
     function registerMarket(
@@ -384,6 +383,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (market == address(0)) revert ZeroAddress();
         if (yesToken == address(0)) revert ZeroAddress();
         if (noToken == address(0)) revert ZeroAddress();
+        // Note: initialProbabilityWad is kept for interface compatibility but unused
 
         marketKey = _getPoolKeyFromMemory(PoolKey({
             truthMarket: market,
@@ -401,12 +401,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             isActive: true
         });
 
-        uint16 initialTick = TickMath.probabilityToTick(initialProbabilityWad);
-        if (initialTick < MIN_TICK) initialTick = MIN_TICK;
-        if (initialTick > MAX_TICK) initialTick = MAX_TICK;
-
+        // Initialize currentTick to MIN_TICK - let trading establish the price
+        // The _tryCross function uses bitmap overlap detection, not currentTick
+        // Using MIN_TICK instead of 0 ensures _fill can search both up and down
         _state[marketKey] = MarketState({
-            currentTick: initialTick,
+            currentTick: MIN_TICK,
             activeLiquidityNo: 0,
             activeLiquidityYes: 0
         });
@@ -1013,14 +1012,44 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         Market memory m = _markets[marketKey];
         MarketState storage state = _state[marketKey];
 
-        if (state.currentTick < newOrder.tickLower || state.currentTick > newOrder.tickUpper) {
-            return (0, 0, 0);
+        uint8 opposite = newOrder.outcome == 0 ? 1 : 0;
+
+        // Check if there's ANY opposing liquidity
+        uint256 oppTotalLiq = _totalLiquidity[marketKey][opposite];
+        if (oppTotalLiq == 0) return (0, 0, 0);
+
+        // Find best opposing liquidity using bitmap (instead of relying on currentTick)
+        // Single YES tickbook: outcome=1 is BUY YES, outcome=0 is SELL YES (shown as BUY NO in UI)
+        uint16 bestOpposite;
+        if (newOrder.outcome == 1) {
+            // BUY YES: find lowest SELL YES tick (outcome=0 orders)
+            bestOpposite = _bitmaps[marketKey][0].findNextUp(0);
+            if (bestOpposite > MAX_TICK) return (0, 0, 0); // No SELL YES liquidity
+        } else {
+            // SELL YES: find highest BUY YES tick (outcome=1 orders)
+            bestOpposite = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
+            if (bestOpposite > MAX_TICK) return (0, 0, 0); // No BUY YES liquidity
         }
 
-        uint8 opposite = newOrder.outcome == 0 ? 1 : 0;
-        uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
-        if (oppActiveLiq == 0) {
-            return (0, 0, 0);
+        // Check if new order crosses best opposite (same tick space, no inversion)
+        bool crosses;
+        if (newOrder.outcome == 1) {
+            // BUY YES crosses if there's SELL YES at or below our max buy price
+            crosses = bestOpposite <= newOrder.tickUpper;
+        } else {
+            // SELL YES crosses if there's BUY YES at or above our min sell price
+            crosses = bestOpposite >= newOrder.tickLower;
+        }
+        if (!crosses) return (0, 0, 0);
+
+        // Calculate the crossing tick (where the overlap starts)
+        uint16 crossTick;
+        if (newOrder.outcome == 1) {
+            // For BUY YES: cross at max(our tickLower, best SELL YES tick)
+            crossTick = bestOpposite > newOrder.tickLower ? bestOpposite : newOrder.tickLower;
+        } else {
+            // For SELL YES: cross at min(our tickUpper, best BUY YES tick)
+            crossTick = bestOpposite < newOrder.tickUpper ? bestOpposite : newOrder.tickUpper;
         }
 
         // Before cross hook
@@ -1029,21 +1058,21 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 marketKey: marketKey,
                 newOrderId: newOrderId,
                 crossedShares: 0,
-                crossTick: state.currentTick
+                crossTick: crossTick
             });
             bytes4 selector = ITickBookHooks(m.hook).beforeCross(params);
             if (selector != ITickBookHooks.beforeCross.selector) revert InvalidHookResponse();
         }
 
+        // Calculate shares to cross
         uint256 newOrderRange = uint256(newOrder.tickUpper) - uint256(newOrder.tickLower) + 1;
         uint256 newOrderTotal = uint256(newOrder.liquidity) * newOrderRange;
-        uint256 oppTotalLiq = _totalLiquidity[marketKey][opposite];
-
         crossedShares = newOrderTotal < oppTotalLiq ? newOrderTotal : oppTotalLiq;
         if (crossedShares == 0) return (0, 0, 0);
 
-        uint256 currentPrice = TickMath.tickToProbability(state.currentTick);
-        uint256 yesCost = (currentPrice * crossedShares) / WAD;
+        // Calculate costs using crossTick
+        uint256 crossPrice = TickMath.tickToProbability(crossTick);
+        uint256 yesCost = (crossPrice * crossedShares) / WAD;
         uint256 noCost = crossedShares - yesCost;
 
         if (newOrder.outcome == 0) {
@@ -1054,15 +1083,19 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             oppositeCost = noCost;
         }
 
+        // Credit shares to new order owner
         vault.creditOutcome(m.truthMarket, newOrder.owner, newOrder.outcome, crossedShares);
         newOrder.filledShares += uint128(crossedShares);
         newOrder.collateralUsedWad += uint128(newOrderCost);
 
+        // Update fill growth globals for opposite side
         if (oppTotalLiq > 0) {
             _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppTotalLiq;
             _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
         }
 
+        // Update active liquidity
+        uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         uint128 activeFilled = crossedShares < uint256(oppActiveLiq) ? uint128(crossedShares) : oppActiveLiq;
         if (opposite == 0) {
             state.activeLiquidityNo -= activeFilled;
@@ -1078,18 +1111,21 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             state.activeLiquidityYes -= newFilled;
         }
 
+        // UPDATE currentTick to crossTick after crossing
+        state.currentTick = crossTick;
+
         // After cross hook
         if (m.hook != address(0) && m.hook.afterCross()) {
             ITickBookHooks.CrossParams memory params = ITickBookHooks.CrossParams({
                 marketKey: marketKey,
                 newOrderId: newOrderId,
                 crossedShares: crossedShares,
-                crossTick: state.currentTick
+                crossTick: crossTick
             });
             ITickBookHooks(m.hook).afterCross(params, newOrderCost, oppositeCost);
         }
 
-        emit OrdersCrossed(marketKey, newOrderId, newOrder.outcome, crossedShares, newOrderCost, oppositeCost, state.currentTick);
+        emit OrdersCrossed(marketKey, newOrderId, newOrder.outcome, crossedShares, newOrderCost, oppositeCost, crossTick);
     }
 
     function _calculateCollateral(

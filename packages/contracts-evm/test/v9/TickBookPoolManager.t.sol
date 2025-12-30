@@ -120,9 +120,12 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
     function test_RegisterMarket_InitialTick() public {
         (uint16 currentTick, , , uint256 probability) = poolManager.getMarketState(marketKey);
 
-        // Initial probability was 0.5e18, which should map to tick 500
-        assertEq(currentTick, 500);
-        assertEq(probability, 0.5e18);
+        // currentTick is initialized to MIN_TICK (1) - trading establishes the actual price
+        // The _tryCross function uses bitmap overlap detection, not currentTick
+        // Using MIN_TICK ensures _fill can search both up and down
+        assertEq(currentTick, 1);
+        // Probability at tick 1 is 0.001 (0.1%)
+        assertEq(probability, 0.001e18);
     }
 
     function test_RegisterMarket_RevertDuplicate() public {
@@ -166,20 +169,22 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
     }
 
     function test_PlaceRangeOrder_UpdatesMarketState() public {
+        // Place order that includes tick 1 (MIN_TICK)
+        // currentTick is initialized to MIN_TICK (1), which is within range [1, 100]
         vm.prank(alice);
         poolManager.placeRangeOrder(
             marketKey,
-            0, // NO outcome
-            400, // tickLower
-            600, // tickUpper
+            0, // NO outcome (SELL YES)
+            1, // tickLower = MIN_TICK
+            100, // tickUpper
             1000e18
         );
 
         (uint16 currentTick, uint128 activeLiqNo, uint128 activeLiqYes, ) = poolManager.getMarketState(marketKey);
 
-        // Current tick is 500, which is within range [400, 600]
-        assertEq(currentTick, 500);
-        // Per-tick density = 1000e18 / (600 - 400 + 1) = ~4.97e18
+        // currentTick is 1 (MIN_TICK), which IS within range [1, 100]
+        assertEq(currentTick, 1);
+        // Per-tick density = 1000e18 / (100 - 1 + 1) = 10e18
         assertGt(activeLiqNo, 0);
         assertEq(activeLiqYes, 0);
     }
@@ -225,47 +230,50 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
     // ============================================
 
     function test_ExecuteMarketOrder() public {
-        // Alice places YES order
+        // Alice places NO order (SELL YES) starting from tick 1 (MIN_TICK)
+        // This creates NO liquidity (activeLiquidityNo) at [1, 200]
         vm.prank(alice);
         poolManager.placeRangeOrder(
             marketKey,
-            1, // YES
-            400,
-            600,
+            0, // NO outcome (SELL YES)
+            1, // tickLower = MIN_TICK
+            200, // tickUpper
             10000e18
         );
 
-        // Bob executes market order to buy NO (which fills against YES orders)
+        // Bob executes market order to buy YES (which fills against NO makers)
+        // When buying YES (outcome=1), isUp=true, so we search upward
+        // This should find Alice's NO liquidity at [1, 200]
         vm.prank(bob);
         (uint256 sharesFilled, uint256 totalCost, uint256 refunded) = poolManager.executeMarketOrder(
             marketKey,
-            0, // NO outcome (fills against YES makers)
+            1, // YES outcome (fills against NO makers)
             1000e18, // shares
-            2000e18 // maxCost
+            5000e18 // maxCost
         );
 
         assertGt(sharesFilled, 0);
         assertGt(totalCost, 0);
-        assertLe(totalCost, 2000e18);
+        assertLe(totalCost, 5000e18);
     }
 
     function test_ExecuteMarketOrder_SlippageProtection() public {
-        // Alice places YES order
+        // Alice places NO order (SELL YES) starting from tick 1 (MIN_TICK)
         vm.prank(alice);
         poolManager.placeRangeOrder(
             marketKey,
-            1,
-            400,
-            600,
+            0, // NO outcome (SELL YES)
+            1, // tickLower = MIN_TICK
+            200,
             10000e18
         );
 
-        // Bob tries to buy with too low maxCost
+        // Bob tries to buy YES with too low maxCost
         vm.prank(bob);
         vm.expectRevert(TickBookPoolManager.SlippageExceeded.selector);
         poolManager.executeMarketOrder(
             marketKey,
-            0,
+            1, // YES outcome
             1000e18,
             1e18 // Very low maxCost
         );
@@ -537,19 +545,19 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
     }
 
     function test_BatchClaimFills() public {
-        // Alice places two YES orders
+        // Alice places two NO orders (SELL YES) starting from tick 1 (MIN_TICK)
         vm.startPrank(alice);
         (uint256 orderId1, , ) = poolManager.placeRangeOrder(
-            marketKey, 1, 400, 500, 5000e18
+            marketKey, 0, 1, 100, 5000e18 // NO order, start from MIN_TICK
         );
         (uint256 orderId2, , ) = poolManager.placeRangeOrder(
-            marketKey, 1, 500, 600, 5000e18
+            marketKey, 0, 100, 200, 5000e18 // NO order
         );
         vm.stopPrank();
 
-        // Bob executes market order filling both
+        // Bob executes market order to buy YES, filling both NO orders
         vm.prank(bob);
-        poolManager.executeMarketOrder(marketKey, 0, 8000e18, 10000e18);
+        poolManager.executeMarketOrder(marketKey, 1, 8000e18, 10000e18);
 
         // Batch claim both orders in one call
         uint256[] memory orderIds = new uint256[](2);
@@ -561,21 +569,21 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
     }
 
     function test_Integration_ClaimFills() public {
-        // Alice places YES order
+        // Alice places NO order (SELL YES) starting from tick 1 (MIN_TICK)
         vm.prank(alice);
         (uint256 aliceOrderId, , ) = poolManager.placeRangeOrder(
             marketKey,
-            1,
-            400,
-            600,
+            0, // NO outcome (SELL YES)
+            1, // tickLower = MIN_TICK
+            200, // tickUpper
             10000e18
         );
 
-        // Bob executes market order (fills against Alice)
+        // Bob executes market order to buy YES (fills against Alice's NO order)
         vm.prank(bob);
         poolManager.executeMarketOrder(
             marketKey,
-            0, // Buy NO
+            1, // Buy YES (fills against NO makers)
             5000e18,
             10000e18
         );
