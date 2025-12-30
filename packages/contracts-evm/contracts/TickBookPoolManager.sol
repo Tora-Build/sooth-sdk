@@ -1106,6 +1106,40 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     function locker() external view returns (address) {
         return _locker;
     }
+
+    /**
+     * @notice Calculate pending fills for an order without claiming
+     * @param marketKey The market
+     * @param orderId The order ID
+     * @return pendingShares Shares that can be claimed
+     * @return pendingCollateralUsed Collateral used that can be claimed
+     */
+    function getPendingFills(bytes32 marketKey, uint256 orderId)
+        external
+        view
+        returns (uint256 pendingShares, uint256 pendingCollateralUsed)
+    {
+        RangeOrder memory order = _orders[marketKey][orderId];
+        if (!order.active) return (0, 0);
+
+        uint8 out = order.outcome;
+        uint256 totalLiq = _totalLiquidity[marketKey][out];
+        if (totalLiq == 0) return (0, 0);
+
+        uint256 globalFillGrowth = _fillGrowthGlobalX128[marketKey][out];
+        uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
+        if (globalFillGrowth > lastFillGrowth) {
+            uint256 delta = globalFillGrowth - lastFillGrowth;
+            pendingShares = (delta * order.sharesTotal) / Q128;
+        }
+
+        uint256 globalUsedGrowth = _collateralUsedGrowthGlobalX128[marketKey][out];
+        uint256 lastUsedGrowth = _collateralUsedGrowthLastX128[marketKey][orderId];
+        if (globalUsedGrowth > lastUsedGrowth) {
+            uint256 delta = globalUsedGrowth - lastUsedGrowth;
+            pendingCollateralUsed = (delta * order.sharesTotal) / Q128;
+        }
+    }
 }
 
 /**

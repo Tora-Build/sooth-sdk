@@ -1,43 +1,39 @@
 {
-  "version": "9.4.0",
+  "version": "9.5.0",
   "markets": [
     {
-      "id": "base-v94-alien-life",
-      "name": "UN Confirms Alien Life",
+      "id": "alien-life-2030",
+      "chainId": 84532,
+      "address": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
+      "contractAddress": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
+      "name": "Alien Life Detection by 2030",
       "symbol": "ALIEN",
-      "contractAddress": "0x83cf7A6fE826788D04F7210E0F16a15A606FBB02",
-      "description": "Will the United Nations officially confirm the existence of extraterrestrial life by 2026?",
+      "description": "Will we detect confirmed extraterrestrial life by December 31, 2030?",
+      "category": "science",
+      "featured": true,
+      "imageUrl": null,
       "outcomes": [
         "YES",
         "NO"
       ],
-      "mode": "real",
-      "chainId": 84532,
-      "version": "v9.4.0",
-      "category": "science",
-      "isGraduated": false,
-      "deadline": 1738282067,
-      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "liquidity": "500"
+      "version": "v9"
     },
     {
-      "id": "base-v94-btc-100k",
-      "name": "BTC TWAP >= $100k",
+      "id": "btc-100k-2025",
+      "chainId": 84532,
+      "address": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
+      "contractAddress": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
+      "name": "Bitcoin $100k by 2025",
       "symbol": "BTC100K",
-      "contractAddress": "0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2",
-      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000 by EOY 2025?",
+      "description": "Will Bitcoin reach $100,000 USD by December 31, 2025?",
+      "category": "crypto",
+      "featured": true,
+      "imageUrl": null,
       "outcomes": [
         "YES",
         "NO"
       ],
-      "mode": "real",
-      "chainId": 84532,
-      "version": "v9.4.0",
-      "category": "crypto",
-      "isGraduated": false,
-      "deadline": 1738282067,
-      "creator": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "liquidity": "500"
+      "version": "v9"
     }
   ]
 }

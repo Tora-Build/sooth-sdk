@@ -2,36 +2,59 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
-## [Unreleased] - 2025-12-30
+## [9.5.0] - 2025-12-30
+
+### Added
+- **`getPendingFills()` View Function** (2025-12-30):
+  - New view function in `TickBookPoolManager` that calculates pending fills from growth accumulator
+  - Returns `(pendingShares, pendingCollateralUsed)` without modifying state
+  - Enables frontend to show total fills = `order.filledShares + pendingShares`
+  - Critical for proper display of crossed order fills
+
+- **LiquidityMap User Orders Visualization** (2025-12-30):
+  - LiquidityMap component now accepts `userOrders` prop
+  - When tick data unavailable, visualizes active user orders
+  - Shows YES/NO liquidity distribution across price range
 
 ### Fixed
-- **Graduation Gas Limit OOG Bug**: Large trades could push graduation progress from <80% to 100%, causing out-of-gas failures
-  - Changed threshold from >80% to >50% for applying 2M gas limit
-  - Used `launchpad?.isGraduated` from hook data instead of prop (avoids stale data)
-  - Files: `SimpleTradingPanel.tsx`, `LESSONS_LEARNED.md`
+- **User Orders Not Showing in Pro Terminal** (2025-12-30):
+  - Root cause 1: `getPendingFills` was being called but didn't exist in contract (silent failure)
+  - Root cause 2: ABI was missing `getUserOrders` function definition
+  - Solution: Added `getPendingFills` view function, regenerated ABI
+  
+- **Order Fill Display for Crossed Orders** (2025-12-30):
+  - Issue: Orders crossed via `_tryCross` showed 0 fills because accumulator wasn't being read
+  - Crossed orders use lazy-claim pattern: fills tracked in `_fillGrowthGlobalX128[outcome]`
+  - Frontend now calls `getPendingFills` and adds result to `order.filledShares`
+  - CLAIM button now appears correctly for crossed orders
 
-- **Category Count Display Bug**: All categories showed total market count (2) instead of per-category counts
-  - Now correctly filters by `category` field in markets.json
-  - Also applies category filter when filtering displayed markets
-  - File: `Trade.tsx`
+### Changed
+- **`useUserOrdersDirect` Hook** (2025-12-30):
+  - Now calls `getOrder` + `getPendingFills` in parallel for each order
+  - Displays total fills including pending accumulator amounts
+  - Better logging for debugging order state
 
-- **LP "No Active Liquidity" Display Bug**: Message showed even when user had LP shares with $0 value
-  - Added `hasAnyLpBalance` tracking to only show message when user truly has no LP
-  - File: `Portfolio.tsx`
+### Deployed
+- **Base Sepolia V9.5.0** (Fresh deployment):
+  - **Collateralizer**: `0xF90d9241398c3f9C76E378739920b84DE5a5eEd0`
+  - **AMMEngine**: `0x7b57918F88dD7e0006B40988B9f73B26a27FF292`
+  - **TickBookVault**: `0xDF7cc6186d96b13c095dB64D4589fDec07af03f8`
+  - **TickBookPoolManager**: `0x432b75E95bD1aE44D6393351B256ecfAf7753556` (with `getPendingFills`)
+  - **DynamicFeeHook**: `0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307`
+  - **LaunchpadEngine**: `0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a`
+  - **ALIEN Market**: `0x4Cb558160602004D5b6C023Ad469DF0E2585F007`
+  - **BTC100K Market**: `0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68`
 
-- **User Orders Not Detected**: Orders placed in TickBookPoolManager weren't showing in Pro Terminal
-  - Root cause: `getUserOrders()` function was missing from deployed contract
-  - Added `getUserOrders(bytes32,address)` to `TickBookPoolManager.sol`
-  - Added event log fallback in `useUserOrdersDirect.ts` for current deployment
-  - Files: `TickBookPoolManager.sol`, `useUserOrdersDirect.ts`
-
-### Notes
-- **Contract Redeployment Required**: TickBookPoolManager needs redeployment for `getUserOrders()` to work directly
-- Frontend uses event log fallback until redeployment
+### Technical Notes
+- **Order Crossing Mechanics Clarified**:
+  - When Order A (YES) exists and Order B (NO) is placed with overlapping range, `_tryCross` executes
+  - Order B (new) gets immediate `filledShares` credit + tokens via `vault.creditOutcome`
+  - Order A (existing) gets fills tracked via `_fillGrowthGlobalX128[outcome]` accumulator
+  - Order A maker must call `claimFills()` or frontend shows pending via `getPendingFills()`
 
 ---
 
-## [9.3.0] - 2025-12-29
+## [9.4.0] - 2025-12-30 (Superseded)
 
 ### Added
 - **TickBook Registrar Access Control**: Only LaunchpadEngine (or owner) can register markets in TickBook

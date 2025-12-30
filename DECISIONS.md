@@ -1,8 +1,49 @@
 # Architectural Decision Records (ADRs)
 
-[... existing ADRs 001-031 ...]
+## ADR-055: getPendingFills View Function for Crossed Order Fills
+- **Date**: 2025-12-30
+- **Status**: Accepted (Deployed in V9.5.0)
+- **Context**:
+  - TickBookPoolManager uses a Uniswap V3-style growth accumulator pattern for tracking fills on crossed orders.
+  - When Order A (YES) exists and Order B (NO) is placed with overlapping range, `_tryCross` executes.
+  - Order B (the NEW order) gets immediate `filledShares` credit + tokens via `vault.creditOutcome`.
+  - Order A (the EXISTING order) gets fills tracked via `_fillGrowthGlobalX128[outcome]` accumulator.
+  - The frontend was calling `getOrder()` which returns `order.filledShares`, but this does NOT include pending accumulator fills.
+  - Result: Crossed orders showed 0% filled and no CLAIM button, even though they had claimable fills.
+- **Decision**: Add a new view function `getPendingFills(bytes32 marketKey, uint256 orderId)`:
+  ```solidity
+  function getPendingFills(bytes32 marketKey, uint256 orderId)
+      external view returns (uint256 pendingShares, uint256 pendingCollateralUsed)
+  {
+      // Calculate fills from growth accumulator without modifying state
+      uint256 delta = globalFillGrowth - lastFillGrowth;
+      pendingShares = (delta * order.sharesTotal) / Q128;
+      // ... similar for collateralUsed
+  }
+  ```
+  - Frontend calls `getOrder()` + `getPendingFills()` in parallel for each order.
+  - Displays total fills = `order.filledShares + pendingShares`.
+  - CLAIM button appears when `pendingShares > 0`.
+- **Rationale**:
+  - **Transparency**: Users can see their actual claimable fills without calling `claimFills()`.
+  - **UX**: CLAIM button now correctly appears for crossed orders.
+  - **Gas Efficiency**: View function doesn't modify state, can be called freely.
+  - **Consistency**: Matches the pattern used in Uniswap V3 for pending fees.
+- **Technical Note on Order Crossing**:
+  - The `_tryCross` function in V9 matches orders when new orders overlap with existing opposite orders.
+  - Crossing is immediate (no separate matching step).
+  - The new order maker gets tokens immediately via `vault.creditOutcome`.
+  - The existing order maker's fills are tracked lazily via the growth accumulator.
+  - This is a capital-efficient design where position tokens are only minted when needed.
+- **Consequences**:
+  - **Contract Addition**: New view function in `TickBookPoolManager.sol`.
+  - **ABI Update**: Added to `TickBookPoolManager.json`.
+  - **Frontend Update**: `useUserOrdersDirect` hook now calls `getPendingFills`.
+  - **Breaking Change**: Requires V9.5.0 deployment to use; older deployments lack this function.
 
-## ADR-032: V8 Modular Architecture - Tri-Engine Stack
+---
+
+[... existing ADRs 001-031 ...]
 - **Date**: 2025-12-23
 - **Status**: Accepted (Deployed)
 - **Context**: V7 achieved dual-engine separation (AMM + Orderbook), but still had complexity around custody, settlement coordination, and venue isolation. The protocol needed a clean, modular architecture that maximizes flexibility and composability.

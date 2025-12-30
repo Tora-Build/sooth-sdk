@@ -1,101 +1,67 @@
 # Project Status
 
-> Last Updated: 2025-12-30 (V9.4.0 Fresh Deployment)
+> Last Updated: 2025-12-30 02:24 (V9.5.0 Fresh Deployment with getPendingFills)
 
-- **✅ V9.4.0 DEPLOYED** — Fresh deployment with TickBook registrar access control
+- **✅ V9.5.0 DEPLOYED** — Fresh deployment with `getPendingFills()` view function
+- **✅ PENDING FILLS TRACKING** — Frontend now shows accumulated fills from crossing
 - **✅ REGISTRAR ACCESS CONTROL** — Only LaunchpadEngine (or owner) can register markets in TickBook
 - **✅ FRONTEND GRADUATION GUARD** — Non-graduated markets show "Pro Trading Locked" screen
 - **✅ V9.1.0 SELL-SIDE FEES** — Implemented proper sell-side fee deduction
-- **✅ V9.0 QA COMPLETE** — 99 tests passing with 83% TickBookPoolManager coverage
-- **🔧 GRADUATION GAS FIX** — Frontend now uses 2M gas for trades >50% graduation progress
-- **🔧 USER ORDERS FIX** — Added getUserOrders() to contract + event fallback in frontend
+- **🔧 LIQUIDITY MAP FIX** — Updated to show user orders when tick data unavailable
 
-## 🆕 V9.4.0 Fresh Deployment (2025-12-30)
+## 🆕 V9.5.0 Fresh Deployment (2025-12-30)
 
 ### Deployment Summary
-- **Date**: 2025-12-30T00:22:47+07:00
+- **Date**: 2025-12-30T02:10:00+07:00
 - **Network**: Base Sepolia (Chain ID: 84532)
-- **Gas Used**: ~16.8M gas (~0.00002 ETH)
+- **Key Addition**: `getPendingFills(bytes32 marketKey, uint256 orderId)` view function
 - **Deployer**: `0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F`
 
-### V9.4.0 Deployed Addresses (Base Sepolia)
+### V9.5.0 Deployed Addresses (Base Sepolia)
 | Contract | Address |
 |----------|---------|
 | **MockUSDC** | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` |
-| **Collateralizer** | `0xec9dce70520656250E92Fd0e11cF2b52C0E82F99` |
-| **AMMEngine** | `0x0C7D8A35D15D8f471acF3C6d5d18983033C73660` |
-| **TickBookVault** | `0x9733E1641DEEF3cC810F8635697288C36a8ff966` |
-| **TickBookPoolManager** | `0x36beA8f418B32387e88E44510d09944b681b8E67` |
-| **DynamicFeeHook** | `0x5930f5F266F57DE3929dA4E674341B0b069E703c` |
-| **LaunchpadEngine** | `0xD44eF417a6124031DB529B14AB279A36Caeb4338` |
-| **ALIEN Market** | `0x83cf7A6fE826788D04F7210E0F16a15A606FBB02` |
-| **BTC100K Market** | `0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2` |
-
-### Flow Summary
-1. Markets created via `LaunchpadEngine.createMarket()` → trade on AMM
-2. Fees accumulate → graduation threshold reached
-3. `LaunchpadEngine` atomically registers market in `Collateralizer` + `TickBook`
-4. Pro Terminal unlocks for graduated markets
+| **Collateralizer** | `0xF90d9241398c3f9C76E378739920b84DE5a5eEd0` |
+| **AMMEngine** | `0x7b57918F88dD7e0006B40988B9f73B26a27FF292` |
+| **TickBookVault** | `0xDF7cc6186d96b13c095dB64D4589fDec07af03f8` |
+| **TickBookPoolManager** | `0x432b75E95bD1aE44D6393351B256ecfAf7753556` |
+| **DynamicFeeHook** | `0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307` |
+| **LaunchpadEngine** | `0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a` |
+| **ALIEN Market** | `0x4Cb558160602004D5b6C023Ad469DF0E2585F007` |
+| **BTC100K Market** | `0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68` |
 
 ---
 
-## Active Deployment (Base Sepolia) — V9.4.0 🔵
-| Contract | Address | Status |
-|----------|---------|--------|
-| MockUSDC | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` | ✅ OK |
-| Collateralizer | `0xec9dce70520656250E92Fd0e11cF2b52C0E82F99` | ✅ V9.4 |
-| AMMEngine | `0x0C7D8A35D15D8f471acF3C6d5d18983033C73660` | ✅ V9.4 |
-| TickBookVault | `0x9733E1641DEEF3cC810F8635697288C36a8ff966` | ✅ V9.4 |
-| TickBookPoolManager | `0x36beA8f418B32387e88E44510d09944b681b8E67` | ✅ V9.4 + Registrar |
-| DynamicFeeHook | `0x5930f5F266F57DE3929dA4E674341B0b069E703c` | ✅ V9.4 |
-| LaunchpadEngine | `0xD44eF417a6124031DB529B14AB279A36Caeb4338` | ✅ V9.4 (Registrar) |
+## Session Work (2025-12-30 ~01:00 - 02:24)
 
-### Base Sepolia V9.4 Markets
-| Market | Address | Graduated | TickBook |
-|--------|---------|-----------|----------|
-| UN Confirms Alien Life (ALIEN) | `0x83cf7A6fE826788D04F7210E0F16a15A606FBB02` | ❌ Not yet | ❌ Pending |
-| BTC TWAP >= $100k (BTC100K) | `0x268b5b48C824598f8DE0E60fDB2d041CFBEDBCF2` | ❌ Not yet | ❌ Pending |
+### Completed This Session
+1. **✅ User Orders Not Showing** — Fixed `useUserOrdersDirect` hook
+   - Root cause: Missing `getUserOrders()` in ABI + missing `getPendingFills`
+   - Also removed non-existent `getPendingFills` call that was causing silent failures
 
----
+2. **✅ Order Accounting Deep Dive** — Analyzed crossing mechanics
+   - Discovered that crossed orders use lazy-claim accumulator pattern
+   - New orders get immediate fills; crossed orders need to claim via accumulator
+   - Order #2 (NO) crossed against Order #1 (YES) at tick 985
 
-## Pending Work (Next Session)
-- [ ] **Redeploy TickBookPoolManager** — Add getUserOrders() function to deployed contract
-- [ ] **Verify contracts on Basescan** — For transparency
-- [ ] **Add more DynamicFeeHook tests** — Increase coverage from 30% to 80%+
-- [ ] **Test hybrid sell flow in UI** — Validate spot/short/hybrid sell modes
+3. **✅ getPendingFills() View Function Added** — Contract enhancement
+   - New function in `TickBookPoolManager.sol` calculates pending fills from accumulator
+   - Returns `(pendingShares, pendingCollateralUsed)` without modifying state
+   - Enables frontend to show total fills = `order.filledShares + pendingShares`
 
-## Completed This Session (2025-12-30)
-- ✅ **Graduation Gas Fix** — Frontend uses 2M gas for trades >50% progress (was 80%, caused OOG)
-- ✅ **Category Count Fix** — Trade page now shows correct per-category market counts
-- ✅ **LP Value Display Fix** — "No active liquidity" only shows when user has no LP balance
-- ✅ **User Orders Detection** — Added getUserOrders() to contract + event log fallback in frontend
-- ✅ **LESSONS_LEARNED.md Updated** — Documented graduation gas fix with 50% threshold rationale
+4. **✅ V9.5.0 Fresh Deployment** — Complete redeployment with new function
+   - All contracts redeployed to Base Sepolia
+   - Frontend configs updated: `deployments.json`, `markets.json`
+   - ABI regenerated with `getPendingFills`
 
-## Completed Previous Session (2025-12-29)
-- ✅ **TickBook Registrar Access Control** — Contract-level graduation lock
-- ✅ **Fresh V9.3.0 Deployment** — All core contracts + 2 markets
-- ✅ **Frontend Graduation Guard Fix** — Removed `isTickBookLoading` dependency
-- ✅ **Markets.json Token Fix** — Added missing yesToken/noToken (for previous deployment)
-- ✅ **35 TickBook Tests Passing** — All tests pass with registrar changes
+5. **✅ Frontend Hook Updated** — `useUserOrdersDirect` now uses `getPendingFills`
+   - Calls `getOrder` + `getPendingFills` in parallel
+   - Adds pending shares to displayed `filledShares`
+   - CLAIM button now shows correctly for crossed orders
 
----
-
-## Recent Changes
-
-### ✅ V9.3 Registrar Access Control (2025-12-29)
-- **Contract Change**: `TickBookPoolManager.registerMarket()` now requires `onlyRegistrar` modifier
-- **Access Control**: Only LaunchpadEngine (set as registrar) or owner can register markets
-- **Frontend Fix**: Graduation check no longer waits for TickBook loading (tokens don't exist until graduation)
-- **Flow**: Markets must graduate via AMM trading before appearing in TickBook/Pro Terminal
-
-### ✅ V9.2 TickBook Initialization Fix (2025-12-29)
-- **Frontend Fix**: Hardened address normalization in `useTickBookDirect` hook
-- **Market Key**: Correct market key calculation with all 4 fields (market, yesToken, noToken, hook)
-
-### ✅ V9.1 Sell-Side Fee Fix (2025-12-29)
-- **Contract Fix**: Sells now correctly deduct fees from proceeds before locking
-- **API Change**: `IAMMEngine.tradePositionsFor()` now accepts `fee` parameter
-- **Tests**: 12 new tests covering sell-side fee scenarios
+6. **✅ Liquidity Map Enhancement** — Added `userOrders` prop
+   - LiquidityMap now accepts user orders when tick data unavailable
+   - Visualizes active order ranges with proper color coding
 
 ---
 
@@ -112,27 +78,18 @@
 
 ---
 
-## Short-Term Dev Plan (Alpha Sprint)
-
-### 🎯 Priority 1: Graduate Markets
-| Task | Description | Effort |
-|------|-------------|--------|
-| **Trade on AMM** | Generate fees to trigger graduation threshold | S |
-| **Verify Graduation Flow** | Confirm TickBook registration happens atomically | S |
-| **Test Pro Terminal** | Verify orders work after graduation | M |
-
-### 🛡️ Priority 2: Contract Verification
-| Task | Description | Effort |
-|------|-------------|--------|
-| **Verify on Basescan** | All V9.3 contracts | M |
-| **Update ABIs** | Sync to frontend/SDK if needed | S |
-
-### 📱 Priority 3: UI Polish
-| Task | Description | Effort |
-|------|-------------|--------|
-| **Graduation Progress** | Show progress in Pro "Locked" screen | S |
-| **Mobile Responsive** | Trading panel mobile layout | M |
+## Pending Work (Next Session)
+- [ ] **Test order crossing E2E** — Verify fills display correctly after crossing
+- [ ] **Verify contracts on Basescan** — For transparency
+- [ ] **Graduate a market** — Trade on AMM to trigger graduation
+- [ ] **Test Pro Terminal post-graduation** — Full order flow verification
 
 ---
 
-*Last updated: 2025-12-30 (V9.4.0)*
+## Known Issues
+- Markets need to be graduated via AMM trading before Pro Terminal is available
+- Previous V9.4.0 orders are lost (new deployment = fresh state)
+
+---
+
+*Last updated: 2025-12-30 02:24 (V9.5.0)*

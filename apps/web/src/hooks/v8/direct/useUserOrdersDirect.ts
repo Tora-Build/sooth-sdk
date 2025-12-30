@@ -48,6 +48,7 @@ export function useUserOrdersDirect(
     read: async (client) => {
       // Try getUserOrders first (for future redeployed contracts)
       let orderIds: bigint[] = [];
+      console.log(`[useUserOrdersDirect] Querying ${tickBookManagerAddress} for user ${userAddress} on market ${marketKey}`);
       try {
         orderIds = await readContractSafe<bigint[]>(client, {
           address: tickBookManagerAddress!,
@@ -55,6 +56,7 @@ export function useUserOrdersDirect(
           functionName: "getUserOrders",
           args: [marketKey!, userAddress!],
         }) ?? [];
+        console.log(`[useUserOrdersDirect] getUserOrders returned: ${orderIds.length} orders`, orderIds);
       } catch {
         // getUserOrders not available - fallback to event logs
         console.log("[useUserOrdersDirect] getUserOrders not available, using event logs");
@@ -79,46 +81,57 @@ export function useUserOrdersDirect(
         return [];
       }
 
-      // Fetch each order's details + pending fills
+      // Fetch each order's details
       const orders: RangeOrder[] = [];
       for (const orderId of orderIds) {
-        const [order, pendingFills] = await Promise.all([
-          readContractSafe<{
-            owner: Address;
-            outcome: number;
-            tickLower: number;
-            tickUpper: number;
-            sharesTotal: bigint;
-            liquidity: bigint;
-            collateralDepositedWad: bigint;
-            filledShares: bigint;
-            collateralUsedWad: bigint;
-            active: boolean;
-          }>(client, {
-            address: tickBookManagerAddress!,
-            abi: V9_ABIS.TickBookPoolManager,
-            functionName: "getOrder",
-            args: [marketKey!, orderId],
-          }),
-          readContractSafe<readonly [bigint, bigint]>(client, {
-            address: tickBookManagerAddress!,
-            abi: V9_ABIS.TickBookPoolManager,
-            functionName: "getPendingFills",
-            args: [marketKey!, orderId],
-          }),
-        ]);
+        try {
+          // Solidity struct order: owner, outcome, tickLower, tickUpper, active, sharesTotal, liquidity, collateralDepositedWad, filledShares, collateralUsedWad
+          const [order, pendingFills] = await Promise.all([
+            readContractSafe<{
+              owner: Address;
+              outcome: number;
+              tickLower: number;
+              tickUpper: number;
+              active: boolean;
+              sharesTotal: bigint;
+              liquidity: bigint;
+              collateralDepositedWad: bigint;
+              filledShares: bigint;
+              collateralUsedWad: bigint;
+            }>(client, {
+              address: tickBookManagerAddress!,
+              abi: V9_ABIS.TickBookPoolManager,
+              functionName: "getOrder",
+              args: [marketKey!, orderId],
+            }),
+            readContractSafe<readonly [bigint, bigint]>(client, {
+              address: tickBookManagerAddress!,
+              abi: V9_ABIS.TickBookPoolManager,
+              functionName: "getPendingFills",
+              args: [marketKey!, orderId],
+            }),
+          ]);
 
-        if (order && order.active) {
-          const pendingShares = pendingFills?.[0] ?? 0n;
-          const totalFilledShares = order.filledShares + pendingShares;
+          console.log(`[useUserOrdersDirect] Order ${orderId}:`, order ? `active=${order.active}, filled=${order.filledShares}, pending=${pendingFills?.[0]}` : 'null');
 
-          orders.push({
-            orderId,
-            ...order,
-            filledShares: totalFilledShares,
-          });
+          if (order && order.active) {
+            // Add pending fills (from accumulator) to the displayed filledShares
+            const pendingShares = pendingFills?.[0] ?? 0n;
+            const totalFilledShares = order.filledShares + pendingShares;
+
+            orders.push({
+              orderId,
+              ...order,
+              filledShares: totalFilledShares,
+            });
+            console.log(`[useUserOrdersDirect] Order ${orderId} ACTIVE, total filled=${totalFilledShares}`);
+          }
+        } catch (err) {
+          console.error(`[useUserOrdersDirect] Failed to fetch order ${orderId}:`, err);
         }
       }
+
+      console.log(`[useUserOrdersDirect] Final result: ${orders.length} active orders`);
 
       return orders;
     },
