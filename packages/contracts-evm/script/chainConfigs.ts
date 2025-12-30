@@ -43,7 +43,7 @@ export const monadTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/',
+        'https://testnet-rpc.monad.xyz',
       ]
     },
   },
@@ -112,7 +112,7 @@ export const chainConfigs: Record<string, ChainConfig> = {
       // Monad has repriced opcodes: cold access 4x more expensive
       // See: https://docs.monad.xyz/developer-essentials/opcode-pricing
       // Using higher gas limits for complex contracts
-      gasLimit: 8_000_000n, // 8M gas for Collateralizer/TickBook
+      gasLimit: 2_000_000n, // 2M gas (updated for efficiency)
       maxFeePerGas: 105_000_000_000n, // 105 gwei (just above min 100 gwei)
       maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
     },
@@ -219,6 +219,7 @@ export interface DeploymentArtifact {
     TickBook: string;
     TickBookPoolManager?: string;
     TickBookVault?: string;
+    DynamicFeeHook?: string;
     LaunchpadEngine: string;
   };
   markets: {

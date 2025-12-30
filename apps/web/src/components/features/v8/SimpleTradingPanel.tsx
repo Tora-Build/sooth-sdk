@@ -934,7 +934,7 @@ export const SimpleTradingPanel = ({
           {isQuoteValid && (
             <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
               <span className="text-slate-500">
-                {selectedOutcome === 1 ? 'YES' : 'NO'} Price
+                {selectedOutcome === 1 ? 'YES' : 'NO'} Prob
               </span>
               <div className="flex items-center gap-1">
                 <span className="font-mono text-slate-400">
