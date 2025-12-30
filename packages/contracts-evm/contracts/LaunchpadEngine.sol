@@ -66,6 +66,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     /// - 2 = graduate when fees are 2× creator deposit
     uint16 public graduationMultiplier;
 
+    /// @notice Default hook for graduated markets (optional, for dynamic fees)
+    address public defaultHook;
+
     // ============================================
     // Market State
     // ============================================
@@ -183,6 +186,18 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set default hook for graduated markets
+     * @param hook The hook contract address (e.g., DynamicFeeHook)
+     */
+    function setDefaultHook(address hook) external onlyOwner {
+        defaultHook = hook;
+        emit DefaultHookUpdated(hook);
+    }
+
+    /// @notice Emitted when default hook is updated
+    event DefaultHookUpdated(address indexed hook);
+
+    /**
      * @notice Register a graduated market in TickBook (admin function for migration)
      * @dev Use this to register markets that graduated before TickBook integration
      * @param market The market address to register
@@ -199,14 +214,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         // Get current AMM probability
         (,, uint256 ammProbability) = ammEngine.getMarketState(market);
 
-        // Register in TickBook (will revert if already registered)
-        tickBook.registerMarket(market, yes, no, ammProbability);
+        // Register in TickBook with default hook (will revert if already registered)
+        tickBook.registerMarket(market, yes, no, ammProbability, defaultHook);
 
-        emit MarketRegisteredInTickBook(market, yes, no, ammProbability);
+        emit MarketRegisteredInTickBook(market, yes, no, ammProbability, defaultHook);
     }
 
     /// @notice Emitted when a graduated market is manually registered in TickBook
-    event MarketRegisteredInTickBook(address indexed market, address yesToken, address noToken, uint256 initialProbability);
+    event MarketRegisteredInTickBook(address indexed market, address yesToken, address noToken, uint256 initialProbability, address hook);
 
     // ============================================
     // Market Creation
@@ -401,8 +416,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
                     // Get current AMM probability to initialize TickBook at the same price
                     (,, uint256 ammProbability) = ammEngine.getMarketState(market);
 
-                    // TickBook is keyed by (market, yesToken, noToken). If already registered, ignore.
-                    try tickBook.registerMarket(market, yes, no, ammProbability) returns (bytes32) {
+                    // TickBook is keyed by (market, yesToken, noToken, hook). If already registered, ignore.
+                    try tickBook.registerMarket(market, yes, no, ammProbability, defaultHook) returns (bytes32) {
                         // ok
                     } catch (bytes memory reason) {
                         // DuplicateMarket() custom error selector = bytes4(keccak256("DuplicateMarket()"))

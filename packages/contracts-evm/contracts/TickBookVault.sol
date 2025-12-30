@@ -264,6 +264,37 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     }
 
     // ============================================
+    // Fee Collection
+    // ============================================
+
+    event FeeCollected(address indexed market, address indexed recipient, uint256 amountWad);
+
+    /**
+     * @notice Transfer fees from market collateral to recipient
+     * @dev Called by TickBook after collecting taker fees
+     * @param market The market the fee was collected from
+     * @param recipient The fee recipient address
+     * @param amountWad Amount of fees to transfer (in WAD)
+     */
+    function transferFee(
+        address market,
+        address recipient,
+        uint256 amountWad
+    ) external onlyTickBook {
+        require(amountWad > 0, "TickBookVault: zero fee");
+        require(recipient != address(0), "TickBookVault: zero recipient");
+        require(_marketCollateralWad[market] >= amountWad, "TickBookVault: insufficient market collateral");
+
+        _marketCollateralWad[market] -= amountWad;
+
+        // Transfer USDC to recipient
+        uint256 assetAmount = _wadToUsdc(amountWad);
+        usdc.safeTransfer(recipient, assetAmount);
+
+        emit FeeCollected(market, recipient, amountWad);
+    }
+
+    // ============================================
     // Redemption
     // ============================================
 
