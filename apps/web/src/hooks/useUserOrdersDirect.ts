@@ -15,7 +15,8 @@ export interface RangeOrder {
   sharesTotal: bigint;
   liquidity: bigint;
   collateralDepositedWad: bigint;
-  filledShares: bigint;
+  filledShares: bigint;       // Claimed fills
+  pendingShares: bigint;      // Unclaimed fills from accumulator
   collateralUsedWad: bigint;
   active: boolean;
 }
@@ -115,16 +116,15 @@ export function useUserOrdersDirect(
           console.log(`[useUserOrdersDirect] Order ${orderId}:`, order ? `active=${order.active}, filled=${order.filledShares}, pending=${pendingFills?.[0]}` : 'null');
 
           if (order && order.active) {
-            // Add pending fills (from accumulator) to the displayed filledShares
+            // Keep pending fills separate for proper UI logic
             const pendingShares = pendingFills?.[0] ?? 0n;
-            const totalFilledShares = order.filledShares + pendingShares;
 
             orders.push({
               orderId,
               ...order,
-              filledShares: totalFilledShares,
+              pendingShares,  // Keep separate from filledShares
             });
-            console.log(`[useUserOrdersDirect] Order ${orderId} ACTIVE, total filled=${totalFilledShares}`);
+            console.log(`[useUserOrdersDirect] Order ${orderId} ACTIVE, claimed=${order.filledShares}, pending=${pendingShares}`);
           }
         } catch (err) {
           console.error(`[useUserOrdersDirect] Failed to fetch order ${orderId}:`, err);

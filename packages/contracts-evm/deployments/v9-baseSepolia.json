@@ -1,32 +1,32 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "timestamp": "2025-12-30T13:49:05.960Z",
+  "timestamp": "2025-12-30T16:44:59.968Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0xc848c6af50de6dae6fabf08b6efc73f9548bd2c6",
-    "Collateralizer": "0x1b24519b790e2659b8e2b0ff7e5a1f37e033899a",
-    "AMMEngine": "0x94f09a617541c2e3672262956d560022fd0274a7",
-    "TickBookVault": "0x281f3ba425471d0f70633d065306931dafebd1cd",
-    "TickBookPoolManager": "0xd43ec02ae53845f419c9da27d2b0c8a45a37082b",
-    "TickBook": "0xd43ec02ae53845f419c9da27d2b0c8a45a37082b",
-    "LaunchpadEngine": "0xd90ca9882584cf11317d954516da436e0daf8c2f"
+    "MockUSDC": "0xee08d25a466e54c97417dcc721baee82b145ab99",
+    "Collateralizer": "0xed402829b2582211374d17a00082aceecd47e420",
+    "AMMEngine": "0xbfe2ece93b9a0afe2574923d63999aea83a320f4",
+    "TickBookVault": "0xfe72a031afafc33281a62ad8a765665ccd69042b",
+    "TickBookPoolManager": "0x8cdaddec24919ab31bdb64b97a3d1e58c921a272",
+    "TickBook": "0x8cdaddec24919ab31bdb64b97a3d1e58c921a272",
+    "LaunchpadEngine": "0xbe602ee838c1ecb959c1582fab8e65fc4ccb809a"
   },
   "markets": [
     {
-      "address": "0x0660afbe97869abe13520e68ba15869d9945a710",
+      "address": "0xae87f6451cd84514c4c181f88a25a02e6c3a9c04",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "yesToken": "0x258Ee551D6D6bD30c473679D1326b14bc3762520",
-      "noToken": "0x90b81eb88f827A81298680376256C7574e1716d0",
+      "yesToken": "0x81de9062E8dc17E056205FaCec00F5560e7de722",
+      "noToken": "0x44842cFE7F1Ee619f4CEc4Ec44399Dcc6c1f3754",
       "isGraduated": false
     },
     {
-      "address": "0x317abbf2c34518f099967bb251d54158ceadc003",
+      "address": "0xe738c73b4f28d16d9391d2a947e0864037f50e5e",
       "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "yesToken": "0xBBB3948809A98B2c784FCce6D272934b24425AE6",
-      "noToken": "0x92fbB5F38036dfFfEcD93D4e019ac0EEb20a57f4",
+      "yesToken": "0x56a9512dC3F86a21a1238c7301A5c33477089856",
+      "noToken": "0x877E466E847D980E470Db3300FF0245d60dEDE6c",
       "isGraduated": true
     }
   ]
