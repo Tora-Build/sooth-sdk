@@ -2,6 +2,24 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.8.0] - 2025-12-30
+
+### Fixed
+- **_tryCross Bitmap-Based Overlap Detection** (2025-12-30):
+  - **Root Cause**: `_tryCross` used `currentTick` range check which failed when market orders hadn't executed yet.
+  - **Problem**: `currentTick` was initialized from `initialProbabilityWad` (e.g., 999). Overlapping range orders at lower ticks couldn't cross because `currentTick (999) > newOrder.tickUpper (460)`.
+  - **Solution**: Replaced `currentTick`-based detection with bitmap-based overlap detection using `findNextUp()` / `findNextDown()`.
+  - **Additional Fix**: `registerMarket` now initializes `currentTick` to `MIN_TICK` (1) instead of `initialProbabilityWad`.
+  - **Documentation**: `packages/contracts-evm/docs/research/V9/TRYCROSS_BITMAP_OVERLAP.md`
+
+### Changed
+- **currentTick Initialization** (2025-12-30):
+  - Both `registerMarket` overloads now set `currentTick = MIN_TICK` (1).
+  - `_tryCross` no longer depends on `currentTick` for overlap detection.
+  - Market orders (`_fill`) can still search from `currentTick` in both directions.
+
+---
+
 ## [9.6.0] - 2025-12-30
 
 ### Fixed

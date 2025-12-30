@@ -1,14 +1,16 @@
 {
-  "version": "9.5.0",
+  "version": "9.8.0",
   "markets": [
     {
-      "id": "alien-life-2030",
+      "id": "alien-life-base",
       "chainId": 84532,
-      "address": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
-      "contractAddress": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
-      "name": "Alien Life Detection by 2030",
+      "address": "0x0660afbe97869abe13520e68ba15869d9945a710",
+      "contractAddress": "0x0660afbe97869abe13520e68ba15869d9945a710",
+      "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "description": "Will we detect confirmed extraterrestrial life by December 31, 2030?",
+      "yesToken": "0x258Ee551D6D6bD30c473679D1326b14bc3762520",
+      "noToken": "0x90b81eb88f827A81298680376256C7574e1716d0",
+      "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
       "category": "science",
       "featured": true,
       "imageUrl": null,
@@ -19,13 +21,15 @@
       "version": "v9"
     },
     {
-      "id": "btc-100k-2025",
+      "id": "btc-100k-base",
       "chainId": 84532,
-      "address": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
-      "contractAddress": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
-      "name": "Bitcoin $100k by 2025",
+      "address": "0x317abbf2c34518f099967bb251d54158ceadc003",
+      "contractAddress": "0x317abbf2c34518f099967bb251d54158ceadc003",
+      "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "description": "Will Bitcoin reach $100,000 USD by December 31, 2025?",
+      "yesToken": "0xBBB3948809A98B2c784FCce6D272934b24425AE6",
+      "noToken": "0x92fbB5F38036dfFfEcD93D4e019ac0EEb20a57f4",
+      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
       "category": "crypto",
       "featured": true,
       "imageUrl": null,
@@ -33,7 +37,8 @@
         "YES",
         "NO"
       ],
-      "version": "v9"
+      "version": "v9",
+      "isGraduated": true
     },
     {
       "id": "alien-life-monad",

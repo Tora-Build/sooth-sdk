@@ -1225,13 +1225,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   }, [vaultAllowance, decimals]);
 
   // Derived values
-  const tickBookProb = tickBook?.probability ?? 0.5;
+  // V9.8: currentTick is initialized to MIN_TICK (1) until first crossing occurs.
+  // If currentTick <= 1, there's been no trading - show "N/A" for Book Price.
+  const isBookPriceValid = tickBook?.currentTick !== undefined && tickBook.currentTick > 1;
+  const rawBookProb = tickBook?.probability ?? null;
   const ammProb = amm?.yesProbability ?? 0.5;
-  const arbSpread = Math.abs(tickBookProb - ammProb) * 100;
+  const tickBookProb = isBookPriceValid ? rawBookProb : null; // null means N/A
+  const arbSpread = isBookPriceValid && rawBookProb !== null ? Math.abs(rawBookProb - ammProb) * 100 : 0;
   const hasArb = arbSpread >= 0.5; // Show arb indicator if >= 0.5% difference
 
   // Use tickBook price as primary (or fall back to AMM if no tickBook data)
-  const currentProb = tickBookProb;
+  const currentProb = tickBookProb ?? ammProb;
   const priceLowNum = parseFloat(priceLow) || 45;
   const priceHighNum = parseFloat(priceHigh) || 55;
   const amountNum = parseFloat(amount) || 0;
@@ -1598,7 +1602,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             {/* TickBook Price (Primary) - larger, amber */}
             <div className="text-center p-2 rounded-lg bg-slate-950">
               <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-              <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
+              <div className="text-xl font-mono font-bold text-amber-400">{tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}</div>
             </div>
             {/* AMM Price (Secondary) - smaller, grey */}
             <div className="text-center p-2 rounded-lg bg-slate-950">
@@ -1631,7 +1635,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           {/* TickBook Price (Primary) - larger, amber */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-            <div className="text-xl font-mono font-bold text-amber-400">{(tickBookProb * 100).toFixed(1)}%</div>
+            <div className="text-xl font-mono font-bold text-amber-400">{tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}</div>
           </div>
           {/* AMM Price (Secondary) - smaller, grey */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
@@ -1745,7 +1749,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
               <div className="flex items-center gap-3 text-[10px]">
                 <span className="text-emerald-400">◀ {isYes ? 'YES' : 'NO'} Bids</span>
-                <span className="text-white font-bold">{((isYes ? tickBookProb : 1 - tickBookProb) * 100).toFixed(1)}%</span>
+                <span className="text-white font-bold">{tickBookProb !== null ? `${((isYes ? tickBookProb : 1 - tickBookProb) * 100).toFixed(1)}%` : 'N/A'}</span>
                 <span className="text-rose-400">{isYes ? 'NO' : 'YES'} Asks ▶</span>
               </div>
             </div>

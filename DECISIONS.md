@@ -1,5 +1,47 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-057: _tryCross Bitmap-Based Overlap Detection (V9.8)
+- **Date**: 2025-12-30
+- **Status**: Accepted (Merged via PR #19)
+- **Context**:
+  - The `_tryCross` function in `TickBookPoolManager` determines if a newly placed range order can immediately match against existing opposing liquidity.
+  - Original implementation used a `currentTick` range check:
+    ```solidity
+    if (state.currentTick < newOrder.tickLower || state.currentTick > newOrder.tickUpper) {
+        return (0, 0, 0);
+    }
+    ```
+  - **Problem**: `currentTick` was initialized from `initialProbabilityWad` (e.g., tick 999 from graduation = ~99.9% probability) and only changed when market orders executed via `_fill`. Before any market orders, overlapping range orders SHOULD match but DIDN'T because `currentTick` was outside both orders' ranges.
+  - **Example Failure**: Market graduates at tick 999. User A places BUY YES at ticks [450, 460]. User B places SELL YES at same ticks. Both orders are at the EXACT SAME price but `_tryCross` returned (0,0,0) because `currentTick (999) > tickUpper (460)`.
+- **Decision**:
+  1. **Initialize `currentTick` to `MIN_TICK` (1)** instead of `initialProbabilityWad` — let trading establish the price.
+  2. **Use bitmap-based overlap detection** in `_tryCross`:
+     ```solidity
+     // Find best opposing liquidity using bitmap
+     uint16 bestOpposite;
+     if (newOrder.outcome == 1) {
+         bestOpposite = _bitmaps[marketKey][0].findNextUp(0);  // Lowest SELL YES tick
+     } else {
+         bestOpposite = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);  // Highest BUY YES tick
+     }
+     
+     // Check if ranges overlap
+     bool crosses = (newOrder.outcome == 1)
+         ? bestOpposite <= newOrder.tickUpper
+         : bestOpposite >= newOrder.tickLower;
+     ```
+- **Rationale**:
+  - **Correctness**: Overlapping range orders should cross immediately regardless of `currentTick`.
+  - **State Independence**: Crossing detection doesn't depend on market order history.
+  - **Bitmap Efficiency**: O(log n) lookup using `findNextUp` / `findNextDown`.
+- **Consequences**:
+  - **Breaking Change**: Requires contract redeployment to use V9.8 behavior.
+  - **Behavior Change**: Range orders now cross correctly on newly registered markets.
+  - **currentTick Role**: `currentTick` is now only used by `_fill` (market orders), not by `_tryCross`.
+- **Documentation**: `packages/contracts-evm/docs/research/V9/TRYCROSS_BITMAP_OVERLAP.md`
+
+---
+
 ## ADR-056: Monad Testnet V9 Singleton Migration & Graduation Gas Fix
 - **Date**: 2025-12-30
 - **Status**: Accepted (Deployed)
