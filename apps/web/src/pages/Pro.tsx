@@ -509,9 +509,10 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const priceRange = order.tickLower === order.tickUpper
               ? `${(order.tickLower / 10).toFixed(1)}%`
               : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
-            const fillPercent = order.sharesTotal > 0n
-              ? Number((order.filledShares * 100n) / order.sharesTotal)
+            const fillPercentRaw = order.sharesTotal > 0n
+              ? (Number(order.filledShares * 10000n / order.sharesTotal) / 100)
               : 0;
+            const fillPercent = fillPercentRaw > 99.9 ? 100 : Math.floor(fillPercentRaw);
             // outcome=1 → credits YES tokens on fill, outcome=0 → credits NO tokens on fill
             const isYesOrder = order.outcome === 1;
             const hasFills = order.filledShares > 0n;
