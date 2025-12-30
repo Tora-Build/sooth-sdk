@@ -49,11 +49,12 @@ export const wagmiAdapter = new WagmiAdapter({
     // then QuickNode, then Foundation
     [monadTestnet.id]: fallback(
       [
+        http('https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/', monadHttpOptions),
         http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),  // 300/10s - highest
         http('https://testnet-rpc.monad.xyz', monadHttpOptions),       // 25 rps
         http('https://rpc-testnet.monadinfra.com', monadHttpOptions),  // 20 rps
       ],
-      { 
+      {
         rank: true,           // Rank endpoints by latency
         retryCount: 3,        // Retry across all endpoints
         retryDelay: 500,      // 500ms between fallback attempts

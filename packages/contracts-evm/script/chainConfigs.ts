@@ -41,12 +41,10 @@ export const monadTestnet = defineChain({
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { 
+    default: {
       http: [
-        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
-        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
-        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
-      ] 
+        'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
+      ]
     },
   },
   blockExplorers: {
@@ -219,6 +217,8 @@ export interface DeploymentArtifact {
     Collateralizer: string;
     AMMEngine: string;
     TickBook: string;
+    TickBookPoolManager?: string;
+    TickBookVault?: string;
     LaunchpadEngine: string;
   };
   markets: {

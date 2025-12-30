@@ -6,7 +6,7 @@ export const Landing = () => {
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#020617]">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid opacity-[0.15]" />
-      
+
       {/* Blueprint Snippets */}
       <div className="absolute top-20 left-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block">
         <pre>{`// tickbook_matching.sol
@@ -69,6 +69,7 @@ message SettlementProof {
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
             <Badge color="cyan">v8.1 Modular</Badge>
             <Badge color="indigo">Base Sepolia</Badge>
+            <Badge color="purple">Monad Testnet</Badge>
             <Badge color="emerald">MegaETH Frontier</Badge>
           </div>
 
@@ -87,8 +88,8 @@ message SettlementProof {
           </p>
 
           <p className="text-base sm:text-lg text-slate-500 mb-12 max-w-2xl mx-auto font-mono">
-            <span className="text-cyan-400">creator_economics</span> • 
-            <span className="text-purple-400"> retroactive_finality</span> • 
+            <span className="text-cyan-400">creator_economics</span> •
+            <span className="text-purple-400"> retroactive_finality</span> •
             <span className="text-indigo-400"> onchain_clob</span>
           </p>
 
@@ -127,14 +128,14 @@ message SettlementProof {
               { role: "Arbitrageur", icon: <RefreshCcw className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
               { role: "PvP Trader", icon: <Swords className="w-5 h-5" />, path: "/pro", desc: "Pure conviction trading on the 10,000-tick CLOB", color: "indigo" }
             ].map((actor) => (
-              <Link 
+              <Link
                 key={actor.role}
                 to={actor.path}
                 className="group p-8 rounded-xl border border-slate-800/50 bg-slate-900/10 hover:bg-slate-900/30 hover:border-slate-700 transition-all flex flex-col items-start text-left relative overflow-hidden"
               >
                 {/* Subtle background glow */}
                 <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-10 group-hover:opacity-20 transition-opacity bg-${actor.color}-500`} />
-                
+
                 <div className="flex items-center gap-4 mb-6 relative z-10">
                   <div className={`p-3 rounded-lg bg-slate-950/50 border border-slate-800/50 group-hover:border-slate-700 transition-colors text-slate-400 group-hover:text-white`}>
                     {actor.icon}
@@ -204,12 +205,13 @@ message SettlementProof {
   );
 };
 
-const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' }) => {
+const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' | 'purple' }) => {
   const colors = {
     cyan: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
     amber: 'bg-amber-500/5 border-amber-500/10 text-amber-500/70',
     emerald: 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500/70',
     indigo: 'bg-indigo-500/5 border-indigo-500/10 text-indigo-500/70',
+    purple: 'bg-purple-500/5 border-purple-500/10 text-purple-500/70',
   };
 
   return (
@@ -219,14 +221,14 @@ const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' |
   );
 };
 
-const FeatureCard = ({ 
-  icon, 
-  title, 
+const FeatureCard = ({
+  icon,
+  title,
   description,
-  color 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
+  color
+}: {
+  icon: React.ReactNode;
+  title: string;
   description: string;
   color: 'cyan' | 'purple' | 'indigo';
 }) => {

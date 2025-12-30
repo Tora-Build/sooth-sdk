@@ -1,67 +1,43 @@
 # Project Status
 
-> Last Updated: 2025-12-30 02:24 (V9.5.0 Fresh Deployment with getPendingFills)
+> Last Updated: 2025-12-30 15:45 (V8 Monad Testnet Deployment)
 
-- **✅ V9.5.0 DEPLOYED** — Fresh deployment with `getPendingFills()` view function
-- **✅ PENDING FILLS TRACKING** — Frontend now shows accumulated fills from crossing
-- **✅ REGISTRAR ACCESS CONTROL** — Only LaunchpadEngine (or owner) can register markets in TickBook
-- **✅ FRONTEND GRADUATION GUARD** — Non-graduated markets show "Pro Trading Locked" screen
-- **✅ V9.1.0 SELL-SIDE FEES** — Implemented proper sell-side fee deduction
-- **🔧 LIQUIDITY MAP FIX** — Updated to show user orders when tick data unavailable
+- **✅ MONAD TESTNET DEPLOYED** — Fresh V8 deployment with private QuickNode RPC
+- **✅ GRADUATION TRADE STABILITY** — Fixed gas limits (4M) and ABI for tradePositions
+- **✅ ENGINE CROSS-LINKING** — Proactively configured Router/Registrar permissions
+- **✅ V9.5.0 BASE SEPOLIA** — (Previous session) Fresh deployment with `getPendingFills()`
 
-## 🆕 V9.5.0 Fresh Deployment (2025-12-30)
+## 🆕 V8 Monad Testnet Deployment (2025-12-30)
 
 ### Deployment Summary
-- **Date**: 2025-12-30T02:10:00+07:00
-- **Network**: Base Sepolia (Chain ID: 84532)
-- **Key Addition**: `getPendingFills(bytes32 marketKey, uint256 orderId)` view function
+- **Date**: 2025-12-30T15:40:00+07:00
+- **Network**: Monad Testnet (Chain ID: 10143)
+- **RPC**: Private QuickNode Endpoint
 - **Deployer**: `0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F`
 
-### V9.5.0 Deployed Addresses (Base Sepolia)
+### V8 Deployed Addresses (Monad Testnet)
 | Contract | Address |
 |----------|---------|
-| **MockUSDC** | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` |
-| **Collateralizer** | `0xF90d9241398c3f9C76E378739920b84DE5a5eEd0` |
-| **AMMEngine** | `0x7b57918F88dD7e0006B40988B9f73B26a27FF292` |
-| **TickBookVault** | `0xDF7cc6186d96b13c095dB64D4589fDec07af03f8` |
-| **TickBookPoolManager** | `0x432b75E95bD1aE44D6393351B256ecfAf7753556` |
-| **DynamicFeeHook** | `0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307` |
-| **LaunchpadEngine** | `0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a` |
-| **ALIEN Market** | `0x4Cb558160602004D5b6C023Ad469DF0E2585F007` |
-| **BTC100K Market** | `0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68` |
+| **MockUSDC** | `0x58a7286783f528659b3390f91bc9c2e6fb9af8ac` |
+| **Collateralizer** | `0x658fbc5ba881d0873de647780a36f70ad2476016` |
+| **AMMEngine** | `0x080e4ca2dcfc06bf238b5d7fd4245cf22c2a2476` |
+| **TickBook** | `0x6e5485126b7f5f989a6aa70d3cf2728f8f1a4c69` |
+| **LaunchpadEngine** | `0x155b363fef5bb60cd87ce4b4f58f914feb06377c` |
+| **ALIEN Market** | `0x3ad9f24820f1c8fe33fe28d71a74e149d4ea0bae` |
+| **BTC100K Market** | `0xa0afab8cded21e7b4e638fb65a049e6e34a6e923` |
 
 ---
 
-## Session Work (2025-12-30 ~01:00 - 02:24)
+## Session Work (2025-12-30 ~15:00 - 15:45)
 
 ### Completed This Session
-1. **✅ User Orders Not Showing** — Fixed `useUserOrdersDirect` hook
-   - Root cause: Missing `getUserOrders()` in ABI + missing `getPendingFills`
-   - Also removed non-existent `getPendingFills` call that was causing silent failures
-
-2. **✅ Order Accounting Deep Dive** — Analyzed crossing mechanics
-   - Discovered that crossed orders use lazy-claim accumulator pattern
-   - New orders get immediate fills; crossed orders need to claim via accumulator
-   - Order #2 (NO) crossed against Order #1 (YES) at tick 985
-
-3. **✅ getPendingFills() View Function Added** — Contract enhancement
-   - New function in `TickBookPoolManager.sol` calculates pending fills from accumulator
-   - Returns `(pendingShares, pendingCollateralUsed)` without modifying state
-   - Enables frontend to show total fills = `order.filledShares + pendingShares`
-
-4. **✅ V9.5.0 Fresh Deployment** — Complete redeployment with new function
-   - All contracts redeployed to Base Sepolia
-   - Frontend configs updated: `deployments.json`, `markets.json`
-   - ABI regenerated with `getPendingFills`
-
-5. **✅ Frontend Hook Updated** — `useUserOrdersDirect` now uses `getPendingFills`
-   - Calls `getOrder` + `getPendingFills` in parallel
-   - Adds pending shares to displayed `filledShares`
-   - CLAIM button now shows correctly for crossed orders
-
-6. **✅ Liquidity Map Enhancement** — Added `userOrders` prop
-   - LiquidityMap now accepts user orders when tick data unavailable
-   - Visualizes active order ranges with proper color coding
+1. **✅ Monad Testnet RPC Update** — Switched to private QuickNode URL for better stability.
+2. **✅ AMMEngine Deployment Fix** — Resolved `AbiEncodingLengthMismatchError` by adding missing `_owner` constructor argument.
+3. **✅ tradePositions ABI & Gas Fix** — Resolved graduation trade reverts on Monad.
+   - Fixed `tradePositions` signature (missing `outcome` argument).
+   - Increased gas limit to **4,000,000** for complex graduation transactions.
+4. **✅ Engine Permissions Link-up** — Automatically configured `setRouter` and `setRegistrar` post-deploy.
+5. **✅ graduationTrades Verification** — Executed full 10-trade sequence (~110k volume) for BTC market.
 
 ---
 
@@ -79,12 +55,10 @@
 ---
 
 ## Pending Work (Next Session)
-- [ ] **Test order crossing E2E** — Verify fills display correctly after crossing
-- [ ] **Verify contracts on Basescan** — For transparency
-- [ ] **Graduate a market** — Trade on AMM to trigger graduation
-- [ ] **Test Pro Terminal post-graduation** — Full order flow verification
-
----
+- [x] **Sync Frontend Deployments** — Updated `apps/web/src/config/deployments.json` and `markets.json` with new Monad addresses.
+- [ ] **Verify on Monad Vision** — Manually check contract interactions on explorer.
+- [ ] **Resolve GIT Merge Conflicts** — Merge `1227` and `origin/main` (currently stuck in `vi`).
+- [ ] **HFT Benchmark** — Run `npx ts-node script/hft-benchmark.ts` on Monad.
 
 ## Known Issues
 - Markets need to be graduated via AMM trading before Pro Terminal is available

@@ -1,34 +1,30 @@
 {
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "version": "8.11.0",
-  "timestamp": "2025-12-29T06:00:00Z",
+  "timestamp": "2025-12-30T08:42:44.715Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0xf067C23BEE9D3d5c830ca0450A751836c181f566",
-    "Collateralizer": "0xF495702a9111513b7A2F77896021193312ddA851",
-    "AMMEngine": "0x65b72e4d5138AeEdF55459B8f7527505217dcEBc",
-    "TickBookVault": "0x1888474FF5f2E5B939B335f5e9E1625aA6AbBEA0",
-    "TickBook": "0xc1A50BE14964F7bef7D58CcBeF53B0081fc8F3b7",
-    "LaunchpadEngine": "0x39975787F1fa28fc92473De8b25070616AAbc261"
+    "MockUSDC": "0x58a7286783f528659b3390f91bc9c2e6fb9af8ac",
+    "Collateralizer": "0x658fbc5ba881d0873de647780a36f70ad2476016",
+    "AMMEngine": "0x080e4ca2dcfc06bf238b5d7fd4245cf22c2a2476",
+    "TickBook": "0x6e5485126b7f5f989a6aa70d3cf2728f8f1a4c69",
+    "LaunchpadEngine": "0x155b363fef5bb60cd87ce4b4f58f914feb06377c"
   },
   "markets": [
     {
-      "address": "0x4104Fd842d00ad5Db634ec1183313e02D6A18Fd2",
+      "address": "0x3ad9f24820f1c8fe33fe28d71a74e149d4ea0bae",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "yesToken": "0x5C2688c8b349C535db6D2B702699ADB85a396380",
-      "noToken": "0xDeCdbA396dB131ee1BBfA3eB384151da6AB1D883",
-      "deadline": 1769523750,
+      "yesToken": "0x1d69f9cdB8B9737671932393FF2308493d77CDe2",
+      "noToken": "0x1eA1A355CbED5C48C663607536896339Fb7224FB",
       "isGraduated": false
     },
     {
-      "address": "0x1cB930d768AD866C3211A14894B1E924726bac0b",
-      "name": "BTC 7-day TWAP >= $100k",
+      "address": "0xa0afab8cded21e7b4e638fb65a049e6e34a6e923",
+      "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "yesToken": "0x7CEbE651BF455120E1FADC70E5958eb07d1a760d",
-      "noToken": "0xeB608e6419A842B5cCeb0Feb47296baCCf250C21",
-      "deadline": 1769523750,
+      "yesToken": "0x41e3a89532d749085a45E4ba4834E30C266948E2",
+      "noToken": "0x38B20666cD601539d8Fe6F95007296b29ec050C2",
       "isGraduated": false
     }
   ]
