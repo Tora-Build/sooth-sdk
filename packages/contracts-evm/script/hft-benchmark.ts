@@ -69,7 +69,7 @@ import {
   getAllChainNames,
   type ChainConfig,
   type DeploymentArtifact,
-} from './chainConfigs';
+} from './chainConfigs.js';
 
 // ============================================
 // Constants
@@ -98,14 +98,14 @@ const TICKBOOK_ABI = parseAbi([
   // Market registration
   'function registerMarket(address market, address yesToken, address noToken) external returns (bytes32 marketKey)',
   'function getMarketKey(address market) external view returns (bytes32)',
-  
+
   // Maker functions (Limit Orders)
   'function placeLimitOrder(bytes32 marketKey, uint16 tickLower, uint16 tickUpper, uint256 amount) external returns (uint256 yesAmount, uint256 noAmount)',
   'function cancelLimitOrder(bytes32 marketKey, uint16 tickLower, uint16 tickUpper, uint256 amount) external returns (uint256 yesAmount, uint256 noAmount)',
-  
+
   // Taker functions (Market Orders)
   'function executeMarketOrder(bytes32 marketKey, bool isBuy, uint256 amountIn, uint16 limitTick) external returns (uint256 amountOut)',
-  
+
   // View functions
   'function getCurrentTick(bytes32 marketKey) external view returns (uint16 tickIndex, uint256 probability)',
   'function getTickDepth(bytes32 marketKey, uint16 tick) external view returns (uint128)',
@@ -197,24 +197,24 @@ function generateTraderWallets(
   count: number
 ): TraderWallet[] {
   const wallets: TraderWallet[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
-    
+
     const walletClient = createWalletClient({
       account,
       chain,
       transport: http(),
     });
-    
+
     wallets.push({
       privateKey,
       address: account.address,
       walletClient,
     });
   }
-  
+
   return wallets;
 }
 
@@ -228,47 +228,52 @@ async function runBenchmark(
 ): Promise<BenchmarkResults> {
   const chainConfig = getChainConfig(config.chainName);
   const chain = chainConfig.chain;
-  
+
   // Get master wallet from env
   const masterKey = process.env.PRIVATE_KEY as `0x${string}`;
   const masterAccount = privateKeyToAccount(masterKey);
-  
+
   const publicClient = createPublicClient({
     chain,
     transport: http(),
   });
-  
+
   const masterWallet = createWalletClient({
     account: masterAccount,
     chain,
     transport: http(),
   });
-  
+
   console.log(`\n${'='.repeat(60)}`);
   console.log(`[${config.chainName}] HFT BENCHMARK`);
   console.log(`${'='.repeat(60)}`);
   console.log(`Chain ID: ${chain.id}`);
   console.log(`Master Wallet: ${masterAccount.address}`);
   console.log(`Wallets: ${config.numWallets}, Trades: ${config.totalTrades}`);
-  
+
   // ============================================
   // PHASE 1: Setup Trader Wallets
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 1: Setting up trader wallets...`);
-  
+
   const traders = generateTraderWallets(chain, config.numWallets);
   console.log(`  Created ${traders.length} trader wallets`);
-  
+
   // ============================================
   // PHASE 2: Fund Wallets
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 2: Funding wallets...`);
-  
+
+  // Get gas settings for Monad (higher limits needed due to opcode repricing)
+  const gasOverrides = config.chainName === 'monadTestnet' && chainConfig.gasSettings?.gasLimit
+    ? { gas: chainConfig.gasSettings.gasLimit, maxFeePerGas: chainConfig.gasSettings.maxFeePerGas, maxPriorityFeePerGas: chainConfig.gasSettings.maxPriorityFeePerGas }
+    : {};
+
   // Mint USDC to master (for distribution)
   const totalUSDCNeeded = config.usdcPerWallet * BigInt(config.numWallets) + 10000n * WAD; // extra for liquidity
-  
+
   const mintHash = await masterWallet.writeContract({
     address: deployment.contracts.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
@@ -276,16 +281,19 @@ async function runBenchmark(
     args: [masterAccount.address, totalUSDCNeeded],
     chain,
     account: masterAccount,
+    ...gasOverrides,
   });
   await publicClient.waitForTransactionReceipt({ hash: mintHash });
   console.log(`  Minted ${Number(totalUSDCNeeded / WAD)} USDC to master`);
-  
+
+
+
   // Transfer USDC to each trader and some native token for gas
   let walletsFunded = 0;
   for (const trader of traders) {
     try {
       // Transfer native token for gas - vary by chain
-      const gasAmount = config.chainName === 'monadTestnet' 
+      const gasAmount = config.chainName === 'monadTestnet'
         ? 1000000000000000000n  // 1 MON for Monad (higher gas prices)
         : 1000000000000000n;    // 0.001 ETH for other chains (minimal)
       const gasHash = await masterWallet.sendTransaction({
@@ -293,9 +301,12 @@ async function runBenchmark(
         value: gasAmount,
         chain,
         account: masterAccount,
+        gas: 100000n, // Simple transfer doesn't need 8M gas
+        maxFeePerGas: chainConfig.gasSettings?.maxFeePerGas,
+        maxPriorityFeePerGas: chainConfig.gasSettings?.maxPriorityFeePerGas,
       });
       await publicClient.waitForTransactionReceipt({ hash: gasHash });
-      
+
       // Transfer USDC
       const usdcHash = await masterWallet.writeContract({
         address: deployment.contracts.MockUSDC as `0x${string}`,
@@ -306,24 +317,24 @@ async function runBenchmark(
         account: masterAccount,
       });
       await publicClient.waitForTransactionReceipt({ hash: usdcHash });
-      
+
       walletsFunded++;
     } catch (error) {
       console.error(`  Failed to fund wallet ${trader.address}:`, error);
     }
   }
   console.log(`  Funded ${walletsFunded}/${traders.length} wallets`);
-  
+
   // ============================================
   // PHASE 3: Split USDC into Tokens
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 3: Splitting USDC into YES/NO tokens...`);
-  
+
   const market = deployment.markets[0]; // Use first market
   const yesToken = market.yesToken as `0x${string}`;
   const noToken = market.noToken as `0x${string}`;
-  
+
   for (const trader of traders) {
     try {
       // Approve Collateralizer
@@ -334,9 +345,10 @@ async function runBenchmark(
         args: [deployment.contracts.Collateralizer as `0x${string}`, config.usdcPerWallet],
         chain,
         account: trader.walletClient.account!,
+        ...gasOverrides,
       });
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
-      
+
       // Split into YES/NO
       const splitHash = await trader.walletClient.writeContract({
         address: deployment.contracts.Collateralizer as `0x${string}`,
@@ -345,6 +357,7 @@ async function runBenchmark(
         args: [market.address as `0x${string}`, config.usdcPerWallet],
         chain,
         account: trader.walletClient.account!,
+        ...gasOverrides,
       });
       await publicClient.waitForTransactionReceipt({ hash: splitHash });
     } catch (error) {
@@ -352,13 +365,13 @@ async function runBenchmark(
     }
   }
   console.log(`  Split tokens for all traders`);
-  
+
   // ============================================
   // PHASE 4: Register Market with TickBook & Add Liquidity
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 4: Setting up TickBook liquidity...`);
-  
+
   // Calculate market key
   const marketKey = keccak256(
     encodePacked(
@@ -366,7 +379,7 @@ async function runBenchmark(
       [market.address as `0x${string}`, yesToken, noToken]
     )
   );
-  
+
   // Register market with TickBook (may already be registered)
   try {
     const registerHash = await masterWallet.writeContract({
@@ -376,6 +389,7 @@ async function runBenchmark(
       args: [market.address as `0x${string}`, yesToken, noToken],
       chain,
       account: masterAccount,
+      ...gasOverrides,
     });
     await publicClient.waitForTransactionReceipt({ hash: registerHash });
     console.log(`  Registered market with TickBook`);
@@ -387,10 +401,10 @@ async function runBenchmark(
       console.error(`  Failed to register market: ${errMsg}`);
     }
   }
-  
+
   // Master splits USDC for liquidity
   const liquidityAmount = 5000n * WAD;
-  
+
   const masterApproveHash = await masterWallet.writeContract({
     address: deployment.contracts.MockUSDC as `0x${string}`,
     abi: ERC20_ABI,
@@ -400,7 +414,7 @@ async function runBenchmark(
     account: masterAccount,
   });
   await publicClient.waitForTransactionReceipt({ hash: masterApproveHash });
-  
+
   const masterSplitHash = await masterWallet.writeContract({
     address: deployment.contracts.Collateralizer as `0x${string}`,
     abi: COLLATERALIZER_ABI,
@@ -410,7 +424,7 @@ async function runBenchmark(
     account: masterAccount,
   });
   await publicClient.waitForTransactionReceipt({ hash: masterSplitHash });
-  
+
   // Approve TickBook for YES and NO tokens
   const yesApproveHash = await masterWallet.writeContract({
     address: yesToken,
@@ -421,7 +435,7 @@ async function runBenchmark(
     account: masterAccount,
   });
   await publicClient.waitForTransactionReceipt({ hash: yesApproveHash });
-  
+
   const noApproveHash = await masterWallet.writeContract({
     address: noToken,
     abi: ERC20_ABI,
@@ -431,7 +445,7 @@ async function runBenchmark(
     account: masterAccount,
   });
   await publicClient.waitForTransactionReceipt({ hash: noApproveHash });
-  
+
   // V8.1: Place limit orders across price ranges using Maker/Taker model
   // Place ranged limit orders at different probability bands
   const limitOrders = [
@@ -440,12 +454,8 @@ async function runBenchmark(
     { tickLower: 5500, tickUpper: 6500, description: '55%-65% (YES favored)' },
   ];
   const liqPerRange = config.liquidityPerTick;
-  
-  // Get gas settings for Monad (higher limits needed due to opcode repricing)
-  const gasOverrides = config.chainName === 'monadTestnet' && chainConfig.gasSettings?.gasLimit
-    ? { gas: chainConfig.gasSettings.gasLimit, maxFeePerGas: chainConfig.gasSettings.maxFeePerGas, maxPriorityFeePerGas: chainConfig.gasSettings.maxPriorityFeePerGas }
-    : {};
-  
+
+
   for (const order of limitOrders) {
     try {
       const liqHash = await masterWallet.writeContract({
@@ -463,13 +473,13 @@ async function runBenchmark(
       console.error(`  Failed to place limit order ${order.description}:`, error);
     }
   }
-  
+
   // ============================================
   // PHASE 5: Approve TickBook for Traders
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 5: Approving TickBook for traders...`);
-  
+
   for (const trader of traders) {
     try {
       // Approve YES tokens
@@ -482,7 +492,7 @@ async function runBenchmark(
         account: trader.walletClient.account!,
         ...gasOverrides,
       });
-      
+
       // Approve NO tokens
       await trader.walletClient.writeContract({
         address: noToken,
@@ -498,16 +508,16 @@ async function runBenchmark(
     }
   }
   console.log(`  Approved TickBook for all traders`);
-  
+
   // ============================================
   // PHASE 6: Execute Benchmark Trades
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 6: Executing ${config.totalTrades} benchmark trades...`);
-  
+
   const results: TradeResult[] = [];
   const startTime = Date.now();
-  
+
   // Create trade queue
   const tradeQueue: { trader: TraderWallet; isBuy: boolean; index: number }[] = [];
   for (let i = 0; i < config.totalTrades; i++) {
@@ -517,21 +527,21 @@ async function runBenchmark(
       index: i,
     });
   }
-  
+
   // Execute trades in batches
   const batchSize = config.maxParallel;
-  
+
   for (let i = 0; i < tradeQueue.length; i += batchSize) {
     const batch = tradeQueue.slice(i, i + batchSize);
-    
+
     const batchPromises = batch.map(async ({ trader, isBuy, index }) => {
       const tradeStart = Date.now();
-      
+
       try {
         // V8.1: Use executeMarketOrder (Taker model)
         // isBuy=true sweeps UP (buying YES), isBuy=false sweeps DOWN (buying NO)
         const limitTick = isBuy ? 9999 : 0; // Max slippage protection
-        
+
         const hash = await trader.walletClient.writeContract({
           address: deployment.contracts.TickBook as `0x${string}`,
           abi: TICKBOOK_ABI,
@@ -546,10 +556,10 @@ async function runBenchmark(
           account: trader.walletClient.account!,
           ...gasOverrides,
         });
-        
+
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
         const latencyMs = Date.now() - tradeStart;
-        
+
         return {
           success: receipt.status === 'success',
           latencyMs,
@@ -563,13 +573,13 @@ async function runBenchmark(
         } as TradeResult;
       }
     });
-    
+
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
-    
+
     const successCount = batchResults.filter(r => r.success).length;
     console.log(`  Batch ${Math.floor(i / batchSize) + 1}: ${successCount}/${batchResults.length} successful`);
-    
+
     // Log first failure reason in batch
     const firstFail = batchResults.find(r => !r.success && r.error);
     if (firstFail && firstFail.error) {
@@ -577,31 +587,31 @@ async function runBenchmark(
       console.log(`    First error: ${shortError}`);
     }
   }
-  
+
   const totalTimeMs = Date.now() - startTime;
-  
+
   // ============================================
   // PHASE 7: Calculate Metrics
   // ============================================
-  
+
   console.log(`\n[${config.chainName}] Phase 7: Calculating metrics...`);
-  
+
   const successfulTrades = results.filter(r => r.success);
   const failedTrades = results.filter(r => !r.success);
-  
+
   const latencies = successfulTrades.map(r => r.latencyMs).sort((a, b) => a - b);
   const gasValues = successfulTrades.filter(r => r.gasUsed).map(r => r.gasUsed!);
-  
+
   const percentile = (arr: number[], p: number): number => {
     if (arr.length === 0) return 0;
     const index = Math.ceil((p / 100) * arr.length) - 1;
     return arr[Math.max(0, index)];
   };
-  
+
   const avgGas = gasValues.length > 0
     ? gasValues.reduce((a, b) => a + b, 0n) / BigInt(gasValues.length)
     : 0n;
-  
+
   const benchmarkResults: BenchmarkResults = {
     chain: config.chainName,
     chainId: chain.id,
@@ -638,7 +648,7 @@ async function runBenchmark(
       total: gasValues.reduce((a, b) => a + b, 0n),
     },
   };
-  
+
   return benchmarkResults;
 }
 
@@ -650,13 +660,13 @@ function printResults(results: BenchmarkResults): void {
   console.log(`\n${'═'.repeat(60)}`);
   console.log(`BENCHMARK RESULTS: ${results.chain}`);
   console.log(`${'═'.repeat(60)}`);
-  
+
   console.log(`\n📊 TRADES`);
   console.log(`   Total:      ${results.trades.total}`);
   console.log(`   Successful: ${results.trades.successful}`);
   console.log(`   Failed:     ${results.trades.failed}`);
   console.log(`   Success %:  ${(results.trades.successRate * 100).toFixed(2)}%`);
-  
+
   console.log(`\n⏱️  LATENCY (ms)`);
   console.log(`   Min:  ${results.latency.min}`);
   console.log(`   Max:  ${results.latency.max}`);
@@ -664,11 +674,11 @@ function printResults(results: BenchmarkResults): void {
   console.log(`   P50:  ${results.latency.p50}`);
   console.log(`   P95:  ${results.latency.p95}`);
   console.log(`   P99:  ${results.latency.p99}`);
-  
+
   console.log(`\n🚀 THROUGHPUT`);
   console.log(`   Total Time: ${results.throughput.totalTimeMs}ms`);
   console.log(`   TPS:        ${results.throughput.tps.toFixed(2)}`);
-  
+
   console.log(`\n⛽ GAS`);
   console.log(`   Min:   ${results.gas.min}`);
   console.log(`   Max:   ${results.gas.max}`);
@@ -693,7 +703,7 @@ function saveResults(results: BenchmarkResults[], outputPath: string): void {
       total: r.gas.total.toString(),
     },
   }));
-  
+
   fs.writeFileSync(outputPath, JSON.stringify(serializable, null, 2));
   console.log(`\n📁 Results saved to: ${outputPath}`);
 }
@@ -705,27 +715,27 @@ function saveResults(results: BenchmarkResults[], outputPath: string): void {
 async function main() {
   // Parse command line args
   const args = process.argv.slice(2);
-  
+
   const chainArg = args.find(a => a.startsWith('--chain='));
   const walletsArg = args.find(a => a.startsWith('--wallets='));
   const tradesArg = args.find(a => a.startsWith('--trades='));
   const parallelArg = args.find(a => a.startsWith('--parallel='));
-  
-  const targetChains = chainArg 
+
+  const targetChains = chainArg
     ? chainArg.replace('--chain=', '').split(',')
     : getAllChainNames();
-  
+
   const numWallets = walletsArg ? parseInt(walletsArg.replace('--wallets=', '')) : defaultConfig.numWallets;
   const totalTrades = tradesArg ? parseInt(tradesArg.replace('--trades=', '')) : defaultConfig.totalTrades;
   const maxParallel = parallelArg ? parseInt(parallelArg.replace('--parallel=', '')) : defaultConfig.maxParallel;
-  
+
   // Validate private key
   if (!process.env.PRIVATE_KEY) {
     console.error('ERROR: PRIVATE_KEY environment variable required');
     console.error('Usage: PRIVATE_KEY=0x... npx ts-node script/hft-benchmark.ts [options]');
     process.exit(1);
   }
-  
+
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║              SOOTH PROTOCOL HFT BENCHMARK                   ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
@@ -734,21 +744,21 @@ async function main() {
   console.log(`║ Trades: ${String(totalTrades).padEnd(51)}║`);
   console.log(`║ Parallel: ${String(maxParallel).padEnd(49)}║`);
   console.log('╚════════════════════════════════════════════════════════════╝');
-  
+
   const allResults: BenchmarkResults[] = [];
-  
+
   for (const chainName of targetChains) {
     // Load deployment artifact
-    const deploymentPath = path.join(__dirname, `../deployments/v8-${chainName}.json`);
-    
+    const deploymentPath = path.join(__dirname, `../deployments/v9-${chainName}.json`);
+
     if (!fs.existsSync(deploymentPath)) {
       console.error(`\n❌ Deployment not found for ${chainName}: ${deploymentPath}`);
       console.error(`   Run deploy-multichain.ts first`);
       continue;
     }
-    
+
     const deployment: DeploymentArtifact = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-    
+
     const config: BenchmarkConfig = {
       chainName,
       numWallets,
@@ -758,7 +768,7 @@ async function main() {
       tradeSize: defaultConfig.tradeSize,
       liquidityPerTick: defaultConfig.liquidityPerTick,
     };
-    
+
     try {
       const results = await runBenchmark(config, deployment);
       printResults(results);
@@ -767,12 +777,12 @@ async function main() {
       console.error(`\n❌ Benchmark failed for ${chainName}:`, error);
     }
   }
-  
+
   // Save all results
   if (allResults.length > 0) {
     const outputPath = path.join(__dirname, '../deployments/benchmark-results.json');
     saveResults(allResults, outputPath);
-    
+
     // Print comparison table
     if (allResults.length > 1) {
       console.log(`\n${'═'.repeat(80)}`);
@@ -780,7 +790,7 @@ async function main() {
       console.log(`${'═'.repeat(80)}`);
       console.log(`${'Chain'.padEnd(20)} | ${'TPS'.padEnd(10)} | ${'P50 (ms)'.padEnd(10)} | ${'P99 (ms)'.padEnd(10)} | ${'Success %'.padEnd(10)}`);
       console.log('-'.repeat(80));
-      
+
       for (const r of allResults) {
         console.log(
           `${r.chain.padEnd(20)} | ` +
@@ -792,7 +802,7 @@ async function main() {
       }
     }
   }
-  
+
   console.log('\n✅ Benchmark complete!');
 }
 

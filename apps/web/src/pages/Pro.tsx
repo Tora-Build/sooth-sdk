@@ -80,13 +80,14 @@ interface LiquidityMapProps {
   currentProb: number;
   ammProb: number;
   isLoading: boolean;
+  viewOutcome: 'yes' | 'no';
 }
 
-const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }: LiquidityMapProps) => {
+const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
   // Build liquidity buckets for visualization (80 columns = ~1.25% each)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
-    const numBuckets = 80;
+    const numBuckets = 200;
     const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
     const currentTickPercent = currentProb * 100;
 
@@ -104,51 +105,47 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
     const activeLiqNo = tickBook?.activeLiquidityNo ?? 0n;
 
     // Get boundary ticks
-    const bids = tickBook?.bids ?? [];  // YES side boundaries (YES makers)
-    const asks = tickBook?.asks ?? [];  // NO side boundaries (NO makers -> YES liquidity)
+    const bids = tickBook?.bids ?? [];
+    const asks = tickBook?.asks ?? [];
 
     let lowestBoundary = 100;
     let highestBoundary = 0;
     let totalLiq = 0n;
 
-    // Process YES side boundaries (YES makers provide NO liquidity to takers)
     for (const tick of bids) {
       const tickPercent = tick.price * 100;
-      // Spread liquidity uniformly from this boundary to 100%
       const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
       const endBucket = numBuckets - 1;
       const rangeSize = Math.max(1, endBucket - startBucket + 1);
       const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-
       for (let b = startBucket; b <= endBucket; b++) {
         buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'no'; // YES makers provide NO liquidity
+        buckets[b].side = 'no';
       }
-
       totalLiq += tick.liquidityGross;
       lowestBoundary = Math.min(lowestBoundary, tickPercent);
       highestBoundary = Math.max(highestBoundary, 100);
     }
 
-    // Process NO side boundaries (NO makers provide YES liquidity to takers)
-    // A NO range order means: takers can BUY YES at any tick in the range
+    // Process asks (NO orders) - invert position for YES View consistency
     for (const tick of asks) {
-      const tickPercent = tick.price * 100;
-      // Spread liquidity uniformly from this boundary to 100%
-      // (NO maker's range spans from tickLower up)
-      const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
-      const endBucket = numBuckets - 1;
+      // asks represent NO orders. In YES View, invert to show "Sell YES" position.
+      // e.g., NO order at 54% YES = Sell YES at 46%
+      const rawTickPercent = tick.price * 100;
+      const tickPercent = 100 - rawTickPercent;
+
+      // For inverted asks, spread from 0% to the inverted tick position
+      const endBucket = Math.min(numBuckets - 1, Math.floor((tickPercent / 100) * numBuckets));
+      const startBucket = 0;
       const rangeSize = Math.max(1, endBucket - startBucket + 1);
       const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-
       for (let b = startBucket; b <= endBucket; b++) {
         buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'yes'; // NO makers provide YES liquidity
+        buckets[b].side = 'no'; // Sell YES = provides NO liquidity to takers
       }
-
       totalLiq += tick.liquidityGross;
-      lowestBoundary = Math.min(lowestBoundary, tickPercent);
-      highestBoundary = 100;
+      lowestBoundary = Math.min(lowestBoundary, 0);
+      highestBoundary = Math.max(highestBoundary, tickPercent);
     }
 
     // NEW: If bids/asks are empty but we have userOrders, use those to populate the map
@@ -157,8 +154,22 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
         if (!order.active) continue;
 
         // Convert ticks to percentages (tick 1-999 maps to 0.1%-99.9%)
-        const lowPercent = order.tickLower / 10;
-        const highPercent = order.tickUpper / 10;
+        const isYesOrder = order.outcome === 1;
+
+        // For NO orders (outcome=0), the tick represents where the NO order sits on the YES scale.
+        // In YES View, we want to show this as "Sell YES" at the inverted position.
+        // Example: NO order at tick 540 (54% YES) = Sell YES at 46% (100 - 54 = 46)
+        let lowPercent = order.tickLower / 10;
+        let highPercent = order.tickUpper / 10;
+
+        if (!isYesOrder) {
+          // Invert NO order positions for consistent display
+          const invLow = 100 - highPercent;
+          const invHigh = 100 - lowPercent;
+          lowPercent = invLow;
+          highPercent = invHigh;
+        }
+
         const startBucket = Math.max(0, Math.floor((lowPercent / 100) * numBuckets));
         const endBucket = Math.min(numBuckets - 1, Math.floor((highPercent / 100) * numBuckets));
         const rangeSize = Math.max(1, endBucket - startBucket + 1);
@@ -171,8 +182,8 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
 
         for (let b = startBucket; b <= endBucket; b++) {
           buckets[b].liquidity += liqPerBucket;
-          // outcome 1 = YES, 0 = NO
-          buckets[b].side = order.outcome === 1 ? 'yes' : 'no';
+          // NO orders in YES view represent "Sell YES" liquidity (red/ask side)
+          buckets[b].side = isYesOrder ? 'yes' : 'no';
         }
 
         totalLiq += remainingLiq;
@@ -215,7 +226,22 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
     };
   }, [tickBook, userOrders, currentProb, ammProb]);
 
-  const midPrice = currentProb * 100;
+  // Adjust for View Outcome (flip if NO)
+  const displayBuckets = useMemo(() => {
+    if (viewOutcome === 'yes') return buckets;
+    // Flip buckets for NO view
+    return [...buckets].reverse().map(b => ({
+      ...b,
+      price: 100 - b.price,
+      // Flip side logic: 
+      // YES view: 'yes' = Green (Buy YES), 'no' = Red (Buy NO)
+      // NO view: 'no' = Green (Buy NO), 'yes' = Red (Buy YES -> Sell NO)
+      // So no need to change string, just rendering color logic
+    }));
+  }, [buckets, viewOutcome]);
+
+  const displayProb = viewOutcome === 'yes' ? currentProb : (1 - currentProb);
+  const displayAmmProb = viewOutcome === 'yes' ? ammProb : (1 - ammProb);
   const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0 || (userOrders?.filter(o => o.active)?.length ?? 0) > 0;
 
   return (
@@ -230,7 +256,7 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
       </div>
 
       {/* Pixel depth chart */}
-      <div className="relative h-32 flex items-end gap-[2px] bg-slate-950 rounded-lg p-2">
+      <div className="relative h-32 flex items-end gap-0 bg-slate-950 rounded-lg p-2">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
@@ -250,26 +276,35 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
             {/* AMM Price Indicator - Slightly Grey 'Stealth' bar */}
             <div
               className="absolute top-0 bottom-0 w-[1px] bg-slate-400/60 z-10 pointer-events-none"
-              style={{ left: `${ammProb * 100}%` }}
+              style={{ left: `${displayAmmProb * 100}%` }}
             />
             {/* TickBook Price Indicator - Yellow/Amber solid bar */}
             <div
               className="absolute top-0 bottom-0 w-[1.5px] bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-              style={{ left: `calc(${currentProb * 100}% - 0.75px)` }}
+              style={{ left: `calc(${displayProb * 100}% - 0.75px)` }}
             />
           </>
         )}
 
+
+
         {!isLoading && hasRealData && (
-          buckets.map((bucket, col) => {
+          displayBuckets.map((bucket, col) => {
             const blocks = Math.max(1, Math.ceil(bucket.normalized * 12));
             const hasLiquidity = bucket.liquidity > 0n;
 
             // Color based on what takers can BUY at this price
             // 'yes' = YES liquidity available (green) 
-            // 'no' = NO liquidity available (rose)
+            // 'yes' = YES liquidity available
+            // 'no' = NO liquidity available
             const isYesLiq = bucket.side === 'yes';
             const isNoLiq = bucket.side === 'no';
+
+            // Visual mapping depends on view
+            // YES View: YesLiq=Green, NoLiq=Red
+            // NO View: NoLiq=Green, YesLiq=Red
+            const isGreen = viewOutcome === 'yes' ? isYesLiq : isNoLiq;
+            const isRed = viewOutcome === 'yes' ? isNoLiq : isYesLiq;
 
             return (
               <div
@@ -285,8 +320,14 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
                     <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap shadow-xl">
                       <div className="font-mono font-bold text-white">{bucket.price.toFixed(1)}%</div>
                       <div className="text-slate-400">
-                        {isYesLiq ? 'Buy YES' : 'Buy NO'}:
-                        <span className={isYesLiq ? 'text-emerald-400' : 'text-rose-400'}>
+                        {(() => {
+                          if (viewOutcome === 'yes') {
+                            return isYesLiq ? 'Buy YES' : 'Sell YES';
+                          } else {
+                            return isNoLiq ? 'Buy NO' : 'Sell NO';
+                          }
+                        })()}:
+                        <span className={isGreen ? 'text-emerald-400' : 'text-rose-400'}>
                           {' '}{parseFloat(formatUnits(bucket.liquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
                       </div>
@@ -298,22 +339,14 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
                 {/* Blocks - uniform color across range for single order */}
                 {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
                   const intensity = 1 - (blockIdx / blocks);
-                  let blockColor = 'bg-slate-800';
-
-                  if (isYesLiq) {
-                    // YES liquidity = green (takers can buy YES)
-                    blockColor = intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700';
-                  } else if (isNoLiq) {
-                    // NO liquidity = rose (takers can buy NO)
-                    blockColor = intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700';
-                  }
-
                   return (
                     <div
                       key={blockIdx}
                       className={cn(
                         "w-full aspect-square rounded-[1px] transition-all",
-                        blockColor,
+                        isGreen ? (intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700')
+                          : isRed ? (intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700')
+                            : "bg-slate-800",
                         "group-hover:ring-1 group-hover:ring-white/30"
                       )}
                     />
@@ -327,23 +360,8 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
         {/* Redundant price indicator removed */}
       </div>
 
-      {/* Intensity legend */}
-      <div className="flex items-center justify-between mt-3">
-        <div className="flex items-center gap-4 text-[9px] text-slate-500">
-          <div className="flex items-center gap-1">
-            <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-emerald-700 to-emerald-400" />
-            <span>YES Liquidity</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-8 h-2 rounded-sm bg-gradient-to-r from-rose-700 to-rose-400" />
-            <span>NO Liquidity</span>
-          </div>
-        </div>
-        <div className="text-[9px] text-slate-600">Height = Liquidity at price</div>
-      </div>
-
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800/50">
+      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/50">
         <div className="text-center p-2 rounded-lg bg-slate-950">
           <div className="text-[9px] text-slate-500 uppercase">Range Low</div>
           <div className="text-sm font-mono font-bold text-slate-300">
@@ -354,15 +372,6 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading }:
           <div className="text-[9px] text-slate-500 uppercase">Range High</div>
           <div className="text-sm font-mono font-bold text-slate-300">
             {highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}%`}
-          </div>
-        </div>
-        <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-[9px] text-slate-500 uppercase">Available</div>
-          <div className="text-sm font-mono font-bold">
-            {hasYesLiq && <span className="text-emerald-400">YES</span>}
-            {hasYesLiq && hasNoLiq && <span className="text-slate-500"> / </span>}
-            {hasNoLiq && <span className="text-rose-400">NO</span>}
-            {!hasYesLiq && !hasNoLiq && <span className="text-slate-500">—</span>}
           </div>
         </div>
         <div className="text-center p-2 rounded-lg bg-slate-950">
@@ -386,9 +395,10 @@ interface UserOrdersPanelProps {
   onRefresh: () => void;
   contracts: Record<string, string>;
   chainId: number;
+  viewOutcome: 'yes' | 'no';
 }
 
-const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId }: UserOrdersPanelProps) => {
+const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -474,7 +484,9 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     return (
       <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Orders</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            YOUR <span className={viewOutcome === 'yes' ? 'text-emerald-400' : 'text-rose-400'}>{viewOutcome === 'yes' ? 'YES' : 'NO'}</span> ORDERS
+          </span>
         </div>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
@@ -486,7 +498,9 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
   return (
     <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Orders</span>
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          YOUR <span className={viewOutcome === 'yes' ? 'text-emerald-400' : 'text-rose-400'}>{viewOutcome === 'yes' ? 'YES' : 'NO'}</span> ORDERS
+        </span>
         <div className="flex items-center gap-2">
           {hasPartialFills && (
             <span className="px-2 py-1 text-[9px] bg-amber-500/20 text-amber-400 rounded-full">Has fills to claim</span>
@@ -515,6 +529,11 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const fillPercent = fillPercentRaw > 99.9 ? 100 : Math.floor(fillPercentRaw);
             // outcome=1 → credits YES tokens on fill, outcome=0 → credits NO tokens on fill
             const isYesOrder = order.outcome === 1;
+            // Determine if it represents a Buy or Sell in the current view context
+            // YES View: YES order = Buy, NO order (Short YES) = Sell
+            // NO View: NO order = Buy, YES order (Short NO) = Sell
+            const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
+
             const hasFills = order.filledShares > 0n;
             const orderId = order.orderId.toString();
 
@@ -523,7 +542,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                 key={orderId}
                 className={cn(
                   "relative group overflow-hidden rounded-lg border transition-all",
-                  isYesOrder
+                  isBuy
                     ? "bg-emerald-950/10 border-emerald-900/20 hover:border-emerald-500/30"
                     : "bg-rose-950/10 border-rose-900/20 hover:border-rose-500/30"
                 )}
@@ -531,13 +550,52 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                 <div className="flex items-center justify-between p-2 pl-3">
                   {/* Left: Info */}
                   <div className="flex items-center gap-3">
+                    {/* Outcome Badge - Context Aware */}
                     <span className={cn(
-                      "w-8 py-0.5 rounded text-[9px] font-bold text-center",
-                      isYesOrder ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                      "w-10 py-0.5 rounded text-[9px] font-bold text-center",
+                      isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
                     )}>
-                      {isYesOrder ? 'YES' : 'NO'}
+                      {isBuy ? 'BUY' : 'SELL'}
                     </span>
-                    <span className="text-[11px] font-mono font-bold text-white min-w-[100px]">{priceRange}</span>
+
+                    {/* Price - Context Aware */}
+                    {(() => {
+                      const lower = order.tickLower / 10;
+                      const upper = order.tickUpper / 10;
+
+                      let displayRange = "";
+                      if (viewOutcome === 'yes') {
+                        if (isYesOrder) {
+                          // Standard YES
+                          displayRange = lower === upper ? `${lower.toFixed(1)}%` : `${lower.toFixed(1)}% – ${upper.toFixed(1)}%`;
+                        } else {
+                          // NO order in YES view -> SHORT YES @ (100-P)
+                          // Tick 40% NO = 60% YES. 
+                          // Range 40-50% NO = 50-60% YES
+                          const invLower = 100 - upper;
+                          const invUpper = 100 - lower;
+                          displayRange = invLower === invUpper ? `${invLower.toFixed(1)}%` : `${invLower.toFixed(1)}% – ${invUpper.toFixed(1)}%`;
+                        }
+                      } else {
+                        if (!isYesOrder) {
+                          // Standard NO Order in NO View
+                          // Tick represents NO Price directly.
+                          displayRange = lower === upper ? `${lower.toFixed(1)}%` : `${lower.toFixed(1)}% – ${upper.toFixed(1)}%`;
+                        } else {
+                          // YES order in NO view -> SHORT NO
+                          // YES order at 60% YES.
+                          // 60% YES = 40% NO.
+                          // So Range = 40% NO.
+                          const noLower = 100 - upper;
+                          const noUpper = 100 - lower;
+                          displayRange = noLower === noUpper ? `${noLower.toFixed(1)}%` : `${noLower.toFixed(1)}% – ${noUpper.toFixed(1)}%`;
+                        }
+                      }
+
+                      return (
+                        <span className="text-[11px] font-mono font-bold text-white min-w-[100px]">{displayRange}</span>
+                      );
+                    })()}
                     <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-400 font-mono">
                       <div className="flex gap-1.5">
                         <span className="text-slate-500 uppercase">Total:</span>
@@ -1615,12 +1673,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 <span className="ml-2 font-mono text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</span>
               </div>
               <div>
-                <span className="text-slate-500">Available:</span>
-                <span className="ml-2 font-mono text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</span>
-              </div>
-              <div>
                 <span className="text-slate-500">In Orders:</span>
                 <span className="ml-2 font-mono text-amber-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Available:</span>
+                <span className="ml-2 font-mono text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -1686,9 +1744,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
               <div className="flex items-center gap-3 text-[10px]">
-                <span className="text-emerald-400">◀ YES Bids</span>
-                <span className="text-white font-bold">{(tickBookProb * 100).toFixed(1)}%</span>
-                <span className="text-rose-400">NO Asks ▶</span>
+                <span className="text-emerald-400">◀ {isYes ? 'YES' : 'NO'} Bids</span>
+                <span className="text-white font-bold">{((isYes ? tickBookProb : 1 - tickBookProb) * 100).toFixed(1)}%</span>
+                <span className="text-rose-400">{isYes ? 'NO' : 'YES'} Asks ▶</span>
               </div>
             </div>
 
@@ -1699,6 +1757,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 currentProb={currentProb}
                 ammProb={ammProb}
                 isLoading={isTickBookLoading}
+                viewOutcome={isYes ? 'yes' : 'no'}
               />
             </div>
           </div>
@@ -1706,7 +1765,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           {/* Your Positions */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Positions</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">YOUR {isYes ? 'YES' : 'NO'} ORDERS</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1733,6 +1792,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             onRefresh={() => invalidateV8Queries()}
             contracts={contracts as any}
             chainId={chainId}
+            viewOutcome={isYes ? 'yes' : 'no'}
           />
         </div>
 
@@ -1854,6 +1914,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                             isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                           )}
                         />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">%</span>
                       </div>
 
                       {priceMode === 'range' && (
@@ -1875,6 +1936,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                                 isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                               )}
                             />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">%</span>
                           </div>
                         </>
                       )}
@@ -2020,8 +2082,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     </span>
                     <span className="font-mono text-amber-400">
                       {priceMode === 'single'
-                        ? priceLowNum.toFixed(1)
-                        : `${priceLowNum.toFixed(1)} – ${priceHighNum.toFixed(1)}`}
+                        ? `${priceLowNum.toFixed(1)}%`
+                        : `${priceLowNum.toFixed(1)}% – ${priceHighNum.toFixed(1)}%`}
                     </span>
                   </div>
                 )}

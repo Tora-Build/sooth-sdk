@@ -2,26 +2,26 @@
   {
     "chain": "monadTestnet",
     "chainId": 10143,
-    "timestamp": "2025-12-25T17:48:15.249Z",
+    "timestamp": "2025-12-30T11:25:12.468Z",
     "config": {
       "chainName": "monadTestnet",
-      "numWallets": 2,
-      "totalTrades": 10,
-      "maxParallel": 5,
+      "numWallets": 3,
+      "totalTrades": 5,
+      "maxParallel": 1,
       "usdcPerWallet": "10000000000000000000000",
       "tradeSize": "100000000000000000000",
       "liquidityPerTick": "1000000000000000000000"
     },
     "setup": {
-      "walletsCreated": 2,
-      "walletsFunded": 2,
+      "walletsCreated": 3,
+      "walletsFunded": 3,
       "liquidityAdded": true,
-      "marketKey": "0xb679711034296b68c7cbef37e57439840accd1cfbc5a61e321cac9201f53dec3"
+      "marketKey": "0xb3608a398e4361a5d7f75cdf536277a5c48968c0d635eee4ef1e478aecfc2ed8"
     },
     "trades": {
-      "total": 10,
+      "total": 5,
       "successful": 0,
-      "failed": 10,
+      "failed": 5,
       "successRate": 0
     },
     "latency": {
@@ -33,7 +33,7 @@
       "p99": 0
     },
     "throughput": {
-      "totalTimeMs": 180528,
+      "totalTimeMs": 1228,
       "tps": 0
     },
     "gas": {
