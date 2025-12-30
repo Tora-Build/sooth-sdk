@@ -9,7 +9,7 @@ import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { useTraderVault } from '../../../hooks/useTraderVault';
 import { parseUnits, formatUnits } from 'viem';
-import { useLaunchpadMarkets } from '../../../hooks/v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from '../../../hooks/useLaunchpadMarkets';
 import { cn } from '../../../lib/utils';
 
 export const PositionActionsModal: React.FC<{

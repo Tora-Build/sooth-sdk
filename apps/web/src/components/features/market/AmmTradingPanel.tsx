@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, Info, TrendingUp, TrendingDown, Wallet, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { useLaunchpadTradeQuote } from '../../../hooks/v5/useLaunchpadTradeQuote';
-import { useLaunchpadSwap } from '../../../hooks/v5/useLaunchpadSwap';
-import { useLaunchpadMarket } from '../../../hooks/v5/useLaunchpadMarket';
+import { useLaunchpadTradeQuote } from '../../../hooks/useLaunchpadTradeQuote';
+import { useLaunchpadSwap } from '../../../hooks/useLaunchpadSwap';
+import { useLaunchpadMarket } from '../../../hooks/useLaunchpadMarket';
 import { useAccount } from 'wagmi';
 import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { formatUnits } from 'viem';

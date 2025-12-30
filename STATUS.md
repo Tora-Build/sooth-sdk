@@ -1,12 +1,54 @@
 # Project Status
 
-> Last Updated: 2025-12-30 21:25 (V9.8.0 Fullstack Integration Complete)
+> Last Updated: 2025-12-30 22:50 (Frontend Code Structure Refactor Complete)
 
 - **✅ V9.8.0 DEPLOYED** — Base Sepolia with `_tryCross` bitmap overlap fix
-- **✅ FE CONFIG SYNCED** — `deployments.json` and `markets.json` updated for Base Sepolia
-- **✅ FE INTEGRATION SPEC** — `V9_8_INTEGRATION_SPEC.md` created
-- **✅ FE CHANGES** — Book Price shows "N/A" when currentTick is at MIN_TICK
+- **✅ FE FLATTENED** — Eliminated all versioned folders (v5/, v8/, v9/)
+- **✅ LEGACY ARCHIVED** — 210 files moved to `_legacy/` directory
+- **✅ BUILD PASSING** — All imports updated, TypeScript clean
 - **⚠️ MONAD PAUSED** — RPC state propagation too slow; keeping V9.6.0 addresses
+
+## 🆕 Frontend Refactor Session Summary (2025-12-30)
+
+### What Was Done
+
+| Task | Status |
+|------|--------|
+| Move legacy docs/archives to `_legacy/` | ✅ 210 files preserved |
+| Flatten hooks (v5/, v8/, v9/ → root) | ✅ 47 hooks at root level |
+| Flatten components (v8/ → features/) | ✅ 19 components moved |
+| Flatten ABIs (v8/, v9/ → single dir) | ✅ 11 ABIs consolidated |
+| Flatten pages (v8/ → root) | ✅ Landing.tsx, Faucet.tsx moved |
+| Fix export name conflicts | ✅ useTickBookVault, useDirectRead |
+| Fix MarketHeader null guard | ✅ truncate() handles undefined |
+| Add coding rule to prevent regression | ✅ "Forbidden: Versioned Folders" |
+| Verify build passes | ✅ `pnpm build` clean |
+
+### Code Structure After Refactor
+
+```
+apps/web/src/
+├── hooks/           # 47 hooks (FLAT, no v5/v8/v9)
+├── components/
+│   └── features/    # 19 components (FLAT, domain subdirs kept)
+├── config/
+│   └── abis/        # 11 ABIs (FLAT, no v8/v9)
+└── pages/           # 14 pages (FLAT, no v8)
+```
+
+### Files Renamed (Breaking Import Changes)
+
+| Old Name | New Name |
+|----------|----------|
+| `useV8DirectRead` | `useDirectRead` |
+| `useInvalidateV8Queries` | `useInvalidateQueries` |
+| `useTickBookVaultV9` | `useTickBookVault` |
+| `hooks/v5/*` | `hooks/*` |
+| `hooks/v8/*` | `hooks/*` |
+| `hooks/v8/direct/*` | `hooks/*` |
+| `hooks/v9/*` | `hooks/*` |
+
+---
 
 ## 🆕 V9.8.0 Session Summary
 
@@ -77,4 +119,4 @@
 
 ---
 
-*Last updated: 2025-12-30 21:25*
+*Last updated: 2025-12-30 22:50*

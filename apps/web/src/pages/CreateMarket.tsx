@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Zap, DollarSign, Clock, AlertTriangle, Loader2, CheckCircle, Shield, Check } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { useLaunchpadFactory } from '../hooks/v5/useLaunchpadFactory';
+import { useLaunchpadFactory } from '../hooks/useLaunchpadFactory';
 import { useAccount } from 'wagmi';
 import { parseUnits } from 'viem';
 

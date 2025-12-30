@@ -2,6 +2,34 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased] - 2025-12-30
+
+### Changed
+- **Frontend Code Structure Flattening** (2025-12-30):
+  - Eliminated all versioned folders (`v5/`, `v8/`, `v9/`) from `apps/web/src/`
+  - 47 hooks now at `hooks/` root level (flat)
+  - 19 components moved from `features/v8/` to `features/` root
+  - 11 ABIs consolidated from `abis/v8/` and `abis/v9/` to `abis/`
+  - Pages `Landing.tsx` and `Faucet.tsx` moved from `pages/v8/` to `pages/`
+  - 210 legacy files archived to `_legacy/` directory
+
+### Fixed
+- **MarketHeader Null Guard** (2025-12-30):
+  - `truncate()` function now handles `undefined` address props gracefully
+
+### Added
+- **Coding Rule: Forbidden Versioned Folders** (2025-12-30):
+  - Added to `.agent/LESSONS_LEARNED.md` to prevent future v1/, v8/, v9/ folder patterns
+  - Organize by domain/feature instead of version numbers
+
+### Breaking Changes (Internal)
+- `useV8DirectRead` → `useDirectRead`
+- `useInvalidateV8Queries` → `useInvalidateQueries`
+- `useTickBookVaultV9` → `useTickBookVault`
+- All imports from `hooks/v5/`, `hooks/v8/`, `hooks/v9/` must update to `hooks/`
+
+---
+
 ## [9.8.0] - 2025-12-30
 
 ### Fixed

@@ -10,7 +10,7 @@ import { formatUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { Card } from '../ui/Card';
 import { useDeployments } from '../../hooks/useDeployments';
-import { useTickBookVaultV9 } from '../../hooks/v9';
+import { useTickBookVault } from '../../hooks';
 import { ERC20_ABI } from '../../config/abis';
 import { cn } from '../../lib/utils';
 
@@ -54,7 +54,7 @@ export const VaultBalanceCard = ({
   });
 
   // Vault balance
-  const { vault, isLoading: isLoadingVault } = useTickBookVaultV9(
+  const { vault, isLoading: isLoadingVault } = useTickBookVault(
     userAddress,
     marketAddress
   );

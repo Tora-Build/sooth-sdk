@@ -5,7 +5,7 @@
  */
 
 import { useEffect } from 'react';
-import { useTruthMarket, useLaunchpadMarket, useAmmMarket, useCollateralizer, useCreatorPosition } from '../hooks/v8';
+import { useTruthMarket, useLaunchpadMarket, useAmmMarket, useCollateralizer, useCreatorPosition } from '../hooks';
 import { useChainStore } from '../store/useChainStore';
 import { useRef } from 'react';
 

@@ -7,7 +7,7 @@
  * - Volatility premium (high volatility = higher fees)
  */
 import { Info, TrendingDown, TrendingUp, Zap } from 'lucide-react';
-import { useDynamicFee } from '../../hooks/v9';
+import { useDynamicFee } from '../../hooks';
 import { Tooltip } from '../ui/Tooltip';
 import { cn } from '../../lib/utils';
 

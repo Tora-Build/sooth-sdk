@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAccount, useReadContracts, useWriteContract, usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { LAUNCHPAD_MARKET_ABI, SOOTH_MANUAL_ADJUDICATOR_ABI, SOOTH_OPTIMISTIC_ADJUDICATOR_ABI } from '../../../config/abis';
-import { useLaunchpadMarkets } from '../../../hooks/v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from '../../../hooks/useLaunchpadMarkets';
 import { useContent } from '../../../hooks/useContent';
 import { useChainStore } from '../../../store/useChainStore';
 import { Card } from '../../ui/Card';

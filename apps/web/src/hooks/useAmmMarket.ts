@@ -1,132 +1,159 @@
-import React from 'react';
-import { useReadContracts, useAccount, useChainId } from 'wagmi';
-import { formatUnits } from 'viem';
-import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
-import { useDeployments } from './useDeployments';
-import marketsConfig from '../config/markets.json';
-import { Market } from '../types';
-import { useChainStore } from '../store/useChainStore';
-import { useMarketStore } from '../store/useMarketStore';
+import { useReadContracts } from "wagmi";
+import { useMemo } from "react";
+import { V8_ABIS } from "../config/abis";
+import { useChainStore } from "../store/useChainStore";
+import { useDeployments } from "./useDeployments";
 
-export function useAmmMarket(marketId: string) {
-  return useEVMMarket(marketId);
-}
+/**
+ * Hook to fetch AMMEngine state for a market
+ * 
+ * @param marketAddress - Address of the TruthMarket contract
+ * @returns AMM state including quantities, prices, and trade calculations
+ */
+export function useAmmMarket(marketAddress: `0x${string}` | undefined) {
+    const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
+    const deployments = useDeployments();
 
-function useEVMMarket(marketId: string) {
-  const { address } = useAccount();
-  const walletChainId = useChainId();
-  const { mode, refreshKey, markets: demoMarkets } = useMarketStore();
-  const { selectedChainId } = useChainStore();
-  const { config } = useDeployments();
-  const deployments = config.contracts;
+    const ammEngineAddress = deployments?.contracts
+        ?.AMMEngine as `0x${string}` | undefined;
 
-  // 1. Config Lookup
-  const markets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
-  const marketConfig = markets.find((m: any) => m.id === marketId);
-  const marketAddress = (marketConfig as any)?.contractAddress as `0x${string}`;
-  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
+    // NOTE: AMMEngine V8 ABI uses `getMarketState(market) -> (qYes, qNo, price)`
+    // where `price` is the current YES price in WAD.
+    const read = useReadContracts({
+        contracts: [
+            {
+                address: ammEngineAddress,
+                abi: V8_ABIS.AMMEngine,
+                functionName: "getMarketState",
+                args: marketAddress ? [marketAddress] : undefined,
+                chainId,
+            },
+        ] as const,
+        query: {
+            enabled: !!marketAddress && !!ammEngineAddress && !!chainId,
+            refetchInterval: 20000,
+            staleTime: 10000,
+        },
+    });
 
-  // 2. On-Chain Data Fetching (Only if Real Mode AND on correct chain)
-  const { data: onChainData, refetch, isLoading: isHookLoading, error: hookError } = useReadContracts({
-    contracts: [
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isLive', chainId: Number(selectedChainId) },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'isSettled', chainId: Number(selectedChainId) },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'price', args: [0], chainId: Number(selectedChainId) }, // V4: fetch price(0) for YES probability
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'b', chainId: Number(selectedChainId) },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qYes', chainId: Number(selectedChainId) },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'qNo', chainId: Number(selectedChainId) },
-      { address: marketAddress, abi: MARKET_V4_ABI, functionName: 'feeLMSR', chainId: Number(selectedChainId) },
-      // V4: AMM positions (TraderVault)
-      {
-        address: traderVaultAddress,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'ammPositions',
-        args: [address || '0x0000000000000000000000000000000000000000', marketAddress],
-        chainId: Number(selectedChainId)
-      },
-    ],
-    query: {
-      // Relaxed check: Fetch if real mode and we have a valid market address.
-      // Removed walletChainId === selectedChainId to match PortfolioSummary behavior.
-      // Fix: Don't fetch for demo markets (which have dummy addresses) even if mode is real
-      enabled: mode === 'real' && !!marketAddress && (marketConfig as any)?.mode !== 'demo',
-      refetchInterval: 3000,
-    }
-  });
+    const { data, isLoading, error, refetch } = read;
 
-  // 3. Process Data
-  const [isLive, isSettled, priceYesWad, bParam, qYes, qNo, feeData, ammPosition] = onChainData?.map(r => r.result) || [];
+    const ammData = useMemo(() => {
+        if (!data || !marketAddress) return null;
 
-  const configBParam = (marketConfig as any)?.bParam ? BigInt((marketConfig as any).bParam) : 0n;
+        const [marketStateResult] = data;
 
-  // Extract AMM position - V4.6: only 2 fields (yesShares, noShares) - no unlockTime
-  const ammPos = ammPosition as [bigint, bigint] | undefined;
-  const vaultYesShares = ammPos?.[0] || 0n;
-  const vaultNoShares = ammPos?.[1] || 0n;
+        // Check if critical reads failed
+        if (marketStateResult.status === "failure") {
+            return null;
+        }
 
-  const ammUnlockTime = 0n; // V4.6 Lock-on-Sell: always 0
+        // Parse market state:
+        // getMarketState(market) -> (qYes: uint256, qNo: uint256, price: uint256)
+        const marketState = marketStateResult.result as readonly [bigint, bigint, bigint];
+        const [qYes, qNo, yesPrice] = marketState;
+        const WAD = 10n ** 18n;
+        const noPrice = yesPrice <= WAD ? (WAD - yesPrice) : 0n;
 
-  // Real Mode Construction
-  const market: Market | undefined = React.useMemo(() => {
-    // Advanced Debug Logging
-    if (mode === 'real') {
-      const ammResult = onChainData?.[7]; // Index 7 is ammPositions
-      if (ammResult?.status === 'failure') {
-        console.error('UseMarket: AMM Position Fetch Failed', {
-          error: ammResult.error,
-          vaultAddress: traderVaultAddress,
-          marketAddress,
-          user: address
-        });
-      } else if (ammResult?.result) {
-        // console.log('UseMarket: AMM Position Success', ammResult.result);
-      }
-    }
+        // Calculate probability (price is in WAD, so divide by 1e18)
+        const yesProbability = Number(yesPrice) / 1e18;
+        const noProbability = Number(noPrice) / 1e18;
 
-    if (!marketConfig) return undefined;
-
-    // V4 Continuous LMSR: price(0) returns YES probability in 18 decimals
-    const priceYesRaw = priceYesWad ? BigInt(priceYesWad as bigint) : undefined;
-
-    // If price fetch failed, return undefined to show loading/error state instead of 0.5
-    const calculatedPriceYes = priceYesRaw ? parseFloat(formatUnits(priceYesRaw, 18)) : undefined;
-    const calculatedPriceNo = calculatedPriceYes !== undefined ? 1 - calculatedPriceYes : undefined;
+        return {
+            address: marketAddress,
+            qYes,
+            qNo,
+            yesPrice,
+            noPrice,
+            yesProbability,
+            noProbability,
+            // Helper flags
+            hasLiquidity: qYes > 0n || qNo > 0n,
+            isBalanced: Math.abs(yesProbability - 0.5) < 0.1, // Within 10% of 50/50
+        };
+    }, [data, marketAddress]);
 
     return {
-      ...marketConfig,
-      status: isSettled ? 'settled' : (isLive === false ? 'cooldown' : 'trading'),
-      priceYes: calculatedPriceYes, // Can be undefined
-      priceNo: calculatedPriceNo,
-      qYes: (qYes as bigint) || 0n,
-      qNo: (qNo as bigint) || 0n,
-      bParam: (bParam as bigint) || configBParam || 0n,
-      userYesShares: parseFloat(formatUnits(vaultYesShares, 18)),
-      userNoShares: parseFloat(formatUnits(vaultNoShares, 18)),
-
-      // Breakdown for Locked Shares Logic
-      userYesLocked: parseFloat(formatUnits(vaultYesShares, 18)),
-      userNoLocked: parseFloat(formatUnits(vaultNoShares, 18)),
-      unlockTime: Number(ammUnlockTime),
-
-      // Orderbook tokens handled in useOrderbook now
-      userYesOutcomeTokens: 0,
-      userNoOutcomeTokens: 0,
-      userAvgEntryYes: null,
-      userAvgEntryNo: null,
-      mode: 'real',
-      fee: feeData ? Number(feeData) / 10000 : 0.005, // Default to 0.5% if missing
-    } as Market;
-  }, [marketConfig, isSettled, isLive, priceYesWad, bParam, qYes, qNo, configBParam, vaultYesShares, vaultNoShares, ammUnlockTime, feeData]);
-
-  // React to global refresh events
-  React.useEffect(() => {
-    if (refreshKey > 0) refetch();
-  }, [refreshKey, refetch]);
-
-  return {
-    market,
-    isLoading: !onChainData && mode === 'real',
-    refetch,
-  };
+        amm: ammData,
+        isLoading,
+        error,
+        refetch,
+    };
 }
 
+/**
+ * Hook to calculate trade cost for a given trade
+ * 
+ * @param marketAddress - Address of the TruthMarket contract
+ * @param deltaShares - Amount of shares to trade (positive for YES, negative for NO)
+ * @returns Trade cost calculation
+ */
+export function useAmmTradeCost(
+    marketAddress: `0x${string}` | undefined,
+    deltaShares: bigint
+) {
+    const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
+    const deployments = useDeployments();
+
+    const ammEngineAddress = deployments?.contracts
+        ?.AMMEngine as `0x${string}` | undefined;
+
+    const { data, isLoading, error } = useReadContracts({
+        contracts: [
+            {
+                address: ammEngineAddress,
+                abi: V8_ABIS.AMMEngine,
+                functionName: "getPositionQuote",
+                args: marketAddress && deltaShares !== 0n
+                    ? [marketAddress, deltaShares]
+                    : undefined,
+                chainId,
+            },
+        ] as const,
+        query: {
+            enabled: !!marketAddress && !!ammEngineAddress && !!chainId && deltaShares !== 0n,
+            refetchInterval: false,
+            staleTime: 1000,
+        },
+    });
+
+    const costData = useMemo(() => {
+        if (!data || !marketAddress || deltaShares === 0n) return null;
+
+        const [quoteResult] = data;
+
+        if (quoteResult.status === "failure") {
+            return null;
+        }
+
+        const [cost, newPrice] = quoteResult.result as readonly [bigint, bigint];
+
+        return {
+            cost,
+            costUsd: Number(cost) / 1e18, // AMMEngine cost is in WAD
+            newPrice,
+            newProbability: Number(newPrice) / 1e18,
+            isBuy: deltaShares > 0n,
+            isSell: deltaShares < 0n,
+        };
+    }, [data, marketAddress, deltaShares]);
+
+    return {
+        cost: costData,
+        isLoading,
+        error,
+    };
+}
+
+/**
+ * Type definitions
+ */
+export type AmmMarketData = NonNullable<
+    ReturnType<typeof useAmmMarket>["amm"]
+>;
+
+export type AmmTradeCostData = NonNullable<
+    ReturnType<typeof useAmmTradeCost>["cost"]
+>;

@@ -3,7 +3,7 @@ import { useChainId, useWatchContractEvent } from 'wagmi';
 import { formatUnits } from 'viem';
 import { GOVERNOR_VAULT_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI } from '../../config/abis';
 import { useDeployments } from '../../hooks/useDeployments';
-import { useLaunchpadMarkets } from '../../hooks/v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from '../../hooks/useLaunchpadMarkets';
 import { useActivityStore } from '../../store/useActivityStore';
 import { useOrderStore } from '../../store/useOrderStore';
 import { useMarketStore } from '../../store/useMarketStore';
