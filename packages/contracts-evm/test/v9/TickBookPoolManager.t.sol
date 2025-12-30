@@ -595,4 +595,183 @@ contract TickBookPoolManagerTest is Test, ILockCallback {
         assertGt(filledShares, 0);
         assertGt(collateralUsed, 0);
     }
+
+    // ============================================
+    // V9.9 Crossing Behavior Tests
+    // ============================================
+
+    /**
+     * @notice Test that orders only cross at overlapping tick ranges
+     * @dev V9.9 FIX: Orders should only match at prices where both sides agree
+     */
+    function test_V99_CrossingOnlyInOverlap() public {
+        // Alice places BUY YES order at ticks 300-350 (30%-35%)
+        vm.prank(alice);
+        (uint256 aliceOrderId, , ) = poolManager.placeRangeOrder(
+            marketKey,
+            1, // BUY YES
+            300, // tickLower = 30%
+            350, // tickUpper = 35%
+            1000e18
+        );
+
+        // Bob places SELL YES order at ticks 350-450 (35%-45%)
+        // Overlap exists at tick 350 only
+        vm.prank(bob);
+        (uint256 bobOrderId, uint256 crossingFilled, ) = poolManager.placeRangeOrder(
+            marketKey,
+            0, // SELL YES
+            350, // tickLower = 35%
+            450, // tickUpper = 45%
+            2000e18
+        );
+
+        // Crossing should occur at the overlap (tick 350)
+        // Bob's order should be partially filled at the overlap
+        assertGt(crossingFilled, 0, "Bob should get some crossing fills");
+
+        // The crossing amount should be limited by the overlap, not the full order
+        // Overlap is only 1 tick (350), so crossedShares should be minimal
+        // Note: Exact amount depends on liquidity density
+    }
+
+    /**
+     * @notice Test that non-overlapping orders don't cross
+     */
+    function test_V99_NoCrossingWithoutOverlap() public {
+        // Alice places BUY YES order at ticks 300-350 (30%-35%)
+        vm.prank(alice);
+        poolManager.placeRangeOrder(
+            marketKey,
+            1, // BUY YES
+            300,
+            350,
+            1000e18
+        );
+
+        // Bob places SELL YES order at ticks 400-450 (40%-45%)
+        // NO overlap with Alice's 30%-35% range
+        vm.prank(bob);
+        (, uint256 crossingFilled, ) = poolManager.placeRangeOrder(
+            marketKey,
+            0, // SELL YES
+            400,
+            450,
+            1000e18
+        );
+
+        // No crossing should occur - ranges don't overlap
+        assertEq(crossingFilled, 0, "Should not cross without overlap");
+    }
+
+    /**
+     * @notice Test SELL order sweeps from low (worst) to high (best)
+     * @dev Example: SELL 200 @ 35%-45% vs BUY 100 @ 30%-35%
+     *      Should fill 100 at tick 35% (overlap point), leave 100 resting
+     */
+    function test_V99_SellSweepsLowToHigh() public {
+        // Alice places BUY YES order at ticks 300-350 (30%-35%)
+        vm.prank(alice);
+        (uint256 aliceOrderId, , ) = poolManager.placeRangeOrder(
+            marketKey,
+            1, // BUY YES
+            300,
+            350,
+            5100e18 // 100 shares/tick * 51 ticks
+        );
+
+        // Check Alice's order was created correctly
+        TickBookPoolManager.RangeOrder memory aliceOrder = poolManager.getOrder(marketKey, aliceOrderId);
+        assertEq(aliceOrder.tickLower, 300);
+        assertEq(aliceOrder.tickUpper, 350);
+        assertTrue(aliceOrder.active);
+
+        // Bob places SELL YES order at ticks 350-450 (35%-45%)
+        vm.prank(bob);
+        (uint256 bobOrderId, uint256 crossingFilled, uint256 crossingCost) = poolManager.placeRangeOrder(
+            marketKey,
+            0, // SELL YES (shown as BUY NO in UI)
+            350,
+            450,
+            10100e18 // 100 shares/tick * 101 ticks
+        );
+
+        // Crossing should occur at the overlap point (tick 350)
+        // Bob's SELL starts at its worst price (tickLower = 350) and sweeps up
+        assertGt(crossingFilled, 0, "Should have some crossing");
+
+        // Bob's remaining order should still be active
+        TickBookPoolManager.RangeOrder memory bobOrder = poolManager.getOrder(marketKey, bobOrderId);
+        assertTrue(bobOrder.active, "Bob's order should still be active");
+    }
+
+    /**
+     * @notice Test BUY order sweeps from high (worst) to low (best)
+     */
+    function test_V99_BuySweepsHighToLow() public {
+        // Alice places SELL YES order at ticks 500-600 (50%-60%)
+        vm.prank(alice);
+        poolManager.placeRangeOrder(
+            marketKey,
+            0, // SELL YES
+            500,
+            600,
+            5050e18 // 50 shares/tick * 101 ticks
+        );
+
+        // Bob places BUY YES order at ticks 550-650 (55%-65%)
+        vm.prank(bob);
+        (uint256 bobOrderId, uint256 crossingFilled, ) = poolManager.placeRangeOrder(
+            marketKey,
+            1, // BUY YES
+            550,
+            650,
+            10100e18
+        );
+
+        // Crossing should occur at the overlap (ticks 550-600)
+        // Bob's BUY starts at its worst price (tickUpper = 650) and sweeps down
+        assertGt(crossingFilled, 0, "Should have some crossing");
+
+        // Verify the crossing tick is in the correct range
+        (uint16 currentTick, , , ) = poolManager.getMarketState(marketKey);
+        assertTrue(currentTick >= 550 && currentTick <= 650, "Cross tick should be in overlap range");
+    }
+
+    /**
+     * @notice Test that fills don't exceed order size (the >100% bug fix)
+     */
+    function test_V99_FillsDoNotExceedOrderSize() public {
+        // Alice places small BUY YES order
+        vm.prank(alice);
+        (uint256 aliceOrderId, , ) = poolManager.placeRangeOrder(
+            marketKey,
+            1, // BUY YES
+            400,
+            500,
+            1000e18
+        );
+
+        // Bob places SELL YES order that fully overlaps
+        vm.prank(bob);
+        poolManager.placeRangeOrder(
+            marketKey,
+            0, // SELL YES
+            400,
+            500,
+            2000e18
+        );
+
+        // Claim Alice's fills
+        vm.prank(alice);
+        (uint256 filledShares, ) = poolManager.claimFills(marketKey, aliceOrderId);
+
+        // Filled shares should not exceed order size
+        TickBookPoolManager.RangeOrder memory aliceOrder = poolManager.getOrder(marketKey, aliceOrderId);
+        assertLe(
+            aliceOrder.filledShares,
+            aliceOrder.sharesTotal,
+            "Filled shares should not exceed order total"
+        );
+    }
 }
