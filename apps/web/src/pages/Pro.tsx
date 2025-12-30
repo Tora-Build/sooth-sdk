@@ -76,6 +76,7 @@ interface LiquidityMapProps {
     sharesTotal: bigint;
     liquidity: bigint;
     filledShares: bigint;
+    pendingShares: bigint;
     active: boolean;
   }>;
   currentProb: number;
@@ -175,9 +176,10 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
         const endBucket = Math.min(numBuckets - 1, Math.floor((highPercent / 100) * numBuckets));
         const rangeSize = Math.max(1, endBucket - startBucket + 1);
 
-        // Use remaining liquidity (total - filled)
-        const remainingLiq = order.sharesTotal > order.filledShares
-          ? order.sharesTotal - order.filledShares
+        // Use remaining liquidity (total - claimed - pending)
+        const totalFilled = order.filledShares + order.pendingShares;
+        const remainingLiq = order.sharesTotal > totalFilled
+          ? order.sharesTotal - totalFilled
           : 0n;
         const liqPerBucket = remainingLiq / BigInt(rangeSize);
 
@@ -405,7 +407,8 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   const activeOrders = orders.filter(o => o.active);
-  const hasPartialFills = orders.some(o => o.filledShares > 0n && o.active);
+  // Only show claim button when there are actually pending (unclaimed) fills
+  const hasPartialFills = orders.some(o => o.pendingShares > 0n && o.active);
 
   const handleCancelOrder = async (orderId: bigint) => {
     if (!marketKey) return;
@@ -524,8 +527,10 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const priceRange = order.tickLower === order.tickUpper
               ? `${(order.tickLower / 10).toFixed(1)}%`
               : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
+            // Total fills = claimed + pending
+            const totalFills = order.filledShares + order.pendingShares;
             const fillPercentRaw = order.sharesTotal > 0n
-              ? (Number(order.filledShares * 10000n / order.sharesTotal) / 100)
+              ? (Number(totalFills * 10000n / order.sharesTotal) / 100)
               : 0;
             const fillPercent = fillPercentRaw > 99.9 ? 100 : Math.floor(fillPercentRaw);
             // outcome=1 → credits YES tokens on fill, outcome=0 → credits NO tokens on fill
@@ -535,7 +540,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             // NO View: NO order = Buy, YES order (Short NO) = Sell
             const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
 
-            const hasFills = order.filledShares > 0n;
+            const hasFills = totalFills > 0n;
             const orderId = order.orderId.toString();
 
             return (
@@ -605,7 +610,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                       <div className="flex gap-1.5">
                         <span className="text-slate-500 uppercase">Fill:</span>
                         <span className={cn(hasFills ? "text-amber-400" : "text-slate-500")}>
-                          {parseFloat(formatUnits(order.filledShares, 18)).toLocaleString()} ({fillPercent}%)
+                          {parseFloat(formatUnits(totalFills, 18)).toLocaleString()} ({fillPercent}%)
                         </span>
                       </div>
                     </div>
