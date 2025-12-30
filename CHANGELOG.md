@@ -2,6 +2,32 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.6.0] - 2025-12-30
+
+### Fixed
+- **Monad Testnet Graduation OutOfGas** (2025-12-30):
+  - Root cause 1: "Zombie" `TickBook` address (`0x6e54...`) had no code deployed, causing reverts.
+  - Root cause 2: Architecture mismatch (V8 standalone instead of V9 Singleton).
+  - Root cause 3: Insufficient gas limit (2M) for V9 graduation complexity on Monad.
+  - Solution: Replaced standalone `TickBook` with `TickBookPoolManager` + `TickBookVault` (Singleton), and increased trade gas limit to **5,000,000** for near-graduation trades.
+
+### Added
+- **V9 Singleton Multichain Support** (2025-12-30):
+  - Updated `deploy-multichain.ts` to deploy the full V9 Singleton stack (`Vault`, `PoolManager`, `DynamicFeeHook`).
+  - Added automatic linking of Vault to PoolManager and Engine-as-Registrar permissions.
+  - Unified deployment artifact structure to include `TickBookPoolManager` and `TickBookVault`.
+
+### Deployed
+- **Monad Testnet V9.6.0** (Fresh migration):
+  - **LaunchpadEngine**: `0xfc439a4bd763900cc544154e74258721f4a2bbbb`
+  - **TickBookPoolManager**: `0xd209a3db4bb3a65da69001313e75f3309888e52f`
+  - **TickBookVault**: `0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7`
+  - **Collateralizer**: `0xc620770047e6710d2539bc6aa46de9be458207a7`
+  - **AMMEngine**: `0xc83a0fad313d9174ebdb6201c5d115e5773e4d80`
+  - **BTC100K Market**: Graduated successfully post-deploy.
+
+---
+
 ## [9.5.0] - 2025-12-30
 
 ### Added

@@ -38,12 +38,12 @@
     {
       "id": "alien-life-monad",
       "chainId": 10143,
-      "address": "0x3ad9f24820f1c8fe33fe28d71a74e149d4ea0bae",
-      "contractAddress": "0x3ad9f24820f1c8fe33fe28d71a74e149d4ea0bae",
+      "address": "0x2bf18f49f45aca269d2d5926930721f45ce3ab82",
+      "contractAddress": "0x2bf18f49f45aca269d2d5926930721f45ce3ab82",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "yesToken": "0x1d69f9cdB8B9737671932393FF2308493d77CDe2",
-      "noToken": "0x1eA1A355CbED5C48C663607536896339Fb7224FB",
+      "yesToken": "0x9f905957B12290a307217308179db4937fA81272",
+      "noToken": "0x63E20F6Eb58e072996e161e9C7F74433d89d783F",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
       "category": "science",
       "featured": true,
@@ -52,17 +52,17 @@
         "YES",
         "NO"
       ],
-      "version": "v8"
+      "version": "v9"
     },
     {
       "id": "btc-100k-monad",
       "chainId": 10143,
-      "address": "0xa0afab8cded21e7b4e638fb65a049e6e34a6e923",
-      "contractAddress": "0xa0afab8cded21e7b4e638fb65a049e6e34a6e923",
+      "address": "0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7",
+      "contractAddress": "0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7",
       "name": "BTC TWAP >= $100k",
       "symbol": "BTC100K",
-      "yesToken": "0x41e3a89532d749085a45E4ba4834E30C266948E2",
-      "noToken": "0x38B20666cD601539d8Fe6F95007296b29ec050C2",
+      "yesToken": "0xdDd52CFb03b1fdC26509D4A3B5D36818d7f7aaB9",
+      "noToken": "0x8fBe1005Ac07E3d18C96CeE9DD1a4FC679c2D0a5",
       "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
       "category": "crypto",
       "featured": true,
@@ -71,7 +71,7 @@
         "YES",
         "NO"
       ],
-      "version": "v8"
+      "version": "v9"
     }
   ]
 }
