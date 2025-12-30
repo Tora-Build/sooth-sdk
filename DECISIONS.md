@@ -1,5 +1,34 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-058: _tryCross Sweep Direction & Overlap-Only Fills (V9.9)
+- **Date**: 2025-12-30
+- **Status**: Accepted (Merged via PR #21)
+- **Context**:
+  - After fixing overlap detection (ADR-057), a second bug was discovered: orders could show >100% filled.
+  - Root cause: `_tryCross` calculated fills using the **entire** order range instead of only the **overlapping** tick range.
+  - Example: BUY [300-400] crosses SELL [350-450]. The overlap is [350-400], but fills were calculated using the full [350-450] range.
+- **Decision**:
+  1. **Sweep from worst-to-best price**:
+     - SELL orders: sweep LOW→HIGH (start at tickLower, move up)
+     - BUY orders: sweep HIGH→LOW (start at tickUpper, move down)
+  2. **Calculate overlap range explicitly**:
+     ```solidity
+     overlapLow = max(newOrder.tickLower, lowestOpposite);
+     overlapHigh = min(newOrder.tickUpper, highestOpposite);
+     ```
+  3. **Use overlap-only liquidity**: Added `_getOverlappingLiquidity()` helper.
+  4. **Average price across overlap**: Use `(priceLow + priceHigh) / 2` for fair pricing.
+- **Rationale**:
+  - **Correctness**: Fills now exactly match the price overlap, preventing >100% fills.
+  - **Economic Incentive**: Worst-to-best sweep means takers get progressively better prices as they fill.
+  - **Simplicity**: Overlap calculation is now explicit and testable.
+- **Consequences**:
+  - **Breaking Change**: Requires contract redeployment to use V9.9 behavior.
+  - **Test Coverage**: 5 new tests verify crossing behavior (see `test_V99_*`).
+- **Documentation**: See PR #21
+
+---
+
 ## ADR-057: _tryCross Bitmap-Based Overlap Detection (V9.8)
 - **Date**: 2025-12-30
 - **Status**: Accepted (Merged via PR #19)

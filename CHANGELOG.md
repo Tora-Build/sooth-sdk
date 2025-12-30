@@ -2,6 +2,29 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.9.0] - 2025-12-30
+
+### Fixed
+- **TickBook Matching: Sweep Worst-to-Best Price** (2025-12-30):
+  - **Root Cause**: `_tryCross` was calculating fills using the full order size instead of only the overlapping tick range.
+  - **Problem**: Orders could show >100% filled due to incorrect share calculations.
+  - **Solution**:
+    1. SELL orders now sweep LOW→HIGH (worst ask to best ask)
+    2. BUY orders now sweep HIGH→LOW (worst bid to best bid)
+    3. Fills only occur within the price overlap range
+    4. Added `_getOverlappingLiquidity()` helper for overlap-only matching
+  - **PR**: #21
+
+### Added
+- **V9.9 Crossing Tests** (2025-12-30):
+  - `test_V99_CrossingOnlyInOverlap` — Verifies fills only at overlapping ticks
+  - `test_V99_NoCrossingWithoutOverlap` — Non-overlapping orders don't match
+  - `test_V99_SellSweepsLowToHigh` — SELL order sweep direction
+  - `test_V99_BuySweepsHighToLow` — BUY order sweep direction
+  - `test_V99_FillsDoNotExceedOrderSize` — Prevents >100% fill bug
+
+---
+
 ## [Unreleased] - 2025-12-30
 
 ### Changed
