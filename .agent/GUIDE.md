@@ -64,6 +64,7 @@ Quick reference for when to use which workflow or rule.
 | File | Purpose |
 |------|---------|
 | `.agent/LESSONS_LEARNED.md` | Persistent agent memory |
+| `.agent/PROTECTED_ITEMS.md` | **User-owned items - DO NOT MODIFY without confirmation** |
 | `.agent/GUIDE.md` | This file |
 | `STATUS.md` | Current project state |
 | `CHANGELOG.md` | Change history |

@@ -177,9 +177,9 @@ export const monadTestnet = defineChain({
     default: {
       http: [
         'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
-        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
-        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
-        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
+        'https://testnet-rpc.monad.xyz',
+        'https://rpc.ankr.com/monad_testnet',
+        'https://rpc-testnet.monadinfra.com',
       ]
     },
   },
