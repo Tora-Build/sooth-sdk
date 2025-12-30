@@ -17,11 +17,14 @@
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
-        "MockUSDC": "0x58a7286783f528659b3390f91bc9c2e6fb9af8ac",
-        "Collateralizer": "0x658fbc5ba881d0873de647780a36f70ad2476016",
-        "AMMEngine": "0x080e4ca2dcfc06bf238b5d7fd4245cf22c2a2476",
-        "TickBook": "0x6e5485126b7f5f989a6aa70d3cf2728f8f1a4c69",
-        "LaunchpadEngine": "0x155b363fef5bb60cd87ce4b4f58f914feb06377c"
+        "MockUSDC": "0x7192f46fa78e7d1b5bb6ba687d15d0b6a0802da3",
+        "Collateralizer": "0xc620770047e6710d2539bc6aa46de9be458207a7",
+        "AMMEngine": "0xc83a0fad313d9174ebdb6201c5d115e5773e4d80",
+        "TickBookVault": "0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7",
+        "TickBookPoolManager": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
+        "TickBook": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
+        "DynamicFeeHook": "0xe1c21c0e6d8ff5d7a97b94c718990858a7f62d4a",
+        "LaunchpadEngine": "0xfc439a4bd763900cc544154e74258721f4a2bbbb"
       }
     }
   }

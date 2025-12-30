@@ -517,7 +517,7 @@ export const SimpleTradingPanel = ({
       //   Note: Use 50% threshold (not 80%) because large trades can push from <80% to 100%
       //   in a single transaction, causing OOG if gas limit wasn't increased
       const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
-      const gasLimit = isNearGraduation ? 2000000n : 600000n;
+      const gasLimit = isNearGraduation ? 5000000n : 600000n;
 
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,

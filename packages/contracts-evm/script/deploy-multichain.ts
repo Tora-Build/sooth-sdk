@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Multi-Chain V8 Deployment Script
+ * Multi-Chain V9 Deployment Script
  * 
- * Deploys V8 contracts in parallel to multiple chains:
+ * Deploys V9 Singleton architecture in parallel to multiple chains:
  * - Base Sepolia (testnet)
  * - MegaETH Frontier (mainnet beta)
  * - Monad Testnet
@@ -10,7 +10,7 @@
  * Includes post-deployment graduation trades for BTC market.
  * 
  * Usage:
- *   bun run script/deploy-multichain.ts [--chains base,megaeth,monad]
+ *   bun run script/deploy-multichain.ts [--chains baseSepolia,megaethFrontier,monadTestnet]
  * 
  * Environment:
  *   PRIVATE_KEY - Required (in .env or environment)
@@ -122,6 +122,14 @@ const COLLATERALIZER_ABI = parseAbi([
   'function isMarketRegistered(address market) external view returns (bool)',
 ]);
 
+const VAULT_ABI = parseAbi([
+  'function setTickBook(address _tickBook) external',
+]);
+
+const POOL_MANAGER_ABI = parseAbi([
+  'function setRegistrar(address _registrar) external',
+]);
+
 // ============================================
 // Deployment Context
 // ============================================
@@ -186,12 +194,14 @@ interface CoreContracts {
   mockUSDC: `0x${string}`;
   collateralizer: `0x${string}`;
   ammEngine: `0x${string}`;
-  tickBook: `0x${string}`;
+  tickBookVault: `0x${string}`;
+  tickBookPoolManager: `0x${string}`;
+  dynamicFeeHook: `0x${string}`;
   launchpadEngine: `0x${string}`;
 }
 
 async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContracts> {
-  console.log(`\n[${ctx.chainName}] === Deploying Core Contracts ===`);
+  console.log(`\n[${ctx.chainName}] === Deploying Core V9 Contracts ===`);
 
   // 1. MockUSDC
   const mockUSDC = await deployContract(ctx, 'MockUSDC', ['Mock USDC', 'USDC']);
@@ -202,21 +212,35 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   // 3. AMMEngine
   const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, ctx.deployer]);
 
-  // 4. TickBook
-  const tickBook = await deployContract(ctx, 'TickBook', []);
+  // 4. Singleton TickBook Components
+  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, ctx.deployer]);
+  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault]);
+  const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
 
   // 5. LaunchpadEngine
   const launchpadEngine = await deployContract(ctx, 'LaunchpadEngine', [
     mockUSDC,
     ammEngine,
     collateralizer,
-    tickBook,
+    tickBookPoolManager,
     ctx.deployer, // Protocol Treasury
     ctx.deployer, // Initial owner
   ]);
 
-  // 6. Configure Engines
-  console.log(`\n[${ctx.chainName}] === Configuring Engines ===`);
+  // 6. Configure Engines (Link up permissions)
+  console.log(`\n[${ctx.chainName}] === Configuring Engines & Permissions ===`);
+
+  console.log(`  [${ctx.chainName}] Linking Vault to PoolManager...`);
+  const setVaultTickBookHash = await ctx.walletClient.writeContract({
+    address: tickBookVault,
+    abi: VAULT_ABI,
+    functionName: 'setTickBook',
+    args: [tickBookPoolManager],
+    chain: ctx.config.chain,
+    account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
+  });
+  await ctx.publicClient.waitForTransactionReceipt({ hash: setVaultTickBookHash });
 
   console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as AMMEngine router...`);
   const setRouterHash = await ctx.walletClient.writeContract({
@@ -226,21 +250,23 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
     args: [launchpadEngine],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: setRouterHash });
 
-  console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as TickBook registrar...`);
+  console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as PoolManager registrar...`);
   const setRegistrarHash = await ctx.walletClient.writeContract({
-    address: tickBook,
-    abi: parseAbi(['function setRegistrar(address) external']),
+    address: tickBookPoolManager,
+    abi: POOL_MANAGER_ABI,
     functionName: 'setRegistrar',
     args: [launchpadEngine],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: setRegistrarHash });
 
-  return { mockUSDC, collateralizer, ammEngine, tickBook, launchpadEngine };
+  return { mockUSDC, collateralizer, ammEngine, tickBookVault, tickBookPoolManager, dynamicFeeHook, launchpadEngine };
 }
 
 // ============================================
@@ -279,6 +305,7 @@ async function deployMarket(
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
     gas: ctx.config.gasSettings.gasLimit,
+    ...ctx.config.gasSettings,
   });
 
   const tmReceipt = await ctx.publicClient.waitForTransactionReceipt({
@@ -296,6 +323,7 @@ async function deployMarket(
     functionName: 'activate',
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: activateHash });
   console.log(`  [${ctx.chainName}] ✓ Market activated`);
@@ -308,6 +336,7 @@ async function deployMarket(
     args: [marketAddress, marketConfig.name, marketConfig.symbol],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   const registerReceipt = await ctx.publicClient.waitForTransactionReceipt({ hash: registerHash });
   console.log(`  [${ctx.chainName}] registerMarket TX status: ${registerReceipt.status}`);
@@ -342,6 +371,7 @@ async function deployMarket(
     args: [ctx.deployer, depositWithBuffer],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: mintHash });
 
@@ -353,6 +383,7 @@ async function deployMarket(
     args: [core.launchpadEngine, depositWithBuffer],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: approveHash });
 
@@ -364,6 +395,7 @@ async function deployMarket(
     args: [marketAddress, marketConfig.bBase, marketConfig.name, marketConfig.symbol],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: createHash });
   console.log(`  [${ctx.chainName}] ✓ LaunchpadEngine initialized`);
@@ -401,6 +433,7 @@ async function graduateMarket(
     args: [ctx.deployer, totalVolume],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: gradMintHash });
 
@@ -412,6 +445,7 @@ async function graduateMarket(
     args: [core.launchpadEngine, totalVolume],
     chain: ctx.config.chain,
     account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: gradApproveHash });
 
@@ -432,9 +466,10 @@ async function graduateMarket(
         abi: LAUNCHPAD_ENGINE_ABI,
         functionName: 'tradePositions',
         args: [market.address, 1, deltaShares, maxCost], // outcome 1 = YES
-        gas: 4_000_000n,
+        gas: 5_000_000n, // Support graduation deployment gas
         chain: ctx.config.chain,
         account: ctx.walletClient.account!,
+        ...ctx.config.gasSettings,
       });
       await ctx.publicClient.waitForTransactionReceipt({ hash: tradeHash });
 
@@ -518,7 +553,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[${chainName}] Starting V8 Deployment`);
+  console.log(`[${chainName}] Starting V9 Singleton Deployment`);
   console.log(`[${chainName}] Chain ID: ${config.chain.id}`);
   console.log(`[${chainName}] Deployer: ${account.address}`);
   console.log(`${'='.repeat(60)}`);
@@ -562,14 +597,16 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
       MockUSDC: core.mockUSDC,
       Collateralizer: core.collateralizer,
       AMMEngine: core.ammEngine,
-      TickBook: core.tickBook,
+      TickBookVault: core.tickBookVault,
+      TickBookPoolManager: core.tickBookPoolManager,
+      TickBook: core.tickBookPoolManager, // Legacy alias
       LaunchpadEngine: core.launchpadEngine,
     },
     markets: deployedMarkets,
   };
 
   // Save artifact
-  const artifactPath = path.join(__dirname, `../deployments/v8-${chainName}.json`);
+  const artifactPath = path.join(__dirname, `../deployments/v9-${chainName}.json`);
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   console.log(`\n[${chainName}] ✓ Deployment artifact saved to: ${artifactPath}`);
 
@@ -594,7 +631,7 @@ async function main() {
   const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined;
   if (!privateKey) {
     console.error('ERROR: PRIVATE_KEY environment variable required');
-    console.error('Usage: PRIVATE_KEY=0x... npx ts-node script/deploy-multichain.ts [--chains=base,megaeth,monad]');
+    console.error('Usage: PRIVATE_KEY=0x... npx ts-node script/deploy-multichain.ts [--chains=baseSepolia,megaethFrontier,monadTestnet]');
     process.exit(1);
   }
 
@@ -604,7 +641,7 @@ async function main() {
     : `0x${privateKey}` as `0x${string}`;
 
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║           SOOTH PROTOCOL V8 MULTI-CHAIN DEPLOYMENT          ║');
+  console.log('║           SOOTH PROTOCOL V9 MULTI-CHAIN DEPLOYMENT          ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
   console.log(`║ Target Chains: ${targetChains.join(', ').padEnd(44)}║`);
   console.log('╚════════════════════════════════════════════════════════════╝');
@@ -627,6 +664,7 @@ async function main() {
       const artifact = result.value;
       console.log(`\n✅ ${chainName} (Chain ID: ${artifact.chainId})`);
       console.log(`   LaunchpadEngine: ${artifact.contracts.LaunchpadEngine}`);
+      console.log(`   TickBookPoolManager: ${artifact.contracts.TickBookPoolManager}`);
       console.log(`   Markets:`);
       for (const market of artifact.markets) {
         const gradStatus = market.isGraduated ? '🎓 GRADUATED' : '📈 Pre-Grad';
@@ -647,4 +685,5 @@ async function main() {
 }
 
 main().catch(console.error);
+
 

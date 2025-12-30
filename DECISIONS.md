@@ -1,5 +1,27 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-056: Monad Testnet V9 Singleton Migration & Graduation Gas Fix
+- **Date**: 2025-12-30
+- **Status**: Accepted (Deployed)
+- **Context**:
+  - Monad Testnet was previously running a fragmented V8/V9 hybrid architecture.
+  - Graduation transactions were failing due to:
+    1. A "zombie" `TickBook` address in the Engine that had no code deployed.
+    2. Insufficient gas (2M) for the complex V9 graduation flow (registering in Singleton PoolManager).
+- **Decision**:
+  1. **Full Singleton Migration**: Redeploy the complete V9 stack (PoolManager + Vault) to Monad Testnet to match Base Sepolia.
+  2. **Increased Gas Ceiling**: Set the hardcoded gas limit for graduation trades to **5,000,000** in both the deployment script and frontend to accommodate Monad's opcode pricing.
+  3. **Script Consolidation**: Update `deploy-multichain.ts` to natively support the Singleton architecture and ensure proper cross-linking (Vault-to-PoolManager and Engine-as-Registrar).
+- **Rationale**:
+  - **Maintainability**: Unified architecture across all chains reduces operational overhead and frontend complexity.
+  - **Reliability**: Resolves the `OutOfGas` and empty contract call reverts that were blocking market maturity.
+- **Consequences**:
+  - **Fresh State**: Previous orders/positions on Monad are lost as the contracts were redeployed.
+  - **Reliable Graduation**: Markets can now graduate successfully on Monad Testnet without gas depletion.
+  - **Consolidated Scripting**: The multichain script now handles the modern Sooth Singleton stack by default.
+
+---
+
 ## ADR-055: getPendingFills View Function for Crossed Order Fills
 - **Date**: 2025-12-30
 - **Status**: Accepted (Deployed in V9.5.0)
