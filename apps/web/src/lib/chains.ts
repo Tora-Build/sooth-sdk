@@ -126,7 +126,7 @@ export const allowedChains: AllowedChain[] = [
     name: 'Monad Testnet',
     displayName: 'Monad',
     shortName: 'Monad',
-    rpcUrl: 'https://testnet-rpc.monad.xyz',
+    rpcUrl: 'https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/',
     explorerUrl: 'https://testnet.monadvision.com',
     icon: '🟣',
     nativeCurrency: {
@@ -174,12 +174,13 @@ export const monadTestnet = defineChain({
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { 
+    default: {
       http: [
+        'https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/',
         'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
         'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
         'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
-      ] 
+      ]
     },
   },
   blockExplorers: {

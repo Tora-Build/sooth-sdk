@@ -14,7 +14,7 @@ fs_permissions = [{ access = "read-write", path = "./deployments" }]
 baseSepolia = "https://sepolia.base.org"
 megaethMainnet = "https://mainnet.megaeth.com/rpc"
 megaethTestnet = "https://timothy.megaeth.com/rpc"
-monadTestnet = "https://testnet-rpc.monad.xyz"
+monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
 
 # MegaETH requires higher gas settings

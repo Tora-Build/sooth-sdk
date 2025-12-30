@@ -1,5 +1,5 @@
 {
-  "version": "9.5.0",
+  "version": "9.6.0",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -12,6 +12,16 @@
         "TickBook": "0x432b75E95bD1aE44D6393351B256ecfAf7753556",
         "DynamicFeeHook": "0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307",
         "LaunchpadEngine": "0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a"
+      }
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "contracts": {
+        "MockUSDC": "0x58a7286783f528659b3390f91bc9c2e6fb9af8ac",
+        "Collateralizer": "0x658fbc5ba881d0873de647780a36f70ad2476016",
+        "AMMEngine": "0x080e4ca2dcfc06bf238b5d7fd4245cf22c2a2476",
+        "TickBook": "0x6e5485126b7f5f989a6aa70d3cf2728f8f1a4c69",
+        "LaunchpadEngine": "0x155b363fef5bb60cd87ce4b4f58f914feb06377c"
       }
     }
   }
