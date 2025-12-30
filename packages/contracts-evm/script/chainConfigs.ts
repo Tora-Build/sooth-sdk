@@ -36,6 +36,7 @@ export const megaethFrontier = defineChain({
 });
 
 // Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
+// Using private QuickNode RPC for faster state propagation
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
@@ -43,7 +44,8 @@ export const monadTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://testnet-rpc.monad.xyz',
+        'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
+        'https://testnet-rpc.monad.xyz',  // fallback
       ]
     },
   },

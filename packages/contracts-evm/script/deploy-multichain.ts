@@ -345,16 +345,33 @@ async function deployMarket(
   }
   console.log(`  [${ctx.chainName}] ✓ Registered with Collateralizer (TX: ${registerHash})`);
 
-  // Wait for RPC state propagation
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Wait for RPC state propagation (Monad testnet needs longer wait)
+  const waitTime = ctx.chainName === 'monadTestnet' ? 8000 : 2000;
+  console.log(`  [${ctx.chainName}] Waiting ${waitTime / 1000}s for RPC state propagation...`);
+  await new Promise(resolve => setTimeout(resolve, waitTime));
 
-  // Get token addresses
-  const [yesToken, noToken] = await ctx.publicClient.readContract({
-    address: core.collateralizer,
-    abi: COLLATERALIZER_ABI,
-    functionName: 'getOutcomeTokens',
-    args: [marketAddress],
-  }) as [`0x${string}`, `0x${string}`];
+  // Get token addresses with retry for slow RPCs
+  let yesToken: `0x${string}` | undefined;
+  let noToken: `0x${string}` | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const tokens = await ctx.publicClient.readContract({
+        address: core.collateralizer,
+        abi: COLLATERALIZER_ABI,
+        functionName: 'getOutcomeTokens',
+        args: [marketAddress],
+      }) as [`0x${string}`, `0x${string}`];
+      yesToken = tokens[0];
+      noToken = tokens[1];
+      break;
+    } catch (err) {
+      console.log(`  [${ctx.chainName}] getOutcomeTokens attempt ${attempt + 1} failed, retrying in 3s...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+  }
+  if (!yesToken || !noToken) {
+    throw new Error(`Failed to get outcome tokens after 3 attempts for market ${marketAddress}`);
+  }
 
   console.log(`  [${ctx.chainName}] YES Token: ${yesToken}`);
   console.log(`  [${ctx.chainName}] NO Token: ${noToken}`);

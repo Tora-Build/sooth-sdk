@@ -468,4 +468,43 @@ Access-controlled registration ensures only graduated markets (via LaunchpadEngi
 
 ---
 
-*Last updated: 2025-12-29*
+## 23. Monad Testnet RPC State Propagation
+
+### Symptom
+Deployment script fails after `registerMarket` TX succeeds: `getOutcomeTokens returned no data ("0x")`.
+
+### Root Cause
+Monad testnet RPC has significant state propagation delays. Even after TX confirmation, read calls may return stale/empty data for 15-30+ seconds.
+
+### Detection
+- TX shows `status: success` but subsequent read calls fail
+- `cast code <address>` returns `0x` right after deployment
+- Same address works fine after waiting longer
+
+### Fix (deploy-multichain.ts)
+Added chain-specific wait time + retry logic:
+```typescript
+// Wait for RPC state propagation (Monad testnet needs longer wait)
+const waitTime = ctx.chainName === 'monadTestnet' ? 8000 : 2000;
+await new Promise(resolve => setTimeout(resolve, waitTime));
+
+// Get token addresses with retry for slow RPCs
+for (let attempt = 0; attempt < 3; attempt++) {
+  try {
+    const tokens = await ctx.publicClient.readContract({ ... });
+    break;
+  } catch (err) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+}
+```
+
+### Rule
+For testnets with known RPC issues:
+1. Add chain-specific wait times after state-changing TXs
+2. Implement retry logic for read calls
+3. Consider using private/premium RPCs for production deployments
+
+---
+
+*Last updated: 2025-12-30*
