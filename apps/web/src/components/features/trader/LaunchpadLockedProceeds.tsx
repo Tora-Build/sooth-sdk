@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '../../ui/Card';
 import { Clock, TrendingUp } from 'lucide-react';
-import { useLockedProceeds } from '../../../hooks/v5/useLockedProceeds';
+import { useLockedProceeds } from '../../../hooks/useLockedProceeds';
 import { formatUnits } from 'viem';
 import { Button } from '../../ui/Button';
 import toast from 'react-hot-toast';

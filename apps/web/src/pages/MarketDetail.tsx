@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield } from 'lucide-react';
 import { useState } from 'react';
-import { useLaunchpadMarket } from '../hooks/v5/useLaunchpadMarket';
-import { useLaunchpadMarkets } from '../hooks/v5/useLaunchpadMarkets';
+import { useLaunchpadMarket } from '../hooks/useLaunchpadMarket';
+import { useLaunchpadMarkets } from '../hooks/useLaunchpadMarkets';
 import { useAmmMarketByAddress } from '../hooks/useAmmMarketByAddress';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';

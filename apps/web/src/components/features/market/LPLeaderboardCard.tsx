@@ -6,7 +6,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { formatUnits } from 'viem';
 import { formatCurrency } from '../../../utils/format';
-import { useLPHolders } from '../../../hooks/v5/useLPHolders';
+import { useLPHolders } from '../../../hooks/useLPHolders';
 import uiContent from '../../../config/ui-content.json';
 
 interface LPHolder {

@@ -10,10 +10,12 @@ import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { SimpleTradingPanel, MarketHeader, GraduationProgress } from '../components/features/v8';
-import { MarketStats } from '../components/features/v8/MarketStats';
-import { LPHolders } from '../components/features/v8/LPHolders';
-import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks/v8';
+import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
+import { MarketStats } from '../components/features/MarketStats';
+import { LPHolders } from '../components/features/LPHolders';
+import { MarketHeader } from '../components/features/launchpad/MarketHeader';
+import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
+import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';

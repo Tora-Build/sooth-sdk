@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Clock, TrendingUp, Zap, ArrowRight, BookOpen, Shield, Lock } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
-import { useLaunchpadMarket } from '../../../hooks/v5/useLaunchpadMarket';
+import { useLaunchpadMarket } from '../../../hooks/useLaunchpadMarket';
 import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { AmmTradingPanel } from './AmmTradingPanel';
 

@@ -507,4 +507,38 @@ For testnets with known RPC issues:
 
 ---
 
+## Forbidden: Versioned Folders (2025-12-30)
+
+### ❌ Pattern: v1/, v2/, v8/, v9/ folder structure
+- **Date:** 2025-12-30
+- **Problem:** Codebase had `hooks/v5/`, `hooks/v8/`, `hooks/v9/`, `components/features/v8/`, `config/abis/v8/`, `pages/v8/`
+- **Issues:**
+  1. **Import confusion:** Which version to use?
+  2. **Naming conflicts:** Same hook name in different versions (e.g., `useAmmMarket`)
+  3. **Maintenance burden:** Duplicated code across versions
+  4. **Deprecation unclear:** Is v8 still used? What about v5?
+- **Root cause:** Iterative protocol versions led to copying instead of updating
+
+### ✅ Solution: Flat structure with clear naming
+```
+# WRONG - versioned folders
+hooks/v8/useAmmMarket.ts
+hooks/v9/useTickBookVault.ts
+components/features/v8/SimpleTradingPanel.tsx
+
+# RIGHT - flat with descriptive names
+hooks/useAmmMarket.ts
+hooks/useTickBookVault.ts
+components/features/SimpleTradingPanel.tsx
+```
+
+### Rule
+- **NEVER** create folders named `v1/`, `v2/`, `v8/`, `v9/`, etc.
+- Git history already tracks versions
+- Use descriptive names, not version numbers
+- For breaking changes, update in place with migration notes
+- Organize by domain/feature if needed (e.g., `launchpad/`, `market/`)
+
+---
+
 *Last updated: 2025-12-30*

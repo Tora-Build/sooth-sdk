@@ -35,7 +35,7 @@ export const MarketHeader: React.FC<MarketHeaderProps> = ({
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const truncate = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    const truncate = (addr: string | undefined) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '...';
 
     // Status determination
     const getStatus = () => {

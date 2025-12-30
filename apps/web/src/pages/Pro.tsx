@@ -16,7 +16,8 @@ import {
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
-import { MarketHeader, GraduationProgress } from '../components/features/v8';
+import { MarketHeader } from '../components/features/launchpad/MarketHeader';
+import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import {
   useLaunchpadMarketDirect,
   useCollateralizerDirect,
@@ -26,9 +27,9 @@ import {
   useTokenBalances,
   useUserOrdersDirect,
   useAmmMarketDirect,
-  useInvalidateV8Queries,
+  useInvalidateQueries,
   RangeOrder
-} from '../hooks/v8';
+} from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
@@ -1127,7 +1128,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   }, [marketId, chainId]);
 
   const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
-  const invalidateV8Queries = useInvalidateV8Queries();
+  const invalidateV8Queries = useInvalidateQueries();
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);

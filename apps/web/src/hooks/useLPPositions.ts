@@ -2,7 +2,7 @@ import { useAccount, useReadContracts } from 'wagmi';
 import { useMemo } from 'react';
 import { formatUnits } from 'viem';
 import { LAUNCHPAD_MARKET_ABI } from '../config/abis';
-import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 
 export interface LPPosition {
     marketAddress: `0x${string}`;
