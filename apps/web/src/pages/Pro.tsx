@@ -16,7 +16,8 @@ import {
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
-import { MarketHeader } from '../components/features/launchpad/MarketHeader';
+import { MarketHeader } from '../components/features/v8/MarketHeader';
+import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import {
   useLaunchpadMarketDirect,
@@ -31,7 +32,7 @@ import {
   RangeOrder
 } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS } from '../config/abis';
+import { V8_ABIS, V9_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -86,10 +87,10 @@ interface LiquidityMapProps {
 }
 
 const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
-  // Build liquidity buckets for visualization (80 columns = ~1.25% each)
+  // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
-  const { buckets, lowestBoundary, highestBoundary, totalLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
-    const numBuckets = 200;
+  const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
+    const numBuckets = 150;
     const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
     const currentTickPercent = currentProb * 100;
 
@@ -122,7 +123,7 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
       const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
       for (let b = startBucket; b <= endBucket; b++) {
         buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'no';
+        buckets[b].side = 'yes'; // Bids provide liquidity to SELLers
       }
       totalLiq += tick.liquidityGross;
       lowestBoundary = Math.min(lowestBoundary, tickPercent);
@@ -181,6 +182,10 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
         const remainingLiq = order.sharesTotal > totalFilled
           ? order.sharesTotal - totalFilled
           : 0n;
+
+        // Skip 100% filled orders - they have no remaining liquidity
+        if (remainingLiq === 0n) continue;
+
         const liqPerBucket = remainingLiq / BigInt(rangeSize);
 
         for (let b = startBucket; b <= endBucket; b++) {
@@ -209,7 +214,11 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
     }
 
     // Find max liquidity for normalization
-    const maxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 1n);
+    const rawMaxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 0n);
+
+    // Minimal Y-axis scale (e.g., 50 shares) to prevent noise from looking significant
+    const minScale = parseUnits('50', 18);
+    const maxLiq = rawMaxLiq > minScale ? rawMaxLiq : minScale;
 
     // Determine available liquidity range for display
     const hasYesLiq = activeLiqYes > 0n || buckets.some(b => b.side === 'yes');
@@ -224,6 +233,7 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
       lowestBoundary,
       highestBoundary,
       totalLiquidity: totalLiq,
+      maxLiquidity: maxLiq,
       hasYesLiq,
       hasNoLiq,
     };
@@ -291,76 +301,95 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
 
 
 
+        {/* Y-Axis Depth Scale */}
+        <div className="absolute left-0 top-2 bottom-3 flex flex-col justify-between items-end pr-1 border-r border-slate-800/50 pointer-events-none z-20 w-8">
+          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
+            {totalLiquidity > 0n ? parseFloat(formatUnits(maxLiquidity, 18)).toFixed(0) : '0'}
+            <div className="w-1.5 h-[1px] bg-slate-800" />
+          </div>
+          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
+            {(parseFloat(formatUnits(maxLiquidity, 18)) / 2).toFixed(0)}
+            <div className="w-1.5 h-[1px] bg-slate-800" />
+          </div>
+          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
+            0
+            <div className="w-1.5 h-[1px] bg-slate-800" />
+          </div>
+        </div>
+
         {!isLoading && hasRealData && (
-          displayBuckets.map((bucket, col) => {
-            const blocks = Math.max(1, Math.ceil(bucket.normalized * 12));
-            const hasLiquidity = bucket.liquidity > 0n;
+          <div className="flex-1 h-full flex items-end gap-[1px] pl-8">
+            {displayBuckets.map((bucket, col) => {
+              // Ensure even tiny liquidity shows at least one dimmed block
+              const blocks = bucket.liquidity > 0n ? Math.max(1, Math.ceil(bucket.normalized * 12)) : 0;
+              const hasLiquidity = bucket.liquidity > 0n;
 
-            // Color based on what takers can BUY at this price
-            // 'yes' = YES liquidity available (green) 
-            // 'yes' = YES liquidity available
-            // 'no' = NO liquidity available
-            const isYesLiq = bucket.side === 'yes';
-            const isNoLiq = bucket.side === 'no';
+              const isYesLiq = bucket.side === 'yes';
+              const isNoLiq = bucket.side === 'no';
 
-            // Visual mapping depends on view
-            // YES View: YesLiq=Green, NoLiq=Red
-            // NO View: NoLiq=Green, YesLiq=Red
-            const isGreen = viewOutcome === 'yes' ? isYesLiq : isNoLiq;
-            const isRed = viewOutcome === 'yes' ? isNoLiq : isYesLiq;
+              const isGreen = viewOutcome === 'yes' ? isYesLiq : isNoLiq;
+              const isRed = viewOutcome === 'yes' ? isNoLiq : isYesLiq;
 
-            return (
-              <div
-                key={col}
-                className={cn(
-                  "flex-1 flex flex-col-reverse gap-[2px] relative group",
-                  hasLiquidity && "cursor-pointer"
-                )}
-              >
-                {/* Hover tooltip */}
-                {hasLiquidity && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                    <div className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] whitespace-nowrap shadow-xl">
-                      <div className="font-mono font-bold text-white">{bucket.price.toFixed(1)}%</div>
-                      <div className="text-slate-400">
-                        {(() => {
-                          if (viewOutcome === 'yes') {
-                            return isYesLiq ? 'Buy YES' : 'Sell YES';
-                          } else {
-                            return isNoLiq ? 'Buy NO' : 'Sell NO';
-                          }
-                        })()}:
-                        <span className={isGreen ? 'text-emerald-400' : 'text-rose-400'}>
-                          {' '}{parseFloat(formatUnits(bucket.liquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </span>
+              return (
+                <div
+                  key={col}
+                  className={cn(
+                    "flex-1 flex flex-col justify-end gap-[2px] relative group h-full pb-1",
+                    hasLiquidity && "cursor-pointer"
+                  )}
+                >
+                  {/* Hover tooltip */}
+                  {hasLiquidity && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
+                      <div className="bg-slate-900 border-2 border-slate-700/50 rounded-xl px-3 py-2 text-center shadow-2xl backdrop-blur-md">
+                        <div className="font-mono font-bold text-white text-[10px] mb-1">{bucket.price.toFixed(1)}%</div>
+                        <div className={cn("text-[11px] font-bold whitespace-nowrap", isGreen ? "text-emerald-400" : "text-rose-400")}>
+                          {isGreen ? 'Buy' : 'Sell'} {(() => {
+                            const val = Number(formatUnits(bucket.liquidity, 18));
+                            if (val === 0 && bucket.liquidity > 0n) return '< 0.0001';
+                            if (val < 0.1) return val.toFixed(4);
+                            return val.toLocaleString(undefined, { maximumFractionDigits: 3 });
+                          })()} {viewOutcome.toUpperCase()}
+                        </div>
+                        <div className="text-[8px] text-slate-500 mt-1 uppercase tracking-tighter">
+                          {((bucket.liquidity * 100n) / (totalLiquidity || 1n)).toString()}% of Depth
+                        </div>
                       </div>
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-slate-800" />
                     </div>
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-700" />
-                  </div>
-                )}
+                  )}
 
-                {/* Blocks - uniform color across range for single order */}
-                {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
-                  const intensity = 1 - (blockIdx / blocks);
-                  return (
-                    <div
-                      key={blockIdx}
-                      className={cn(
-                        "w-full aspect-square rounded-[1px] transition-all",
-                        isGreen ? (intensity > 0.6 ? 'bg-emerald-400' : intensity > 0.3 ? 'bg-emerald-500' : 'bg-emerald-700')
-                          : isRed ? (intensity > 0.6 ? 'bg-rose-400' : intensity > 0.3 ? 'bg-rose-500' : 'bg-rose-700')
-                            : "bg-slate-800",
-                        "group-hover:ring-1 group-hover:ring-white/30"
-                      )}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })
+                  {/* Blocks with staggered entrance animation */}
+                  {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
+                    const intensity = (blockIdx + 1) / blocks;
+                    // Staggered delay: column * 5ms + block * 30ms for cascade effect
+                    const animDelay = col * 5 + blockIdx * 30;
+                    return (
+                      <div
+                        key={blockIdx}
+                        className={cn(
+                          "w-full aspect-square rounded-[2px] transition-all duration-200",
+                          isGreen ? (intensity > 0.7 ? 'bg-emerald-400' : intensity > 0.4 ? 'bg-emerald-500' : 'bg-emerald-700')
+                            : isRed ? (intensity > 0.7 ? 'bg-rose-400' : intensity > 0.4 ? 'bg-rose-500' : 'bg-rose-700')
+                              : "bg-slate-800",
+                          "group-hover:ring-1 group-hover:ring-white/30",
+                          "group-hover:scale-110 hover:shadow-lg",
+                          isGreen && "group-hover:shadow-emerald-500/30",
+                          isRed && "group-hover:shadow-rose-500/30",
+                          "animate-[slideInUp_0.3s_ease-out_forwards]",
+                          "opacity-0" // Start hidden, animation reveals
+                        )}
+                        style={{
+                          animationDelay: `${animDelay}ms`,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         )}
-
-        {/* Redundant price indicator removed */}
       </div>
 
       {/* Stats Row */}
@@ -399,14 +428,25 @@ interface UserOrdersPanelProps {
   contracts: Record<string, string>;
   chainId: number;
   viewOutcome: 'yes' | 'no';
+  yesShares?: bigint;
+  noShares?: bigint;
 }
 
-const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome }: UserOrdersPanelProps) => {
+const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  const activeOrders = orders.filter(o => o.active);
+  // Sort orders: unfilled first, 100% filled last
+  const activeOrders = orders.filter(o => o.active).sort((a, b) => {
+    const aFillPercent = a.sharesTotal > 0n ? Number((a.filledShares + a.pendingShares) * 100n / a.sharesTotal) : 0;
+    const bFillPercent = b.sharesTotal > 0n ? Number((b.filledShares + b.pendingShares) * 100n / b.sharesTotal) : 0;
+    const aFullyFilled = aFillPercent >= 100;
+    const bFullyFilled = bFillPercent >= 100;
+    if (aFullyFilled && !bFullyFilled) return 1; // a goes after b
+    if (!aFullyFilled && bFullyFilled) return -1; // a goes before b
+    return 0; // maintain relative order
+  });
   // Only show claim button when there are actually pending (unclaimed) fills
   const hasPartialFills = orders.some(o => o.pendingShares > 0n && o.active);
 
@@ -416,8 +456,8 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     const toastId = toast.loading('Cancelling order...');
     try {
       const hash = await writeContractAsync({
-        address: contracts.TickBook as `0x${string}`,
-        abi: V8_ABIS.TickBook,
+        address: contracts.TickBookPoolManager as `0x${string}`,
+        abi: V9_ABIS.TickBookPoolManager,
         functionName: 'cancelOrder',
         args: [marketKey, orderId]
       });
@@ -453,8 +493,8 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     const toastId = toast.loading('Claiming fills...');
     try {
       const hash = await writeContractAsync({
-        address: contracts.TickBook as `0x${string}`,
-        abi: V8_ABIS.TickBook,
+        address: contracts.TickBookPoolManager as `0x${string}`,
+        abi: V9_ABIS.TickBookPoolManager,
         functionName: 'claimFills',
         args: [marketKey, orderId]
       });
@@ -509,11 +549,29 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
           {hasPartialFills && (
             <span className="px-2 py-1 text-[9px] bg-amber-500/20 text-amber-400 rounded-full">Has fills to claim</span>
           )}
-          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors">
+          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh Orders">
             <RefreshCw className="w-4 h-4 text-slate-500" />
           </button>
         </div>
       </div>
+
+      {/* Summary Summary Cards integrated into the panel */}
+      {(yesShares !== undefined || noShares !== undefined) && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="py-2 px-3 rounded-xl bg-emerald-950/10 border border-emerald-900/20">
+            <div className="text-[9px] text-emerald-500/80 uppercase font-bold tracking-tight mb-0.5">YES Shares</div>
+            <div className="text-xl font-mono font-bold text-white leading-tight">
+              {parseFloat(formatUnits(yesShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+          </div>
+          <div className="py-2 px-3 rounded-xl bg-rose-950/10 border border-rose-900/20">
+            <div className="text-[9px] text-rose-500/80 uppercase font-bold tracking-tight mb-0.5">NO Shares</div>
+            <div className="text-xl font-mono font-bold text-white leading-tight">
+              {parseFloat(formatUnits(noShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeOrders.length === 0 ? (
         <div className="text-center py-8">
@@ -542,15 +600,18 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 
             const hasFills = totalFills > 0n;
             const orderId = order.orderId.toString();
+            const isFullyFilled = fillPercent >= 100;
 
             return (
               <div
                 key={orderId}
                 className={cn(
                   "relative group overflow-hidden rounded-lg border transition-all",
-                  isBuy
-                    ? "bg-emerald-950/10 border-emerald-900/20 hover:border-emerald-500/30"
-                    : "bg-rose-950/10 border-rose-900/20 hover:border-rose-500/30"
+                  isFullyFilled
+                    ? "bg-slate-900/50 border-slate-800/50 opacity-60" // Grey out 100% filled
+                    : isBuy
+                      ? "bg-emerald-950/10 border-emerald-900/20 hover:border-emerald-500/30"
+                      : "bg-rose-950/10 border-rose-900/20 hover:border-rose-500/30"
                 )}
               >
                 <div className="flex items-center justify-between p-2 pl-3">
@@ -618,15 +679,14 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 
                   {/* Right: Actions */}
                   <div className="flex items-center gap-1.5 ml-4">
-                    <span className="text-[9px] text-slate-600 font-mono hidden md:inline">#{orderId}</span>
-                    {hasFills && (
+                    {order.pendingShares > 0n && (
                       <button
                         onClick={() => handleClaimFills(order.orderId)}
                         disabled={actionInProgress === `claim-${orderId}`}
                         title="Claim Settlements"
                         className={cn(
                           "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
-                          "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                          "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/60 shadow-[0_0_10px_rgba(251,191,36,0.1)] hover:shadow-[0_0_15px_rgba(251,191,36,0.2)]"
                         )}
                       >
                         {actionInProgress === `claim-${orderId}` ? (
@@ -639,24 +699,27 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                         )}
                       </button>
                     )}
-                    <button
-                      onClick={() => handleCancelOrder(order.orderId)}
-                      disabled={actionInProgress === `cancel-${orderId}`}
-                      title="Cancel Order"
-                      className={cn(
-                        "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
-                        "bg-slate-900 text-slate-500 border-slate-800 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/5"
-                      )}
-                    >
-                      {actionInProgress === `cancel-${orderId}` ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <>
-                          <AlertCircle className="w-2.5 h-2.5 opacity-60" />
-                          <span>Cancel</span>
-                        </>
-                      )}
-                    </button>
+                    {fillPercent < 100 && (
+                      <button
+                        onClick={() => handleCancelOrder(order.orderId)}
+                        disabled={actionInProgress === `cancel-${orderId}`}
+                        title="Cancel Order"
+                        className={cn(
+                          "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
+                          "bg-slate-900 text-slate-500 border-slate-800 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/5"
+                        )}
+                      >
+                        {actionInProgress === `cancel-${orderId}` ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <AlertCircle className="w-2.5 h-2.5 opacity-60" />
+                            <span>Cancel</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <span className="text-[9px] text-slate-600 font-mono hidden md:inline">#{orderId}</span>
                   </div>
                 </div>
 
@@ -1329,7 +1392,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V8_ABIS.TickBookVault,
+        abi: V9_ABIS.TickBookVault,
         functionName: 'depositUsdc',
         args: [depositWad]
       });
@@ -1368,7 +1431,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V8_ABIS.TickBookVault,
+        abi: V9_ABIS.TickBookVault,
         functionName: 'withdrawUsdc',
         args: [parseUnits(vaultInput, 18)]
       });
@@ -1399,8 +1462,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     }
   };
 
+  const handleAutoClaim = async () => {
+    const ordersWithPending = userOrders.filter(o => o.pendingShares > 0n);
+    if (ordersWithPending.length === 0) return;
+
+    const toastId = toast.loading(`Auto-claiming ${ordersWithPending.length} order fills...`);
+    try {
+      const orderIds = ordersWithPending.map(o => o.orderId);
+      const hash = await writeContractAsync({
+        address: contracts.TickBookPoolManager as `0x${string}`,
+        abi: V9_ABIS.TickBookPoolManager,
+        functionName: 'batchClaimFills',
+        args: [tickBook?.marketKey as `0x${string}`, orderIds]
+      });
+
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+      invalidateV8Queries();
+      toast.success('Fills auto-claimed!', { id: toastId });
+    } catch (e) {
+      console.error('Auto-claim failed', e);
+      toast.error('Auto-claim failed, but proceeding...', { id: toastId });
+    }
+  };
+
   const handleTrade = async () => {
     if (!amount || !tickBook?.marketKey) return;
+
+    // Auto-claim before trade
+    await handleAutoClaim();
+
     setIsSubmitting(true);
     const amountBg = parseUnits(amount, 18);
 
@@ -1423,8 +1515,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
           const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
           hash = await writeContractAsync({
-            address: contracts.TickBook as `0x${string}`,
-            abi: V8_ABIS.TickBook,
+            address: contracts.TickBookPoolManager as `0x${string}`,
+            abi: V9_ABIS.TickBookPoolManager,
             functionName: 'executeMarketOrder',
             args: [tickBook.marketKey, outcome, amountBg, maxCost]
           });
@@ -1433,8 +1525,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
           const liquidity = amountBg; // TickBookV2 takes total shares across the range
           hash = await writeContractAsync({
-            address: contracts.TickBook as `0x${string}`,
-            abi: V8_ABIS.TickBook,
+            address: contracts.TickBookPoolManager as `0x${string}`,
+            abi: V9_ABIS.TickBookPoolManager,
             functionName: 'placeRangeOrder',
             args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
           });
@@ -1455,28 +1547,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         const hasNoShares = userHolding === 0n;
 
         if (isMarketOrder) {
-          if (hasFullShares) {
-            // SPOT SELL: User has all shares, sell them
-            const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
-            const minProceeds = (estimatedProceeds * 90n) / 100n;
-
-            hash = await writeContractAsync({
-              address: contracts.TickBook as `0x${string}`,
-              abi: V8_ABIS.TickBook,
-              functionName: 'executeSpotSell',
-              args: [tickBook.marketKey, outcome, amountBg, minProceeds]
-            });
-          } else if (hasPartialShares) {
-            // HYBRID SELL: Spot sell owned shares + short sell remainder
-            const estimatedProceeds = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
-            const minProceeds = (estimatedProceeds * 90n) / 100n;
-
-            hash = await writeContractAsync({
-              address: contracts.TickBook as `0x${string}`,
-              abi: V8_ABIS.TickBook,
-              functionName: 'executeHybridSell',
-              args: [tickBook.marketKey, outcome, amountBg, minProceeds]
-            });
+          if (hasFullShares || hasPartialShares) {
+            // V9: Spot sell not yet implemented - use short sell (buy opposite) for now
+            // TODO: Implement proper spot sell when V9 supports it
+            toast.error('Spot sell not supported in V9 - use limit order instead', { id: toastId });
+            setIsSubmitting(false);
+            return;
           } else {
             // SHORT SELL: No shares, buy opposite outcome with USDC
             // "Sell YES" without owning = "Buy NO" → need outcome=0 to get NO tokens
@@ -1486,8 +1562,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const maxCost = (finalCostWad * 110n) / 100n;
 
             hash = await writeContractAsync({
-              address: contracts.TickBook as `0x${string}`,
-              abi: V8_ABIS.TickBook,
+              address: contracts.TickBookPoolManager as `0x${string}`,
+              abi: V9_ABIS.TickBookPoolManager,
               functionName: 'executeMarketOrder',
               args: [tickBook.marketKey, oppositeOutcome, amountBg, maxCost]
             });
@@ -1499,10 +1575,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
           if (hasFullShares) {
             // SPOT SELL LIMIT: Place limit order to sell owned shares
+            // V9: Uses placeRangeOrder - same signature as placeSpotSellOrder
             hash = await writeContractAsync({
-              address: contracts.TickBook as `0x${string}`,
-              abi: V8_ABIS.TickBook,
-              functionName: 'placeSpotSellOrder',
+              address: contracts.TickBookPoolManager as `0x${string}`,
+              abi: V9_ABIS.TickBookPoolManager,
+              functionName: 'placeRangeOrder',
               args: [tickBook.marketKey, outcome, tickLow, tickHigh, amountBg]
             });
           } else if (hasNoShares) {
@@ -1510,8 +1587,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             // This is effectively a limit order to BUY NO (if selling YES)
             const oppositeOutcome = isYes ? 0 : 1;
             hash = await writeContractAsync({
-              address: contracts.TickBook as `0x${string}`,
-              abi: V8_ABIS.TickBook,
+              address: contracts.TickBookPoolManager as `0x${string}`,
+              abi: V9_ABIS.TickBookPoolManager,
               functionName: 'placeRangeOrder',
               args: [tickBook.marketKey, oppositeOutcome, 1000 - tickHigh, 1000 - tickLow, amountBg]
             });
@@ -1567,11 +1644,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           {launchpad && (
             <div className="mb-8 text-left bg-slate-950/50 p-4 rounded-xl border border-slate-800">
               <GraduationProgress
-                feesAccrued={launchpad.feesAccrued ?? 0n}
+                bBase={launchpad.currentBBase ?? 0n}
                 graduationThreshold={launchpad.graduationThreshold ?? 0n}
-                graduationProgress={launchpad.graduationProgress ?? 0}
-                isGraduated={false}
-                canGraduate={launchpad.canGraduate ?? false}
+                isGraduated={launchpad.isGraduated ?? false}
+                feesAccrued={launchpad.feesAccrued ?? 0n}
               />
             </div>
           )}
@@ -1608,14 +1684,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             {/* TickBook Price (Primary) - larger, amber */}
             <div className="text-center p-2 rounded-lg bg-slate-950">
               <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-              <div className="text-xl font-mono font-bold text-amber-400">{tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}</div>
+              <div className="text-xl font-mono font-bold text-amber-400">
+                {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
+                {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
+              </div>
             </div>
             {/* AMM Price (Secondary) - smaller, grey */}
             <div className="text-center p-2 rounded-lg bg-slate-950">
               <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
               <div className="text-base font-mono font-medium text-slate-400">
                 {(ammProb * 100).toFixed(1)}%
-                {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
               </div>
             </div>
             {/* Diff indicator - always show */}
@@ -1641,14 +1719,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           {/* TickBook Price (Primary) - larger, amber */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-            <div className="text-xl font-mono font-bold text-amber-400">{tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}</div>
+            <div className="text-xl font-mono font-bold text-amber-400">
+              {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
+              {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
+            </div>
           </div>
           {/* AMM Price (Secondary) - smaller, grey */}
           <div className="text-center p-2 rounded-lg bg-slate-950">
             <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
             <div className="text-base font-mono font-medium text-slate-500">
               {(ammProb * 100).toFixed(1)}%
-              {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
             </div>
           </div>
           {/* Diff indicator - always show */}
@@ -1772,29 +1852,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           </div>
 
-          {/* Your Positions */}
-          <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">YOUR {isYes ? 'YES' : 'NO'} ORDERS</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/30">
-                <div className="text-[10px] text-emerald-500 uppercase mb-1">YES Shares</div>
-                <div className="text-2xl font-mono font-bold text-white">
-                  {parseFloat(formatUnits(vault?.yesInternal ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-900/30">
-                <div className="text-[10px] text-rose-500 uppercase mb-1">NO Shares</div>
-                <div className="text-2xl font-mono font-bold text-white">
-                  {parseFloat(formatUnits(vault?.noInternal ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Your Orders */}
+          {/* Your Orders & Positions Combined */}
           <UserOrdersPanel
             orders={userOrders}
             marketKey={tickBook?.marketKey as `0x${string}`}
@@ -1803,6 +1861,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             contracts={contracts as any}
             chainId={chainId}
             viewOutcome={isYes ? 'yes' : 'no'}
+            yesShares={vault?.yesInternal}
+            noShares={vault?.noInternal}
           />
         </div>
 
@@ -2033,24 +2093,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     </div>
                   </div>
 
-                  {/* Presets Grid */}
-                  <div className="grid grid-cols-3 gap-2 mb-6">
-                    {(priceMode === 'single'
-                      ? [[25.0], [50.0], [75.0]]
-                      : [[40.0, 60.0], [45.0, 55.0], [48.0, 52.0]]
-                    ).map((p, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          setPriceLow(p[0].toFixed(1));
-                          setPriceHigh((p[1] ?? p[0]).toFixed(1));
-                        }}
-                        className="py-2 text-[10px] font-mono text-slate-500 hover:text-white bg-slate-900/40 border border-slate-800/50 hover:border-slate-700 rounded-lg transition-all"
-                      >
-                        {p.length > 1 ? `${p[0]}—${p[1]}` : p[0]}
-                      </button>
-                    ))}
-                  </div>
+
                 </div>
               )}
 

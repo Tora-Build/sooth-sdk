@@ -855,13 +855,26 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint128 activeLiq = isUp ? state.activeLiquidityNo : state.activeLiquidityYes;
 
         while (remaining > 0) {
-            if (isUp && tick >= MAX_TICK) break;
-            if (!isUp && tick <= MIN_TICK) break;
-
             if (activeLiq == 0) {
-                uint16 nextTick = isUp
-                    ? _bitmaps[marketKey][makerOutcome].findNextUp(tick)
-                    : _bitmaps[marketKey][makerOutcome].findNextDown(tick);
+                uint16 nextTick;
+                if (isUp) {
+                    nextTick = _bitmaps[marketKey][makerOutcome].findNextUp(tick);
+                    
+                    // V9.9.2 FIX: If market is crossed (best maker below current tick), jump back to it
+                    uint16 absoluteLowest = _bitmaps[marketKey][makerOutcome].findNextUp(0);
+                    if (absoluteLowest < tick && absoluteLowest <= MAX_TICK) {
+                        nextTick = absoluteLowest;
+                    }
+                } else {
+                    nextTick = _bitmaps[marketKey][makerOutcome].findNextDown(tick);
+
+                    // V9.9.2 FIX: If market is crossed (best maker above current tick), jump up to it
+                    // Check looking DOWN from above the book
+                    uint16 absoluteHighest = _bitmaps[marketKey][makerOutcome].findNextDown(MAX_TICK + 1);
+                    if (absoluteHighest > tick && absoluteHighest <= MAX_TICK) {
+                        nextTick = absoluteHighest;
+                    }
+                }
 
                 if (isUp && nextTick > MAX_TICK) break;
                 if (!isUp && (nextTick == 0 || nextTick > MAX_TICK)) break;
@@ -869,7 +882,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 tick = nextTick;
                 int128 delta = isUp
                     ? _ticks[marketKey][makerOutcome][tick].liquidityNet
-                    : -_ticks[marketKey][makerOutcome][tick + 1].liquidityNet;
+                    : -_ticks[marketKey][makerOutcome][tick].liquidityNet; // V9.9.2 FIX: Use tick, not tick+1
                 activeLiq = uint128(int128(activeLiq) + delta);
                 emit TickCrossed(marketKey, tick, delta);
                 continue;
@@ -1108,6 +1121,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         newOrder.filledShares += uint128(crossedShares);
         newOrder.collateralUsedWad += uint128(newOrderCost);
 
+        // V9.9.3 FIX: If new order is 100% filled via crossing, remove its tick liquidity
+        // This prevents "phantom liquidity" in the orderbook display
+        if (newOrder.filledShares >= newOrder.sharesTotal) {
+            // Remove tick boundaries for the new order
+            _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
+            // Decrement total liquidity
+            _totalLiquidity[marketKey][newOrder.outcome] -= newOrder.sharesTotal;
+        }
+
         // Update fill growth globals for opposite side
         // Only attribute fills to orders that are actually in the overlap range
         if (oppLiqInOverlap > 0) {
@@ -1168,12 +1190,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint128 activeLiq = outcome == 0 ? s.activeLiquidityNo : s.activeLiquidityYes;
 
         // If there's active liquidity, multiply by the range
+        // V9.9.1 FIX: Cap by total liquidity to prevent phantom growth (>100% fill bugs)
+        uint256 totalLiq = _totalLiquidity[marketKey][outcome];
         if (activeLiq > 0) {
-            return uint256(activeLiq) * (uint256(tickHigh) - uint256(tickLow) + 1);
+            uint256 rangeLiq = uint256(activeLiq) * (uint256(tickHigh) - uint256(tickLow) + 1);
+            return rangeLiq > totalLiq ? totalLiq : rangeLiq;
         }
 
-        // Fallback: use total liquidity (existing behavior for safety)
-        return _totalLiquidity[marketKey][outcome];
+        // Fallback: use total liquidity
+        return totalLiq;
     }
 
     function _calculateCollateral(
