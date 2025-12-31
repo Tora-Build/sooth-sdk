@@ -640,7 +640,7 @@ export const SimpleTradingPanel = ({
           </div>
         )}
 
-        {!isInitStateLoading && isConnected && !canTrade && (
+        {!isInitStateLoading && isConnected && !canTrade && (isWrongSelectedChain || isWrongWalletChain) && (
           <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
@@ -655,27 +655,39 @@ export const SimpleTradingPanel = ({
                   </>
                 ) : null}
               </div>
-              {(isWrongSelectedChain || isWrongWalletChain) && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {isWrongSelectedChain && expectedChainId ? (
-                    <Button
-                      onClick={() => setSelectedChain(expectedChainId)}
-                      className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
-                    >
-                      View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
-                    </Button>
-                  ) : null}
-                  {isWrongWalletChain && expectedChainId ? (
-                    <Button
-                      onClick={() => switchChain?.({ chainId: expectedChainId })}
-                      disabled={isSwitchingChain}
-                      className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
-                    >
-                      {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
-                    </Button>
-                  ) : null}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {isWrongSelectedChain && expectedChainId ? (
+                  <Button
+                    onClick={() => setSelectedChain(expectedChainId)}
+                    className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                  >
+                    View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
+                  </Button>
+                ) : null}
+                {isWrongWalletChain && expectedChainId ? (
+                  <Button
+                    onClick={() => switchChain?.({ chainId: expectedChainId })}
+                    disabled={isSwitchingChain}
+                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                  >
+                    {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isInitStateLoading && isConnected && !canTrade && !isWrongSelectedChain && !isWrongWalletChain && (
+          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+            <AlertCircle size={12} className="shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div>
+                Trading unavailable: {!isMarketCreated ? 'market not found' : 'AMM not yet initialized'}.
+              </div>
+              <div className="text-amber-200/70">
+                The market may still be pending initialization or does not exist at this address.
+              </div>
             </div>
           </div>
         )}
