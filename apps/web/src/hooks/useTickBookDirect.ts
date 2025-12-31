@@ -11,8 +11,7 @@ import { useDirectRead, readContractSafe } from "./useDirectRead";
 export function useTickBookDirect(
   marketAddress: Address | undefined,
   yesTokenInput?: Address,
-  noTokenInput?: Address,
-  hookAddress?: Address
+  noTokenInput?: Address
 ) {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
@@ -63,7 +62,7 @@ export function useTickBookDirect(
           }
         };
 
-        const effectiveHook = (hookAddress || "0x0000000000000000000000000000000000000000") as Address;
+
 
         // 3. Calculate Market Key
         const marketKey = keccak256(encodeAbiParameters(
@@ -85,7 +84,7 @@ export function useTickBookDirect(
             functionName: "getMarketState",
             args: [marketKey],
           }),
-          readContractSafe<readonly [Address, Address, Address, Address, boolean]>(client, {
+          readContractSafe<readonly [Address, Address, Address, boolean]>(client, {
             address: poolManagerAddress!,
             abi: V9_ABIS.TickBookPoolManager,
             functionName: "getMarketInfo",
@@ -106,7 +105,7 @@ export function useTickBookDirect(
             truthMarket,
             yesToken: yesTokenAddr,
             noToken: noTokenAddr,
-            hook: hookAddr,
+            hook: undefined,
             bids: [],
             asks: [],
           };
@@ -123,7 +122,7 @@ export function useTickBookDirect(
           truthMarket,
           yesToken: yesTokenAddr,
           noToken: noTokenAddr,
-          hook: hookAddr,
+          hook: undefined,
           activeLiquidityNo: activeLiqNo,
           activeLiquidityYes: activeLiqYes,
           bids: [],
