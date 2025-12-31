@@ -94,7 +94,7 @@ export function useTickBookDirect(
         ]);
 
         const [tickIndex, activeLiqNo, activeLiqYes, probabilityWad] = marketState;
-        const [truthMarket, yesTokenAddr, noTokenAddr, hookAddr, isActive] = marketInfo;
+        const [truthMarket, yesTokenAddr, noTokenAddr, isActive] = marketInfo;
 
         if (!isActive) {
           console.warn(`[useTickBookDirect] Market ${marketKey} is NOT active in PoolManager`);
