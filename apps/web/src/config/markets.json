@@ -1,15 +1,15 @@
 {
-  "version": "9.9.3",
+  "version": "9.9.561",
   "markets": [
     {
-      "id": "alien-life-base",
+      "id": "alien-base",
       "chainId": 84532,
       "address": "0xa428556d84374a92dde26b87a3cd607ce94af91b",
       "contractAddress": "0xa428556d84374a92dde26b87a3cd607ce94af91b",
       "name": "UN Confirms Alien Life",
       "symbol": "ALIEN",
-      "yesToken": "0x2704609338a96283eeff8d4f4027EBf3eaF8b931",
-      "noToken": "0xBA4cc3C4542F2c5e743d34740080e0AF0316e01A",
+      "yesToken": "0xe163F61Bf1028497F6359186b4753F9E25Df0629",
+      "noToken": "0x231475C46b15B4C61ddd5C7d61d88fA8A131B778",
       "description": "Will the United Nations officially confirm the existence of extraterrestrial life?",
       "category": "science",
       "featured": true,
@@ -18,10 +18,11 @@
         "YES",
         "NO"
       ],
-      "version": "v9"
+      "version": "v9",
+      "isGraduated": false
     },
     {
-      "id": "btc-100k-base",
+      "id": "btc100k-base",
       "chainId": 84532,
       "address": "0x82afbbad7eb0439131588f60487192e1e93bd81d",
       "contractAddress": "0x82afbbad7eb0439131588f60487192e1e93bd81d",
@@ -38,10 +39,10 @@
         "NO"
       ],
       "version": "v9",
-      "isGraduated": false
+      "isGraduated": true
     },
     {
-      "id": "alien-life-monad",
+      "id": "alien-monad",
       "chainId": 10143,
       "address": "0x2bf18f49f45aca269d2d5926930721f45ce3ab82",
       "contractAddress": "0x2bf18f49f45aca269d2d5926930721f45ce3ab82",
@@ -57,10 +58,11 @@
         "YES",
         "NO"
       ],
-      "version": "v9"
+      "version": "v9",
+      "isGraduated": false
     },
     {
-      "id": "btc-100k-monad",
+      "id": "btc100k-monad",
       "chainId": 10143,
       "address": "0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7",
       "contractAddress": "0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7",
@@ -76,7 +78,8 @@
         "YES",
         "NO"
       ],
-      "version": "v9"
+      "version": "v9",
+      "isGraduated": true
     }
   ]
 }

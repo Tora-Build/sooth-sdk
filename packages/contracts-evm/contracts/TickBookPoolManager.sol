@@ -11,7 +11,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title TickBookPoolManager
+ * @title TickBookPoolManager (V9.9.5)
  * @notice Uniswap V4-style singleton manager for all prediction markets
  * @dev Key features:
  *      - Singleton: One contract manages ALL markets (vs per-market contracts)
@@ -20,6 +20,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *      - Permission Encoding: Zero-storage permission checks via address bits
  *
  * Architecture inspired by Uniswap V4 PoolManager
+ *
+ * V9.9.5 Changes:
+ *   - Added `liquidityRemoved` flag for idempotent order cleanup
+ *   - Cap filledShares at sharesTotal to prevent accumulator drift
+ *   - Auto-complete orders when fully filled via claimFills
  */
 contract TickBookPoolManager is ReentrancyGuard, Ownable {
     using TickBitmap for TickBitmap.Bitmap;
@@ -78,6 +83,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower;
         uint16 tickUpper;
         bool active;
+        bool liquidityRemoved;  // Track if tick liquidity has been cleaned up
         uint128 sharesTotal;
         uint128 liquidity;
         uint128 collateralDepositedWad;
@@ -466,6 +472,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             tickLower: tickLower,
             tickUpper: tickUpper,
             active: true,
+            liquidityRemoved: false,
             sharesTotal: uint128(sharesTotal),
             liquidity: uint128(density),
             collateralDepositedWad: uint128(collateral),
@@ -523,14 +530,19 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
 
         _claimInternal(marketKey, orderId);
-        _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
+
+        // V9.9.5: Only remove liquidity if not already removed (idempotent)
+        if (!order.liquidityRemoved) {
+            _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
+            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            order.liquidityRemoved = true;
+        }
         _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
 
         collateralReleased = order.collateralDepositedWad > order.collateralUsedWad
             ? uint256(order.collateralDepositedWad - order.collateralUsedWad)
             : 0;
 
-        _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
         order.active = false;
 
         if (collateralReleased > 0) {
@@ -707,6 +719,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 tickLower: tickLowers[i],
                 tickUpper: tickUppers[i],
                 active: true,
+                liquidityRemoved: false,
                 sharesTotal: uint128(sharesTotals[i]),
                 liquidity: uint128(density),
                 collateralDepositedWad: uint128(collateral),
@@ -809,12 +822,29 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
 
         if (filledShares > 0) {
-            order.filledShares += uint128(filledShares);
-            vault.creditOutcome(m.truthMarket, owner, order.outcome, filledShares);
+            // V9.9.5: Cap filledShares to prevent precision overflow from accumulator math
+            uint256 maxFillable = order.sharesTotal > order.filledShares
+                ? order.sharesTotal - order.filledShares
+                : 0;
+            if (filledShares > maxFillable) {
+                filledShares = maxFillable;
+            }
+            if (filledShares > 0) {
+                order.filledShares += uint128(filledShares);
+                vault.creditOutcome(m.truthMarket, owner, order.outcome, filledShares);
+            }
         }
 
         if (collateralUsedWad > 0) {
             order.collateralUsedWad += uint128(collateralUsedWad);
+        }
+
+        // V9.9.5: Auto-complete order if fully filled (idempotent cleanup)
+        if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
+            _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
+            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            order.liquidityRemoved = true;
+            order.active = false;
         }
 
         // After hook
@@ -1121,13 +1151,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         newOrder.filledShares += uint128(crossedShares);
         newOrder.collateralUsedWad += uint128(newOrderCost);
 
-        // V9.9.3 FIX: If new order is 100% filled via crossing, remove its tick liquidity
-        // This prevents "phantom liquidity" in the orderbook display
-        if (newOrder.filledShares >= newOrder.sharesTotal) {
-            // Remove tick boundaries for the new order
+        // V9.9.5: If new order is 100% filled via crossing, remove its tick liquidity (idempotent)
+        if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
-            // Decrement total liquidity
             _totalLiquidity[marketKey][newOrder.outcome] -= newOrder.sharesTotal;
+            newOrder.liquidityRemoved = true;
         }
 
         // Update fill growth globals for opposite side
