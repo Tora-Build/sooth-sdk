@@ -1,5 +1,42 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-061: Crossed-Market Taker Discovery & Boundary Math Fix (V9.9.2)
+- **Date**: 2025-12-31
+- **Status**: Implemented (Merged)
+- **Context**:
+  - After fixing overlap fill capping (ADR-060), another critical bug was discovered in `_fill` (market execution engine).
+  - **Problem 1 (Discovery)**: If the market price (`currentTick`) was "behind" the best available maker (e.g. price at 1, but best bid at 400), takers in the direction of the maker would find "NoLiquidity" because the search logic only looked "ahead".
+  - **Problem 2 (Math)**: When moving DOWN (Buy NO / Sell YES), the boundary crossing used `tick + 1` instead of `tick`, causing it to miss boundaries and fail to activate liquidity.
+- **Decision**:
+  1. **Best-Price Jump**: Inside `_fill`, if `activeLiq == 0`, look for the absolute lowest ask or highest bid in the book. If these "crossed" the current tick, jump to them immediately before starting the fill walk.
+  2. **Boundary Crossing Alignment**: Fixed the `liquidityNet` lookup for downward moves to use `tick`, ensuring makers are correctly activated when takers enter their range.
+- **Rationale**:
+  - **Market Efficiency**: Takers can now always find makers regardless of price gaps or initialization states.
+  - **Mathematical Correctness**: Aligns downward boundary crossing with the `TickBook` boundary definition.
+- **Consequences**:
+  - **Robustness**: Resolves the persistent `NoLiquidity` reverts in fuzz and settlement tests.
+  - **Breaking Change**: Requires contract redeployment to V9.9.2.
+
+---
+
+## ADR-060: Global Pro-Rata Arithmetic Safety (V9.9.1)
+- **Date**: 2025-12-31
+- **Status**: Implemented (Merged)
+- **Context**:
+  - The V9 TickBook uses a Global Pro-Rata Growth accumulator. In V9.9.0, a bug was identified where `_getOverlappingLiquidity` (the approximation for depth in a range) could over-estimate available liquidity under certain conditions.
+  - **Problem**: Over-estimation caused `_fillGrowthGlobalX128` to inflate beyond 100% of an order's capacity, leading to **Arithmetic Underflow (Revert 0x11)** when attempting to cancel such orders (as `filled > total`).
+- **Decision**:
+  1. **Strict Liquidity Capping**: `_getOverlappingLiquidity` now strictly caps its range estimation by the actual `_totalLiquidity[marketKey][outcome]` in the book.
+  2. **Transparency**: Reverted temporary UI-level capping. The protocol must maintain its invariants without cosmetic masking.
+- **Rationale**:
+  - **Invariants**: Ensures total fills never exceed the mathematical capacity of an order.
+  - **Integrity**: Resolves the root cause of arithmetic panics without compromising the global pro-rata architecture.
+- **Consequences**:
+  - **Bug Fix**: Resolves the "Double Fill" vulnerability.
+  - **Breaking Change**: Requires contract redeployment to V9.9.1.
+
+---
+
 ## ADR-058: _tryCross Sweep Direction & Overlap-Only Fills (V9.9)
 - **Date**: 2025-12-30
 - **Status**: Accepted (Merged via PR #21)

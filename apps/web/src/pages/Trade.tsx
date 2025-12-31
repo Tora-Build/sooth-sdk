@@ -10,11 +10,9 @@ import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features/v8';
 import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
-import { MarketStats } from '../components/features/MarketStats';
-import { LPHolders } from '../components/features/LPHolders';
-import { MarketHeader } from '../components/features/launchpad/MarketHeader';
-import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
+import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
@@ -221,88 +219,18 @@ export const Trade = () => {
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
           {/* Left Column: Trading Panel (60%) */}
           <div className="lg:col-span-6 space-y-4">
-            {/* Market Header Card */}
-            <Card className="p-4">
-              {/* Row 1: Title + Badges */}
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
-                {/* Top Right Badges */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Deadline Badge */}
-                  <div className="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {selectedMarket.deadline ? new Date(selectedMarket.deadline * 1000).toLocaleDateString() : 'Open-end'}
-                  </div>
-                  {/* Status Badge - Graduated or Bonding */}
-                  {launchpad?.isGraduated ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Graduated
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                      Bonding
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* Row 2: Description (full width) */}
-              <p className="text-sm text-slate-400 mt-2">{selectedMarket.description}</p>
-              {/* Row 3: Contract Addresses (full width) */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
-                {/* Market Address */}
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-600">Market:</span>
-                  <span className="font-mono text-slate-500">
-                    {selectedMarket.contractAddress.slice(0, 6)}...{selectedMarket.contractAddress.slice(-4)}
-                  </span>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(selectedMarket.contractAddress)}
-                    className="text-slate-600 hover:text-slate-400 transition-colors"
-                    title="Copy market address"
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                </div>
-                {/* Adjudicator Address */}
-                {truth?.adjudicator && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-600">Adjudicator:</span>
-                    <span className="font-mono text-slate-500">
-                      {truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(truth.adjudicator)}
-                      className="text-slate-600 hover:text-slate-400 transition-colors"
-                      title="Copy adjudicator address"
-                    >
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                {/* Guardian Address */}
-                {truth?.guardian && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-600">Guardian:</span>
-                    <span className="font-mono text-slate-500">
-                      {truth.guardian.slice(0, 6)}...{truth.guardian.slice(-4)}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(truth.guardian)}
-                      className="text-slate-600 hover:text-slate-400 transition-colors"
-                      title="Copy guardian address"
-                    >
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </Card>
+            {/* Premium Market Header */}
+            <MarketDetailHeader
+              name={selectedMarket.name}
+              symbol={selectedMarket.symbol}
+              address={selectedMarket.contractAddress}
+              creator={truth?.creator || '0x0'}
+              deadline={(selectedMarket as any).deadline}
+              isGraduated={launchpad?.isGraduated || false}
+              isExpired={Boolean((selectedMarket as any).deadline && (Date.now() / 1000 > (selectedMarket as any).deadline))}
+              isLive={!truth?.isSettled}
+              onBack={() => navigate('/trade')}
+            />
 
             {/* Trading Panel - wrapped in Card for consistent styling */}
             <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">

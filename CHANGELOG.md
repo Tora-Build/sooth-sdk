@@ -2,6 +2,30 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.9.3] - 2025-12-31
+
+### Fixed
+- **Phantom Liquidity on Crossing Fills** (2025-12-31):
+  - **Problem**: Orders 100% filled via crossing still displayed liquidity in the Liquidity Map.
+  - **Root Cause**: `_tryCross` credited fills but didn't remove tick boundaries or decrement `_totalLiquidity`.
+  - **Solution**: Added tick boundary cleanup in `_tryCross` when `filledShares >= sharesTotal`.
+
+## [9.9.2] - 2025-12-31
+
+### Fixed
+- **TickBook: Best-Price Discovery & Boundary Math** (2025-12-31):
+  - **Best-Price Jump**: Inside `_fill`, market orders now correctly jump to the best available makers if they are "behind" the current market tick (crossed liquidity). Ensures market orders never fail with `NoLiquidity` if makers exist.
+  - **Directional Math**: Fixed boundary crossing logic for downward moves to correctly identify maker range entries.
+- **Test Integrity**: Resolved `NoLiquidity` reverts in Fuzz and Settlement test suites.
+
+## [9.9.1] - 2025-12-31
+
+### Fixed
+- **Liquidity Capping: Arithmetic Underflow / Double Fill Fix** (2025-12-31):
+  - **Problem**: `_fillGrowthGlobalX128` could exceed 100% fill if range liquidity was over-estimated.
+  - **Solution**: `_getOverlappingLiquidity` now caps its depth approximation by the actual `_totalLiquidity` in the book. Prevents arithmetic panics on order cancellation.
+  - **UI Transparency**: Reverted UI safety capping to ensure raw protocol status is always visible for debugging.
+
 ## [9.9.0] - 2025-12-30
 
 ### Fixed

@@ -1,46 +1,60 @@
-[
-  {
-    "chain": "monadTestnet",
-    "chainId": 10143,
-    "timestamp": "2025-12-30T11:25:12.468Z",
-    "config": {
-      "chainName": "monadTestnet",
-      "numWallets": 3,
-      "totalTrades": 5,
-      "maxParallel": 1,
-      "usdcPerWallet": "10000000000000000000000",
-      "tradeSize": "100000000000000000000",
-      "liquidityPerTick": "1000000000000000000000"
+{
+  "chain": "baseSepolia",
+  "timestamp": "2025-12-30T18:34:29.106Z",
+  "results": [
+    {
+      "operation": "placeRangeOrder #1 [400-450]",
+      "latencyMs": 3491,
+      "gasUsed": "0",
+      "success": false
     },
-    "setup": {
-      "walletsCreated": 3,
-      "walletsFunded": 3,
-      "liquidityAdded": true,
-      "marketKey": "0xb3608a398e4361a5d7f75cdf536277a5c48968c0d635eee4ef1e478aecfc2ed8"
+    {
+      "operation": "placeRangeOrder #2 [420-470]",
+      "latencyMs": 3412,
+      "gasUsed": "0",
+      "success": false
     },
-    "trades": {
-      "total": 5,
-      "successful": 0,
-      "failed": 5,
-      "successRate": 0
+    {
+      "operation": "placeRangeOrder #3 [440-490]",
+      "latencyMs": 3414,
+      "gasUsed": "0",
+      "success": false
     },
-    "latency": {
-      "min": 0,
-      "max": 0,
-      "avg": 0,
-      "p50": 0,
-      "p95": 0,
-      "p99": 0
+    {
+      "operation": "placeRangeOrder #4 [460-510]",
+      "latencyMs": 3423,
+      "gasUsed": "0",
+      "success": false
     },
-    "throughput": {
-      "totalTimeMs": 1228,
-      "tps": 0
+    {
+      "operation": "placeRangeOrder #5 [480-530]",
+      "latencyMs": 3433,
+      "gasUsed": "0",
+      "success": false
     },
-    "gas": {
-      "min": "0",
-      "max": "0",
-      "avg": "0",
-      "total": "0"
+    {
+      "operation": "executeMarketOrder BUY #1",
+      "latencyMs": 3400,
+      "gasUsed": "0",
+      "success": false
+    },
+    {
+      "operation": "executeMarketOrder BUY #2",
+      "latencyMs": 3511,
+      "gasUsed": "0",
+      "success": false
+    },
+    {
+      "operation": "executeMarketOrder BUY #3",
+      "latencyMs": 3423,
+      "gasUsed": "0",
+      "success": false
     }
+  ],
+  "summary": {
+    "totalOps": 8,
+    "successfulOps": 0,
+    "avgLatencyMs": 0,
+    "avgGas": "0"
   }
-]
+}

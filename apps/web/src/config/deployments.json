@@ -1,17 +1,17 @@
 {
-  "version": "9.9.0",
+  "version": "9.9.3",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0xee08d25a466e54c97417dcc721baee82b145ab99",
-        "Collateralizer": "0xed402829b2582211374d17a00082aceecd47e420",
-        "AMMEngine": "0xbfe2ece93b9a0afe2574923d63999aea83a320f4",
-        "TickBookVault": "0xfe72a031afafc33281a62ad8a765665ccd69042b",
-        "TickBookPoolManager": "0x8cdaddec24919ab31bdb64b97a3d1e58c921a272",
-        "TickBook": "0x8cdaddec24919ab31bdb64b97a3d1e58c921a272",
-        "DynamicFeeHook": "0xdbf40370e87a043ad267d46475722389738bf1f9",
-        "LaunchpadEngine": "0xbe602ee838c1ecb959c1582fab8e65fc4ccb809a"
+        "MockUSDC": "0x0c31bbb6da82ba97fbafbe3425ee8757a4d724e3",
+        "Collateralizer": "0x38e517f3c4038c4d0a82366c20fccd866e1b425e",
+        "AMMEngine": "0x5585b0cd8e4bef7c8593feee5bf70d58cf0e6e95",
+        "TickBookVault": "0xa9635bed172fdd0cb83320e29b245522d059fad4",
+        "TickBookPoolManager": "0xe83e595cedc510a20c348d70fc2d1db093c6a924",
+        "TickBook": "0xe83e595cedc510a20c348d70fc2d1db093c6a924",
+        "DynamicFeeHook": "0x40c7abc1631858363140eb2337fc65d29fa39f30",
+        "LaunchpadEngine": "0x50ca13818849f268589511a809564ede77c453f6"
       }
     },
     "monadTestnet": {

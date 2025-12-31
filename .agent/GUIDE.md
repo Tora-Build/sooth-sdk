@@ -72,6 +72,14 @@ Quick reference for when to use which workflow or rule.
 
 ---
 
+## 🛠️ Development Standards
+
+- **No UI Masking**: Never patch the UI to hide or "clean up" underlying protocol/math errors (e.g., capping a >100% fill). Masking makes root causes harder to find.
+- **Contract Integrity**: Before patching contracts, verify changes don't conflict with recent architectural decisions (e.g., V9.9 sweep matching) or the core design (e.g., Global Pro-Rata distribution).
+- **Proactive Root Cause Analysis**: If you see an anomaly (like a >100% fill), find the leak in the engine before applying "band-aid" caps in code.
+
+---
+
 ## 💡 Tips
 
 - **Global rules** = automatic, always enforced

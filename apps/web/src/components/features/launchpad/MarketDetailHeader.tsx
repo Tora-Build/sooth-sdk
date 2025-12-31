@@ -1,10 +1,10 @@
-// MarketHeader.tsx - Header component for Launchpad market detail page
+// MarketDetailHeader.tsx - Header component for Launchpad market detail page
 
 import React, { useState } from 'react';
 import { ArrowLeft, Copy, Check, ExternalLink, Clock, Rocket, Trophy, AlertTriangle } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 
-interface MarketHeaderProps {
+interface MarketDetailHeaderProps {
     name: string;
     symbol?: string;
     address: string;
@@ -16,7 +16,7 @@ interface MarketHeaderProps {
     onBack: () => void;
 }
 
-export const MarketHeader: React.FC<MarketHeaderProps> = ({
+export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
     name,
     symbol,
     address,

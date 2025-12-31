@@ -775,4 +775,44 @@
   .ladder-action {
     @apply opacity-0 transition-opacity;
   }
+
+  /* ============================================
+   * LiquidityMap Animations (Pro Terminal)
+   * ============================================ */
+  
+  /* Slide in from bottom with fade */
+  @keyframes slideInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(8px) scaleY(0.4);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scaleY(1);
+    }
+  }
+
+  /* Glow pulse for highlighted blocks */
+  @keyframes glowPulse {
+    0%, 100% {
+      box-shadow: 0 0 4px currentColor;
+    }
+    50% {
+      box-shadow: 0 0 12px currentColor, 0 0 20px currentColor;
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glowPulse 1.5s ease-in-out infinite;
+  }
+
+  /* Liquidity block hover lift */
+  .liq-block {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .liq-block:hover {
+    transform: scaleY(1.1) scaleX(1.05);
+    z-index: 10;
+  }
 }
