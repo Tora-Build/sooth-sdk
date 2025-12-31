@@ -585,8 +585,9 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const priceRange = order.tickLower === order.tickUpper
               ? `${(order.tickLower / 10).toFixed(1)}%`
               : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
-            // Total fills = claimed + pending
-            const totalFills = order.filledShares + order.pendingShares;
+            // Total fills = claimed + pending (capped at sharesTotal to avoid display issues)
+            const rawTotalFills = order.filledShares + order.pendingShares;
+            const totalFills = rawTotalFills > order.sharesTotal ? order.sharesTotal : rawTotalFills;
             const fillPercentRaw = order.sharesTotal > 0n
               ? (Number(totalFills * 10000n / order.sharesTotal) / 100)
               : 0;

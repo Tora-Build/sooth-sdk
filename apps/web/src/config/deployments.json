@@ -1,17 +1,17 @@
 {
-  "version": "9.9.4",
+  "version": "9.9.561",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x0c31bbb6da82ba97fbafbe3425ee8757a4d724e3",
-        "Collateralizer": "0x74d8bc2b56ad7c1a0bb88284571bd1a04ead5d93",
-        "AMMEngine": "0x5a15db50c583634516ff7a865f39fdb0b81baadf",
-        "TickBookVault": "0xceeba05cca2685788984140a47e72ee2d841a4f6",
-        "TickBookPoolManager": "0xbc0e25537871f6f0e13d130a3e23278c8b85228d",
-        "TickBook": "0xbc0e25537871f6f0e13d130a3e23278c8b85228d",
-        "DynamicFeeHook": "0x0000000000000000000000000000000000000000",
-        "LaunchpadEngine": "0x7a886fc43508a37f7f5467ac7460f72c578da19b"
+        "Collateralizer": "0x38e517f3c4038c4d0a82366c20fccd866e1b425e",
+        "AMMEngine": "0x5585b0cd8e4bef7c8593feee5bf70d58cf0e6e95",
+        "TickBookVault": "0xa9635bed172fdd0cb83320e29b245522d059fad4",
+        "TickBookPoolManager": "0xe83e595cedc510a20c348d70fc2d1db093c6a924",
+        "TickBook": "0xe83e595cedc510a20c348d70fc2d1db093c6a924",
+        "DynamicFeeHook": "0x40c7abc1631858363140eb2337fc65d29fa39f30",
+        "LaunchpadEngine": "0x50ca13818849f268589511a809564ede77c453f6"
       }
     },
     "monadTestnet": {
@@ -23,7 +23,6 @@
         "TickBookVault": "0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7",
         "TickBookPoolManager": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
         "TickBook": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
-        "DynamicFeeHook": "0xe1c21c0e6d8ff5d7a97b94c718990858a7f62d4a",
         "LaunchpadEngine": "0xfc439a4bd763900cc544154e74258721f4a2bbbb"
       }
     }
