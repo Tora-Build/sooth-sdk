@@ -510,14 +510,10 @@ export const SimpleTradingPanel = ({
       // 2. Contract automatically checks availableProceeds in AMMEngine
       // 3. Contract pulls ONLY needed remainder from wallet
       // 4. No need for manual 'depositAndTradeAMM'
-      // Dynamic gas estimation:
+      // Dynamic gas estimation based on this trade's graduation impact:
       // - Normal trades: 600k gas
-      // - Near-graduation buys (>50% progress): 2M gas to cover graduation deployment
-      //   Graduation deploys 2 ERC20 outcome tokens (~500k each) + TickBook registration
-      //   Note: Use 50% threshold (not 80%) because large trades can push from <80% to 100%
-      //   in a single transaction, causing OOG if gas limit wasn't increased
-      const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
-      const gasLimit = isNearGraduation ? 5000000n : 600000n;
+      // - Trades predicted to trigger graduation: 1.5x gas to cover token deploy + TickBook registration
+      const gasLimit = quote.willGraduate ? 900000n : 600000n;
 
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,

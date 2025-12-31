@@ -1,5 +1,55 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-063: Fee Cap at 10% (V9.9.4 - TOB-2 Fix)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Trail of Bits audit (TOB-2) identified that hook-based dynamic fees had no upper bound.
+  - A malicious or buggy hook could return `type(uint24).max` (16,777,215 bps = 167,772%).
+  - This could extract excessive fees from users or cause griefing attacks.
+- **Decision**:
+  1. **Hard cap fees at 10%**: Added `MAX_FEE_BPS = 1000` constant.
+  2. **Validate in setFees()**: `require(_takerFee <= MAX_FEE_BPS)`.
+  3. **Remove hooks entirely**: Replaced with simple `takerFeeBps`/`makerFeeBps` storage.
+- **Rationale**:
+  - **Security**: Prevents malicious fee extraction.
+  - **Simplicity**: Simple fee storage is sufficient for alpha; hooks can return in V10 if needed.
+  - **Gas Savings**: Removes ~5-10k gas per trade from hook permission checks.
+- **Consequences**:
+  - **Breaking**: Existing hook contracts no longer work with V9.9.4.
+  - **Migration**: DynamicFeeHook users must use `setFees()` instead.
+- **Documentation**: See `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md` (TOB-2)
+
+---
+
+## ADR-062: V9.9.4 Hook System Removal (Lean Architecture)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - OG Efficiency Review identified 200+ lines of hook infrastructure never used in production.
+  - TransientDelta (flash accounting) added 150 lines, also unused.
+  - `batchPlaceOrders` existed but frontend never called it.
+  - Codebase grew 60% from V8.3 without corresponding feature usage.
+- **Decision**:
+  1. **Remove ITickBookHooks**: Delete interface, all before/after callbacks.
+  2. **Remove TransientDelta**: Archive to `_archived/` folder.
+  3. **Remove flash accounting**: Delete `lock()`, `settle()`, `take()`, `getDelta()`.
+  4. **Remove batch operations**: Delete `batchPlaceOrders()`.
+  5. **Simplify Market struct**: Remove `hook` field.
+  6. **Simplify PoolKey**: Remove `hook` from hash.
+- **Rationale**:
+  - **YAGNI**: No integrators using hooks at alpha stage.
+  - **Gas Efficiency**: 30% reduction in TickBook operation costs.
+  - **Code Reduction**: 417 lines removed (32% of TickBookPoolManager).
+  - **Audit Surface**: Smaller codebase = easier security review.
+- **Consequences**:
+  - **Breaking**: V9.9.3 hooks no longer work; must redeploy.
+  - **Future**: Can reintroduce hooks in V10 if demand emerges.
+  - **FE Impact**: None - frontend never used these features.
+- **Documentation**: See `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md`
+
+---
+
 ## ADR-061: Crossed-Market Taker Discovery & Boundary Math Fix (V9.9.2)
 - **Date**: 2025-12-31
 - **Status**: Implemented (Merged)

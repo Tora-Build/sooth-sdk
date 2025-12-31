@@ -1,59 +1,38 @@
 # Project Status
 
-> Last Updated: 2025-12-31 (V9.9.3 Deployed - Phantom Liquidity Fix)
+> Last Updated: 2025-12-31 (V9.9.4 Deployment Complete)
 
-- **✅ V9.9.3 DEPLOYED** — Fixed phantom liquidity for crossing fills
-- **✅ FE CONFIG SYNCED** — `deployments.json` and `markets.json` updated  
-- **✅ ALL 119 TESTS PASSING** — Fuzz and settlement tests verified
-- **⚠️ MONAD PAUSED** — RPC instability; focus on Base Sepolia
+- **✅ V9.9.4 DEPLOYED** — Audit remediation deployed to Base Sepolia
+- **✅ FE SYNCED** — ABIs and deployments.json updated for V9.9.4
+- **✅ SECURITY AUDITS** — All Trail of Bits and OG Efficiency findings addressed
 
-## 🆕 V9.9.3 Session Summary
+## 🆕 V9.9.4 Deployment Summary
 
-### Base Sepolia Contract Addresses (V9.9.3)
-
+### Core Contracts (Base Sepolia)
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xe83e595cedc510a20c348d70fc2d1db093c6a924` |
-| **LaunchpadEngine** | `0x50ca13818849f268589511a809564ede77c453f6` |
-| **Collateralizer** | `0x38e517f3c4038c4d0a82366c20fccd866e1b425e` |
-| **AMMEngine** | `0x5585b0cd8e4bef7c8593feee5bf70d58cf0e6e95` |
-| **TickBookVault** | `0xa9635bed172fdd0cb83320e29b245522d059fad4` |
-| **DynamicFeeHook** | `0x40c7abc1631858363140eb2337fc65d29fa39f30` |
+| **LaunchpadEngine** | `0x7a886fc43508a37f7f5467ac7460f72c578da19b` |
+| **TickBookPoolManager** | `0xbc0e25537871f6f0e13d130a3e23278c8b85228d` |
+| **AMMEngine** | `0x5a15db50c583634516ff7a865f39fdb0b81baadf` |
+| **Collateralizer** | `0x74d8bc2b56ad7c1a0bb88284571bd1a04ead5d93` |
+| **TickBookVault** | `0xceeba05cca2685788984140a47e72ee2d841a4f6` |
 | **MockUSDC** | `0x0c31bbb6da82ba97fbafbe3425ee8757a4d724e3` |
 
-### Base Sepolia Markets
-- **BTC TWAP >= $100k**: `0x82afbbad7eb0439131588f60487192e1e93bd81d` (🎓 GRADUATED)
-- **UN Confirms Alien Life**: `0xa428556d84374a92dde26b87a3cd607ce94af91b` (📈 PRE-GRAD)
-
----
-
-## Frontend Bug Fixes (This Session)
-
-### Issue 2: Claim Button Persistence ✅
-
-**Fix**: Added `pendingShares` as separate field in `RangeOrder` interface.
-
-| File | Change |
-|------|--------|
-| `useUserOrdersDirect.ts` | Added `pendingShares` field, kept separate from `filledShares` |
-| `Pro.tsx` | Updated `hasPartialFills` to check `pendingShares > 0` |
-| `Pro.tsx` | Updated fill display to use `totalFills = filledShares + pendingShares` |
-
-### Remaining Issues (from V9.9-MATCHING-FIX.md)
-
-| Issue | Severity | Status |
-|-------|----------|--------|
-| Cancel Button Persistence | Low | 📋 Pending |
-| No Autoclaim | Medium | 📋 Pending |
+### Security Fixes Applied
+- **TOB-1 (HIGH)**: Fixed pro-rata fill attribution overflow.
+- **TOB-2 (HIGH)**: Hard-capped fees at 10% and removed hook system.
+- **Efficiency**: Removed 417 lines of unused hook/flash accounting code.
 
 ---
 
 ## Pending Work
 
-- [ ] **Retry Monad Deployment** — When RPC stabilizes
-- [ ] **Implement Autoclaim** — Call `batchClaimFills` before new orders
-- [ ] **Fix Cancel Button** — Optimistic update after cancellation
+### High Priority
+- [ ] **Verify Markets** — Creators need to recreate markets on the new engine.
+- [ ] **Monitor Monad** — Deploy V9.9.4 to Monad when RPC stabilizes.
 
----
+### Medium Priority
+- [ ] **Implement Autoclaim** — Call `batchClaimFills` before new orders.
+- [ ] **Optimistic Cancel** — Fix UI button persistence.
 
-*Last updated: 2025-12-31 00:00*
+*Last updated: 2025-12-31*

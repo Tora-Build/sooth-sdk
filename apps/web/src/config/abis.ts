@@ -15,13 +15,13 @@ import ITickBookHooksABI from "./abis/ITickBookHooks.json";
 
 // Contract ABIs - unified export
 export const ABIS = {
-  LaunchpadEngine: LaunchpadEngineABI as Abi,
-  Collateralizer: CollateralizerABI as Abi,
-  AMMEngine: AMMEngineABI as Abi,
-  TickBook: TickBookABI as Abi,
-  TickBookVault: TickBookVaultABI as Abi,
-  TruthMarket: TruthMarketABI as Abi,
-  OutcomeToken: OutcomeTokenABI as Abi,
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TickBook: (TickBookABI as any).abi as Abi,
+  TickBookVault: (TickBookVaultABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
   // TickBook singleton (pool manager architecture)
   TickBookPoolManager: (TickBookPoolManagerABI as any).abi as Abi,
   TickBookVaultPoolManager: (TickBookVaultPoolManagerABI as any).abi as Abi,
@@ -31,13 +31,13 @@ export const ABIS = {
 
 // Legacy aliases for backward compatibility
 export const V8_ABIS = {
-  LaunchpadEngine: LaunchpadEngineABI as Abi,
-  Collateralizer: CollateralizerABI as Abi,
-  AMMEngine: AMMEngineABI as Abi,
-  TickBook: TickBookABI as Abi,
-  TickBookVault: TickBookVaultABI as Abi,
-  TruthMarket: TruthMarketABI as Abi,
-  OutcomeToken: OutcomeTokenABI as Abi,
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TickBook: (TickBookABI as any).abi as Abi,
+  TickBookVault: (TickBookVaultABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
 };
 
 export const V9_ABIS = {
@@ -46,11 +46,11 @@ export const V9_ABIS = {
   DynamicFeeHook: (DynamicFeeHookABI as any).abi as Abi,
   ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
   // Re-export unchanged contracts
-  LaunchpadEngine: LaunchpadEngineABI as Abi,
-  Collateralizer: CollateralizerABI as Abi,
-  AMMEngine: AMMEngineABI as Abi,
-  TruthMarket: TruthMarketABI as Abi,
-  OutcomeToken: OutcomeTokenABI as Abi,
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
 };
 
 // Legacy V7 ABIs (parseAbi format)

@@ -268,17 +268,5 @@ interface IAMMEngine {
      */
     function settlePosition(address market) external returns (uint256 payout);
 
-    /**
-     * @notice Apply retroactive settlement (T*)
-     * @dev Only callable by authorized adjudicator
-     * @param market Market address
-     * @param user User address
-     * @param proof Merkle proof for T* adjustment
-     * @return refund USDC refund amount
-     */
-    function applyRetroSettlement(
-        address market,
-        address user,
-        bytes calldata proof
-    ) external returns (uint256 refund);
+    // V9.9.4: applyRetroSettlement removed - T* not implemented
 }
