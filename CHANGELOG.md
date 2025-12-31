@@ -2,6 +2,39 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.9.4] - 2025-12-31
+
+### Security Fixes
+- **TOB-1 (HIGH)**: Fixed pro-rata fill attribution overflow in `_tryCross()`. Changed denominator from `oppTotalLiq` to `oppLiqInOverlap` to prevent >100% fill distribution.
+- **TOB-2 (HIGH)**: Added `MAX_FEE_BPS = 1000` (10% cap) to prevent malicious fee extraction via hooks.
+
+### Removed
+- **Hook System**: Removed `ITickBookHooks.sol` and all hook callbacks. Replaced with simple `takerFeeBps`/`makerFeeBps` storage variables.
+- **Flash Accounting**: Removed `TransientDelta.sol`, `lock()`, `settle()`, `take()` functions.
+- **Batch Operations**: Removed `batchPlaceOrders()` - never used by frontend.
+- **T* Settlement**: Removed `applyRetroSettlement()` from AMMEngine - was always reverting.
+
+### Added
+- **TickBookPoolManagerV994.sol**: New lean contract (884 lines vs 1301 original, 32% reduction).
+- **setFees()**: Owner function to set taker/maker fees with 10% cap.
+- **Audit Documentation**:
+  - `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md` - Security audit (15 findings)
+  - `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md` - Efficiency review
+  - `audit/AUDIT_RESPONSE_V9.9.4.md` - Comprehensive response
+  - `audit/IMPLEMENTATION_PLAN_V9.9.4.md` - Implementation details
+  - `audit/AUDIT_PROMPTS_V9.9.3.md` - Reproducible audit prompts
+
+### Changed
+- **Pool Key Hash**: No longer includes hook address (simplified Market struct).
+- **ARCHITECTURE.md**: Updated to V9.9.4 with audit references.
+- **Test Count**: 106 tests (was 119, reduced due to hook test removal).
+
+### Archived
+- `contracts/interfaces/_archived/ITickBookHooks.sol`
+- `contracts/libraries/_archived/TransientDelta.sol`
+
+---
+
 ## [9.9.3] - 2025-12-31
 
 ### Fixed

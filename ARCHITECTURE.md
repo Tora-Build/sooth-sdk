@@ -1,8 +1,25 @@
 # Sooth Protocol Architecture
 
-**Version:** 9.9.0  
+**Version:** 9.9.4  
 **Status:** Alpha (Testnet Deployments)  
-**Last Updated:** 2025-12-30
+**Last Updated:** 2025-12-31
+
+---
+
+## V9.9.4 Changes (Audit Remediation)
+
+V9.9.4 is a **lean release** following security and efficiency audits:
+
+| Change | Impact |
+|--------|--------|
+| Hook system removed | -200 lines, simpler fees via `takerFeeBps`/`makerFeeBps` |
+| Flash accounting removed | -50 lines, no EIP-1153 dependency |
+| `batchPlaceOrders` removed | -50 lines, unused |
+| `applyRetroSettlement` removed | T* not implemented |
+| TOB-1 fix | Pro-rata attribution uses `oppLiqInOverlap` |
+| TOB-2 fix | Fees capped at `MAX_FEE_BPS = 1000` (10%) |
+
+**Contract**: `TickBookPoolManagerV994.sol` (884 lines vs 1301 original)
 
 ---
 
@@ -55,12 +72,12 @@ The protocol uses a **Launchpad model** for market creation, where creators prov
 │   │                               │ • Adjudicator-based resolution  │   │   │
 │   │   ┌─────────────────┐         │ • tStar (retroactive truth)     │   │   │
 │   │   │TickBookPoolMgr  │         └─────────────────────────────────┘   │   │
-│   │   │  (Singleton)    │         ┌─────────────────────────────────┐   │   │
-│   │   └────────┬────────┘         │ V9 Orderbook Singleton          │   │   │
+│   │   │  V994 (Lean)    │         ┌─────────────────────────────────┐   │   │
+│   │   └────────┬────────┘         │ V9.9.4 Orderbook Singleton      │   │   │
 │   │            │                  │ • Range order placement (O(1))  │   │   │
 │   │   ┌────────▼────────┐         │ • Market order execution        │   │   │
 │   │   │  TickBookVault  │         │ • Cross matching (sweep fills)  │   │   │
-│   │   │  (USDC Custody) │         │ • Hook system (DynamicFeeHook)  │   │   │
+│   │   │  (USDC Custody) │         │ • Simple fees (no hooks)        │   │   │
 │   │   └─────────────────┘         └─────────────────────────────────┘   │   │
 │   │                                                                      │   │
 │   │   ┌─────────────────┐         ┌─────────────────────────────────┐   │   │
@@ -112,13 +129,16 @@ sooth-alpha/
 │       │   ├── LaunchpadEngine.sol   # Creator economics router
 │       │   ├── AMMEngine.sol         # LMSR trading logic
 │       │   ├── TruthMarket.sol       # Lifecycle & settlement
-│       │   ├── TickBookPoolManager.sol # Orderbook singleton
+│       │   ├── TickBookPoolManagerV994.sol # V9.9.4 Lean orderbook
+│       │   ├── TickBookPoolManager.sol     # Legacy (V9.9.3, backup)
 │       │   ├── TickBookVault.sol     # Orderbook USDC custody
 │       │   ├── Collateralizer.sol    # Token split/merge/redeem
 │       │   ├── OutcomeToken.sol      # ERC20 YES/NO tokens
 │       │   ├── interfaces/           # Contract interfaces
+│       │   │   └── _archived/        # Removed interfaces (ITickBookHooks)
 │       │   ├── libraries/            # Math libraries (LMSR, Tick, Bitmap)
-│       │   └── hooks/                # TickBook hook contracts
+│       │   │   └── _archived/        # Removed libraries (TransientDelta)
+│       │   └── hooks/                # Hook contracts (deprecated in V9.9.4)
 │       ├── script/                   # Deployment scripts (Foundry)
 │       ├── test/                     # Test suites (92+ tests)
 │       └── docs/                     # Contract documentation
@@ -203,25 +223,35 @@ winningOutcome()               // 0=YES, 1=NO, 2=INVALID
 tStar                          // Retroactive truth timestamp
 ```
 
-### 4. TickBookPoolManager (V9 Singleton)
+### 4. TickBookPoolManagerV994 (V9.9.4 Lean Singleton)
 **Purpose:** Concentrated liquidity orderbook for professional trading
 
 ```solidity
 // Key Functions
 placeRangeOrder(marketKey, outcome, tickLower, tickUpper, shares)
 cancelOrder(marketKey, orderId)
-fill(marketKey, outcome, maxShares, limitTick)  // Market order
-claimFills(marketKey, orderId)                   // Claim crossed fills
+executeMarketOrder(marketKey, outcome, shares, maxCost)  // Market order
+claimFills(marketKey, orderId)                           // Claim crossed fills
 getPendingFills(marketKey, orderId) → (pendingShares, pendingCollateral)
 
-// Architecture
+// V9.9.4 Architecture
 - Singleton pattern (one contract per chain)
 - Uniswap V3-style range positions (boundary storage)
 - Pro-rata fill attribution via growth accumulators
-- Hook system (DynamicFeeHook for fees)
+- Simple fee storage: takerFeeBps, makerFeeBps (no hooks)
+- MAX_FEE_BPS = 1000 (10% cap)
+
+// Admin Functions
+setFees(takerFee, makerFee)  // Owner only, capped at 10%
 ```
 
-**V9.9 Matching Mechanics:**
+**V9.9.4 Changes (Audit Remediation):**
+- ✅ TOB-1 fix: Pro-rata uses `oppLiqInOverlap` denominator
+- ✅ TOB-2 fix: Fees capped at 10%
+- ✅ Removed: Hook system, flash accounting, batchPlaceOrders
+- 📉 Code reduction: 1301 → 884 lines (32%)
+
+**Matching Mechanics:**
 - SELL orders sweep LOW→HIGH (worst to best ask)
 - BUY orders sweep HIGH→LOW (worst to best bid)
 - Overlap-only fills (no >100% fill bug)
@@ -258,12 +288,12 @@ redeem(market, outcome, amount)          // Winner → USDC (post-settlement)
 
 ### 7. Libraries
 
-| Library | Purpose |
-|---------|---------|
-| **LMSRMath.sol** | LMSR price/cost calculations (log-sum-exp) |
-| **TickMath.sol** | Tick ↔ Price conversions (1-999 ticks = 0.1%-99.9%) |
-| **TickBitmap.sol** | Efficient tick discovery (findNextUp/findNextDown) |
-| **TransientDelta.sol** | EIP-1153 transient storage for atomic ops |
+| Library | Purpose | Status |
+|---------|---------|--------|
+| **LMSRMath.sol** | LMSR price/cost calculations (log-sum-exp) | Active |
+| **TickMath.sol** | Tick ↔ Price conversions (1-999 ticks = 0.1%-99.9%) | Active |
+| **TickBitmap.sol** | Efficient tick discovery (findNextUp/findNextDown) | Active |
+| **TransientDelta.sol** | EIP-1153 transient storage for atomic ops | ⚠️ Archived (V9.9.4) |
 
 ---
 
@@ -329,6 +359,104 @@ redeem(market, outcome, amount)          // Winner → USDC (post-settlement)
 │ Maker claims via: claimFills(orderId) or getPendingFills() view        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Fee Collection & Distribution (Delegate Session)
+
+This section is a delegate-focused overview of who earns what from fees, in which phase, and how those flows are implemented on-chain.
+
+### Actors
+
+| Actor                | Role                                                                          |
+|----------------------|-------------------------------------------------------------------------------|
+| **Creator**          | Seeds initial liquidity via `bBase × ln(2)` and receives initial LP tokens   |
+| **Gaming Traders**   | Retail users trading via `LaunchpadEngine → AMMEngine`, earn LP pre-grad     |
+| **LP Token Holders** | Hold LP tokens and redeem against the Honest Floor (and LP yield post-grad)  |
+| **Protocol Treasury**| Receives a portion of post-graduation fees                                   |
+
+### Fee Phases & Splits
+
+#### 1. Pre-Graduation (Bonding Phase)
+
+- **Default fee:** `preGradFeeBps = 500` (5%).
+- **Applied on both buys and sells** (Launchpad’s wrapper around AMM quotes).
+- **Distribution:**
+
+| Portion            | Recipient                 | Notes                                                                   |
+|--------------------|---------------------------|-------------------------------------------------------------------------|
+| 100% of fee (WAD)  | Gaming trader (as LP)     | Minted 1:1 in `lpBalances[market][trader]` and added to `totalLPSupply` |
+| 100% of fee (WAD)  | Market depth (`bCurrent`)| Scaled by `LN2_INV_WAD` then mirrored into AMM via `increaseLiquidity`  |
+
+Effectively, every fee dollar in the bonding phase both **deepens the AMM** and **turns active traders into LPs**.
+
+#### 2. Post-Graduation (Mature Phase)
+
+Once `feesAccrued` crosses the graduation threshold
+
+```text
+feesAccrued (USDC) ≥ bBase × ln(2) × graduationMultiplier
+```
+
+the market flips `isGraduated = true` and future fees use the post-grad split:
+
+- **Default fee:** `postGradFeeBps = 100` (1%).
+- **Configurable shares:** `bBaseShareBps`, `lpYieldShareBps`, `protocolShareBps` (sum = 10_000).
+
+| Portion                          | Recipient                | Notes                                                   |
+|----------------------------------|--------------------------|---------------------------------------------------------|
+| `bBaseShareBps` of fee (WAD)     | Market depth (`bCurrent`)| Scaled and applied via `ammEngine.increaseLiquidity`    |
+| `lpYieldShareBps` of fee (USDC)  | LP Yield Pool            | Accumulates in `lpYieldPool` for LP redemption/yield    |
+| `protocolShareBps` of fee (USDC) | Protocol Treasury        | Transferred out immediately via `usdc.safeTransfer`     |
+
+### Fee Flow Chart
+
+```text
+User Trade (via LaunchpadEngine.tradePositions)
+│
+├─► Quote from AMMEngine (baseCost, new price)
+│
+├─► Compute fee = baseCost × feeBps / 10_000
+│
+├─► If BUY:
+│    └─► User pays baseCost + fee
+│
+└─► If SELL:
+     └─► User receives baseCost − fee (after AMM execution)
+
+Pre-Graduation Distribution
+---------------------------
+fee (WAD)
+│
+├─► deltaB = fee × (1 / ln(2))
+│    ├─► markets[market].bCurrent += deltaB
+│    └─► ammEngine.increaseLiquidity(market, deltaB)
+│
+└─► lpBalances[market][trader] += fee
+     └─► totalLPSupply += fee
+
+Post-Graduation Distribution
+----------------------------
+fee (WAD/USDC)
+│
+├─► toBBase   = feeWad  × bBaseShareBps   / 10_000
+│   ├─► markets[market].bCurrent += toBBase
+│   └─► ammEngine.increaseLiquidity(market, toBBase)
+│
+├─► toLPYield = feeUsdc × lpYieldShareBps / 10_000
+│   └─► markets[market].lpYieldPool += toLPYield
+│
+└─► toProtocol = feeUsdc × protocolShareBps / 10_000
+    └─► usdc.safeTransfer(protocolTreasury, toProtocol)
+```
+
+### Delegate Takeaways
+
+- **Before graduation**, fees primarily reward **active traders** and deepen the AMM; the protocol treasury gets nothing.
+- **After graduation**, fees primarily reward **LPs and the protocol**, while still growing depth through `bCurrent`.
+- Adjusting `preGradFeeBps`, `postGradFeeBps`, and the three post-grad shares tunes:
+  - How quickly markets graduate.
+  - How much upside creators/gaming traders vs. passive LPs vs. protocol receive over time.
 
 ---
 
@@ -461,12 +589,12 @@ hooks/
 ## Testing & QA
 
 ### Test Coverage
-- **92+ tests** across unit, integration, fuzz, and invariant suites
+- **106 tests** across unit, integration, fuzz, and invariant suites
 - Key test files:
-  - `TickBookPoolManager.t.sol` - 22 core orderbook tests
+  - `TickBookPoolManager.t.sol` - 27 core orderbook tests
+  - `TickBookVaultSettlement.t.sol` - 13 settlement tests
   - `V9Fuzz.t.sol` - 10 fuzz tests (tick bounds, slippage)
   - `V9Invariants.t.sol` - 4 actor-based invariants
-  - `TruthMarketLifecycle.t.sol` - 32 settlement tests
 
 ### Running Tests
 ```bash
@@ -475,6 +603,11 @@ forge test                    # All tests
 forge test --match-test V99   # V9.9 crossing tests
 forge test -vvv               # Verbose output
 ```
+
+### Security Audits (V9.9.4)
+- **Trail of Bits Style Audit**: `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md`
+- **Efficiency Review**: `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md`
+- **Audit Response**: `audit/AUDIT_RESPONSE_V9.9.4.md`
 
 ---
 
@@ -503,6 +636,8 @@ See `.agent/GUIDE.md` for role-based workflows:
 | ADR-052 | TickBookV2 range orders | O(1) gas for wide ranges |
 | ADR-057 | Bitmap-based overlap | Correct crossing detection |
 | ADR-058 | Sweep worst-to-best | Prevents >100% fills |
+| ADR-059 | V9.9.4 Hook removal | Simplicity over extensibility for alpha |
+| ADR-060 | Fee cap at 10% | Prevent malicious fee extraction (TOB-2) |
 
 See `DECISIONS.md` for full ADR history.
 

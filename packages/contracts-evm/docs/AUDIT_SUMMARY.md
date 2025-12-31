@@ -1,10 +1,29 @@
-# Audit Summary - 2025-12-15
+# Audit Summary
 
-**Status**: ✅ **AUDIT COMPLETE**
+**Latest Version**: V9.9.3 (2025-12-31)  
+**Status**: ✅ **TESTNET READY** - 119 tests passing
+
+> **See**: [AUDIT_BUNDLE_V9.9.3_2025-12-31.md](/audit/AUDIT_BUNDLE_V9.9.3_2025-12-31.md) for full V9.9.3 audit report.
 
 ---
 
-## Issues Found: 14 Total
+## V9.9.3 Critical Fixes (All Resolved)
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| Phantom liquidity from crossing | CRITICAL | ✅ Proper liquidityNet decrements |
+| >100% fills bug | CRITICAL | ✅ Sweep worst-to-best with overlap-only |
+| _tryCross fails before trading | CRITICAL | ✅ Bitmap-based overlap detection |
+| O(n) gas in place/cancel | HIGH | ✅ Boundary-only updates (O(1)) |
+| Maker fee attribution | HIGH | ✅ DynamicFeeHook + pro-rata accumulators |
+
+---
+
+## Historical Audit: V5/V6 (2025-12-15)
+
+**Status**: ⚠️ **SUPERSEDED BY V9**
+
+### Issues Found: 14 Total
 
 ### ✅ Fixed (5 issues)
 

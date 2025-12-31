@@ -67,12 +67,11 @@ export function useTickBookDirect(
 
         // 3. Calculate Market Key
         const marketKey = keccak256(encodeAbiParameters(
-          parseAbiParameters("address, address, address, address"),
+          parseAbiParameters("address, address, address"),
           [
             robustAddress(marketAddress),
             robustAddress(yesToken),
-            robustAddress(noToken),
-            robustAddress(effectiveHook)
+            robustAddress(noToken)
           ]
         ));
 

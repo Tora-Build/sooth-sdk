@@ -1,52 +1,52 @@
 {
   "chain": "baseSepolia",
-  "timestamp": "2025-12-30T18:34:29.106Z",
+  "timestamp": "2025-12-31T01:47:37.933Z",
   "results": [
     {
       "operation": "placeRangeOrder #1 [400-450]",
-      "latencyMs": 3491,
+      "latencyMs": 4203,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "placeRangeOrder #2 [420-470]",
-      "latencyMs": 3412,
+      "latencyMs": 3456,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "placeRangeOrder #3 [440-490]",
-      "latencyMs": 3414,
+      "latencyMs": 3638,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "placeRangeOrder #4 [460-510]",
-      "latencyMs": 3423,
+      "latencyMs": 3688,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "placeRangeOrder #5 [480-530]",
-      "latencyMs": 3433,
+      "latencyMs": 3401,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "executeMarketOrder BUY #1",
-      "latencyMs": 3400,
+      "latencyMs": 3805,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "executeMarketOrder BUY #2",
-      "latencyMs": 3511,
+      "latencyMs": 3672,
       "gasUsed": "0",
       "success": false
     },
     {
       "operation": "executeMarketOrder BUY #3",
-      "latencyMs": 3423,
+      "latencyMs": 3502,
       "gasUsed": "0",
       "success": false
     }

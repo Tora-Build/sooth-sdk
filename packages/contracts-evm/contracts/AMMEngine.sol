@@ -608,19 +608,8 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         uint256 payout
     );
 
-    /**
-     * @inheritdoc IAMMEngine
-     */
-    function applyRetroSettlement(
-        address /* market */,
-        address /* user */,
-        bytes calldata /* proof */
-    ) external pure override returns (uint256) {
-        // T* settlement logic would go here
-        // This requires Merkle proof verification and state reconstruction
-        // Placeholder for now
-        revert("AMMEngine: T* not implemented");
-    }
+    // V9.9.4: applyRetroSettlement removed - T* not implemented
+    // See audit/IMPLEMENTATION_PLAN_V9.9.4.md for archived code
 
 
     // ============================================

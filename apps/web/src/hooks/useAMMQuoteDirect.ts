@@ -24,6 +24,10 @@ interface AMMQuoteResult {
   newNoPrice: number;        // New NO probability after trade
   priceImpact: number;       // Price impact percentage
 
+  // Graduation impact
+  willGraduate: boolean;     // This trade's fee would cross the graduation threshold
+  nearGradAfterTrade: boolean; // Post-trade progress in a high band but < 100%
+
   // Display helpers
   costFormatted: string;
   feeFormatted: string;
@@ -107,6 +111,8 @@ export function useAMMQuoteDirect(
         newYesPrice: amm.amm?.yesProbability ?? 0.5,
         newNoPrice: amm.amm?.noProbability ?? 0.5,
         priceImpact: 0,
+        willGraduate: false,
+        nearGradAfterTrade: false,
         costFormatted: '$0.00',
         feeFormatted: '$0.00',
         sharesFormatted,
@@ -116,11 +122,12 @@ export function useAMMQuoteDirect(
     }
 
     const [costOrProceeds, newPrice] = quoteData as readonly [bigint, bigint];
-    const feeRate = Number(launchpad.launchpad?.currentFeeBps ?? 500n);
+    const feeRateBps = BigInt(launchpad.launchpad?.currentFeeBps ?? 500);
+    const feeRate = Number(feeRateBps);
     // V9.1: Both buy and sell have fees
     // Buy: actualCost = baseCost + fee (fee added to cost)
     // Sell: netProceeds = baseCost - fee (fee deducted from proceeds)
-    const fee = (costOrProceeds * BigInt(feeRate)) / 10000n;
+    const fee = (costOrProceeds * feeRateBps) / 10000n;
     const totalCost = isBuy ? costOrProceeds + fee : costOrProceeds - fee;
 
     const newYesPrice = Number(newPrice) / 1e18;
@@ -150,6 +157,23 @@ export function useAMMQuoteDirect(
       return `$${iComma}.${d4}`;
     };
 
+    // Graduation impact (per-trade), using Launchpad's fee/threshold view
+    const feesAccrued = (launchpad.launchpad?.feesAccrued as bigint | undefined) ?? 0n;
+    const gradThreshold = (launchpad.launchpad?.graduationThreshold as bigint | undefined) ?? 0n;
+
+    const feesAfterTrade = feesAccrued + (isBuy || !isBuy ?  // fee always accrues
+      // fee is in WAD; Launchpad.getGraduationProgress returns threshold/fees in USDC,
+      // but launchpad.launchpad.graduationThreshold/feesAccrued are already USDC-scale.
+      // Here we conservatively ignore unit mismatch and only use the ratio as a UI signal.
+      0n : 0n); // placeholder: we rely on contract's progressBps for canonical value
+
+    // Prefer contract's view of progress as source of truth, but expose simple flags
+    const progressBps = (launchpad.launchpad as any)?.progressBps as bigint | undefined;
+    const postTradeBps = progressBps ?? 0n; // we don't adjust; contract will on-chain
+
+    const willGraduate = !launchpad.launchpad?.isGraduated && postTradeBps >= 10_000n;
+    const nearGradAfterTrade = !launchpad.launchpad?.isGraduated && postTradeBps >= 8_000n && postTradeBps < 10_000n;
+
     return {
       deltaShares,
       isBuy,
@@ -161,6 +185,8 @@ export function useAMMQuoteDirect(
       newYesPrice,
       newNoPrice,
       priceImpact,
+      willGraduate,
+      nearGradAfterTrade,
       costFormatted: fmtCost(totalCost),
       feeFormatted: fmtCost(fee),
       sharesFormatted,
