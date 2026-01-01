@@ -75,12 +75,6 @@ const MARKET_TEMPLATES: Record<string, { question: string; name: string; symbol:
     symbol: 'BTC100K',
     deadlineDays: 180,
   },
-  eth10k: {
-    question: 'Will ETH reach $10k by end of 2025?',
-    name: 'ETH Reaches 10k',
-    symbol: 'ETH10K',
-    deadlineDays: 180,
-  },
   custom: {
     question: '',
     name: '',
@@ -134,18 +128,19 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   }
 
   if (templateName === 'custom') {
-    return { success: false, message: 'Custom template not yet supported. Use alien, btc100k, or eth10k.' };
+    return { success: false, message: 'Custom template not yet supported. Use alien or btc100k.' };
   }
 
-  // Parse liquidity (in USDC 6 decimals)
-  const liquidity = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * 10n ** 6n : 500n * 10n ** 6n;
+  // Parse liquidity as LMSR 'b' parameter (WAD, 18 decimals)
+  // User specifies in whole units, e.g., "500" = 500 WAD = 500e18
+  const liquidityWad = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * WAD : 500n * WAD;
 
   console.log(`\n  ${bold('Creating Market: ' + template.symbol)}`);
   console.log('  ' + '═'.repeat(50));
   console.log(`  Question:  ${template.question}`);
   console.log(`  Name:      ${template.name}`);
   console.log(`  Symbol:    ${template.symbol}`);
-  console.log(`  Liquidity: ${(Number(liquidity) / 1e6).toFixed(2)} USDC`);
+  console.log(`  Liquidity: ${formatWad(liquidityWad)} (b parameter)`);
   console.log(`  Deadline:  ${template.deadlineDays} days from now`);
   console.log('');
 
@@ -158,8 +153,11 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       args: [address],
     }) as bigint;
 
-    // Estimate required: liquidity (LMSR initial)
-    const required = liquidity;
+    // Estimate required USDC: b × ln(2) in USDC decimals
+    // LaunchpadEngine calculates: depositWad = (b × LN2_WAD) / WAD, then converts to USDC
+    const LN2_WAD = 693147180559945309n; // ln(2) × 1e18
+    const requiredWad = (liquidityWad * LN2_WAD) / WAD;
+    const required = (requiredWad + WAD / 10n ** 12n - 1n) / (WAD / 10n ** 12n); // WAD to USDC ceil
     if (usdcBalance < required) {
       console.log(warn(`  Insufficient USDC. Minting ${(Number(required) / 1e6).toFixed(2)} USDC...`));
       const mintHash = await walletClient.writeContract({
@@ -233,7 +231,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [truthMarketAddr, liquidity, template.name, template.symbol],
+      args: [truthMarketAddr, liquidityWad, template.name, template.symbol],
     });
 
     const createReceipt = await publicClient.waitForTransactionReceipt({ hash: createHash });
@@ -264,8 +262,11 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
 
 /**
  * Graduate a market by executing trades to accumulate fees
- * Usage: graduate [tradeSize] [numTrades]
- * Example: graduate 5000 10
+ * Usage: graduate [steps]
+ * Example: graduate      (default 8 steps)
+ * Example: graduate 5    (5 steps to reach 110% of threshold)
+ *
+ * Auto-calculates trade size to reach 110% of graduation threshold
  */
 export async function graduate(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketAddress } = ctx;
@@ -296,25 +297,94 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
 
   const [feesAccrued, threshold, percentComplete] = progress;
 
+  // Also check if actually graduated on-chain
+  const marketState = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'markets',
+    args: [marketAddress],
+  }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+  const isGraduated = marketState[7];
+
+  // percentComplete is in basis points (10000 = 100%)
+  const progressPct = Number(percentComplete) / 100;
+
   console.log(`\n  ${bold('Graduation Status')}`);
   console.log('  ' + '─'.repeat(40));
   console.log(`  Fees Accrued: ${formatWad(feesAccrued)} USDC`);
   console.log(`  Threshold:    ${formatWad(threshold)} USDC`);
-  console.log(`  Progress:     ${Number(percentComplete)}%`);
+  console.log(`  Progress:     ${progressPct.toFixed(1)}%`);
+  console.log(`  Graduated:    ${isGraduated ? success('Yes') : warn('No')}`);
 
-  if (percentComplete >= 100n) {
+  if (isGraduated) {
     console.log(`\n  ${success('Market is already graduated!')}\n`);
     return { success: true };
   }
 
-  // Parse trade parameters
-  const tradeSize = args[0] ? parseWad(args[0]) : 5000n * WAD;
-  const numTrades = args[1] ? parseInt(args[1], 10) : 10;
+  // If fees >= threshold but not graduated, do one small trade to trigger graduation
+  if (percentComplete >= 10000n) {
+    console.log(`\n  ${warn('Fees reached threshold but not graduated yet. Triggering graduation...')}`);
 
+    // Approve and do a tiny trade to trigger graduation
+    const tinyTrade = WAD; // 1 share
+    await walletClient.writeContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'approve',
+      args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
+    });
+
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'tradePositions',
+      args: [marketAddress, 1, tinyTrade, MAX_UINT256],
+      gas: 2000000n,
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+
+    console.log(`  ${success('MARKET GRADUATED!')}\n`);
+    return { success: true };
+  }
+
+  // Parse number of steps (default 8)
+  const numTrades = args[0] ? parseInt(args[0], 10) : 8;
+
+  // Get fee rate to calculate required volume
+  const feeBpsRaw = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'preGradFeeBps',
+  });
+  const feeBps = BigInt(feeBpsRaw as bigint);
+
+  // Calculate trade size to reach 110% of threshold
+  // Fee = cost * feeBps / 10000
+  // Total volume needed = targetFees * 10000 / feeBps
+  // Each round-trip has 2 trades (buy + sell), so divide by numTrades * 2
   const remaining = threshold - feesAccrued;
+  const targetFees = (remaining * 110n) / 100n; // 110% of remaining
+
+  const numTradesBigInt = BigInt(numTrades);
+  // Volume needed = targetFees * 10000 / feeBps
+  // IMPORTANT: tradeSize is in SHARES, but fee is charged on COST (USDC spent)
+  // With LMSR at ~50% price, cost ≈ 0.5 × shares
+  // So we need to double the share amount to get the target cost/fees
+  //
+  // With alternating BUY/SELL where SELL is half size:
+  // - numTrades/2 BUY trades at tradeSize (cost ≈ tradeSize * 0.5)
+  // - numTrades/2 SELL trades at tradeSize/2 (cost ≈ tradeSize * 0.25)
+  // Total cost ≈ (numTrades/2) * tradeSize * 0.5 + (numTrades/2) * tradeSize * 0.25
+  //            = numTrades * tradeSize * 0.375
+  // So: tradeSize = volumeNeeded / (0.375 * numTrades) = volumeNeeded * 8 / (3 * numTrades)
+  const volumeNeeded = (targetFees * 10000n) / feeBps;
+  const tradeSize = (volumeNeeded * 8n) / (3n * numTradesBigInt);
+
   console.log(`\n  Remaining to graduate: ${formatWad(remaining)} USDC`);
-  console.log(`  Trade size: ${formatWad(tradeSize)} shares`);
-  console.log(`  Max trades: ${numTrades}`);
+  console.log(`  Target fees (110%):    ${formatWad(targetFees)} USDC`);
+  console.log(`  Fee rate:              ${Number(feeBps) / 100}%`);
+  console.log(`  Trade size:            ${formatWad(tradeSize)} shares`);
+  console.log(`  Steps:                 ${numTrades}`);
   console.log('');
 
   // Ensure sufficient USDC
@@ -384,7 +454,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         args: [marketAddress],
       }) as [bigint, bigint, bigint];
 
-      if (newPercent >= 100n) {
+      if (newPercent >= 10000n) { // 10000 bps = 100%
         console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
         return { success: true, data: { tradesExecuted, totalGas } };
       }
@@ -404,12 +474,12 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     args: [marketAddress],
   }) as [bigint, bigint, bigint];
 
-  console.log(`\n  Final Progress: ${Number(finalPercent)}%`);
+  console.log(`\n  Final Progress: ${(Number(finalPercent) / 100).toFixed(1)}%`);
   console.log(`  Fees: ${formatWad(finalFees)} / ${formatWad(finalThreshold)} USDC`);
   console.log(`  Total gas used: ${totalGas.toString()}`);
   console.log('');
 
-  return { success: true, data: { tradesExecuted, totalGas, percentComplete: Number(finalPercent) } };
+  return { success: true, data: { tradesExecuted, totalGas, percentComplete: Number(finalPercent) / 100 } };
 }
 
 /**
@@ -506,6 +576,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
       console.log(`  Creator:     ${shortAddress(marketState[0])}`);
       console.log(`  bBase:       ${formatWad(marketState[1])}`);
       console.log(`  bCurrent:    ${formatWad(marketState[2])}`);
+      console.log(`  Deposit:     ${(Number(marketState[3]) / 1e6).toFixed(2)} USDC`);
       console.log(`  Fees:        ${formatWad(marketState[4])} USDC`);
       console.log(`  LP Supply:   ${formatWad(marketState[5])}`);
       console.log(`  Graduated:   ${marketState[7] ? success('YES') : warn('NO')}`);
@@ -518,7 +589,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
           args: [marketAddress],
         }) as [bigint, bigint, bigint];
 
-        console.log(`  Progress:    ${Number(percent)}% (${formatWad(feesAccrued)}/${formatWad(threshold)} USDC)`);
+        console.log(`  Progress:    ${(Number(percent) / 100).toFixed(1)}% (${formatWad(feesAccrued)}/${formatWad(threshold)} USDC)`);
       }
 
       // Get current price
@@ -643,11 +714,13 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     spinner.start();
 
     try {
+      // V9.9.6: Use unified placeOrder API
+      const maxCost = shares * 2n; // 200% slippage tolerance
       const hash = await walletClient.writeContract({
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
-        functionName: 'placeRangeOrder',
-        args: [marketKey, outcome, tickLower, tickUpper, shares],
+        functionName: 'placeOrder',
+        args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
       });
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -676,14 +749,16 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     spinner.start();
 
     try {
+      // V9.9.6: Market orders use placeOrder with full tick range (1-999)
+      const maxCost = shares * 2n;
       const hash = await walletClient.writeContract({
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
-        functionName: 'executeMarketOrder',
-        args: [marketKey, outcome, shares, shares * 2n],
+        functionName: 'placeOrder',
+        args: [marketKey, outcome, shares, 1, 999, maxCost],
       });
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash });
       totalFilled += shares;
       spinner.succeed(`Market ${i + 1}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)}`);
     } catch (err) {

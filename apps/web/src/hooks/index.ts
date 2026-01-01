@@ -76,6 +76,8 @@ export { useLaunchpadSwap } from "./useLaunchpadSwap";
 export { useLaunchpadTradeQuote } from "./useLaunchpadTradeQuote";
 export { useLPHolders } from "./useLPHolders";
 export { useLockedProceeds } from "./useLockedProceeds";
+export { useOnChainMarkets, useOnChainMarketCount } from "./useOnChainMarkets";
+export type { OnChainMarket } from "./useOnChainMarkets";
 
 // ============================================================
 // Portfolio Hooks

@@ -16,35 +16,55 @@ export function useCollateralizerDirect(marketAddress: Address | undefined) {
     enabled: !!marketAddress && !!chainId && !!collateralizerAddress,
     chainId,
     read: async (client) => {
-      const [tokens, totalCollateral] = await Promise.all([
-        readContractSafe<readonly [Address, Address]>(client, {
-          address: collateralizerAddress!,
-          abi: V8_ABIS.Collateralizer,
-          functionName: "getOutcomeTokens",
-          args: [marketAddress!],
-        }),
-        readContractSafe<bigint>(client, {
-          address: collateralizerAddress!,
-          abi: V8_ABIS.Collateralizer,
-          functionName: "getTotalCollateral",
-          args: [marketAddress!],
-        }),
-      ]);
+      try {
+        const [tokens, totalCollateral] = await Promise.all([
+          readContractSafe<readonly [Address, Address]>(client, {
+            address: collateralizerAddress!,
+            abi: V8_ABIS.Collateralizer,
+            functionName: "getOutcomeTokens",
+            args: [marketAddress!],
+          }),
+          readContractSafe<bigint>(client, {
+            address: collateralizerAddress!,
+            abi: V8_ABIS.Collateralizer,
+            functionName: "getTotalCollateral",
+            args: [marketAddress!],
+          }),
+        ]);
 
-      const [yesToken, noToken] = tokens;
-      return {
-        address: marketAddress!,
-        yesToken,
-        noToken,
-        yesBalance: 0n,
-        noBalance: 0n,
-        totalCollateral,
-        completeSetBalance: 0n,
-        hasYesTokens: false,
-        hasNoTokens: false,
-        hasCompleteSets: false,
-        canMerge: false,
-      };
+        const [yesToken, noToken] = tokens;
+        return {
+          address: marketAddress!,
+          yesToken,
+          noToken,
+          yesBalance: 0n,
+          noBalance: 0n,
+          totalCollateral,
+          completeSetBalance: 0n,
+          hasYesTokens: false,
+          hasNoTokens: false,
+          hasCompleteSets: false,
+          canMerge: false,
+          isRegistered: true,
+        };
+      } catch {
+        // Pre-graduation markets aren't registered in Collateralizer yet
+        const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
+        return {
+          address: marketAddress!,
+          yesToken: ZERO_ADDRESS,
+          noToken: ZERO_ADDRESS,
+          yesBalance: 0n,
+          noBalance: 0n,
+          totalCollateral: 0n,
+          completeSetBalance: 0n,
+          hasYesTokens: false,
+          hasNoTokens: false,
+          hasCompleteSets: false,
+          canMerge: false,
+          isRegistered: false,
+        };
+      }
     },
   });
 

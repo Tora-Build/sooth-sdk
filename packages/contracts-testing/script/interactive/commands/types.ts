@@ -12,6 +12,7 @@ export interface CommandContext {
   config: InteractiveConfig;
   marketKey: `0x${string}` | null;
   marketAddress: `0x${string}` | null;
+  marketName: string | null;
   recording: RecordingState;
 }
 

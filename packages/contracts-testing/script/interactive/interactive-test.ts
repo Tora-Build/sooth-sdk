@@ -45,6 +45,7 @@ let config: InteractiveConfig;
 let actorManager: ActorManager;
 let currentMarketKey: `0x${string}` | null = null;
 let currentMarketAddress: `0x${string}` | null = null;
+let currentMarketName: string | null = null;
 let recording: RecordingState = { active: false, commands: [], startTime: 0 };
 let scenarioEngine: ScenarioEngine;
 
@@ -78,18 +79,43 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
 
   let marketAddress: string;
 
-  // Check if it's an index
+  // Check if it's an index - fetch from on-chain markets list
   if (/^\d+$/.test(addressOrIndex)) {
     const index = parseInt(addressOrIndex, 10);
-    if (index >= config.deployment.markets.length) {
-      console.log(error(`  Market index ${index} out of range (${config.deployment.markets.length} markets available)`));
-      return false;
+
+    // Fetch on-chain markets from LaunchpadEngine
+    try {
+      const onChainMarkets = await publicClient.readContract({
+        address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: [
+          {
+            name: 'getMarkets',
+            type: 'function',
+            inputs: [],
+            outputs: [{ type: 'address[]', name: '' }],
+            stateMutability: 'view',
+          },
+        ],
+        functionName: 'getMarkets',
+      }) as string[];
+
+      if (index >= onChainMarkets.length) {
+        console.log(error(`  Market index ${index} out of range (${onChainMarkets.length} markets available)`));
+        return false;
+      }
+      marketAddress = onChainMarkets[index];
+    } catch {
+      // Fallback to deployment config
+      if (index >= config.deployment.markets.length) {
+        console.log(error(`  Market index ${index} out of range`));
+        return false;
+      }
+      marketAddress = config.deployment.markets[index].address;
     }
-    marketAddress = config.deployment.markets[index].address;
   } else if (addressOrIndex.startsWith('0x')) {
     marketAddress = addressOrIndex;
   } else {
-    // Try to find by name
+    // Try to find by name in deployment config
     const market = config.deployment.markets.find(
       m => m.name?.toLowerCase() === addressOrIndex.toLowerCase()
     );
@@ -149,7 +175,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         args: [marketAddress as `0x${string}`],
       }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
 
-      const [creator, , , , , , , isGraduated] = marketState;
+      const [creator, , , , , , , isGraduated, , , name] = marketState;
       if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
@@ -157,14 +183,17 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           // Pre-graduation market - no tokens yet, but we can still set it for AMM trading
           currentMarketAddress = marketAddress as `0x${string}`;
           currentMarketKey = null; // No market key for pre-graduation markets
-          console.log(success(`  Market set: ${shortAddress(marketAddress)}`));
+          currentMarketName = name || null;
+          console.log(success(`  Market set: ${name || shortAddress(marketAddress)}`));
           console.log(warn('  Pre-graduation market (LaunchpadEngine only)'));
           console.log(dim('  Use graduate command to graduate, then TickBook will be available'));
           return true;
         }
+        // For graduated markets, also store the name
+        currentMarketName = name || null;
       }
     } catch {
-      // Not in LaunchpadEngine, continue to check Collateralizer
+      // Market not found in LaunchpadEngine, will try Collateralizer next
     }
 
     // Try Collateralizer (for graduated markets)
@@ -194,11 +223,13 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         console.log(error(`  Market not found: ${shortAddress(marketAddress)}`));
         return false;
       }
-    } catch (err) {
+    } catch (collateralizerErr) {
       if (!isLaunchpadMarket) {
-        console.log(error(`  Failed to fetch market info: ${(err as Error).message}`));
+        console.log(error(`  Failed to fetch market info: ${(collateralizerErr as Error).message}`));
         return false;
       }
+      // For LaunchpadEngine markets, Collateralizer not being registered is expected
+      // (pre-graduation markets don't have outcome tokens yet)
     }
   }
 
@@ -221,6 +252,7 @@ function buildContext(): CommandContext {
     config,
     marketKey: currentMarketKey,
     marketAddress: currentMarketAddress,
+    marketName: currentMarketName,
     recording,
   };
 }
@@ -247,12 +279,14 @@ function printHelp(): void {
     withdraw <amount>    Withdraw USDC from vault
     reserved             Show reserved balance details
 
-  ${info('Orderbook:')}
-    order <side> <range> <shares>   Place range order
-                                    Example: order yes 40-60 100
+  ${info('Orderbook (V9.9.6 Unified API):')}
+    order <side> <range> <shares>   Place order (range, limit, or market)
+                                    Range:  order yes 40-60 100
+                                    Limit:  order yes 50 100
+                                    Market: order yes 1-999 100
     cancel <orderId>                Cancel order
     claim <orderId>                 Claim fills
-    market buy|sell <side> <shares> Execute market order
+    market buy|sell <side> <shares> Market order shortcut
                                     Example: market buy no 50
     orders [actor]                  List orders
 
@@ -265,8 +299,8 @@ function printHelp(): void {
     setmarket <addr>     Set current market
 
   ${info('Market Lifecycle:')}
-    createmarket <template>  Create new market (alien, btc100k, eth10k, custom)
-    graduate [steps]         Graduate market via trades (default 10 steps)
+    createmarket <template>  Create new market (alien, btc100k, custom)
+    graduate [steps]         Graduate market via trades (default 8 steps)
     marketstatus             Show full market lifecycle status
     simulate                 Run realistic orderbook fill simulation
 
@@ -421,12 +455,7 @@ async function handleCommand(input: string): Promise<void> {
 
       // Market lifecycle commands
       case 'createmarket':
-        const createResult = await marketCommands.createmarket(ctx, args);
-        // If market was created successfully, update current market
-        if (createResult?.success && createResult?.data?.marketKey) {
-          currentMarketKey = createResult.data.marketKey;
-          currentMarketAddress = createResult.data.marketAddress;
-        }
+        await marketCommands.createmarket(ctx, args);
         break;
 
       case 'graduate':

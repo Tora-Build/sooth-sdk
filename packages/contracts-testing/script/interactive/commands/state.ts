@@ -301,7 +301,7 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
  * Usage: markets (or m)
  */
 export async function markets(ctx: CommandContext, args: string[]): Promise<CommandResult> {
-  const { marketKey, marketAddress, deployment } = ctx;
+  const { marketKey, marketAddress, marketName, deployment, actorManager, config } = ctx;
 
   console.log(`\n  ${bold('Current Market')}`);
   console.log('  ' + '─'.repeat(50));
@@ -311,25 +311,124 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
     console.log('');
     console.log('  Use: setmarket <address|index|name>');
   } else {
-    // Find market name from deployment
+    // Use marketName from context (set by setMarket), fallback to deployment config
     const deployedMarket = deployment.markets.find(
       m => m.address.toLowerCase() === marketAddress.toLowerCase()
     );
+    const displayName = marketName || deployedMarket?.name;
 
-    console.log(`  Name:    ${deployedMarket?.name || dim('(unknown)')}`);
+    console.log(`  Name:    ${displayName || dim('(unknown)')}`);
     console.log(`  Address: ${marketAddress}`);
     console.log(`  Key:     ${marketKey || dim('N/A')}`);
   }
 
-  // Show available markets
-  if (deployment.markets.length > 0) {
-    console.log('');
-    console.log(`  ${info('Available markets:')}`);
-    deployment.markets.forEach((m, i) => {
-      const isCurrent = m.address.toLowerCase() === marketAddress?.toLowerCase();
-      const marker = isCurrent ? success('→') : ' ';
-      console.log(`  ${marker} ${i}: ${m.name || 'Unnamed'} (${shortAddress(m.address)})`);
-    });
+  // Fetch available markets from LaunchpadEngine on-chain
+  const publicClient = actorManager.getPublicClient();
+  try {
+    const onChainMarkets = await publicClient.readContract({
+      address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: [
+        {
+          name: 'getMarkets',
+          type: 'function',
+          inputs: [],
+          outputs: [{ type: 'address[]', name: '' }],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'getMarkets',
+    }) as string[];
+
+    if (onChainMarkets.length > 0) {
+      console.log('');
+      console.log(`  ${info('Available markets:')} (${onChainMarkets.length} on-chain)`);
+
+      // Fetch names for each market
+      for (let i = 0; i < onChainMarkets.length; i++) {
+        const addr = onChainMarkets[i];
+        const isCurrent = addr.toLowerCase() === marketAddress?.toLowerCase();
+        const marker = isCurrent ? success('→') : ' ';
+
+        try {
+          const marketState = await publicClient.readContract({
+            address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: [
+              {
+                name: 'markets',
+                type: 'function',
+                inputs: [{ type: 'address', name: 'market' }],
+                outputs: [
+                  { type: 'address', name: 'creator' },
+                  { type: 'uint256', name: 'bBase' },
+                  { type: 'uint256', name: 'bCurrent' },
+                  { type: 'uint256', name: 'creatorDeposit' },
+                  { type: 'uint256', name: 'feesAccrued' },
+                  { type: 'uint256', name: 'totalLPSupply' },
+                  { type: 'uint256', name: 'lpYieldPool' },
+                  { type: 'bool', name: 'isGraduated' },
+                  { type: 'uint64', name: 'createdAt' },
+                  { type: 'uint64', name: 'graduatedAt' },
+                  { type: 'string', name: 'name' },
+                  { type: 'string', name: 'symbol' },
+                ],
+                stateMutability: 'view',
+              },
+            ],
+            functionName: 'markets',
+            args: [addr as `0x${string}`],
+          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+
+          const [, bBase, , , , , , isGraduated, , , name, symbol] = marketState;
+          const bDisplay = (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+          // Get graduation progress
+          let statusStr: string;
+          if (isGraduated) {
+            statusStr = success('✓ graduated');
+          } else {
+            try {
+              const progress = await publicClient.readContract({
+                address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+                abi: [
+                  {
+                    name: 'getGraduationProgress',
+                    type: 'function',
+                    inputs: [{ type: 'address', name: 'market' }],
+                    outputs: [
+                      { type: 'uint256', name: 'feesAccrued' },
+                      { type: 'uint256', name: 'threshold' },
+                      { type: 'uint256', name: 'percentComplete' },
+                    ],
+                    stateMutability: 'view',
+                  },
+                ],
+                functionName: 'getGraduationProgress',
+                args: [addr as `0x${string}`],
+              }) as [bigint, bigint, bigint];
+              const pctBps = Number(progress[2]);
+              const pct = (pctBps / 100).toFixed(0); // Convert bps to %
+              statusStr = pctBps >= 10000 ? warn('ready!') : dim(`${pct}%`);
+            } catch {
+              statusStr = dim('○');
+            }
+          }
+          console.log(`  ${marker} ${i}: ${name || 'Unnamed'} [${symbol}] ${statusStr} b=${bDisplay} (${shortAddress(addr)})`);
+        } catch {
+          console.log(`  ${marker} ${i}: ${dim('(error fetching)')} (${shortAddress(addr)})`);
+        }
+      }
+    }
+  } catch {
+    // Fallback to deployment config if on-chain fetch fails
+    if (deployment.markets.length > 0) {
+      console.log('');
+      console.log(`  ${info('Available markets:')} (from config)`);
+      deployment.markets.forEach((m, i) => {
+        const isCurrent = m.address.toLowerCase() === marketAddress?.toLowerCase();
+        const marker = isCurrent ? success('→') : ' ';
+        console.log(`  ${marker} ${i}: ${m.name || 'Unnamed'} (${shortAddress(m.address)})`);
+      });
+    }
   }
   console.log('');
 

@@ -133,14 +133,21 @@ export const ABIS = {
   ],
 
   TickBookPoolManager: [
+    // V9.9.6 Unified Order API
     {
-      name: 'placeRangeOrder', type: 'function', inputs: [
+      name: 'placeOrder', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
         { type: 'uint8', name: 'outcome' },
+        { type: 'uint256', name: 'shares' },
         { type: 'uint16', name: 'tickLower' },
         { type: 'uint16', name: 'tickUpper' },
-        { type: 'uint128', name: 'shares' },
-      ], outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'nonpayable'
+        { type: 'uint256', name: 'maxCost' },
+      ], outputs: [
+        { type: 'uint256', name: 'orderId' },
+        { type: 'uint256', name: 'filledShares' },
+        { type: 'uint256', name: 'filledCost' },
+        { type: 'uint256', name: 'restingShares' },
+      ], stateMutability: 'nonpayable'
     },
     {
       name: 'cancelOrder', type: 'function', inputs: [
@@ -153,14 +160,6 @@ export const ABIS = {
         { type: 'bytes32', name: 'marketKey' },
         { type: 'uint256', name: 'orderId' },
       ], outputs: [{ type: 'uint256' }, { type: 'uint256' }], stateMutability: 'nonpayable'
-    },
-    {
-      name: 'executeMarketOrder', type: 'function', inputs: [
-        { type: 'bytes32', name: 'marketKey' },
-        { type: 'uint8', name: 'outcome' },
-        { type: 'uint128', name: 'shares' },
-        { type: 'uint256', name: 'maxCost' },
-      ], outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'nonpayable'
     },
     {
       name: 'getMarketState', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }],
@@ -206,9 +205,18 @@ export const ABIS = {
     {
       name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
       outputs: [
-        { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' },
-        { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bool' },
-        { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' },
+        { type: 'address', name: 'creator' },
+        { type: 'uint256', name: 'bBase' },
+        { type: 'uint256', name: 'bCurrent' },
+        { type: 'uint256', name: 'creatorDeposit' },
+        { type: 'uint256', name: 'feesAccrued' },
+        { type: 'uint256', name: 'totalLPSupply' },
+        { type: 'uint256', name: 'lpYieldPool' },
+        { type: 'bool', name: 'isGraduated' },
+        { type: 'uint64', name: 'createdAt' },
+        { type: 'uint64', name: 'graduatedAt' },
+        { type: 'string', name: 'name' },
+        { type: 'string', name: 'symbol' },
       ], stateMutability: 'view'
     },
     {
