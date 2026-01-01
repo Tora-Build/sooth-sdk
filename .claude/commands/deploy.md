@@ -1,3 +1,7 @@
+---
+description: Deploy Sooth Protocol V9.9.6 contracts to testnet
+---
+
 # Deploy Workflow - V9.9.6
 
 Deploy Sooth Protocol V9.9.6 contracts to testnet.
