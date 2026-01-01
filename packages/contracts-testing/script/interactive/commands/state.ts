@@ -33,17 +33,36 @@ export async function state(ctx: CommandContext, args: string[]): Promise<Comman
 
   const scanLimit = args[0] ? Math.max(1, Math.min(parseInt(args[0], 10) || 0, 2000)) : 200;
 
+  // First get basic market state
+  let tick: number, liqNo: bigint, liqYes: bigint, prob: bigint;
   try {
-    const [tick, liqNo, liqYes, prob] = await publicClient.readContract({
+    [tick, liqNo, liqYes, prob] = await publicClient.readContract({
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
       functionName: 'getMarketState',
       args: [marketKey],
     }) as [number, bigint, bigint, bigint];
+  } catch (err) {
+    return { success: false, message: `Failed to get market state: ${(err as Error).message}` };
+  }
 
-    // TickBookPoolManager doesn't expose nextOrderId; scan a bounded range for active orders.
-    let activeOrders = 0;
-    for (let i = 1; i <= scanLimit; i++) {
+  console.log(`\n  ${bold('Market State')}`);
+  console.log('  ' + '─'.repeat(50));
+  console.log(`  Address:      ${marketAddress || 'N/A'}`);
+  console.log(`  Market Key:   ${(marketKey as string).slice(0, 18)}...`);
+  console.log('');
+  console.log(`  Current Tick: ${tick} (${formatTick(tick)})`);
+  console.log(`  Probability:  ${(Number(prob) / 1e18 * 100).toFixed(2)}%`);
+  console.log('');
+  console.log(`  ${info('YES')} Liquidity: ${formatWad(liqYes)} shares`);
+  console.log(`  ${warn('NO')} Liquidity:  ${formatWad(liqNo)} shares`);
+  console.log('');
+
+  // Scan for active orders (with error handling for individual orders)
+  let activeOrders = 0;
+  let scanErrors = 0;
+  for (let i = 1; i <= scanLimit; i++) {
+    try {
       const order = await publicClient.readContract({
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
@@ -52,26 +71,16 @@ export async function state(ctx: CommandContext, args: string[]): Promise<Comman
       }) as any;
 
       if (order?.active) activeOrders++;
+    } catch {
+      scanErrors++;
+      // Continue scanning other orders
     }
-
-    console.log(`\n  ${bold('Market State')}`);
-    console.log('  ' + '─'.repeat(50));
-    console.log(`  Address:      ${marketAddress || 'N/A'}`);
-    console.log(`  Market Key:   ${(marketKey as string).slice(0, 18)}...`);
-    console.log('');
-    console.log(`  Current Tick: ${tick} (${formatTick(tick)})`);
-    console.log(`  Probability:  ${(Number(prob) / 1e18 * 100).toFixed(2)}%`);
-    console.log('');
-    console.log(`  ${info('YES')} Liquidity: ${formatWad(liqYes)} shares`);
-    console.log(`  ${warn('NO')} Liquidity:  ${formatWad(liqNo)} shares`);
-    console.log('');
-    console.log(`  Active Orders (scanned 1..${scanLimit}): ${activeOrders}`);
-    console.log('');
-
-    return { success: true, data: { tick, liqNo, liqYes, prob } };
-  } catch (err) {
-    return { success: false, message: `Failed to get market state: ${(err as Error).message}` };
   }
+
+  console.log(`  Active Orders (scanned 1..${scanLimit}): ${activeOrders}${scanErrors > 0 ? dim(` (${scanErrors} decode errors)`) : ''}`);
+  console.log('');
+
+  return { success: true, data: { tick, liqNo, liqYes, prob } };
 }
 
 /**

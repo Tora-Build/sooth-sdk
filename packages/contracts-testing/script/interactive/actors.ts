@@ -72,6 +72,42 @@ export class ActorManager {
       confirmations: this.confirmations,
     });
 
+    // Check if transaction reverted
+    if (receipt.status === 'reverted') {
+      // Try to get revert reason by replaying the transaction
+      let revertReason = '';
+      try {
+        const tx = await this.publicClient.getTransaction({ hash });
+        if (tx) {
+          try {
+            await this.publicClient.call({
+              to: tx.to!,
+              data: tx.input,
+              account: tx.from,
+              blockNumber: receipt.blockNumber,
+            });
+          } catch (callErr: any) {
+            // Extract revert reason from call error
+            const errStr = callErr?.message || callErr?.toString() || '';
+            const match = errStr.match(/reverted with.*?["']([^"']+)["']/i)
+              || errStr.match(/reason:\s*([^\n]+)/i)
+              || errStr.match(/execution reverted:\s*([^\n]+)/i);
+            if (match) {
+              revertReason = match[1];
+            } else if (errStr.length < 200) {
+              revertReason = errStr;
+            }
+          }
+        }
+      } catch {
+        // Ignore errors getting revert reason
+      }
+
+      throw new Error(revertReason
+        ? `Reverted: ${revertReason}`
+        : `Transaction reverted: ${hash.slice(0, 18)}...`);
+    }
+
     if (this.postTxWaitMs > 0) {
       await new Promise(resolve => setTimeout(resolve, this.postTxWaitMs));
     }

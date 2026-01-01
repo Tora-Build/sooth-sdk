@@ -363,7 +363,16 @@ function printHelp(): void {
       setmarket <addr>     Set current market
 
     ${info('Simulation:')}
-      simulate             Run a realistic orderbook fill simulation
+      simulate [n] [size] [seed]  Run orderbook simulation
+                                  n:    Number of orders (default 10)
+                                  size: Average shares (default 100)
+                                  seed: Random seed for reproducibility
+                                  ${dim('Press Enter during simulation to stop early')}
+                                  Examples:
+                                    simulate              10 random orders
+                                    simulate 50           50 orders
+                                    simulate 20 500       20 orders, 500 avg size
+                                    simulate 20 100 12345 Deterministic (seed)
 
   ${dim('┄'.repeat(62))}
 
