@@ -184,4 +184,20 @@ interface ILaunchpadEngine {
         external
         view
         returns (uint256 feesAccrued, uint256 threshold, uint256 progressBps);
+
+    // ============================================
+    // Market Enumeration
+    // ============================================
+
+    /**
+     * @notice Get all created markets
+     * @return Array of market addresses
+     */
+    function getMarkets() external view returns (address[] memory);
+
+    /**
+     * @notice Get total number of markets
+     * @return Number of markets created
+     */
+    function getMarketCount() external view returns (uint256);
 }

@@ -2,6 +2,25 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **On-Chain Market Discovery** (2026-01-01):
+  - `LaunchpadEngine.getMarkets()` — Returns array of all created market addresses
+  - `LaunchpadEngine.getMarketCount()` — Returns total number of markets
+  - `address[] public allMarkets` — Storage array tracking all markets
+  - `createMarket()` now pushes to `allMarkets` for enumeration
+  - **Frontend**: New `useOnChainMarkets` hook for dynamic market discovery
+  - **Frontend**: New `useOnChainMarketCount` hook for lightweight count queries
+  - Replaces static `markets.json` dependency for market discovery
+  - Static config retained for UI metadata (descriptions, categories, images)
+
+### Changed
+- Updated `ILaunchpadEngine.sol` interface with `getMarkets()` and `getMarketCount()`
+- Updated `LaunchpadEngine.json` ABI in frontend
+
+---
+
 ## [9.9.5] - 2026-01-01
 
 ### Added

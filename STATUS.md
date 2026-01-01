@@ -1,6 +1,6 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (V9.9.6 Unified Order API + FE Integration Prep)
+> Last Updated: 2026-01-01 (On-Chain Market Discovery)
 
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
@@ -8,6 +8,7 @@
 - **✅ TESTS PASSING** — 130/130 tests pass (11 new V9.9.6 tests)
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
+- **🆕 ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook (uncommitted)
 
 ## V9.9.6 Unified Order API (2026-01-01)
 
@@ -153,9 +154,33 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 
 ---
 
+## On-Chain Market Discovery (2026-01-01)
+
+Added on-chain market enumeration to replace static `markets.json` config.
+
+### Contract Changes (uncommitted)
+- `LaunchpadEngine.sol`: Added `address[] public allMarkets` storage
+- `LaunchpadEngine.sol`: Added `getMarkets()` and `getMarketCount()` view functions
+- `ILaunchpadEngine.sol`: Updated interface with new functions
+- `createMarket()` now pushes to `allMarkets` array
+
+### Frontend Changes (uncommitted)
+- Updated `LaunchpadEngine.json` ABI
+- New hook: `useOnChainMarkets.ts`
+  - `useOnChainMarkets()` — Returns all markets with metadata
+  - `useOnChainMarketCount()` — Lightweight count-only query
+
+### Integration Status
+- **Ready**: Contract + hook complete, build passes
+- **Pending**: Wire hook into market list pages (Trade, Portfolio, Pro)
+- **Decision**: Keep `markets.json` for UI metadata (descriptions, categories, images)
+
+---
+
 ## Pending Work
 
 ### High Priority
+- [ ] **Commit market discovery changes** — Contract + hook ready for review
 - [ ] **Deploy V9.9.6 to Base Sepolia** — New unified order API ready
 - [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
 - [ ] **Deploy V9.9.5 to Monad** — When RPC stabilizes
@@ -164,6 +189,7 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 - [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
 - [ ] **Contract Verification** — Verify on Basescan
 - [ ] **Test New Deployment Workflow** — Verify 1_DeployCore + 2_CreateMarket on fresh deployment
+- [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
 
 ### Interactive CLI Next Steps
 - [ ] **Test graduate command** — Verify full graduation flow works end-to-end
