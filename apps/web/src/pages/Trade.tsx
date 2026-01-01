@@ -222,14 +222,15 @@ export const Trade = () => {
             {/* Premium Market Header */}
             <MarketDetailHeader
               name={selectedMarket.name}
+              description={(selectedMarket as any).description}
               symbol={selectedMarket.symbol}
               address={selectedMarket.contractAddress}
               creator={truth?.creator || '0x0'}
-              deadline={(selectedMarket as any).deadline}
+              adjudicator={truth?.adjudicator}
+              deadline={truth?.deadline}
               isGraduated={launchpad?.isGraduated || false}
-              isExpired={Boolean((selectedMarket as any).deadline && (Date.now() / 1000 > (selectedMarket as any).deadline))}
+              isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
               isLive={!truth?.isSettled}
-              onBack={() => navigate('/trade')}
             />
 
             {/* Trading Panel - wrapped in Card for consistent styling */}
