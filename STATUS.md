@@ -1,8 +1,11 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (V9.9.6 Critical Bug Fix)
+> Last Updated: 2026-01-02 (V9.9.6-fix2 User Orders Cleanup)
 
-- **✅ V9.9.6 BUG FIX COMPLETE** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
+- **🔧 V9.9.6-fix2 READY** — User orders array cleanup to prevent gas bloat (pending deployment)
+- **✅ V9.9.6-fix1 DEPLOYED** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
+- **✅ PRO PAGE ORDERBOOK** — Now shows ALL orders (not just user's) via `useAllOrdersDirect` hook
+- **✅ CLI DEPOSIT FIX** — Fixed MockUSDC decimal conversion (18 decimals, not 6)
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
 - **✅ AUTO-CLAIM** — `_autoClaimUserOrders()` claims pending fills before placing new order
@@ -11,7 +14,6 @@
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
 - **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
-- **🔧 CLI BPS FIXES** — Fixed basis points handling in markets display and graduate command
 
 ## V9.9.6 Unified Order API (2026-01-01)
 
@@ -214,16 +216,16 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ## Pending Work
 
-### Critical (Blocking) — ✅ RESOLVED
-- [x] ~~**Redeploy V9.9.6 to Base Sepolia**~~ — Done 2026-01-02
-- [x] ~~**Redeploy V9.9.6 to Monad Testnet**~~ — Done 2026-01-02
+### Critical (Blocking)
+- [ ] **Redeploy V9.9.6-fix2** — User orders cleanup fix needs deployment to both testnets
 - [ ] **Create test markets** — Fresh deployment needs new markets
 
 ### High Priority
-- [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
+- [x] ~~**Pro Page Orderbook**~~ — Now shows all orders via `useAllOrdersDirect` hook
 - [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
 
 ### Medium Priority
+- [x] ~~**CLI Deposit Bug**~~ — Fixed MockUSDC decimal conversion in simulate command
 - [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
 - [x] ~~**BPS Bug Fixes**~~ — Fixed in markets list and graduate command
 - [x] ~~**Collateralizer Error**~~ — Pre-graduation markets now handled gracefully

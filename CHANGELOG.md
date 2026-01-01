@@ -5,6 +5,20 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **V9.9.6-fix2: User Orders Array Cleanup** (2026-01-02):
+  - **Bug**: `_autoClaimUserOrders()` iterated through ALL orders in `_userOrders[]` array, but inactive orders were never removed
+  - **Symptom**: After ~27 orders, `placeOrder()` exceeds 2M gas limit with "out of gas" errors
+  - **Root Cause**: Orders set `active = false` but stayed in array, causing O(n) gas growth
+  - **Fix**: Added `_removeFromUserOrders()` helper using swap-and-pop pattern; called when orders are cancelled or fully filled
+  - **Impact**: Requires contract redeployment
+  - **Doc**: `packages/contracts-core/docs/V996-fix2-userorders-cleanup.md`
+
+- **CLI Vault Deposit Decimal Bug** (2026-01-02):
+  - **Bug**: `simulate` command divided deposit amount by `10^12`, assuming 6-decimal USDC
+  - **Symptom**: Deposits showed success but balance remained 0, orders failed with "insufficient available"
+  - **Root Cause**: MockUSDC uses 18 decimals (WAD), not 6
+  - **Fix**: Removed incorrect decimal conversion in `market.ts`
+
 - **CRITICAL: V9.9.6 Active Liquidity Underflow** (2026-01-01):
   - **Bug**: `_fill()` function lines 613, 664, 667 had unsafe type casts `uint128(int128(activeLiq) + delta)` that could underflow when `delta` was negative and larger than `activeLiq`
   - **Symptom**: First several trades succeed, then one triggers underflow, corrupting `state.activeLiquidityYes/No`, causing ALL subsequent trades to fail with "arithmetic underflow or overflow"
@@ -13,6 +27,10 @@ All notable changes to Sooth Protocol will be documented in this file.
   - **Impact**: Requires contract redeployment to fix existing testnet deployments
 
 ### Added
+- **Pro Page All Orders Hook** (2026-01-02):
+  - New `useAllOrdersDirect` hook fetches ALL orders for a market (not just user's)
+  - Pro page `LiquidityMap` now shows full orderbook depth from all users
+  - `UserOrdersPanel` still shows only connected user's orders for management
 - **V9.9.6 Frontend Integration** (2026-01-01):
   - **Unified Order API**: Migrated `Pro.tsx` and `SimpleTradingPanel.tsx` to use the streamlined `placeOrder` and `tradePositions` APIs.
   - **Account Model**: Wired "Spendable Proceeds" into user buying power for capital efficiency.

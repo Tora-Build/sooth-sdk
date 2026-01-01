@@ -27,6 +27,7 @@ import {
   useTickBookVaultDirect,
   useTokenBalances,
   useUserOrdersDirect,
+  useAllOrdersDirect,
   useAmmMarketDirect,
   useInvalidateQueries,
   usePlaceOrder,
@@ -85,7 +86,7 @@ interface LiquidityMapProps {
     activeLiquidityNo?: bigint;
     activeLiquidityYes?: bigint;
   } | null;
-  userOrders?: Array<{
+  allOrders?: Array<{
     orderId: bigint;
     outcome: number;
     tickLower: number;
@@ -102,7 +103,7 @@ interface LiquidityMapProps {
   viewOutcome: 'yes' | 'no';
 }
 
-const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
+const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
@@ -167,9 +168,9 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
       highestBoundary = Math.max(highestBoundary, tickPercent);
     }
 
-    // NEW: If bids/asks are empty but we have userOrders, use those to populate the map
-    if (totalLiq === 0n && userOrders && userOrders.length > 0) {
-      for (const order of userOrders) {
+    // Use all orders to populate the liquidity map (shows full orderbook depth)
+    if (totalLiq === 0n && allOrders && allOrders.length > 0) {
+      for (const order of allOrders) {
         if (!order.active) continue;
 
         // Convert ticks to percentages (tick 1-999 maps to 0.1%-99.9%)
@@ -253,7 +254,7 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
       hasYesLiq,
       hasNoLiq,
     };
-  }, [tickBook, userOrders, currentProb, ammProb]);
+  }, [tickBook, allOrders, currentProb, ammProb]);
 
   // Adjust for View Outcome (flip if NO)
   const displayBuckets = useMemo(() => {
@@ -271,7 +272,7 @@ const LiquidityMap = ({ tickBook, userOrders, currentProb, ammProb, isLoading, v
 
   const displayProb = viewOutcome === 'yes' ? currentProb : (1 - currentProb);
   const displayAmmProb = viewOutcome === 'yes' ? ammProb : (1 - ammProb);
-  const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0 || (userOrders?.filter(o => o.active)?.length ?? 0) > 0;
+  const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0 || (allOrders?.filter(o => o.active)?.length ?? 0) > 0;
 
   return (
     <div className="relative">
@@ -1198,6 +1199,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     userAddress
   );
 
+  // Fetch ALL orders for the liquidity map (shows full orderbook depth, not just user's)
+  const { orders: allOrders, isLoading: isAllOrdersLoading } = useAllOrdersDirect(
+    tickBook?.marketKey as `0x${string}`
+  );
+
   const { balances } = useTokenBalances(useMemo(() => [
     contracts.MockUSDC as `0x${string}`
   ].filter(Boolean) as `0x${string}`[], [contracts.MockUSDC]));
@@ -1761,10 +1767,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             <div className="p-4">
               <LiquidityMap
                 tickBook={tickBook}
-                userOrders={userOrders}
+                allOrders={allOrders}
                 currentProb={currentProb}
                 ammProb={ammProb}
-                isLoading={isTickBookLoading}
+                isLoading={isTickBookLoading || isAllOrdersLoading}
                 viewOutcome={isYes ? 'yes' : 'no'}
               />
             </div>
