@@ -51,6 +51,8 @@ export { useTickBookVault } from "./useTickBookVault";
 export { useDynamicFee } from "./useDynamicFee";
 export { usePendingFills } from "./usePendingFills";
 export { useMarketKey } from "./useMarketKey";
+export { usePlaceOrder, orderUtils } from "./usePlaceOrder";
+export type { PlaceOrderResult } from "./usePlaceOrder";
 
 // ============================================================
 // Spendable Proceeds Hooks

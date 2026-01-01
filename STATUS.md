@@ -1,13 +1,42 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (Interactive CLI + Package Split + V9.9.5 LEAN)
+> Last Updated: 2026-01-01 (V9.9.6 Unified Order API + FE Integration Prep)
 
+- **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
+- **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
+- **✅ AUTO-CLAIM** — `_autoClaimUserOrders()` claims pending fills before placing new order
+- **✅ TESTS PASSING** — 130/130 tests pass (11 new V9.9.6 tests)
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
-- **✅ V9.9.5 LEAN DEPLOYED** — Fill overflow fixes + hook removal live on Base Sepolia
-- **✅ FE SYNCED** — Deployment configs updated
-- **✅ TESTS PASSING** — 119/119 tests pass in contracts-testing
-- **✅ DEPLOYMENT WORKFLOW** — Clean 2-step deployment scripts created
+
+## V9.9.6 Unified Order API (2026-01-01)
+
+### API Changes
+- **UNIFIED**: Single `placeOrder()` replaces separate `placeRangeOrder()` and `executeMarketOrder()`
+- **ORDER TYPES**: Determined by tick range:
+  - Market order: `tickLower=1, tickUpper=999`
+  - Limit order: `tickLower=X, tickUpper=X`
+  - Range order: `tickLower < tickUpper`
+  - Market with floor: `tickLower=floor, tickUpper=999`
+- **AUTO-CLAIM**: Claims all user's pending fills before placing new order
+- **TERMINOLOGY**: Removed maker/taker language (now resting/crossing orders)
+
+### Frontend Integration
+- **New Hook**: `usePlaceOrder(marketKey)` with helper functions:
+  - `marketOrder(outcome, shares, maxCost)` — fill everything
+  - `limitOrder(outcome, shares, priceCents, maxCost)` — single tick
+  - `rangeOrder(outcome, shares, priceLow, priceHigh, maxCost)` — spread
+  - `marketWithFloor(outcome, shares, floorCents, maxCost)` — fill then rest
+- **New ABI**: `V996_ABIS.TickBookPoolManager` for V9.9.6 contracts
+- **Utilities**: `orderUtils.percentToTick()`, `orderUtils.parseShares()`, etc.
+
+### Files Added
+- `packages/contracts-core/src/TickBookPoolManagerV996.sol`
+- `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
+- `apps/web/src/hooks/usePlaceOrder.ts`
+- `apps/web/src/config/abis/TickBookPoolManagerV996.json`
+
+---
 
 ## V9.9.5 LEAN Changes (Deployed 2025-12-31)
 
@@ -127,12 +156,14 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ## Pending Work
 
 ### High Priority
+- [ ] **Deploy V9.9.6 to Base Sepolia** — New unified order API ready
+- [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
 - [ ] **Deploy V9.9.5 to Monad** — When RPC stabilizes
-- [ ] **Test New Deployment Workflow** — Verify 1_DeployCore + 2_CreateMarket on fresh deployment
 
 ### Medium Priority
-- [ ] **Autoclaim Integration** — Call `batchClaimFills` before new orders
+- [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
 - [ ] **Contract Verification** — Verify on Basescan
+- [ ] **Test New Deployment Workflow** — Verify 1_DeployCore + 2_CreateMarket on fresh deployment
 
 ### Interactive CLI Next Steps
 - [ ] **Test graduate command** — Verify full graduation flow works end-to-end

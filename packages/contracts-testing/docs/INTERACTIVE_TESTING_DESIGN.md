@@ -101,14 +101,24 @@ const ACTORS: Actor[] = [
 | `withdraw <amount>` | Withdraw from vault | `withdraw 1000` |
 | `reserved` | Show reserved balance | `reserved` |
 
-#### Orderbook Commands
+#### Orderbook Commands (V9.9.6 Unified API)
+
+> **Note**: V9.9.6 uses a single `placeOrder()` function. Order type is determined by tick range:
+> - Market order: `tickLower=1, tickUpper=999`
+> - Limit order: `tickLower=X, tickUpper=X`
+> - Range order: `tickLower < tickUpper`
+> - Market with floor: `tickLower=floor, tickUpper=999`
+
 | Command | Description | Example |
 |---------|-------------|---------|
-| `order <outcome> <tickRange> <shares>` | Place range order | `order yes 40-60 100` |
+| `limit <outcome> <price> <shares>` | Place limit order (single tick) | `limit yes 50 100` |
+| `range <outcome> <low-high> <shares>` | Place range order | `range yes 40-60 100` |
+| `market <outcome> <shares>` | Market order (full range 1-999) | `market yes 50` |
+| `floor <outcome> <floor> <shares>` | Market with floor | `floor yes 40 100` |
 | `cancel <orderId>` | Cancel order | `cancel 5` |
-| `claim <orderId>` | Claim fills | `claim 5` |
-| `market <buy/sell> <outcome> <shares>` | Execute market order | `market buy no 50` |
 | `orders` | List my active orders | `orders` |
+
+> **Auto-claim**: V9.9.6 automatically claims pending fills before placing new orders.
 
 #### State Commands
 | Command | Description | Example |
@@ -450,12 +460,27 @@ export const config = {
 
 ## Next Steps
 
-1. [ ] Implement Phase 1 MVP (core REPL + basic commands)
-2. [ ] Test against Base Sepolia deployment
-3. [ ] Add scenario engine (Phase 2)
-4. [ ] Create scenario library for V9.9.5 features
-5. [ ] Add recording/playback (Phase 3)
-6. [ ] CI integration (Phase 4)
+1. [x] Implement Phase 1 MVP (core REPL + basic commands)
+2. [x] Test against Base Sepolia deployment
+3. [ ] **Update to V9.9.6 API** — Replace `placeRangeOrder`/`executeMarketOrder` with `placeOrder`
+4. [ ] Add scenario engine (Phase 2)
+5. [ ] Create scenario library for V9.9.6 features (auto-claim, market with floor)
+6. [ ] Add recording/playback (Phase 3)
+7. [ ] CI integration (Phase 4)
+
+## V9.9.6 Migration Notes
+
+The interactive CLI currently uses the old V9.9.5 API:
+- `placeRangeOrder(marketKey, outcome, tickLower, tickUpper, shares)`
+- `executeMarketOrder(marketKey, outcome, shares, maxCost)`
+
+These should be replaced with the unified V9.9.6 API:
+- `placeOrder(marketKey, outcome, shares, tickLower, tickUpper, maxCost)`
+
+**Files to update:**
+- `commands/orderbook.ts` — Replace function calls
+- `commands/market.ts` — Replace function calls
+- `config.ts` — Update ABI definitions
 
 ---
 
