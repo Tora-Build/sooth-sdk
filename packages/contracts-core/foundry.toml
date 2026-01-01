@@ -1,0 +1,24 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+script = "script"
+solc_version = "0.8.30"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+remappings = ["prb-math/=lib/prb-math/src/"]
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+[rpc_endpoints]
+baseSepolia = "https://sepolia.base.org"
+megaethMainnet = "https://mainnet.megaeth.com/rpc"
+megaethTestnet = "https://timothy.megaeth.com/rpc"
+monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/"
+bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+
+[profile.megaeth]
+gas_price = 100000000
+
+[profile.monad]
+# Standard EIP-1559 gas settings

@@ -6,8 +6,9 @@
     "dev": "pnpm --filter ./apps/web dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:contracts": "pnpm --filter contracts-evm test",
-    "deploy:contracts": "pnpm --filter contracts-evm deploy"
+    "test:contracts": "pnpm --filter contracts-testing test",
+    "deploy:contracts": "pnpm --filter contracts-core deploy",
+    "benchmark": "pnpm --filter contracts-testing benchmark"
   },
   "devDependencies": {
     "turbo": "^2.0.0"

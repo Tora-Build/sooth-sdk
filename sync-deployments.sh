@@ -7,16 +7,16 @@ set -e
 
 REPO_ROOT="$(dirname "$0")"
 CANONICAL="$REPO_ROOT/apps/web/src/config/deployments.json"
-CONTRACTS="$REPO_ROOT/packages/contracts-evm/deployments.json"
+CONTRACTS_CORE="$REPO_ROOT/packages/contracts-core/deployments.json"
 
 echo "📦 Syncing deployment files..."
 echo "Source: $CANONICAL"
 
 # Ensure destination dirs exist
-mkdir -p "$(dirname "$CONTRACTS")"
+mkdir -p "$(dirname "$CONTRACTS_CORE")"
 
 # Copy from canonical source to all locations
-cp "$CANONICAL" "$CONTRACTS"
+cp "$CANONICAL" "$CONTRACTS_CORE"
 
 echo "✅ Synced to:"
-echo "  - Contracts: packages/contracts-evm/deployments.json"
+echo "  - Contracts Core: packages/contracts-core/deployments.json"
