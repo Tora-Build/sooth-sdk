@@ -8,23 +8,59 @@ import type { Chain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Load .env from monorepo root
+const envPaths = [
+  path.join(__dirname, '..', '..', '..', '..', '.env'),
+  path.join(__dirname, '..', '..', '.env'),
+  path.join(process.cwd(), '.env'),
+];
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.slice(0, eqIndex);
+          const value = trimmed.slice(eqIndex + 1);
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
+        }
+      }
+    }
+    break;
+  }
+}
+
 // Custom chain definitions
 export const monadTestnet: Chain = {
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: {
+      http: [
+        'https://testnet-rpc.monad.xyz',
+        'https://rpc.ankr.com/monad_testnet',
+        'https://rpc-testnet.monadinfra.com',
+      ],
+    },
   },
   blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
   },
+  testnet: true,
 };
 
 export interface ChainConfig {
   chain: Chain;
   rpc: string;
   deploymentFile: string;
+  confirmations?: number;
+  postTxWaitMs?: number;
+  aliases?: string[];
 }
 
 export const CHAINS: Record<string, ChainConfig> = {
@@ -32,13 +68,34 @@ export const CHAINS: Record<string, ChainConfig> = {
     chain: baseSepolia,
     rpc: 'https://sepolia.base.org',
     deploymentFile: 'v9-baseSepolia.json',
+    confirmations: 1,
+    postTxWaitMs: 0,
+    aliases: ['base', 'base-sepolia', 'basesepolia'],
   },
   monadTestnet: {
     chain: monadTestnet,
-    rpc: 'https://testnet-rpc.monad.xyz',
+    rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
     deploymentFile: 'v9-monadTestnet.json',
+    confirmations: 1,
+    // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
+    postTxWaitMs: 8000,
+    aliases: ['monad', 'monad-testnet', 'monadtestnet'],
   },
 };
+
+function resolveChainKey(input: string): string {
+  const normalized = input.trim().toLowerCase();
+
+  for (const key of Object.keys(CHAINS)) {
+    if (key.toLowerCase() === normalized) return key;
+  }
+
+  for (const [key, cfg] of Object.entries(CHAINS)) {
+    if (cfg.aliases?.some(a => a.toLowerCase() === normalized)) return key;
+  }
+
+  return input;
+}
 
 export interface Deployment {
   chainId: number;
@@ -64,7 +121,8 @@ export interface Deployment {
 }
 
 export function loadDeployment(chainName: string): Deployment {
-  const config = CHAINS[chainName];
+  const chainKey = resolveChainKey(chainName);
+  const config = CHAINS[chainKey];
   if (!config) {
     throw new Error(`Unknown chain: ${chainName}. Available: ${Object.keys(CHAINS).join(', ')}`);
   }
@@ -91,24 +149,27 @@ export interface InteractiveConfig {
   deployment: Deployment;
   gasMultiplier: number;
   confirmations: number;
+  postTxWaitMs: number;
   defaultMarketIndex: number;
 }
 
 export function createConfig(chainName: string): InteractiveConfig {
-  const chainConfig = CHAINS[chainName];
+  const chainKey = resolveChainKey(chainName);
+  const chainConfig = CHAINS[chainKey];
   if (!chainConfig) {
     throw new Error(`Unknown chain: ${chainName}`);
   }
 
-  const deployment = loadDeployment(chainName);
+  const deployment = loadDeployment(chainKey);
 
   return {
-    chainName,
+    chainName: chainKey,
     chain: chainConfig.chain,
     rpc: chainConfig.rpc,
     deployment,
     gasMultiplier: 1.5,
-    confirmations: 1,
+    confirmations: chainConfig.confirmations ?? 1,
+    postTxWaitMs: chainConfig.postTxWaitMs ?? 0,
     defaultMarketIndex: 0,
   };
 }
@@ -190,7 +251,6 @@ export const ABIS = {
       name: 'getMarketInfo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }],
       outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }], stateMutability: 'view'
     },
-    { name: 'nextOrderId', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
   ],
 
   LaunchpadEngine: [

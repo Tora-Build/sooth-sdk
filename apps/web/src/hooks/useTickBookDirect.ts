@@ -1,7 +1,7 @@
 import { keccak256, encodeAbiParameters, parseAbiParameters, getAddress, type Address } from "viem";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { V9_ABIS, V996_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 /**
@@ -26,6 +26,10 @@ export function useTickBookDirect(
     read: async (client) => {
       try {
         console.log(`[useTickBookDirect] Initializing for ${marketAddress}`);
+
+        // Determine ABI based on chain
+        const poolManagerAbi = V996_ABIS.TickBookPoolManager;
+
         let yesToken = yesTokenInput;
         let noToken = noTokenInput;
         const isZero = (addr: string | undefined) => !addr || addr === "0x0000000000000000000000000000000000000000" || addr === "0x0";
@@ -80,13 +84,13 @@ export function useTickBookDirect(
         const [marketState, marketInfo] = await Promise.all([
           readContractSafe<readonly [number, bigint, bigint, bigint]>(client, {
             address: poolManagerAddress!,
-            abi: V9_ABIS.TickBookPoolManager,
+            abi: poolManagerAbi,
             functionName: "getMarketState",
             args: [marketKey],
           }),
           readContractSafe<readonly [Address, Address, Address, boolean]>(client, {
             address: poolManagerAddress!,
-            abi: V9_ABIS.TickBookPoolManager,
+            abi: poolManagerAbi,
             functionName: "getMarketInfo",
             args: [marketKey],
           }),

@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { V996_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { useMarketKey } from "./useMarketKey";
 
@@ -52,17 +52,19 @@ export function useTickBookPoolManager(
     enabled: !!marketKey && !!chainId && !!poolManagerAddress,
     chainId,
     read: async (client) => {
+      const abi = V996_ABIS.TickBookPoolManager;
+
       // Batch read market state and info
       const [marketState, marketInfo] = await Promise.all([
         readContractSafe<readonly [number, bigint, bigint, bigint]>(client, {
           address: poolManagerAddress!,
-          abi: V9_ABIS.TickBookPoolManager,
+          abi: abi,
           functionName: "getMarketState",
           args: [marketKey!],
         }),
         readContractSafe<readonly [Address, Address, Address, Address, boolean]>(client, {
           address: poolManagerAddress!,
-          abi: V9_ABIS.TickBookPoolManager,
+          abi: abi,
           functionName: "getMarketInfo",
           args: [marketKey!],
         }),
@@ -102,7 +104,7 @@ export function useTickBookPoolManager(
           try {
             const next = await readContractSafe<number>(client, {
               address: poolManagerAddress!,
-              abi: V9_ABIS.TickBookPoolManager,
+              abi: abi,
               functionName: "findNextActiveTick",
               args: [marketKey!, current, isUp, outcome],
             });
@@ -112,7 +114,7 @@ export function useTickBookPoolManager(
 
             const data = await readContractSafe<{ liquidityNet: bigint; liquidityGross: bigint }>(client, {
               address: poolManagerAddress!,
-              abi: V9_ABIS.TickBookPoolManager,
+              abi: abi,
               functionName: "getTickInfo",
               args: [marketKey!, outcome, next],
             });

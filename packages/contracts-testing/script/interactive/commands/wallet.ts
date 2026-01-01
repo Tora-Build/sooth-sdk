@@ -80,7 +80,7 @@ export async function mint(ctx: CommandContext, args: string[]): Promise<Command
       args: [address, amount],
     });
 
-    await publicClient.waitForTransactionReceipt({ hash });
+    await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`Minted ${formatWad(amount)} USDC ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
@@ -131,7 +131,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
         args: [address as `0x${string}`, amount],
       });
 
-      await publicClient.waitForTransactionReceipt({ hash });
+      await actorManager.waitForTransactionReceipt(hash);
       const amountStr = amount === MAX_UINT256 ? 'unlimited' : formatWad(amount);
       spinner.succeed(`Approved ${name} for ${amountStr} USDC`);
       return true;

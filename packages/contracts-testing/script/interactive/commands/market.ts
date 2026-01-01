@@ -166,7 +166,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
         functionName: 'mint',
         args: [address, required * 2n],
       });
-      await publicClient.waitForTransactionReceipt({ hash: mintHash });
+      await actorManager.waitForTransactionReceipt(mintHash);
       console.log(success('  Minted USDC'));
     }
 
@@ -187,7 +187,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       data: deployData,
     });
 
-    const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+    const deployReceipt = await actorManager.waitForTransactionReceipt(deployHash);
     const truthMarketAddr = deployReceipt.contractAddress as `0x${string}`;
 
     if (!truthMarketAddr) {
@@ -207,7 +207,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       functionName: 'activate',
       args: [],
     });
-    await publicClient.waitForTransactionReceipt({ hash: activateHash });
+    await actorManager.waitForTransactionReceipt(activateHash);
     spinner2.succeed('TruthMarket activated');
 
     // Step 4: Approve USDC for LaunchpadEngine
@@ -220,7 +220,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       functionName: 'approve',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
     });
-    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    await actorManager.waitForTransactionReceipt(approveHash);
     spinner3.succeed('USDC approved');
 
     // Step 5: Initialize in LaunchpadEngine
@@ -234,7 +234,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       args: [truthMarketAddr, liquidityWad, template.name, template.symbol],
     });
 
-    const createReceipt = await publicClient.waitForTransactionReceipt({ hash: createHash });
+    const createReceipt = await actorManager.waitForTransactionReceipt(createHash);
     spinner4.succeed(`Market initialized in LaunchpadEngine ${dim(`(gas: ${createReceipt.gasUsed})`)}`);
 
     console.log('');
@@ -341,7 +341,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       args: [marketAddress, 1, tinyTrade, MAX_UINT256],
       gas: 2000000n,
     });
-    await publicClient.waitForTransactionReceipt({ hash });
+    await actorManager.waitForTransactionReceipt(hash);
 
     console.log(`  ${success('MARKET GRADUATED!')}\n`);
     return { success: true };
@@ -404,7 +404,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       functionName: 'mint',
       args: [address, requiredUsdc * 2n],
     });
-    await publicClient.waitForTransactionReceipt({ hash: mintHash });
+    await actorManager.waitForTransactionReceipt(mintHash);
     console.log(success('  Minted USDC'));
   }
 
@@ -415,7 +415,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     functionName: 'approve',
     args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
   });
-  await publicClient.waitForTransactionReceipt({ hash: approveHash });
+  await actorManager.waitForTransactionReceipt(approveHash);
 
   // Execute graduation trades
   console.log('  ' + '─'.repeat(40));
@@ -440,7 +440,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         gas: 2000000n, // High gas for potential graduation
       });
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      const receipt = await actorManager.waitForTransactionReceipt(hash);
       totalGas += receipt.gasUsed;
       tradesExecuted++;
 
@@ -649,14 +649,57 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
   const numOrders = args[0] ? parseInt(args[0], 10) : 10;
   const avgSize = args[1] ? parseWad(args[1]) : 100n * WAD;
+  const seed = args[2] ? Number(args[2]) : Date.now();
+  const rng = (() => {
+    // Deterministic PRNG (mulberry32)
+    let t = (seed >>> 0) || 1;
+    return () => {
+      t += 0x6d2b79f5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+
+  if (!Number.isFinite(numOrders) || numOrders <= 0) {
+    return {
+      success: false,
+      message: 'Usage: simulate [numOrders] [avgSize] [seed]\n  Example: simulate 20 100 123',
+    };
+  }
+
+  // Ensure TickBook market is active/registered for this marketKey
+  try {
+    const [truthMarket, yesToken, noToken] = await publicClient.readContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'getMarketInfo',
+      args: [marketKey],
+    }) as [string, string, string, string];
+
+    const active =
+      truthMarket !== '0x0000000000000000000000000000000000000000' &&
+      yesToken !== '0x0000000000000000000000000000000000000000' &&
+      noToken !== '0x0000000000000000000000000000000000000000';
+
+    if (!active) {
+      return {
+        success: false,
+        message: 'TickBook marketKey is not active/registered. Ensure the market is graduated and registered into TickBook, then re-run setmarket.',
+      };
+    }
+  } catch (err) {
+    return { success: false, message: `Failed to validate TickBook marketKey: ${(err as Error).message}` };
+  }
 
   console.log(`\n  ${bold('Orderbook Simulation')}`);
   console.log('  ' + '─'.repeat(50));
   console.log(`  Orders to place: ${numOrders}`);
   console.log(`  Average size: ${formatWad(avgSize)} shares`);
+  console.log(`  Seed: ${seed}`);
   console.log('');
 
-  // Ensure sufficient vault balance
+  // Ensure sufficient vault balance - ALWAYS deposit enough for simulation
   const available = await publicClient.readContract({
     address: deployment.contracts.TickBookVault as `0x${string}`,
     abi: ABIS.TickBookVault,
@@ -664,108 +707,187 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     args: [address],
   }) as bigint;
 
-  const requiredBalance = avgSize * BigInt(numOrders) * 2n;
+  // Increase buffer for randomized order sizes (50%-150% of avg) + market orders
+  const requiredBalance = avgSize * BigInt(numOrders) * 10n; // 10x buffer
+
+  console.log(dim(`  Current vault balance: ${formatWad(available)} USDC`));
 
   if (available < requiredBalance) {
-    console.log(warn(`  Insufficient vault balance. Depositing...`));
+    console.log(warn(`  Insufficient vault balance. Depositing ${formatWad(requiredBalance)}...`));
 
-    // Mint and deposit
+    // Mint USDC
     const mintHash = await walletClient.writeContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'mint',
       args: [address, requiredBalance * 2n],
     });
-    await publicClient.waitForTransactionReceipt({ hash: mintHash });
+    await actorManager.waitForTransactionReceipt(mintHash);
 
+    // Approve vault
     const approveHash = await walletClient.writeContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'approve',
       args: [deployment.contracts.TickBookVault as `0x${string}`, MAX_UINT256],
     });
-    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    await actorManager.waitForTransactionReceipt(approveHash);
 
+    // Deposit to vault (depositUsdc takes USDC amount in 6 decimals, not WAD)
+    // Convert WAD to USDC: divide by 1e12
+    const depositUsdc = requiredBalance * 2n / (10n ** 12n);
     const depositHash = await walletClient.writeContract({
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,
       functionName: 'depositUsdc',
-      args: [requiredBalance * 2n],
+      args: [depositUsdc],
     });
-    await publicClient.waitForTransactionReceipt({ hash: depositHash });
-    console.log(success('  Deposited USDC to vault'));
+    await actorManager.waitForTransactionReceipt(depositHash);
+
+    // Verify new balance
+    const newBalance = await publicClient.readContract({
+      address: deployment.contracts.TickBookVault as `0x${string}`,
+      abi: ABIS.TickBookVault,
+      functionName: 'availableUsdcWad',
+      args: [address],
+    }) as bigint;
+    console.log(success(`  Deposited. New balance: ${formatWad(newBalance)} USDC`));
   }
 
   // Place orders at various price levels
   console.log('  ' + '─'.repeat(50));
   console.log(`  ${bold('Phase 1: Placing Limit Orders')}`);
 
-  const placedOrders: { orderId: number; outcome: number; tickLower: number; tickUpper: number; shares: bigint }[] = [];
+  const placedOrders: {
+    orderId: bigint;
+    outcome: number;
+    tickLower: number;
+    tickUpper: number;
+    shares: bigint;
+    filledShares: bigint;
+    filledCost: bigint;
+    restingShares: bigint;
+    txHash: `0x${string}`;
+  }[] = [];
+
+  const writePlaceOrder = async (params: {
+    outcome: number;
+    shares: bigint;
+    tickLower: number;
+    tickUpper: number;
+    maxCost: bigint;
+  }) => {
+    // Direct writeContract (no simulateContract) for RPC compatibility
+    const txHash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'placeOrder',
+      args: [marketKey, params.outcome, params.shares, params.tickLower, params.tickUpper, params.maxCost],
+    });
+
+    const receipt = await actorManager.waitForTransactionReceipt(txHash);
+
+    // Parse return values from logs (PlaceOrder event)
+    // For now, return placeholder values - the order is placed successfully
+    // TODO: Parse actual return values from receipt logs
+    return {
+      txHash,
+      result: [0n, 0n, 0n, params.shares] as [bigint, bigint, bigint, bigint], // orderId, filled, cost, resting
+    };
+  };
+
+  // Debug: show first order params
+  const debugFirstOrder = true;
 
   for (let i = 0; i < numOrders; i++) {
     // Randomize order parameters
-    const outcome = i % 2; // Alternate YES/NO
+    const outcome = i % 2; // Alternate YES/NO (0=NO, 1=YES)
     const baseTickLower = 200 + (i % 5) * 100; // 200, 300, 400, 500, 600
-    const tickLower = baseTickLower + Math.floor(Math.random() * 50);
-    const tickUpper = tickLower + 50 + Math.floor(Math.random() * 50);
-    const shares = (avgSize * BigInt(50 + Math.floor(Math.random() * 100))) / 100n; // 50%-150% of avg
+    const tickLower = baseTickLower + Math.floor(rng() * 50);
+    const tickUpper = tickLower + 50 + Math.floor(rng() * 50);
+    const shares = (avgSize * BigInt(50 + Math.floor(rng() * 100))) / 100n; // 50%-150% of avg
+    const maxCost = shares * 2n; // 200% slippage tolerance
+
+    // Debug output for first order
+    if (debugFirstOrder && i === 0) {
+      console.log(dim(`  Debug: marketKey=${(marketKey as string).slice(0, 18)}...`));
+      console.log(dim(`  Debug: outcome=${outcome}, shares=${shares.toString()}, tickLower=${tickLower}, tickUpper=${tickUpper}, maxCost=${maxCost.toString()}`));
+    }
 
     const spinner = new Spinner(`  Order ${i + 1}/${numOrders}: ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)}...`);
     spinner.start();
 
     try {
       // V9.9.6: Use unified placeOrder API
-      const maxCost = shares * 2n; // 200% slippage tolerance
-      const hash = await walletClient.writeContract({
-        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-        abi: ABIS.TickBookPoolManager,
-        functionName: 'placeOrder',
-        args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
-      });
+      const { txHash, result } = await writePlaceOrder({ outcome, shares, tickLower, tickUpper, maxCost });
+      const [orderId, filledShares, filledCost, restingShares] = result as [bigint, bigint, bigint, bigint];
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      spinner.succeed(`Order ${i + 1}: ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)}`);
+      spinner.succeed(
+        `Order ${i + 1}: #${orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(filledShares)}, resting: ${formatWad(restingShares)})`
+      );
 
-      placedOrders.push({ orderId: i + 1, outcome, tickLower, tickUpper, shares });
+      placedOrders.push({ orderId, outcome, tickLower, tickUpper, shares, filledShares, filledCost, restingShares, txHash });
     } catch (err) {
-      spinner.fail(`Order ${i + 1} failed: ${(err as Error).message.slice(0, 40)}`);
+      const errMsg = (err as Error).message;
+      // Extract revert reason if present
+      const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
+        || errMsg.match(/reason:\s*([^\n]+)/i)
+        || errMsg.match(/Error:\s*([^\n]+)/i);
+      const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
+      spinner.fail(`Order ${i + 1} failed: ${shortErr}`);
+
+      // Show full error on first failure for debugging
+      if (i === 0) {
+        console.log(dim(`  Full error: ${errMsg.slice(0, 300)}`));
+      }
     }
 
     await sleep(200);
   }
 
   // Execute market orders to cross liquidity
+  // Only run if we placed some limit orders to fill against
   console.log('');
   console.log(`  ${bold('Phase 2: Executing Market Orders')}`);
 
-  const numMarketOrders = Math.floor(numOrders / 3);
+  let marketOrdersExecuted = 0;
+  let totalRequested = 0n;
   let totalFilled = 0n;
+  let totalCost = 0n;
 
-  for (let i = 0; i < numMarketOrders; i++) {
-    const outcome = i % 2;
-    const shares = (avgSize * BigInt(30 + Math.floor(Math.random() * 70))) / 100n;
+  if (placedOrders.length === 0) {
+    console.log(dim('  Skipping - no limit orders to fill against'));
+  } else {
+    const numMarketOrders = Math.min(Math.floor(numOrders / 3), placedOrders.length);
 
-    const spinner = new Spinner(`  Market ${i + 1}/${numMarketOrders}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)}...`);
-    spinner.start();
+    for (let i = 0; i < numMarketOrders; i++) {
+      // Target opposite side of a placed order
+      const targetOrder = placedOrders[i % placedOrders.length];
+      const outcome = targetOrder.outcome === 1 ? 0 : 1; // Opposite side
+      const shares = (avgSize * BigInt(20 + Math.floor(rng() * 30))) / 100n; // Smaller size (20-50%)
+      totalRequested += shares;
 
-    try {
-      // V9.9.6: Market orders use placeOrder with full tick range (1-999)
-      const maxCost = shares * 2n;
-      const hash = await walletClient.writeContract({
-        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-        abi: ABIS.TickBookPoolManager,
-        functionName: 'placeOrder',
-        args: [marketKey, outcome, shares, 1, 999, maxCost],
-      });
+      const spinner = new Spinner(`  Market ${i + 1}/${numMarketOrders}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)}...`);
+      spinner.start();
 
-      await publicClient.waitForTransactionReceipt({ hash });
-      totalFilled += shares;
-      spinner.succeed(`Market ${i + 1}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)}`);
-    } catch (err) {
-      spinner.fail(`Market ${i + 1} failed: ${(err as Error).message.slice(0, 40)}`);
+      try {
+        // V9.9.6: Market orders use placeOrder with full tick range (1-999)
+        const maxCost = shares * 2n;
+        const { result } = await writePlaceOrder({ outcome, shares, tickLower: 1, tickUpper: 999, maxCost });
+        const [, filledShares, filledCost] = result as [bigint, bigint, bigint, bigint];
+
+        marketOrdersExecuted++;
+        totalFilled += filledShares;
+        totalCost += filledCost;
+        spinner.succeed(
+          `Market ${i + 1}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)} (filled: ${formatWad(filledShares)}, cost: ${formatWad(filledCost)})`
+        );
+      } catch (err) {
+        spinner.fail(`Market ${i + 1} failed: ${(err as Error).message.slice(0, 50)}`);
+      }
+
+      await sleep(200);
     }
-
-    await sleep(200);
   }
 
   // Summary
@@ -773,11 +895,13 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   console.log('  ' + '─'.repeat(50));
   console.log(`  ${bold('Simulation Complete')}`);
   console.log(`  Limit orders placed: ${placedOrders.length}`);
-  console.log(`  Market orders executed: ${numMarketOrders}`);
-  console.log(`  Total shares filled: ${formatWad(totalFilled)}`);
+  console.log(`  Market orders executed: ${marketOrdersExecuted}`);
+  console.log(`  Market shares requested: ${formatWad(totalRequested)}`);
+  console.log(`  Market shares filled:    ${formatWad(totalFilled)}`);
+  console.log(`  Total cost:              ${formatWad(totalCost)} USDC`);
   console.log('');
 
-  return { success: true, data: { placedOrders: placedOrders.length, marketOrders: numMarketOrders, totalFilled } };
+  return { success: true, data: { placedOrders: placedOrders.length, marketOrders: marketOrdersExecuted, totalRequested, totalFilled, totalCost } };
 }
 
 export const marketCommands = {

@@ -223,10 +223,14 @@ export function printBox(lines: string[], width = 60): void {
   const top = '╔' + '═'.repeat(width - 2) + '╗';
   const bottom = '╚' + '═'.repeat(width - 2) + '╝';
 
+  // Strip ANSI codes for length calculation
+  const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, '');
+
   console.log(top);
   for (const line of lines) {
-    const padded = line.padEnd(width - 4);
-    console.log(`║ ${padded} ║`);
+    const visualLen = stripAnsi(line).length;
+    const padding = Math.max(0, width - 4 - visualLen);
+    console.log(`║ ${line}${' '.repeat(padding)} ║`);
   }
   console.log(bottom);
 }

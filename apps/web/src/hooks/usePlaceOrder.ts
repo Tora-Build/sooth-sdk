@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { V9_ABIS } from '../config/abis';
+import { V996_ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
 import toast from 'react-hot-toast';
@@ -76,15 +76,29 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         throw new Error('tickLower cannot exceed tickUpper');
       }
 
+      // V9.9.6: placeOrder(bytes32 marketKey, uint8 outcome, uint256 shares, uint16 tickLower, uint16 tickUpper, uint256 maxCost)
+      const args = [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const;
+
+      console.log('[usePlaceOrder] Placing order with args:', {
+        marketKey,
+        outcome,
+        shares: shares.toString(),
+        tickLower,
+        tickUpper,
+        maxCost: maxCost.toString(),
+        poolManagerAddress,
+        address
+      });
+
       // Simulate first to catch reverts
       if (publicClient) {
         try {
           await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
-            abi: V9_ABIS.TickBookPoolManager,
+            abi: V996_ABIS.TickBookPoolManager,
             functionName: 'placeOrder',
-            args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
+            args,
           });
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;
@@ -94,9 +108,9 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V9_ABIS.TickBookPoolManager,
+        abi: V996_ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
-        args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
+        args,
       });
 
       toast.loading('Confirming...', { id: toastId });
