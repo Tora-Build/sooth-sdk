@@ -1,1 +1,1 @@
-../../.agent/workflows/deploy-sync.md
+../../.claude/commands/deploy-sync.md

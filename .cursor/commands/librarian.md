@@ -1,1 +1,1 @@
-../../.agent/workflows/librarian.md
+../../.claude/commands/librarian.md

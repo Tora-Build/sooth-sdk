@@ -1,1 +1,1 @@
-../../.agent/workflows/coordinator.md
+../../.claude/commands/coordinator.md
