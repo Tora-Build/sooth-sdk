@@ -13,10 +13,14 @@
     "benchmark": "bun run script/benchmark/hft-benchmark.ts",
     "benchmark:base": "bun run script/benchmark/hft-benchmark.ts --chain=baseSepolia",
     "benchmark:monad": "bun run script/benchmark/hft-benchmark.ts --chain=monadTestnet",
-    "graduate": "bun run script/markets/graduate-market.ts"
+    "graduate": "bun run script/markets/graduate-market.ts",
+    "interactive": "bun run script/interactive/interactive-test.ts",
+    "interactive:base": "bun run script/interactive/interactive-test.ts --chain=baseSepolia",
+    "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet"
   },
   "dependencies": {
-    "viem": "^2.21.0"
+    "viem": "^2.21.0",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
