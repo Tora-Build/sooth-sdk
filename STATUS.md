@@ -1,6 +1,6 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (Interactive CLI BPS Fixes)
+> Last Updated: 2026-01-01 (V9.9.6 Unified Order API & On-Chain Discovery)
 
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
@@ -9,6 +9,7 @@
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
+- **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
 - **🔧 CLI BPS FIXES** — Fixed basis points handling in markets display and graduate command
 
 ## V9.9.6 Unified Order API (2026-01-01)
@@ -29,13 +30,14 @@
   - `limitOrder(outcome, shares, priceCents, maxCost)` — single tick
   - `rangeOrder(outcome, shares, priceLow, priceHigh, maxCost)` — spread
   - `marketWithFloor(outcome, shares, floorCents, maxCost)` — fill then rest
-- **New ABI**: `V996_ABIS.TickBookPoolManager` for V9.9.6 contracts
-- **Utilities**: `orderUtils.percentToTick()`, `orderUtils.parseShares()`, etc.
+- **Market Discovery**: `useOnChainMarkets` hook enables dynamic listing without static config dependency.
+- **Account Model**: Integrated spendable proceeds into buying power for better capital efficiency.
 
 ### Files Added
 - `packages/contracts-core/src/TickBookPoolManagerV996.sol`
 - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
 - `apps/web/src/hooks/usePlaceOrder.ts`
+- `apps/web/src/hooks/useOnChainMarkets.ts`
 - `apps/web/src/config/abis/TickBookPoolManagerV996.json`
 
 ---
