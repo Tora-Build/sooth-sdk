@@ -1,5 +1,56 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-066: Unified Order API (V9.9.6)
+- **Date**: 2026-01-01
+- **Status**: Accepted (Implemented - Not Yet Deployed)
+- **Context**:
+  - V9.9.5 had separate `placeRangeOrder()` and `executeMarketOrder()` functions.
+  - Users could place orders without claiming their pending fills, leading to "stuck" positions.
+  - Frontend needed to maintain two code paths for different order types.
+  - "Maker/taker" terminology was confusing since a single user can be both.
+- **Decision**:
+  1. **Single `placeOrder()` Function**: Replace both functions with unified API:
+     ```solidity
+     function placeOrder(
+         bytes32 marketKey,
+         uint8 outcome,
+         uint256 shares,
+         uint16 tickLower,
+         uint16 tickUpper,
+         uint256 maxCost
+     ) external returns (
+         uint256 orderId,
+         uint256 filledShares,
+         uint256 filledCost,
+         uint256 restingShares
+     )
+     ```
+  2. **Order Types via Tick Range**:
+     - Market order: `tickLower=1, tickUpper=999` (fill everything)
+     - Limit order: `tickLower=X, tickUpper=X` (single tick)
+     - Range order: `tickLower < tickUpper` (spread liquidity)
+     - Market with floor: `tickLower=floor, tickUpper=999` (fill then rest)
+  3. **Auto-Claim on New Order**: `_autoClaimUserOrders()` claims all pending fills before placing.
+  4. **Terminology Cleanup**: Renamed `makerOutcome` → `crossedOutcome` throughout.
+  5. **No Deprecation**: Alpha phase allows direct API replacement.
+- **Rationale**:
+  - **Simpler Mental Model**: Every order is a range order that crosses what it can and rests the remainder.
+  - **Better UX**: Auto-claim prevents "stuck" positions.
+  - **Cleaner Frontend**: Single code path with helper functions.
+  - **Gas Efficiency**: Auto-claim adds ~4-8k gas per active order checked.
+- **Consequences**:
+  - **Breaking Change**: Contracts must be redeployed.
+  - **Frontend Update**: New `usePlaceOrder` hook with helpers.
+  - **ABI Change**: New `V996_ABIS` export for frontend.
+  - **Test Coverage**: 11 new tests covering all order types.
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol` — New contract
+  - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol` — Tests
+  - `apps/web/src/hooks/usePlaceOrder.ts` — New hook
+  - `apps/web/src/config/abis.ts` — Added V996_ABIS
+
+---
+
 ## ADR-065: Package Split — contracts-core + contracts-testing
 - **Date**: 2026-01-01
 - **Status**: Accepted (Implemented)
