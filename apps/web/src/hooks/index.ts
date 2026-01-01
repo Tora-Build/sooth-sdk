@@ -41,6 +41,7 @@ export { useTickBookDirect } from "./useTickBookDirect";
 export { useTickBookQuoteDirect } from "./useTickBookQuoteDirect";
 export { useTickBookVaultDirect } from "./useTickBookVaultDirect";
 export { useUserOrdersDirect } from "./useUserOrdersDirect";
+export { useAllOrdersDirect } from "./useAllOrdersDirect";
 export type { RangeOrder } from "./useUserOrdersDirect";
 
 // ============================================================

@@ -764,6 +764,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     console.log(warn(`  Insufficient vault balance. Depositing ${formatWad(requiredBalance)}...`));
 
     // Mint USDC
+    console.log(dim(`  Minting ${formatWad(requiredBalance * 2n)} USDC...`));
     const mintHash = await walletClient.writeContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
@@ -772,8 +773,10 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(mintHash);
+    console.log(dim(`  Minted (tx: ${mintHash.slice(0, 10)}...)`));
 
     // Approve vault
+    console.log(dim(`  Approving vault...`));
     const approveHash = await walletClient.writeContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
@@ -782,10 +785,12 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(approveHash);
+    console.log(dim(`  Approved (tx: ${approveHash.slice(0, 10)}...)`));
 
     // Deposit to vault (depositUsdc takes USDC in token decimals)
     // MockUSDC uses 18 decimals (WAD), so no conversion needed
     const depositAmount = requiredBalance * 2n;
+    console.log(dim(`  Depositing ${formatWad(depositAmount)} to vault...`));
     const depositHash = await walletClient.writeContract({
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,
@@ -794,6 +799,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(depositHash);
+    console.log(dim(`  Deposit tx confirmed: ${depositHash.slice(0, 10)}...`));
 
     // Verify new balance
     const newBalance = await publicClient.readContract({

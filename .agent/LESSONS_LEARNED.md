@@ -585,4 +585,44 @@ state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidity
 
 ---
 
+## 25. V9.9.6-fix2 User Orders Array Gas Bloat
+
+### ❌ Pattern: Ever-Growing Array Causes Linear Gas Growth
+- **Date:** 2026-01-02
+- **Bug:** `_autoClaimUserOrders()` iterated through ALL orders in `_userOrders[marketKey][user]`, but inactive orders (cancelled/filled) were never removed from the array.
+- **Root Cause:** Setting `order.active = false` didn't remove the order ID from `_userOrders`, so the loop still had to iterate through all historical orders.
+- **Symptom:** After ~27 orders, `placeOrder()` exceeded 2M gas limit with "out of gas" errors.
+- **Detection:** Running `simulate 1000` in interactive CLI caused failures after ~27 orders.
+
+### Fix:
+```solidity
+// Added swap-and-pop helper for O(1) removal
+function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
+    uint256[] storage orderIds = _userOrders[marketKey][user];
+    uint256 len = orderIds.length;
+    for (uint256 i = 0; i < len; ) {
+        if (orderIds[i] == orderId) {
+            orderIds[i] = orderIds[len - 1];
+            orderIds.pop();
+            return;
+        }
+        unchecked { ++i; }
+    }
+}
+
+// Called in cancelOrder() and _claimInternal() when order becomes inactive
+order.active = false;
+_removeFromUserOrders(marketKey, owner, orderId);
+```
+
+### Rule:
+- When maintaining arrays that are iterated frequently, ensure cleanup happens when items become inactive
+- Use swap-and-pop for O(1) removal from unordered arrays
+- Consider gas costs of iteration when designing data structures
+- Test with high volume scenarios (100s of orders) to catch linear gas growth
+
+### Doc: `packages/contracts-core/docs/V996-fix2-userorders-cleanup.md`
+
+---
+
 *Last updated: 2026-01-02*

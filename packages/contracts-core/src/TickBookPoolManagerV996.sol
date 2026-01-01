@@ -467,6 +467,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             : 0;
 
         order.active = false;
+        _removeFromUserOrders(marketKey, msg.sender, orderId);
 
         if (collateralReleased > 0) {
             vault.refundMarketToAvailable(m.truthMarket, msg.sender, collateralReleased);
@@ -562,6 +563,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
             order.liquidityRemoved = true;
             order.active = false;
+            _removeFromUserOrders(marketKey, owner, orderId);
         }
 
         emit FillsClaimed(owner, marketKey, orderId, filledShares, collateralUsedWad);
@@ -570,6 +572,24 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     // ============================================
     // Internal Helpers
     // ============================================
+
+    /**
+     * @notice Remove an order ID from user's order array (swap-and-pop for O(1))
+     * @dev Called when order becomes inactive to keep _userOrders compact
+     */
+    function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
+        uint256[] storage orderIds = _userOrders[marketKey][user];
+        uint256 len = orderIds.length;
+        for (uint256 i = 0; i < len; ) {
+            if (orderIds[i] == orderId) {
+                // Swap with last element and pop
+                orderIds[i] = orderIds[len - 1];
+                orderIds.pop();
+                return;
+            }
+            unchecked { ++i; }
+        }
+    }
 
     function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
         return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken));
