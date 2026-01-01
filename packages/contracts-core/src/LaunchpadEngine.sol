@@ -90,6 +90,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     mapping(address => MarketState) public markets;
 
+    /// @notice Array of all created markets (for enumeration)
+    address[] public allMarkets;
+
     // ============================================
     // LP Token Tracking
     // ============================================
@@ -275,6 +278,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         });
 
         lpBalances[market][msg.sender] = lpTokens;
+
+        // Track market for enumeration
+        allMarkets.push(market);
 
         emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
     }
@@ -597,12 +603,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         returns (uint256 feesAccrued, uint256 threshold, uint256 progressBps)
     {
         MarketState memory state = markets[market];
-        
+
         feesAccrued = state.feesAccrued;
         // Threshold = bBase × ln(2) × multiplier (same formula as _distributeFee)
         uint256 thresholdWad = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
         threshold = _wadToUsdc(thresholdWad);
-        
+
         if (state.isGraduated) {
             progressBps = BPS_DENOMINATOR; // 100%
         } else if (threshold > 0) {
@@ -610,6 +616,20 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         } else {
             progressBps = 0;
         }
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function getMarkets() external view override returns (address[] memory) {
+        return allMarkets;
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function getMarketCount() external view override returns (uint256) {
+        return allMarkets.length;
     }
 
     // ============================================
