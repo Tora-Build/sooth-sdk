@@ -783,14 +783,14 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     });
     await actorManager.waitForTransactionReceipt(approveHash);
 
-    // Deposit to vault (depositUsdc takes USDC amount in 6 decimals, not WAD)
-    // Convert WAD to USDC: divide by 1e12
-    const depositUsdc = requiredBalance * 2n / (10n ** 12n);
+    // Deposit to vault (depositUsdc takes USDC in token decimals)
+    // MockUSDC uses 18 decimals (WAD), so no conversion needed
+    const depositAmount = requiredBalance * 2n;
     const depositHash = await walletClient.writeContract({
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,
       functionName: 'depositUsdc',
-      args: [depositUsdc],
+      args: [depositAmount],
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(depositHash);
