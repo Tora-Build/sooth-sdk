@@ -610,7 +610,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 int128 delta = isUp
                     ? _ticks[marketKey][crossedOutcome][tick].liquidityNet
                     : -_ticks[marketKey][crossedOutcome][tick].liquidityNet;
-                activeLiq = uint128(int128(activeLiq) + delta);
+                activeLiq = _safeAddLiquidity(activeLiq, delta);
                 emit TickCrossed(marketKey, tick, delta);
                 continue;
             }
@@ -661,10 +661,10 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 int128 delta;
                 if (isUp && nextBoundary <= MAX_TICK) {
                     delta = _ticks[marketKey][crossedOutcome][nextBoundary].liquidityNet;
-                    activeLiq = uint128(int128(activeLiq) + delta);
+                    activeLiq = _safeAddLiquidity(activeLiq, delta);
                 } else if (!isUp && nextBoundary >= MIN_TICK) {
                     delta = _ticks[marketKey][crossedOutcome][nextBoundary + 1].liquidityNet;
-                    activeLiq = uint128(int128(activeLiq) - delta);
+                    activeLiq = _safeAddLiquidity(activeLiq, -delta);
                     delta = -delta;
                 }
                 if (delta != 0) {
@@ -678,6 +678,18 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             state.activeLiquidityNo = activeLiq;
         } else {
             state.activeLiquidityYes = activeLiq;
+        }
+    }
+
+    /**
+     * @dev Safely add signed delta to unsigned liquidity, clamping to 0 on underflow
+     */
+    function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
+        if (delta >= 0) {
+            return liq + uint128(delta);
+        } else {
+            uint128 absDelta = uint128(-delta);
+            return liq >= absDelta ? liq - absDelta : 0;
         }
     }
 
