@@ -1,10 +1,11 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (V9.9.5 LEAN + New Deployment Workflow)
+> Last Updated: 2026-01-01 (Package Split + V9.9.5 LEAN)
 
+- **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ V9.9.5 LEAN DEPLOYED** — Fill overflow fixes + hook removal live on Base Sepolia
 - **✅ FE SYNCED** — Deployment configs updated
-- **✅ TESTS PASSING** — 40/40 TickBook tests pass
+- **✅ TESTS PASSING** — 119/119 tests pass in contracts-testing
 - **✅ DEPLOYMENT WORKFLOW** — Clean 2-step deployment scripts created
 
 ## V9.9.5 LEAN Changes (Deployed 2025-12-31)
@@ -46,34 +47,69 @@
 
 ---
 
+## Package Structure (2026-01-01)
+
+### contracts-core (Audit Scope)
+```
+packages/contracts-core/
+├── src/                 # Core contracts (audit scope)
+├── script/              # 1_DeployCore, deploy-multichain, verify
+├── deployments/         # v9-baseSepolia.json, v9-monadTestnet.json
+├── abi/                 # Generated ABIs
+└── lib/                 # Dependencies
+```
+
+### contracts-testing (Partner + QA)
+```
+packages/contracts-testing/
+├── test/                # All V9 tests (119 passing)
+├── script/
+│   ├── markets/         # Market creation & init scripts
+│   ├── deploy/          # Version-specific deploy scripts
+│   └── benchmark/       # hft-benchmark.ts
+├── mocks/               # MockUSDC
+├── core -> ../contracts-core/src  # Symlink
+└── lib -> ../contracts-core/lib   # Symlink
+```
+
+### Commands
+```bash
+# Build core (audit scope)
+cd packages/contracts-core && forge build
+
+# Run tests
+cd packages/contracts-testing && forge test
+
+# Deploy
+pnpm deploy:contracts  # → contracts-core
+
+# Benchmark
+pnpm benchmark  # → contracts-testing
+```
+
+---
+
 ## Recent Improvements (2026-01-01)
 
-### New Deployment Workflow
-Created clean separation between core infrastructure and market operations:
+### Package Split (ADR-065)
+- Split `contracts-evm` into `contracts-core` (audit) + `contracts-testing` (QA/partners)
+- Deleted outdated V4/V5/V8 artifacts (broadcast logs, old deployment configs)
+- Updated sync scripts to point to `contracts-core/deployments/`
+- Tests use `@core/` remapping to import from core package
 
-**STEP 1**: [1_DeployCore.s.sol](packages/contracts-evm/script/1_DeployCore.s.sol)
+### Deployment Workflow
+**STEP 1**: [1_DeployCore.s.sol](packages/contracts-core/script/1_DeployCore.s.sol)
 - Deploys 5 core contracts (Collateralizer, AMMEngine, TickBookVault, PoolManager, LaunchpadEngine)
 - Links components (vault→poolManager, ammEngine→launchpad router)
-- Prints clear next steps and environment variable setup
 
-**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-evm/script/2_CreateMarket.s.sol)
-- Complete market creation workflow in correct order:
-  1. Deploy TruthMarket contract
-  2. Activate market
-  3. Register with Collateralizer (creates outcome tokens)
-  4. Initialize in LaunchpadEngine (creates AMM pool)
-- Configurable via constants (QUESTION, NAME, SYMBOL, DEADLINE_DAYS, INITIAL_LIQUIDITY)
-- Validates USDC balance requirements
-- Outputs formatted JSON for markets.json
-
-**Why**: Previous deployment attempts silently failed because markets weren't registered with Collateralizer before AMM initialization. New workflow ensures correct order.
+**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-testing/script/markets/2_CreateMarket.s.sol)
+- Market creation workflow in correct order (deploy → activate → register → initialize)
 
 ---
 
 ## Pending Work
 
 ### High Priority
-- [ ] **Oracle → Adjudicator Terminology** — Replace "Oracle" with "adjudicator" across codebase
 - [ ] **Deploy V9.9.5 to Monad** — When RPC stabilizes
 - [ ] **Test New Deployment Workflow** — Verify 1_DeployCore + 2_CreateMarket on fresh deployment
 

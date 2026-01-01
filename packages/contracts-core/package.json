@@ -1,0 +1,23 @@
+{
+  "name": "contracts-core",
+  "version": "9.9.5",
+  "private": true,
+  "type": "module",
+  "description": "Sooth Protocol V9.9.5 Core Contracts (Audit Scope)",
+  "scripts": {
+    "build": "forge build",
+    "deploy": "bun run script/deploy-multichain.ts",
+    "deploy:base": "bun run script/deploy-multichain.ts --chains=baseSepolia",
+    "deploy:megaeth": "bun run script/deploy-multichain.ts --chains=megaethFrontier",
+    "deploy:monad": "bun run script/deploy-multichain.ts --chains=monadTestnet",
+    "deploy:all": "bun run script/deploy-multichain.ts",
+    "verify": "./script/verify-deployment.sh"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

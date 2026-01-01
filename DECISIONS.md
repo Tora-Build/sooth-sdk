@@ -1,5 +1,42 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-065: Package Split — contracts-core + contracts-testing
+- **Date**: 2026-01-01
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Audit preparation required clear scope definition for auditors.
+  - Different teams/roles own protocol core vs QA/partner engagement.
+  - Old V4/V5/V8 artifacts (broadcast logs, deployment configs) cluttered the codebase.
+  - Test infrastructure and partner demos shouldn't be in audit scope.
+- **Decision**:
+  1. **Split `packages/contracts-evm/`** into two packages:
+     - `contracts-core` — Audit scope: core contracts + infrastructure deployment scripts
+     - `contracts-testing` — QA/Partners: tests, market scripts, benchmarks, mocks
+  2. **Delete outdated artifacts**:
+     - `broadcast/` folder (V4/V5/V8 transaction logs)
+     - `deployments/v2-archive/`, `v8-*.json`
+     - `mockusdc-latest.json`, `test-market-latest.json`
+  3. **Use symlinks** for shared dependencies:
+     - `contracts-testing/lib` → `../contracts-core/lib`
+     - `contracts-testing/core` → `../contracts-core/src`
+  4. **Use `@core/` remapping** in tests to import from core package.
+- **Rationale**:
+  - **Audit Clarity**: Auditors can focus on `contracts-core/src/` only.
+  - **Team Separation**: Protocol devs own core, QA owns testing.
+  - **Partner Demos**: HFT benchmark and fork tests are partner engagement tools.
+  - **Clean Codebase**: Removed ~500+ outdated files.
+- **Consequences**:
+  - **Path Changes**: All references to `contracts-evm` must update.
+  - **Sync Scripts**: Updated to point to `contracts-core/deployments/`.
+  - **CI**: May need workflow path updates.
+  - **119 tests pass** in the new structure.
+- **Files Changed**:
+  - `package.json` — Updated workspaces and scripts
+  - `apps/web/scripts/sync-v9-deployments.js` — New paths
+  - `sync-deployments.sh` — New paths
+
+---
+
 ## ADR-064: Fill Overflow & Order Lifecycle Fixes (V9.9.5)
 - **Date**: 2025-12-31
 - **Status**: Accepted (Deployed to Base Sepolia)
