@@ -32,6 +32,11 @@ export interface ActorConfig {
   role: ActorRole;
 }
 
+export interface ActorManagerOptions {
+  confirmations?: number;
+  postTxWaitMs?: number;
+}
+
 // Default actor configuration
 const DEFAULT_ACTORS: ActorConfig[] = [
   { name: 'alice', envKey: 'PRIVATE_KEY_ALICE', role: 'maker' },
@@ -47,14 +52,31 @@ export class ActorManager {
   private publicClient: PublicClient;
   private chain: Chain;
   private rpc: string;
+  private confirmations: number;
+  private postTxWaitMs: number;
 
-  constructor(chain: Chain, rpc: string) {
+  constructor(chain: Chain, rpc: string, options?: ActorManagerOptions) {
     this.chain = chain;
     this.rpc = rpc;
+    this.confirmations = options?.confirmations ?? 1;
+    this.postTxWaitMs = options?.postTxWaitMs ?? 0;
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpc),
     });
+  }
+
+  async waitForTransactionReceipt(hash: `0x${string}`) {
+    const receipt = await this.publicClient.waitForTransactionReceipt({
+      hash,
+      confirmations: this.confirmations,
+    });
+
+    if (this.postTxWaitMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, this.postTxWaitMs));
+    }
+
+    return receipt;
   }
 
   /**
@@ -229,8 +251,13 @@ export class ActorManager {
 /**
  * Create and initialize actor manager
  */
-export function createActorManager(chain: Chain, rpc: string, envPath?: string): ActorManager {
-  const manager = new ActorManager(chain, rpc);
+export function createActorManager(
+  chain: Chain,
+  rpc: string,
+  envPath?: string,
+  options?: ActorManagerOptions
+): ActorManager {
+  const manager = new ActorManager(chain, rpc, options);
   manager.loadFromEnv(envPath);
   return manager;
 }

@@ -1160,19 +1160,20 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [isLowDragging, setIsLowDragging] = React.useState(false);
   const [isHighDragging, setIsHighDragging] = React.useState(false);
 
-  // Data - look up UI metadata from static config if available
-  const { v8Markets, selectedMarket } = useMemo(() => {
+  // Data - use marketId directly as address, look up static config only for UI metadata
+  const { staticMetadata } = useMemo(() => {
     const markets = staticMarkets.filter(m => m.version?.startsWith('v') && m.chainId === chainId);
+    const found = markets.find(m =>
+      m.contractAddress.toLowerCase() === marketId.toLowerCase() ||
+      m.id.toLowerCase() === marketId.toLowerCase()
+    );
     return {
-      v8Markets: markets,
-      selectedMarket: markets.find(m =>
-        m.contractAddress.toLowerCase() === marketId.toLowerCase() ||
-        m.id.toLowerCase() === marketId.toLowerCase()
-      )
+      staticMetadata: found, // Optional UI metadata (name, symbol, category, etc)
     };
   }, [marketId, chainId]);
 
-  const marketAddr = selectedMarket?.contractAddress as `0x${string}`;
+  // CRITICAL: Use marketId directly as the address - don't require it to be in static config
+  const marketAddr = marketId as `0x${string}`;
   const invalidateV8Queries = useInvalidateQueries();
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
@@ -1456,6 +1457,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     setIsSubmitting(true);
     const amountBg = parseUnits(amount, 18);
 
+    console.log('[Pro handleTrade] amount:', amount, 'amountBg:', amountBg.toString(), 'marketKey:', tickBook.marketKey);
+
     // Determine outcome: outcome=1 credits YES, outcome=0 credits NO
     const outcome = (isYes ? 1 : 0) as 0 | 1;
     const isMarketOrderType = orderType === 'market';
@@ -1588,11 +1591,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           </button>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold">
-              {selectedMarket?.symbol?.slice(0, 2) || 'PR'}
+              {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
             </div>
             <div>
-              <div className="font-semibold text-white">{selectedMarket?.symbol || 'Select Market'}</div>
-              <div className="text-xs text-slate-500">{selectedMarket?.name?.slice(0, 50) || '—'}</div>
+              <div className="font-semibold text-white">{staticMetadata?.symbol || launchpad?.symbol || 'Select Market'}</div>
+              <div className="text-xs text-slate-500">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 50)}</div>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">

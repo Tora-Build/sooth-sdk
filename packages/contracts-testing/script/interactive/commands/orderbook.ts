@@ -64,7 +64,7 @@ export async function order(ctx: CommandContext, args: string[]): Promise<Comman
       args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
 
     // Parse return values from logs if needed (simplified for now)
     spinner.succeed(`Placed ${orderType} ${formatOutcome(outcome)} order at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
@@ -109,7 +109,7 @@ export async function cancel(ctx: CommandContext, args: string[]): Promise<Comma
       args: [marketKey, orderId],
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`Cancelled order #${orderId} ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
@@ -152,7 +152,7 @@ export async function claim(ctx: CommandContext, args: string[]): Promise<Comman
       args: [marketKey, orderId],
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`Claimed fills for order #${orderId} ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
@@ -212,7 +212,7 @@ export async function market(ctx: CommandContext, args: string[]): Promise<Comma
       args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`${side === 'buy' ? 'Bought' : 'Sold'} ${formatWad(shares)} ${formatOutcome(outcome)} shares (market) ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };

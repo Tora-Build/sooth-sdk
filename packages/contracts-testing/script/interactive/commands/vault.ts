@@ -60,7 +60,7 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
         functionName: 'approve',
         args: [deployment.contracts.TickBookVault as `0x${string}`, MAX_UINT256],
       });
-      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      await actorManager.waitForTransactionReceipt(approveHash);
       approveSpinner.succeed('Vault approved');
     } catch (err) {
       approveSpinner.fail(`Approval failed: ${(err as Error).message.slice(0, 40)}`);
@@ -80,7 +80,7 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
       args: [amount],
     });
 
-    await publicClient.waitForTransactionReceipt({ hash });
+    await actorManager.waitForTransactionReceipt(hash);
     depositSpinner.succeed(`Deposited ${formatWad(amount)} USDC to vault ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
@@ -153,7 +153,7 @@ export async function withdraw(ctx: CommandContext, args: string[]): Promise<Com
       args: [amount],
     });
 
-    await publicClient.waitForTransactionReceipt({ hash });
+    await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`Withdrew ${formatWad(amount)} USDC from vault ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };

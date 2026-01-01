@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { V996_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { parseAbiItem } from "viem";
 
@@ -47,13 +47,13 @@ export function useUserOrdersDirect(
     enabled: !!marketKey && !!userAddress && !!chainId && !!tickBookManagerAddress,
     chainId,
     read: async (client) => {
-      // Try getUserOrders first (for future redeployed contracts)
+      // Try getUserOrders first
       let orderIds: bigint[] = [];
       console.log(`[useUserOrdersDirect] Querying ${tickBookManagerAddress} for user ${userAddress} on market ${marketKey}`);
       try {
         orderIds = await readContractSafe<bigint[]>(client, {
           address: tickBookManagerAddress!,
-          abi: V9_ABIS.TickBookPoolManager,
+          abi: V996_ABIS.TickBookPoolManager,
           functionName: "getUserOrders",
           args: [marketKey!, userAddress!],
         }) ?? [];
@@ -101,13 +101,13 @@ export function useUserOrdersDirect(
               collateralUsedWad: bigint;
             }>(client, {
               address: tickBookManagerAddress!,
-              abi: V9_ABIS.TickBookPoolManager,
+              abi: V996_ABIS.TickBookPoolManager,
               functionName: "getOrder",
               args: [marketKey!, orderId],
             }),
             readContractSafe<readonly [bigint, bigint]>(client, {
               address: tickBookManagerAddress!,
-              abi: V9_ABIS.TickBookPoolManager,
+              abi: V996_ABIS.TickBookPoolManager,
               functionName: "getPendingFills",
               args: [marketKey!, orderId],
             }),

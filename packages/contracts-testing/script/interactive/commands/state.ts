@@ -31,6 +31,8 @@ export async function state(ctx: CommandContext, args: string[]): Promise<Comman
     return { success: false, message: 'No market selected. Use: setmarket <address>' };
   }
 
+  const scanLimit = args[0] ? Math.max(1, Math.min(parseInt(args[0], 10) || 0, 2000)) : 200;
+
   try {
     const [tick, liqNo, liqYes, prob] = await publicClient.readContract({
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
@@ -39,12 +41,18 @@ export async function state(ctx: CommandContext, args: string[]): Promise<Comman
       args: [marketKey],
     }) as [number, bigint, bigint, bigint];
 
-    const nextOrderId = await publicClient.readContract({
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'nextOrderId',
-      args: [marketKey],
-    }) as bigint;
+    // TickBookPoolManager doesn't expose nextOrderId; scan a bounded range for active orders.
+    let activeOrders = 0;
+    for (let i = 1; i <= scanLimit; i++) {
+      const order = await publicClient.readContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'getOrder',
+        args: [marketKey, BigInt(i)],
+      }) as any;
+
+      if (order?.active) activeOrders++;
+    }
 
     console.log(`\n  ${bold('Market State')}`);
     console.log('  ' + '─'.repeat(50));
@@ -57,7 +65,7 @@ export async function state(ctx: CommandContext, args: string[]): Promise<Comman
     console.log(`  ${info('YES')} Liquidity: ${formatWad(liqYes)} shares`);
     console.log(`  ${warn('NO')} Liquidity:  ${formatWad(liqNo)} shares`);
     console.log('');
-    console.log(`  Total Orders: ${(nextOrderId - 1n).toString()}`);
+    console.log(`  Active Orders (scanned 1..${scanLimit}): ${activeOrders}`);
     console.log('');
 
     return { success: true, data: { tick, liqNo, liqYes, prob } };
@@ -79,6 +87,7 @@ export async function book(ctx: CommandContext, args: string[]): Promise<Command
   }
 
   const depth = args[0] ? parseInt(args[0], 10) : 10;
+  const scanLimit = args[1] ? Math.max(1, Math.min(parseInt(args[1], 10) || 0, 5000)) : 200;
 
   try {
     // Get market state for current tick
@@ -89,14 +98,6 @@ export async function book(ctx: CommandContext, args: string[]): Promise<Command
       args: [marketKey],
     }) as [number, bigint, bigint, bigint];
 
-    // Get total order count
-    const nextOrderId = await publicClient.readContract({
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'nextOrderId',
-      args: [marketKey],
-    }) as bigint;
-
     console.log(`\n  ${bold('Order Book')} (tick: ${tick}, prob: ${(Number(prob) / 1e18 * 100).toFixed(1)}%)`);
     console.log('  ' + '═'.repeat(60));
 
@@ -104,38 +105,31 @@ export async function book(ctx: CommandContext, args: string[]): Promise<Command
     const yesOrders: any[] = [];
     const noOrders: any[] = [];
 
-    const maxOrders = Number(nextOrderId) - 1;
-    const scanLimit = Math.min(maxOrders, 50); // Limit scan to avoid timeout
-
     for (let i = 1; i <= scanLimit; i++) {
-      try {
-        const order = await publicClient.readContract({
-          address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-          abi: ABIS.TickBookPoolManager,
-          functionName: 'getOrder',
-          args: [marketKey, BigInt(i)],
-        }) as any;
+      const order = await publicClient.readContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'getOrder',
+        args: [marketKey, BigInt(i)],
+      }) as any;
 
-        if (order.active) {
-          const remaining = order.sharesTotal - order.filledShares;
-          if (remaining > 0n) {
-            const orderData = {
-              id: i,
-              tickLower: order.tickLower,
-              tickUpper: order.tickUpper,
-              remaining,
-              owner: order.owner,
-            };
+      if (order?.active) {
+        const remaining = order.sharesTotal - order.filledShares;
+        if (remaining > 0n) {
+          const orderData = {
+            id: i,
+            tickLower: order.tickLower,
+            tickUpper: order.tickUpper,
+            remaining,
+            owner: order.owner,
+          };
 
-            if (order.outcome === 1) {
-              yesOrders.push(orderData);
-            } else {
-              noOrders.push(orderData);
-            }
+          if (order.outcome === 1) {
+            yesOrders.push(orderData);
+          } else {
+            noOrders.push(orderData);
           }
         }
-      } catch {
-        // Order doesn't exist or error, skip
       }
     }
 
@@ -281,6 +275,11 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
       args: [marketKey],
     }) as [string, string, string, string];
 
+    const active =
+      truthMarket !== '0x0000000000000000000000000000000000000000' &&
+      yesToken !== '0x0000000000000000000000000000000000000000' &&
+      noToken !== '0x0000000000000000000000000000000000000000';
+
     console.log(`\n  ${bold('Market Info')}`);
     console.log('  ' + '─'.repeat(50));
     console.log(`  Market Key:   ${marketKey}`);
@@ -288,6 +287,7 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
     console.log(`  YES Token:    ${yesToken}`);
     console.log(`  NO Token:     ${noToken}`);
     console.log(`  Hook:         ${hook === '0x0000000000000000000000000000000000000000' ? dim('none') : hook}`);
+    console.log(`  Active:       ${active ? success('yes') : warn('no')}`);
     console.log('');
 
     return { success: true };
@@ -459,6 +459,133 @@ export async function setmarket(ctx: CommandContext, args: string[]): Promise<Co
   return { success: true };
 }
 
+/**
+ * Show/test RPC connection
+ * Usage: rpc [url]
+ */
+export async function rpc(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, config } = ctx;
+  const publicClient = actorManager.getPublicClient();
+
+  console.log(`\n  ${bold('RPC Status')}`);
+  console.log('  ' + '─'.repeat(50));
+  console.log(`  Chain:    ${config.chainName} (${config.chain.id})`);
+  console.log(`  RPC URL:  ${config.rpc}`);
+
+  // Test RPC connection
+  try {
+    const startTime = Date.now();
+    const blockNumber = await publicClient.getBlockNumber();
+    const latency = Date.now() - startTime;
+
+    console.log(`  Block:    ${blockNumber}`);
+    console.log(`  Latency:  ${latency}ms`);
+    console.log(`  Status:   ${success('Connected')}`);
+  } catch (err) {
+    console.log(`  Status:   ${error('Failed')}`);
+    console.log(`  Error:    ${(err as Error).message.slice(0, 60)}`);
+  }
+
+  // Test a contract call
+  try {
+    const startTime = Date.now();
+    await publicClient.readContract({
+      address: config.deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: [{ name: 'owner', type: 'function', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' }],
+      functionName: 'owner',
+    });
+    const latency = Date.now() - startTime;
+    console.log(`  Contract: ${success('OK')} (${latency}ms)`);
+  } catch (err) {
+    console.log(`  Contract: ${warn('Call failed')} - ${(err as Error).message.slice(0, 40)}`);
+  }
+
+  console.log('');
+
+  // Show tip for changing RPC
+  if (args.length === 0) {
+    console.log(dim('  To use a different RPC, restart with: --rpc=<url>'));
+    console.log('');
+  }
+
+  return { success: true };
+}
+
+/**
+ * Debug: show raw contract call result
+ * Usage: call <contract> <function> [args...]
+ */
+export async function call(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment } = ctx;
+  const publicClient = actorManager.getPublicClient();
+
+  if (args.length < 2) {
+    console.log('\n  Usage: call <contract> <function> [args...]');
+    console.log('  Contracts: TickBookPoolManager, TickBookVault, LaunchpadEngine, MockUSDC');
+    console.log('  Example: call TickBookPoolManager owner');
+    console.log('  Example: call MockUSDC balanceOf 0x1234...');
+    console.log('');
+    return { success: true };
+  }
+
+  const contractName = args[0];
+  const functionName = args[1];
+  const callArgs = args.slice(2);
+
+  // Map contract name to address
+  const contractMap: Record<string, string> = {
+    tickbookpoolmanager: deployment.contracts.TickBookPoolManager,
+    poolmanager: deployment.contracts.TickBookPoolManager,
+    tickbookvault: deployment.contracts.TickBookVault,
+    vault: deployment.contracts.TickBookVault,
+    launchpadengine: deployment.contracts.LaunchpadEngine,
+    launchpad: deployment.contracts.LaunchpadEngine,
+    mockusdc: deployment.contracts.MockUSDC,
+    usdc: deployment.contracts.MockUSDC,
+    collateralizer: deployment.contracts.Collateralizer,
+  };
+
+  const contractAddr = contractMap[contractName.toLowerCase()];
+  if (!contractAddr) {
+    return { success: false, message: `Unknown contract: ${contractName}` };
+  }
+
+  console.log(`\n  ${bold('Contract Call')}`);
+  console.log('  ' + '─'.repeat(50));
+  console.log(`  Contract: ${contractName} (${shortAddress(contractAddr)})`);
+  console.log(`  Function: ${functionName}`);
+  console.log(`  Args:     ${callArgs.length > 0 ? callArgs.join(', ') : '(none)'}`);
+  console.log('');
+
+  try {
+    // Build minimal ABI for the function
+    const inputs = callArgs.map((_, i) => ({ type: 'address', name: `arg${i}` }));
+    const abi = [{
+      name: functionName,
+      type: 'function',
+      inputs,
+      outputs: [{ type: 'bytes', name: '' }],
+      stateMutability: 'view',
+    }];
+
+    const result = await publicClient.readContract({
+      address: contractAddr as `0x${string}`,
+      abi,
+      functionName,
+      args: callArgs as any[],
+    });
+
+    console.log(`  Result: ${JSON.stringify(result, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2)}`);
+    console.log('');
+    return { success: true };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    console.log(`  ${error('Error:')} ${errMsg.slice(0, 200)}`);
+    console.log('');
+    return { success: false, message: errMsg };
+  }
+}
+
 export const stateCommands = {
   state,
   book,
@@ -466,4 +593,6 @@ export const stateCommands = {
   info: marketinfo,
   markets,
   setmarket,
+  rpc,
+  call,
 };
