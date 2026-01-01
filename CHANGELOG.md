@@ -5,6 +5,10 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **V9.9.6 Frontend Integration** (2026-01-01):
+  - **Unified Order API**: Migrated `Pro.tsx` and `SimpleTradingPanel.tsx` to use the streamlined `placeOrder` and `tradePositions` APIs.
+  - **Account Model**: Wired "Spendable Proceeds" into user buying power for capital efficiency.
+  - **Transparency**: Added "Creator Seed" (`b * ln2`) formula display to `MarketStats.tsx`.
 - **On-Chain Market Discovery** (2026-01-01):
   - `LaunchpadEngine.getMarkets()` — Returns array of all created market addresses
   - `LaunchpadEngine.getMarketCount()` — Returns total number of markets
@@ -18,6 +22,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 ### Changed
 - Updated `ILaunchpadEngine.sol` interface with `getMarkets()` and `getMarketCount()`
 - Updated `LaunchpadEngine.json` ABI in frontend
+- Updated chain configurations to focus strictly on Base Sepolia and Monad.
 
 ---
 
