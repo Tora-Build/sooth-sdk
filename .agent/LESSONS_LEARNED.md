@@ -541,4 +541,48 @@ components/features/SimpleTradingPanel.tsx
 
 ---
 
-*Last updated: 2025-12-30*
+## 24. V9.9.6 Active Liquidity Underflow (Complete Fix)
+
+### ❌ Pattern: Incomplete Arithmetic Safety Fix Leaves Code Paths Vulnerable
+- **Date:** 2026-01-01
+- **Bug:** V9.9.6 added `_safeAddLiquidity()` to protect `_fill()` from underflow, but missed 6 other subtraction sites in `_updateActiveLiquidity()` and `_tryCross()`.
+- **Root Cause:** When crossing tick boundaries or cancelling orders, `activeLiquidity -= delta` could underflow when `delta > activeLiquidity`.
+- **Symptom:** First several trades succeed, then one fails with `panic: arithmetic underflow or overflow (0x11)`, and ALL subsequent trades fail permanently.
+- **Detection:** Regression tests (`test_ExtremeLiquidityNet_ClampsToZero`, `test_ManyConsecutiveTrades_AllSucceed`) failed with panic 0x11.
+
+### Original (Buggy) Code Sites:
+```solidity
+// _updateActiveLiquidity (lines 747, 753)
+state.activeLiquidityNo -= liquidityDelta;
+state.activeLiquidityYes -= liquidityDelta;
+
+// _tryCross (lines 843, 845, 851, 853)
+state.activeLiquidityNo -= activeFilled;
+state.activeLiquidityYes -= activeFilled;
+```
+
+### Complete Fix:
+```solidity
+// Added new helper (V9.9.6)
+function _safeSubLiquidity(uint128 liq, uint128 delta) internal pure returns (uint128) {
+    return liq >= delta ? liq - delta : 0;
+}
+
+// Applied to all 6 sites
+state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, liquidityDelta);
+state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidityDelta);
+```
+
+### Rule:
+- When adding arithmetic safety to one function, **grep the entire contract** for similar patterns:
+  - `grep -n "activeLiquidity.*-=" TickBookPoolManagerV996.sol`
+  - `grep -n "state\\.active.*-=" src/*.sol`
+- Create regression tests that specifically target the edge cases (extreme values, order cancellations, many consecutive trades)
+- Mark safe helpers with `@notice` comments listing all call sites
+
+### Regression Tests Added:
+- `test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests, 138 total V9 tests passing)
+
+---
+
+*Last updated: 2026-01-02*
