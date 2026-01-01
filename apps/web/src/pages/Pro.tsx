@@ -29,6 +29,7 @@ import {
   useUserOrdersDirect,
   useAmmMarketDirect,
   useInvalidateQueries,
+  usePlaceOrder,
   RangeOrder
 } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
@@ -1165,7 +1166,6 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const { isConnected, address: userAddress } = useAccount();
   const chainId = useChainId();
   const { contracts } = useDeployments();
-  const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
   // UI State
@@ -1207,6 +1207,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     collateralizer?.noToken
   );
   const { vault } = useTickBookVaultDirect(userAddress, marketAddr);
+
+  // V9.9.6 Unified Order API
+  const {
+    marketOrder,
+    rangeOrder,
+    limitOrder,
+    isPending: isOrderPending,
+    calculateMaxCost,
+  } = usePlaceOrder(tickBook?.marketKey as `0x${string}`);
   const { orders: userOrders, isLoading: isOrdersLoading } = useUserOrdersDirect(
     tickBook?.marketKey as `0x${string}`,
     userAddress
@@ -1463,167 +1472,96 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     }
   };
 
-  const handleAutoClaim = async () => {
-    const ordersWithPending = userOrders.filter(o => o.pendingShares > 0n);
-    if (ordersWithPending.length === 0) return;
-
-    const toastId = toast.loading(`Auto-claiming ${ordersWithPending.length} order fills...`);
-    try {
-      const orderIds = ordersWithPending.map(o => o.orderId);
-      const hash = await writeContractAsync({
-        address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V9_ABIS.TickBookPoolManager,
-        functionName: 'batchClaimFills',
-        args: [tickBook?.marketKey as `0x${string}`, orderIds]
-      });
-
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
-      invalidateV8Queries();
-      toast.success('Fills auto-claimed!', { id: toastId });
-    } catch (e) {
-      console.error('Auto-claim failed', e);
-      toast.error('Auto-claim failed, but proceeding...', { id: toastId });
-    }
-  };
+  // V9.9.6: Auto-claim is now built into placeOrder() - no manual call needed
 
   const handleTrade = async () => {
     if (!amount || !tickBook?.marketKey) return;
-
-    // Auto-claim before trade
-    await handleAutoClaim();
 
     setIsSubmitting(true);
     const amountBg = parseUnits(amount, 18);
 
     // Determine outcome: outcome=1 credits YES, outcome=0 credits NO
-    const outcome = isYes ? 1 : 0;
-    const isMarketOrder = orderType === 'market';
-    const orderDesc = isMarketOrder
-      ? `Market ${isBuying ? 'buy' : 'sell'} ${amount} ${isYes ? 'YES' : 'NO'}`
-      : `Limit order ${amount} ${isYes ? 'YES' : 'NO'} @ ${priceLow}%`;
-
-    const toastId = toast.loading(isMarketOrder ? 'Executing market order...' : 'Placing order...');
+    const outcome = (isYes ? 1 : 0) as 0 | 1;
+    const isMarketOrderType = orderType === 'market';
 
     try {
-      let hash: `0x${string}`;
+      let result: any;
 
       if (isBuying) {
         // ============= BUY ORDERS =============
-        if (isMarketOrder) {
-          // Use real-time quote from TickBookV2 if available, otherwise fallback to estimate
+        if (isMarketOrderType) {
+          // V9.9.6: Use marketOrder helper (tickLower=1, tickUpper=999)
           const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
           const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
-          hash = await writeContractAsync({
-            address: contracts.TickBookPoolManager as `0x${string}`,
-            abi: V9_ABIS.TickBookPoolManager,
-            functionName: 'executeMarketOrder',
-            args: [tickBook.marketKey, outcome, amountBg, maxCost]
-          });
+          result = await marketOrder(outcome, amountBg, maxCost);
         } else {
-          const tickLow = Math.round(priceLowNum * 10);
-          const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
-          const liquidity = amountBg; // TickBookV2 takes total shares across the range
-          hash = await writeContractAsync({
-            address: contracts.TickBookPoolManager as `0x${string}`,
-            abi: V9_ABIS.TickBookPoolManager,
-            functionName: 'placeRangeOrder',
-            args: [tickBook.marketKey, outcome, tickLow, tickHigh, liquidity]
-          });
+          // V9.9.6: Use rangeOrder or limitOrder based on priceMode
+          const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000); // 10% slippage
+          if (priceMode === 'single') {
+            result = await limitOrder(outcome, amountBg, priceLowNum, maxCost);
+          } else {
+            result = await rangeOrder(outcome, amountBg, priceLowNum, priceHighNum, maxCost);
+          }
         }
       } else {
         // ============= SELL ORDERS =============
-        // Determine sell type based on user's holdings:
-        // - Spot Sell: User owns shares (sells existing position)
-        // - Short Sell: User doesn't own shares (buys opposite outcome)
-        // - Hybrid Sell: User owns some but not all (spot + short combo)
-
         const userYesInternal = vault?.yesInternal ?? 0n;
         const userNoInternal = vault?.noInternal ?? 0n;
         const userHolding = isYes ? userYesInternal : userNoInternal;
 
         const hasFullShares = userHolding >= amountBg;
         const hasPartialShares = userHolding > 0n && userHolding < amountBg;
-        const hasNoShares = userHolding === 0n;
 
-        if (isMarketOrder) {
+        if (isMarketOrderType) {
           if (hasFullShares || hasPartialShares) {
-            // V9: Spot sell not yet implemented - use short sell (buy opposite) for now
-            // TODO: Implement proper spot sell when V9 supports it
-            toast.error('Spot sell not supported in V9 - use limit order instead', { id: toastId });
+            toast.error('Spot sell not supported in V9.9.6 - use limit order instead');
             setIsSubmitting(false);
             return;
           } else {
-            // SHORT SELL: No shares, buy opposite outcome with USDC
-            // "Sell YES" without owning = "Buy NO" → need outcome=0 to get NO tokens
-            // "Sell NO" without owning = "Buy YES" → need outcome=1 to get YES tokens
-            const oppositeOutcome = isYes ? 0 : 1;
+            // SHORT SELL: Buy opposite outcome
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const maxCost = (finalCostWad * 110n) / 100n;
-
-            hash = await writeContractAsync({
-              address: contracts.TickBookPoolManager as `0x${string}`,
-              abi: V9_ABIS.TickBookPoolManager,
-              functionName: 'executeMarketOrder',
-              args: [tickBook.marketKey, oppositeOutcome, amountBg, maxCost]
-            });
+            result = await marketOrder(oppositeOutcome, amountBg, maxCost);
           }
         } else {
-          // LIMIT ORDERS
-          const tickLow = Math.round(priceLowNum * 10);
-          const tickHigh = priceMode === 'single' ? tickLow : Math.round(priceHighNum * 10);
-
+          // LIMIT ORDERS for SELL
           if (hasFullShares) {
-            // SPOT SELL LIMIT: Place limit order to sell owned shares
-            // V9: Uses placeRangeOrder - same signature as placeSpotSellOrder
-            hash = await writeContractAsync({
-              address: contracts.TickBookPoolManager as `0x${string}`,
-              abi: V9_ABIS.TickBookPoolManager,
-              functionName: 'placeRangeOrder',
-              args: [tickBook.marketKey, outcome, tickLow, tickHigh, amountBg]
-            });
-          } else if (hasNoShares) {
-            // SHORT SELL LIMIT: No shares, place limit order to buy opposite outcome
-            // This is effectively a limit order to BUY NO (if selling YES)
-            const oppositeOutcome = isYes ? 0 : 1;
-            hash = await writeContractAsync({
-              address: contracts.TickBookPoolManager as `0x${string}`,
-              abi: V9_ABIS.TickBookPoolManager,
-              functionName: 'placeRangeOrder',
-              args: [tickBook.marketKey, oppositeOutcome, 1000 - tickHigh, 1000 - tickLow, amountBg]
-            });
+            // SPOT SELL LIMIT
+            const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000);
+            if (priceMode === 'single') {
+              result = await limitOrder(outcome, amountBg, priceLowNum, maxCost);
+            } else {
+              result = await rangeOrder(outcome, amountBg, priceLowNum, priceHighNum, maxCost);
+            }
+          } else if (userHolding === 0n) {
+            // SHORT SELL LIMIT: Buy opposite at inverted price
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
+            const invertedPriceLow = 100 - priceHighNum;
+            const invertedPriceHigh = 100 - priceLowNum;
+            const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceHigh, 1000);
+            if (priceMode === 'single') {
+              result = await limitOrder(oppositeOutcome, amountBg, invertedPriceLow, maxCost);
+            } else {
+              result = await rangeOrder(oppositeOutcome, amountBg, invertedPriceLow, invertedPriceHigh, maxCost);
+            }
           } else {
-            // HYBRID not supported for limit orders - prompt user
+            // HYBRID not supported
             const sharesFormatted = parseFloat(formatUnits(userHolding, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
-            toast.error(`You have ${sharesFormatted} ${isYes ? 'YES' : 'NO'} shares. For limit orders, sell exactly that amount (spot) or enter 0 to short sell.`, { id: toastId });
+            toast.error(`You have ${sharesFormatted} ${isYes ? 'YES' : 'NO'} shares. For limit orders, sell exactly that amount (spot) or enter 0 to short sell.`);
             setIsSubmitting(false);
             return;
           }
         }
       }
 
-      toast.loading('Waiting for confirmation...', { id: toastId });
-
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash });
+      if (result) {
+        invalidateV8Queries();
+        setAmount('');
       }
-
-      invalidateV8Queries();
-      setAmount('');
-
-      toast.success(
-        <div className="flex items-center gap-2">
-          <span>{isBuying ? (isMarketOrder ? 'Order executed!' : 'Order placed!') : 'Shares sold!'}</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>,
-        { id: toastId }
-      );
     } catch (e: any) {
       const msg = e?.cause?.reason || e?.shortMessage || 'Trade failed';
-      toast.error(msg, { id: toastId });
+      toast.error(msg);
       console.error(e);
     } finally {
       setIsSubmitting(false);

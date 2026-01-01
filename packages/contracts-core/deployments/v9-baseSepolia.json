@@ -1,18 +1,18 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "9.9.5-lean",
-  "timestamp": "2025-12-31T23:00:00.000Z",
+  "version": "9.9.6",
+  "timestamp": "2026-01-01T07:35:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x0c31bbb6da82ba97fbafbe3425ee8757a4d724e3",
-    "Collateralizer": "0x1C146C1e79c6C20afdb90eDb13D0eAa11C412557",
-    "AMMEngine": "0x76Dc341A2635439Afb503bFE57316ebcb7580B3C",
-    "TickBookVault": "0x8EDc4d249F373Acaa9a4523BA234eEDb9e6E6ab2",
-    "TickBookPoolManager": "0x4EA452bc10880ab0bE3673C2dE076C9d3351b516",
-    "TickBook": "0x4EA452bc10880ab0bE3673C2dE076C9d3351b516",
-    "LaunchpadEngine": "0x4Ec2FD4c6a8584976c1e032624574E9ecba28D11"
+    "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
+    "Collateralizer": "0xF770F8496F9368503eAFaeF761f654D30f5fc4f7",
+    "AMMEngine": "0x45BC406Eb6A2fF51614Ab78E9d37eb1d4a152342",
+    "TickBookVault": "0x998d3F31178969aa7efD0071d03eeDE4B1a3DCeA",
+    "TickBookPoolManager": "0x48427042E778fC8C4A33078623975d4f5D312c1c",
+    "TickBook": "0x48427042E778fC8C4A33078623975d4f5D312c1c",
+    "LaunchpadEngine": "0xc2a50f9deC4D5E88335CE1B5a0048aD01870379C"
   },
   "markets": [],
-  "notes": "V9.9.5 LEAN deployment - No hooks, simple setFees() storage (ADR-062/063), includes fill overflow fixes (ADR-064): liquidityRemoved flag, filledShares capping, auto-completion"
+  "notes": "V9.9.6 Unified Order API (ADR-066): Single placeOrder() replaces placeRangeOrder()+executeMarketOrder(), auto-claim on new orders, order types via tick range"
 }
