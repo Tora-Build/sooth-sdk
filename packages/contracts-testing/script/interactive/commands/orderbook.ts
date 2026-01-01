@@ -23,9 +23,11 @@ import {
 } from '../utils';
 
 /**
- * Place a range order
- * Usage: order <outcome> <tickRange> <shares>
+ * Place an order (V9.9.6 Unified API)
+ * Usage: order <outcome> <tickRange> <shares> [maxCost]
  * Example: order yes 40-60 100
+ *          order yes 50 100        (limit order at tick 50)
+ *          order yes 1-999 100     (market order - fill everything)
  */
 export async function order(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketKey } = ctx;
@@ -37,32 +39,35 @@ export async function order(ctx: CommandContext, args: string[]): Promise<Comman
   }
 
   if (!marketKey) {
-    return { success: false, message: 'No market selected. Use: market set <address>' };
+    return { success: false, message: 'No market selected. Use: setmarket <address>' };
   }
 
   if (args.length < 3) {
-    return { success: false, message: 'Usage: order <outcome> <tickRange> <shares>\n  Example: order yes 40-60 100' };
+    return { success: false, message: 'Usage: order <outcome> <tickRange> <shares> [maxCost]\n  Example: order yes 40-60 100' };
   }
 
   const outcome = parseOutcome(args[0]);
   const { tickLower, tickUpper } = parseTickRange(args[1]);
   const shares = parseWad(args[2]);
+  // Default maxCost: shares * 2 (200% of notional, very generous slippage)
+  const maxCost = args[3] ? parseWad(args[3]) : shares * 2n;
 
-  const spinner = new Spinner(`Placing ${formatOutcome(outcome)} order at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares...`);
+  const orderType = tickLower === tickUpper ? 'limit' : (tickLower === 1 && tickUpper === 999) ? 'market' : 'range';
+  const spinner = new Spinner(`Placing ${orderType} ${formatOutcome(outcome)} order at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares...`);
   spinner.start();
 
   try {
     const hash = await walletClient.writeContract({
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
-      functionName: 'placeRangeOrder',
-      args: [marketKey, outcome, tickLower, tickUpper, shares],
+      functionName: 'placeOrder',
+      args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-    // Parse OrderPlaced event to get order ID (simplified - just show success)
-    spinner.succeed(`Placed ${formatOutcome(outcome)} order at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
+    // Parse return values from logs if needed (simplified for now)
+    spinner.succeed(`Placed ${orderType} ${formatOutcome(outcome)} order at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
   } catch (err) {
@@ -158,9 +163,11 @@ export async function claim(ctx: CommandContext, args: string[]): Promise<Comman
 }
 
 /**
- * Execute a market order (crossing existing liquidity)
+ * Execute a market order (V9.9.6 Unified API)
  * Usage: market buy|sell <outcome> <shares> [maxCost]
  * Example: market buy no 50
+ *
+ * In V9.9.6, market orders use placeOrder with tickLower=1, tickUpper=999
  */
 export async function market(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketKey } = ctx;
@@ -189,25 +196,24 @@ export async function market(ctx: CommandContext, args: string[]): Promise<Comma
   const maxCost = args[3] ? parseWad(args[3]) : shares * 2n; // Default: 2x shares as max cost
 
   const action = side === 'buy' ? 'Buying' : 'Selling';
-  const spinner = new Spinner(`${action} ${formatWad(shares)} ${formatOutcome(outcome)} shares...`);
+  const spinner = new Spinner(`${action} ${formatWad(shares)} ${formatOutcome(outcome)} shares (market order)...`);
   spinner.start();
 
   try {
-    // For sell, we pass outcome tokens to get USDC
-    // For buy, we pass USDC to get outcome tokens
-    // The executeMarketOrder crosses against the OPPOSITE side of the book
-    // If buying NO, we cross against YES offers (and vice versa)
-    const crossOutcome = side === 'buy' ? (outcome === 1 ? 0 : 1) : outcome;
+    // V9.9.6: Market orders use placeOrder with full tick range (1-999)
+    // This will cross all available liquidity up to maxCost
+    const tickLower = 1;
+    const tickUpper = 999;
 
     const hash = await walletClient.writeContract({
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
-      functionName: 'executeMarketOrder',
-      args: [marketKey, crossOutcome, shares, maxCost],
+      functionName: 'placeOrder',
+      args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost],
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    spinner.succeed(`${side === 'buy' ? 'Bought' : 'Sold'} ${formatWad(shares)} ${formatOutcome(outcome)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
+    spinner.succeed(`${side === 'buy' ? 'Bought' : 'Sold'} ${formatWad(shares)} ${formatOutcome(outcome)} shares (market) ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
   } catch (err) {

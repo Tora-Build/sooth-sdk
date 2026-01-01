@@ -103,7 +103,8 @@ export const allowedChains: AllowedChain[] = [
     },
   },
   */
-  // MegaETH Frontier Net (Mainnet)
+  // MegaETH Frontier Net - HIDDEN (focusing on Base Sepolia and Monad)
+  /*
   {
     id: 4326,
     type: 'evm',
@@ -119,6 +120,7 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  */
   // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
   {
     id: 10143,
@@ -192,8 +194,8 @@ export const monadTestnet = defineChain({
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
-// Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, megaethFrontier, monadTestnet];
+// Export wagmi chains array (MegaETH hidden for now)
+export const wagmiChains: Chain[] = [baseSepolia, monadTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

@@ -30,6 +30,7 @@ import {
   useAmmMarketDirect,
   useInvalidateQueries,
   usePlaceOrder,
+  useOnChainMarkets,
   RangeOrder
 } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
@@ -38,6 +39,20 @@ import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
+
+// Type for static market config (for UI metadata fallback)
+interface StaticMarket {
+  id: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  description?: string;
+  category?: string;
+  imageUrl?: string | null;
+  version?: string;
+  chainId?: number;
+}
+const staticMarkets = (marketsConfig.markets || []) as StaticMarket[];
 
 // ============================================================================
 // Types
@@ -772,15 +787,34 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Track which markets are graduated (only these count)
-  const [graduatedAddresses, setGraduatedAddresses] = useState<Set<string>>(new Set());
+  // V9.9.6: On-chain market discovery - only show graduated markets
+  const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
 
-  // Get all V8 markets
+  // Filter to only graduated markets and merge with static config for UI metadata
   const allMarkets = useMemo(() => {
-    return marketsConfig.markets?.filter(m =>
-      m.chainId === chainId && m.version.startsWith('v')
-    ) || [];
-  }, [chainId]);
+    // Only show graduated markets for Pro trading
+    const graduatedOnChain = onChainMarkets.filter(m => m.isGraduated);
+
+    return graduatedOnChain.map(m => {
+      // Try to find UI metadata from static config
+      const staticMarket = staticMarkets.find(
+        s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
+      );
+
+      return {
+        contractAddress: m.address,
+        name: staticMarket?.name || m.name || 'Unknown Market',
+        symbol: staticMarket?.symbol || m.symbol || '???',
+        category: (staticMarket as any)?.category || 'other',
+        description: staticMarket?.description,
+        imageUrl: staticMarket?.imageUrl,
+        // On-chain data
+        isGraduated: m.isGraduated,
+        creator: m.creator,
+        createdAt: m.createdAt,
+      };
+    });
+  }, [onChainMarkets]);
 
   // Filter by search and category
   const filteredMarkets = useMemo(() => {
@@ -790,48 +824,30 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         m.symbol.toLowerCase().includes(search.toLowerCase());
 
       const matchesCategory = category === 'all' ||
-        (m as any).category?.toLowerCase() === category.toLowerCase();
+        m.category?.toLowerCase() === category.toLowerCase();
 
       return matchesSearch && matchesCategory;
     });
   }, [allMarkets, search, category]);
 
-  // Generate category counts - count ALL for now to avoid confusion
+  // Generate category counts
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all'
         ? allMarkets.length
-        : allMarkets.filter((m: any) => m.category?.toLowerCase() === cat.id).length
+        : allMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
     }));
   }, [allMarkets]);
 
-  // Graduated market count for display
   const totalMarketCount = filteredMarkets.length;
 
-  // Callback when a market's graduation status is determined
-  const handleMarketGraduationLoaded = React.useCallback((address: string, isGraduated: boolean) => {
-    setGraduatedAddresses(prev => {
-      const newSet = new Set(prev);
-      const addr = address.toLowerCase();
-      if (isGraduated) {
-        newSet.add(addr);
-      } else {
-        newSet.delete(addr);
-      }
-      return newSet;
-    });
-  }, []);
-
-  // Auto-select first graduated market
+  // Auto-select first market
   React.useEffect(() => {
-    if (!selectedMarketId && graduatedAddresses.size > 0) {
-      const firstGraduated = filteredMarkets.find(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
-      if (firstGraduated) {
-        setSelectedMarketId(firstGraduated.contractAddress);
-      }
+    if (!selectedMarketId && filteredMarkets.length > 0) {
+      setSelectedMarketId(filteredMarkets[0].contractAddress);
     }
-  }, [filteredMarkets, selectedMarketId, graduatedAddresses]);
+  }, [filteredMarkets, selectedMarketId]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -848,7 +864,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   };
 
   const selectedMarket = filteredMarkets.find(m => m.contractAddress === selectedMarketId) ||
-    filteredMarkets.find(m => graduatedAddresses.has(m.contractAddress.toLowerCase()));
+    filteredMarkets[0];
 
   return (
     <div className="space-y-6">
@@ -864,7 +880,12 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
       />
 
       {/* Horizontal Market Scroll */}
-      {filteredMarkets.length === 0 ? (
+      {isLoadingMarkets ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+          <span className="ml-2 text-slate-400">Discovering markets...</span>
+        </div>
+      ) : filteredMarkets.length === 0 ? (
         <EmptyState search={search} />
       ) : (
         <GraduatedMarketsScroll
@@ -873,7 +894,6 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
           onSelect={handleMarketSelect}
           scrollRef={scrollRef}
           onScroll={scroll}
-          onMarketGraduationLoaded={handleMarketGraduationLoaded}
         />
       )}
 
@@ -886,7 +906,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
 };
 
 // ============================================================================
-// Graduated Markets Scroll - Only shows graduated markets
+// Graduated Markets Scroll - Shows graduated markets from on-chain discovery
 // ============================================================================
 interface GraduatedMarketsScrollProps {
   markets: Array<{
@@ -899,37 +919,14 @@ interface GraduatedMarketsScrollProps {
   onSelect: (market: any) => void;
   scrollRef: React.RefObject<HTMLDivElement>;
   onScroll: (direction: 'left' | 'right') => void;
-  onMarketGraduationLoaded?: (address: string, isGraduated: boolean) => void;
 }
 
-const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef, onScroll, onMarketGraduationLoaded }: GraduatedMarketsScrollProps) => {
-  // Track how many markets have loaded and their graduation status
-  const [graduatedCount, setGraduatedCount] = React.useState<number | null>(null);
-  const [loadedCount, setLoadedCount] = React.useState(0);
-
-  const handleMarketLoaded = React.useCallback((address: string, isGraduated: boolean) => {
-    setLoadedCount(c => c + 1);
-    if (isGraduated) {
-      setGraduatedCount(c => (c ?? 0) + 1);
-    }
-    // Report up to parent for count tracking
-    onMarketGraduationLoaded?.(address, isGraduated);
-  }, [onMarketGraduationLoaded]);
-
-  // Reset counts when markets change
-  React.useEffect(() => {
-    setGraduatedCount(null);
-    setLoadedCount(0);
-  }, [markets.length]);
-
-  const allLoaded = loadedCount >= markets.length;
-  const hasGraduated = graduatedCount !== null && graduatedCount > 0;
-
-  // Show empty state only if there are truly no markets at all
-  if (allLoaded && markets.length === 0) {
+const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef, onScroll }: GraduatedMarketsScrollProps) => {
+  // No need for graduation tracking - markets are already filtered to graduated only
+  if (markets.length === 0) {
     return (
       <div className="text-center py-12 text-slate-500">
-        <p className="text-sm">No markets found</p>
+        <p className="text-sm">No graduated markets found</p>
       </div>
     );
   }
@@ -956,7 +953,6 @@ const GraduatedMarketsScroll = ({ markets, selectedMarketId, onSelect, scrollRef
             market={market}
             isSelected={market.contractAddress === selectedMarketId}
             onClick={() => onSelect(market)}
-            onLoaded={(addr: string, isGrad: boolean) => handleMarketLoaded(addr, isGrad)}
           />
         ))}
       </div>
@@ -984,34 +980,13 @@ interface ProMarketChipProps {
   };
   isSelected: boolean;
   onClick: () => void;
-  onLoaded?: (address: string, isGraduated: boolean) => void;
 }
 
-const ProMarketChip = ({ market, isSelected, onClick, onLoaded }: ProMarketChipProps) => {
-  const { launchpad, isLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
-  const { tickBook } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
-  const isCreated = launchpad?.isCreated;
-  const isGraduated = launchpad?.isGraduated;
-  const isReady = launchpad ? (launchpad.canGraduate || (launchpad.graduationProgress ?? 0) >= 100) : false;
-  // effectively graduated if flag is set OR if fees are sufficient (handles stale data)
-  const isEffectiveGraduated = !!isCreated && (!!isGraduated || isReady);
+const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
+  // Markets are already confirmed graduated via on-chain discovery
+  const { tickBook, isLoading } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
 
   const bookPrice = tickBook?.probability ?? 0.5;
-  const hasReportedRef = React.useRef(false);
-
-  // Report graduation status once loaded
-  React.useEffect(() => {
-    if (!isLoading && !hasReportedRef.current) {
-      hasReportedRef.current = true;
-      // Only count as graduated if both created AND graduated (or ready)
-      onLoaded?.(market.contractAddress, isEffectiveGraduated);
-    }
-  }, [isLoading, isEffectiveGraduated, onLoaded, market.contractAddress]);
-
-  // Show all markets in Pro list so they can be initialized/viewed
-  // if (!isLoading && !isEffectiveGraduated) {
-  //   return null;
-  // }
 
   return (
     <button
@@ -1166,6 +1141,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const { isConnected, address: userAddress } = useAccount();
   const chainId = useChainId();
   const { contracts } = useDeployments();
+  const { writeContractAsync } = useWriteContract(); // For approve, deposit, withdraw
   const publicClient = usePublicClient();
 
   // UI State
@@ -1184,9 +1160,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [isLowDragging, setIsLowDragging] = React.useState(false);
   const [isHighDragging, setIsHighDragging] = React.useState(false);
 
-  // Data
+  // Data - look up UI metadata from static config if available
   const { v8Markets, selectedMarket } = useMemo(() => {
-    const markets = marketsConfig.markets.filter(m => m.version.startsWith('v') && m.chainId === chainId);
+    const markets = staticMarkets.filter(m => m.version?.startsWith('v') && m.chainId === chainId);
     return {
       v8Markets: markets,
       selectedMarket: markets.find(m =>

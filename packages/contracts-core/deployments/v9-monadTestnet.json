@@ -1,33 +1,17 @@
 {
+  "version": "9.9.6",
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "timestamp": "2025-12-30T10:58:43.523Z",
+  "timestamp": "2026-01-01T15:10:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x7192f46fa78e7d1b5bb6ba687d15d0b6a0802da3",
-    "Collateralizer": "0xc620770047e6710d2539bc6aa46de9be458207a7",
-    "AMMEngine": "0xc83a0fad313d9174ebdb6201c5d115e5773e4d80",
-    "TickBookVault": "0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7",
-    "TickBookPoolManager": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
-    "TickBook": "0xd209a3db4bb3a65da69001313e75f3309888e52f",
-    "LaunchpadEngine": "0xfc439a4bd763900cc544154e74258721f4a2bbbb"
+    "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
+    "Collateralizer": "0x8B8c1F0711e5A78F1Fe7ba174eB47eb58880293b",
+    "AMMEngine": "0x222948d53B75ED5ef06844ABc8B01dEe557E4945",
+    "TickBookVault": "0x3c089e0E5919dEB896f80f5FB3A6997439F61300",
+    "TickBookPoolManager": "0x9363d199C2Ba74553E452a6645637806De099381",
+    "TickBook": "0x9363d199C2Ba74553E452a6645637806De099381",
+    "LaunchpadEngine": "0x0d6b999E9dFed7d00B46B2619eB4AF66Ac320335"
   },
-  "markets": [
-    {
-      "address": "0x2bf18f49f45aca269d2d5926930721f45ce3ab82",
-      "name": "UN Confirms Alien Life",
-      "symbol": "ALIEN",
-      "yesToken": "0x9f905957B12290a307217308179db4937fA81272",
-      "noToken": "0x63E20F6Eb58e072996e161e9C7F74433d89d783F",
-      "isGraduated": false
-    },
-    {
-      "address": "0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7",
-      "name": "BTC TWAP >= $100k",
-      "symbol": "BTC100K",
-      "yesToken": "0xdDd52CFb03b1fdC26509D4A3B5D36818d7f7aaB9",
-      "noToken": "0x8fBe1005Ac07E3d18C96CeE9DD1a4FC679c2D0a5",
-      "isGraduated": true
-    }
-  ]
+  "markets": []
 }

@@ -1,45 +1,4 @@
 {
-  "version": "9.9.5-lean",
-  "markets": [
-    {
-      "id": "alien-base",
-      "chainId": 84532,
-      "address": "0xfc43d6Be9B988a0b06DCb6F14b6741D353ADE5e1",
-      "contractAddress": "0xfc43d6Be9B988a0b06DCb6F14b6741D353ADE5e1",
-      "name": "UN Confirms Alien Life",
-      "symbol": "ALIEN",
-      "yesToken": "0xaa6e909e2657583464f1Bdd1c1fFb59945b3Eb4E",
-      "noToken": "0x4f4E3E1aA4273959C6De317da47cf4d210F3846e",
-      "description": "Will the United Nations officially confirm the existence of extraterrestrial life by 2026?",
-      "category": "science",
-      "featured": true,
-      "imageUrl": null,
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "version": "v9",
-      "isGraduated": false
-    },
-    {
-      "id": "btc100k-base",
-      "chainId": 84532,
-      "address": "0x45FdB4e8b8E38cD9b8B587B4334af71986c2Af78",
-      "contractAddress": "0x45FdB4e8b8E38cD9b8B587B4334af71986c2Af78",
-      "name": "BTC TWAP >= $100k",
-      "symbol": "BTC100K",
-      "yesToken": "0x30d660301EDfC79dd119Ee8AB7BC0Fa18e99dADA",
-      "noToken": "0xB2355BDe7C90fa04A05Fa0f5eAF327fa14AbB937",
-      "description": "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000 by end of 2025?",
-      "category": "crypto",
-      "featured": true,
-      "imageUrl": null,
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "version": "v9",
-      "isGraduated": false
-    }
-  ]
+  "version": "9.9.6",
+  "markets": []
 }

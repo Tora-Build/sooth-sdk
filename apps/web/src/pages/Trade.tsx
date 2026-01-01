@@ -3,20 +3,34 @@
  * 
  * Simple, approachable trading for retail users expressing opinions or hedging risk.
  * Features: Quick trade buttons, large probability display, educational tooltips
+ * 
+ * V9.9.6: Now uses on-chain market discovery via useOnChainMarkets hook
  */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features/v8';
 import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
-import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks';
+import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';
+
+// Type for static market config (for UI metadata fallback)
+interface StaticMarket {
+  id: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  description?: string;
+  category?: string;
+  imageUrl?: string | null;
+}
+const staticMarkets = (marketsConfig.markets || []) as StaticMarket[];
 
 const { trade: content } = uiContent;
 
@@ -30,7 +44,12 @@ const CATEGORIES = [
 
 // Market chip for horizontal scroll
 interface MarketChipProps {
-  market: typeof marketsConfig.markets[0];
+  market: {
+    contractAddress: string;
+    name: string;
+    symbol: string;
+    category?: string;
+  };
   isSelected: boolean;
   onSelect: () => void;
 }
@@ -95,34 +114,53 @@ export const Trade = () => {
   // Scroll ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Filter V8 markets for current chain
-  const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m =>
-      m.version.startsWith('v') && m.chainId === chainId
-    );
-  }, [chainId]);
+  // V9.9.6: On-chain market discovery (shows ALL markets, not just graduated)
+  const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
+
+  // Merge on-chain markets with static config for UI metadata
+  const allMarkets = useMemo(() => {
+    return onChainMarkets.map(m => {
+      // Try to find UI metadata from static config
+      const staticMarket = staticMarkets.find(
+        s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
+      );
+
+      return {
+        contractAddress: m.address,
+        id: staticMarket?.id || m.address,
+        name: staticMarket?.name || m.name || 'Unknown Market',
+        symbol: staticMarket?.symbol || m.symbol || '???',
+        category: (staticMarket as any)?.category || 'other',
+        description: staticMarket?.description,
+        imageUrl: staticMarket?.imageUrl,
+        isGraduated: m.isGraduated,
+        creator: m.creator,
+        createdAt: m.createdAt,
+      };
+    });
+  }, [onChainMarkets]);
 
   // Apply search and category filters
   const filteredMarkets = useMemo(() => {
-    return v8Markets.filter(m => {
+    return allMarkets.filter(m => {
       const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = category === 'all' ||
-        (m as any).category?.toLowerCase() === category.toLowerCase();
+        m.category?.toLowerCase() === category.toLowerCase();
       return matchesSearch && matchesCategory;
     });
-  }, [v8Markets, search, category]);
+  }, [allMarkets, search, category]);
 
   // Get category counts based on actual market categories
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all'
-        ? v8Markets.length
-        : v8Markets.filter(m => (m as any).category?.toLowerCase() === cat.id.toLowerCase()).length
+        ? allMarkets.length
+        : allMarkets.filter(m => m.category?.toLowerCase() === cat.id.toLowerCase()).length
     }));
-  }, [v8Markets]);
+  }, [allMarkets]);
 
   // Handle URL-based market selection or auto-select first market
   useEffect(() => {
@@ -145,7 +183,7 @@ export const Trade = () => {
   const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
-  const handleSelectMarket = (market: typeof v8Markets[0]) => {
+  const handleSelectMarket = (market: typeof allMarkets[0]) => {
     setSelectedMarketAddress(market.contractAddress);
   };
 
@@ -174,7 +212,12 @@ export const Trade = () => {
       />
 
       {/* Horizontal Market Scroll - matches Pro page layout */}
-      {filteredMarkets.length === 0 ? (
+      {isLoadingMarkets ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-cyan-500 animate-spin" />
+          <span className="ml-2 text-slate-400">Discovering markets...</span>
+        </div>
+      ) : filteredMarkets.length === 0 ? (
         <div className="text-center py-8 text-slate-500">
           <p className="text-sm">No markets found</p>
         </div>
@@ -196,9 +239,9 @@ export const Trade = () => {
           >
             {filteredMarkets.map(market => (
               <MarketChip
-                key={market.id}
+                key={market.contractAddress}
                 market={market}
-                isSelected={selectedMarket?.id === market.id}
+                isSelected={selectedMarket?.contractAddress === market.contractAddress}
                 onSelect={() => handleSelectMarket(market)}
               />
             ))}
@@ -222,10 +265,10 @@ export const Trade = () => {
             {/* Premium Market Header */}
             <MarketDetailHeader
               name={selectedMarket.name}
-              description={(selectedMarket as any).description}
+              description={selectedMarket.description}
               symbol={selectedMarket.symbol}
               address={selectedMarket.contractAddress}
-              creator={truth?.creator || '0x0'}
+              creator={truth?.creator || selectedMarket.creator || '0x0'}
               adjudicator={truth?.adjudicator}
               deadline={truth?.deadline}
               isGraduated={launchpad?.isGraduated || false}

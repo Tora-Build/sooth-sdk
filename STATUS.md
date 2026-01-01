@@ -1,6 +1,6 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (On-Chain Market Discovery)
+> Last Updated: 2026-01-01 (Interactive CLI BPS Fixes)
 
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
@@ -8,7 +8,8 @@
 - **✅ TESTS PASSING** — 130/130 tests pass (11 new V9.9.6 tests)
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
-- **🆕 ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook (uncommitted)
+- **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
+- **🔧 CLI BPS FIXES** — Fixed basis points handling in markets display and graduate command
 
 ## V9.9.6 Unified Order API (2026-01-01)
 
@@ -56,25 +57,32 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.5 LEAN
+### Base Sepolia (chainId: 84532) — V9.9.6
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x4EA452bc10880ab0bE3673C2dE076C9d3351b516` (LEAN - no hooks) |
-| **Collateralizer** | `0x1C146C1e79c6C20afdb90eDb13D0eAa11C412557` |
-| **AMMEngine** | `0x76Dc341A2635439Afb503bFE57316ebcb7580B3C` |
-| **TickBookVault** | `0x8EDc4d249F373Acaa9a4523BA234eEDb9e6E6ab2` |
-| **LaunchpadEngine** | `0x4Ec2FD4c6a8584976c1e032624574E9ecba28D11` |
-| **MockUSDC** | `0x0c31bbb6da82ba97fbafbe3425ee8757a4d724e3` |
+| **TickBookPoolManager** | `0x48427042E778fC8C4A33078623975d4f5D312c1c` |
+| **Collateralizer** | `0xF770F8496F9368503eAFaeF761f654D30f5fc4f7` |
+| **AMMEngine** | `0x45BC406Eb6A2fF51614Ab78E9d37eb1d4a152342` |
+| **TickBookVault** | `0x998d3F31178969aa7efD0071d03eeDE4B1a3DCeA` |
+| **LaunchpadEngine** | `0xc2a50f9deC4D5E88335CE1B5a0048aD01870379C` |
+| **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
 
-**Test Markets:**
-- **ALIEN** (UN Confirms Alien Life): `0xfc43d6Be9B988a0b06DCb6F14b6741D353ADE5e1`
-- **BTC100K** (BTC TWAP >= $100k): `0x45FdB4e8b8E38cD9b8B587B4334af71986c2Af78`
+**Test Markets (10 on-chain):**
+- Markets 0-7: UN Confirms Alien Life [ALIEN] (various b values)
+- Market 8: UN Confirms Alien Life (b=2,000, 6% progress)
+- Market 9: ETH Reaches 10k [ETH10K] (b=5,555, 56% progress)
 
-### Monad Testnet (chainId: 10143) — V9.9.4 (Pending V9.9.5 Upgrade)
+### Monad Testnet (chainId: 10143) — V9.9.6
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xd209a3db4bb3a65da69001313e75f3309888e52f` |
-| **Collateralizer** | `0xc620770047e6710d2539bc6aa46de9be458207a7` |
+| **TickBookPoolManager** | `0x9363d199C2Ba74553E452a6645637806De099381` |
+| **Collateralizer** | `0x8B8c1F0711e5A78F1Fe7ba174eB47eb58880293b` |
+| **AMMEngine** | `0x222948d53B75ED5ef06844ABc8B01dEe557E4945` |
+| **TickBookVault** | `0x3c089e0E5919dEB896f80f5FB3A6997439F61300` |
+| **LaunchpadEngine** | `0x0d6b999E9dFed7d00B46B2619eB4AF66Ac320335` |
+| **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
+
+**Note:** Fresh deployment, no markets created yet.
 
 ---
 
@@ -154,17 +162,44 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 
 ---
 
+## Interactive CLI Bug Fixes (2026-01-01)
+
+### Basis Points (BPS) Fixes
+**Issue**: `getGraduationProgress` returns progress in basis points (10000 = 100%), but CLI was treating it as percentage.
+
+**Fixed files**:
+- `commands/state.ts`: Markets list now displays correct % (was showing "ready!" at 6.9%)
+- `commands/market.ts`: Graduate command checks `>= 10000n` not `>= 100n`
+- `commands/market.ts`: Progress display divides by 100 for correct %
+
+### Graduate Trade Size Calculation
+**Issue**: Trades weren't generating enough fees because:
+1. `tradeSize` is in shares, but fees are charged on COST (USDC)
+2. SELL trades are half the size of BUY trades
+3. With LMSR at ~50% price, cost ≈ 0.5 × shares
+
+**Fix**: Changed formula from `volumeNeeded * 4 / (3 * numTrades)` to `volumeNeeded * 8 / (3 * numTrades)` to account for:
+- BUY cost ≈ shares × 0.5
+- SELL cost ≈ (shares/2) × 0.5
+
+### Frontend Collateralizer Fix
+**Issue**: Pre-graduation markets threw "Collateralizer: not registered" error
+
+**Fix**: `useCollateralizerDirect.ts` now wraps read in try-catch, returns fallback with `isRegistered: false` for pre-graduation markets.
+
+---
+
 ## On-Chain Market Discovery (2026-01-01)
 
 Added on-chain market enumeration to replace static `markets.json` config.
 
-### Contract Changes (uncommitted)
+### Contract Changes
 - `LaunchpadEngine.sol`: Added `address[] public allMarkets` storage
 - `LaunchpadEngine.sol`: Added `getMarkets()` and `getMarketCount()` view functions
 - `ILaunchpadEngine.sol`: Updated interface with new functions
 - `createMarket()` now pushes to `allMarkets` array
 
-### Frontend Changes (uncommitted)
+### Frontend Changes
 - Updated `LaunchpadEngine.json` ABI
 - New hook: `useOnChainMarkets.ts`
   - `useOnChainMarkets()` — Returns all markets with metadata
@@ -180,20 +215,25 @@ Added on-chain market enumeration to replace static `markets.json` config.
 ## Pending Work
 
 ### High Priority
-- [ ] **Commit market discovery changes** — Contract + hook ready for review
 - [ ] **Deploy V9.9.6 to Base Sepolia** — New unified order API ready
 - [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
+- [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
 - [ ] **Deploy V9.9.5 to Monad** — When RPC stabilizes
 
 ### Medium Priority
 - [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
+- [x] ~~**BPS Bug Fixes**~~ — Fixed in markets list and graduate command
+- [x] ~~**Collateralizer Error**~~ — Pre-graduation markets now handled gracefully
 - [ ] **Contract Verification** — Verify on Basescan
-- [ ] **Test New Deployment Workflow** — Verify 1_DeployCore + 2_CreateMarket on fresh deployment
 - [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
 
 ### Interactive CLI Next Steps
-- [ ] **Test graduate command** — Verify full graduation flow works end-to-end
+- [ ] **Tune graduate trade sizes** — Current formula gets ~70% progress; may need more iterations
 - [ ] **Custom market template** — Allow user to specify question/name/symbol
 - [ ] **Scenario library** — Add more YAML scenarios for automated testing
+
+### Known Issues
+- Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
+- Monad testnet deployment has empty markets array (new LaunchpadEngine)
 
 *Last updated: 2026-01-01*
