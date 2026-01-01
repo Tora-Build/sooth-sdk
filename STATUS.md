@@ -1,7 +1,8 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (Package Split + V9.9.5 LEAN)
+> Last Updated: 2026-01-01 (Interactive CLI + Package Split + V9.9.5 LEAN)
 
+- **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ V9.9.5 LEAN DEPLOYED** — Fill overflow fixes + hook removal live on Base Sepolia
 - **✅ FE SYNCED** — Deployment configs updated
@@ -91,6 +92,22 @@ pnpm benchmark  # → contracts-testing
 
 ## Recent Improvements (2026-01-01)
 
+### Interactive CLI (contracts-testing)
+New REPL for on-chain testing without external scripts:
+```bash
+bun run script/interactive/interactive-test.ts --chain=baseSepolia
+```
+
+**Commands added:**
+- `createmarket <template> [liquidity]` — Deploy TruthMarket + init in LaunchpadEngine
+- `graduate [tradeSize] [numTrades]` — Execute trades to accumulate fees until graduation
+- `marketstatus` — Show comprehensive status (TruthMarket, AMM, Collateralizer, TickBook)
+- `simulate` — Place limit orders + execute market orders for orderbook testing
+- `setmarket <address>` — Fetch token info from chain (supports pre-graduation markets)
+- `markets` / `m` — Show current market selection
+
+**Key feature:** Everything works from CLI — TruthMarket bytecode embedded, no forge scripts needed.
+
 ### Package Split (ADR-065)
 - Split `contracts-evm` into `contracts-core` (audit) + `contracts-testing` (QA/partners)
 - Deleted outdated V4/V5/V8 artifacts (broadcast logs, old deployment configs)
@@ -116,5 +133,10 @@ pnpm benchmark  # → contracts-testing
 ### Medium Priority
 - [ ] **Autoclaim Integration** — Call `batchClaimFills` before new orders
 - [ ] **Contract Verification** — Verify on Basescan
+
+### Interactive CLI Next Steps
+- [ ] **Test graduate command** — Verify full graduation flow works end-to-end
+- [ ] **Custom market template** — Allow user to specify question/name/symbol
+- [ ] **Scenario library** — Add more YAML scenarios for automated testing
 
 *Last updated: 2026-01-01*
