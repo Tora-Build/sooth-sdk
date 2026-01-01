@@ -4,6 +4,14 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **CRITICAL: V9.9.6 Active Liquidity Underflow** (2026-01-01):
+  - **Bug**: `_fill()` function lines 613, 664, 667 had unsafe type casts `uint128(int128(activeLiq) + delta)` that could underflow when `delta` was negative and larger than `activeLiq`
+  - **Symptom**: First several trades succeed, then one triggers underflow, corrupting `state.activeLiquidityYes/No`, causing ALL subsequent trades to fail with "arithmetic underflow or overflow"
+  - **Root Cause**: Tick boundary crossing with negative `liquidityNet` could make `activeLiq + delta < 0`
+  - **Fix**: Added `_safeAddLiquidity(uint128 liq, int128 delta)` helper that clamps result to 0 on underflow
+  - **Impact**: Requires contract redeployment to fix existing testnet deployments
+
 ### Added
 - **V9.9.6 Frontend Integration** (2026-01-01):
   - **Unified Order API**: Migrated `Pro.tsx` and `SimpleTradingPanel.tsx` to use the streamlined `placeOrder` and `tradePositions` APIs.

@@ -1,7 +1,8 @@
 # Project Status
 
-> Last Updated: 2026-01-01 (V9.9.6 Unified Order API & On-Chain Discovery)
+> Last Updated: 2026-01-01 (V9.9.6 Critical Bug Fix)
 
+- **🚨 CRITICAL BUG FIXED** — V9.9.6 `_fill()` active liquidity underflow (requires redeployment)
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
 - **✅ AUTO-CLAIM** — `_autoClaimUserOrders()` claims pending fills before placing new order
@@ -216,11 +217,14 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ## Pending Work
 
+### Critical (Blocking)
+- [ ] **Redeploy V9.9.6 to Base Sepolia** — Fix for active liquidity underflow bug
+- [ ] **Redeploy V9.9.6 to Monad Testnet** — Same fix needed
+- [ ] **Re-register/create markets** — Existing markets may have corrupted state
+
 ### High Priority
-- [ ] **Deploy V9.9.6 to Base Sepolia** — New unified order API ready
 - [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
 - [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
-- [ ] **Deploy V9.9.5 to Monad** — When RPC stabilizes
 
 ### Medium Priority
 - [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
@@ -237,5 +241,38 @@ Added on-chain market enumeration to replace static `markets.json` config.
 ### Known Issues
 - Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
 - Monad testnet deployment has empty markets array (new LaunchpadEngine)
+
+---
+
+## Critical Bug Fix (2026-01-01)
+
+### V9.9.6 Active Liquidity Underflow
+
+**Symptom**: First several trades succeed, then one fails with "arithmetic underflow or overflow", and ALL subsequent trades fail.
+
+**Root Cause**: In `_fill()` function, lines 613, 664, 667 had unsafe type casts:
+```solidity
+// BEFORE (buggy)
+activeLiq = uint128(int128(activeLiq) + delta);
+```
+
+When crossing tick boundaries, `delta` (from `liquidityNet`) could be negative. If `|delta| > activeLiq`, the result becomes negative, and casting to `uint128` causes panic.
+
+**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0:
+```solidity
+function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
+    if (delta >= 0) {
+        return liq + uint128(delta);
+    } else {
+        uint128 absDelta = uint128(-delta);
+        return liq >= absDelta ? liq - absDelta : 0;
+    }
+}
+```
+
+**Files Changed**:
+- `packages/contracts-core/src/TickBookPoolManagerV996.sol` (lines 613, 664, 667, + new helper at 687-694)
+
+**Action Required**: Redeploy TickBookPoolManager to both testnets.
 
 *Last updated: 2026-01-01*
