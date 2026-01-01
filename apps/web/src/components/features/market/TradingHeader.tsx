@@ -1,6 +1,6 @@
 /**
  * TradingHeader - Wrapper around MarketDetailHeader with YES/NO outcome tabs
- * 
+ *
  * Features:
  * - All MarketDetailHeader features (name, symbol, status, addresses)
  * - YES/NO outcome toggle tabs for trading view
@@ -12,14 +12,15 @@ import { cn } from '../../../lib/utils';
 interface TradingHeaderProps {
     // MarketDetailHeader props
     name: string;
+    description?: string;
     symbol?: string;
     address: string;
     creator: string;
+    adjudicator?: string;
     deadline?: number;
     isGraduated: boolean;
     isExpired: boolean;
     isLive: boolean;
-    onBack: () => void;
     // Trading-specific props
     viewOutcome: 'yes' | 'no';
     onOutcomeChange: (outcome: 'yes' | 'no') => void;
@@ -27,14 +28,15 @@ interface TradingHeaderProps {
 
 export const TradingHeader: React.FC<TradingHeaderProps> = ({
     name,
+    description,
     symbol,
     address,
     creator,
+    adjudicator,
     deadline,
     isGraduated,
     isExpired,
     isLive,
-    onBack,
     viewOutcome,
     onOutcomeChange,
 }) => {
@@ -43,14 +45,15 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
             {/* Reuse MarketDetailHeader for the main header */}
             <MarketDetailHeader
                 name={name}
+                description={description}
                 symbol={symbol}
                 address={address}
                 creator={creator}
+                adjudicator={adjudicator}
                 deadline={deadline}
                 isGraduated={isGraduated}
                 isExpired={isExpired}
                 isLive={isLive}
-                onBack={onBack}
             />
 
             {/* YES/NO Outcome Tabs */}

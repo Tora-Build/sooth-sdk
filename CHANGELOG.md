@@ -2,6 +2,37 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [9.9.5] - 2026-01-01
+
+### Added
+- **New Deployment Workflow** (2026-01-01):
+  - `script/1_DeployCore.s.sol` - Deploy core infrastructure (5 contracts) with proper linking
+  - `script/2_CreateMarket.s.sol` - Complete market creation workflow (Deploy → Activate → Register → Initialize)
+  - Clean separation between core contracts and market operations
+  - Prevents silent AMM initialization failures from incorrect deployment order
+
+### Changed
+- **Terminology Update** (Pending):
+  - Replacing "Oracle" with "adjudicator" across frontend and documentation
+  - Aligns with contract terminology (TruthMarket uses `adjudicator` role)
+
+## [9.9.5] - 2025-12-31
+
+### Fixed
+- **Fill Overflow & Order Lifecycle** (ADR-064):
+  - Added `liquidityRemoved` flag to `RangeOrder` struct for idempotent cleanup
+  - Cap `filledShares` at `sharesTotal` to prevent Q128 accumulator drift
+  - Auto-complete orders when fully filled (removes tick liquidity, sets `active=false`)
+  - All cleanup paths (crossing, claimFills, cancel) now check flag before removing liquidity
+
+### Added
+- **TickBookPoolManagerV995.sol**: V9.9.5 LEAN implementation (no hooks, based on V9.9.4 architecture)
+
+### Deployment
+- Base Sepolia: `0x4EA452bc10880ab0bE3673C2dE076C9d3351b516`
+
+---
+
 ## [9.9.4] - 2025-12-31
 
 ### Security Fixes

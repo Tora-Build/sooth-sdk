@@ -1,5 +1,47 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-064: Fill Overflow & Order Lifecycle Fixes (V9.9.5)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Deployed to Base Sepolia)
+- **Context**:
+  - Q128 accumulator math in `_fillGrowthGlobalX128` could cause `filledShares > sharesTotal` (~0.1% drift over many fills).
+  - Phantom orders: Fully-filled orders remained "active" with dust liquidity in tick structures.
+  - Double subtraction risk: Multiple cleanup paths (crossing, claimFills, cancel) could double-subtract from `_totalLiquidity`.
+- **Decision**:
+  1. **Add `liquidityRemoved` flag**: New boolean in `RangeOrder` struct for idempotent cleanup.
+     ```solidity
+     struct RangeOrder {
+         // ... existing fields
+         bool liquidityRemoved;  // Track if tick liquidity has been cleaned up
+     }
+     ```
+  2. **Cap `filledShares` at `sharesTotal`**: In `claimFills()`, prevent accumulator drift:
+     ```solidity
+     uint256 maxFillable = order.sharesTotal > order.filledShares
+         ? order.sharesTotal - order.filledShares
+         : 0;
+     if (filledShares > maxFillable) {
+         filledShares = maxFillable;
+     }
+     ```
+  3. **Auto-complete orders**: When `filledShares >= sharesTotal`, automatically remove tick liquidity and set `active=false`.
+  4. **Guard all cleanup paths**: All three paths (crossing, claimFills, cancel) now check `liquidityRemoved` before subtracting from `_totalLiquidity`.
+- **Rationale**:
+  - **Invariant Safety**: Ensures `filledShares <= sharesTotal` always holds.
+  - **Idempotency**: Multiple claims or cancels cannot corrupt liquidity tracking.
+  - **Gas Efficiency**: Auto-completion prevents users from paying gas to cancel fully-filled orders.
+- **Consequences**:
+  - **Breaking Change**: New struct field requires redeployment (not upgradeable).
+  - **Test Coverage**: 40/40 TickBook tests passing including edge cases.
+  - **✅ RESOLVED**: Created `TickBookPoolManagerV995.sol` on the lean V9.9.4 base (no hooks).
+    - Original V9.9.5 (`TickBookPoolManager.sol`) was based on pre-V9.9.4 code with hooks.
+    - New `TickBookPoolManagerV995.sol` applies ADR-064 fixes to hook-free V9.9.4 architecture.
+    - Maintains ADR-062/063 decisions (no hooks, simple `setFees()` storage).
+- **Deployment**: Base Sepolia `0x949a1dB3907b787fe432D1Af274636497470298e` (old with hooks)
+- **New Contract**: `TickBookPoolManagerV995.sol` (lean, ready for deployment)
+
+---
+
 ## ADR-063: Fee Cap at 10% (V9.9.4 - TOB-2 Fix)
 - **Date**: 2025-12-31
 - **Status**: Accepted (Implemented)
