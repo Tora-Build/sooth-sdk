@@ -90,6 +90,41 @@ record stop <name>  Save recorded commands as scenario
 playback <name>     Playback a recorded scenario
 ```
 
+### Market Lifecycle
+```
+createmarket <template> [liquidity]   Create new market (alien, btc100k)
+                                      Example: createmarket alien 500
+graduate [steps]                      Graduate market via trades (default 8)
+marketstatus                          Show full market lifecycle status
+```
+
+### Simulation
+```
+simulate [n] [size] [seed]   Run orderbook simulation
+                             n:    Number of orders (default 10)
+                             size: Average shares (default 100)
+                             seed: Random seed for reproducibility
+
+                             Press Enter during simulation to stop early
+
+Examples:
+  simulate              10 random orders
+  simulate 50           50 orders
+  simulate 20 500       20 orders, 500 avg size
+  simulate 20 100 12345 Deterministic with seed 12345
+
+Order types generated:
+  - Range orders (70%): Random tick ranges within 10-90%
+  - Limit orders (20%): Single-tick orders at specific prices
+  - Market orders (10%): Full range 1-999 for immediate fills
+```
+
+### Debug
+```
+rpc                 Show RPC status and test connection
+call <contract> <fn>  Raw contract call for debugging
+```
+
 ### Invariant Checks
 ```
 invariants          Run all invariant checks
@@ -101,7 +136,7 @@ check               Alias for invariants
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║          SOOTH V9 INTERACTIVE TEST CONSOLE                  ║
-║ Chain: baseSepolia | Version: 9.9.5-lean                    ║
+║ Chain: baseSepolia | Version: 9.9.6                         ║
 ║ Market: BTC100K                                             ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -197,7 +232,8 @@ script/interactive/
 │   ├── wallet.ts           # mint, approve, balance
 │   ├── vault.ts            # deposit, withdraw, reserved
 │   ├── orderbook.ts        # order, cancel, claim, market
-│   └── state.ts            # state, book, positions
+│   ├── state.ts            # state, book, positions, rpc
+│   └── market.ts           # createmarket, graduate, marketstatus, simulate
 ├── scenarios/
 │   ├── engine.ts           # Scenario execution engine
 │   ├── library/            # Predefined scenarios (YAML)

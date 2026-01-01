@@ -165,6 +165,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
         abi: ABIS.MockUSDC,
         functionName: 'mint',
         args: [address, required * 2n],
+        gas: 500000n,
       });
       await actorManager.waitForTransactionReceipt(mintHash);
       console.log(success('  Minted USDC'));
@@ -206,6 +207,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       abi: TruthMarketAbi,
       functionName: 'activate',
       args: [],
+      gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(activateHash);
     spinner2.succeed('TruthMarket activated');
@@ -219,6 +221,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       abi: ABIS.MockUSDC,
       functionName: 'approve',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
+      gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(approveHash);
     spinner3.succeed('USDC approved');
@@ -232,6 +235,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
       args: [truthMarketAddr, liquidityWad, template.name, template.symbol],
+      gas: 2000000n,
     });
 
     const createReceipt = await actorManager.waitForTransactionReceipt(createHash);
@@ -332,6 +336,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.MockUSDC,
       functionName: 'approve',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
+      gas: 500000n, // High gas for Monad testnet
     });
 
     const hash = await walletClient.writeContract({
@@ -403,6 +408,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.MockUSDC,
       functionName: 'mint',
       args: [address, requiredUsdc * 2n],
+      gas: 500000n, // High gas for Monad testnet
     });
     await actorManager.waitForTransactionReceipt(mintHash);
     console.log(success('  Minted USDC'));
@@ -414,6 +420,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     abi: ABIS.MockUSDC,
     functionName: 'approve',
     args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
+    gas: 500000n, // High gas for Monad testnet
   });
   await actorManager.waitForTransactionReceipt(approveHash);
 
@@ -421,6 +428,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
   console.log('  ' + '─'.repeat(40));
   let totalGas = 0n;
   let tradesExecuted = 0;
+  let consecutiveFailures = 0;
+  const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures to save gas
 
   for (let i = 0; i < numTrades; i++) {
     // Alternate buy/sell to accumulate fees
@@ -432,11 +441,15 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     spinner.start();
 
     try {
+      // For BUY (positive delta): maxCost = MAX_UINT256 (accept any cost)
+      // For SELL (negative delta): maxCost = 0 (accept any proceeds, i.e., min proceeds = 0)
+      const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
+
       const hash = await walletClient.writeContract({
         address: deployment.contracts.LaunchpadEngine as `0x${string}`,
         abi: LaunchpadEngineAbi,
         functionName: 'tradePositions',
-        args: [marketAddress, outcome, delta, MAX_UINT256],
+        args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
         gas: 2000000n, // High gas for potential graduation
       });
 
@@ -458,9 +471,20 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
         return { success: true, data: { tradesExecuted, totalGas } };
       }
+      consecutiveFailures = 0; // Reset on success
     } catch (err) {
-      spinner.fail(`Trade ${i + 1} failed: ${(err as Error).message.slice(0, 50)}`);
-      // Continue trying
+      const errMsg = (err as Error).message;
+      // Extract revert reason if present
+      const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
+        || errMsg.match(/reason:\s*([^\n]+)/i);
+      const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
+      spinner.fail(`Trade ${i + 1} failed: ${shortErr}`);
+
+      consecutiveFailures++;
+      if (consecutiveFailures >= maxConsecutiveFailures) {
+        console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive failures to save gas`));
+        break;
+      }
     }
 
     await sleep(500); // Brief pause between trades
@@ -629,9 +653,20 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
 }
 
 /**
- * Simulate realistic orderbook fills
- * Usage: simulate [numOrders] [avgSize]
- * Example: simulate 20 100
+ * Simulate realistic orderbook activity with configurable randomization
+ *
+ * Usage: simulate [numOrders] [avgSize] [seed]
+ *
+ * Examples:
+ *   simulate              - 10 orders, 100 avg size, random seed
+ *   simulate 50           - 50 orders
+ *   simulate 20 500       - 20 orders, 500 avg size
+ *   simulate 20 100 12345 - deterministic with seed 12345
+ *
+ * Order types generated:
+ *   - Range orders (70%): Random tick ranges within 10-90%
+ *   - Limit orders (20%): Single-tick orders at specific prices
+ *   - Market orders (10%): Full range 1-999 for immediate fills
  */
 export async function simulate(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketKey, marketAddress } = ctx;
@@ -650,8 +685,9 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   const numOrders = args[0] ? parseInt(args[0], 10) : 10;
   const avgSize = args[1] ? parseWad(args[1]) : 100n * WAD;
   const seed = args[2] ? Number(args[2]) : Date.now();
+
+  // Deterministic PRNG (mulberry32) for reproducible simulations
   const rng = (() => {
-    // Deterministic PRNG (mulberry32)
     let t = (seed >>> 0) || 1;
     return () => {
       t += 0x6d2b79f5;
@@ -661,10 +697,22 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     };
   })();
 
+  // Helper to generate random int in range [min, max]
+  const randInt = (min: number, max: number) => Math.floor(rng() * (max - min + 1)) + min;
+
+  // Helper to generate random bigint size (50%-200% of avgSize)
+  const randSize = () => (avgSize * BigInt(50 + Math.floor(rng() * 150))) / 100n;
+
   if (!Number.isFinite(numOrders) || numOrders <= 0) {
     return {
       success: false,
-      message: 'Usage: simulate [numOrders] [avgSize] [seed]\n  Example: simulate 20 100 123',
+      message: `Usage: simulate [numOrders] [avgSize] [seed]
+
+  Examples:
+    simulate              10 orders, 100 avg size
+    simulate 50           50 orders
+    simulate 20 500       20 orders, 500 avg size
+    simulate 20 100 12345 Deterministic with seed`,
     };
   }
 
@@ -721,6 +769,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.MockUSDC,
       functionName: 'mint',
       args: [address, requiredBalance * 2n],
+      gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(mintHash);
 
@@ -730,6 +779,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.MockUSDC,
       functionName: 'approve',
       args: [deployment.contracts.TickBookVault as `0x${string}`, MAX_UINT256],
+      gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(approveHash);
 
@@ -741,6 +791,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.TickBookVault,
       functionName: 'depositUsdc',
       args: [depositUsdc],
+      gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(depositHash);
 
@@ -756,7 +807,17 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
   // Place orders at various price levels
   console.log('  ' + '─'.repeat(50));
-  console.log(`  ${bold('Phase 1: Placing Limit Orders')}`);
+  console.log(`  ${bold('Phase 1: Placing Orders')} ${dim('(press Enter to stop early)')}`);
+
+  // Setup early stop flag - user can press Enter to stop
+  // Note: We only add a listener, don't modify stdin modes (readline manages those)
+  let stopRequested = false;
+  const stdinListener = () => { stopRequested = true; };
+  process.stdin.once('data', stdinListener);
+
+  const cleanup = () => {
+    process.stdin.removeListener('data', stdinListener);
+  };
 
   const placedOrders: {
     orderId: bigint;
@@ -776,45 +837,146 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     tickLower: number;
     tickUpper: number;
     maxCost: bigint;
-  }) => {
-    // Direct writeContract (no simulateContract) for RPC compatibility
-    const txHash = await walletClient.writeContract({
+  }, retries = 3) => {
+    let lastError: Error | null = null;
+    const contractArgs = {
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
-      functionName: 'placeOrder',
-      args: [marketKey, params.outcome, params.shares, params.tickLower, params.tickUpper, params.maxCost],
-    });
-
-    const receipt = await actorManager.waitForTransactionReceipt(txHash);
-
-    // Parse return values from logs (PlaceOrder event)
-    // For now, return placeholder values - the order is placed successfully
-    // TODO: Parse actual return values from receipt logs
-    return {
-      txHash,
-      result: [0n, 0n, 0n, params.shares] as [bigint, bigint, bigint, bigint], // orderId, filled, cost, resting
+      functionName: 'placeOrder' as const,
+      args: [marketKey, params.outcome, params.shares, params.tickLower, params.tickUpper, params.maxCost] as const,
+      gas: 2000000n,
     };
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        // Try simulation first to get better error messages (skip if RPC doesn't support it)
+        let simResult: any = null;
+        try {
+          simResult = await publicClient.simulateContract({
+            ...contractArgs,
+            account: address,
+          });
+        } catch (simErr: any) {
+          const simErrMsg = simErr?.message?.toLowerCase() || '';
+          // If it's a contract revert, throw immediately with the error
+          if (simErrMsg.includes('revert') || simErrMsg.includes('overflow') ||
+              simErrMsg.includes('underflow') || simErrMsg.includes('insufficient')) {
+            throw simErr;
+          }
+          // Otherwise RPC doesn't support simulation, proceed with writeContract
+        }
+
+        const txHash = await walletClient.writeContract(contractArgs);
+        const receipt = await actorManager.waitForTransactionReceipt(txHash);
+
+        // Use simResult if available, otherwise placeholders
+        const result = simResult?.result
+          ? simResult.result as [bigint, bigint, bigint, bigint]
+          : [0n, 0n, 0n, params.shares] as [bigint, bigint, bigint, bigint];
+
+        return { txHash, result };
+      } catch (err) {
+        lastError = err as Error;
+        const errMsg = lastError.message.toLowerCase();
+
+        // Only retry on transient errors (network, timeout, nonce)
+        const isTransient = errMsg.includes('timeout') ||
+          errMsg.includes('network') ||
+          errMsg.includes('nonce') ||
+          errMsg.includes('already known') ||
+          errMsg.includes('replacement transaction') ||
+          errMsg.includes('connection');
+
+        if (!isTransient || attempt === retries) {
+          throw lastError;
+        }
+
+        // Wait before retry (exponential backoff)
+        await sleep(500 * attempt);
+      }
+    }
+
+    throw lastError!;
   };
 
   // Debug: show first order params
   const debugFirstOrder = true;
+  let consecutiveFailures = 0;
+  const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures to save gas
 
   for (let i = 0; i < numOrders; i++) {
-    // Randomize order parameters
-    const outcome = i % 2; // Alternate YES/NO (0=NO, 1=YES)
-    const baseTickLower = 200 + (i % 5) * 100; // 200, 300, 400, 500, 600
-    const tickLower = baseTickLower + Math.floor(rng() * 50);
-    const tickUpper = tickLower + 50 + Math.floor(rng() * 50);
-    const shares = (avgSize * BigInt(50 + Math.floor(rng() * 100))) / 100n; // 50%-150% of avg
-    const maxCost = shares * 2n; // 200% slippage tolerance
+    // Check for early stop
+    if (stopRequested) {
+      console.log(warn(`\n  Stopped early by user after ${i} orders`));
+      break;
+    }
+
+    // Randomly select order type: 70% range, 20% limit, 10% market
+    const orderTypeRoll = rng();
+    let orderType: 'range' | 'limit' | 'market';
+    if (orderTypeRoll < 0.70) {
+      orderType = 'range';
+    } else if (orderTypeRoll < 0.90) {
+      orderType = 'limit';
+    } else {
+      orderType = 'market';
+    }
+
+    // Random outcome (YES=1, NO=0) with slight bias toward YES
+    const outcome = rng() < 0.55 ? 1 : 0;
+
+    // Generate tick range based on order type
+    // V9.9.6 constraints: 1 <= tickLower < tickUpper <= 999
+    let tickLower: number;
+    let tickUpper: number;
+
+    if (orderType === 'market') {
+      // Market order: full range for immediate fill
+      tickLower = 1;
+      tickUpper = 999;
+    } else if (orderType === 'limit') {
+      // Limit order: narrow range at specific price (10%-89.8%)
+      // Ensure tickUpper <= 999: tickLower max = 998
+      tickLower = randInt(100, 898);
+      tickUpper = tickLower + randInt(1, 3); // 1-3 tick width for "limit-like"
+      tickUpper = Math.min(tickUpper, 999);
+    } else {
+      // Range order: random range within safe bounds
+      // tickLower: 100-800 (10%-80%), width: 50-150 ticks (5%-15%)
+      tickLower = randInt(100, 800);
+      const width = randInt(50, 150);
+      tickUpper = tickLower + width;
+      // Ensure within bounds
+      if (tickUpper > 999) {
+        tickUpper = 999;
+        tickLower = Math.max(1, tickUpper - width);
+      }
+    }
+
+    // Ensure valid range (should always be true with above logic)
+    if (tickLower < 1) tickLower = 1;
+    if (tickUpper > 999) tickUpper = 999;
+    if (tickLower >= tickUpper) tickUpper = tickLower + 1;
+
+    // Random size (50%-200% of avgSize), minimum 1 WAD
+    let shares = randSize();
+    if (shares < WAD) shares = WAD;
+
+    // maxCost = shares * price_upper_bound
+    // At tick 999 (99.9%), price ≈ 1, so maxCost ≈ shares
+    // Use generous multiplier to avoid slippage failures
+    const maxCost = shares * 5n;
+
+    // Order type indicator
+    const typeIndicator = orderType === 'market' ? 'MKT' : orderType === 'limit' ? 'LMT' : 'RNG';
 
     // Debug output for first order
     if (debugFirstOrder && i === 0) {
       console.log(dim(`  Debug: marketKey=${(marketKey as string).slice(0, 18)}...`));
-      console.log(dim(`  Debug: outcome=${outcome}, shares=${shares.toString()}, tickLower=${tickLower}, tickUpper=${tickUpper}, maxCost=${maxCost.toString()}`));
+      console.log(dim(`  Debug: type=${orderType}, outcome=${outcome}, shares=${shares.toString()}, ticks=${tickLower}-${tickUpper}`));
     }
 
-    const spinner = new Spinner(`  Order ${i + 1}/${numOrders}: ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)}...`);
+    const spinner = new Spinner(`  Order ${i + 1}/${numOrders}: ${typeIndicator} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)}...`);
     spinner.start();
 
     try {
@@ -823,10 +985,11 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       const [orderId, filledShares, filledCost, restingShares] = result as [bigint, bigint, bigint, bigint];
 
       spinner.succeed(
-        `Order ${i + 1}: #${orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(filledShares)}, resting: ${formatWad(restingShares)})`
+        `Order ${i + 1}: ${typeIndicator} #${orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(filledShares)}, resting: ${formatWad(restingShares)})`
       );
 
       placedOrders.push({ orderId, outcome, tickLower, tickUpper, shares, filledShares, filledCost, restingShares, txHash });
+      consecutiveFailures = 0; // Reset on success
     } catch (err) {
       const errMsg = (err as Error).message;
       // Extract revert reason if present
@@ -840,9 +1003,25 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       if (i === 0) {
         console.log(dim(`  Full error: ${errMsg.slice(0, 300)}`));
       }
+
+      // Check if it's a transient error that was already retried
+      const errLower = errMsg.toLowerCase();
+      const isContractError = errLower.includes('revert') ||
+        errLower.includes('overflow') ||
+        errLower.includes('underflow') ||
+        errLower.includes('insufficient');
+
+      if (isContractError) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= maxConsecutiveFailures) {
+          console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive contract failures`));
+          break;
+        }
+      }
+      // Transient errors don't count toward consecutive failures (already retried)
     }
 
-    await sleep(200);
+    await sleep(300); // Slightly longer delay for stability
   }
 
   // Execute market orders to cross liquidity
@@ -855,12 +1034,19 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   let totalFilled = 0n;
   let totalCost = 0n;
 
-  if (placedOrders.length === 0) {
+  if (stopRequested) {
+    console.log(dim('  Skipping - stopped by user'));
+  } else if (placedOrders.length === 0) {
     console.log(dim('  Skipping - no limit orders to fill against'));
   } else {
     const numMarketOrders = Math.min(Math.floor(numOrders / 3), placedOrders.length);
 
     for (let i = 0; i < numMarketOrders; i++) {
+      // Check for early stop
+      if (stopRequested) {
+        console.log(warn(`\n  Stopped early by user`));
+        break;
+      }
       // Target opposite side of a placed order
       const targetOrder = placedOrders[i % placedOrders.length];
       const outcome = targetOrder.outcome === 1 ? 0 : 1; // Opposite side
@@ -872,8 +1058,9 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
       try {
         // V9.9.6: Market orders use placeOrder with full tick range (1-999)
-        const maxCost = shares * 2n;
-        const { result } = await writePlaceOrder({ outcome, shares, tickLower: 1, tickUpper: 999, maxCost });
+        // maxCost needs to be high enough to cover worst-case price (use 10x buffer)
+        const maxCost = shares * 10n;
+        const { result } = await writePlaceOrder({ outcome, shares, tickLower: 1, tickUpper: 999, maxCost }, 3);
         const [, filledShares, filledCost] = result as [bigint, bigint, bigint, bigint];
 
         marketOrdersExecuted++;
@@ -883,22 +1070,32 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
           `Market ${i + 1}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)} (filled: ${formatWad(filledShares)}, cost: ${formatWad(filledCost)})`
         );
       } catch (err) {
-        spinner.fail(`Market ${i + 1} failed: ${(err as Error).message.slice(0, 50)}`);
+        const errMsg = (err as Error).message;
+        const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
+          || errMsg.match(/reason:\s*([^\n]+)/i);
+        const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
+        spinner.fail(`Market ${i + 1} failed: ${shortErr}`);
       }
 
       await sleep(200);
     }
   }
 
+  // Cleanup stdin listener
+  cleanup();
+
   // Summary
   console.log('');
   console.log('  ' + '─'.repeat(50));
   console.log(`  ${bold('Simulation Complete')}`);
-  console.log(`  Limit orders placed: ${placedOrders.length}`);
+  console.log(`  Limit orders placed: ${placedOrders.length}/${numOrders}`);
   console.log(`  Market orders executed: ${marketOrdersExecuted}`);
   console.log(`  Market shares requested: ${formatWad(totalRequested)}`);
   console.log(`  Market shares filled:    ${formatWad(totalFilled)}`);
   console.log(`  Total cost:              ${formatWad(totalCost)} USDC`);
+  if (stopRequested) {
+    console.log(`  ${warn('(stopped early by user)')}`);
+  }
   console.log('');
 
   return { success: true, data: { placedOrders: placedOrders.length, marketOrders: marketOrdersExecuted, totalRequested, totalFilled, totalCost } };
