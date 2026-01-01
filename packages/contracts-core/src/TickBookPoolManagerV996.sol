@@ -693,6 +693,14 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         }
     }
 
+    /**
+     * @dev Safely subtract from unsigned liquidity, clamping to 0 on underflow
+     * @notice V9.9.6 FIX: Used in _updateActiveLiquidity() and _tryCross()
+     */
+    function _safeSubLiquidity(uint128 liq, uint128 delta) internal pure returns (uint128) {
+        return liq >= delta ? liq - delta : 0;
+    }
+
     function _updateTickBoundaries(
         bytes32 marketKey,
         uint8 outcome,
@@ -744,13 +752,13 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 if (isAdd) {
                     state.activeLiquidityNo += liquidityDelta;
                 } else {
-                    state.activeLiquidityNo -= liquidityDelta;
+                    state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, liquidityDelta);
                 }
             } else {
                 if (isAdd) {
                     state.activeLiquidityYes += liquidityDelta;
                 } else {
-                    state.activeLiquidityYes -= liquidityDelta;
+                    state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidityDelta);
                 }
             }
         }
@@ -840,17 +848,17 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         uint128 activeFilled = crossedShares < uint256(oppActiveLiq) ? uint128(crossedShares) : oppActiveLiq;
         if (opposite == 0) {
-            state.activeLiquidityNo -= activeFilled;
+            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, activeFilled);
         } else {
-            state.activeLiquidityYes -= activeFilled;
+            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, activeFilled);
         }
 
         uint128 newActiveLiq = newOrder.outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         uint128 newFilled = crossedShares < uint256(newActiveLiq) ? uint128(crossedShares) : newActiveLiq;
         if (newOrder.outcome == 0) {
-            state.activeLiquidityNo -= newFilled;
+            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, newFilled);
         } else {
-            state.activeLiquidityYes -= newFilled;
+            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, newFilled);
         }
 
         state.currentTick = crossTick;

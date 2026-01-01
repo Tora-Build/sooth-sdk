@@ -2,11 +2,11 @@
 
 > Last Updated: 2026-01-01 (V9.9.6 Critical Bug Fix)
 
-- **🚨 CRITICAL BUG FIXED** — V9.9.6 `_fill()` active liquidity underflow (requires redeployment)
+- **✅ V9.9.6 BUG FIX COMPLETE** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
 - **✅ AUTO-CLAIM** — `_autoClaimUserOrders()` claims pending fills before placing new order
-- **✅ TESTS PASSING** — 130/130 tests pass (11 new V9.9.6 tests)
+- **✅ TESTS PASSING** — 138/138 tests pass (8 new underflow regression tests, 11 V9.9.6 unified order tests)
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
@@ -60,32 +60,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.6
+### Base Sepolia (chainId: 84532) — V9.9.6-fix1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x48427042E778fC8C4A33078623975d4f5D312c1c` |
-| **Collateralizer** | `0xF770F8496F9368503eAFaeF761f654D30f5fc4f7` |
-| **AMMEngine** | `0x45BC406Eb6A2fF51614Ab78E9d37eb1d4a152342` |
-| **TickBookVault** | `0x998d3F31178969aa7efD0071d03eeDE4B1a3DCeA` |
-| **LaunchpadEngine** | `0xc2a50f9deC4D5E88335CE1B5a0048aD01870379C` |
+| **TickBookPoolManager** | `0x6C5faC67B668bA97B280e8D5beB044F94DB7Dc53` |
+| **Collateralizer** | `0x865737D7C09Fb81215ee3F9Ef641852ae3700887` |
+| **AMMEngine** | `0xe3F036A4dce83364f793308E47BE5BDB932d49DB` |
+| **TickBookVault** | `0x065E3bbf087c2D2635A51Ab068966C65032ada37` |
+| **LaunchpadEngine** | `0x341F695ea3c57F10c7Eb7F7C3d40FA2d8d775970` |
 | **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
 
-**Test Markets (10 on-chain):**
-- Markets 0-7: UN Confirms Alien Life [ALIEN] (various b values)
-- Market 8: UN Confirms Alien Life (b=2,000, 6% progress)
-- Market 9: ETH Reaches 10k [ETH10K] (b=5,555, 56% progress)
+**Note:** Fresh deployment with underflow bug fix. No markets created yet.
 
-### Monad Testnet (chainId: 10143) — V9.9.6
+### Monad Testnet (chainId: 10143) — V9.9.6-fix1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x9363d199C2Ba74553E452a6645637806De099381` |
-| **Collateralizer** | `0x8B8c1F0711e5A78F1Fe7ba174eB47eb58880293b` |
-| **AMMEngine** | `0x222948d53B75ED5ef06844ABc8B01dEe557E4945` |
-| **TickBookVault** | `0x3c089e0E5919dEB896f80f5FB3A6997439F61300` |
-| **LaunchpadEngine** | `0x0d6b999E9dFed7d00B46B2619eB4AF66Ac320335` |
+| **TickBookPoolManager** | `0xf2dF9F968D3A4BA184f8e594b75C64C2648b013C` |
+| **Collateralizer** | `0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf` |
+| **AMMEngine** | `0x711476F24C8D68Ccfe4Bd8Da15A5Bf11aCfcace8` |
+| **TickBookVault** | `0xEfCf0E29c6A2c87d23B5714C332be832Ff3f29c6` |
+| **LaunchpadEngine** | `0x7785777aBe502245F5fB2C4aD5D63DD58C09ce10` |
 | **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
 
-**Note:** Fresh deployment, no markets created yet.
+**Note:** Fresh deployment with underflow bug fix. No markets created yet.
 
 ---
 
@@ -104,7 +101,7 @@ packages/contracts-core/
 ### contracts-testing (Partner + QA)
 ```
 packages/contracts-testing/
-├── test/                # All V9 tests (119 passing)
+├── test/                # All V9 tests (138 passing)
 ├── script/
 │   ├── markets/         # Market creation & init scripts
 │   ├── deploy/          # Version-specific deploy scripts
@@ -217,10 +214,10 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ## Pending Work
 
-### Critical (Blocking)
-- [ ] **Redeploy V9.9.6 to Base Sepolia** — Fix for active liquidity underflow bug
-- [ ] **Redeploy V9.9.6 to Monad Testnet** — Same fix needed
-- [ ] **Re-register/create markets** — Existing markets may have corrupted state
+### Critical (Blocking) — ✅ RESOLVED
+- [x] ~~**Redeploy V9.9.6 to Base Sepolia**~~ — Done 2026-01-02
+- [x] ~~**Redeploy V9.9.6 to Monad Testnet**~~ — Done 2026-01-02
+- [ ] **Create test markets** — Fresh deployment needs new markets
 
 ### High Priority
 - [ ] **Update Pro.tsx** — Replace `executeMarketOrder`/`placeRangeOrder` with `placeOrder`
@@ -240,7 +237,7 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ### Known Issues
 - Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
-- Monad testnet deployment has empty markets array (new LaunchpadEngine)
+- Both testnets have empty markets array (fresh deployment)
 
 ---
 
@@ -271,8 +268,15 @@ function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uin
 ```
 
 **Files Changed**:
-- `packages/contracts-core/src/TickBookPoolManagerV996.sol` (lines 613, 664, 667, + new helper at 687-694)
+- `packages/contracts-core/src/TickBookPoolManagerV996.sol`:
+  - Added `_safeSubLiquidity()` helper (lines 695-703)
+  - Fixed `_updateActiveLiquidity()` (lines 755, 761)
+  - Fixed `_tryCross()` (lines 851, 853, 859, 861)
+  - Original `_safeAddLiquidity()` fix for `_fill()` (lines 613, 664, 667)
+
+**Regression Tests Added**:
+- `packages/contracts-testing/test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests)
 
 **Action Required**: Redeploy TickBookPoolManager to both testnets.
 
-*Last updated: 2026-01-01*
+*Last updated: 2026-01-02*

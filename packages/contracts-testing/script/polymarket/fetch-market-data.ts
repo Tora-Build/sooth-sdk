@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 /**
  * Polymarket Historical Data Extractor
  *
@@ -11,8 +13,12 @@
  *   bun run script/polymarket/fetch-market-data.ts --top 5 --days 30
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // API Endpoints
 const GAMMA_API = 'https://gamma-api.polymarket.com';
@@ -376,10 +382,10 @@ Examples:
       process.exit(1);
     }
 
-    printMarketSummary(market);
+    printMarketSummary(market!);
 
     // Build simulation data
-    const simData = await buildSimulationData(market);
+    const simData = await buildSimulationData(market!);
 
     // Save to file
     const filepath = saveSimulationData(simData, outputDir);
