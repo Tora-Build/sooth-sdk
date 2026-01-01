@@ -1,1 +1,1 @@
-../../.agent/workflows/qa.md
+../../.claude/commands/qa.md

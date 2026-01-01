@@ -12,7 +12,7 @@ fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 [rpc_endpoints]
 baseSepolia = "https://sepolia.base.org"
-megaethMainnet = "https://mainnet.megaeth.com/rpc"
+megaethMainnet = "https://mainnet.megaeth.com/rpc?vip=1&u=Sooth%20%3C%3E%20MegaETH&v=5184000&s=mafia&verify=1766108722-bqZLKPz54oatesxVj16fdJl6kRxh%2Bh1c3AsW%2B446pks%3D"
 megaethTestnet = "https://timothy.megaeth.com/rpc"
 monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"

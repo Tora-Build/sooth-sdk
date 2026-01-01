@@ -1,1 +1,1 @@
-../../.agent/workflows/visualize.md
+../../.claude/commands/visualize.md

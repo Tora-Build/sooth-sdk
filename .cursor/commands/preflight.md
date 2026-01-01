@@ -1,1 +1,1 @@
-../../.agent/workflows/preflight.md
+../../.claude/commands/preflight.md

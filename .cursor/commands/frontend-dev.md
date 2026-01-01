@@ -1,1 +1,1 @@
-../../.agent/workflows/frontend-dev.md
+../../.claude/commands/frontend-dev.md
