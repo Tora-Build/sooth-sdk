@@ -443,11 +443,10 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
         uint256 ordersProcessed = 0;
-        uint256 maxOrders = 5; // Limit iterations for gas safety
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
-        while (i > 0 && ordersProcessed < maxOrders) {
+        while (i > 0) {
             unchecked { --i; }
             uint256 orderId = orderIds[i];
             RangeOrder storage order = _orders[marketKey][orderId];
