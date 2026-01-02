@@ -445,7 +445,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (orderIds.length == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
-        uint256 maxProcess = 20; // V9.9.6-fix9j: Process up to 20 (O(1) check per order)
+        uint256 maxProcess = 3; // V9.9.6-fix9k: Only process 3 orders (minimal gas overhead)
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
@@ -459,10 +459,12 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 continue;
             }
             
-            // V9.9.6-fix9j: ONLY check recorded filledShares (O(1))
-            // Skip expensive _getPendingFillsInternal call
-            // Pending fills from crossing are recorded immediately, so this works
-            if (order.filledShares >= order.sharesTotal) {
+            // V9.9.6-fix9k: Check pending fills for accurate crossed-fill detection
+            // This is O(N) but we only do it for 3 orders max
+            (uint256 pendingFills, ) = _getPendingFillsInternal(marketKey, orderId);
+            uint256 totalFilled = order.filledShares + pendingFills;
+            
+            if (totalFilled >= order.sharesTotal) {
                 // Order is 100% filled - claim and complete it
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 totalClaimedShares += filled;
