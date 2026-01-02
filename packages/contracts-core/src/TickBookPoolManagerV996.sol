@@ -445,7 +445,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (orderIds.length == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
-        uint256 maxProcess = 10; // V9.9.6-fix9j: Process up to 10
+        uint256 maxProcess = 20; // V9.9.6-fix9j: Process up to 20 (O(1) check per order)
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
