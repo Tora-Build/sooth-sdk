@@ -374,6 +374,13 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         // Partial fills are NOT claimed automatically - user must call claimFills()
         _autoClaimUserOrders(marketKey, msg.sender);
 
+        // V9.9.6-fix9: Also auto-release pooled refunds to available balance
+        uint256 pooled = _pendingRefunds[msg.sender][marketKey];
+        if (pooled > 0) {
+            _pendingRefunds[msg.sender][marketKey] = 0;
+            vault.refundMarketToAvailable(m.truthMarket, msg.sender, pooled);
+        }
+
         orderId = ++_nextOrderId;
 
         uint256 ticksInRange = uint256(tickUpper) - uint256(tickLower) + 1;
@@ -539,7 +546,8 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         refund = _pendingRefunds[msg.sender][marketKey];
         if (refund > 0) {
             _pendingRefunds[msg.sender][marketKey] = 0;
-            vault.releaseUsdc(msg.sender, refund);
+            Market memory m = _markets[marketKey];
+            vault.refundMarketToAvailable(m.truthMarket, msg.sender, refund);
             emit PooledRefundsClaimed(msg.sender, marketKey, refund);
         }
     }
