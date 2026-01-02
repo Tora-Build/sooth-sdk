@@ -464,7 +464,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (!order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
-            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
         }
 
@@ -566,7 +566,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
-            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
             order.active = false;
             _removeFromUserOrders(marketKey, owner, orderId);
@@ -727,6 +727,15 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         return liq >= delta ? liq - delta : 0;
     }
 
+    /**
+     * @dev Safely subtract from _totalLiquidity, clamping to 0 on underflow
+     * @notice V9.9.6-fix8: Prevents underflow when orders are removed during crossing
+     */
+    function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
+        uint256 current = _totalLiquidity[marketKey][outcome];
+        _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
+    }
+
     function _updateTickBoundaries(
         bytes32 marketKey,
         uint8 outcome,
@@ -811,53 +820,56 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         uint16 overlapHigh;
         uint16 crossTick;
 
-        // V9.9.6-fix7: Crossing logic must account for price inversion between outcomes
+        // V9.9.6-fix8: Crossing logic - find CHEAPEST counterparty for maximum crossing
         // YES at tick Y = buyer pays Y% for YES  
         // NO at tick N = buyer pays N% for NO = seller accepts (100-N)% for YES
         // Crossing happens when YES buyer price >= YES seller price:
         //   Y% >= (100-N)%  =>  Y + N >= 1000 (using tick scale where 1000 = 100%)
+        //
+        // KEY INSIGHT: 
+        // - For YES orders: find HIGHEST NO tick (cheapest seller, lowest asking price)
+        // - For NO orders: find LOWEST YES tick (cheapest buyer for NO = highest YES price)
+        // This ensures we cross with the best available prices first.
         
         if (newOrder.outcome == 1) {
-            // Placing YES order - look for NO orders to cross with
-            uint16 lowestSell = _bitmaps[marketKey][0].findNextUp(0);
-            if (lowestSell > MAX_TICK) return (0, 0, 0);
+            // Placing YES order - find HIGHEST NO tick (cheapest YES seller)
+            // Higher NO tick = lower seller asking price = better for buyer
+            uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+            if (highestSell > MAX_TICK) return (0, 0, 0);
             
             // NO at tick N implies seller wants (1000-N)% for YES
-            // Crossing happens when buyer price (Y) >= seller price (1000-N)
-            // i.e., Y >= 1000-N, equivalently Y + N >= 1000
-            // For our YES order range [tickLower, tickUpper], crossing happens at ticks >= (1000-lowestSell)
-            uint16 sellerMinYesTick = 1000 - lowestSell;  // Minimum YES tick where crossing occurs
+            // Higher N = lower seller price = more likely to cross
+            // Crossing when: Y >= 1000-N, i.e., Y + N >= 1000
+            // For cheapest seller at highestSell: Y >= 1000-highestSell
+            uint16 cheapestSellerPrice = 1000 - highestSell;  // Lowest price any seller will accept
             
-            // No crossing if seller's minimum acceptable tick is above our max
-            if (sellerMinYesTick > newOrder.tickUpper) return (0, 0, 0);
+            // No crossing if even the cheapest seller wants more than our max
+            if (cheapestSellerPrice > newOrder.tickUpper) return (0, 0, 0);
             
-            // Overlap is from seller's minimum to our maximum
-            overlapLow = sellerMinYesTick > newOrder.tickLower ? sellerMinYesTick : newOrder.tickLower;
+            // Overlap: from our tickLower (or cheapest seller price) up to our tickUpper
+            overlapLow = cheapestSellerPrice > newOrder.tickLower ? cheapestSellerPrice : newOrder.tickLower;
             overlapHigh = newOrder.tickUpper;
             crossTick = overlapHigh;
         } else {
-            // Placing NO order - look for YES orders to cross with
+            // Placing NO order - find LOWEST YES tick (highest YES buyer price = best for NO seller)
+            // Lower YES tick = buyer pays less = but still the HIGHEST bidder in the book
+            // Wait - for NO seller, we want highest YES buyer (who pays the most)
             uint16 highestBuy = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
             if (highestBuy > MAX_TICK) return (0, 0, 0);
             
             // Our NO order at [tickLower, tickUpper] implies selling YES at prices from
             // (1000-tickUpper)% to (1000-tickLower)%
             // Crossing happens when YES buyer (at tick Y) pays >= our asking price
-            // For highest YES buyer at tick highestBuy, crossing with our NO ticks where:
-            // highestBuy >= 1000 - N, i.e., N >= 1000 - highestBuy
-            uint16 minCrossableNoTick = highestBuy < 1000 ? 1000 - highestBuy : 0;
+            // Best YES buyer is at highestBuy
+            uint16 ourLowestAsk = 1000 - newOrder.tickUpper;  // Our cheapest selling price
             
-            // No crossing if all our NO ticks are below the minimum crossable
-            if (newOrder.tickUpper < minCrossableNoTick) return (0, 0, 0);
+            // No crossing if best buyer won't pay our minimum
+            if (highestBuy < ourLowestAsk) return (0, 0, 0);
             
-            // The crossing overlap in YES price space:
-            // - Buyer pays up to highestBuy%
-            // - Seller accepts from (1000-tickUpper)% to (1000-tickLower)%
-            // - Overlap is [max((1000-tickUpper), minYesTick), min(highestBuy, (1000-tickLower))]
-            uint16 sellerYesPriceLow = 1000 - newOrder.tickUpper;   // Our lowest asking price
-            uint16 sellerYesPriceHigh = 1000 - newOrder.tickLower;  // Our highest asking price
-            overlapLow = sellerYesPriceLow > 0 ? sellerYesPriceLow : 1;
-            overlapHigh = highestBuy < sellerYesPriceHigh ? highestBuy : sellerYesPriceHigh;
+            // Overlap in YES price space:
+            uint16 ourHighestAsk = 1000 - newOrder.tickLower;
+            overlapLow = ourLowestAsk > 0 ? ourLowestAsk : 1;
+            overlapHigh = highestBuy < ourHighestAsk ? highestBuy : ourHighestAsk;
             crossTick = overlapLow;
         }
 
@@ -892,7 +904,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
-            _totalLiquidity[marketKey][newOrder.outcome] -= newOrder.sharesTotal;
+            _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
             newOrder.active = false;
         }
