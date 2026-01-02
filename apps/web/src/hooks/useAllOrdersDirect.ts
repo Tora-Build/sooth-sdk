@@ -45,93 +45,104 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
     read: async (client) => {
       console.log(`[useAllOrdersDirect] Querying ALL orders for market ${marketKey}`);
 
-      // Query RangeOrderPlaced events for this market (no owner filter)
-      const logs = await client.getLogs({
-        address: tickBookManagerAddress!,
-        event: RANGE_ORDER_PLACED_EVENT,
-        args: {
-          marketKey: marketKey!,
-        },
-        fromBlock: "earliest",
-        toBlock: "latest",
-      });
+      try {
+        // Get current block for range calculation
+        // Use limited range to avoid RPC limits (Monad: 100-block limit, Base: rate limits)
+        const currentBlock = await client.getBlockNumber();
+        const blocksToQuery = chainId === 10143 ? 50n : 50000n; // Monad: 50 blocks, others: 50k blocks
+        const fromBlock = currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
 
-      // Dedupe order IDs (same order could have multiple events if contract was redeployed)
-      const orderIdSet = new Set<string>();
-      const orderIds: bigint[] = [];
-      for (const log of logs) {
-        const id = log.args.orderId as bigint;
-        const key = id.toString();
-        if (!orderIdSet.has(key)) {
-          orderIdSet.add(key);
-          orderIds.push(id);
+        // Query RangeOrderPlaced events for this market (no owner filter)
+        const logs = await client.getLogs({
+          address: tickBookManagerAddress!,
+          event: RANGE_ORDER_PLACED_EVENT,
+          args: {
+            marketKey: marketKey!,
+          },
+          fromBlock,
+          toBlock: "latest",
+        });
+
+        // Dedupe order IDs (same order could have multiple events if contract was redeployed)
+        const orderIdSet = new Set<string>();
+        const orderIds: bigint[] = [];
+        for (const log of logs) {
+          const id = log.args.orderId as bigint;
+          const key = id.toString();
+          if (!orderIdSet.has(key)) {
+            orderIdSet.add(key);
+            orderIds.push(id);
+          }
         }
-      }
 
-      console.log(`[useAllOrdersDirect] Found ${orderIds.length} unique orders from events`);
+        console.log(`[useAllOrdersDirect] Found ${orderIds.length} unique orders from events`);
 
-      if (orderIds.length === 0) {
+        if (orderIds.length === 0) {
+          return [];
+        }
+
+        // Fetch each order's details in parallel (batch for performance)
+        const orders: RangeOrder[] = [];
+        const batchSize = 10;
+
+        for (let i = 0; i < orderIds.length; i += batchSize) {
+          const batch = orderIds.slice(i, i + batchSize);
+          const results = await Promise.all(
+            batch.map(async (orderId) => {
+              try {
+                const [order, pendingFills] = await Promise.all([
+                  readContractSafe<{
+                    owner: Address;
+                    outcome: number;
+                    tickLower: number;
+                    tickUpper: number;
+                    active: boolean;
+                    sharesTotal: bigint;
+                    liquidity: bigint;
+                    collateralDepositedWad: bigint;
+                    filledShares: bigint;
+                    collateralUsedWad: bigint;
+                  }>(client, {
+                    address: tickBookManagerAddress!,
+                    abi: V996_ABIS.TickBookPoolManager,
+                    functionName: "getOrder",
+                    args: [marketKey!, orderId],
+                  }),
+                  readContractSafe<readonly [bigint, bigint]>(client, {
+                    address: tickBookManagerAddress!,
+                    abi: V996_ABIS.TickBookPoolManager,
+                    functionName: "getPendingFills",
+                    args: [marketKey!, orderId],
+                  }),
+                ]);
+
+                if (order && order.active) {
+                  const pendingShares = pendingFills?.[0] ?? 0n;
+                  return {
+                    orderId,
+                    ...order,
+                    pendingShares,
+                  };
+                }
+                return null;
+              } catch (err) {
+                console.error(`[useAllOrdersDirect] Failed to fetch order ${orderId}:`, err);
+                return null;
+              }
+            })
+          );
+
+          for (const result of results) {
+            if (result) orders.push(result);
+          }
+        }
+
+        console.log(`[useAllOrdersDirect] Final result: ${orders.length} active orders`);
+        return orders;
+      } catch (err) {
+        console.error(`[useAllOrdersDirect] Failed to query orders:`, err);
         return [];
       }
-
-      // Fetch each order's details in parallel (batch for performance)
-      const orders: RangeOrder[] = [];
-      const batchSize = 10;
-
-      for (let i = 0; i < orderIds.length; i += batchSize) {
-        const batch = orderIds.slice(i, i + batchSize);
-        const results = await Promise.all(
-          batch.map(async (orderId) => {
-            try {
-              const [order, pendingFills] = await Promise.all([
-                readContractSafe<{
-                  owner: Address;
-                  outcome: number;
-                  tickLower: number;
-                  tickUpper: number;
-                  active: boolean;
-                  sharesTotal: bigint;
-                  liquidity: bigint;
-                  collateralDepositedWad: bigint;
-                  filledShares: bigint;
-                  collateralUsedWad: bigint;
-                }>(client, {
-                  address: tickBookManagerAddress!,
-                  abi: V996_ABIS.TickBookPoolManager,
-                  functionName: "getOrder",
-                  args: [marketKey!, orderId],
-                }),
-                readContractSafe<readonly [bigint, bigint]>(client, {
-                  address: tickBookManagerAddress!,
-                  abi: V996_ABIS.TickBookPoolManager,
-                  functionName: "getPendingFills",
-                  args: [marketKey!, orderId],
-                }),
-              ]);
-
-              if (order && order.active) {
-                const pendingShares = pendingFills?.[0] ?? 0n;
-                return {
-                  orderId,
-                  ...order,
-                  pendingShares,
-                };
-              }
-              return null;
-            } catch (err) {
-              console.error(`[useAllOrdersDirect] Failed to fetch order ${orderId}:`, err);
-              return null;
-            }
-          })
-        );
-
-        for (const result of results) {
-          if (result) orders.push(result);
-        }
-      }
-
-      console.log(`[useAllOrdersDirect] Final result: ${orders.length} active orders`);
-      return orders;
     },
   });
 
