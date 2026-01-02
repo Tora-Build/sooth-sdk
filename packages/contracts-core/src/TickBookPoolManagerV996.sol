@@ -370,8 +370,9 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
 
-        // V9.9.6-fix9: Removed autoclaim (was O(n) gas issue)
-        // Completed orders pool refunds automatically; partial fills claim manually
+        // V9.9.6-fix9: Auto-claim ONLY 100% filled orders (max 5 for gas safety)
+        // Partial fills are NOT claimed automatically - user must call claimFills()
+        _autoClaimUserOrders(marketKey, msg.sender);
 
         orderId = ++_nextOrderId;
 
@@ -434,30 +435,35 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
-        uint256 ordersClaimed = 0;
+        uint256 ordersProcessed = 0;
+        uint256 maxOrders = 5; // Limit iterations for gas safety
 
         // Iterate backwards to handle removals safely
-        // When an element is removed (swap-and-pop), only elements after current index are affected
         uint256 i = orderIds.length;
-        while (i > 0) {
+        while (i > 0 && ordersProcessed < maxOrders) {
             unchecked { --i; }
             uint256 orderId = orderIds[i];
             RangeOrder storage order = _orders[marketKey][orderId];
-            if (order.active) {
+            
+            if (!order.active) continue;
+            
+            // V9.9.6-fix9: Only auto-claim if order is 100% filled
+            // Check pending fills to see if order is complete
+            (uint256 pendingFills, ) = _getPendingFillsInternal(marketKey, orderId);
+            uint256 totalFilled = order.filledShares + pendingFills;
+            
+            if (totalFilled >= order.sharesTotal) {
+                // Order is 100% filled - claim and complete it
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
-                if (filled > 0 || used > 0) {
-                    totalClaimedShares += filled;
-                    totalCollateralUsed += used;
-                    ordersClaimed++;
-                }
-                // Note: if order was removed by _claimInternal (fully filled),
-                // the last element is now at position i, but since we're going
-                // backwards, we'll process it on the next iteration anyway
+                totalClaimedShares += filled;
+                totalCollateralUsed += used;
+                ordersProcessed++;
             }
+            // Skip partial fills - user can claim those manually
         }
 
-        if (ordersClaimed > 0) {
-            emit AutoClaimExecuted(user, marketKey, ordersClaimed, totalClaimedShares, totalCollateralUsed);
+        if (ordersProcessed > 0) {
+            emit AutoClaimExecuted(user, marketKey, ordersProcessed, totalClaimedShares, totalCollateralUsed);
         }
     }
 
@@ -1056,6 +1062,14 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
 
     function getPendingFills(bytes32 marketKey, uint256 orderId)
         external
+        view
+        returns (uint256 pendingShares, uint256 pendingCollateralUsed)
+    {
+        return _getPendingFillsInternal(marketKey, orderId);
+    }
+
+    function _getPendingFillsInternal(bytes32 marketKey, uint256 orderId)
+        internal
         view
         returns (uint256 pendingShares, uint256 pendingCollateralUsed)
     {
