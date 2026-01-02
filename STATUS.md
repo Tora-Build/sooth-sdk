@@ -1,7 +1,8 @@
 # Project Status
 
-> Last Updated: 2026-01-02 (V9.9.6-fix8 Deployed)
+> Last Updated: 2026-01-02 (V9.9.6-fix9d Deployed)
 
+- **✅ V9.9.6-fix9d DEPLOYED** — Auto-claim 100% filled orders + auto-release pooled USDC
 - **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
 - **✅ V9.9.6-fix7 DEPLOYED** — Corrected crossing overlap calculation
 - **✅ V9.9.6-fix6 DEPLOYED** — Fixed crossing logic for YES/NO price inversion (`YES_tick + NO_tick >= 1000`)
@@ -14,7 +15,7 @@
 - **✅ CLI DEPOSIT FIX** — Fixed MockUSDC decimal conversion (18 decimals, not 6)
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
 - **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
-- **✅ AUTO-CLAIM** — `_autoClaimUserOrders()` claims pending fills before placing new order
+- **✅ AUTO-CLAIM** — Now only claims 100% filled orders, skips partials (gas bounded)
 - **✅ TESTS PASSING** — 138/138 tests pass
 - **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
@@ -32,6 +33,7 @@
 | **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
 | **fix7** | Overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Deployed |
 | **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
+| **fix9d** | O(n) autoclaim + manual USDC claim | Auto-claim 100% filled only + auto-release pool | ✅ Deployed |
 
 **Retrospective**: See `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
 
@@ -82,29 +84,30 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.6-fix8
+### Base Sepolia (chainId: 84532) — V9.9.6-fix9d
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x7f45Ec7a61082c4C56FBa940028F14c62f765388` |
-| **Collateralizer** | `0x6259eB24d3561A7788f8f0Acf8986e72A1Eea14C` |
-| **AMMEngine** | `0xdF41848482d6a83bE57B8b03074a6fDBdDdf1838` |
-| **TickBookVault** | `0x12cb4e21fEE84E0d8a1A7312082220258E1A7872` |
-| **LaunchpadEngine** | `0x95ab25Bf5003B5e3f25CFC7746d7a1328831f6e8` |
+| **TickBookPoolManager** | `0xac4d5854719ba80dfef344bf6b9357492ea73a95` |
+| **Collateralizer** | `0x0bf4b644626d2bf5c6f608e176efdff71ed02856` |
+| **AMMEngine** | `0xa02367e6c3adb22ccba67aad42cfd97cdacda82d` |
+| **TickBookVault** | `0x1f51efbd99e703e294bbc29ee208ebc0cda18ee5` |
+| **LaunchpadEngine** | `0x6c6e2cd8177055a14caf69701f670f7b61bf3106` |
 | **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
 
-**Note:** Fresh fix8 deployment. Includes bitmap direction fix + _safeSubTotalLiquidity.
+**Note:** Fresh fix9d deployment. Auto-claims 100% filled orders, auto-releases pooled USDC.
 
-### Monad Testnet (chainId: 10143) — V9.9.6-fix8
+### Monad Testnet (chainId: 10143) — V9.9.6-fix9d
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x796C5CF7510D7d10662060CB20cecef695C21CeF` |
-| **Collateralizer** | `0x3E264D916eD607fF221EC0192c305F20B54af1Ba` |
-| **AMMEngine** | `0xC38E6aB1F4f500951dbd8C3823691b8730EBF50C` |
-| **TickBookVault** | `0x5E99DE20BA84234E003a2ACa58e50c94577fA18A` |
-| **LaunchpadEngine** | `0x737FBe90F6cBdE85671B627539d4Ee963b5cf17a` |
+| **TickBookPoolManager** | `0xd4ff5b639b05c581a93d3e925656f58c269440f4` |
+| **Collateralizer** | `0x8850a38d4ff466e8bdd3de1825694b81df5c2b53` |
+| **AMMEngine** | `0x54b51215d6e70def99c68f84e11f9b6245d92b15` |
+| **TickBookVault** | `0xa31fd66ad0c593364bb579bfeb1bb61b73e56de3` |
+| **LaunchpadEngine** | `0x044dfcbf8b16fee5e8b4f39bf3c26adff1ae6159` |
 | **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
 
-**Note:** Fresh fix8 deployment. No markets created yet.
+**Note:** Fresh fix9d deployment. No markets created yet.
+
 
 ---
 
