@@ -14,10 +14,10 @@ All notable changes to Sooth Protocol will be documented in this file.
 | **fix4** | RPC limits blocking order enumeration | `getAllMarketOrders()` view function | ✅ Deployed |
 | **fix5** | *(skipped)* | — | — |
 | **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
-| **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Base Sepolia |
+| **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Deployed |
 | **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
+| **fix9d** | O(n) autoclaim + manual USDC claim | Auto-claim 100% filled only + auto-release pool | ✅ Deployed |
 
-**⚠️ Known Remaining Issue**: `_autoClaimUserOrders()` still O(n) for **active** orders. With 97+ active orders, gas limits are hit. Consider: limit iterations, make optional, or separate manual claim function.
 
 ### Fixed
 - **V9.9.6-fix8: Crossing Logic Complete Fix** (2026-01-02):
