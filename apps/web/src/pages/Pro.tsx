@@ -1949,7 +1949,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500/50"
                     />
                     <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold group-hover:text-slate-300 transition-colors">
-                      Set Max Price
+                      Set Floor Price
                     </span>
                   </label>
 
