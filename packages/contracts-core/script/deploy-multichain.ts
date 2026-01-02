@@ -550,15 +550,19 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   const config = getChainConfig(chainName);
   const account = privateKeyToAccount(privateKey);
 
+  // Get the RPC URL from the chain config
+  const rpcUrl = config.chain.rpcUrls.default.http[0];
+  console.log(`[${chainName}] Using RPC: ${rpcUrl}`);
+
   const publicClient = createPublicClient({
     chain: config.chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     account,
     chain: config.chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
 
   const ctx: DeploymentContext = {

@@ -55,6 +55,29 @@ export const monadTestnet = defineChain({
   testnet: true,
 });
 
+// Arc Testnet RPCs: https://docs.arc.network/arc/references/connect-to-arc#arc-testnet
+// Circle-backed chain with native USDC support
+// IMPORTANT: Arc requires minFeePerGas >= 160 Gwei
+export const arcTestnet = defineChain({
+  id: 5041490,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+      ]
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
+
 // ============================================
 // Chain Configuration Interface
 // ============================================
@@ -124,6 +147,23 @@ export const chainConfigs: Record<string, ChainConfig> = {
       retryDelay: 2000,
     },
     faucetEnabled: true,
+  },
+
+  arcTestnet: {
+    chain: arcTestnet,
+    gasSettings: {
+      // Arc has stable fee design: minFeePerGas >= 160 Gwei required
+      // See: https://docs.arc.network/arc/references/gas-and-fees
+      maxFeePerGas: 200_000_000_000n, // 200 gwei (above 160 min)
+      maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 2000,
+    },
+    faucetEnabled: true, // Circle faucet: https://faucet.circle.com
+    // Note: Arc has native USDC at 0x3600000000000000000000000000000000000000
   },
 };
 

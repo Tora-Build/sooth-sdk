@@ -137,6 +137,23 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  // Arc Testnet - Circle-backed chain with native USDC
+  // Docs: https://docs.arc.network/arc/references/connect-to-arc
+  {
+    id: 5041490,
+    type: 'evm',
+    name: 'Arc Testnet',
+    displayName: 'Arc',
+    shortName: 'Arc',
+    rpcUrl: 'https://rpc.testnet.arc.network',
+    explorerUrl: 'https://testnet.arcscan.app',
+    icon: '🔶',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+  },
   // MegaETH Testnet - HIDDEN (RPC rate limiting)
   // {
   //   id: 6343,
@@ -191,11 +208,34 @@ export const monadTestnet = defineChain({
   testnet: true,
 });
 
+// Define Arc Testnet using viem
+// Docs: https://docs.arc.network/arc/references/connect-to-arc
+// Circle-backed chain with native USDC at 0x3600000000000000000000000000000000000000
+export const arcTestnet = defineChain({
+  id: 5041490,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+      ]
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
+
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
-// Export wagmi chains array (MegaETH hidden for now)
-export const wagmiChains: Chain[] = [baseSepolia, monadTestnet];
+// Export wagmi chains array (includes Arc Testnet)
+export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {
@@ -224,6 +264,8 @@ export function getRefetchInterval(chainId: number): number {
       return 8_000;
     case 10143: // Monad Testnet - rate limited (25 rps via QuickNode)
       return 5_000;
+    case 5041490: // Arc Testnet - multiple RPC providers
+      return 4_000;
     case 84532: // Base Sepolia - reliable public RPC
       return 4_000;
     default:
@@ -240,6 +282,8 @@ export function getStaleTime(chainId: number): number {
       return 5_000;
     case 10143: // Monad Testnet
       return 3_000;
+    case 5041490: // Arc Testnet
+      return 2_000;
     case 84532: // Base Sepolia
       return 2_000;
     default:

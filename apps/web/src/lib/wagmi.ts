@@ -1,7 +1,7 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { type AppKitNetwork } from '@reown/appkit/networks';
 import { fallback, http } from 'viem';
-import { baseSepolia, monadTestnet } from './chains';
+import { baseSepolia, monadTestnet, arcTestnet } from './chains';
 
 // Reown AppKit Project ID
 export const projectId = '01ecc3f4925fa2e6a5f3f82b74487317';
@@ -14,13 +14,14 @@ export const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
-// Networks for AppKit (MegaETH hidden for now)
+// Networks for AppKit (includes Arc Testnet)
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   // IMPORTANT: use our local chain definitions for EVM networks.
   // This avoids wagmi auto-enabling Multicall3 batching in some network presets,
   // which has been observed (via NDJSON) to intermittently stall `useReadContracts`.
   baseSepolia as unknown as AppKitNetwork,
-  monadTestnet as unknown as AppKitNetwork
+  monadTestnet as unknown as AppKitNetwork,
+  arcTestnet as unknown as AppKitNetwork
 ];
 
 // Monad RPC config with retry and rate limit handling
@@ -30,6 +31,14 @@ const monadHttpOptions = {
   retryCount: 3,
   retryDelay: 1000, // 1 second between retries
   timeout: 30_000,  // 30 second timeout
+};
+
+// Arc RPC config
+// Docs: https://docs.arc.network/arc/references/connect-to-arc
+const arcHttpOptions = {
+  retryCount: 3,
+  retryDelay: 1000,
+  timeout: 30_000,
 };
 
 // Create Wagmi Adapter with custom RPC
@@ -56,6 +65,21 @@ export const wagmiAdapter = new WagmiAdapter({
         rank: true,           // Rank endpoints by latency
         retryCount: 3,        // Retry across all endpoints
         retryDelay: 500,      // 500ms between fallback attempts
+      }
+    ),
+    // Arc Testnet: Fallback with multiple RPC providers
+    // Note: Arc requires minFeePerGas >= 160 Gwei
+    [arcTestnet.id]: fallback(
+      [
+        http('https://rpc.testnet.arc.network', arcHttpOptions),
+        http('https://rpc.quicknode.testnet.arc.network', arcHttpOptions),
+        http('https://rpc.drpc.testnet.arc.network', arcHttpOptions),
+        http('https://rpc.blockdaemon.testnet.arc.network', arcHttpOptions),
+      ],
+      {
+        rank: true,
+        retryCount: 3,
+        retryDelay: 500,
       }
     ),
   },
