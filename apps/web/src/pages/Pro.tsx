@@ -37,7 +37,7 @@ import {
   RangeOrder
 } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, V9_ABIS } from '../config/abis';
+import { V8_ABIS, V9_ABIS, V996_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -476,7 +476,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V9_ABIS.TickBookPoolManager,
+        abi: V996_ABIS.TickBookPoolManager,
         functionName: 'cancelOrder',
         args: [marketKey, orderId]
       });
@@ -513,7 +513,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V9_ABIS.TickBookPoolManager,
+        abi: V996_ABIS.TickBookPoolManager,
         functionName: 'claimFills',
         args: [marketKey, orderId]
       });
