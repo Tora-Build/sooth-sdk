@@ -995,4 +995,42 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             pendingCollateralUsed = (delta * order.sharesTotal) / Q128;
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V9.9.6-fix4: All Orders Enumeration (for frontend liquidity map)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get the next order ID (for enumeration bounds)
+    function getNextOrderId() external view returns (uint256) {
+        return _nextOrderId;
+    }
+
+    /// @notice Get all active order IDs for a market
+    /// @dev Iterates through all order IDs - O(n) where n is total orders created
+    /// @param marketKey The market to query
+    /// @return orderIds Array of active order IDs
+    function getAllMarketOrders(bytes32 marketKey) external view returns (uint256[] memory) {
+        uint256 maxId = _nextOrderId;
+        
+        // Count active orders first (needed to size the array)
+        uint256 count = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_orders[marketKey][i].active) {
+                unchecked { ++count; }
+            }
+            unchecked { ++i; }
+        }
+        
+        // Collect order IDs
+        uint256[] memory orderIds = new uint256[](count);
+        uint256 idx = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_orders[marketKey][i].active) {
+                orderIds[idx] = i;
+                unchecked { ++idx; }
+            }
+            unchecked { ++i; }
+        }
+        return orderIds;
+    }
 }

@@ -46,36 +46,47 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
       console.log(`[useAllOrdersDirect] Querying ALL orders for market ${marketKey}`);
 
       try {
-        // Get current block for range calculation
-        // Use limited range to avoid RPC limits (Monad: 100-block limit, Base: rate limits)
-        const currentBlock = await client.getBlockNumber();
-        const blocksToQuery = chainId === 10143 ? 50n : 50000n; // Monad: 50 blocks, others: 50k blocks
-        const fromBlock = currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
+        // V9.9.6-fix4: Try getAllMarketOrders first (reliable, no RPC limits)
+        let orderIds: bigint[] = [];
 
-        // Query RangeOrderPlaced events for this market (no owner filter)
-        const logs = await client.getLogs({
-          address: tickBookManagerAddress!,
-          event: RANGE_ORDER_PLACED_EVENT,
-          args: {
-            marketKey: marketKey!,
-          },
-          fromBlock,
-          toBlock: "latest",
-        });
+        try {
+          orderIds = await readContractSafe<bigint[]>(client, {
+            address: tickBookManagerAddress!,
+            abi: V996_ABIS.TickBookPoolManager,
+            functionName: "getAllMarketOrders",
+            args: [marketKey!],
+          }) ?? [];
+          console.log(`[useAllOrdersDirect] getAllMarketOrders returned ${orderIds.length} orders`);
+        } catch {
+          // Fallback to event scanning for older deployments
+          console.log(`[useAllOrdersDirect] getAllMarketOrders not available, falling back to events`);
 
-        // Dedupe order IDs (same order could have multiple events if contract was redeployed)
-        const orderIdSet = new Set<string>();
-        const orderIds: bigint[] = [];
-        for (const log of logs) {
-          const id = log.args.orderId as bigint;
-          const key = id.toString();
-          if (!orderIdSet.has(key)) {
-            orderIdSet.add(key);
-            orderIds.push(id);
+          const currentBlock = await client.getBlockNumber();
+          const blocksToQuery = chainId === 10143 ? 50n : 50000n;
+          const fromBlock = currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
+
+          const logs = await client.getLogs({
+            address: tickBookManagerAddress!,
+            event: RANGE_ORDER_PLACED_EVENT,
+            args: {
+              marketKey: marketKey!,
+            },
+            fromBlock,
+            toBlock: "latest",
+          });
+
+          // Dedupe order IDs
+          const orderIdSet = new Set<string>();
+          for (const log of logs) {
+            const id = log.args.orderId as bigint;
+            const key = id.toString();
+            if (!orderIdSet.has(key)) {
+              orderIdSet.add(key);
+              orderIds.push(id);
+            }
           }
+          console.log(`[useAllOrdersDirect] Found ${orderIds.length} unique orders from events`);
         }
-
-        console.log(`[useAllOrdersDirect] Found ${orderIds.length} unique orders from events`);
 
         if (orderIds.length === 0) {
           return [];
