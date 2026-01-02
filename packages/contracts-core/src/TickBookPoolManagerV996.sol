@@ -442,21 +442,22 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
-        
-        // V9.9.6-fix9h: Skip autoclaim if too many orders (gas safety)
-        // User can manually call claimFills() for these
-        if (orderIds.length > 10) return (0, 0);
+        if (orderIds.length == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
+        uint256 maxProcess = 10; // V9.9.6-fix9i: Always process up to 10, regardless of array size
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
-        while (i > 0) {
+        while (i > 0 && ordersProcessed < maxProcess) {
             unchecked { --i; }
             uint256 orderId = orderIds[i];
             RangeOrder storage order = _orders[marketKey][orderId];
             
-            if (!order.active) continue;
+            if (!order.active) {
+                ordersProcessed++; // Count towards limit even if skipped
+                continue;
+            }
             
             // V9.9.6-fix9: Only auto-claim if order is 100% filled
             // Check pending fills to see if order is complete
@@ -468,9 +469,8 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 totalClaimedShares += filled;
                 totalCollateralUsed += used;
-                ordersProcessed++;
             }
-            // Skip partial fills - user can claim those manually
+            ordersProcessed++; // Always increment to bound iterations
         }
 
         if (ordersProcessed > 0) {
