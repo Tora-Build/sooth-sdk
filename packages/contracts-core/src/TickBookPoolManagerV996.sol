@@ -811,21 +811,44 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         uint16 overlapHigh;
         uint16 crossTick;
 
+        // V9.9.6-fix6: Crossing logic must account for price inversion between outcomes
+        // YES at tick Y = buyer pays Y% for YES  
+        // NO at tick N = buyer pays N% for NO = seller accepts (100-N)% for YES
+        // Crossing happens when YES buyer price >= YES seller price:
+        //   Y% >= (100-N)%  =>  Y + N >= 1000 (using tick scale where 1000 = 100%)
+        
         if (newOrder.outcome == 1) {
+            // Placing YES order - look for NO orders where tick_NO <= 1000 - tick_YES
             uint16 lowestSell = _bitmaps[marketKey][0].findNextUp(0);
             if (lowestSell > MAX_TICK) return (0, 0, 0);
-            if (lowestSell > newOrder.tickUpper) return (0, 0, 0);
-
-            overlapLow = lowestSell > newOrder.tickLower ? lowestSell : newOrder.tickLower;
-            overlapHigh = newOrder.tickUpper;
+            
+            // Calculate the maximum NO tick that would still cross with our YES order
+            // Crossing when: newOrder.tickLower + lowestSell >= 1000
+            // So: lowestSell <= 1000 - newOrder.tickLower
+            uint16 maxCrossableNoTick = 1000 - newOrder.tickLower;
+            if (lowestSell > maxCrossableNoTick) return (0, 0, 0);
+            
+            // Calculate effective overlap in YES price space
+            // NO tick N maps to YES seller price of (1000-N)
+            uint16 sellerYesPriceHigh = 1000 - lowestSell;  // Highest YES price sellers will accept
+            overlapLow = newOrder.tickLower;
+            overlapHigh = sellerYesPriceHigh < newOrder.tickUpper ? sellerYesPriceHigh : newOrder.tickUpper;
             crossTick = overlapHigh;
         } else {
+            // Placing NO order - look for YES orders where tick_YES >= 1000 - tick_NO
             uint16 highestBuy = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
             if (highestBuy > MAX_TICK) return (0, 0, 0);
-            if (highestBuy < newOrder.tickLower) return (0, 0, 0);
-
-            overlapLow = newOrder.tickLower;
-            overlapHigh = highestBuy < newOrder.tickUpper ? highestBuy : newOrder.tickUpper;
+            
+            // Calculate the minimum YES tick that would still cross with our NO order
+            // Crossing when: highestBuy + newOrder.tickLower >= 1000
+            // So: highestBuy >= 1000 - newOrder.tickUpper
+            uint16 minCrossableYesTick = newOrder.tickUpper < 1000 ? 1000 - newOrder.tickUpper : 0;
+            if (highestBuy < minCrossableYesTick) return (0, 0, 0);
+            
+            // Calculate effective overlap - NO tick N maps to YES seller price of (1000-N)
+            uint16 sellerYesPriceLow = 1000 - newOrder.tickUpper;  // Lowest YES price we're offering
+            overlapLow = sellerYesPriceLow > 0 ? sellerYesPriceLow : 1;
+            overlapHigh = highestBuy < (1000 - newOrder.tickLower) ? highestBuy : (1000 - newOrder.tickLower);
             crossTick = overlapLow;
         }
 
