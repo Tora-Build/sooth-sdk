@@ -15,7 +15,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 | **fix5** | *(skipped)* | — | — |
 | **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
 | **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Base Sepolia |
-| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | 🔧 Ready |
+| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
 
 **⚠️ Known Remaining Issue**: `_autoClaimUserOrders()` still O(n) for **active** orders. With 97+ active orders, gas limits are hit. Consider: limit iterations, make optional, or separate manual claim function.
 

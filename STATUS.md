@@ -1,12 +1,15 @@
 # Project Status
 
-> Last Updated: 2026-01-02 (V9.9.6-fix6 Crossing Logic Fix)
+> Last Updated: 2026-01-02 (V9.9.6-fix8 Deployed)
 
+- **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
+- **✅ V9.9.6-fix7 DEPLOYED** — Corrected crossing overlap calculation
 - **✅ V9.9.6-fix6 DEPLOYED** — Fixed crossing logic for YES/NO price inversion (`YES_tick + NO_tick >= 1000`)
 - **✅ V9.9.6-fix4 DEPLOYED** — Added `getAllMarketOrders()` for reliable order enumeration + array iteration fix
 - **✅ V9.9.6-fix3 DEPLOYED** — Fixed array iteration in `_autoClaimUserOrders()` (iterate backwards)
 - **✅ V9.9.6-fix2 DEPLOYED** — User orders array cleanup with swap-and-pop removal
 - **✅ V9.9.6-fix1 DEPLOYED** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
+- **✅ PRO PAGE UI REFACTOR** — Layout now matches Trade page (60/40 grid, Market Summary Card, Vault Card)
 - **✅ PRO PAGE ORDERBOOK** — Now shows ALL orders via `getAllMarketOrders()` contract call
 - **✅ CLI DEPOSIT FIX** — Fixed MockUSDC decimal conversion (18 decimals, not 6)
 - **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
@@ -20,13 +23,17 @@
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
-| Fix | Issue | Solution |
-|-----|-------|----------|
-| **fix1** | Active liquidity underflow during tick crossing | Added `_safeSubLiquidity()` helper |
-| **fix2** | Gas bloat from inactive orders in `_userOrders` | Swap-and-pop removal via `_removeFromUserOrders()` |
-| **fix3** | Array index out of bounds in `_autoClaimUserOrders` | Iterate backwards for safe removal during iteration |
-| **fix4** | Liquidity map not showing all orders (RPC limits) | Added `getAllMarketOrders()` view function |
-| **fix6** | Orders not crossing when they should | Fixed price inversion: `YES_tick + NO_tick >= 1000` |
+| Fix | Issue | Solution | Status |
+|-----|-------|----------|--------|
+| **fix1** | Active liquidity underflow during tick crossing | `_safeSubLiquidity()` helper | ✅ Deployed |
+| **fix2** | Inactive orders causing O(n) gas growth | Swap-and-pop removal via `_removeFromUserOrders()` | ✅ Deployed |
+| **fix3** | Array index out of bounds during removal | Backwards iteration in `_autoClaimUserOrders()` | ✅ Deployed |
+| **fix4** | RPC limits blocking order enumeration | `getAllMarketOrders()` view function | ✅ Deployed |
+| **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
+| **fix7** | Overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Deployed |
+| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
+
+**Retrospective**: See `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
 
 ## V9.9.6 Unified Order API (2026-01-01)
 
@@ -75,29 +82,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.6-fix6
+### Base Sepolia (chainId: 84532) — V9.9.6-fix8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xb4a77Ab4fDEC30700995D3346fC1a162279A0566` |
-| **Collateralizer** | `0xf3Fc386c0a91008d7f146ECf0A1561bc07838Ac7` |
-| **AMMEngine** | `0xa63de337ff85dD91AcDA67bB34b14eD92cDd9147` |
-| **TickBookVault** | `0xc0e3838F3F7711cAb4B743E4835fBE0Ee7F3E0BA` |
-| **LaunchpadEngine** | `0xB570328998765BF38ea763dba0297a4c4280f96d` |
+| **TickBookPoolManager** | `0x7f45Ec7a61082c4C56FBa940028F14c62f765388` |
+| **Collateralizer** | `0x6259eB24d3561A7788f8f0Acf8986e72A1Eea14C` |
+| **AMMEngine** | `0xdF41848482d6a83bE57B8b03074a6fDBdDdf1838` |
+| **TickBookVault** | `0x12cb4e21fEE84E0d8a1A7312082220258E1A7872` |
+| **LaunchpadEngine** | `0x95ab25Bf5003B5e3f25CFC7746d7a1328831f6e8` |
 | **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
 
-**Note:** Fresh deployment with all bug fixes. No markets created yet.
+**Note:** Fresh fix8 deployment. Includes bitmap direction fix + _safeSubTotalLiquidity.
 
-### Monad Testnet (chainId: 10143) — V9.9.6-fix6
+### Monad Testnet (chainId: 10143) — V9.9.6-fix8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x98fD568E84FB0f45d3c2Ed98814FFCd63264aB8a` |
-| **Collateralizer** | `0xC17ed89b96ED8c207e7466B4ff5A440814bb0DDD` |
-| **AMMEngine** | `0x3c8fE010E362e7C204135a90feBF5b68B9352c0d` |
-| **TickBookVault** | `0xdDD1DD7E2C12Fc66983D6a38E133203a6f663a6A` |
-| **LaunchpadEngine** | `0x9331b4aB6e6CCCCc6Be5aB396764ce2a6a8Ee796` |
+| **TickBookPoolManager** | `0x796C5CF7510D7d10662060CB20cecef695C21CeF` |
+| **Collateralizer** | `0x3E264D916eD607fF221EC0192c305F20B54af1Ba` |
+| **AMMEngine** | `0xC38E6aB1F4f500951dbd8C3823691b8730EBF50C` |
+| **TickBookVault** | `0x5E99DE20BA84234E003a2ACa58e50c94577fA18A` |
+| **LaunchpadEngine** | `0x737FBe90F6cBdE85671B627539d4Ee963b5cf17a` |
 | **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
 
-**Note:** Fresh deployment with all bug fixes. No markets created yet.
+**Note:** Fresh fix8 deployment. No markets created yet.
 
 ---
 
