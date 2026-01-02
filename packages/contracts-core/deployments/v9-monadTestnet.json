@@ -2,17 +2,17 @@
   "chainId": 10143,
   "chainName": "monadTestnet",
   "version": "9.9.6-fix9l",
-  "timestamp": "2026-01-02T20:07:00.000Z",
+  "timestamp": "2026-01-02T20:12:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
     "Collateralizer": "0xff422cc9b537bd41dd2583e3e611ca2ef1c149b4",
     "AMMEngine": "0xa67d75bb57e6abe59cc6e8d102b319d894919ef1",
     "TickBookVault": "0x1489703c4121cf16061aba94c3b9096821fb47fc",
-    "TickBookPoolManager": "0x6c62cbf2cb304eb1a91ae6a7805104328b257975",
-    "TickBook": "0x6c62cbf2cb304eb1a91ae6a7805104328b257975",
-    "LaunchpadEngine": "0x6fdf6ff17d74a965a9e7bd2fc5040dd082161fdb"
+    "TickBookPoolManager": "0x2479eadd693006d6911c7590897f1f33f6df2879",
+    "TickBook": "0x2479eadd693006d6911c7590897f1f33f6df2879",
+    "LaunchpadEngine": "0x2724213ad1b5fcd89025e197472097e335f6004b"
   },
   "markets": [],
-  "notes": "V9.9.6-fix9l: Spread Autoclaim (Newest, Oldest, Middle) with O(1) removal optimization"
+  "notes": "V9.9.6-fix9l: Spread Autoclaim (5 points: Newest, Oldest, Middle, 25%, 75%) with O(1) removal"
 }
