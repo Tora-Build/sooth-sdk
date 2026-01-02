@@ -25,6 +25,7 @@ contract DeployCoreV996 is Script {
     // Known MockUSDC addresses per chain
     address constant USDC_BASE_SEPOLIA = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
     address constant USDC_MONAD_TESTNET = 0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3;
+    address constant USDC_ARC_TESTNET = 0xD9DfdEC3046eaD9891714f9fb465DbE89Da48689;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -46,6 +47,9 @@ contract DeployCoreV996 is Script {
         } else if (chainId == 10143) {
             usdc = USDC_MONAD_TESTNET;
             console.log("Chain: Monad Testnet");
+        } else if (chainId == 5042002) {
+            usdc = USDC_ARC_TESTNET;
+            console.log("Chain: Arc Testnet");
         } else {
             revert("Unsupported chain. Add MockUSDC address for this chain.");
         }
