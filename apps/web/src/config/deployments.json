@@ -1,28 +1,28 @@
 {
-  "version": "9.9.6-fix1",
+  "version": "9.9.6-fix2",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-        "Collateralizer": "0x865737D7C09Fb81215ee3F9Ef641852ae3700887",
-        "AMMEngine": "0xe3F036A4dce83364f793308E47BE5BDB932d49DB",
-        "TickBookVault": "0x065E3bbf087c2D2635A51Ab068966C65032ada37",
-        "TickBookPoolManager": "0x6C5faC67B668bA97B280e8D5beB044F94DB7Dc53",
-        "TickBook": "0x6C5faC67B668bA97B280e8D5beB044F94DB7Dc53",
-        "LaunchpadEngine": "0x341F695ea3c57F10c7Eb7F7C3d40FA2d8d775970"
+        "Collateralizer": "0x93b6D17fe5cd0B02F443B4490b49C42e53eeeeeF",
+        "AMMEngine": "0x9220B8dce68bf54EcCD2EF317f624A825006A81F",
+        "TickBookVault": "0x019233B1dB2a7A3BF476f2C6E6494e8DaAC27772",
+        "TickBookPoolManager": "0xF16A4350C69a09EAc8434E6636AeF87365820130",
+        "TickBook": "0xF16A4350C69a09EAc8434E6636AeF87365820130",
+        "LaunchpadEngine": "0x0DD87b605d6E1288eBd9ad80E3a92a70f0eED91d"
       }
     },
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
         "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-        "Collateralizer": "0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf",
-        "AMMEngine": "0x711476F24C8D68Ccfe4Bd8Da15A5Bf11aCfcace8",
-        "TickBookVault": "0xEfCf0E29c6A2c87d23B5714C332be832Ff3f29c6",
-        "TickBookPoolManager": "0xf2dF9F968D3A4BA184f8e594b75C64C2648b013C",
-        "TickBook": "0xf2dF9F968D3A4BA184f8e594b75C64C2648b013C",
-        "LaunchpadEngine": "0x7785777aBe502245F5fB2C4aD5D63DD58C09ce10"
+        "Collateralizer": "0x5A4BD285CF997dC646779768cC34654F5c5BB940",
+        "AMMEngine": "0xf67F58A8f3e972b574232D8577C287E2E1D9B74e",
+        "TickBookVault": "0xF6C82B6315ad3Ad291A9716271C7c7b47d9A3C2E",
+        "TickBookPoolManager": "0xeA996e48B203064191434c39b25F39f78B12928C",
+        "TickBook": "0xeA996e48B203064191434c39b25F39f78B12928C",
+        "LaunchpadEngine": "0x4b5dd5BB3284De785bF71363c486A23A2c2002AB"
       }
     }
   }
