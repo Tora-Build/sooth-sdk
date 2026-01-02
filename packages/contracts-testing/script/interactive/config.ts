@@ -54,6 +54,25 @@ export const monadTestnet: Chain = {
   testnet: true,
 };
 
+export const arcTestnet: Chain = {
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+      ],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+};
+
 export interface ChainConfig {
   chain: Chain;
   rpc: string;
@@ -80,6 +99,14 @@ export const CHAINS: Record<string, ChainConfig> = {
     // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
     postTxWaitMs: 8000,
     aliases: ['monad', 'monad-testnet', 'monadtestnet'],
+  },
+  arcTestnet: {
+    chain: arcTestnet,
+    rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.quicknode.testnet.arc.network',
+    deploymentFile: 'v9-arcTestnet.json',
+    confirmations: 1,
+    postTxWaitMs: 2000,
+    aliases: ['arc', 'arc-testnet', 'arctestnet'],
   },
 };
 
