@@ -16,9 +16,15 @@ megaethMainnet = "https://mainnet.megaeth.com/rpc?vip=1&u=Sooth%20%3C%3E%20MegaE
 megaethTestnet = "https://timothy.megaeth.com/rpc"
 monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+arcTestnet = "https://rpc.testnet.arc.network"
 
 [profile.megaeth]
 gas_price = 100000000
 
 [profile.monad]
 # Standard EIP-1559 gas settings
+
+[profile.arc]
+# Arc requires minFeePerGas >= 160 Gwei
+# Using 200 Gwei (200_000_000_000 wei) for safety margin
+gas_price = 200000000000
