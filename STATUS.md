@@ -1,39 +1,6 @@
 # Project Status
 
-> Last Updated: 2026-01-03 (V10 Design Complete)
-
-## V10 TickBook Refactor (2026-01-02 → 2026-01-03)
-
-- **✅ V10 DESIGN COMPLETE** — (tick, user) primary indexing replaces orderId-based model
-- **✅ V10 CONTRACTS CREATED** — `TickBookPoolManagerV10.sol` + `RangeOrderHelper.sol` peripheral
-- **✅ V10 TESTS PASSING** — 12/12 tests covering single-tick, merging, crossing, market orders
-- **✅ V10 BRANCH PUSHED** — `v10` branch on GitHub, cloned to `~/GitHub/sooth-alpha-v10`
-- **✅ ADR-067 DOCUMENTED** — Full architecture decision record for V10
-
-### V10 Key Changes
-| Change | Impact |
-|--------|--------|
-| Primary key: `(tick, user)` | Eliminates `orderId`, simpler data model |
-| Single-tick positions only | Core contract simplified, ranges via peripheral |
-| Per-tick accumulators | More accurate fill attribution |
-| `tick=0` for market orders | Unified API, cleaner than tickLower/tickUpper |
-| RangeOrderHelper peripheral | Uniswap V3-style core/peripheral split |
-
-### V10 Files
-- `packages/contracts-core/src/TickBookPoolManagerV10.sol` — Core contract
-- `packages/contracts-core/src/interfaces/ITickBookPoolManagerV10.sol` — Interface
-- `packages/contracts-core/src/periphery/RangeOrderHelper.sol` — Range order peripheral
-- `packages/contracts-testing/test/v10/TickBookV10.t.sol` — 12 tests
-- `packages/contracts-core/docs/ADR-067-TickBookV10-TickUserIndexing.md` — ADR
-
-### V10 Next Steps
-- [ ] Deploy V10 to testnet
-- [ ] Create frontend hooks for V10 API
-- [ ] Migration guide for V9.9.6 → V10
-
----
-
-## V9.9.6 Status (Production)
+> Last Updated: 2026-01-03 (Launchpad Redesign Complete)
 
 - **✅ V9.9.6-fix9d DEPLOYED** — Auto-claim 100% filled orders + auto-release pooled USDC
 - **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
@@ -54,6 +21,7 @@
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
 - **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
+- **✅ LAUNCHPAD REDESIGN** — Single-page consolidated UI, Brevis Registry, Earnings Simulator, and Flexible Expiration.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 

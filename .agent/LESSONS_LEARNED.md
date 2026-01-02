@@ -675,38 +675,5 @@ if (lowestSell > maxCrossableNoTick) return (0, 0, 0);
 
 ---
 
-## 28. V10 (tick, user) Primary Indexing
-
-### Pattern: Core/Peripheral Split for Complex Features
-- **Date:** 2026-01-02
-- **Context:** V9.9.6 had O(n) `_userOrders[]` array maintenance causing gas issues
-- **Solution:** V10 uses `(tick, user)` as primary key, eliminates `orderId`
-- **Key Design:**
-  - Core contract: Single-tick positions only
-  - Peripheral `RangeOrderHelper`: Splits range orders into multiple single-tick orders
-- **Benefits:**
-  - Core is simple and auditable
-  - Peripheral can evolve independently
-  - O(1) cancel instead of O(n) find
-- **Tradeoff:** Range orders cost more gas (N single calls vs 1 range call)
-- **Rule:** When a feature adds complexity to core, consider peripheral contract pattern (like Uniswap V3 router)
-
-### Pattern: Per-Tick Accumulators vs Global Accumulators
-- **Date:** 2026-01-02
-- **V9.9.6 Issue:** `_fillGrowthGlobalX128[outcome]` distributed fills across ALL orders of an outcome
-- **V10 Fix:** `TickState.fillGrowthX128` tracks fills per tick
-- **Advantage:** More accurate fill attribution - only orders at the traded tick get fills
-- **Rule:** Track accumulators at the granularity where the action happens
-
-### API Pattern: tick=0 for Market Orders
-- **Date:** 2026-01-02
-- **V10 Design:** Single `placeOrder(tick)` where:
-  - `tick=0` → Market order (walk the book)
-  - `tick=1..999` → Limit order at that tick
-- **Advantage:** Simpler than V9.9.6's `tickLower/tickUpper` range-based detection
-- **Rule:** Use sentinel values (like 0) instead of separate functions when the logic is similar
-
----
-
 *Last updated: 2026-01-02*
 

@@ -18,6 +18,15 @@ All notable changes to Sooth Protocol will be documented in this file.
 | **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
 | **fix9d** | O(n) autoclaim + manual USDC claim | Auto-claim 100% filled only + auto-release pool | ✅ Deployed |
 
+### User Interface
+- **Launchpad Redesign** (2026-01-03):
+  - Consolidated multi-step wizard into a single-page scrolling experience (`Launchpad.tsx`).
+  - Added Market Category selection (Crypto, Sports, Politics, Custom) with local persistence.
+  - Implemented Flexible Expiration (7d, 30d, Custom, Open-End/2100).
+  - Added Mock Brevis Adjudicator Registry with Custom Address support/warnings.
+  - Added **Earnings Simulator** for creator P&L visualization (5% fee model).
+  - Updated routing: `/create` → New Launchpad, `/dashboard` → Old Dashboard.
+
 
 ### Fixed
 - **V9.9.6-fix8: Crossing Logic Complete Fix** (2026-01-02):

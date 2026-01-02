@@ -1,42 +1,27 @@
 # Architectural Decision Records (ADRs)
 
-## ADR-067: TickBook V10 - (tick, user) Primary Indexing
-- **Date**: 2026-01-02
-- **Status**: Implemented
-- **Supersedes**: ADR-066 (V9.9.6 Unified Order API)
+## ADR-067: Launchpad V9.9.6 Redesign (Single Page & Features)
+- **Date**: 2026-01-03
+- **Status**: Implemented (Frontend)
 - **Context**:
-  - V9.9.6 used `orderId` as primary key, causing O(n) array maintenance
-  - Order ID proliferation when same user added to same tick
-  - Global accumulators distributed fills across ALL orders
+  - The legacy `Create.tsx` was a multi-step wizard which felt disjointed.
+  - Users requested features: Flexible Expiration (7d/30d/Custom/Open-End), Market Categories, and better Educational Content.
+  - "Open-End" markets required a specific implementation (Year 2100 deadline).
+  - "Brevis Adjudicator" integration was requested as top-tier partnership feature.
 - **Decision**:
-  1. **Primary Key**: `(marketKey, outcome, tick, user)` instead of `orderId`
-  2. **Single-Tick Only**: No range orders in core (use RangeOrderHelper peripheral)
-  3. **Per-Tick Accumulators**: `TickState.fillGrowthX128` per tick, not global
-  4. **Position Merging**: Adding shares to existing tick merges (pro-rata dilution)
-  5. **Unified API**: `tick=0` for market order, `tick=1..999` for limit
-- **API**:
-  ```solidity
-  function placeOrder(
-      bytes32 marketKey,
-      uint8 outcome,
-      uint256 shares,
-      uint16 tick,        // 0 = market, 1-999 = limit
-      uint256 maxCost
-  ) returns (uint256 filledShares, uint256 filledCost, uint256 restingShares)
-  ```
-- **Gas Improvements**:
-  - New position: ~7 slots → ~5 slots
-  - Add to existing: ~7 slots → ~3 slots (merge)
-  - Cancel: O(n) find → O(1) direct
-- **Files**:
-  - `packages/contracts-core/src/TickBookPoolManagerV10.sol`
-  - `packages/contracts-core/src/periphery/RangeOrderHelper.sol`
-  - `packages/contracts-core/src/interfaces/ITickBookPoolManagerV10.sol`
-  - `packages/contracts-testing/test/v10/TickBookV10.t.sol` (12 tests)
-- **Full ADR**: `packages/contracts-core/docs/ADR-067-TickBookV10-TickUserIndexing.md`
-
----
-
+  1. **Single-Page Architecture**: Replaced wizard with a scrolling, section-based `Launchpad.tsx`.
+  2. **Market Categories**: Introduced UI-only categories (metadata stored in localStorage) as contracts are generalized.
+  3. **Open-End Implementation**: Set `TruthMarket` deadline to Jan 1, 2100 (`4102444800`) to keep market LIVE indefinitely until manually settled.
+  5. **Mock Brevis Registry**: Added placeholder registry for Brevis ZK adjudicators pending real addresses.
+  6. **Earnings Simulator**: Integrated client-side P&L calculator to demonstrate "5% Fee" revenue model directly in the UI.
+  7. **USD-Centric Inputs**: Liquidity input focuses on USDC amount, auto-calculating `b` and deposit.
+- **Rationale**:
+  - **UX**: Single page allows users to review all settings at once.
+  - **Feature Parity**: Meets all competitive feature requests (categories, flexible dates).
+  - **Education**: Inline cards explain complex AMM concepts (Fees, Graduation) proactively.
+- **Consequences**:
+  - **Breaking Route**: `/create` now loads `Launchpad`. Old dashboard moved to `/dashboard`.
+  - **Storage**: Market metadata depends on browser `localStorage` (temporary solution until Indexer/Subgraph v2).
 ## ADR-066: Unified Order API (V9.9.6)
 - **Date**: 2026-01-01
 - **Status**: Accepted (Implemented - Not Yet Deployed)

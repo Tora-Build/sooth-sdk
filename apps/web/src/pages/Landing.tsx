@@ -40,7 +40,7 @@ message SettlementProof {
           </Link>
           <div className="flex items-center gap-6">
             <Link
-              to="/trade"
+              to="/create"
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"
             >
               <Zap className="w-4 h-4" />
@@ -70,7 +70,7 @@ message SettlementProof {
             <Badge color="cyan">v8.1 Modular</Badge>
             <Badge color="indigo">Base Sepolia</Badge>
             <Badge color="purple">Monad Testnet</Badge>
-            <Badge color="emerald">MegaETH Frontier</Badge>
+            <Badge color="emerald">Arc Testnet</Badge>
           </div>
 
           {/* Title - Fluid Typography */}
@@ -96,7 +96,7 @@ message SettlementProof {
           {/* CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <Link
-              to="/trade"
+              to="/create"
               className="group shimmer-swipe flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-black font-bold text-xl rounded-xl transition-all hover:shadow-2xl hover:shadow-cyan-500/30"
             >
               <Zap className="w-6 h-6" />

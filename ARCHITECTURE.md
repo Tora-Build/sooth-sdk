@@ -1,46 +1,8 @@
 # Sooth Protocol Architecture
 
-**Version:** 10.0
-**Status:** Alpha (Testnet Deployments)
-**Last Updated:** 2026-01-02
-
----
-
-## V10 Changes (TickBook Refactor)
-
-V10 introduces a fundamental refactor of the TickBook orderbook using `(tick, user)` primary indexing:
-
-| Change | Impact |
-|--------|--------|
-| Primary key: `(tick, user)` | Eliminates `orderId`, simpler data model |
-| Single-tick positions only | Core contract simplified, ranges via peripheral |
-| Per-tick accumulators | More accurate fill attribution |
-| Position merging | Adding shares to existing tick merges (pro-rata dilution) |
-| `tick=0` for market orders | Unified API, cleaner than tickLower/tickUpper |
-| RangeOrderHelper peripheral | Uniswap V3-style core/peripheral split |
-
-**Contracts**:
-- `TickBookPoolManagerV10.sol` - Core (single-tick positions)
-- `RangeOrderHelper.sol` - Peripheral (range orders)
-
-**Gas Improvements**:
-- New position: ~7 slots → ~5 slots
-- Add to existing: ~7 slots → ~3 slots (merge)
-- Cancel: O(n) find → O(1) direct
-
----
-
-## V9.9.6 Changes (Unified Order API)
-
-V9.9.6 introduced a unified `placeOrder()` API replacing separate range/market functions:
-
-| Change | Impact |
-|--------|--------|
-| Single `placeOrder()` | Replaces `placeRangeOrder()` + `executeMarketOrder()` |
-| Auto-claim | Claims pending fills before new order placement |
-| User orders cleanup | Swap-and-pop removal for gas efficiency |
-
-**Contract**: `TickBookPoolManagerV996.sol`
+**Version:** 9.9.4  
+**Status:** Alpha (Testnet Deployments)  
+**Last Updated:** 2025-12-31
 
 ---
 
@@ -261,81 +223,38 @@ winningOutcome()               // 0=YES, 1=NO, 2=INVALID
 tStar                          // Retroactive truth timestamp
 ```
 
-### 4. TickBookPoolManagerV10 (V10 - tick,user Indexing)
-**Purpose:** Concentrated liquidity orderbook with simplified data model
+### 4. TickBookPoolManagerV994 (V9.9.4 Lean Singleton)
+**Purpose:** Concentrated liquidity orderbook for professional trading
 
 ```solidity
-// Key Functions (V10)
-placeOrder(marketKey, outcome, shares, tick, maxCost)  // tick=0 for market, 1-999 for limit
-cancelOrder(marketKey, outcome, tick)                   // O(1) direct cancel
-claimFills(marketKey, outcome, tick)                    // Claim at specific tick
-claimAllFills(marketKey)                                // Claim all user positions
+// Key Functions
+placeRangeOrder(marketKey, outcome, tickLower, tickUpper, shares)
+cancelOrder(marketKey, orderId)
+executeMarketOrder(marketKey, outcome, shares, maxCost)  // Market order
+claimFills(marketKey, orderId)                           // Claim crossed fills
+getPendingFills(marketKey, orderId) → (pendingShares, pendingCollateral)
 
-// V10 Architecture
-- Primary key: (marketKey, outcome, tick, user) - no orderId
-- Single-tick positions only in core
-- Per-tick accumulators (TickState.fillGrowthX128)
-- Position merging on add (pro-rata fill dilution)
-- Range orders via RangeOrderHelper peripheral
+// V9.9.4 Architecture
+- Singleton pattern (one contract per chain)
+- Uniswap V3-style range positions (boundary storage)
+- Pro-rata fill attribution via growth accumulators
+- Simple fee storage: takerFeeBps, makerFeeBps (no hooks)
+- MAX_FEE_BPS = 1000 (10% cap)
 
-// Data Structures
-struct Position {
-    uint128 shares;                    // Total shares at this tick
-    uint128 collateralDepositedWad;    // Locked collateral
-    uint128 filledShares;              // Already claimed fills
-    uint128 collateralUsedWad;         // Collateral consumed
-    uint256 fillGrowthLastX128;        // Accumulator snapshot
-}
-
-struct TickState {
-    uint128 totalShares;               // Sum of all positions
-    uint256 fillGrowthX128;            // Cumulative fills per share
-}
-
-// User enumeration: _userTicks[market][outcome][user] -> tick[]
+// Admin Functions
+setFees(takerFee, makerFee)  // Owner only, capped at 10%
 ```
 
-**V10 Key Changes:**
-- ✅ O(1) cancel (no array search)
-- ✅ Per-tick fill attribution (not global per outcome)
-- ✅ Position merging (no order proliferation)
-- ✅ Simpler API: tick=0 for market orders
-- ✅ Core/peripheral split for range orders
+**V9.9.4 Changes (Audit Remediation):**
+- ✅ TOB-1 fix: Pro-rata uses `oppLiqInOverlap` denominator
+- ✅ TOB-2 fix: Fees capped at 10%
+- ✅ Removed: Hook system, flash accounting, batchPlaceOrders
+- 📉 Code reduction: 1301 → 884 lines (32%)
 
 **Matching Mechanics:**
-- Market order walks ticks (Uniswap V3 style)
-- YES buyer walks UP (cheapest NO sellers first)
-- NO buyer walks DOWN (cheapest YES sellers first)
-- Crossing: YES_tick + NO_tick >= 1000
-
-### 4b. RangeOrderHelper (Peripheral)
-**Purpose:** Range order convenience on top of V10 single-tick core
-
-```solidity
-// Key Functions
-placeRangeOrder(marketKey, outcome, tickLower, tickUpper, totalShares, maxCost)
-cancelRange(marketKey, outcome, tickLower, tickUpper)
-claimRange(marketKey, outcome, tickLower, tickUpper)
-
-// Splits range into N single-tick orders
-// Benefits: Core stays simple, peripheral can evolve independently
-```
-
-### 4c. TickBookPoolManagerV996 (V9.9.6 - Legacy)
-**Purpose:** Range order support with unified API (predecessor to V10)
-
-```solidity
-// Key Functions
-placeOrder(marketKey, outcome, shares, tickLower, tickUpper, maxCost)
-cancelOrder(marketKey, orderId)
-claimFills(marketKey, orderId)
-
-// V9.9.6 Architecture
-- orderId-based indexing
-- Native range orders (tickLower to tickUpper)
-- Global accumulators per outcome
-- Auto-claim on new order placement
-```
+- SELL orders sweep LOW→HIGH (worst to best ask)
+- BUY orders sweep HIGH→LOW (worst to best bid)
+- Overlap-only fills (no >100% fill bug)
 
 ### 5. TickBookVault (USDC Custody)
 **Purpose:** Capital-efficient collateral management for orderbook
