@@ -1,18 +1,18 @@
 {
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "version": "9.9.6-fix9",
-  "timestamp": "2026-01-02T13:15:00.000Z",
+  "version": "9.9.6-fix9d",
+  "timestamp": "2026-01-02T14:08:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-    "Collateralizer": "0x353baECfC0dEb8DDfDfa75941AA86D94D28BE97E",
-    "AMMEngine": "0x89a75DEe12732eb319917D6aa4245b25c13526FC",
-    "TickBookVault": "0x8d667b0b235FE4d5054532279825d8f6429cBa71",
-    "TickBookPoolManager": "0x851C2D06EEf71796d7686503a42480D15717ba9F",
-    "TickBook": "0x851C2D06EEf71796d7686503a42480D15717ba9F",
-    "LaunchpadEngine": "0xF0612723F1B04842999E5A15Ce870E574D8bDE7E"
+    "Collateralizer": "0x8850a38d4ff466e8bdd3de1825694b81df5c2b53",
+    "AMMEngine": "0x54b51215d6e70def99c68f84e11f9b6245d92b15",
+    "TickBookVault": "0xa31fd66ad0c593364bb579bfeb1bb61b73e56de3",
+    "TickBookPoolManager": "0xd4ff5b639b05c581a93d3e925656f58c269440f4",
+    "TickBook": "0xd4ff5b639b05c581a93d3e925656f58c269440f4",
+    "LaunchpadEngine": "0x044dfcbf8b16fee5e8b4f39bf3c26adff1ae6159"
   },
   "markets": [],
-  "notes": "V9.9.6-fix9: O(1) placeOrder via pooled refunds"
+  "notes": "V9.9.6-fix9d: Auto-claim 100% filled orders + auto-release pooled USDC"
 }
