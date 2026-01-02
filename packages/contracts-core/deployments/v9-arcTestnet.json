@@ -1,18 +1,18 @@
 {
     "chainId": 5042002,
     "chainName": "arcTestnet",
-    "version": "9.9.6-fix9h",
-    "timestamp": "2026-01-02T16:28:00.000Z",
+    "version": "9.9.6-fix9l",
+    "timestamp": "2026-01-03T00:20:00.000Z",
     "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
     "contracts": {
         "MockUSDC": "0xD9DfdEC3046eaD9891714f9fb465DbE89Da48689",
-        "Collateralizer": "0xd7549a072e46782be6c6f8ab7d3a18becf195f2c",
-        "AMMEngine": "0x7d4d3abb446a20d81b150eb661190e8aafc73835",
-        "TickBookVault": "0xe41801b8cbd9ced2f6b32e476609b72c90f954de",
-        "TickBookPoolManager": "0xca4b9bd23e74c45a6c1bef5d9ecd93d791bca92e",
-        "TickBook": "0xca4b9bd23e74c45a6c1bef5d9ecd93d791bca92e",
-        "LaunchpadEngine": "0x7c60001d89d9878b1f7c4180916fcc3ede592e8d"
+        "Collateralizer": "0x0f450a5589f0cea761c914e8d75e097d3fb1c27f",
+        "AMMEngine": "0x8352aa95a7670057ac2ee73b7c8c39c5ae0901f5",
+        "TickBookVault": "0xd3337bc58e82ac818685b9f1d6ea0280078b585c",
+        "TickBookPoolManager": "0x5ab590b3526bfd4ba3c51858be917271e0361311",
+        "TickBook": "0x5ab590b3526bfd4ba3c51858be917271e0361311",
+        "LaunchpadEngine": "0x02672d30f6f08fa021d37539ba86ff4366acdd31"
     },
     "markets": [],
-    "notes": "V9.9.6-fix9h: Skip autoclaim when >10 orders"
+    "notes": "V9.9.6-fix9l: Spread Autoclaim (5 points) on Arc Testnet"
 }
