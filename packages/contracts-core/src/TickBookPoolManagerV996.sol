@@ -129,6 +129,9 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     mapping(bytes32 => mapping(uint256 => uint256)) private _fillGrowthLastX128;
     mapping(bytes32 => mapping(uint256 => uint256)) private _collateralUsedGrowthLastX128;
 
+    // V9.9.6-fix9: Pooled refunds for completed orders (O(1) claim)
+    mapping(address => mapping(bytes32 => uint256)) private _pendingRefunds;
+
     // Access control
     address public registrar;
     address public feeRecipient;
@@ -184,6 +187,13 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         uint256 indexed orderId,
         uint256 filledShares,
         uint256 collateralUsedWad
+    );
+
+    // V9.9.6-fix9: Pooled refunds event
+    event PooledRefundsClaimed(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 refund
     );
 
     // V9.9.6: Unified order events
@@ -360,8 +370,8 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
 
-        // V9.9.6: Auto-claim existing orders before placing new one
-        _autoClaimUserOrders(marketKey, msg.sender);
+        // V9.9.6-fix9: Removed autoclaim (was O(n) gas issue)
+        // Completed orders pool refunds automatically; partial fills claim manually
 
         orderId = ++_nextOrderId;
 
@@ -513,6 +523,31 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         }
     }
 
+    /**
+     * @notice Claim pooled refunds from completed orders (O(1) gas)
+     * @dev V9.9.6-fix9: Refunds are automatically pooled when orders complete
+     * @param marketKey The market key
+     * @return refund Amount of USDC released back to available balance
+     */
+    function claimPooledRefunds(bytes32 marketKey) external returns (uint256 refund) {
+        refund = _pendingRefunds[msg.sender][marketKey];
+        if (refund > 0) {
+            _pendingRefunds[msg.sender][marketKey] = 0;
+            vault.releaseUsdc(msg.sender, refund);
+            emit PooledRefundsClaimed(msg.sender, marketKey, refund);
+        }
+    }
+
+    /**
+     * @notice View pending pooled refunds
+     * @param user User address
+     * @param marketKey The market key  
+     * @return Pending refund amount
+     */
+    function getPendingRefunds(address user, bytes32 marketKey) external view returns (uint256) {
+        return _pendingRefunds[user][marketKey];
+    }
+
     function _claimInternal(bytes32 marketKey, uint256 orderId)
         internal
         returns (uint256 filledShares, uint256 collateralUsedWad)
@@ -563,6 +598,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         }
 
         // V9.9.5: Auto-complete orders when fully filled
+        // V9.9.6-fix9: Pool refund immediately on completion
         if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
@@ -570,6 +606,12 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             order.liquidityRemoved = true;
             order.active = false;
             _removeFromUserOrders(marketKey, owner, orderId);
+            // Pool the refund (deposited - used)
+            uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
+                ? order.collateralDepositedWad - order.collateralUsedWad : 0;
+            if (refund > 0) {
+                _pendingRefunds[owner][marketKey] += refund;
+            }
         }
 
         emit FillsClaimed(owner, marketKey, orderId, filledShares, collateralUsedWad);
@@ -901,12 +943,19 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         newOrder.collateralUsedWad += uint128(newOrderCost);
 
         // V9.9.5: Mark fully filled orders as inactive and remove liquidity (with guard)
+        // V9.9.6-fix9: Pool refund immediately on completion
         if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
             _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
             newOrder.active = false;
+            // Pool the refund (deposited - used)
+            uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad 
+                ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad : 0;
+            if (refund > 0) {
+                _pendingRefunds[newOrder.owner][marketKey] += refund;
+            }
         }
 
         // TOB-1 FIX: Use oppLiqInOverlap as denominator instead of oppTotalLiq
