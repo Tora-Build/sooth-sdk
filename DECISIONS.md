@@ -1,5 +1,27 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-067: Launchpad V9.9.6 Redesign (Single Page & Features)
+- **Date**: 2026-01-03
+- **Status**: Implemented (Frontend)
+- **Context**:
+  - The legacy `Create.tsx` was a multi-step wizard which felt disjointed.
+  - Users requested features: Flexible Expiration (7d/30d/Custom/Open-End), Market Categories, and better Educational Content.
+  - "Open-End" markets required a specific implementation (Year 2100 deadline).
+  - "Brevis Adjudicator" integration was requested as top-tier partnership feature.
+- **Decision**:
+  1. **Single-Page Architecture**: Replaced wizard with a scrolling, section-based `Launchpad.tsx`.
+  2. **Market Categories**: Introduced UI-only categories (metadata stored in localStorage) as contracts are generalized.
+  3. **Open-End Implementation**: Set `TruthMarket` deadline to Jan 1, 2100 (`4102444800`) to keep market LIVE indefinitely until manually settled.
+  5. **Mock Brevis Registry**: Added placeholder registry for Brevis ZK adjudicators pending real addresses.
+  6. **Earnings Simulator**: Integrated client-side P&L calculator to demonstrate "5% Fee" revenue model directly in the UI.
+  7. **USD-Centric Inputs**: Liquidity input focuses on USDC amount, auto-calculating `b` and deposit.
+- **Rationale**:
+  - **UX**: Single page allows users to review all settings at once.
+  - **Feature Parity**: Meets all competitive feature requests (categories, flexible dates).
+  - **Education**: Inline cards explain complex AMM concepts (Fees, Graduation) proactively.
+- **Consequences**:
+  - **Breaking Route**: `/create` now loads `Launchpad`. Old dashboard moved to `/dashboard`.
+  - **Storage**: Market metadata depends on browser `localStorage` (temporary solution until Indexer/Subgraph v2).
 ## ADR-066: Unified Order API (V9.9.6)
 - **Date**: 2026-01-01
 - **Status**: Accepted (Implemented - Not Yet Deployed)
