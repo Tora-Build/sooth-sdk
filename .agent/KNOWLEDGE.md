@@ -279,13 +279,25 @@ Graduation formula: threshold = bBase × ln(2) × multiplier
 
 ---
 
+## TickBook Maker/Taker Fee System (V9.7)
+
 ```
-Version: V8.6.1 | KB: v5.2 | Updated: 2025-12-28
-Architecture: V8 Modular (Domain Isolation)
+TAKER: fee = baseFee + volatilityFee → sent to feeRecipient
+MAKER: rebate = volumeDiscount - makerBaseFee → reduces collateralUsed
+
+See: packages/contracts-evm/docs/research/V9/TICKBOOK_FEES.md for full documentation
+```
+
+---
+
+```
+Version: V9.7 | KB: v5.3 | Updated: 2025-12-30
+Architecture: V9 Singleton (TickBookPoolManager + Hooks)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
 Settlement: Pull-based via TruthMarket
 Custody: None (direct USDC transfers)
 Graduation: threshold = bBase × ln(2) × multiplier (LP break-even based)
+TickBook Fees: Maker/Taker split (taker pays volatility, maker gets rebate)
 QA: 92 tests, invariant suite, settlement coverage added
 ```

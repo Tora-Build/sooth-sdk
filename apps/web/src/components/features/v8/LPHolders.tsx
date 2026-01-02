@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card } from '../../ui/Card';
-import { useLaunchpadMarketDirect, useV8DirectRead, readContractSafe } from '../../../hooks/v8';
-import { useMarketStatsMath } from '../../../hooks/v8/useMarketStatsMath';
+import { useLaunchpadMarketDirect, useDirectRead as useV8DirectRead, readContractSafe } from '../../../hooks';
+import { useMarketStatsMath } from '../../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';

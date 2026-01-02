@@ -1,39 +1,4 @@
 {
-  "version": "9.5.0",
-  "markets": [
-    {
-      "id": "alien-life-2030",
-      "chainId": 84532,
-      "address": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
-      "contractAddress": "0x4Cb558160602004D5b6C023Ad469DF0E2585F007",
-      "name": "Alien Life Detection by 2030",
-      "symbol": "ALIEN",
-      "description": "Will we detect confirmed extraterrestrial life by December 31, 2030?",
-      "category": "science",
-      "featured": true,
-      "imageUrl": null,
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "version": "v9"
-    },
-    {
-      "id": "btc-100k-2025",
-      "chainId": 84532,
-      "address": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
-      "contractAddress": "0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68",
-      "name": "Bitcoin $100k by 2025",
-      "symbol": "BTC100K",
-      "description": "Will Bitcoin reach $100,000 USD by December 31, 2025?",
-      "category": "crypto",
-      "featured": true,
-      "imageUrl": null,
-      "outcomes": [
-        "YES",
-        "NO"
-      ],
-      "version": "v9"
-    }
-  ]
+  "version": "9.9.6",
+  "markets": []
 }

@@ -1,0 +1,18 @@
+{
+  "chainId": 84532,
+  "chainName": "baseSepolia",
+  "version": "9.9.6-fix9i",
+  "timestamp": "2026-01-02T17:15:00.000Z",
+  "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+  "contracts": {
+    "MockUSDC": "0xA881E30F3E0C39C0d8b5bda3C6C1A8aD0cBc8eB9",
+    "Collateralizer": "0xf33ee4e57fe26a945c205f8aa85b1c6ab2c28475",
+    "AMMEngine": "0xe09f3ff95520a72e33e101a158859a05012757ef",
+    "TickBookVault": "0xe59cb1199884ca8b955dfb3838b6a59ebfe6db17",
+    "TickBookPoolManager": "0x6207b4a0c0c3173440f2db775ce218c349626635",
+    "TickBook": "0x6207b4a0c0c3173440f2db775ce218c349626635",
+    "LaunchpadEngine": "0x8aba6132c3e8bc08742a039e0ba1a7bc4d50c02e"
+  },
+  "markets": [],
+  "notes": "V9.9.6-fix9i: Fixed autoclaim to always iterate (not skip when >10)"
+}

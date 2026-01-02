@@ -38,7 +38,7 @@ export const MarketHeader = ({
   const isProPage = location.pathname.startsWith('/pro');
   const isAmmPage = location.pathname.startsWith('/trade') || location.pathname === '/v8';
   const [showHint, setShowHint] = useState(false);
-  
+
   const hintText = hint || subtitle;
 
   return (
@@ -53,8 +53,8 @@ export const MarketHeader = ({
               onClick={() => setShowHint(!showHint)}
               className={cn(
                 "p-1.5 rounded-lg transition-all",
-                showHint 
-                  ? "bg-slate-700 text-white" 
+                showHint
+                  ? "bg-slate-700 text-white"
                   : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
               )}
             >
@@ -62,15 +62,15 @@ export const MarketHeader = ({
             </button>
           )}
         </div>
-        
+
         {/* Page Toggle */}
         <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800">
           <Link
             to="/trade"
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              isAmmPage 
-                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50" 
+              isAmmPage
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
           >
@@ -81,8 +81,8 @@ export const MarketHeader = ({
             to="/pro"
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              isProPage 
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/50" 
+              isProPage
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
           >
@@ -91,7 +91,7 @@ export const MarketHeader = ({
           </Link>
         </div>
       </div>
-      
+
       {/* Expandable Hint */}
       {showHint && hintText && (
         <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-400 leading-relaxed">
@@ -127,7 +127,7 @@ export const MarketHeader = ({
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                 category === cat.id
-                  ? isAmmPage 
+                  ? isAmmPage
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
                     : "bg-amber-500/20 text-amber-400 border border-amber-500/50"
                   : "text-slate-400 hover:text-white hover:bg-slate-800"

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Zap } from 'lucide-react';
-import { useLaunchpadMarkets } from '../hooks/v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from '../hooks/useLaunchpadMarkets';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { TrendingLeaderboard } from '../components/features/market/TrendingLeaderboard';
 

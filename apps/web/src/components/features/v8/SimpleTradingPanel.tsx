@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
-import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateV8Queries } from '../../../hooks/v8';
+import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateV8Queries } from '../../../hooks';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { V8_ABIS, V9_ABIS, ERC20_ABI } from '../../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
@@ -517,7 +517,7 @@ export const SimpleTradingPanel = ({
       //   Note: Use 50% threshold (not 80%) because large trades can push from <80% to 100%
       //   in a single transaction, causing OOG if gas limit wasn't increased
       const isNearGraduation = !launchpad?.isGraduated && (launchpad?.graduationProgress ?? 0) > 50;
-      const gasLimit = isNearGraduation ? 2000000n : 600000n;
+      const gasLimit = isNearGraduation ? 5000000n : 600000n;
 
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,
@@ -640,7 +640,7 @@ export const SimpleTradingPanel = ({
           </div>
         )}
 
-        {!isInitStateLoading && isConnected && !canTrade && (
+        {!isInitStateLoading && isConnected && !canTrade && (isWrongSelectedChain || isWrongWalletChain) && (
           <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
@@ -655,27 +655,39 @@ export const SimpleTradingPanel = ({
                   </>
                 ) : null}
               </div>
-              {(isWrongSelectedChain || isWrongWalletChain) && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {isWrongSelectedChain && expectedChainId ? (
-                    <Button
-                      onClick={() => setSelectedChain(expectedChainId)}
-                      className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
-                    >
-                      View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
-                    </Button>
-                  ) : null}
-                  {isWrongWalletChain && expectedChainId ? (
-                    <Button
-                      onClick={() => switchChain?.({ chainId: expectedChainId })}
-                      disabled={isSwitchingChain}
-                      className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
-                    >
-                      {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
-                    </Button>
-                  ) : null}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {isWrongSelectedChain && expectedChainId ? (
+                  <Button
+                    onClick={() => setSelectedChain(expectedChainId)}
+                    className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                  >
+                    View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
+                  </Button>
+                ) : null}
+                {isWrongWalletChain && expectedChainId ? (
+                  <Button
+                    onClick={() => switchChain?.({ chainId: expectedChainId })}
+                    disabled={isSwitchingChain}
+                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                  >
+                    {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isInitStateLoading && isConnected && !canTrade && !isWrongSelectedChain && !isWrongWalletChain && (
+          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+            <AlertCircle size={12} className="shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div>
+                Trading unavailable: {!isMarketCreated ? 'market not found' : 'AMM not yet initialized'}.
+              </div>
+              <div className="text-amber-200/70">
+                The market may still be pending initialization or does not exist at this address.
+              </div>
             </div>
           </div>
         )}
@@ -934,7 +946,7 @@ export const SimpleTradingPanel = ({
           {isQuoteValid && (
             <div className="flex justify-between text-sm pt-2 border-t border-slate-800/50">
               <span className="text-slate-500">
-                {selectedOutcome === 1 ? 'YES' : 'NO'} Price
+                {selectedOutcome === 1 ? 'YES' : 'NO'} Prob
               </span>
               <div className="flex items-center gap-1">
                 <span className="font-mono text-slate-400">

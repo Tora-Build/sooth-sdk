@@ -11,9 +11,9 @@ import { preferInjectedProvider } from './lib/preferInjectedProvider';
 // which causes Vite to 404 those module URLs and breaks the app. Re-introduce a V8 version later.
 
 // Pages
-import { Landing } from './pages/v8/Landing';
+import { Landing } from './pages/Landing';
 import { AppLayout } from './layouts/AppLayout';
-import { Faucet } from './pages/v8/Faucet';
+import { Faucet } from './pages/Faucet';
 
 // Role-Based Pages (V8.1)
 import { Trade } from './pages/Trade';

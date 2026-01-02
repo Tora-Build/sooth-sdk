@@ -16,7 +16,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { InfoTooltip } from '../components/ui/Tooltip';
-import { useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks/v8';
+import { useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks';
 import marketsConfig from '../config/markets.json';
 
 type Tab = 'veto' | 'finalized' | 'settings';

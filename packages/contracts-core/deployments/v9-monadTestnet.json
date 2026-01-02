@@ -1,0 +1,18 @@
+{
+  "chainId": 10143,
+  "chainName": "monadTestnet",
+  "version": "9.9.6-fix9j",
+  "timestamp": "2026-01-02T18:45:00.000Z",
+  "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+  "contracts": {
+    "MockUSDC": "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+    "Collateralizer": "0xa0133ec83ccb2a28239917c93f5f10b96da96060",
+    "AMMEngine": "0x1491fe7d09484e4b0757020ec42c8d26a8645cc8",
+    "TickBookVault": "0xd0a047bf8999a1d2303bef7471a883251caaa58d",
+    "TickBookPoolManager": "0x36e5f7e938eaf4ff9824d990e944605cb6fcb5c6",
+    "TickBook": "0x36e5f7e938eaf4ff9824d990e944605cb6fcb5c6",
+    "LaunchpadEngine": "0x008da8243003cceab38aec4cd9927582a15b264a"
+  },
+  "markets": [],
+  "notes": "V9.9.6-fix9j: Autoclaim with O(1) check per order, 20 iterations max"
+}

@@ -2,7 +2,7 @@ import { useAccount, useReadContracts, useWriteContract, useWaitForTransactionRe
 import { useState, useCallback, useMemo } from 'react';
 import { TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
-import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 

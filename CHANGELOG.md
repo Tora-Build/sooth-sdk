@@ -2,6 +2,330 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased]
+
+### V9.9.6 Bug Fixes Summary
+
+| Fix | Issue | Solution | Status |
+|-----|-------|----------|--------|
+| **fix1** | Active liquidity underflow during tick crossing | `_safeSubLiquidity()` helper | ✅ Deployed |
+| **fix2** | Inactive orders causing O(n) gas growth | Swap-and-pop removal via `_removeFromUserOrders()` | ✅ Deployed |
+| **fix3** | Array index out of bounds during removal | Backwards iteration in `_autoClaimUserOrders()` | ✅ Deployed |
+| **fix4** | RPC limits blocking order enumeration | `getAllMarketOrders()` view function | ✅ Deployed |
+| **fix5** | *(skipped)* | — | — |
+| **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
+| **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Deployed |
+| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
+| **fix9d** | O(n) autoclaim + manual USDC claim | Auto-claim 100% filled only + auto-release pool | ✅ Deployed |
+
+
+### Fixed
+- **V9.9.6-fix8: Crossing Logic Complete Fix** (2026-01-02):
+  
+  **Retrospective: Why fix6 and fix7 Didn't Solve Crossing**
+  
+  After deploying fix6 and fix7, the crossing bug persisted on Base Sepolia:
+  - Orders 1-104 placed successfully
+  - Orders 105+ reverted with hex errors
+  - ALL market orders failed
+  - Liquidity map still showed GREEN (bids) to the RIGHT of RED (asks)
+  
+  **Root Cause Analysis:**
+  
+  | Fix | What Changed | Why It Still Failed |
+  |-----|--------------|---------------------|
+  | **fix6** | Crossing condition `Y + N >= 1000` | ✅ Correct, but overlap calculation wrong |
+  | **fix7** | Overlap bounds from `[tickLower, seller]` to `[seller, tickUpper]` | Used `findNextUp(0)` → found MOST EXPENSIVE seller |
+  
+  **The Three Bugs Identified:**
+  
+  1. **Bitmap Traversal Direction** (Critical)
+     - `findNextUp(0)` finds LOWEST NO tick = seller who wants 80% for YES
+     - Should use `findNextDown(MAX_TICK+1)` to find HIGHEST NO tick = seller who accepts 40%
+     - Example: NO at ticks [200, 400, 600], fix7 found 200 (80% ask), fix8 finds 600 (40% ask)
+  
+  2. **_totalLiquidity Underflow** (Causes reverts)
+     - Three places decrement `_totalLiquidity -= sharesTotal` without bounds check
+     - After 100+ orders with crossing, accounting can go negative
+     - Added `_safeSubTotalLiquidity()` that clamps to 0
+  
+  3. **activeLiquidity Tracking** (Design flaw)
+     - `activeLiquidity` only updates when `currentTick` is INSIDE order range
+     - With `currentTick = 999`, orders at [194, 327] don't add to activeLiquidity
+     - Falls back to `totalLiquidity`, but that can be 0 after underflows
+  
+  **Fix8 Implementation:**
+  ```solidity
+  // Bug 1 fix: Find CHEAPEST seller (highest NO tick)
+  uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+  
+  // Bug 2 fix: Safe decrement
+  function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
+      uint256 current = _totalLiquidity[marketKey][outcome];
+      _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
+  }
+  ```
+  
+  - **Impact**: Requires contract redeployment
+  - **Doc**: `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
+
+- **V9.9.6-fix7: Crossing Overlap Calculation** (2026-01-02):
+  - **Bug**: Fix6's overlap calculation was inverted - calculated `[tickLower, sellerPrice]` instead of `[sellerPrice, tickUpper]`
+  - **Symptom**: Crossing happened at wrong price ranges
+  - **Fix**: Corrected overlap to `[max(tickLower, 1000-lowestSell), tickUpper]` for YES orders
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix6: Crossing Logic Price Inversion** (2026-01-02):
+  - **Bug**: Orders weren't crossing when they should due to comparing raw ticks instead of effective prices
+  - **Symptom**: YES at 44% and NO at 58% (seller accepts 42%) should cross but didn't
+  - **Root Cause**: Checked `NO_tick > YES_tick` but should check `YES_tick + NO_tick >= 1000`
+  - **Fix**: Changed crossing condition to account for price inversion between outcomes
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix4: getAllMarketOrders View Function** (2026-01-02):
+  - **Bug**: Frontend couldn't reliably enumerate all orders due to RPC event log limits
+  - **Symptom**: Liquidity map showed empty or partial orderbook
+  - **Root Cause**: Event-based discovery fails when RPC limits block range
+  - **Fix**: Added `getAllMarketOrders(marketKey)` and `getNextOrderId()` view functions
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix3: Array Iteration Bug in _autoClaimUserOrders** (2026-01-02):
+  - **Bug**: Forward iteration during swap-and-pop removal skipped elements
+  - **Symptom**: "Array index is out of bounds" error during placeOrder
+  - **Root Cause**: Loop incremented `i` after removing element, skipping swapped element
+  - **Fix**: Changed to backwards iteration (`for (i = len; i > 0; i--)`)
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix2: User Orders Array Cleanup** (2026-01-02):
+  - **Bug**: `_autoClaimUserOrders()` iterated through ALL orders in `_userOrders[]` array, but inactive orders were never removed
+  - **Symptom**: After ~27 orders, `placeOrder()` exceeds 2M gas limit with "out of gas" errors
+  - **Root Cause**: Orders set `active = false` but stayed in array, causing O(n) gas growth
+  - **Fix**: Added `_removeFromUserOrders()` helper using swap-and-pop pattern; called when orders are cancelled or fully filled
+  - **Impact**: Requires contract redeployment
+  - **Doc**: `packages/contracts-core/docs/V996-fix2-userorders-cleanup.md`
+
+- **V9.9.6-fix1: Active Liquidity Underflow** (2026-01-01):
+  - **Bug**: `_fill()`, `_updateActiveLiquidity()`, and `_tryCross()` had unsafe type casts that could underflow
+  - **Symptom**: First several trades succeed, then one triggers underflow, corrupting `state.activeLiquidityYes/No`, causing ALL subsequent trades to fail
+  - **Root Cause**: Tick boundary crossing with negative `liquidityNet` could make `activeLiq + delta < 0`
+  - **Fix**: Added `_safeSubLiquidity(uint128 liq, uint128 delta)` helper that clamps result to 0 on underflow
+  - **Impact**: Requires contract redeployment
+
+- **CLI Vault Deposit Decimal Bug** (2026-01-02):
+  - **Bug**: `simulate` command divided deposit amount by `10^12`, assuming 6-decimal USDC
+  - **Symptom**: Deposits showed success but balance remained 0, orders failed with "insufficient available"
+  - **Root Cause**: MockUSDC uses 18 decimals (WAD), not 6
+  - **Fix**: Removed incorrect decimal conversion in `market.ts`
+
+### Added
+- **Pro Page All Orders Hook** (2026-01-02):
+  - New `useAllOrdersDirect` hook fetches ALL orders for a market via `getAllMarketOrders()` contract call
+  - Falls back to event scanning for older deployments
+  - Pro page `LiquidityMap` now shows full orderbook depth from all users
+- **V9.9.6 Frontend Integration** (2026-01-01):
+  - **Unified Order API**: Migrated `Pro.tsx` and `SimpleTradingPanel.tsx` to use the streamlined `placeOrder` and `tradePositions` APIs.
+  - **Account Model**: Wired "Spendable Proceeds" into user buying power for capital efficiency.
+  - **Transparency**: Added "Creator Seed" (`b * ln2`) formula display to `MarketStats.tsx`.
+- **On-Chain Market Discovery** (2026-01-01):
+  - `LaunchpadEngine.getMarkets()` — Returns array of all created market addresses
+  - `LaunchpadEngine.getMarketCount()` — Returns total number of markets
+  - `address[] public allMarkets` — Storage array tracking all markets
+  - `createMarket()` now pushes to `allMarkets` for enumeration
+  - **Frontend**: New `useOnChainMarkets` hook for dynamic market discovery
+  - **Frontend**: New `useOnChainMarketCount` hook for lightweight count queries
+  - Replaces static `markets.json` dependency for market discovery
+  - Static config retained for UI metadata (descriptions, categories, images)
+
+### Changed
+- Updated `ILaunchpadEngine.sol` interface with `getMarkets()` and `getMarketCount()`
+- Updated `LaunchpadEngine.json` ABI in frontend
+- Updated chain configurations to focus strictly on Base Sepolia and Monad.
+
+---
+
+## [9.9.5] - 2026-01-01
+
+### Added
+- **New Deployment Workflow** (2026-01-01):
+  - `script/1_DeployCore.s.sol` - Deploy core infrastructure (5 contracts) with proper linking
+  - `script/2_CreateMarket.s.sol` - Complete market creation workflow (Deploy → Activate → Register → Initialize)
+  - Clean separation between core contracts and market operations
+  - Prevents silent AMM initialization failures from incorrect deployment order
+
+### Changed
+- **Terminology Update** (Pending):
+  - Replacing "Oracle" with "adjudicator" across frontend and documentation
+  - Aligns with contract terminology (TruthMarket uses `adjudicator` role)
+
+## [9.9.5] - 2025-12-31
+
+### Fixed
+- **Fill Overflow & Order Lifecycle** (ADR-064):
+  - Added `liquidityRemoved` flag to `RangeOrder` struct for idempotent cleanup
+  - Cap `filledShares` at `sharesTotal` to prevent Q128 accumulator drift
+  - Auto-complete orders when fully filled (removes tick liquidity, sets `active=false`)
+  - All cleanup paths (crossing, claimFills, cancel) now check flag before removing liquidity
+
+### Added
+- **TickBookPoolManagerV995.sol**: V9.9.5 LEAN implementation (no hooks, based on V9.9.4 architecture)
+
+### Deployment
+- Base Sepolia: `0x4EA452bc10880ab0bE3673C2dE076C9d3351b516`
+
+---
+
+## [9.9.4] - 2025-12-31
+
+### Security Fixes
+- **TOB-1 (HIGH)**: Fixed pro-rata fill attribution overflow in `_tryCross()`. Changed denominator from `oppTotalLiq` to `oppLiqInOverlap` to prevent >100% fill distribution.
+- **TOB-2 (HIGH)**: Added `MAX_FEE_BPS = 1000` (10% cap) to prevent malicious fee extraction via hooks.
+
+### Removed
+- **Hook System**: Removed `ITickBookHooks.sol` and all hook callbacks. Replaced with simple `takerFeeBps`/`makerFeeBps` storage variables.
+- **Flash Accounting**: Removed `TransientDelta.sol`, `lock()`, `settle()`, `take()` functions.
+- **Batch Operations**: Removed `batchPlaceOrders()` - never used by frontend.
+- **T* Settlement**: Removed `applyRetroSettlement()` from AMMEngine - was always reverting.
+
+### Added
+- **TickBookPoolManagerV994.sol**: New lean contract (884 lines vs 1301 original, 32% reduction).
+- **setFees()**: Owner function to set taker/maker fees with 10% cap.
+- **Audit Documentation**:
+  - `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md` - Security audit (15 findings)
+  - `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md` - Efficiency review
+  - `audit/AUDIT_RESPONSE_V9.9.4.md` - Comprehensive response
+  - `audit/IMPLEMENTATION_PLAN_V9.9.4.md` - Implementation details
+  - `audit/AUDIT_PROMPTS_V9.9.3.md` - Reproducible audit prompts
+
+### Changed
+- **Pool Key Hash**: No longer includes hook address (simplified Market struct).
+- **ARCHITECTURE.md**: Updated to V9.9.4 with audit references.
+- **Test Count**: 106 tests (was 119, reduced due to hook test removal).
+
+### Archived
+- `contracts/interfaces/_archived/ITickBookHooks.sol`
+- `contracts/libraries/_archived/TransientDelta.sol`
+
+---
+
+## [9.9.3] - 2025-12-31
+
+### Fixed
+- **Phantom Liquidity on Crossing Fills** (2025-12-31):
+  - **Problem**: Orders 100% filled via crossing still displayed liquidity in the Liquidity Map.
+  - **Root Cause**: `_tryCross` credited fills but didn't remove tick boundaries or decrement `_totalLiquidity`.
+  - **Solution**: Added tick boundary cleanup in `_tryCross` when `filledShares >= sharesTotal`.
+
+## [9.9.2] - 2025-12-31
+
+### Fixed
+- **TickBook: Best-Price Discovery & Boundary Math** (2025-12-31):
+  - **Best-Price Jump**: Inside `_fill`, market orders now correctly jump to the best available makers if they are "behind" the current market tick (crossed liquidity). Ensures market orders never fail with `NoLiquidity` if makers exist.
+  - **Directional Math**: Fixed boundary crossing logic for downward moves to correctly identify maker range entries.
+- **Test Integrity**: Resolved `NoLiquidity` reverts in Fuzz and Settlement test suites.
+
+## [9.9.1] - 2025-12-31
+
+### Fixed
+- **Liquidity Capping: Arithmetic Underflow / Double Fill Fix** (2025-12-31):
+  - **Problem**: `_fillGrowthGlobalX128` could exceed 100% fill if range liquidity was over-estimated.
+  - **Solution**: `_getOverlappingLiquidity` now caps its depth approximation by the actual `_totalLiquidity` in the book. Prevents arithmetic panics on order cancellation.
+  - **UI Transparency**: Reverted UI safety capping to ensure raw protocol status is always visible for debugging.
+
+## [9.9.0] - 2025-12-30
+
+### Fixed
+- **TickBook Matching: Sweep Worst-to-Best Price** (2025-12-30):
+  - **Root Cause**: `_tryCross` was calculating fills using the full order size instead of only the overlapping tick range.
+  - **Problem**: Orders could show >100% filled due to incorrect share calculations.
+  - **Solution**:
+    1. SELL orders now sweep LOW→HIGH (worst ask to best ask)
+    2. BUY orders now sweep HIGH→LOW (worst bid to best bid)
+    3. Fills only occur within the price overlap range
+    4. Added `_getOverlappingLiquidity()` helper for overlap-only matching
+  - **PR**: #21
+
+### Added
+- **V9.9 Crossing Tests** (2025-12-30):
+  - `test_V99_CrossingOnlyInOverlap` — Verifies fills only at overlapping ticks
+  - `test_V99_NoCrossingWithoutOverlap` — Non-overlapping orders don't match
+  - `test_V99_SellSweepsLowToHigh` — SELL order sweep direction
+  - `test_V99_BuySweepsHighToLow` — BUY order sweep direction
+  - `test_V99_FillsDoNotExceedOrderSize` — Prevents >100% fill bug
+
+---
+
+## [Unreleased] - 2025-12-30
+
+### Changed
+- **Frontend Code Structure Flattening** (2025-12-30):
+  - Eliminated all versioned folders (`v5/`, `v8/`, `v9/`) from `apps/web/src/`
+  - 47 hooks now at `hooks/` root level (flat)
+  - 19 components moved from `features/v8/` to `features/` root
+  - 11 ABIs consolidated from `abis/v8/` and `abis/v9/` to `abis/`
+  - Pages `Landing.tsx` and `Faucet.tsx` moved from `pages/v8/` to `pages/`
+  - 210 legacy files archived to `_legacy/` directory
+
+### Fixed
+- **MarketHeader Null Guard** (2025-12-30):
+  - `truncate()` function now handles `undefined` address props gracefully
+
+### Added
+- **Coding Rule: Forbidden Versioned Folders** (2025-12-30):
+  - Added to `.agent/LESSONS_LEARNED.md` to prevent future v1/, v8/, v9/ folder patterns
+  - Organize by domain/feature instead of version numbers
+
+### Breaking Changes (Internal)
+- `useV8DirectRead` → `useDirectRead`
+- `useInvalidateV8Queries` → `useInvalidateQueries`
+- `useTickBookVaultV9` → `useTickBookVault`
+- All imports from `hooks/v5/`, `hooks/v8/`, `hooks/v9/` must update to `hooks/`
+
+---
+
+## [9.8.0] - 2025-12-30
+
+### Fixed
+- **_tryCross Bitmap-Based Overlap Detection** (2025-12-30):
+  - **Root Cause**: `_tryCross` used `currentTick` range check which failed when market orders hadn't executed yet.
+  - **Problem**: `currentTick` was initialized from `initialProbabilityWad` (e.g., 999). Overlapping range orders at lower ticks couldn't cross because `currentTick (999) > newOrder.tickUpper (460)`.
+  - **Solution**: Replaced `currentTick`-based detection with bitmap-based overlap detection using `findNextUp()` / `findNextDown()`.
+  - **Additional Fix**: `registerMarket` now initializes `currentTick` to `MIN_TICK` (1) instead of `initialProbabilityWad`.
+  - **Documentation**: `packages/contracts-evm/docs/research/V9/TRYCROSS_BITMAP_OVERLAP.md`
+
+### Changed
+- **currentTick Initialization** (2025-12-30):
+  - Both `registerMarket` overloads now set `currentTick = MIN_TICK` (1).
+  - `_tryCross` no longer depends on `currentTick` for overlap detection.
+  - Market orders (`_fill`) can still search from `currentTick` in both directions.
+
+---
+
+## [9.6.0] - 2025-12-30
+
+### Fixed
+- **Monad Testnet Graduation OutOfGas** (2025-12-30):
+  - Root cause 1: "Zombie" `TickBook` address (`0x6e54...`) had no code deployed, causing reverts.
+  - Root cause 2: Architecture mismatch (V8 standalone instead of V9 Singleton).
+  - Root cause 3: Insufficient gas limit (2M) for V9 graduation complexity on Monad.
+  - Solution: Replaced standalone `TickBook` with `TickBookPoolManager` + `TickBookVault` (Singleton), and increased trade gas limit to **5,000,000** for near-graduation trades.
+
+### Added
+- **V9 Singleton Multichain Support** (2025-12-30):
+  - Updated `deploy-multichain.ts` to deploy the full V9 Singleton stack (`Vault`, `PoolManager`, `DynamicFeeHook`).
+  - Added automatic linking of Vault to PoolManager and Engine-as-Registrar permissions.
+  - Unified deployment artifact structure to include `TickBookPoolManager` and `TickBookVault`.
+
+### Deployed
+- **Monad Testnet V9.6.0** (Fresh migration):
+  - **LaunchpadEngine**: `0xfc439a4bd763900cc544154e74258721f4a2bbbb`
+  - **TickBookPoolManager**: `0xd209a3db4bb3a65da69001313e75f3309888e52f`
+  - **TickBookVault**: `0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7`
+  - **Collateralizer**: `0xc620770047e6710d2539bc6aa46de9be458207a7`
+  - **AMMEngine**: `0xc83a0fad313d9174ebdb6201c5d115e5773e4d80`
+  - **BTC100K Market**: Graduated successfully post-deploy.
+
+---
+
 ## [9.5.0] - 2025-12-30
 
 ### Added

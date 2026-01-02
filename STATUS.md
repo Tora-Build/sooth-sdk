@@ -1,95 +1,340 @@
 # Project Status
 
-> Last Updated: 2025-12-30 02:24 (V9.5.0 Fresh Deployment with getPendingFills)
+> Last Updated: 2026-01-03 (V10 Design Complete)
 
-- **✅ V9.5.0 DEPLOYED** — Fresh deployment with `getPendingFills()` view function
-- **✅ PENDING FILLS TRACKING** — Frontend now shows accumulated fills from crossing
-- **✅ REGISTRAR ACCESS CONTROL** — Only LaunchpadEngine (or owner) can register markets in TickBook
-- **✅ FRONTEND GRADUATION GUARD** — Non-graduated markets show "Pro Trading Locked" screen
-- **✅ V9.1.0 SELL-SIDE FEES** — Implemented proper sell-side fee deduction
-- **🔧 LIQUIDITY MAP FIX** — Updated to show user orders when tick data unavailable
+## V10 TickBook Refactor (2026-01-02 → 2026-01-03)
 
-## 🆕 V9.5.0 Fresh Deployment (2025-12-30)
+- **✅ V10 DESIGN COMPLETE** — (tick, user) primary indexing replaces orderId-based model
+- **✅ V10 CONTRACTS CREATED** — `TickBookPoolManagerV10.sol` + `RangeOrderHelper.sol` peripheral
+- **✅ V10 TESTS PASSING** — 12/12 tests covering single-tick, merging, crossing, market orders
+- **✅ V10 BRANCH PUSHED** — `v10` branch on GitHub, cloned to `~/GitHub/sooth-alpha-v10`
+- **✅ ADR-067 DOCUMENTED** — Full architecture decision record for V10
 
-### Deployment Summary
-- **Date**: 2025-12-30T02:10:00+07:00
-- **Network**: Base Sepolia (Chain ID: 84532)
-- **Key Addition**: `getPendingFills(bytes32 marketKey, uint256 orderId)` view function
-- **Deployer**: `0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F`
+### V10 Key Changes
+| Change | Impact |
+|--------|--------|
+| Primary key: `(tick, user)` | Eliminates `orderId`, simpler data model |
+| Single-tick positions only | Core contract simplified, ranges via peripheral |
+| Per-tick accumulators | More accurate fill attribution |
+| `tick=0` for market orders | Unified API, cleaner than tickLower/tickUpper |
+| RangeOrderHelper peripheral | Uniswap V3-style core/peripheral split |
 
-### V9.5.0 Deployed Addresses (Base Sepolia)
+### V10 Files
+- `packages/contracts-core/src/TickBookPoolManagerV10.sol` — Core contract
+- `packages/contracts-core/src/interfaces/ITickBookPoolManagerV10.sol` — Interface
+- `packages/contracts-core/src/periphery/RangeOrderHelper.sol` — Range order peripheral
+- `packages/contracts-testing/test/v10/TickBookV10.t.sol` — 12 tests
+- `packages/contracts-core/docs/ADR-067-TickBookV10-TickUserIndexing.md` — ADR
+
+### V10 Next Steps
+- [ ] Deploy V10 to testnet
+- [ ] Create frontend hooks for V10 API
+- [ ] Migration guide for V9.9.6 → V10
+
+---
+
+## V9.9.6 Status (Production)
+
+- **✅ V9.9.6-fix9d DEPLOYED** — Auto-claim 100% filled orders + auto-release pooled USDC
+- **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
+- **✅ V9.9.6-fix7 DEPLOYED** — Corrected crossing overlap calculation
+- **✅ V9.9.6-fix6 DEPLOYED** — Fixed crossing logic for YES/NO price inversion (`YES_tick + NO_tick >= 1000`)
+- **✅ V9.9.6-fix4 DEPLOYED** — Added `getAllMarketOrders()` for reliable order enumeration + array iteration fix
+- **✅ V9.9.6-fix3 DEPLOYED** — Fixed array iteration in `_autoClaimUserOrders()` (iterate backwards)
+- **✅ V9.9.6-fix2 DEPLOYED** — User orders array cleanup with swap-and-pop removal
+- **✅ V9.9.6-fix1 DEPLOYED** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
+- **✅ PRO PAGE UI REFACTOR** — Layout now matches Trade page (60/40 grid, Market Summary Card, Vault Card)
+- **✅ PRO PAGE ORDERBOOK** — Now shows ALL orders via `getAllMarketOrders()` contract call
+- **✅ CLI DEPOSIT FIX** — Fixed MockUSDC decimal conversion (18 decimals, not 6)
+- **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
+- **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
+- **✅ AUTO-CLAIM** — Now only claims 100% filled orders, skips partials (gas bounded)
+- **✅ TESTS PASSING** — 138/138 tests pass
+- **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
+- **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
+- **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
+- **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
+
+## V9.9.6 Bug Fixes Summary (2026-01-02)
+
+| Fix | Issue | Solution | Status |
+|-----|-------|----------|--------|
+| **fix1** | Active liquidity underflow during tick crossing | `_safeSubLiquidity()` helper | ✅ Deployed |
+| **fix2** | Inactive orders causing O(n) gas growth | Swap-and-pop removal via `_removeFromUserOrders()` | ✅ Deployed |
+| **fix3** | Array index out of bounds during removal | Backwards iteration in `_autoClaimUserOrders()` | ✅ Deployed |
+| **fix4** | RPC limits blocking order enumeration | `getAllMarketOrders()` view function | ✅ Deployed |
+| **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
+| **fix7** | Overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Deployed |
+| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | ✅ Deployed |
+| **fix9d** | O(n) autoclaim + manual USDC claim | Auto-claim 100% filled only + auto-release pool | ✅ Deployed |
+
+**Retrospective**: See `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
+
+## V9.9.6 Unified Order API (2026-01-01)
+
+### API Changes
+- **UNIFIED**: Single `placeOrder()` replaces separate `placeRangeOrder()` and `executeMarketOrder()`
+- **ORDER TYPES**: Determined by tick range:
+  - Market order: `tickLower=1, tickUpper=999`
+  - Limit order: `tickLower=X, tickUpper=X`
+  - Range order: `tickLower < tickUpper`
+  - Market with floor: `tickLower=floor, tickUpper=999`
+- **AUTO-CLAIM**: Claims all user's pending fills before placing new order
+- **TERMINOLOGY**: Removed maker/taker language (now resting/crossing orders)
+
+### Frontend Integration
+- **New Hook**: `usePlaceOrder(marketKey)` with helper functions:
+  - `marketOrder(outcome, shares, maxCost)` — fill everything
+  - `limitOrder(outcome, shares, priceCents, maxCost)` — single tick
+  - `rangeOrder(outcome, shares, priceLow, priceHigh, maxCost)` — spread
+  - `marketWithFloor(outcome, shares, floorCents, maxCost)` — fill then rest
+- **Market Discovery**: `useOnChainMarkets` hook enables dynamic listing without static config dependency.
+- **Account Model**: Integrated spendable proceeds into buying power for better capital efficiency.
+
+### Files Added
+- `packages/contracts-core/src/TickBookPoolManagerV996.sol`
+- `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
+- `apps/web/src/hooks/usePlaceOrder.ts`
+- `apps/web/src/hooks/useOnChainMarkets.ts`
+- `apps/web/src/config/abis/TickBookPoolManagerV996.json`
+
+---
+
+## V9.9.5 LEAN Changes (Deployed 2025-12-31)
+
+### Bug Fixes
+- **Fill Overflow**: Q128 accumulator math could cause `filledShares > sharesTotal` (~0.1% drift)
+- **Phantom Orders**: Fully-filled orders remained "active" with dust liquidity
+- **Double Subtraction Risk**: Multiple cleanup paths could double-subtract liquidity
+
+### Solution
+- Added `liquidityRemoved` flag to `RangeOrder` struct for idempotent cleanup
+- Cap `filledShares` at `sharesTotal` in `claimFills()`
+- Auto-complete orders when fully filled (removes tick liquidity, sets `active=false`)
+- All three cleanup paths (crossing, claimFills, cancel) now check flag before removing
+
+---
+
+## Current Deployments
+
+### Base Sepolia (chainId: 84532) — V9.9.6-fix9d
 | Contract | Address |
 |----------|---------|
-| **MockUSDC** | `0x856FbEebD91Db28e3b4550e7602142Cfab683796` |
-| **Collateralizer** | `0xF90d9241398c3f9C76E378739920b84DE5a5eEd0` |
-| **AMMEngine** | `0x7b57918F88dD7e0006B40988B9f73B26a27FF292` |
-| **TickBookVault** | `0xDF7cc6186d96b13c095dB64D4589fDec07af03f8` |
-| **TickBookPoolManager** | `0x432b75E95bD1aE44D6393351B256ecfAf7753556` |
-| **DynamicFeeHook** | `0xBf1e52AB82DBcbbc302d33aF72A7c7Ebcd87B307` |
-| **LaunchpadEngine** | `0xB73eB0E200Afb874606CA2F2D65bc2cdF172674a` |
-| **ALIEN Market** | `0x4Cb558160602004D5b6C023Ad469DF0E2585F007` |
-| **BTC100K Market** | `0x92B3783948Ec86Bdc8BA824A6AE1303F2B170f68` |
+| **TickBookPoolManager** | `0xac4d5854719ba80dfef344bf6b9357492ea73a95` |
+| **Collateralizer** | `0x0bf4b644626d2bf5c6f608e176efdff71ed02856` |
+| **AMMEngine** | `0xa02367e6c3adb22ccba67aad42cfd97cdacda82d` |
+| **TickBookVault** | `0x1f51efbd99e703e294bbc29ee208ebc0cda18ee5` |
+| **LaunchpadEngine** | `0x6c6e2cd8177055a14caf69701f670f7b61bf3106` |
+| **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
+
+**Note:** Fresh fix9d deployment. Auto-claims 100% filled orders, auto-releases pooled USDC.
+
+### Monad Testnet (chainId: 10143) — V9.9.6-fix9d
+| Contract | Address |
+|----------|---------|
+| **TickBookPoolManager** | `0xd4ff5b639b05c581a93d3e925656f58c269440f4` |
+| **Collateralizer** | `0x8850a38d4ff466e8bdd3de1825694b81df5c2b53` |
+| **AMMEngine** | `0x54b51215d6e70def99c68f84e11f9b6245d92b15` |
+| **TickBookVault** | `0xa31fd66ad0c593364bb579bfeb1bb61b73e56de3` |
+| **LaunchpadEngine** | `0x044dfcbf8b16fee5e8b4f39bf3c26adff1ae6159` |
+| **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
+
+**Note:** Fresh fix9d deployment. No markets created yet.
+
 
 ---
 
-## Session Work (2025-12-30 ~01:00 - 02:24)
+## Package Structure (2026-01-01)
 
-### Completed This Session
-1. **✅ User Orders Not Showing** — Fixed `useUserOrdersDirect` hook
-   - Root cause: Missing `getUserOrders()` in ABI + missing `getPendingFills`
-   - Also removed non-existent `getPendingFills` call that was causing silent failures
+### contracts-core (Audit Scope)
+```
+packages/contracts-core/
+├── src/                 # Core contracts (audit scope)
+├── script/              # 1_DeployCore, deploy-multichain, verify
+├── deployments/         # v9-baseSepolia.json, v9-monadTestnet.json
+├── abi/                 # Generated ABIs
+└── lib/                 # Dependencies
+```
 
-2. **✅ Order Accounting Deep Dive** — Analyzed crossing mechanics
-   - Discovered that crossed orders use lazy-claim accumulator pattern
-   - New orders get immediate fills; crossed orders need to claim via accumulator
-   - Order #2 (NO) crossed against Order #1 (YES) at tick 985
+### contracts-testing (Partner + QA)
+```
+packages/contracts-testing/
+├── test/                # All V9 tests (138 passing)
+├── script/
+│   ├── markets/         # Market creation & init scripts
+│   ├── deploy/          # Version-specific deploy scripts
+│   └── benchmark/       # hft-benchmark.ts
+├── mocks/               # MockUSDC
+├── core -> ../contracts-core/src  # Symlink
+└── lib -> ../contracts-core/lib   # Symlink
+```
 
-3. **✅ getPendingFills() View Function Added** — Contract enhancement
-   - New function in `TickBookPoolManager.sol` calculates pending fills from accumulator
-   - Returns `(pendingShares, pendingCollateralUsed)` without modifying state
-   - Enables frontend to show total fills = `order.filledShares + pendingShares`
+### Commands
+```bash
+# Build core (audit scope)
+cd packages/contracts-core && forge build
 
-4. **✅ V9.5.0 Fresh Deployment** — Complete redeployment with new function
-   - All contracts redeployed to Base Sepolia
-   - Frontend configs updated: `deployments.json`, `markets.json`
-   - ABI regenerated with `getPendingFills`
+# Run tests
+cd packages/contracts-testing && forge test
 
-5. **✅ Frontend Hook Updated** — `useUserOrdersDirect` now uses `getPendingFills`
-   - Calls `getOrder` + `getPendingFills` in parallel
-   - Adds pending shares to displayed `filledShares`
-   - CLAIM button now shows correctly for crossed orders
+# Deploy
+pnpm deploy:contracts  # → contracts-core
 
-6. **✅ Liquidity Map Enhancement** — Added `userOrders` prop
-   - LiquidityMap now accepts user orders when tick data unavailable
-   - Visualizes active order ranges with proper color coding
-
----
-
-## Test Suites
-| Suite | Tests | Coverage |
-|-------|-------|----------|
-| TickBookPoolManager.t.sol | 22 | Core ops |
-| TickBookVaultSettlement.t.sol | 13 | Redemption |
-| V9Fuzz.t.sol | 10 | Edge cases |
-| V9Invariants.t.sol | 4 | Solvency/state |
-| TruthMarketLifecycle.t.sol | 32 | Full lifecycle |
-| HookCallbacks.t.sol | 18 | Hook system |
-| **Total** | **99+** | ✅ All passing |
+# Benchmark
+pnpm benchmark  # → contracts-testing
+```
 
 ---
 
-## Pending Work (Next Session)
-- [ ] **Test order crossing E2E** — Verify fills display correctly after crossing
-- [ ] **Verify contracts on Basescan** — For transparency
-- [ ] **Graduate a market** — Trade on AMM to trigger graduation
-- [ ] **Test Pro Terminal post-graduation** — Full order flow verification
+## Recent Improvements (2026-01-01)
+
+### Interactive CLI (contracts-testing)
+New REPL for on-chain testing without external scripts:
+```bash
+bun run script/interactive/interactive-test.ts --chain=baseSepolia
+```
+
+**Commands added:**
+- `createmarket <template> [liquidity]` — Deploy TruthMarket + init in LaunchpadEngine
+- `graduate [tradeSize] [numTrades]` — Execute trades to accumulate fees until graduation
+- `marketstatus` — Show comprehensive status (TruthMarket, AMM, Collateralizer, TickBook)
+- `simulate` — Place limit orders + execute market orders for orderbook testing
+- `setmarket <address>` — Fetch token info from chain (supports pre-graduation markets)
+- `markets` / `m` — Show current market selection
+
+**Key feature:** Everything works from CLI — TruthMarket bytecode embedded, no forge scripts needed.
+
+### Package Split (ADR-065)
+- Split `contracts-evm` into `contracts-core` (audit) + `contracts-testing` (QA/partners)
+- Deleted outdated V4/V5/V8 artifacts (broadcast logs, old deployment configs)
+- Updated sync scripts to point to `contracts-core/deployments/`
+- Tests use `@core/` remapping to import from core package
+
+### Deployment Workflow
+**STEP 1**: [1_DeployCore.s.sol](packages/contracts-core/script/1_DeployCore.s.sol)
+- Deploys 5 core contracts (Collateralizer, AMMEngine, TickBookVault, PoolManager, LaunchpadEngine)
+- Links components (vault→poolManager, ammEngine→launchpad router)
+
+**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-testing/script/markets/2_CreateMarket.s.sol)
+- Market creation workflow in correct order (deploy → activate → register → initialize)
 
 ---
 
-## Known Issues
-- Markets need to be graduated via AMM trading before Pro Terminal is available
-- Previous V9.4.0 orders are lost (new deployment = fresh state)
+## Interactive CLI Bug Fixes (2026-01-01)
+
+### Basis Points (BPS) Fixes
+**Issue**: `getGraduationProgress` returns progress in basis points (10000 = 100%), but CLI was treating it as percentage.
+
+**Fixed files**:
+- `commands/state.ts`: Markets list now displays correct % (was showing "ready!" at 6.9%)
+- `commands/market.ts`: Graduate command checks `>= 10000n` not `>= 100n`
+- `commands/market.ts`: Progress display divides by 100 for correct %
+
+### Graduate Trade Size Calculation
+**Issue**: Trades weren't generating enough fees because:
+1. `tradeSize` is in shares, but fees are charged on COST (USDC)
+2. SELL trades are half the size of BUY trades
+3. With LMSR at ~50% price, cost ≈ 0.5 × shares
+
+**Fix**: Changed formula from `volumeNeeded * 4 / (3 * numTrades)` to `volumeNeeded * 8 / (3 * numTrades)` to account for:
+- BUY cost ≈ shares × 0.5
+- SELL cost ≈ (shares/2) × 0.5
+
+### Frontend Collateralizer Fix
+**Issue**: Pre-graduation markets threw "Collateralizer: not registered" error
+
+**Fix**: `useCollateralizerDirect.ts` now wraps read in try-catch, returns fallback with `isRegistered: false` for pre-graduation markets.
 
 ---
 
-*Last updated: 2025-12-30 02:24 (V9.5.0)*
+## On-Chain Market Discovery (2026-01-01)
+
+Added on-chain market enumeration to replace static `markets.json` config.
+
+### Contract Changes
+- `LaunchpadEngine.sol`: Added `address[] public allMarkets` storage
+- `LaunchpadEngine.sol`: Added `getMarkets()` and `getMarketCount()` view functions
+- `ILaunchpadEngine.sol`: Updated interface with new functions
+- `createMarket()` now pushes to `allMarkets` array
+
+### Frontend Changes
+- Updated `LaunchpadEngine.json` ABI
+- New hook: `useOnChainMarkets.ts`
+  - `useOnChainMarkets()` — Returns all markets with metadata
+  - `useOnChainMarketCount()` — Lightweight count-only query
+
+### Integration Status
+- **Ready**: Contract + hook complete, build passes
+- **Pending**: Wire hook into market list pages (Trade, Portfolio, Pro)
+- **Decision**: Keep `markets.json` for UI metadata (descriptions, categories, images)
+
+---
+
+## Pending Work
+
+### Critical (Blocking)
+- [ ] **Redeploy V9.9.6-fix2** — User orders cleanup fix needs deployment to both testnets
+- [ ] **Create test markets** — Fresh deployment needs new markets
+
+### High Priority
+- [x] ~~**Pro Page Orderbook**~~ — Now shows all orders via `useAllOrdersDirect` hook
+- [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
+
+### Medium Priority
+- [x] ~~**CLI Deposit Bug**~~ — Fixed MockUSDC decimal conversion in simulate command
+- [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
+- [x] ~~**BPS Bug Fixes**~~ — Fixed in markets list and graduate command
+- [x] ~~**Collateralizer Error**~~ — Pre-graduation markets now handled gracefully
+- [ ] **Contract Verification** — Verify on Basescan
+- [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
+
+### Interactive CLI Next Steps
+- [ ] **Tune graduate trade sizes** — Current formula gets ~70% progress; may need more iterations
+- [ ] **Custom market template** — Allow user to specify question/name/symbol
+- [ ] **Scenario library** — Add more YAML scenarios for automated testing
+
+### Known Issues
+- Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
+- Both testnets have empty markets array (fresh deployment)
+
+---
+
+## Critical Bug Fix (2026-01-01)
+
+### V9.9.6 Active Liquidity Underflow
+
+**Symptom**: First several trades succeed, then one fails with "arithmetic underflow or overflow", and ALL subsequent trades fail.
+
+**Root Cause**: In `_fill()` function, lines 613, 664, 667 had unsafe type casts:
+```solidity
+// BEFORE (buggy)
+activeLiq = uint128(int128(activeLiq) + delta);
+```
+
+When crossing tick boundaries, `delta` (from `liquidityNet`) could be negative. If `|delta| > activeLiq`, the result becomes negative, and casting to `uint128` causes panic.
+
+**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0:
+```solidity
+function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
+    if (delta >= 0) {
+        return liq + uint128(delta);
+    } else {
+        uint128 absDelta = uint128(-delta);
+        return liq >= absDelta ? liq - absDelta : 0;
+    }
+}
+```
+
+**Files Changed**:
+- `packages/contracts-core/src/TickBookPoolManagerV996.sol`:
+  - Added `_safeSubLiquidity()` helper (lines 695-703)
+  - Fixed `_updateActiveLiquidity()` (lines 755, 761)
+  - Fixed `_tryCross()` (lines 851, 853, 859, 861)
+  - Original `_safeAddLiquidity()` fix for `_fill()` (lines 613, 664, 667)
+
+**Regression Tests Added**:
+- `packages/contracts-testing/test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests)
+
+**Action Required**: Redeploy TickBookPoolManager to both testnets.
+
+*Last updated: 2026-01-02*

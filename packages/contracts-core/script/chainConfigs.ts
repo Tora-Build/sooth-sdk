@@ -1,0 +1,277 @@
+/**
+ * Chain Configurations for Multi-Chain Deployment
+ * Supports Base Sepolia, MegaETH Frontier, and Monad Testnet
+ */
+
+import { defineChain, Chain } from 'viem';
+
+// ============================================
+// Chain Definitions
+// ============================================
+
+export const baseSepolia = defineChain({
+  id: 84532,
+  name: 'Base Sepolia',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://sepolia.base.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Basescan', url: 'https://sepolia.basescan.org' },
+  },
+  testnet: true,
+});
+
+export const megaethFrontier = defineChain({
+  id: 4326,
+  name: 'MegaETH Frontier',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://mainnet.megaeth.com/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'MegaExplorer', url: 'https://explorer.megaeth.com' },
+  },
+  testnet: false, // Frontier is mainnet beta
+});
+
+// Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
+// Using private QuickNode RPC for faster state propagation
+export const monadTestnet = defineChain({
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
+        'https://testnet-rpc.monad.xyz',  // fallback
+      ]
+    },
+  },
+  blockExplorers: {
+    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
+  },
+  testnet: true,
+});
+
+// Arc Testnet RPCs: https://docs.arc.network/arc/references/connect-to-arc#arc-testnet
+// Circle-backed chain with native USDC support
+// IMPORTANT: Arc requires minFeePerGas >= 160 Gwei
+export const arcTestnet = defineChain({
+  id: 5041490,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+      ]
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
+
+// ============================================
+// Chain Configuration Interface
+// ============================================
+
+export interface ChainConfig {
+  chain: Chain;
+  gasSettings: {
+    gasLimit?: bigint;
+    gasPrice?: bigint;
+    maxFeePerGas?: bigint;
+    maxPriorityFeePerGas?: bigint;
+  };
+  deploymentConfig: {
+    confirmations: number;
+    retryAttempts: number;
+    retryDelay: number; // ms
+  };
+  faucetEnabled: boolean;
+}
+
+// ============================================
+// Chain Configs Map
+// ============================================
+
+export const chainConfigs: Record<string, ChainConfig> = {
+  baseSepolia: {
+    chain: baseSepolia,
+    gasSettings: {
+      // Base Sepolia uses EIP-1559
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 2000,
+    },
+    faucetEnabled: true,
+  },
+
+  megaethFrontier: {
+    chain: megaethFrontier,
+    gasSettings: {
+      // MegaETH requires explicit high gas limit
+      gasLimit: 999_999_999n,
+      gasPrice: 100_000_000n, // 0.1 gwei
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 5,
+      retryDelay: 1000, // MegaETH is fast
+    },
+    faucetEnabled: true,
+  },
+
+  monadTestnet: {
+    chain: monadTestnet,
+    gasSettings: {
+      // Monad has repriced opcodes: cold access 4x more expensive
+      // See: https://docs.monad.xyz/developer-essentials/opcode-pricing
+      // Using higher gas limits for complex contracts
+      gasLimit: 2_000_000n, // 2M gas (updated for efficiency)
+      maxFeePerGas: 105_000_000_000n, // 105 gwei (just above min 100 gwei)
+      maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 2000,
+    },
+    faucetEnabled: true,
+  },
+
+  arcTestnet: {
+    chain: arcTestnet,
+    gasSettings: {
+      // Arc has stable fee design: minFeePerGas >= 160 Gwei required
+      // See: https://docs.arc.network/arc/references/gas-and-fees
+      maxFeePerGas: 200_000_000_000n, // 200 gwei (above 160 min)
+      maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 2000,
+    },
+    faucetEnabled: true, // Circle faucet: https://faucet.circle.com
+    // Note: Arc has native USDC at 0x3600000000000000000000000000000000000000
+  },
+};
+
+// ============================================
+// Market Configuration
+// ============================================
+
+export interface MarketConfig {
+  name: string;
+  question: string;
+  symbol: string;
+  bBase: bigint; // WAD
+  deadlineDays: number;
+  shouldGraduate: boolean; // If true, execute graduation trades post-deploy
+}
+
+export const defaultMarkets: MarketConfig[] = [
+  {
+    name: 'UN Confirms Alien Life',
+    question: 'Will the United Nations officially confirm the existence of extraterrestrial life?',
+    symbol: 'ALIEN',
+    bBase: 1000n * 10n ** 18n, // 1,000 USDC liquidity
+    deadlineDays: 30,
+    shouldGraduate: false,
+  },
+  {
+    name: 'BTC TWAP >= $100k',
+    question: "Will Bitcoin's 7-day time-weighted average price reach or exceed $100,000?",
+    symbol: 'BTC100K',
+    bBase: 1000n * 10n ** 18n, // 1,000 USDC liquidity
+    deadlineDays: 30,
+    shouldGraduate: true, // Graduate this market via trades
+  },
+];
+
+// ============================================
+// Graduation Trade Configuration
+// ============================================
+
+/**
+ * Trades to graduate a market with bBase = 1000 USDC
+ * Graduation threshold = bBase × 2 = 2000 USDC in fees
+ * Pre-grad fee = 5%
+ * Volume needed = 2000 / 0.05 = 40,000 USDC
+ * 
+ * We execute ~46k volume to ensure graduation
+ */
+// Increased trades to ensure graduation (need ~40k USDC volume for 2k USDC in fees at 5%)
+export const graduationTrades: bigint[] = [
+  10000n * 10n ** 18n,  // buy 10k
+  -8000n * 10n ** 18n,  // sell 8k
+  12000n * 10n ** 18n,  // buy 12k
+  -8000n * 10n ** 18n,  // sell 8k
+  15000n * 10n ** 18n,  // buy 15k
+  -10000n * 10n ** 18n, // sell 10k
+  15000n * 10n ** 18n,  // buy 15k
+  -10000n * 10n ** 18n, // sell 10k
+  12000n * 10n ** 18n,  // buy 12k
+  10000n * 10n ** 18n,  // buy 10k -> should graduate by now
+];
+
+// ============================================
+// Helper Functions
+// ============================================
+
+export function getChainConfig(chainName: string): ChainConfig {
+  const config = chainConfigs[chainName];
+  if (!config) {
+    throw new Error(`Unknown chain: ${chainName}. Available: ${Object.keys(chainConfigs).join(', ')}`);
+  }
+  return config;
+}
+
+export function getAllChainNames(): string[] {
+  return Object.keys(chainConfigs);
+}
+
+export function getChainById(chainId: number): ChainConfig | undefined {
+  return Object.values(chainConfigs).find(c => c.chain.id === chainId);
+}
+
+// ============================================
+// Deployment Output Interface
+// ============================================
+
+export interface DeploymentArtifact {
+  chainId: number;
+  chainName: string;
+  timestamp: string;
+  deployer: string;
+  contracts: {
+    MockUSDC: string;
+    Collateralizer: string;
+    AMMEngine: string;
+    TickBook: string;
+    TickBookPoolManager?: string;
+    TickBookVault?: string;
+    DynamicFeeHook?: string;
+    LaunchpadEngine: string;
+  };
+  markets: {
+    address: string;
+    name: string;
+    symbol: string;
+    yesToken: string;
+    noToken: string;
+    isGraduated: boolean;
+    tickBookKey?: string;
+  }[];
+}
+

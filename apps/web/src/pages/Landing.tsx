@@ -1,18 +1,19 @@
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight, Shield, Clock, TrendingUp, Gauge } from 'lucide-react';
+import { Zap, ArrowRight, Shield, Clock, TrendingUp, Gauge, PenTool, Gamepad2, RefreshCcw, Swords } from 'lucide-react';
 
 export const Landing = () => {
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#020617]">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid opacity-[0.15]" />
-      
+
       {/* Blueprint Snippets */}
       <div className="absolute top-20 left-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block">
-        <pre>{`// vAMM_math.rs
-fn calculate_cost(q_yes: i256, q_no: i256, b: u256) -> i256 {
-    let price = exp(q_yes/b) / (exp(q_yes/b) + exp(q_no/b));
-    return (price * shares) / WAD;
+        <pre>{`// tickbook_matching.sol
+function match_orders(uint256 orderId) external {
+    uint16 tick = bitmap.find_best_tick();
+    // O(1) discovery
+    _execute_fill(tick, orderId);
 }`}</pre>
       </div>
       <div className="absolute bottom-20 right-10 opacity-5 font-mono text-[10px] text-purple-400 pointer-events-none select-none hidden lg:block text-right">
@@ -20,7 +21,7 @@ fn calculate_cost(q_yes: i256, q_no: i256, b: u256) -> i256 {
 message SettlementProof {
     bytes32 merkle_root = 1;
     bytes snark_proof = 2;
-    uint64 truth_timestamp = 3;
+    uint64 truth_timestamp = 3; // T*
 }`}</pre>
       </div>
 
@@ -39,7 +40,7 @@ message SettlementProof {
           </Link>
           <div className="flex items-center gap-6">
             <Link
-              to="/markets"
+              to="/trade"
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"
             >
               <Zap className="w-4 h-4" />
@@ -51,11 +52,25 @@ message SettlementProof {
 
       {/* Hero */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-20">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center relative">
+          {/* HUD Elements */}
+          <div className="absolute -top-12 left-0 right-0 flex justify-between items-center px-4 opacity-20 pointer-events-none select-none">
+            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+              <span>TRUTH_ENGINE: [RUNNING]</span>
+              <span>NETWORK: [BASE_SEPOLIA]</span>
+            </div>
+            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+              <span>LATENCY: 40MS</span>
+              <span>SYNC_V8.1: OK</span>
+            </div>
+          </div>
+
           {/* Badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
-            <Badge color="cyan">Base Sepolia</Badge>
-            <Badge color="indigo">MegaETH Frontier</Badge>
+            <Badge color="cyan">v8.1 Modular</Badge>
+            <Badge color="indigo">Base Sepolia</Badge>
+            <Badge color="purple">Monad Testnet</Badge>
+            <Badge color="emerald">MegaETH Frontier</Badge>
           </div>
 
           {/* Title - Fluid Typography */}
@@ -69,19 +84,19 @@ message SettlementProof {
 
           {/* Subtitle */}
           <p className="text-xl sm:text-2xl text-slate-400 mb-6">
-            Layered Architecture for Retroactive Finality
+            The Permissionless Prediction Market Launchpad
           </p>
 
           <p className="text-base sm:text-lg text-slate-500 mb-12 max-w-2xl mx-auto font-mono">
-            <span className="text-cyan-400">modular_market</span> • 
-            <span className="text-purple-400"> liquid_graduation</span> • 
-            <span className="text-indigo-400"> dual_dex_engine</span>
+            <span className="text-cyan-400">creator_economics</span> •
+            <span className="text-purple-400"> retroactive_finality</span> •
+            <span className="text-indigo-400"> onchain_clob</span>
           </p>
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <Link
-              to="/markets"
+              to="/trade"
               className="group shimmer-swipe flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-black font-bold text-xl rounded-xl transition-all hover:shadow-2xl hover:shadow-cyan-500/30"
             >
               <Zap className="w-6 h-6" />
@@ -92,46 +107,91 @@ message SettlementProof {
               to="/about"
               className="px-10 py-5 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-bold text-xl rounded-xl transition-all backdrop-blur-sm"
             >
-              About
+              Learn
             </Link>
           </div>
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto mt-24">
-          <FeatureCard
-            icon={<Clock className="w-7 h-7" />}
-            title="Open-End"
-            description="Retroactive resolution based on truth, not timers."
-            color="cyan"
-          />
-          <FeatureCard
-            icon={<Shield className="w-7 h-7" />}
-            title="ZK Finality"
-            description="Trustless settlement with cryptographic proof."
-            color="indigo"
-          />
-          <FeatureCard
-            icon={<TrendingUp className="w-7 h-7" />}
-            title="Launchpad"
-            description="Permissionless creation with liquidity graduation."
-            color="purple"
-          />
-          <FeatureCard
-            icon={<Gauge className="w-7 h-7" />}
-            title="MegaETH"
-            description="Hyper-orderbook throughput on Frontier."
-            color="cyan"
-          />
+        {/* Actor Paths */}
+        <div className="mt-40 max-w-5xl mx-auto w-full px-4">
+          <div className="flex flex-col items-start mb-12">
+            <h2 className="text-3xl font-heading font-bold text-white mb-4 tracking-tight uppercase">Choose Your Path</h2>
+            <div className="h-1 w-20 bg-cyan-500 mb-6" />
+            <p className="text-slate-400 text-left max-w-xl font-mono text-base leading-relaxed">
+              Sooth is a cooperative value creation network. Select your role to access specialized venues.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { role: "Creator", icon: <PenTool className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "purple" },
+              { role: "Gaming Trader", icon: <Gamepad2 className="w-5 h-5" />, path: "/trade", desc: "Predict events and earn protocol stakeholder rewards", color: "emerald" },
+              { role: "Arbitrageur", icon: <RefreshCcw className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
+              { role: "PvP Trader", icon: <Swords className="w-5 h-5" />, path: "/pro", desc: "Pure conviction trading on the 10,000-tick CLOB", color: "indigo" }
+            ].map((actor) => (
+              <Link
+                key={actor.role}
+                to={actor.path}
+                className="group p-8 rounded-xl border border-slate-800/50 bg-slate-900/10 hover:bg-slate-900/30 hover:border-slate-700 transition-all flex flex-col items-start text-left relative overflow-hidden"
+              >
+                {/* Subtle background glow */}
+                <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-10 group-hover:opacity-20 transition-opacity bg-${actor.color}-500`} />
+
+                <div className="flex items-center gap-4 mb-6 relative z-10">
+                  <div className={`p-3 rounded-lg bg-slate-950/50 border border-slate-800/50 group-hover:border-slate-700 transition-colors text-slate-400 group-hover:text-white`}>
+                    {actor.icon}
+                  </div>
+                  <h3 className="text-white font-bold tracking-tight uppercase text-lg">{actor.role}</h3>
+                </div>
+                <p className="text-sm text-slate-500 leading-relaxed font-mono relative z-10">{actor.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Protocol Pillars */}
+        <div className="mt-40 max-w-5xl mx-auto w-full px-4">
+          <div className="flex flex-col items-start mb-12">
+            <h2 className="text-3xl font-heading font-bold text-white mb-4 tracking-tight uppercase">Protocol Pillars</h2>
+            <div className="h-1 w-20 bg-purple-500 mb-6" />
+            <p className="text-slate-400 text-left max-w-xl font-mono text-base leading-relaxed">
+              Foundational architecture designed for trustless resolution and capital efficiency.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <FeatureCard
+              icon={<TrendingUp className="w-5 h-5" />}
+              title="Launchpad"
+              description="Permissionless creation with creator economics and aligned incentives."
+              color="purple"
+            />
+            <FeatureCard
+              icon={<Shield className="w-5 h-5" />}
+              title="ZK Rules"
+              description="Autonomous, retroactive settlement via T* for trustless resolution."
+              color="indigo"
+            />
+            <FeatureCard
+              icon={<Gauge className="w-5 h-5" />}
+              title="TickBook"
+              description="On-chain CLOB with 10,000-tick depth and constant-time discovery."
+              color="cyan"
+            />
+            <FeatureCard
+              icon={<Clock className="w-5 h-5" />}
+              title="Open-End"
+              description="Truth-driven resolution without forced liquidation timers."
+              color="cyan"
+            />
+          </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-800/30 py-10 bg-slate-950/50 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
-          <div className="font-mono flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500/30" />
-            © 2025 Sooth Protocol | v6.1.8-alpha
+          <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            © 2025 Sooth Protocol | v8.1.0-alpha
           </div>
           <div className="flex items-center gap-8">
             <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>
@@ -145,49 +205,54 @@ message SettlementProof {
   );
 };
 
-const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' }) => {
+const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' | 'purple' }) => {
   const colors = {
-    cyan: 'bg-cyan-500/5 border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_-5px_rgba(6,182,212,0.3)]',
-    amber: 'bg-amber-500/5 border-amber-500/20 text-amber-400 shadow-[0_0_15px_-5px_rgba(245,158,11,0.3)]',
-    emerald: 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_-5px_rgba(16,185,129,0.3)]',
-    indigo: 'bg-indigo-500/5 border-indigo-500/20 text-indigo-400 shadow-[0_0_15px_-5px_rgba(99,102,241,0.3)]',
+    cyan: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
+    amber: 'bg-amber-500/5 border-amber-500/10 text-amber-500/70',
+    emerald: 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500/70',
+    indigo: 'bg-indigo-500/5 border-indigo-500/10 text-indigo-500/70',
+    purple: 'bg-purple-500/5 border-purple-500/10 text-purple-500/70',
   };
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-md transition-[transform,border-color] duration-300 hover:scale-[1.03] hover:border-current/40 ${colors[color]}`}>
-      <span className="text-[10px] font-mono font-bold uppercase tracking-widest">{children}</span>
+    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-sm border backdrop-blur-sm transition-all duration-300 hover:border-current/30 hover:text-white/90 ${colors[color]}`}>
+      <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em]">{children}</span>
     </div>
   );
 };
 
-const FeatureCard = ({ 
-  icon, 
-  title, 
+const FeatureCard = ({
+  icon,
+  title,
   description,
-  color 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
+  color
+}: {
+  icon: React.ReactNode;
+  title: string;
   description: string;
   color: 'cyan' | 'purple' | 'indigo';
 }) => {
   const colors = {
-    cyan: 'border-cyan-500/10 hover:border-cyan-500/30 shadow-cyan-500/5',
-    purple: 'border-purple-500/10 hover:border-purple-500/30 shadow-purple-500/5',
-    indigo: 'border-indigo-500/10 hover:border-indigo-500/30 shadow-indigo-500/5',
+    cyan: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
+    purple: 'border-purple-500/5 hover:border-purple-500/20 shadow-purple-500/2',
+    indigo: 'border-indigo-500/5 hover:border-indigo-500/20 shadow-indigo-500/2',
   };
 
   const iconColors = {
-    cyan: 'text-cyan-400',
-    purple: 'text-purple-400',
-    indigo: 'text-indigo-400',
+    cyan: 'text-cyan-500/50 group-hover:text-cyan-400',
+    purple: 'text-purple-500/50 group-hover:text-purple-400',
+    indigo: 'text-indigo-500/50 group-hover:text-indigo-400',
   };
 
   return (
-    <div className={`p-8 rounded-2xl border bg-slate-900/40 backdrop-blur-sm transition-[transform,background-color,border-color] duration-300 hover:scale-[1.01] hover:bg-slate-900/60 shadow-lg ${colors[color]}`}>
-      <div className={`mb-5 ${iconColors[color]}`}>{icon}</div>
-      <h3 className="text-lg font-heading font-bold text-white mb-3">{title}</h3>
-      <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
+    <div className={`group p-8 rounded-xl border bg-slate-900/10 backdrop-blur-sm transition-all duration-300 hover:bg-slate-900/30 flex flex-col items-start text-left ${colors[color]}`}>
+      <div className="flex items-center gap-4 mb-6">
+        <div className={`p-3 rounded-lg bg-slate-950/50 border border-slate-800/50 group-hover:border-slate-700 transition-colors ${iconColors[color]}`}>
+          {icon}
+        </div>
+        <h3 className="text-lg font-heading font-bold text-white tracking-tight uppercase">{title}</h3>
+      </div>
+      <p className="text-sm text-slate-500 leading-relaxed font-mono">{description}</p>
     </div>
   );
 };

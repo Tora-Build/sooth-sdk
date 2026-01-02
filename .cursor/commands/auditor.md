@@ -1,1 +1,1 @@
-../../.agent/workflows/auditor.md
+../../.claude/commands/auditor.md

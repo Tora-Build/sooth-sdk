@@ -23,7 +23,8 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
 }) => {
     const currentLiq = bBase ? parseFloat(formatEther(bBase)) : 0;
     const thresholdVal = graduationThreshold ? parseFloat(formatEther(graduationThreshold)) : 10000;
-    const progressPercent = Math.min((currentLiq / thresholdVal) * 100, 100);
+    // If graduated, always show 100% regardless of current bBase (which may be 0 after graduation)
+    const progressPercent = isGraduated ? 100 : Math.min((currentLiq / thresholdVal) * 100, 100);
     const canGraduate = progressPercent >= 100 && !isGraduated;
 
     // Fee rate based on graduation

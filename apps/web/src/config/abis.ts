@@ -1,43 +1,69 @@
 import { parseAbi, type Abi } from "viem";
 
-// V8 ABIs - Import from JSON files
-import LaunchpadEngineABI from "./abis/v8/LaunchpadEngine.abi.json";
-import CollateralizerABI from "./abis/v8/Collateralizer.abi.json";
-import AMMEngineABI from "./abis/v8/AMMEngine.abi.json";
-import TickBookABI from "./abis/v8/TickBook.abi.json";
-import TickBookVaultABI from "./abis/v8/TickBookVault.abi.json";
-import TruthMarketABI from "./abis/v8/TruthMarket.abi.json";
-import OutcomeTokenABI from "./abis/v8/OutcomeToken.abi.json";
+// ABIs - Flat structure (no versioned folders)
+import LaunchpadEngineABI from "./abis/LaunchpadEngine.json";
+import CollateralizerABI from "./abis/Collateralizer.json";
+import AMMEngineABI from "./abis/AMMEngine.json";
+import TickBookABI from "./abis/TickBook.json";
+import TickBookVaultABI from "./abis/TickBookVault.json";
+import TruthMarketABI from "./abis/TruthMarket.json";
+import OutcomeTokenABI from "./abis/OutcomeToken.json";
+import TickBookPoolManagerABI from "./abis/TickBookPoolManager.json";
+import TickBookPoolManagerV996ABI from "./abis/TickBookPoolManagerV996.json";
+import TickBookVaultPoolManagerABI from "./abis/TickBookVaultPoolManager.json";
+import DynamicFeeHookABI from "./abis/DynamicFeeHook.json";
+import ITickBookHooksABI from "./abis/ITickBookHooks.json";
 
-// V9 ABIs - Import from JSON files
-import TickBookPoolManagerABI from "./abis/v9/TickBookPoolManager.json";
-import TickBookVaultV9ABI from "./abis/v9/TickBookVault.json";
-import DynamicFeeHookABI from "./abis/v9/DynamicFeeHook.json";
-import ITickBookHooksABI from "./abis/v9/ITickBookHooks.json";
-
-// V8 ABIs Export
-export const V8_ABIS = {
-  LaunchpadEngine: LaunchpadEngineABI as Abi,
-  Collateralizer: CollateralizerABI as Abi,
-  AMMEngine: AMMEngineABI as Abi,
-  TickBook: TickBookABI as Abi,
-  TickBookVault: TickBookVaultABI as Abi,
-  TruthMarket: TruthMarketABI as Abi,
-  OutcomeToken: OutcomeTokenABI as Abi,
-};
-
-// V9 ABIs Export - Singleton TickBookPoolManager architecture
-export const V9_ABIS = {
+// Contract ABIs - unified export
+export const ABIS = {
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TickBook: (TickBookABI as any).abi as Abi,
+  TickBookVault: (TickBookVaultABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
+  // TickBook singleton (pool manager architecture)
   TickBookPoolManager: (TickBookPoolManagerABI as any).abi as Abi,
-  TickBookVault: (TickBookVaultV9ABI as any).abi as Abi,
+  TickBookVaultPoolManager: (TickBookVaultPoolManagerABI as any).abi as Abi,
   DynamicFeeHook: (DynamicFeeHookABI as any).abi as Abi,
   ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
-  // Re-export V8 contracts that are unchanged
-  LaunchpadEngine: LaunchpadEngineABI as Abi,
-  Collateralizer: CollateralizerABI as Abi,
-  AMMEngine: AMMEngineABI as Abi,
-  TruthMarket: TruthMarketABI as Abi,
-  OutcomeToken: OutcomeTokenABI as Abi,
+};
+
+// Legacy aliases for backward compatibility
+export const V8_ABIS = {
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TickBook: (TickBookABI as any).abi as Abi,
+  TickBookVault: (TickBookVaultABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
+};
+
+export const V9_ABIS = {
+  TickBookPoolManager: (TickBookPoolManagerABI as any).abi as Abi,
+  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
+  DynamicFeeHook: (DynamicFeeHookABI as any).abi as Abi,
+  ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
+  // Re-export unchanged contracts
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
+};
+
+// V9.9.6 ABIs - Unified Order API (TickBookPoolManagerV996.json is raw array)
+export const V996_ABIS = {
+  TickBookPoolManager: TickBookPoolManagerV996ABI as Abi,
+  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
+  // Re-export unchanged contracts
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
 };
 
 // Legacy V7 ABIs (parseAbi format)

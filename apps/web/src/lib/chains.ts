@@ -103,7 +103,8 @@ export const allowedChains: AllowedChain[] = [
     },
   },
   */
-  // MegaETH Frontier Net (Mainnet)
+  // MegaETH Frontier Net - HIDDEN (focusing on Base Sepolia and Monad)
+  /*
   {
     id: 4326,
     type: 'evm',
@@ -119,6 +120,7 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  */
   // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
   {
     id: 10143,
@@ -126,13 +128,30 @@ export const allowedChains: AllowedChain[] = [
     name: 'Monad Testnet',
     displayName: 'Monad',
     shortName: 'Monad',
-    rpcUrl: 'https://testnet-rpc.monad.xyz',
+    rpcUrl: 'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
     explorerUrl: 'https://testnet.monadvision.com',
     icon: '🟣',
     nativeCurrency: {
       name: 'Monad',
       symbol: 'MON',
       decimals: 18,
+    },
+  },
+  // Arc Testnet - Circle-backed chain with native USDC
+  // Docs: https://docs.arc.network/arc/references/connect-to-arc
+  {
+    id: 5042002,
+    type: 'evm',
+    name: 'Arc Testnet',
+    displayName: 'Arc',
+    shortName: 'Arc',
+    rpcUrl: 'https://rpc.quicknode.testnet.arc.network',
+    explorerUrl: 'https://testnet.arcscan.app',
+    icon: '🔶',
+    nativeCurrency: {
+      name: 'USDC',
+      symbol: 'USDC',
+      decimals: 6,
     },
   },
   // MegaETH Testnet - HIDDEN (RPC rate limiting)
@@ -174,12 +193,13 @@ export const monadTestnet = defineChain({
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { 
+    default: {
       http: [
-        'https://testnet-rpc.monad.xyz',        // QuickNode (25 rps)
-        'https://rpc.ankr.com/monad_testnet',   // Ankr (300/10s)
-        'https://rpc-testnet.monadinfra.com',   // Monad Foundation (20 rps)
-      ] 
+        'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
+        'https://testnet-rpc.monad.xyz',
+        'https://rpc.ankr.com/monad_testnet',
+        'https://rpc-testnet.monadinfra.com',
+      ]
     },
   },
   blockExplorers: {
@@ -188,11 +208,33 @@ export const monadTestnet = defineChain({
   testnet: true,
 });
 
+// Define Arc Testnet using viem
+// Docs: https://docs.arc.network/arc/references/connect-to-arc
+// Circle-backed chain with native USDC as gas token
+export const arcTestnet = defineChain({
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+      ]
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
+
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
-// Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, megaethFrontier, monadTestnet];
+// Export wagmi chains array (includes Arc Testnet)
+export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {
@@ -221,6 +263,8 @@ export function getRefetchInterval(chainId: number): number {
       return 8_000;
     case 10143: // Monad Testnet - rate limited (25 rps via QuickNode)
       return 5_000;
+    case 5042002: // Arc Testnet - multiple RPC providers
+      return 4_000;
     case 84532: // Base Sepolia - reliable public RPC
       return 4_000;
     default:
@@ -237,6 +281,8 @@ export function getStaleTime(chainId: number): number {
       return 5_000;
     case 10143: // Monad Testnet
       return 3_000;
+    case 5042002: // Arc Testnet
+      return 2_000;
     case 84532: // Base Sepolia
       return 2_000;
     default:

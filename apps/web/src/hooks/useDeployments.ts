@@ -39,7 +39,8 @@ const CHAIN_ID_MAP: Record<number, string> = {
   97: 'bnbTestnet',
   10143: 'monadTestnet',
   6343: 'megaethTestnet',
-  4326: 'megaethFrontier'
+  4326: 'megaethFrontier',
+  5042002: 'arcTestnet'
 };
 
 function resolveNetworkName(chainId: number): string | undefined {
