@@ -32,9 +32,9 @@
         "Collateralizer": "0xff422cc9b537bd41dd2583e3e611ca2ef1c149b4",
         "AMMEngine": "0xa67d75bb57e6abe59cc6e8d102b319d894919ef1",
         "TickBookVault": "0x1489703c4121cf16061aba94c3b9096821fb47fc",
-        "TickBookPoolManager": "0x0f2e0d2b139ed9b9738bfa3fe83e6fe1e3cd3064",
-        "TickBook": "0x0f2e0d2b139ed9b9738bfa3fe83e6fe1e3cd3064",
-        "LaunchpadEngine": "0x57ff4bb7a053a505fad211a0221f8c8cf3ba6f14"
+        "TickBookPoolManager": "0x6c62cbf2cb304eb1a91ae6a7805104328b257975",
+        "TickBook": "0x6c62cbf2cb304eb1a91ae6a7805104328b257975",
+        "LaunchpadEngine": "0x6fdf6ff17d74a965a9e7bd2fc5040dd082161fdb"
       }
     }
   }

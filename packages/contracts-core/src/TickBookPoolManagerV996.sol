@@ -442,33 +442,65 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
-        if (orderIds.length == 0) return (0, 0);
+        uint256 len = orderIds.length;
+        if (len == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
-        uint256 maxProcess = 3; // V9.9.6-fix9k: Only process 3 orders (minimal gas overhead)
+        
+        // V9.9.6-fix9L: "Spread Autoclaim" Strategy
+        // Instead of linear iteration (which misses old orders), check specific points:
+        // 1. Newest (index len-1): For immediate market fills
+        // 2. Oldest (index 0): garbage collection
+        // 3. Middle (index len/2): statistical spread
+        
+        // Determine indices to check (max 3)
+        uint256[] memory indices;
+        if (len <= 3) {
+            indices = new uint256[](len);
+            for(uint i=0; i<len; i++) indices[i] = i;
+        } else {
+            indices = new uint256[](3);
+            indices[0] = len - 1;
+            indices[1] = 0;
+            indices[2] = len / 2;
+        }
 
-        // Iterate backwards to handle removals safely
-        uint256 i = orderIds.length;
-        while (i > 0 && ordersProcessed < maxProcess) {
-            unchecked { --i; }
-            uint256 orderId = orderIds[i];
+        // Process selected indices
+        // MUST process in descending order of index to keep indices valid after swap-and-pop
+        // But here we are picking specific indices. If we remove 0, len changes.
+        // Actually, safer to just check valid indices. Swapped elements are fine.
+        
+        for (uint j = 0; j < indices.length; j++) {
+            // Re-read length check in case previous removal shrank array
+            if (indices[j] >= orderIds.length) continue;
+            
+            uint256 orderId = orderIds[indices[j]];
             RangeOrder storage order = _orders[marketKey][orderId];
             
             if (!order.active) {
                 ordersProcessed++;
                 continue;
             }
-            
-            // V9.9.6-fix9k: Check pending fills for accurate crossed-fill detection
-            // This is O(N) but we only do it for 3 orders max
+
+            // Accurate check with _getPendingFillsInternal
             (uint256 pendingFills, ) = _getPendingFillsInternal(marketKey, orderId);
             uint256 totalFilled = order.filledShares + pendingFills;
-            
+
             if (totalFilled >= order.sharesTotal) {
-                // Order is 100% filled - claim and complete it
-                (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
+                // V9.9.6-fix9L: Skip O(N) removal in _claimInternal
+                (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId, true);
                 totalClaimedShares += filled;
                 totalCollateralUsed += used;
+                
+                // Perform O(1) removal using known index
+                // Note: indices[j] is the current index of this orderId
+                uint256 idxToRemove = indices[j];
+                uint256 lastIdx = orderIds.length - 1;
+                
+                if (idxToRemove != lastIdx) {
+                    orderIds[idxToRemove] = orderIds[lastIdx];
+                }
+                orderIds.pop();
             }
             ordersProcessed++;
         }
@@ -485,7 +517,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
 
         Market memory m = _markets[marketKey];
 
-        _claimInternal(marketKey, orderId);
+        _claimInternal(marketKey, orderId, false);
 
         // V9.9.5: Only remove tick liquidity if not already removed
         if (!order.liquidityRemoved) {
@@ -519,14 +551,14 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     {
         RangeOrder storage order = _orders[marketKey][orderId];
         if (order.owner != msg.sender) revert NotOwner();
-        return _claimInternal(marketKey, orderId);
+        return _claimInternal(marketKey, orderId, false);
     }
 
     function claimFillsFor(bytes32 marketKey, uint256 orderId)
         external
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
-        return _claimInternal(marketKey, orderId);
+        return _claimInternal(marketKey, orderId, false);
     }
 
     function batchClaimFills(bytes32 marketKey, uint256[] calldata orderIds)
@@ -534,7 +566,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         returns (uint256 totalFilledShares, uint256 totalCollateralUsed)
     {
         for (uint256 i = 0; i < orderIds.length; i++) {
-            (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i]);
+            (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i], false);
             totalFilledShares += filled;
             totalCollateralUsed += used;
         }
@@ -566,7 +598,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         return _pendingRefunds[user][marketKey];
     }
 
-    function _claimInternal(bytes32 marketKey, uint256 orderId)
+    function _claimInternal(bytes32 marketKey, uint256 orderId, bool skipRemoval)
         internal
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
@@ -623,7 +655,11 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
             order.active = false;
-            _removeFromUserOrders(marketKey, owner, orderId);
+            
+            if (!skipRemoval) {
+                _removeFromUserOrders(marketKey, owner, orderId);
+            }
+            
             // Pool the refund (deposited - used)
             uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
                 ? order.collateralDepositedWad - order.collateralUsedWad : 0;
