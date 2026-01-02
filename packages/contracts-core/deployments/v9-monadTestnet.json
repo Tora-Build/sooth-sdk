@@ -1,18 +1,18 @@
 {
-  "version": "9.9.6-fix6",
+  "version": "9.9.6-fix7",
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "timestamp": "2026-01-02T09:10:00.000Z",
+  "timestamp": "2026-01-02T10:04:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-    "Collateralizer": "0xC17ed89b96ED8c207e7466B4ff5A440814bb0DDD",
-    "AMMEngine": "0x3c8fE010E362e7C204135a90feBF5b68B9352c0d",
-    "TickBookVault": "0xdDD1DD7E2C12Fc66983D6a38E133203a6f663a6A",
-    "TickBookPoolManager": "0x98fD568E84FB0f45d3c2Ed98814FFCd63264aB8a",
-    "TickBook": "0x98fD568E84FB0f45d3c2Ed98814FFCd63264aB8a",
-    "LaunchpadEngine": "0x9331b4aB6e6CCCCc6Be5aB396764ce2a6a8Ee796"
+    "Collateralizer": "0xC6E76df968B99A41e1ef1305383F6637857d9eC2",
+    "AMMEngine": "0xa2B2653124cb98B4d83A8a314E5E0bEF2621832F",
+    "TickBookVault": "0xdd26a11d19C2264D822B3A2eC166Bc0Bd3B3462F",
+    "TickBookPoolManager": "0x256095ef096E14d943Aa33dcF8517c09E461784A",
+    "TickBook": "0x256095ef096E14d943Aa33dcF8517c09E461784A",
+    "LaunchpadEngine": "0x1FC93BaE27da0F36cc6B4fb6950E187A13e9d7c2"
   },
   "markets": [],
-  "notes": "V9.9.6-fix6: Fixed crossing logic for price inversion between YES/NO (YES_tick + NO_tick >= 1000)."
+  "notes": "V9.9.6-fix7: Corrected overlap calculation in crossing (was inverted)."
 }
