@@ -1,28 +1,40 @@
 {
   "version": "9.9.6-fix6",
   "networks": {
+    "arcTestnet": {
+      "chainId": 5041490,
+      "contracts": {
+        "USDC": "0x3600000000000000000000000000000000000000",
+        "Collateralizer": null,
+        "AMMEngine": null,
+        "TickBookVault": null,
+        "TickBookPoolManager": null,
+        "TickBook": null,
+        "LaunchpadEngine": null
+      }
+    },
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-        "Collateralizer": "0xf3Fc386c0a91008d7f146ECf0A1561bc07838Ac7",
-        "AMMEngine": "0xa63de337ff85dD91AcDA67bB34b14eD92cDd9147",
-        "TickBookVault": "0xc0e3838F3F7711cAb4B743E4835fBE0Ee7F3E0BA",
-        "TickBookPoolManager": "0xb4a77Ab4fDEC30700995D3346fC1a162279A0566",
-        "TickBook": "0xb4a77Ab4fDEC30700995D3346fC1a162279A0566",
-        "LaunchpadEngine": "0xB570328998765BF38ea763dba0297a4c4280f96d"
+        "Collateralizer": "0x651a88635de8cc27a27c89359e3e79a2a83df785",
+        "AMMEngine": "0xb9f304b69bd22350c6977c97fcb3850f63f5a5df",
+        "TickBookVault": "0xa64621e1b077093855bda75da33f10672963f061",
+        "TickBookPoolManager": "0x529c8d689922936294e44bc50fbbbadf9fd8613b",
+        "TickBook": "0x529c8d689922936294e44bc50fbbbadf9fd8613b",
+        "LaunchpadEngine": "0xdacc4c84de4995b57413e5e069ca6a5fb65b37a8"
       }
     },
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
         "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-        "Collateralizer": "0xC17ed89b96ED8c207e7466B4ff5A440814bb0DDD",
-        "AMMEngine": "0x3c8fE010E362e7C204135a90feBF5b68B9352c0d",
-        "TickBookVault": "0xdDD1DD7E2C12Fc66983D6a38E133203a6f663a6A",
-        "TickBookPoolManager": "0x98fD568E84FB0f45d3c2Ed98814FFCd63264aB8a",
-        "TickBook": "0x98fD568E84FB0f45d3c2Ed98814FFCd63264aB8a",
-        "LaunchpadEngine": "0x9331b4aB6e6CCCCc6Be5aB396764ce2a6a8Ee796"
+        "Collateralizer": "0xC6E76df968B99A41e1ef1305383F6637857d9eC2",
+        "AMMEngine": "0xa2B2653124cb98B4d83A8a314E5E0bEF2621832F",
+        "TickBookVault": "0xdd26a11d19C2264D822B3A2eC166Bc0Bd3B3462F",
+        "TickBookPoolManager": "0x256095ef096E14d943Aa33dcF8517c09E461784A",
+        "TickBook": "0x256095ef096E14d943Aa33dcF8517c09E461784A",
+        "LaunchpadEngine": "0x1FC93BaE27da0F36cc6B4fb6950E187A13e9d7c2"
       }
     }
   }
