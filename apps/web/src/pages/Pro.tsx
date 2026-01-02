@@ -2120,9 +2120,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               )}
 
               {/* Amount Input */}
+              {/* TODO: For market orders, consider USDC-based input with price-estimated shares */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">Amount (Shares)</label>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">
+                    Amount (Shares)
+                  </label>
                   <span className="text-[10px] text-slate-600 font-mono">
                     Max: {parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}
                   </span>
