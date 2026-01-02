@@ -15,10 +15,60 @@ All notable changes to Sooth Protocol will be documented in this file.
 | **fix5** | *(skipped)* | — | — |
 | **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
 | **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Base Sepolia |
+| **fix8** | Bitmap finds expensive seller + underflow | `findNextDown` + `_safeSubTotalLiquidity()` | 🔧 Ready |
 
 **⚠️ Known Remaining Issue**: `_autoClaimUserOrders()` still O(n) for **active** orders. With 97+ active orders, gas limits are hit. Consider: limit iterations, make optional, or separate manual claim function.
 
 ### Fixed
+- **V9.9.6-fix8: Crossing Logic Complete Fix** (2026-01-02):
+  
+  **Retrospective: Why fix6 and fix7 Didn't Solve Crossing**
+  
+  After deploying fix6 and fix7, the crossing bug persisted on Base Sepolia:
+  - Orders 1-104 placed successfully
+  - Orders 105+ reverted with hex errors
+  - ALL market orders failed
+  - Liquidity map still showed GREEN (bids) to the RIGHT of RED (asks)
+  
+  **Root Cause Analysis:**
+  
+  | Fix | What Changed | Why It Still Failed |
+  |-----|--------------|---------------------|
+  | **fix6** | Crossing condition `Y + N >= 1000` | ✅ Correct, but overlap calculation wrong |
+  | **fix7** | Overlap bounds from `[tickLower, seller]` to `[seller, tickUpper]` | Used `findNextUp(0)` → found MOST EXPENSIVE seller |
+  
+  **The Three Bugs Identified:**
+  
+  1. **Bitmap Traversal Direction** (Critical)
+     - `findNextUp(0)` finds LOWEST NO tick = seller who wants 80% for YES
+     - Should use `findNextDown(MAX_TICK+1)` to find HIGHEST NO tick = seller who accepts 40%
+     - Example: NO at ticks [200, 400, 600], fix7 found 200 (80% ask), fix8 finds 600 (40% ask)
+  
+  2. **_totalLiquidity Underflow** (Causes reverts)
+     - Three places decrement `_totalLiquidity -= sharesTotal` without bounds check
+     - After 100+ orders with crossing, accounting can go negative
+     - Added `_safeSubTotalLiquidity()` that clamps to 0
+  
+  3. **activeLiquidity Tracking** (Design flaw)
+     - `activeLiquidity` only updates when `currentTick` is INSIDE order range
+     - With `currentTick = 999`, orders at [194, 327] don't add to activeLiquidity
+     - Falls back to `totalLiquidity`, but that can be 0 after underflows
+  
+  **Fix8 Implementation:**
+  ```solidity
+  // Bug 1 fix: Find CHEAPEST seller (highest NO tick)
+  uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+  
+  // Bug 2 fix: Safe decrement
+  function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
+      uint256 current = _totalLiquidity[marketKey][outcome];
+      _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
+  }
+  ```
+  
+  - **Impact**: Requires contract redeployment
+  - **Doc**: `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
+
 - **V9.9.6-fix7: Crossing Overlap Calculation** (2026-01-02):
   - **Bug**: Fix6's overlap calculation was inverted - calculated `[tickLower, sellerPrice]` instead of `[sellerPrice, tickUpper]`
   - **Symptom**: Crossing happened at wrong price ranges
