@@ -1,18 +1,18 @@
 {
-  "version": "9.9.6-fix1",
+  "version": "9.9.6-fix2",
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "timestamp": "2026-01-02T00:30:00.000Z",
+  "timestamp": "2026-01-02T08:05:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-    "Collateralizer": "0xbF4a4f771Ff3375b4028abfaDAB0018b41997Fdf",
-    "AMMEngine": "0x711476F24C8D68Ccfe4Bd8Da15A5Bf11aCfcace8",
-    "TickBookVault": "0xEfCf0E29c6A2c87d23B5714C332be832Ff3f29c6",
-    "TickBookPoolManager": "0xf2dF9F968D3A4BA184f8e594b75C64C2648b013C",
-    "TickBook": "0xf2dF9F968D3A4BA184f8e594b75C64C2648b013C",
-    "LaunchpadEngine": "0x7785777aBe502245F5fB2C4aD5D63DD58C09ce10"
+    "Collateralizer": "0x5A4BD285CF997dC646779768cC34654F5c5BB940",
+    "AMMEngine": "0xf67F58A8f3e972b574232D8577C287E2E1D9B74e",
+    "TickBookVault": "0xF6C82B6315ad3Ad291A9716271C7c7b47d9A3C2E",
+    "TickBookPoolManager": "0xeA996e48B203064191434c39b25F39f78B12928C",
+    "TickBook": "0xeA996e48B203064191434c39b25F39f78B12928C",
+    "LaunchpadEngine": "0x4b5dd5BB3284De785bF71363c486A23A2c2002AB"
   },
   "markets": [],
-  "notes": "V9.9.6-fix1: Complete underflow fix (_safeSubLiquidity added)."
+  "notes": "V9.9.6-fix2: Complete underflow fix + user orders array cleanup (swap-and-pop removal)."
 }
