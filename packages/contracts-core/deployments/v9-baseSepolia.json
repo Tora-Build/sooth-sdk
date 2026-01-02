@@ -1,18 +1,18 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "9.9.6-fix2",
-  "timestamp": "2026-01-02T08:05:00.000Z",
+  "version": "9.9.6-fix3",
+  "timestamp": "2026-01-02T08:25:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-    "Collateralizer": "0x93b6D17fe5cd0B02F443B4490b49C42e53eeeeeF",
-    "AMMEngine": "0x9220B8dce68bf54EcCD2EF317f624A825006A81F",
-    "TickBookVault": "0x019233B1dB2a7A3BF476f2C6E6494e8DaAC27772",
-    "TickBookPoolManager": "0xF16A4350C69a09EAc8434E6636AeF87365820130",
-    "TickBook": "0xF16A4350C69a09EAc8434E6636AeF87365820130",
-    "LaunchpadEngine": "0x0DD87b605d6E1288eBd9ad80E3a92a70f0eED91d"
+    "Collateralizer": "0x86180534784dd0B459a514F33b79E80C944B86be",
+    "AMMEngine": "0x11BAA5bAF4Bdf26830d0Ed689E38f81c46BbF8E8",
+    "TickBookVault": "0x0F2f6906cd1540f00Fbf59771844b37780Eb2Ccd",
+    "TickBookPoolManager": "0xe518419edc895B0A66aBE86BBE34Ea2440d9f203",
+    "TickBook": "0xe518419edc895B0A66aBE86BBE34Ea2440d9f203",
+    "LaunchpadEngine": "0x46187ba4268636f63B311E117eA97098358d60B8"
   },
   "markets": [],
-  "notes": "V9.9.6-fix2: Complete underflow fix + user orders array cleanup (swap-and-pop removal)."
+  "notes": "V9.9.6-fix3: Fixed array iteration bug in _autoClaimUserOrders (iterate backwards for safe removal)."
 }
