@@ -70,7 +70,7 @@ message SettlementProof {
             <Badge color="cyan">v8.1 Modular</Badge>
             <Badge color="indigo">Base Sepolia</Badge>
             <Badge color="purple">Monad Testnet</Badge>
-            <Badge color="emerald">MegaETH Frontier</Badge>
+            <Badge color="emerald">Arc Testnet</Badge>
           </div>
 
           {/* Title - Fluid Typography */}
