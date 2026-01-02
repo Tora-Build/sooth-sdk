@@ -1,18 +1,18 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "9.9.6-fix7",
-  "timestamp": "2026-01-02T09:55:00.000Z",
+  "version": "9.9.6-fix8",
+  "timestamp": "2026-01-02T12:30:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-    "Collateralizer": "0x651a88635de8cc27a27c89359e3e79a2a83df785",
-    "AMMEngine": "0xb9f304b69bd22350c6977c97fcb3850f63f5a5df",
-    "TickBookVault": "0xa64621e1b077093855bda75da33f10672963f061",
-    "TickBookPoolManager": "0x529c8d689922936294e44bc50fbbbadf9fd8613b",
-    "TickBook": "0x529c8d689922936294e44bc50fbbbadf9fd8613b",
-    "LaunchpadEngine": "0xdacc4c84de4995b57413e5e069ca6a5fb65b37a8"
+    "Collateralizer": "0x6259eB24d3561A7788f8f0Acf8986e72A1Eea14C",
+    "AMMEngine": "0xdF41848482d6a83bE57B8b03074a6fDBdDdf1838",
+    "TickBookVault": "0x12cb4e21fEE84E0d8a1A7312082220258E1A7872",
+    "TickBookPoolManager": "0x7f45Ec7a61082c4C56FBa940028F14c62f765388",
+    "TickBook": "0x7f45Ec7a61082c4C56FBa940028F14c62f765388",
+    "LaunchpadEngine": "0x95ab25Bf5003B5e3f25CFC7746d7a1328831f6e8"
   },
   "markets": [],
-  "notes": "V9.9.6-fix7: Corrected overlap calculation in crossing (was inverted)."
+  "notes": "V9.9.6-fix8: Bitmap traversal + _safeSubTotalLiquidity"
 }
