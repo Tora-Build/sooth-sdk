@@ -54,9 +54,9 @@ export const V9_ABIS = {
   OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
 };
 
-// V9.9.6 ABIs - Unified Order API
+// V9.9.6 ABIs - Unified Order API (TickBookPoolManagerV996.json is raw array)
 export const V996_ABIS = {
-  TickBookPoolManager: (TickBookPoolManagerV996ABI as any).abi as Abi,
+  TickBookPoolManager: TickBookPoolManagerV996ABI as Abi,
   TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
   // Re-export unchanged contracts
   LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
