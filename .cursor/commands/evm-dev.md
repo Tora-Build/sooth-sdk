@@ -1,1 +1,1 @@
-../../.agent/workflows/evm-dev.md
+../../.claude/commands/evm-dev.md

@@ -1,1 +1,1 @@
-../../.agent/workflows/fullstack-dev.md
+../../.claude/commands/fullstack-dev.md

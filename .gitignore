@@ -15,11 +15,15 @@
 secrets/
 private/
 
-# Foundry (packages/contracts-evm)
+# Foundry
 out/
 cache/
+# Legacy location
 packages/contracts-evm/broadcast/**
 !packages/contracts-evm/broadcast/**/run-latest.json
+# Current location (V9 package split)
+packages/contracts-core/broadcast/**
+packages/contracts-core/cache/
 lib/forge-std
 lib/openzeppelin-contracts-upgradeable
 lib/prb-math

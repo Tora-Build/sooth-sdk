@@ -12,9 +12,9 @@ import {
 import { Tooltip } from '../components/ui/Tooltip';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
-import { useAvailableBalance, useLockQueue, useTokenBalances } from '../hooks/v8';
-import { useV8DirectRead, readContractSafe, useAMMPositionDirect, useTickBookVaultDirect } from '../hooks/v8';
-import { useMarketStatsMath } from '../hooks/v8/useMarketStatsMath';
+import { useAvailableBalance, useLockQueue, useTokenBalances } from '../hooks';
+import { useDirectRead, readContractSafe, useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
+import { useMarketStatsMath } from '../hooks/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ERC20_ABI, V8_ABIS } from '../config/abis';

@@ -468,4 +468,245 @@ Access-controlled registration ensures only graduated markets (via LaunchpadEngi
 
 ---
 
-*Last updated: 2025-12-29*
+## 23. Monad Testnet RPC State Propagation
+
+### Symptom
+Deployment script fails after `registerMarket` TX succeeds: `getOutcomeTokens returned no data ("0x")`.
+
+### Root Cause
+Monad testnet RPC has significant state propagation delays. Even after TX confirmation, read calls may return stale/empty data for 15-30+ seconds.
+
+### Detection
+- TX shows `status: success` but subsequent read calls fail
+- `cast code <address>` returns `0x` right after deployment
+- Same address works fine after waiting longer
+
+### Fix (deploy-multichain.ts)
+Added chain-specific wait time + retry logic:
+```typescript
+// Wait for RPC state propagation (Monad testnet needs longer wait)
+const waitTime = ctx.chainName === 'monadTestnet' ? 8000 : 2000;
+await new Promise(resolve => setTimeout(resolve, waitTime));
+
+// Get token addresses with retry for slow RPCs
+for (let attempt = 0; attempt < 3; attempt++) {
+  try {
+    const tokens = await ctx.publicClient.readContract({ ... });
+    break;
+  } catch (err) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+}
+```
+
+### Rule
+For testnets with known RPC issues:
+1. Add chain-specific wait times after state-changing TXs
+2. Implement retry logic for read calls
+3. Consider using private/premium RPCs for production deployments
+
+---
+
+## Forbidden: Versioned Folders (2025-12-30)
+
+### ❌ Pattern: v1/, v2/, v8/, v9/ folder structure
+- **Date:** 2025-12-30
+- **Problem:** Codebase had `hooks/v5/`, `hooks/v8/`, `hooks/v9/`, `components/features/v8/`, `config/abis/v8/`, `pages/v8/`
+- **Issues:**
+  1. **Import confusion:** Which version to use?
+  2. **Naming conflicts:** Same hook name in different versions (e.g., `useAmmMarket`)
+  3. **Maintenance burden:** Duplicated code across versions
+  4. **Deprecation unclear:** Is v8 still used? What about v5?
+- **Root cause:** Iterative protocol versions led to copying instead of updating
+
+### ✅ Solution: Flat structure with clear naming
+```
+# WRONG - versioned folders
+hooks/v8/useAmmMarket.ts
+hooks/v9/useTickBookVault.ts
+components/features/v8/SimpleTradingPanel.tsx
+
+# RIGHT - flat with descriptive names
+hooks/useAmmMarket.ts
+hooks/useTickBookVault.ts
+components/features/SimpleTradingPanel.tsx
+```
+
+### Rule
+- **NEVER** create folders named `v1/`, `v2/`, `v8/`, `v9/`, etc.
+- Git history already tracks versions
+- Use descriptive names, not version numbers
+- For breaking changes, update in place with migration notes
+- Organize by domain/feature if needed (e.g., `launchpad/`, `market/`)
+
+---
+
+## 24. V9.9.6 Active Liquidity Underflow (Complete Fix)
+
+### ❌ Pattern: Incomplete Arithmetic Safety Fix Leaves Code Paths Vulnerable
+- **Date:** 2026-01-01
+- **Bug:** V9.9.6 added `_safeAddLiquidity()` to protect `_fill()` from underflow, but missed 6 other subtraction sites in `_updateActiveLiquidity()` and `_tryCross()`.
+- **Root Cause:** When crossing tick boundaries or cancelling orders, `activeLiquidity -= delta` could underflow when `delta > activeLiquidity`.
+- **Symptom:** First several trades succeed, then one fails with `panic: arithmetic underflow or overflow (0x11)`, and ALL subsequent trades fail permanently.
+- **Detection:** Regression tests (`test_ExtremeLiquidityNet_ClampsToZero`, `test_ManyConsecutiveTrades_AllSucceed`) failed with panic 0x11.
+
+### Original (Buggy) Code Sites:
+```solidity
+// _updateActiveLiquidity (lines 747, 753)
+state.activeLiquidityNo -= liquidityDelta;
+state.activeLiquidityYes -= liquidityDelta;
+
+// _tryCross (lines 843, 845, 851, 853)
+state.activeLiquidityNo -= activeFilled;
+state.activeLiquidityYes -= activeFilled;
+```
+
+### Complete Fix:
+```solidity
+// Added new helper (V9.9.6)
+function _safeSubLiquidity(uint128 liq, uint128 delta) internal pure returns (uint128) {
+    return liq >= delta ? liq - delta : 0;
+}
+
+// Applied to all 6 sites
+state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, liquidityDelta);
+state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidityDelta);
+```
+
+### Rule:
+- When adding arithmetic safety to one function, **grep the entire contract** for similar patterns:
+  - `grep -n "activeLiquidity.*-=" TickBookPoolManagerV996.sol`
+  - `grep -n "state\\.active.*-=" src/*.sol`
+- Create regression tests that specifically target the edge cases (extreme values, order cancellations, many consecutive trades)
+- Mark safe helpers with `@notice` comments listing all call sites
+
+### Regression Tests Added:
+- `test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests, 138 total V9 tests passing)
+
+---
+
+## 25. V9.9.6-fix2 User Orders Array Gas Bloat
+
+### ❌ Pattern: Ever-Growing Array Causes Linear Gas Growth
+- **Date:** 2026-01-02
+- **Bug:** `_autoClaimUserOrders()` iterated through ALL orders in `_userOrders[marketKey][user]`, but inactive orders (cancelled/filled) were never removed from the array.
+- **Root Cause:** Setting `order.active = false` didn't remove the order ID from `_userOrders`, so the loop still had to iterate through all historical orders.
+- **Symptom:** After ~27 orders, `placeOrder()` exceeded 2M gas limit with "out of gas" errors.
+- **Detection:** Running `simulate 1000` in interactive CLI caused failures after ~27 orders.
+
+### Fix:
+```solidity
+// Added swap-and-pop helper for O(1) removal
+function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
+    uint256[] storage orderIds = _userOrders[marketKey][user];
+    uint256 len = orderIds.length;
+    for (uint256 i = 0; i < len; ) {
+        if (orderIds[i] == orderId) {
+            orderIds[i] = orderIds[len - 1];
+            orderIds.pop();
+            return;
+        }
+        unchecked { ++i; }
+    }
+}
+
+// Called in cancelOrder() and _claimInternal() when order becomes inactive
+order.active = false;
+_removeFromUserOrders(marketKey, owner, orderId);
+```
+
+### Rule:
+- When maintaining arrays that are iterated frequently, ensure cleanup happens when items become inactive
+- Use swap-and-pop for O(1) removal from unordered arrays
+- Consider gas costs of iteration when designing data structures
+- Test with high volume scenarios (100s of orders) to catch linear gas growth
+
+### Doc: `packages/contracts-core/docs/V996-fix2-userorders-cleanup.md`
+
+---
+
+## 27. V9.9.6-fix6 Crossing Logic Price Inversion
+
+### ❌ Pattern: Comparing raw ticks instead of effective prices
+- **Date:** 2026-01-02
+- **Bug:** Orders weren't crossing when they should. YES buyer at 44% should cross with NO order implying YES seller at 42%.
+- **Root Cause:** The `_tryCross()` function compared raw tick values, but YES and NO ticks represent **different** YES prices.
+- **Symptom:** Liquidity map showed overlapping YES bids and NO asks that should have crossed but remained as resting orders.
+
+### The Math:
+```
+YES at tick T = buyer pays T/1000 for YES
+NO at tick T = buyer pays T/1000 for NO = seller accepts (1000-T)/1000 for YES
+
+For crossing: YES buyer price >= YES seller price
+  => YES_tick/1000 >= (1000 - NO_tick)/1000
+  => YES_tick >= 1000 - NO_tick
+  => YES_tick + NO_tick >= 1000
+```
+
+### Example:
+```
+YES order at tick 440 = buyer willing to pay 44% for YES
+NO order at tick 580 = buyer pays 58% for NO = seller accepts 42% for YES
+
+44% (buyer) > 42% (seller) → SHOULD CROSS!
+
+Old logic: "Is 580 > 440?" → YES, no crossing ❌
+New logic: "Is 440 + 580 >= 1000?" → 1020 >= 1000 → CROSS ✓
+```
+
+### Fix:
+```solidity
+// OLD (WRONG):
+if (lowestSell > newOrder.tickUpper) return (0, 0, 0);
+
+// NEW (CORRECT):
+// Calculate crossing threshold: lowestSell <= 1000 - newOrder.tickLower
+uint16 maxCrossableNoTick = 1000 - newOrder.tickLower;
+if (lowestSell > maxCrossableNoTick) return (0, 0, 0);
+```
+
+### Rule:
+- In binary outcome markets, YES and NO ticks represent **different** effective prices
+- YES tick T = YES price of T%
+- NO tick T = YES price of (100-T)% as a seller
+- Crossing logic must account for this price inversion
+- Test crossing with overlapping opposite-outcome orders at various tick combinations
+
+---
+
+## 28. V10 (tick, user) Primary Indexing
+
+### Pattern: Core/Peripheral Split for Complex Features
+- **Date:** 2026-01-02
+- **Context:** V9.9.6 had O(n) `_userOrders[]` array maintenance causing gas issues
+- **Solution:** V10 uses `(tick, user)` as primary key, eliminates `orderId`
+- **Key Design:**
+  - Core contract: Single-tick positions only
+  - Peripheral `RangeOrderHelper`: Splits range orders into multiple single-tick orders
+- **Benefits:**
+  - Core is simple and auditable
+  - Peripheral can evolve independently
+  - O(1) cancel instead of O(n) find
+- **Tradeoff:** Range orders cost more gas (N single calls vs 1 range call)
+- **Rule:** When a feature adds complexity to core, consider peripheral contract pattern (like Uniswap V3 router)
+
+### Pattern: Per-Tick Accumulators vs Global Accumulators
+- **Date:** 2026-01-02
+- **V9.9.6 Issue:** `_fillGrowthGlobalX128[outcome]` distributed fills across ALL orders of an outcome
+- **V10 Fix:** `TickState.fillGrowthX128` tracks fills per tick
+- **Advantage:** More accurate fill attribution - only orders at the traded tick get fills
+- **Rule:** Track accumulators at the granularity where the action happens
+
+### API Pattern: tick=0 for Market Orders
+- **Date:** 2026-01-02
+- **V10 Design:** Single `placeOrder(tick)` where:
+  - `tick=0` → Market order (walk the book)
+  - `tick=1..999` → Limit order at that tick
+- **Advantage:** Simpler than V9.9.6's `tickLower/tickUpper` range-based detection
+- **Rule:** Use sentinel values (like 0) instead of separate functions when the logic is similar
+
+---
+
+*Last updated: 2026-01-02*
+

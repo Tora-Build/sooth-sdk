@@ -1,1 +1,1 @@
-../../.agent/workflows/sop.md
+../../.claude/commands/sop.md

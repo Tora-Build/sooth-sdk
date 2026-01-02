@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card } from '../../ui/Card';
-import { useV8DirectRead, readContractSafe, useLaunchpadMarketDirect } from '../../../hooks/v8';
-import { useMarketStatsMath } from '../../../hooks/v8/useMarketStatsMath';
+import { useDirectRead as useV8DirectRead, readContractSafe, useLaunchpadMarketDirect } from '../../../hooks';
+import { useMarketStatsMath } from '../../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../../hooks/useDeployments';
 import { ERC20_ABI, V8_ABIS } from '../../../config/abis';
 import { formatUnits } from 'viem';
@@ -172,7 +172,24 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                 </div>
 
-                {/* 5. Liquidity Anchor */}
+                {/* 5. Creator Seed */}
+                <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 group hover:border-emerald-500/40 transition-colors">
+                    <div className="text-[9px] text-emerald-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">🌱 Creator Deposit</span>
+                        <span className="text-emerald-600/60 font-mono italic">b × ln(2)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-400" title="Liquidity Depth (b)">{fmtNum(stats.b)}</span>
+                            <span className="text-slate-600">×</span>
+                            <span className="text-slate-500">0.693</span>
+                            <span className="text-slate-600">=</span>
+                        </div>
+                        <div className="text-lg font-bold text-emerald-400 font-mono ml-auto">{fmtUsd(stats.seed)}</div>
+                    </div>
+                </div>
+
+                {/* 6. Liquidity Anchor */}
                 <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
                     <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>

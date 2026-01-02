@@ -37,12 +37,19 @@ if (!deployments.networks) error('deployments.json missing "networks" key');
 Object.entries(deployments.networks).forEach(([netName, netConfig]) => {
     if (!netConfig.chainId) error(`Network ${netName} missing chainId`);
     if (!netConfig.contracts) error(`Network ${netName} missing contracts object`);
-    
+
+    // Check if this network has incomplete deployment (null contracts)
+    const hasNullContracts = Object.values(netConfig.contracts).some(addr => addr === null);
+    if (hasNullContracts) {
+        log(colors.yellow, `⚠ Skipping ${netName}: incomplete deployment (has null contracts)`);
+        return;
+    }
+
     Object.entries(netConfig.contracts).forEach(([contractName, address]) => {
         if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
             error(`Invalid address for ${contractName} on ${netName}: ${address}`);
         }
-        
+
         // Custom Check: MockUSDC on BaseSepolia
         if (netName === 'baseSepolia' && contractName === 'MockUSDC') {
             // log(colors.yellow, `Checking MockUSDC... OK`);
@@ -65,7 +72,7 @@ markets.markets.forEach((m, idx) => {
 
     if (!m.name) error(`Market ${m.id} missing "name"`);
     if (!m.outcomes || m.outcomes.length !== 2) error(`Market ${m.id} must have exactly 2 outcomes (YES/NO)`);
-    
+
     // Check images
     if (m.image && !m.image.startsWith('/')) error(`Market ${m.id} image should start with /`);
 });

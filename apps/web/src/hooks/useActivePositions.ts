@@ -3,7 +3,7 @@ import { formatUnits } from 'viem';
 import { TRADER_VAULT_V4_ABI, MARKET_V4_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
-import { useLaunchpadMarkets } from './v5/useLaunchpadMarkets';
+import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 import { useMemo } from 'react';
 
 export interface ActivePosition {

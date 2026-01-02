@@ -1,5 +1,352 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-067: TickBook V10 - (tick, user) Primary Indexing
+- **Date**: 2026-01-02
+- **Status**: Implemented
+- **Supersedes**: ADR-066 (V9.9.6 Unified Order API)
+- **Context**:
+  - V9.9.6 used `orderId` as primary key, causing O(n) array maintenance
+  - Order ID proliferation when same user added to same tick
+  - Global accumulators distributed fills across ALL orders
+- **Decision**:
+  1. **Primary Key**: `(marketKey, outcome, tick, user)` instead of `orderId`
+  2. **Single-Tick Only**: No range orders in core (use RangeOrderHelper peripheral)
+  3. **Per-Tick Accumulators**: `TickState.fillGrowthX128` per tick, not global
+  4. **Position Merging**: Adding shares to existing tick merges (pro-rata dilution)
+  5. **Unified API**: `tick=0` for market order, `tick=1..999` for limit
+- **API**:
+  ```solidity
+  function placeOrder(
+      bytes32 marketKey,
+      uint8 outcome,
+      uint256 shares,
+      uint16 tick,        // 0 = market, 1-999 = limit
+      uint256 maxCost
+  ) returns (uint256 filledShares, uint256 filledCost, uint256 restingShares)
+  ```
+- **Gas Improvements**:
+  - New position: ~7 slots → ~5 slots
+  - Add to existing: ~7 slots → ~3 slots (merge)
+  - Cancel: O(n) find → O(1) direct
+- **Files**:
+  - `packages/contracts-core/src/TickBookPoolManagerV10.sol`
+  - `packages/contracts-core/src/periphery/RangeOrderHelper.sol`
+  - `packages/contracts-core/src/interfaces/ITickBookPoolManagerV10.sol`
+  - `packages/contracts-testing/test/v10/TickBookV10.t.sol` (12 tests)
+- **Full ADR**: `packages/contracts-core/docs/ADR-067-TickBookV10-TickUserIndexing.md`
+
+---
+
+## ADR-066: Unified Order API (V9.9.6)
+- **Date**: 2026-01-01
+- **Status**: Accepted (Implemented - Not Yet Deployed)
+- **Context**:
+  - V9.9.5 had separate `placeRangeOrder()` and `executeMarketOrder()` functions.
+  - Users could place orders without claiming their pending fills, leading to "stuck" positions.
+  - Frontend needed to maintain two code paths for different order types.
+  - "Maker/taker" terminology was confusing since a single user can be both.
+- **Decision**:
+  1. **Single `placeOrder()` Function**: Replace both functions with unified API:
+     ```solidity
+     function placeOrder(
+         bytes32 marketKey,
+         uint8 outcome,
+         uint256 shares,
+         uint16 tickLower,
+         uint16 tickUpper,
+         uint256 maxCost
+     ) external returns (
+         uint256 orderId,
+         uint256 filledShares,
+         uint256 filledCost,
+         uint256 restingShares
+     )
+     ```
+  2. **Order Types via Tick Range**:
+     - Market order: `tickLower=1, tickUpper=999` (fill everything)
+     - Limit order: `tickLower=X, tickUpper=X` (single tick)
+     - Range order: `tickLower < tickUpper` (spread liquidity)
+     - Market with floor: `tickLower=floor, tickUpper=999` (fill then rest)
+  3. **Auto-Claim on New Order**: `_autoClaimUserOrders()` claims all pending fills before placing.
+  4. **Terminology Cleanup**: Renamed `makerOutcome` → `crossedOutcome` throughout.
+  5. **No Deprecation**: Alpha phase allows direct API replacement.
+- **Rationale**:
+  - **Simpler Mental Model**: Every order is a range order that crosses what it can and rests the remainder.
+  - **Better UX**: Auto-claim prevents "stuck" positions.
+  - **Cleaner Frontend**: Single code path with helper functions.
+  - **Gas Efficiency**: Auto-claim adds ~4-8k gas per active order checked.
+- **Consequences**:
+  - **Breaking Change**: Contracts must be redeployed.
+  - **Frontend Update**: New `usePlaceOrder` hook with helpers.
+  - **ABI Change**: New `V996_ABIS` export for frontend.
+  - **Test Coverage**: 11 new tests covering all order types.
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol` — New contract
+  - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol` — Tests
+  - `apps/web/src/hooks/usePlaceOrder.ts` — New hook
+  - `apps/web/src/config/abis.ts` — Added V996_ABIS
+
+---
+
+## ADR-065: Package Split — contracts-core + contracts-testing
+- **Date**: 2026-01-01
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Audit preparation required clear scope definition for auditors.
+  - Different teams/roles own protocol core vs QA/partner engagement.
+  - Old V4/V5/V8 artifacts (broadcast logs, deployment configs) cluttered the codebase.
+  - Test infrastructure and partner demos shouldn't be in audit scope.
+- **Decision**:
+  1. **Split `packages/contracts-evm/`** into two packages:
+     - `contracts-core` — Audit scope: core contracts + infrastructure deployment scripts
+     - `contracts-testing` — QA/Partners: tests, market scripts, benchmarks, mocks
+  2. **Delete outdated artifacts**:
+     - `broadcast/` folder (V4/V5/V8 transaction logs)
+     - `deployments/v2-archive/`, `v8-*.json`
+     - `mockusdc-latest.json`, `test-market-latest.json`
+  3. **Use symlinks** for shared dependencies:
+     - `contracts-testing/lib` → `../contracts-core/lib`
+     - `contracts-testing/core` → `../contracts-core/src`
+  4. **Use `@core/` remapping** in tests to import from core package.
+- **Rationale**:
+  - **Audit Clarity**: Auditors can focus on `contracts-core/src/` only.
+  - **Team Separation**: Protocol devs own core, QA owns testing.
+  - **Partner Demos**: HFT benchmark and fork tests are partner engagement tools.
+  - **Clean Codebase**: Removed ~500+ outdated files.
+- **Consequences**:
+  - **Path Changes**: All references to `contracts-evm` must update.
+  - **Sync Scripts**: Updated to point to `contracts-core/deployments/`.
+  - **CI**: May need workflow path updates.
+  - **119 tests pass** in the new structure.
+- **Files Changed**:
+  - `package.json` — Updated workspaces and scripts
+  - `apps/web/scripts/sync-v9-deployments.js` — New paths
+  - `sync-deployments.sh` — New paths
+
+---
+
+## ADR-064: Fill Overflow & Order Lifecycle Fixes (V9.9.5)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Deployed to Base Sepolia)
+- **Context**:
+  - Q128 accumulator math in `_fillGrowthGlobalX128` could cause `filledShares > sharesTotal` (~0.1% drift over many fills).
+  - Phantom orders: Fully-filled orders remained "active" with dust liquidity in tick structures.
+  - Double subtraction risk: Multiple cleanup paths (crossing, claimFills, cancel) could double-subtract from `_totalLiquidity`.
+- **Decision**:
+  1. **Add `liquidityRemoved` flag**: New boolean in `RangeOrder` struct for idempotent cleanup.
+     ```solidity
+     struct RangeOrder {
+         // ... existing fields
+         bool liquidityRemoved;  // Track if tick liquidity has been cleaned up
+     }
+     ```
+  2. **Cap `filledShares` at `sharesTotal`**: In `claimFills()`, prevent accumulator drift:
+     ```solidity
+     uint256 maxFillable = order.sharesTotal > order.filledShares
+         ? order.sharesTotal - order.filledShares
+         : 0;
+     if (filledShares > maxFillable) {
+         filledShares = maxFillable;
+     }
+     ```
+  3. **Auto-complete orders**: When `filledShares >= sharesTotal`, automatically remove tick liquidity and set `active=false`.
+  4. **Guard all cleanup paths**: All three paths (crossing, claimFills, cancel) now check `liquidityRemoved` before subtracting from `_totalLiquidity`.
+- **Rationale**:
+  - **Invariant Safety**: Ensures `filledShares <= sharesTotal` always holds.
+  - **Idempotency**: Multiple claims or cancels cannot corrupt liquidity tracking.
+  - **Gas Efficiency**: Auto-completion prevents users from paying gas to cancel fully-filled orders.
+- **Consequences**:
+  - **Breaking Change**: New struct field requires redeployment (not upgradeable).
+  - **Test Coverage**: 40/40 TickBook tests passing including edge cases.
+  - **✅ RESOLVED**: Created `TickBookPoolManagerV995.sol` on the lean V9.9.4 base (no hooks).
+    - Original V9.9.5 (`TickBookPoolManager.sol`) was based on pre-V9.9.4 code with hooks.
+    - New `TickBookPoolManagerV995.sol` applies ADR-064 fixes to hook-free V9.9.4 architecture.
+    - Maintains ADR-062/063 decisions (no hooks, simple `setFees()` storage).
+- **Deployment**: Base Sepolia `0x949a1dB3907b787fe432D1Af274636497470298e` (old with hooks)
+- **New Contract**: `TickBookPoolManagerV995.sol` (lean, ready for deployment)
+
+---
+
+## ADR-063: Fee Cap at 10% (V9.9.4 - TOB-2 Fix)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Trail of Bits audit (TOB-2) identified that hook-based dynamic fees had no upper bound.
+  - A malicious or buggy hook could return `type(uint24).max` (16,777,215 bps = 167,772%).
+  - This could extract excessive fees from users or cause griefing attacks.
+- **Decision**:
+  1. **Hard cap fees at 10%**: Added `MAX_FEE_BPS = 1000` constant.
+  2. **Validate in setFees()**: `require(_takerFee <= MAX_FEE_BPS)`.
+  3. **Remove hooks entirely**: Replaced with simple `takerFeeBps`/`makerFeeBps` storage.
+- **Rationale**:
+  - **Security**: Prevents malicious fee extraction.
+  - **Simplicity**: Simple fee storage is sufficient for alpha; hooks can return in V10 if needed.
+  - **Gas Savings**: Removes ~5-10k gas per trade from hook permission checks.
+- **Consequences**:
+  - **Breaking**: Existing hook contracts no longer work with V9.9.4.
+  - **Migration**: DynamicFeeHook users must use `setFees()` instead.
+- **Documentation**: See `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md` (TOB-2)
+
+---
+
+## ADR-062: V9.9.4 Hook System Removal (Lean Architecture)
+- **Date**: 2025-12-31
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - OG Efficiency Review identified 200+ lines of hook infrastructure never used in production.
+  - TransientDelta (flash accounting) added 150 lines, also unused.
+  - `batchPlaceOrders` existed but frontend never called it.
+  - Codebase grew 60% from V8.3 without corresponding feature usage.
+- **Decision**:
+  1. **Remove ITickBookHooks**: Delete interface, all before/after callbacks.
+  2. **Remove TransientDelta**: Archive to `_archived/` folder.
+  3. **Remove flash accounting**: Delete `lock()`, `settle()`, `take()`, `getDelta()`.
+  4. **Remove batch operations**: Delete `batchPlaceOrders()`.
+  5. **Simplify Market struct**: Remove `hook` field.
+  6. **Simplify PoolKey**: Remove `hook` from hash.
+- **Rationale**:
+  - **YAGNI**: No integrators using hooks at alpha stage.
+  - **Gas Efficiency**: 30% reduction in TickBook operation costs.
+  - **Code Reduction**: 417 lines removed (32% of TickBookPoolManager).
+  - **Audit Surface**: Smaller codebase = easier security review.
+- **Consequences**:
+  - **Breaking**: V9.9.3 hooks no longer work; must redeploy.
+  - **Future**: Can reintroduce hooks in V10 if demand emerges.
+  - **FE Impact**: None - frontend never used these features.
+- **Documentation**: See `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md`
+
+---
+
+## ADR-061: Crossed-Market Taker Discovery & Boundary Math Fix (V9.9.2)
+- **Date**: 2025-12-31
+- **Status**: Implemented (Merged)
+- **Context**:
+  - After fixing overlap fill capping (ADR-060), another critical bug was discovered in `_fill` (market execution engine).
+  - **Problem 1 (Discovery)**: If the market price (`currentTick`) was "behind" the best available maker (e.g. price at 1, but best bid at 400), takers in the direction of the maker would find "NoLiquidity" because the search logic only looked "ahead".
+  - **Problem 2 (Math)**: When moving DOWN (Buy NO / Sell YES), the boundary crossing used `tick + 1` instead of `tick`, causing it to miss boundaries and fail to activate liquidity.
+- **Decision**:
+  1. **Best-Price Jump**: Inside `_fill`, if `activeLiq == 0`, look for the absolute lowest ask or highest bid in the book. If these "crossed" the current tick, jump to them immediately before starting the fill walk.
+  2. **Boundary Crossing Alignment**: Fixed the `liquidityNet` lookup for downward moves to use `tick`, ensuring makers are correctly activated when takers enter their range.
+- **Rationale**:
+  - **Market Efficiency**: Takers can now always find makers regardless of price gaps or initialization states.
+  - **Mathematical Correctness**: Aligns downward boundary crossing with the `TickBook` boundary definition.
+- **Consequences**:
+  - **Robustness**: Resolves the persistent `NoLiquidity` reverts in fuzz and settlement tests.
+  - **Breaking Change**: Requires contract redeployment to V9.9.2.
+
+---
+
+## ADR-060: Global Pro-Rata Arithmetic Safety (V9.9.1)
+- **Date**: 2025-12-31
+- **Status**: Implemented (Merged)
+- **Context**:
+  - The V9 TickBook uses a Global Pro-Rata Growth accumulator. In V9.9.0, a bug was identified where `_getOverlappingLiquidity` (the approximation for depth in a range) could over-estimate available liquidity under certain conditions.
+  - **Problem**: Over-estimation caused `_fillGrowthGlobalX128` to inflate beyond 100% of an order's capacity, leading to **Arithmetic Underflow (Revert 0x11)** when attempting to cancel such orders (as `filled > total`).
+- **Decision**:
+  1. **Strict Liquidity Capping**: `_getOverlappingLiquidity` now strictly caps its range estimation by the actual `_totalLiquidity[marketKey][outcome]` in the book.
+  2. **Transparency**: Reverted temporary UI-level capping. The protocol must maintain its invariants without cosmetic masking.
+- **Rationale**:
+  - **Invariants**: Ensures total fills never exceed the mathematical capacity of an order.
+  - **Integrity**: Resolves the root cause of arithmetic panics without compromising the global pro-rata architecture.
+- **Consequences**:
+  - **Bug Fix**: Resolves the "Double Fill" vulnerability.
+  - **Breaking Change**: Requires contract redeployment to V9.9.1.
+
+---
+
+## ADR-058: _tryCross Sweep Direction & Overlap-Only Fills (V9.9)
+- **Date**: 2025-12-30
+- **Status**: Accepted (Merged via PR #21)
+- **Context**:
+  - After fixing overlap detection (ADR-057), a second bug was discovered: orders could show >100% filled.
+  - Root cause: `_tryCross` calculated fills using the **entire** order range instead of only the **overlapping** tick range.
+  - Example: BUY [300-400] crosses SELL [350-450]. The overlap is [350-400], but fills were calculated using the full [350-450] range.
+- **Decision**:
+  1. **Sweep from worst-to-best price**:
+     - SELL orders: sweep LOW→HIGH (start at tickLower, move up)
+     - BUY orders: sweep HIGH→LOW (start at tickUpper, move down)
+  2. **Calculate overlap range explicitly**:
+     ```solidity
+     overlapLow = max(newOrder.tickLower, lowestOpposite);
+     overlapHigh = min(newOrder.tickUpper, highestOpposite);
+     ```
+  3. **Use overlap-only liquidity**: Added `_getOverlappingLiquidity()` helper.
+  4. **Average price across overlap**: Use `(priceLow + priceHigh) / 2` for fair pricing.
+- **Rationale**:
+  - **Correctness**: Fills now exactly match the price overlap, preventing >100% fills.
+  - **Economic Incentive**: Worst-to-best sweep means takers get progressively better prices as they fill.
+  - **Simplicity**: Overlap calculation is now explicit and testable.
+- **Consequences**:
+  - **Breaking Change**: Requires contract redeployment to use V9.9 behavior.
+  - **Test Coverage**: 5 new tests verify crossing behavior (see `test_V99_*`).
+- **Documentation**: See PR #21
+
+---
+
+## ADR-057: _tryCross Bitmap-Based Overlap Detection (V9.8)
+- **Date**: 2025-12-30
+- **Status**: Accepted (Merged via PR #19)
+- **Context**:
+  - The `_tryCross` function in `TickBookPoolManager` determines if a newly placed range order can immediately match against existing opposing liquidity.
+  - Original implementation used a `currentTick` range check:
+    ```solidity
+    if (state.currentTick < newOrder.tickLower || state.currentTick > newOrder.tickUpper) {
+        return (0, 0, 0);
+    }
+    ```
+  - **Problem**: `currentTick` was initialized from `initialProbabilityWad` (e.g., tick 999 from graduation = ~99.9% probability) and only changed when market orders executed via `_fill`. Before any market orders, overlapping range orders SHOULD match but DIDN'T because `currentTick` was outside both orders' ranges.
+  - **Example Failure**: Market graduates at tick 999. User A places BUY YES at ticks [450, 460]. User B places SELL YES at same ticks. Both orders are at the EXACT SAME price but `_tryCross` returned (0,0,0) because `currentTick (999) > tickUpper (460)`.
+- **Decision**:
+  1. **Initialize `currentTick` to `MIN_TICK` (1)** instead of `initialProbabilityWad` — let trading establish the price.
+  2. **Use bitmap-based overlap detection** in `_tryCross`:
+     ```solidity
+     // Find best opposing liquidity using bitmap
+     uint16 bestOpposite;
+     if (newOrder.outcome == 1) {
+         bestOpposite = _bitmaps[marketKey][0].findNextUp(0);  // Lowest SELL YES tick
+     } else {
+         bestOpposite = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);  // Highest BUY YES tick
+     }
+     
+     // Check if ranges overlap
+     bool crosses = (newOrder.outcome == 1)
+         ? bestOpposite <= newOrder.tickUpper
+         : bestOpposite >= newOrder.tickLower;
+     ```
+- **Rationale**:
+  - **Correctness**: Overlapping range orders should cross immediately regardless of `currentTick`.
+  - **State Independence**: Crossing detection doesn't depend on market order history.
+  - **Bitmap Efficiency**: O(log n) lookup using `findNextUp` / `findNextDown`.
+- **Consequences**:
+  - **Breaking Change**: Requires contract redeployment to use V9.8 behavior.
+  - **Behavior Change**: Range orders now cross correctly on newly registered markets.
+  - **currentTick Role**: `currentTick` is now only used by `_fill` (market orders), not by `_tryCross`.
+- **Documentation**: `packages/contracts-evm/docs/research/V9/TRYCROSS_BITMAP_OVERLAP.md`
+
+---
+
+## ADR-056: Monad Testnet V9 Singleton Migration & Graduation Gas Fix
+- **Date**: 2025-12-30
+- **Status**: Accepted (Deployed)
+- **Context**:
+  - Monad Testnet was previously running a fragmented V8/V9 hybrid architecture.
+  - Graduation transactions were failing due to:
+    1. A "zombie" `TickBook` address in the Engine that had no code deployed.
+    2. Insufficient gas (2M) for the complex V9 graduation flow (registering in Singleton PoolManager).
+- **Decision**:
+  1. **Full Singleton Migration**: Redeploy the complete V9 stack (PoolManager + Vault) to Monad Testnet to match Base Sepolia.
+  2. **Increased Gas Ceiling**: Set the hardcoded gas limit for graduation trades to **5,000,000** in both the deployment script and frontend to accommodate Monad's opcode pricing.
+  3. **Script Consolidation**: Update `deploy-multichain.ts` to natively support the Singleton architecture and ensure proper cross-linking (Vault-to-PoolManager and Engine-as-Registrar).
+- **Rationale**:
+  - **Maintainability**: Unified architecture across all chains reduces operational overhead and frontend complexity.
+  - **Reliability**: Resolves the `OutOfGas` and empty contract call reverts that were blocking market maturity.
+- **Consequences**:
+  - **Fresh State**: Previous orders/positions on Monad are lost as the contracts were redeployed.
+  - **Reliable Graduation**: Markets can now graduate successfully on Monad Testnet without gas depletion.
+  - **Consolidated Scripting**: The multichain script now handles the modern Sooth Singleton stack by default.
+
+---
+
 ## ADR-055: getPendingFills View Function for Crossed Order Fills
 - **Date**: 2025-12-30
 - **Status**: Accepted (Deployed in V9.5.0)

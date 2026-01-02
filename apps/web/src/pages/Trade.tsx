@@ -3,20 +3,34 @@
  * 
  * Simple, approachable trading for retail users expressing opinions or hedging risk.
  * Features: Quick trade buttons, large probability display, educational tooltips
+ * 
+ * V9.9.6: Now uses on-chain market discovery via useOnChainMarkets hook
  */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { SimpleTradingPanel, MarketHeader, GraduationProgress } from '../components/features/v8';
-import { MarketStats } from '../components/features/v8/MarketStats';
-import { LPHolders } from '../components/features/v8/LPHolders';
-import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks/v8';
+import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features/v8';
+import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
+import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
+import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';
+
+// Type for static market config (for UI metadata fallback)
+interface StaticMarket {
+  id: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  description?: string;
+  category?: string;
+  imageUrl?: string | null;
+}
+const staticMarkets = (marketsConfig.markets || []) as StaticMarket[];
 
 const { trade: content } = uiContent;
 
@@ -30,7 +44,12 @@ const CATEGORIES = [
 
 // Market chip for horizontal scroll
 interface MarketChipProps {
-  market: typeof marketsConfig.markets[0];
+  market: {
+    contractAddress: string;
+    name: string;
+    symbol: string;
+    category?: string;
+  };
   isSelected: boolean;
   onSelect: () => void;
 }
@@ -95,34 +114,53 @@ export const Trade = () => {
   // Scroll ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Filter V8 markets for current chain
-  const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m =>
-      m.version.startsWith('v') && m.chainId === chainId
-    );
-  }, [chainId]);
+  // V9.9.6: On-chain market discovery (shows ALL markets, not just graduated)
+  const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
+
+  // Merge on-chain markets with static config for UI metadata
+  const allMarkets = useMemo(() => {
+    return onChainMarkets.map(m => {
+      // Try to find UI metadata from static config
+      const staticMarket = staticMarkets.find(
+        s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
+      );
+
+      return {
+        contractAddress: m.address,
+        id: staticMarket?.id || m.address,
+        name: staticMarket?.name || m.name || 'Unknown Market',
+        symbol: staticMarket?.symbol || m.symbol || '???',
+        category: (staticMarket as any)?.category || 'other',
+        description: staticMarket?.description,
+        imageUrl: staticMarket?.imageUrl,
+        isGraduated: m.isGraduated,
+        creator: m.creator,
+        createdAt: m.createdAt,
+      };
+    });
+  }, [onChainMarkets]);
 
   // Apply search and category filters
   const filteredMarkets = useMemo(() => {
-    return v8Markets.filter(m => {
+    return allMarkets.filter(m => {
       const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.symbol.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = category === 'all' ||
-        (m as any).category?.toLowerCase() === category.toLowerCase();
+        m.category?.toLowerCase() === category.toLowerCase();
       return matchesSearch && matchesCategory;
     });
-  }, [v8Markets, search, category]);
+  }, [allMarkets, search, category]);
 
   // Get category counts based on actual market categories
   const categoriesWithCounts = useMemo(() => {
     return CATEGORIES.map(cat => ({
       ...cat,
       count: cat.id === 'all'
-        ? v8Markets.length
-        : v8Markets.filter(m => (m as any).category?.toLowerCase() === cat.id.toLowerCase()).length
+        ? allMarkets.length
+        : allMarkets.filter(m => m.category?.toLowerCase() === cat.id.toLowerCase()).length
     }));
-  }, [v8Markets]);
+  }, [allMarkets]);
 
   // Handle URL-based market selection or auto-select first market
   useEffect(() => {
@@ -145,7 +183,7 @@ export const Trade = () => {
   const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
-  const handleSelectMarket = (market: typeof v8Markets[0]) => {
+  const handleSelectMarket = (market: typeof allMarkets[0]) => {
     setSelectedMarketAddress(market.contractAddress);
   };
 
@@ -174,7 +212,12 @@ export const Trade = () => {
       />
 
       {/* Horizontal Market Scroll - matches Pro page layout */}
-      {filteredMarkets.length === 0 ? (
+      {isLoadingMarkets ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-cyan-500 animate-spin" />
+          <span className="ml-2 text-slate-400">Discovering markets...</span>
+        </div>
+      ) : filteredMarkets.length === 0 ? (
         <div className="text-center py-8 text-slate-500">
           <p className="text-sm">No markets found</p>
         </div>
@@ -196,9 +239,9 @@ export const Trade = () => {
           >
             {filteredMarkets.map(market => (
               <MarketChip
-                key={market.id}
+                key={market.contractAddress}
                 market={market}
-                isSelected={selectedMarket?.id === market.id}
+                isSelected={selectedMarket?.contractAddress === market.contractAddress}
                 onSelect={() => handleSelectMarket(market)}
               />
             ))}
@@ -219,88 +262,19 @@ export const Trade = () => {
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
           {/* Left Column: Trading Panel (60%) */}
           <div className="lg:col-span-6 space-y-4">
-            {/* Market Header Card */}
-            <Card className="p-4">
-              {/* Row 1: Title + Badges */}
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-lg font-bold text-white">{selectedMarket.name}</h2>
-                {/* Top Right Badges */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Deadline Badge */}
-                  <div className="px-2 py-0.5 rounded text-xs font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {selectedMarket.deadline ? new Date(selectedMarket.deadline * 1000).toLocaleDateString() : 'Open-end'}
-                  </div>
-                  {/* Status Badge - Graduated or Bonding */}
-                  {launchpad?.isGraduated ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Graduated
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                      Bonding
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* Row 2: Description (full width) */}
-              <p className="text-sm text-slate-400 mt-2">{selectedMarket.description}</p>
-              {/* Row 3: Contract Addresses (full width) */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
-                {/* Market Address */}
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-600">Market:</span>
-                  <span className="font-mono text-slate-500">
-                    {selectedMarket.contractAddress.slice(0, 6)}...{selectedMarket.contractAddress.slice(-4)}
-                  </span>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(selectedMarket.contractAddress)}
-                    className="text-slate-600 hover:text-slate-400 transition-colors"
-                    title="Copy market address"
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                </div>
-                {/* Adjudicator Address */}
-                {truth?.adjudicator && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-600">Adjudicator:</span>
-                    <span className="font-mono text-slate-500">
-                      {truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(truth.adjudicator)}
-                      className="text-slate-600 hover:text-slate-400 transition-colors"
-                      title="Copy adjudicator address"
-                    >
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                {/* Guardian Address */}
-                {truth?.guardian && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-600">Guardian:</span>
-                    <span className="font-mono text-slate-500">
-                      {truth.guardian.slice(0, 6)}...{truth.guardian.slice(-4)}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(truth.guardian)}
-                      className="text-slate-600 hover:text-slate-400 transition-colors"
-                      title="Copy guardian address"
-                    >
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </Card>
+            {/* Premium Market Header */}
+            <MarketDetailHeader
+              name={selectedMarket.name}
+              description={selectedMarket.description}
+              symbol={selectedMarket.symbol}
+              address={selectedMarket.contractAddress}
+              creator={truth?.creator || selectedMarket.creator || '0x0'}
+              adjudicator={truth?.adjudicator}
+              deadline={truth?.deadline}
+              isGraduated={launchpad?.isGraduated || false}
+              isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
+              isLive={!truth?.isSettled}
+            />
 
             {/* Trading Panel - wrapped in Card for consistent styling */}
             <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">

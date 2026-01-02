@@ -1,0 +1,30 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+script = "script"
+solc_version = "0.8.30"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+remappings = ["prb-math/=lib/prb-math/src/"]
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+[rpc_endpoints]
+baseSepolia = "https://sepolia.base.org"
+megaethMainnet = "https://mainnet.megaeth.com/rpc?vip=1&u=Sooth%20%3C%3E%20MegaETH&v=5184000&s=mafia&verify=1766108722-bqZLKPz54oatesxVj16fdJl6kRxh%2Bh1c3AsW%2B446pks%3D"
+megaethTestnet = "https://timothy.megaeth.com/rpc"
+monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/"
+bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+arcTestnet = "https://rpc.testnet.arc.network"
+
+[profile.megaeth]
+gas_price = 100000000
+
+[profile.monad]
+# Standard EIP-1559 gas settings
+
+[profile.arc]
+# Arc requires minFeePerGas >= 160 Gwei
+# Using 200 Gwei (200_000_000_000 wei) for safety margin
+gas_price = 200000000000

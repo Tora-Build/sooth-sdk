@@ -1,1 +1,1 @@
-../../.agent/workflows/researcher.md
+../../.claude/commands/researcher.md

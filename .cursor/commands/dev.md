@@ -1,1 +1,1 @@
-../../.agent/workflows/dev.md
+../../.claude/commands/dev.md
