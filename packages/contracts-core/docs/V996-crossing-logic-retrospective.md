@@ -64,7 +64,7 @@ When `currentTick = 999` (after first crossing), orders at ticks [194, 327] don'
 
 ### Impact
 
-`_getOverlappingLiquidity()` at line 940-942:
+`_getOverlappingLiquidity()` at line 939+:
 ```solidity
 if (activeLiq > 0) {
     uint256 rangeLiq = uint256(activeLiq) * numTicks;
@@ -78,9 +78,9 @@ With `activeLiq = 0`, it falls back to `totalLiq`. BUT if `totalLiq` is also 0 (
 ### Fix (fix8)
 
 The fallback to `totalLiq` handles this, BUT we need to ensure `_totalLiquidity` is not being over-decremented. Check for underflows in:
-- Line 467: `_totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;`
+- Line 467: `_safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);`
 - Line 569: same pattern
-- Line 898: same pattern
+- Line 907: same pattern
 
 **Add guards** to prevent underflow:
 ```solidity
@@ -192,7 +192,7 @@ function _safeSubTotalLiquidity(
 
 | Bug | Status | Notes |
 |-----|--------|-------|
-| Bitmap direction | ✅ Fixed in code | `findNextDown(MAX_TICK + 1)` at line 828 |
+| Bitmap direction | ✅ Fixed in code | `findNextDown(MAX_TICK + 1)` at line 837 (also used elsewhere e.g. line 626/857) |
 | _totalLiquidity underflow | ✅ Fixed in code | `_safeSubTotalLiquidity()` at lines 467, 569, 907 |
 | activeLiquidity design | ⚠️ Mitigated | Falls back to `totalLiq`, safe with underflow guard |
 | External reverts | 🔍 Pending test | Will validate after deployment |
@@ -214,3 +214,12 @@ function _safeSubTotalLiquidity(
 - Contract: `packages/contracts-core/src/TickBookPoolManagerV996.sol`
 - This Doc: `packages/contracts-core/docs/V996-crossing-logic-retrospective.md`
 - Changelog: See `CHANGELOG.md` under V9.9.6-fix8
+
+---
+
+## Last Session Notes (review)
+
+- **Bug 1 clarity**: add/keep a short reminder of tick→price monotonicity for YES vs NO so the “highest NO tick = cheapest YES seller” reasoning is unambiguous.
+- **Bug 2 narrative**: the key invariant break is likely “`totalLiq` drifted to 0 while orders remained active”; framing this as a normal “after orders cross and are removed” scenario makes the failure mode harder to reason about.
+- **Safety clamp tradeoff**: clamping `_totalLiquidity` to 0 prevents underflow reverts (good hotfix) but can also hide accounting drift; consider adding invariant tests and/or debug events to detect unexpected drift.
+- **Bug 3 wording**: the long hex blobs are typically revert data (often from external ERC20/vault calls), not a “revert hash”; prefer “revert data” and decode via trace tooling when possible.
