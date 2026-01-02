@@ -140,18 +140,18 @@ export const allowedChains: AllowedChain[] = [
   // Arc Testnet - Circle-backed chain with native USDC
   // Docs: https://docs.arc.network/arc/references/connect-to-arc
   {
-    id: 5041490,
+    id: 5042002,
     type: 'evm',
     name: 'Arc Testnet',
     displayName: 'Arc',
     shortName: 'Arc',
-    rpcUrl: 'https://rpc.testnet.arc.network',
+    rpcUrl: 'https://rpc.quicknode.testnet.arc.network',
     explorerUrl: 'https://testnet.arcscan.app',
     icon: '🔶',
     nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
+      name: 'USDC',
+      symbol: 'USDC',
+      decimals: 6,
     },
   },
   // MegaETH Testnet - HIDDEN (RPC rate limiting)
@@ -210,15 +210,14 @@ export const monadTestnet = defineChain({
 
 // Define Arc Testnet using viem
 // Docs: https://docs.arc.network/arc/references/connect-to-arc
-// Circle-backed chain with native USDC at 0x3600000000000000000000000000000000000000
+// Circle-backed chain with native USDC as gas token
 export const arcTestnet = defineChain({
-  id: 5041490,
+  id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
       http: [
-        'https://rpc.testnet.arc.network',
         'https://rpc.quicknode.testnet.arc.network',
         'https://rpc.drpc.testnet.arc.network',
         'https://rpc.blockdaemon.testnet.arc.network',
@@ -264,7 +263,7 @@ export function getRefetchInterval(chainId: number): number {
       return 8_000;
     case 10143: // Monad Testnet - rate limited (25 rps via QuickNode)
       return 5_000;
-    case 5041490: // Arc Testnet - multiple RPC providers
+    case 5042002: // Arc Testnet - multiple RPC providers
       return 4_000;
     case 84532: // Base Sepolia - reliable public RPC
       return 4_000;
@@ -282,7 +281,7 @@ export function getStaleTime(chainId: number): number {
       return 5_000;
     case 10143: // Monad Testnet
       return 3_000;
-    case 5041490: // Arc Testnet
+    case 5042002: // Arc Testnet
       return 2_000;
     case 84532: // Base Sepolia
       return 2_000;
