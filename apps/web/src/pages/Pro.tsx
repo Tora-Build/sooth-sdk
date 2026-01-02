@@ -16,6 +16,8 @@ import {
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { MarketHeader } from '../components/features/v8/MarketHeader';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
@@ -1637,122 +1639,72 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         </div>
       )}
 
-      {/* Embedded: Compact header with prices */}
+      {/* Embedded Mode: Market Summary Card with prices (like Trade page's MarketDetailHeader) */}
       {embedded && (
-        <div className="flex items-center gap-3">
-          {/* TickBook Price (Primary) - larger, amber */}
-          <div className="text-center p-2 rounded-lg bg-slate-950">
-            <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-            <div className="text-xl font-mono font-bold text-amber-400">
-              {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
-              {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
-            </div>
-          </div>
-          {/* AMM Price (Secondary) - smaller, grey */}
-          <div className="text-center p-2 rounded-lg bg-slate-950">
-            <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
-            <div className="text-base font-mono font-medium text-slate-500">
-              {(ammProb * 100).toFixed(1)}%
-            </div>
-          </div>
-          {/* Diff indicator - always show */}
-          <div className={cn(
-            "text-center p-2 rounded-lg",
-            hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
-          )}>
-            <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
-            <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
-              {arbSpread.toFixed(1)}%
-            </div>
-          </div>
-          <div className="ml-auto">
-            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Vault Bar */}
-      <div className="rounded-xl bg-slate-900/50 border border-slate-800 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-amber-500" />
-              <span className="text-sm text-slate-400">Vault</span>
-            </div>
-            <div className="flex items-center gap-4 text-sm">
-              <div>
-                <span className="text-slate-500">Wallet:</span>
-                <span className="ml-2 font-mono text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</span>
+        <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
+          <div className="flex items-center justify-between">
+            {/* Market Info */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-lg font-bold text-white">
+                {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
               </div>
               <div>
-                <span className="text-slate-500">In Orders:</span>
-                <span className="ml-2 font-mono text-amber-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Available:</span>
-                <span className="ml-2 font-mono text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
+                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-[9px]">GRADUATED</Badge>
+                </div>
+                <div className="text-sm text-slate-400">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 60)}</div>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={() => setShowVaultPanel(!showVaultPanel)}
-            className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1"
-          >
-            {showVaultPanel ? 'Hide' : 'Manage'} <ChevronDown className={cn("w-4 h-4 transition-transform", showVaultPanel && "rotate-180")} />
-          </button>
-        </div>
-
-        {showVaultPanel && (
-          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="number"
-                placeholder="Amount"
-                value={vaultInput}
-                onChange={(e) => setVaultInput(e.target.value)}
-                className={`w-32 px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
-                  ? 'border-rose-500 focus:border-rose-500'
-                  : 'border-slate-700 focus:border-amber-500'
-                  }`}
-              />
-              <button
-                type="button"
-                onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 hover:text-amber-400"
-              >
-                MAX
+            {/* Price Comparison */}
+            <div className="flex items-center gap-4">
+              {/* Book Price */}
+              <div className="text-center">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Book Price</div>
+                <div className="text-2xl font-mono font-bold text-amber-400 flex items-center gap-1">
+                  {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
+                  {hasArb && <Zap className="w-4 h-4 text-amber-400" />}
+                </div>
+              </div>
+              {/* AMM Price */}
+              <div className="text-center">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">AMM Price</div>
+                <div className="text-lg font-mono text-slate-400">
+                  {(ammProb * 100).toFixed(1)}%
+                </div>
+              </div>
+              {/* Diff */}
+              <div className={cn(
+                "text-center px-3 py-1 rounded-lg",
+                hasArb ? "bg-amber-500/10 border border-amber-500/30" : ""
+              )}>
+                <div className="text-[10px] text-amber-500/70 uppercase tracking-wider font-medium">Diff</div>
+                <div className={cn("text-lg font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
+                  {arbSpread.toFixed(1)}%
+                </div>
+              </div>
+              {/* Refresh */}
+              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
               </button>
             </div>
-            {needsApproval ? (
-              <Button onClick={handleApprove} disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-500 text-white text-sm px-4">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Approve USDC'}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={handleDeposit}
-                  disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4"
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-1" /> Deposit
-                </Button>
-                <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} className="bg-slate-700 hover:bg-slate-600 text-white text-sm px-4">
-                  <ArrowDownRight className="w-4 h-4 mr-1" /> Withdraw
-                </Button>
-              </>
-            )}
           </div>
-        )}
-      </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Market Key Info (collapsible for pro users) */}
+          <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center gap-4 text-[10px] text-slate-500">
+            <span>Market Key: <code className="text-slate-400 font-mono">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code></span>
+            <span>•</span>
+            <span>TruthMarket: <code className="text-slate-400 font-mono">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code></span>
+          </div>
+        </Card>
+      )}
 
-        {/* LEFT: Orderbook Visualization */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* Main Content Grid - 60/40 like Trade page */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+
+        {/* LEFT COLUMN: Liquidity Map + Orders (60%) */}
+        <div className="lg:col-span-6 space-y-4">
           {/* Pixel Liquidity Map */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
@@ -1790,8 +1742,83 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           />
         </div>
 
-        {/* RIGHT: Trading Panel */}
-        <div className="lg:col-span-1">
+        {/* RIGHT COLUMN: Vault Card + Trading Panel (40%) */}
+        <div className="lg:col-span-4 space-y-4">
+
+          {/* Vault Card - Above Trading Panel */}
+          <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-bold text-white">Vault Balance</span>
+              </div>
+              <button
+                onClick={() => setShowVaultPanel(!showVaultPanel)}
+                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+              >
+                {showVaultPanel ? 'Hide' : 'Manage'} <ChevronDown className={cn("w-3 h-3 transition-transform", showVaultPanel && "rotate-180")} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-950/50 rounded-lg p-2 text-center">
+                <div className="text-[9px] text-slate-500 uppercase">Wallet</div>
+                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</div>
+              </div>
+              <div className="bg-slate-950/50 rounded-lg p-2 text-center">
+                <div className="text-[9px] text-slate-500 uppercase">In Orders</div>
+                <div className="font-mono text-sm text-amber-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
+              </div>
+              <div className="bg-slate-950/50 rounded-lg p-2 text-center">
+                <div className="text-[9px] text-slate-500 uppercase">Available</div>
+                <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</div>
+              </div>
+            </div>
+
+            {showVaultPanel && (
+              <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[120px]">
+                  <input
+                    type="number"
+                    placeholder="Amount"
+                    value={vaultInput}
+                    onChange={(e) => setVaultInput(e.target.value)}
+                    className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
+                      ? 'border-rose-500 focus:border-rose-500'
+                      : 'border-slate-700 focus:border-amber-500'
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 hover:text-amber-400"
+                  >
+                    MAX
+                  </button>
+                </div>
+                {needsApproval ? (
+                  <Button onClick={handleApprove} disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3">
+                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      onClick={handleDeposit}
+                      disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3"
+                    >
+                      <ArrowUpRight className="w-3 h-3 mr-1" /> Deposit
+                    </Button>
+                    <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3">
+                      <ArrowDownRight className="w-3 h-3 mr-1" /> Withdraw
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Trading Panel */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
             {/* Primary Toggle: YES / NO - subtle underline style */}
             <div className="flex border-b border-slate-800">
