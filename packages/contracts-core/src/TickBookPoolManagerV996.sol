@@ -370,7 +370,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
 
-        // V9.9.6-fix9: Auto-claim ONLY 100% filled orders (max 5 for gas safety)
+        // V9.9.6-fix9: Auto-claim ONLY 100% filled orders (max 10 for gas safety)
         // Partial fills are NOT claimed automatically - user must call claimFills()
         _autoClaimUserOrders(marketKey, msg.sender);
 
@@ -445,7 +445,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (orderIds.length == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
-        uint256 maxProcess = 10; // V9.9.6-fix9i: Always process up to 10, regardless of array size
+        uint256 maxProcess = 10; // V9.9.6-fix9j: Process up to 10
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
@@ -455,25 +455,23 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
             RangeOrder storage order = _orders[marketKey][orderId];
             
             if (!order.active) {
-                ordersProcessed++; // Count towards limit even if skipped
+                ordersProcessed++;
                 continue;
             }
             
-            // V9.9.6-fix9: Only auto-claim if order is 100% filled
-            // Check pending fills to see if order is complete
-            (uint256 pendingFills, ) = _getPendingFillsInternal(marketKey, orderId);
-            uint256 totalFilled = order.filledShares + pendingFills;
-            
-            if (totalFilled >= order.sharesTotal) {
+            // V9.9.6-fix9j: ONLY check recorded filledShares (O(1))
+            // Skip expensive _getPendingFillsInternal call
+            // Pending fills from crossing are recorded immediately, so this works
+            if (order.filledShares >= order.sharesTotal) {
                 // Order is 100% filled - claim and complete it
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 totalClaimedShares += filled;
                 totalCollateralUsed += used;
             }
-            ordersProcessed++; // Always increment to bound iterations
+            ordersProcessed++;
         }
 
-        if (ordersProcessed > 0) {
+        if (totalClaimedShares > 0) {
             emit AutoClaimExecuted(user, marketKey, ordersProcessed, totalClaimedShares, totalCollateralUsed);
         }
     }
