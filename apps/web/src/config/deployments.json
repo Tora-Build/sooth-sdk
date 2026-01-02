@@ -17,24 +17,24 @@
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-        "Collateralizer": "0x6259eB24d3561A7788f8f0Acf8986e72A1Eea14C",
-        "AMMEngine": "0xdF41848482d6a83bE57B8b03074a6fDBdDdf1838",
-        "TickBookVault": "0x12cb4e21fEE84E0d8a1A7312082220258E1A7872",
-        "TickBookPoolManager": "0x7f45Ec7a61082c4C56FBa940028F14c62f765388",
-        "TickBook": "0x7f45Ec7a61082c4C56FBa940028F14c62f765388",
-        "LaunchpadEngine": "0x95ab25Bf5003B5e3f25CFC7746d7a1328831f6e8"
+        "Collateralizer": "0x795814bd2762fc9c0b762b3f5b797b9a69ac4026",
+        "AMMEngine": "0x7a7c99ecbe34caf62816801746c3c58686c37c7d",
+        "TickBookVault": "0x2ae2b3dd394a12f7556fbd4186db1784bac78421",
+        "TickBookPoolManager": "0xc85c43525dc73a91895e5dbf3ad57d07b42a8179",
+        "TickBook": "0xc85c43525dc73a91895e5dbf3ad57d07b42a8179",
+        "LaunchpadEngine": "0xabff65e48dea8a4773a3a25bf050e771bca71500"
       }
     },
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
         "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-        "Collateralizer": "0x3E264D916eD607fF221EC0192c305F20B54af1Ba",
-        "AMMEngine": "0xC38E6aB1F4f500951dbd8C3823691b8730EBF50C",
-        "TickBookVault": "0x5E99DE20BA84234E003a2ACa58e50c94577fA18A",
-        "TickBookPoolManager": "0x796C5CF7510D7d10662060CB20cecef695C21CeF",
-        "TickBook": "0x796C5CF7510D7d10662060CB20cecef695C21CeF",
-        "LaunchpadEngine": "0x737FBe90F6cBdE85671B627539d4Ee963b5cf17a"
+        "Collateralizer": "0x353baECfC0dEb8DDfDfa75941AA86D94D28BE97E",
+        "AMMEngine": "0x89a75DEe12732eb319917D6aa4245b25c13526FC",
+        "TickBookVault": "0x8d667b0b235FE4d5054532279825d8f6429cBa71",
+        "TickBookPoolManager": "0x851C2D06EEf71796d7686503a42480D15717ba9F",
+        "TickBook": "0x851C2D06EEf71796d7686503a42480D15717ba9F",
+        "LaunchpadEngine": "0xF0612723F1B04842999E5A15Ce870E574D8bDE7E"
       }
     }
   }
