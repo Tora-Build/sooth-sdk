@@ -1494,12 +1494,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         // ============= BUY ORDERS =============
         if (isMarketOrderType) {
           // V9.9.6: Use marketOrder or marketWithFloor
-          const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
-          const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
           const floorCents = useFloorPrice ? Math.round(parseFloat(floorPrice) * 10) : 0;
+
           if (floorCents > 0) {
-            result = await marketWithFloor(outcome, amountBg, floorCents, maxCost);
+            // Floor price set: input is USDC to spend
+            // Pass large shares, let maxCost limit spending
+            const maxSharesWad = parseUnits('1000000000', 18); // 1B shares (effectively unlimited)
+            const maxCost = amountBg; // User's USDC amount is the cap
+            result = await marketWithFloor(outcome, maxSharesWad, floorCents, maxCost);
           } else {
+            // No floor: input is shares directly
+            const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+            const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
             result = await marketOrder(outcome, amountBg, maxCost);
           }
         } else {
@@ -2120,11 +2126,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               )}
 
               {/* Amount Input */}
-              {/* TODO: For market orders, consider USDC-based input with price-estimated shares */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[10px] text-slate-500 uppercase tracking-wider">
-                    Amount (Shares)
+                    {orderType === 'market' && useFloorPrice ? 'Amount (USDC)' : 'Amount (Shares)'}
                   </label>
                   <span className="text-[10px] text-slate-600 font-mono">
                     Max: {parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}
@@ -2137,15 +2142,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-amber-500 focus:outline-none"
                 />
-                {/* Quick amount buttons */}
+                {/* Quick amount buttons - USDC for market+floor, shares otherwise */}
                 <div className="flex gap-2 mt-2">
-                  {[100, 500, 1000].map(a => (
+                  {(orderType === 'market' && useFloorPrice ? [50, 100, 500] : [100, 500, 1000]).map(a => (
                     <button
                       key={a}
                       onClick={() => setAmount(a.toString())}
                       className="flex-1 py-1 text-xs font-mono text-slate-500 hover:text-white bg-slate-900 hover:bg-slate-800 rounded transition-colors"
                     >
-                      {a}
+                      {orderType === 'market' && useFloorPrice ? `$${a}` : a}
                     </button>
                   ))}
                 </div>
