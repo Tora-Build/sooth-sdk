@@ -1,0 +1,18 @@
+{
+    "chainId": 5041490,
+    "chainName": "arcTestnet",
+    "version": "9.9.6-fix6",
+    "timestamp": null,
+    "deployer": null,
+    "contracts": {
+        "USDC": "0x3600000000000000000000000000000000000000",
+        "Collateralizer": null,
+        "AMMEngine": null,
+        "TickBookVault": null,
+        "TickBookPoolManager": null,
+        "TickBook": null,
+        "LaunchpadEngine": null
+    },
+    "markets": [],
+    "notes": "Arc Testnet - Circle-backed chain with native USDC. Requires minFeePerGas >= 160 Gwei. Faucet: https://faucet.circle.com"
+}

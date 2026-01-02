@@ -4,7 +4,48 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V9.9.6 Bug Fixes Summary
+
+| Fix | Issue | Solution | Status |
+|-----|-------|----------|--------|
+| **fix1** | Active liquidity underflow during tick crossing | `_safeSubLiquidity()` helper | ✅ Deployed |
+| **fix2** | Inactive orders causing O(n) gas growth | Swap-and-pop removal via `_removeFromUserOrders()` | ✅ Deployed |
+| **fix3** | Array index out of bounds during removal | Backwards iteration in `_autoClaimUserOrders()` | ✅ Deployed |
+| **fix4** | RPC limits blocking order enumeration | `getAllMarketOrders()` view function | ✅ Deployed |
+| **fix5** | *(skipped)* | — | — |
+| **fix6** | Orders not crossing (raw tick vs effective price) | `YES_tick + NO_tick >= 1000` formula | ✅ Deployed |
+| **fix7** | Fix6 overlap calculation inverted | Corrected to `[sellerPrice, tickUpper]` | ✅ Base Sepolia |
+
+**⚠️ Known Remaining Issue**: `_autoClaimUserOrders()` still O(n) for **active** orders. With 97+ active orders, gas limits are hit. Consider: limit iterations, make optional, or separate manual claim function.
+
 ### Fixed
+- **V9.9.6-fix7: Crossing Overlap Calculation** (2026-01-02):
+  - **Bug**: Fix6's overlap calculation was inverted - calculated `[tickLower, sellerPrice]` instead of `[sellerPrice, tickUpper]`
+  - **Symptom**: Crossing happened at wrong price ranges
+  - **Fix**: Corrected overlap to `[max(tickLower, 1000-lowestSell), tickUpper]` for YES orders
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix6: Crossing Logic Price Inversion** (2026-01-02):
+  - **Bug**: Orders weren't crossing when they should due to comparing raw ticks instead of effective prices
+  - **Symptom**: YES at 44% and NO at 58% (seller accepts 42%) should cross but didn't
+  - **Root Cause**: Checked `NO_tick > YES_tick` but should check `YES_tick + NO_tick >= 1000`
+  - **Fix**: Changed crossing condition to account for price inversion between outcomes
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix4: getAllMarketOrders View Function** (2026-01-02):
+  - **Bug**: Frontend couldn't reliably enumerate all orders due to RPC event log limits
+  - **Symptom**: Liquidity map showed empty or partial orderbook
+  - **Root Cause**: Event-based discovery fails when RPC limits block range
+  - **Fix**: Added `getAllMarketOrders(marketKey)` and `getNextOrderId()` view functions
+  - **Impact**: Requires contract redeployment
+
+- **V9.9.6-fix3: Array Iteration Bug in _autoClaimUserOrders** (2026-01-02):
+  - **Bug**: Forward iteration during swap-and-pop removal skipped elements
+  - **Symptom**: "Array index is out of bounds" error during placeOrder
+  - **Root Cause**: Loop incremented `i` after removing element, skipping swapped element
+  - **Fix**: Changed to backwards iteration (`for (i = len; i > 0; i--)`)
+  - **Impact**: Requires contract redeployment
+
 - **V9.9.6-fix2: User Orders Array Cleanup** (2026-01-02):
   - **Bug**: `_autoClaimUserOrders()` iterated through ALL orders in `_userOrders[]` array, but inactive orders were never removed
   - **Symptom**: After ~27 orders, `placeOrder()` exceeds 2M gas limit with "out of gas" errors
@@ -13,24 +54,24 @@ All notable changes to Sooth Protocol will be documented in this file.
   - **Impact**: Requires contract redeployment
   - **Doc**: `packages/contracts-core/docs/V996-fix2-userorders-cleanup.md`
 
+- **V9.9.6-fix1: Active Liquidity Underflow** (2026-01-01):
+  - **Bug**: `_fill()`, `_updateActiveLiquidity()`, and `_tryCross()` had unsafe type casts that could underflow
+  - **Symptom**: First several trades succeed, then one triggers underflow, corrupting `state.activeLiquidityYes/No`, causing ALL subsequent trades to fail
+  - **Root Cause**: Tick boundary crossing with negative `liquidityNet` could make `activeLiq + delta < 0`
+  - **Fix**: Added `_safeSubLiquidity(uint128 liq, uint128 delta)` helper that clamps result to 0 on underflow
+  - **Impact**: Requires contract redeployment
+
 - **CLI Vault Deposit Decimal Bug** (2026-01-02):
   - **Bug**: `simulate` command divided deposit amount by `10^12`, assuming 6-decimal USDC
   - **Symptom**: Deposits showed success but balance remained 0, orders failed with "insufficient available"
   - **Root Cause**: MockUSDC uses 18 decimals (WAD), not 6
   - **Fix**: Removed incorrect decimal conversion in `market.ts`
 
-- **CRITICAL: V9.9.6 Active Liquidity Underflow** (2026-01-01):
-  - **Bug**: `_fill()` function lines 613, 664, 667 had unsafe type casts `uint128(int128(activeLiq) + delta)` that could underflow when `delta` was negative and larger than `activeLiq`
-  - **Symptom**: First several trades succeed, then one triggers underflow, corrupting `state.activeLiquidityYes/No`, causing ALL subsequent trades to fail with "arithmetic underflow or overflow"
-  - **Root Cause**: Tick boundary crossing with negative `liquidityNet` could make `activeLiq + delta < 0`
-  - **Fix**: Added `_safeAddLiquidity(uint128 liq, int128 delta)` helper that clamps result to 0 on underflow
-  - **Impact**: Requires contract redeployment to fix existing testnet deployments
-
 ### Added
 - **Pro Page All Orders Hook** (2026-01-02):
-  - New `useAllOrdersDirect` hook fetches ALL orders for a market (not just user's)
+  - New `useAllOrdersDirect` hook fetches ALL orders for a market via `getAllMarketOrders()` contract call
+  - Falls back to event scanning for older deployments
   - Pro page `LiquidityMap` now shows full orderbook depth from all users
-  - `UserOrdersPanel` still shows only connected user's orders for management
 - **V9.9.6 Frontend Integration** (2026-01-01):
   - **Unified Order API**: Migrated `Pro.tsx` and `SimpleTradingPanel.tsx` to use the streamlined `placeOrder` and `tradePositions` APIs.
   - **Account Model**: Wired "Spendable Proceeds" into user buying power for capital efficiency.
