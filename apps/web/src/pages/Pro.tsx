@@ -1135,8 +1135,21 @@ const getExplorerUrl = (chainId: number, txHash: string) => {
   const explorers: Record<number, string> = {
     84532: 'https://sepolia.basescan.org',
     8453: 'https://basescan.org',
+    10143: 'https://testnet.monadvision.com',
+    5042002: 'https://testnet.arcscan.app',
   };
   return `${explorers[chainId] || 'https://sepolia.basescan.org'}/tx/${txHash}`;
+};
+
+// Helper: Get address explorer URL
+const getAddressExplorerUrl = (chainId: number, address: string) => {
+  const explorers: Record<number, string> = {
+    84532: 'https://sepolia.basescan.org',
+    8453: 'https://basescan.org',
+    10143: 'https://testnet.monadvision.com',
+    5042002: 'https://testnet.arcscan.app',
+  };
+  return `${explorers[chainId] || 'https://sepolia.basescan.org'}/address/${address}`;
 };
 
 const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; embedded?: boolean }) => {
@@ -1154,7 +1167,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [priceLow, setPriceLow] = useState('45.0');
   const [priceHigh, setPriceHigh] = useState('55.0');
   const [amount, setAmount] = useState('1');
-  const [floorPrice, setFloorPrice] = useState(''); // Optional floor for market orders
+  const [useFloorPrice, setUseFloorPrice] = useState(false); // Toggle for floor price
+  const [floorPrice, setFloorPrice] = useState('50'); // Default floor value when enabled
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
   const [vaultInput, setVaultInput] = useState('');
@@ -1482,7 +1496,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           // V9.9.6: Use marketOrder or marketWithFloor
           const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
           const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
-          const floorCents = floorPrice ? Math.round(parseFloat(floorPrice) * 10) : 0;
+          const floorCents = useFloorPrice ? Math.round(parseFloat(floorPrice) * 10) : 0;
           if (floorCents > 0) {
             result = await marketWithFloor(outcome, amountBg, floorCents, maxCost);
           } else {
@@ -1702,7 +1716,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center gap-4 text-[10px] text-slate-500">
             <span>Market Key: <code className="text-slate-400 font-mono">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code></span>
             <span>•</span>
-            <span>TruthMarket: <code className="text-slate-400 font-mono">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code></span>
+            <a
+              href={getAddressExplorerUrl(chainId, marketAddr)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+            >
+              <span>TruthMarket:</span>
+              <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
+              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+            </a>
           </div>
         </Card>
       )}
@@ -1915,34 +1938,44 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 </div>
               </div>
 
-              {/* Floor Price (Market order only - optional) */}
+              {/* Floor Price Toggle (Market order only) */}
               {orderType === 'market' && (
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                      Price Floor <span className="text-slate-600">(optional)</span>
-                    </div>
-                  </div>
-                  <div className="relative">
+                  <label className="flex items-center gap-3 cursor-pointer group">
                     <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="99.9"
-                      value={floorPrice}
-                      onChange={(e) => setFloorPrice(e.target.value)}
-                      placeholder="No floor"
-                      className={cn(
-                        "w-full h-10 px-3 bg-slate-800/50 border rounded-lg text-sm font-mono transition-all",
-                        "border-slate-700 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 text-slate-200",
-                        "placeholder:text-slate-600"
-                      )}
+                      type="checkbox"
+                      checked={useFloorPrice}
+                      onChange={(e) => setUseFloorPrice(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500/50"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
-                  </div>
-                  <div className="text-[9px] text-slate-600">
-                    Won't pay more than this price. Leave empty for no floor.
-                  </div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold group-hover:text-slate-300 transition-colors">
+                      Set Max Price
+                    </span>
+                  </label>
+
+                  {useFloorPrice && (
+                    <div className="pl-7 space-y-1">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="99.9"
+                          value={floorPrice}
+                          onChange={(e) => setFloorPrice(e.target.value)}
+                          placeholder="50"
+                          className={cn(
+                            "w-full h-9 px-3 bg-slate-800/50 border rounded-lg text-sm font-mono transition-all",
+                            "border-slate-700 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 text-slate-200"
+                          )}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                      </div>
+                      <div className="text-[9px] text-slate-600">
+                        Won't pay more than {floorPrice || '50'}% per share
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
