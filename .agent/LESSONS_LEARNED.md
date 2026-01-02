@@ -625,4 +625,55 @@ _removeFromUserOrders(marketKey, owner, orderId);
 
 ---
 
+## 27. V9.9.6-fix6 Crossing Logic Price Inversion
+
+### ❌ Pattern: Comparing raw ticks instead of effective prices
+- **Date:** 2026-01-02
+- **Bug:** Orders weren't crossing when they should. YES buyer at 44% should cross with NO order implying YES seller at 42%.
+- **Root Cause:** The `_tryCross()` function compared raw tick values, but YES and NO ticks represent **different** YES prices.
+- **Symptom:** Liquidity map showed overlapping YES bids and NO asks that should have crossed but remained as resting orders.
+
+### The Math:
+```
+YES at tick T = buyer pays T/1000 for YES
+NO at tick T = buyer pays T/1000 for NO = seller accepts (1000-T)/1000 for YES
+
+For crossing: YES buyer price >= YES seller price
+  => YES_tick/1000 >= (1000 - NO_tick)/1000
+  => YES_tick >= 1000 - NO_tick
+  => YES_tick + NO_tick >= 1000
+```
+
+### Example:
+```
+YES order at tick 440 = buyer willing to pay 44% for YES
+NO order at tick 580 = buyer pays 58% for NO = seller accepts 42% for YES
+
+44% (buyer) > 42% (seller) → SHOULD CROSS!
+
+Old logic: "Is 580 > 440?" → YES, no crossing ❌
+New logic: "Is 440 + 580 >= 1000?" → 1020 >= 1000 → CROSS ✓
+```
+
+### Fix:
+```solidity
+// OLD (WRONG):
+if (lowestSell > newOrder.tickUpper) return (0, 0, 0);
+
+// NEW (CORRECT):
+// Calculate crossing threshold: lowestSell <= 1000 - newOrder.tickLower
+uint16 maxCrossableNoTick = 1000 - newOrder.tickLower;
+if (lowestSell > maxCrossableNoTick) return (0, 0, 0);
+```
+
+### Rule:
+- In binary outcome markets, YES and NO ticks represent **different** effective prices
+- YES tick T = YES price of T%
+- NO tick T = YES price of (100-T)% as a seller
+- Crossing logic must account for this price inversion
+- Test crossing with overlapping opposite-outcome orders at various tick combinations
+
+---
+
 *Last updated: 2026-01-02*
+
