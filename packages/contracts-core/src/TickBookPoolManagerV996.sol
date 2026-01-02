@@ -443,10 +443,12 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
         uint256 ordersProcessed = 0;
+        uint256 maxIterations = 10; // V9.9.6-fix9f: Limit iterations to bound gas
 
         // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
-        while (i > 0) {
+        uint256 iterations = 0;
+        while (i > 0 && iterations < maxIterations) {
             unchecked { --i; }
             uint256 orderId = orderIds[i];
             RangeOrder storage order = _orders[marketKey][orderId];
@@ -466,6 +468,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
                 ordersProcessed++;
             }
             // Skip partial fills - user can claim those manually
+            iterations++;
         }
 
         if (ordersProcessed > 0) {
