@@ -424,20 +424,26 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
     {
         uint256[] storage orderIds = _userOrders[marketKey][user];
-        uint256 len = orderIds.length;
         uint256 ordersClaimed = 0;
 
-        for (uint256 i = 0; i < len; ) {
-            RangeOrder storage order = _orders[marketKey][orderIds[i]];
+        // Iterate backwards to handle removals safely
+        // When an element is removed (swap-and-pop), only elements after current index are affected
+        uint256 i = orderIds.length;
+        while (i > 0) {
+            unchecked { --i; }
+            uint256 orderId = orderIds[i];
+            RangeOrder storage order = _orders[marketKey][orderId];
             if (order.active) {
-                (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i]);
+                (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 if (filled > 0 || used > 0) {
                     totalClaimedShares += filled;
                     totalCollateralUsed += used;
                     ordersClaimed++;
                 }
+                // Note: if order was removed by _claimInternal (fully filled),
+                // the last element is now at position i, but since we're going
+                // backwards, we'll process it on the next iteration anyway
             }
-            unchecked { ++i; }
         }
 
         if (ordersClaimed > 0) {
