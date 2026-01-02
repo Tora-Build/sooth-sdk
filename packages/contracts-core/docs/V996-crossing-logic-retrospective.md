@@ -37,6 +37,25 @@ uint16 lowestSell = _bitmaps[marketKey][0].findNextUp(0);
 uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
 ```
 
+### Why "Highest NO tick = Cheapest Seller"
+
+In a YES/NO market, ticks represent prices differently:
+
+| Order Type | Tick T Meaning | Example (T=400) |
+|------------|----------------|-----------------|
+| **YES order** | Buyer pays T/1000 for YES | 40% for YES |
+| **NO order** | Buyer pays T/1000 for NO = Seller accepts (1000-T)/1000 for YES | 40% for NO = 60% for YES |
+
+**Price inversion for NO orders:**
+- NO order at tick 400 → NO buyer pays 40% → YES seller accepts 60%
+- NO order at tick 600 → NO buyer pays 60% → YES seller accepts 40%
+
+Therefore:
+- **Higher NO tick → Lower YES seller price → Cheaper for YES buyer**
+- `findNextDown(MAX_TICK + 1)` finds the highest set bit = cheapest seller
+
+The crossing condition becomes: `YES_tick + NO_tick >= 1000` (buyer willing to pay ≥ seller asking)
+
 ---
 
 ## Bug 2: activeLiquidity Not Tracking (NEW)
@@ -53,43 +72,62 @@ But there are **53 active orders**!
 
 ### Root Cause
 
-Line 776 in `_updateActiveLiquidity`:
+The `_totalLiquidity` counter was being decremented **more than once** for the same order:
+1. During crossing (when order matched against incoming order)
+2. During claim (when user claimed their fills)
+3. During cancel (if order was cancelled)
+
+Without the `liquidityRemoved` flag (added in V9.9.5), each path could independently subtract the order's shares.
+
+Additionally, `_updateActiveLiquidity` at line 776 only updates when `currentTick` is inside the order's range:
 ```solidity
 if (state.currentTick >= tickLower && state.currentTick <= tickUpper) {
     // Only updates if currentTick is INSIDE the order's range
 }
 ```
 
-When `currentTick = 999` (after first crossing), orders at ticks [194, 327] don't update `activeLiquidity` because 999 is NOT in that range.
+When `currentTick = 999` (after a YES order crosses), orders at lower ticks [194, 327] don't update `activeLiquidity` because 999 is NOT in that range.
 
-### Impact
+### The Invariant Break
 
-`_getOverlappingLiquidity()` at line 939+:
-```solidity
-if (activeLiq > 0) {
-    uint256 rangeLiq = uint256(activeLiq) * numTicks;
-    return rangeLiq > totalLiq ? totalLiq : rangeLiq;
-}
-return totalLiq;  // Fallback when activeLiq = 0
-```
+**Expected**: `sum(order.sharesTotal for all active orders) == _totalLiquidity[outcome]`
 
-With `activeLiq = 0`, it falls back to `totalLiq`. BUT if `totalLiq` is also 0 (e.g., after orders cross and are removed), market orders fail.
+**Actual**: After some crossing sequences, `_totalLiquidity` drifted to 0 while orders remained active.
+
+This caused `_getOverlappingLiquidity()` to return 0, making market orders believe there was no liquidity to cross.
 
 ### Fix (fix8)
 
-The fallback to `totalLiq` handles this, BUT we need to ensure `_totalLiquidity` is not being over-decremented. Check for underflows in:
+Added `_safeSubTotalLiquidity()` helper (lines 734-737) with clamp-to-zero behavior:
+```solidity
+function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
+    uint256 current = _totalLiquidity[marketKey][outcome];
+    _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
+}
+```
+
+Applied at all decrement sites:
 - Line 467: `_safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);`
 - Line 569: same pattern
 - Line 907: same pattern
 
-**Add guards** to prevent underflow:
+### Safety Clamp Tradeoff
+
+The `_safeSubTotalLiquidity()` helper prevents underflow panics but can **hide accounting drift**:
+- If we're subtracting more than exists, something is wrong upstream
+- The clamp masks the symptom without fixing the cause
+
+**Recommended for future**: Add invariant test + debug event:
 ```solidity
-if (_totalLiquidity[marketKey][outcome] >= shares) {
-    _totalLiquidity[marketKey][outcome] -= shares;
-} else {
-    _totalLiquidity[marketKey][outcome] = 0; // Clamp to 0
+event TotalLiquidityClamped(bytes32 indexed marketKey, uint8 outcome, uint256 attemptedDelta, uint256 actual);
+
+// In _safeSubTotalLiquidity:
+if (delta > current) {
+    emit TotalLiquidityClamped(marketKey, outcome, delta, current);
 }
 ```
+
+This allows post-hoc analysis of accounting drift without breaking production.
 
 ---
 
@@ -97,11 +135,11 @@ if (_totalLiquidity[marketKey][outcome] >= shares) {
 
 ### Observable Symptom
 ```
-Order 105 failed: Transaction reverted: 0x3e23f89482dd64f4...
-Market orders ALL fail with similar hashes
+Order 105 failed: Transaction reverted with data: 0x3e23f89482dd64f4...
+Market orders ALL fail with similar revert data
 ```
 
-These are NOT standard contract errors - they're external call failures.
+These are NOT standard contract errors - they're external call failures (typically ERC20 or vault).
 
 ### Likely Causes
 
@@ -109,8 +147,14 @@ These are NOT standard contract errors - they're external call failures.
 2. **Token approval expired**: Outcome tokens not approved for TickBook
 3. **Credit/Debit overflow**: Vault internal accounting overflow
 
-### Debug Command
+### Debug Steps
 ```bash
+# Decode revert data (first 4 bytes = error selector)
+cast 4byte-decode 0x3e23f894...
+
+# Or use full trace
+cast run <tx_hash> --rpc-url $RPC
+
 # Check vault balance
 cast call $VAULT "getPosition(address,address)" $MARKET $USER --rpc-url $RPC
 ```
@@ -192,20 +236,20 @@ function _safeSubTotalLiquidity(
 
 | Bug | Status | Notes |
 |-----|--------|-------|
-| Bitmap direction | ✅ Fixed in code | `findNextDown(MAX_TICK + 1)` at line 837 (also used elsewhere e.g. line 626/857) |
-| _totalLiquidity underflow | ✅ Fixed in code | `_safeSubTotalLiquidity()` at lines 467, 569, 907 |
-| activeLiquidity design | ⚠️ Mitigated | Falls back to `totalLiq`, safe with underflow guard |
-| External reverts | 🔍 Pending test | Will validate after deployment |
+| Bitmap direction | ✅ Fixed & Verified | `findNextDown(MAX_TICK + 1)` at lines 626, 837, 857 |
+| _totalLiquidity underflow | ✅ Fixed & Verified | `_safeSubTotalLiquidity()` helper at lines 734-737, called at 467, 569, 907 |
+| activeLiquidity design | ✅ Mitigated | `_safeSubLiquidity()` used at 6 call sites (790, 796, 921, 923, 929, 931) |
+| External reverts | 🔍 Pending test | Decode revert data after stress test |
 
 ---
 
 ## Next Steps
 
 1. ~~Add `_safeSubTotalLiquidity()` helper~~ ✅ Done
-2. Deploy fix8 to fresh contract
+2. ~~Deploy fix8 to fresh contract~~ ✅ Done (V9.9.6-fix8 on Base Sepolia + Monad)
 3. Create new test market on clean deployment
 4. Run stress test (100+ orders)
-5. Decode revert hash if issues persist
+5. Decode revert data if issues persist
 
 ---
 
@@ -217,9 +261,4 @@ function _safeSubTotalLiquidity(
 
 ---
 
-## Last Session Notes (review)
-
-- **Bug 1 clarity**: add/keep a short reminder of tick→price monotonicity for YES vs NO so the “highest NO tick = cheapest YES seller” reasoning is unambiguous.
-- **Bug 2 narrative**: the key invariant break is likely “`totalLiq` drifted to 0 while orders remained active”; framing this as a normal “after orders cross and are removed” scenario makes the failure mode harder to reason about.
-- **Safety clamp tradeoff**: clamping `_totalLiquidity` to 0 prevents underflow reverts (good hotfix) but can also hide accounting drift; consider adding invariant tests and/or debug events to detect unexpected drift.
-- **Bug 3 wording**: the long hex blobs are typically revert data (often from external ERC20/vault calls), not a “revert hash”; prefer “revert data” and decode via trace tooling when possible.
+*Last reviewed: 2026-01-02 — All "Last Session Notes" incorporated into main document.*
