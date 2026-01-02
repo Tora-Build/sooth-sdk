@@ -1084,8 +1084,7 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         if (!order.active) return (0, 0);
 
         uint8 out = order.outcome;
-        uint256 totalLiq = _totalLiquidity[marketKey][out];
-        if (totalLiq == 0) return (0, 0);
+        // Note: Don't early-return on totalLiq==0 - pending fills can still exist in accumulator
 
         uint256 globalFillGrowth = _fillGrowthGlobalX128[marketKey][out];
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
