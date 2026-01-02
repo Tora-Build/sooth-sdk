@@ -1,18 +1,18 @@
 {
-  "version": "9.9.6-fix3",
+  "version": "9.9.6-fix4",
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "timestamp": "2026-01-02T08:25:00.000Z",
+  "timestamp": "2026-01-02T08:50:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3",
-    "Collateralizer": "0x3C2f09bA129D9ac0eA7234AA1E796a0376177d8d",
-    "AMMEngine": "0xd750c447BBF8C35f25B19351E4e59957f6b216DE",
-    "TickBookVault": "0x2Eb4fdafa8D7789bA1797301275B67BFED3eCC9d",
-    "TickBookPoolManager": "0x9A960dEB3eE62F2f55D6524B8d9440960DBc886f",
-    "TickBook": "0x9A960dEB3eE62F2f55D6524B8d9440960DBc886f",
-    "LaunchpadEngine": "0x2849E2F509DaF485B8b4d46Bca68623D6A73330a"
+    "Collateralizer": "0x99FE329F5152130038a1bd6f57c53553296A97C9",
+    "AMMEngine": "0x749d2D9937C10E28Dd065D1F301ED485f1525F0a",
+    "TickBookVault": "0x86437735E952eC47884E3Ff202594D8789943A81",
+    "TickBookPoolManager": "0xED1FfaC79bfE9A13715774D2694A0f55eD392656",
+    "TickBook": "0xED1FfaC79bfE9A13715774D2694A0f55eD392656",
+    "LaunchpadEngine": "0x7F7a84196DC38B054a6F31b2eFcD7142860B37c6"
   },
   "markets": [],
-  "notes": "V9.9.6-fix3: Fixed array iteration bug in _autoClaimUserOrders (iterate backwards for safe removal)."
+  "notes": "V9.9.6-fix4: Added getAllMarketOrders() for reliable order enumeration + array iteration fix."
 }
