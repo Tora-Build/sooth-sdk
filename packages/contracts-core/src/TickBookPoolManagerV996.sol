@@ -447,22 +447,20 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         
         uint256 ordersProcessed = 0;
         
-        // V9.9.6-fix9L: "Spread Autoclaim" Strategy
-        // Instead of linear iteration (which misses old orders), check specific points:
-        // 1. Newest (index len-1): For immediate market fills
-        // 2. Oldest (index 0): garbage collection
-        // 3. Middle (index len/2): statistical spread
+        // V9.9.6-fix9L: "Spread Autoclaim" Strategy (5 points)
+        // Check Newest, Oldest, Middle, 1/4, 3/4
         
-        // Determine indices to check (max 3)
         uint256[] memory indices;
-        if (len <= 3) {
+        if (len <= 5) {
             indices = new uint256[](len);
             for(uint i=0; i<len; i++) indices[i] = i;
         } else {
-            indices = new uint256[](3);
-            indices[0] = len - 1;
-            indices[1] = 0;
-            indices[2] = len / 2;
+            indices = new uint256[](5);
+            indices[0] = len - 1;       // Newest
+            indices[1] = 0;             // Oldest
+            indices[2] = len / 2;       // Middle
+            indices[3] = len / 4;       // 25%
+            indices[4] = (len * 3) / 4; // 75%
         }
 
         // Process selected indices
