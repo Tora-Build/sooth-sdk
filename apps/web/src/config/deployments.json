@@ -29,12 +29,12 @@
       "chainId": 10143,
       "contracts": {
         "MockUSDC": "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
-        "Collateralizer": "0x42e5158433585d2db3ec7eec3c30c895fca34ca3",
-        "AMMEngine": "0xedf29338f32724b4c7cfaf42c3599554e56926d5",
-        "TickBookVault": "0xe497ed31c0faaeeab42ab370c5d81bb4fe443c5c",
-        "TickBookPoolManager": "0xe96755a6bbc990fa8a54c799c80dcca3decef820",
-        "TickBook": "0xe96755a6bbc990fa8a54c799c80dcca3decef820",
-        "LaunchpadEngine": "0x2fc8f49b4190f13a5d53b57ea845399dc29e7721"
+        "Collateralizer": "0xa0133ec83ccb2a28239917c93f5f10b96da96060",
+        "AMMEngine": "0x1491fe7d09484e4b0757020ec42c8d26a8645cc8",
+        "TickBookVault": "0xd0a047bf8999a1d2303bef7471a883251caaa58d",
+        "TickBookPoolManager": "0x36e5f7e938eaf4ff9824d990e944605cb6fcb5c6",
+        "TickBook": "0x36e5f7e938eaf4ff9824d990e944605cb6fcb5c6",
+        "LaunchpadEngine": "0x008da8243003cceab38aec4cd9927582a15b264a"
       }
     }
   }
