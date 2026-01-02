@@ -1,16 +1,16 @@
 {
-  "version": "9.9.6-fix6",
+  "version": "9.9.6-fix9h",
   "networks": {
     "arcTestnet": {
-      "chainId": 5041490,
+      "chainId": 5042002,
       "contracts": {
-        "USDC": "0x3600000000000000000000000000000000000000",
-        "Collateralizer": null,
-        "AMMEngine": null,
-        "TickBookVault": null,
-        "TickBookPoolManager": null,
-        "TickBook": null,
-        "LaunchpadEngine": null
+        "MockUSDC": "0xD9DfdEC3046eaD9891714f9fb465DbE89Da48689",
+        "Collateralizer": "0xd7549a072e46782be6c6f8ab7d3a18becf195f2c",
+        "AMMEngine": "0x7d4d3abb446a20d81b150eb661190e8aafc73835",
+        "TickBookVault": "0xe41801b8cbd9ced2f6b32e476609b72c90f954de",
+        "TickBookPoolManager": "0xca4b9bd23e74c45a6c1bef5d9ecd93d791bca92e",
+        "TickBook": "0xca4b9bd23e74c45a6c1bef5d9ecd93d791bca92e",
+        "LaunchpadEngine": "0x7c60001d89d9878b1f7c4180916fcc3ede592e8d"
       }
     },
     "baseSepolia": {
