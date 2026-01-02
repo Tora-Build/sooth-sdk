@@ -1,6 +1,6 @@
 # Project Status
 
-> Last Updated: 2026-01-02 (V9.9.6-fix9d Deployed)
+> Last Updated: 2026-01-03 (Launchpad Redesign Complete)
 
 - **✅ V9.9.6-fix9d DEPLOYED** — Auto-claim 100% filled orders + auto-release pooled USDC
 - **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
@@ -21,6 +21,7 @@
 - **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
 - **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
 - **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
+- **✅ LAUNCHPAD REDESIGN** — Single-page consolidated UI, Brevis Registry, Earnings Simulator, and Flexible Expiration.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
