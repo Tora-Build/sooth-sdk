@@ -1154,6 +1154,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [priceLow, setPriceLow] = useState('45.0');
   const [priceHigh, setPriceHigh] = useState('55.0');
   const [amount, setAmount] = useState('1');
+  const [floorPrice, setFloorPrice] = useState(''); // Optional floor for market orders
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
   const [vaultInput, setVaultInput] = useState('');
@@ -1191,6 +1192,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // V9.9.6 Unified Order API
   const {
     marketOrder,
+    marketWithFloor,
     rangeOrder,
     limitOrder,
     isPending: isOrderPending,
@@ -1477,10 +1479,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       if (isBuying) {
         // ============= BUY ORDERS =============
         if (isMarketOrderType) {
-          // V9.9.6: Use marketOrder helper (tickLower=1, tickUpper=999)
+          // V9.9.6: Use marketOrder or marketWithFloor
           const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
           const maxCost = (finalCostWad * 110n) / 100n; // 10% slippage buffer
-          result = await marketOrder(outcome, amountBg, maxCost);
+          const floorCents = floorPrice ? Math.round(parseFloat(floorPrice) * 10) : 0;
+          if (floorCents > 0) {
+            result = await marketWithFloor(outcome, amountBg, floorCents, maxCost);
+          } else {
+            result = await marketOrder(outcome, amountBg, maxCost);
+          }
         } else {
           // V9.9.6: Use rangeOrder or limitOrder based on priceMode
           const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000); // 10% slippage
@@ -1907,6 +1914,37 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   </button>
                 </div>
               </div>
+
+              {/* Floor Price (Market order only - optional) */}
+              {orderType === 'market' && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                      Price Floor <span className="text-slate-600">(optional)</span>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="99.9"
+                      value={floorPrice}
+                      onChange={(e) => setFloorPrice(e.target.value)}
+                      placeholder="No floor"
+                      className={cn(
+                        "w-full h-10 px-3 bg-slate-800/50 border rounded-lg text-sm font-mono transition-all",
+                        "border-slate-700 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 text-slate-200",
+                        "placeholder:text-slate-600"
+                      )}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                  </div>
+                  <div className="text-[9px] text-slate-600">
+                    Won't pay more than this price. Leave empty for no floor.
+                  </div>
+                </div>
+              )}
 
               {/* Price Input (Limit only) */}
               {orderType === 'limit' && (
