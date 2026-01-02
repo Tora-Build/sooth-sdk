@@ -1,18 +1,18 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "9.9.6-fix4",
-  "timestamp": "2026-01-02T08:50:00.000Z",
+  "version": "9.9.6-fix6",
+  "timestamp": "2026-01-02T09:10:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
     "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-    "Collateralizer": "0x5629dfb44f8B94c023367dEc304b4ba2C6a5812B",
-    "AMMEngine": "0x30FE8FA3615801846a2551AA32066f4eD8bd1a42",
-    "TickBookVault": "0x9D46b2EA9533FCb6a1e629c82691de07Df76Dc2B",
-    "TickBookPoolManager": "0x4656f2F8E8036872DD019911D375F3Aabbbf8ab0",
-    "TickBook": "0x4656f2F8E8036872DD019911D375F3Aabbbf8ab0",
-    "LaunchpadEngine": "0x383F54d65dAe02441592E8eE8e3AfC59EdD90D61"
+    "Collateralizer": "0xf3Fc386c0a91008d7f146ECf0A1561bc07838Ac7",
+    "AMMEngine": "0xa63de337ff85dD91AcDA67bB34b14eD92cDd9147",
+    "TickBookVault": "0xc0e3838F3F7711cAb4B743E4835fBE0Ee7F3E0BA",
+    "TickBookPoolManager": "0xb4a77Ab4fDEC30700995D3346fC1a162279A0566",
+    "TickBook": "0xb4a77Ab4fDEC30700995D3346fC1a162279A0566",
+    "LaunchpadEngine": "0xB570328998765BF38ea763dba0297a4c4280f96d"
   },
   "markets": [],
-  "notes": "V9.9.6-fix4: Added getAllMarketOrders() for reliable order enumeration + array iteration fix."
+  "notes": "V9.9.6-fix6: Fixed crossing logic for price inversion between YES/NO (YES_tick + NO_tick >= 1000)."
 }
