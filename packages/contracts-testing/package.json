@@ -1,9 +1,9 @@
 {
   "name": "contracts-testing",
-  "version": "9.9.5",
+  "version": "9.9.6",
   "private": true,
   "type": "module",
-  "description": "Sooth Protocol V9.9.5 Testing, Market Operations & Partner Demos",
+  "description": "Sooth Protocol V9.9.6 Testing, Market Operations & Partner Demos",
   "scripts": {
     "test": "forge test",
     "test:unit": "forge test --match-path 'test/v9/*.t.sol'",

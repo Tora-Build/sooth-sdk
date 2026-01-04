@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -451,23 +451,60 @@ interface UserOrdersPanelProps {
   noShares?: bigint;
 }
 
+type OrderFilter = 'all' | 'open' | 'filled' | 'claimable';
+type OrderSort = 'newest' | 'price' | 'fill' | 'created';
+
+const MAX_BATCH_CLAIM = 10;
+
 const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [filter, setFilter] = useState<OrderFilter>('all');
+  const [sortBy, setSortBy] = useState<OrderSort>('newest');
 
-  // Sort orders: unfilled first, 100% filled last
-  const activeOrders = orders.filter(o => o.active).sort((a, b) => {
-    const aFillPercent = a.sharesTotal > 0n ? Number((a.filledShares + a.pendingShares) * 100n / a.sharesTotal) : 0;
-    const bFillPercent = b.sharesTotal > 0n ? Number((b.filledShares + b.pendingShares) * 100n / b.sharesTotal) : 0;
-    const aFullyFilled = aFillPercent >= 100;
-    const bFullyFilled = bFillPercent >= 100;
-    if (aFullyFilled && !bFullyFilled) return 1; // a goes after b
-    if (!aFullyFilled && bFullyFilled) return -1; // a goes before b
-    return 0; // maintain relative order
+  // Helper to calculate fill percent
+  const getFillPercent = (o: RangeOrder) => {
+    const totalFilled = o.filledShares + o.pendingShares;
+    const capped = totalFilled > o.sharesTotal ? o.sharesTotal : totalFilled;
+    return o.sharesTotal > 0n ? Number(capped * 100n / o.sharesTotal) : 0;
+  };
+
+  // Filter orders
+  const filteredOrders = orders.filter(o => {
+    if (!o.active) return false;
+    const fillPct = getFillPercent(o);
+    switch (filter) {
+      case 'open': return fillPct < 100;
+      case 'filled': return fillPct >= 100;
+      case 'claimable': return o.pendingShares > 0n;
+      default: return true;
+    }
   });
-  // Only show claim button when there are actually pending (unclaimed) fills
-  const hasPartialFills = orders.some(o => o.pendingShares > 0n && o.active);
+
+  // Sort orders
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    switch (sortBy) {
+      case 'price': return a.tickLower - b.tickLower;
+      case 'fill': return getFillPercent(b) - getFillPercent(a);
+      case 'created':
+        // Sort by createdAt timestamp (newest first), fallback to orderId
+        if (a.createdAt && b.createdAt) return b.createdAt - a.createdAt;
+        return Number(b.orderId - a.orderId);
+      default: return Number(b.orderId - a.orderId); // newest first by orderId
+    }
+  });
+
+  // Separate orders for claim buttons (capped at MAX_BATCH_CLAIM each)
+  const fullyFilledOrders = orders.filter(o => {
+    if (!o.active || o.pendingShares <= 0n) return false;
+    return getFillPercent(o) >= 100;
+  }).slice(0, MAX_BATCH_CLAIM);
+  
+  const partialFilledOrders = orders.filter(o => {
+    if (!o.active || o.pendingShares <= 0n) return false;
+    return getFillPercent(o) > 0 && getFillPercent(o) < 100;
+  }).slice(0, MAX_BATCH_CLAIM);
 
   const handleCancelOrder = async (orderId: bigint) => {
     if (!marketKey) return;
@@ -560,202 +597,199 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 
   return (
     <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          YOUR <span className={viewOutcome === 'yes' ? 'text-emerald-400' : 'text-rose-400'}>{viewOutcome === 'yes' ? 'YES' : 'NO'}</span> ORDERS
+          YOUR ORDERS <span className="text-slate-600">({sortedOrders.length})</span>
         </span>
         <div className="flex items-center gap-2">
-          {hasPartialFills && (
-            <ClaimFillsButton
-              marketKey={marketKey}
-              orderIds={orders.filter(o => o.pendingShares > 0n && o.active).map(o => o.orderId)}
-              compact
-            />
-          )}
-          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh Orders">
+          {/* Claim Partial Button - always visible */}
+          <ClaimFillsButton
+            marketKey={marketKey}
+            orderIds={partialFilledOrders.map(o => o.orderId)}
+            compact
+            label={`Partial (${partialFilledOrders.length})`}
+            variant="partial"
+            disabled={partialFilledOrders.length === 0}
+          />
+          {/* Claim Filled Button - always visible */}
+          <ClaimFillsButton
+            marketKey={marketKey}
+            orderIds={fullyFilledOrders.map(o => o.orderId)}
+            compact
+            label={`Filled (${fullyFilledOrders.length})`}
+            variant="filled"
+            disabled={fullyFilledOrders.length === 0}
+          />
+          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh">
             <RefreshCw className="w-4 h-4 text-slate-500" />
           </button>
         </div>
       </div>
 
-      {/* Summary Summary Cards integrated into the panel */}
+      {/* Filter & Sort Row */}
+      <div className="flex items-center gap-2 mb-3 text-[10px]">
+        <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
+          {(['all', 'open', 'filled', 'claimable'] as OrderFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "px-2 py-1 rounded-md font-medium transition-colors capitalize",
+                filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 ml-auto">
+          <span className="text-slate-600">Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as OrderSort)}
+            className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-[10px] focus:ring-0"
+          >
+            <option value="newest">Order ID</option>
+            <option value="created">Created</option>
+            <option value="price">Price</option>
+            <option value="fill">Fill %</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
       {(yesShares !== undefined || noShares !== undefined) && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="py-2 px-3 rounded-xl bg-emerald-950/10 border border-emerald-900/20">
-            <div className="text-[9px] text-emerald-500/80 uppercase font-bold tracking-tight mb-0.5">YES Shares</div>
-            <div className="text-xl font-mono font-bold text-white leading-tight">
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="py-1.5 px-2 rounded-lg bg-emerald-950/10 border border-emerald-900/20">
+            <div className="text-[9px] text-emerald-500/80 uppercase font-bold">YES</div>
+            <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(yesShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
-          <div className="py-2 px-3 rounded-xl bg-rose-950/10 border border-rose-900/20">
-            <div className="text-[9px] text-rose-500/80 uppercase font-bold tracking-tight mb-0.5">NO Shares</div>
-            <div className="text-xl font-mono font-bold text-white leading-tight">
+          <div className="py-1.5 px-2 rounded-lg bg-rose-950/10 border border-rose-900/20">
+            <div className="text-[9px] text-rose-500/80 uppercase font-bold">NO</div>
+            <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(noShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
         </div>
       )}
 
-      {activeOrders.length === 0 ? (
+      {sortedOrders.length === 0 ? (
         <div className="text-center py-8">
           <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
           <p className="text-sm text-slate-500">No active orders</p>
           <p className="text-xs text-slate-600">Place a limit order to get started</p>
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {activeOrders.map((order) => {
-            const priceRange = order.tickLower === order.tickUpper
-              ? `${(order.tickLower / 10).toFixed(1)}%`
-              : `${(order.tickLower / 10).toFixed(1)}% – ${(order.tickUpper / 10).toFixed(1)}%`;
-            // Total fills = claimed + pending (capped at sharesTotal to avoid display issues)
-            const rawTotalFills = order.filledShares + order.pendingShares;
-            const totalFills = rawTotalFills > order.sharesTotal ? order.sharesTotal : rawTotalFills;
-            const fillPercentRaw = order.sharesTotal > 0n
-              ? (Number(totalFills * 10000n / order.sharesTotal) / 100)
-              : 0;
-            const fillPercent = fillPercentRaw > 99.9 ? 100 : Math.floor(fillPercentRaw);
-            // outcome=1 → credits YES tokens on fill, outcome=0 → credits NO tokens on fill
+        <div className="space-y-1">
+          {/* Header Row */}
+          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
+            <span className="shrink-0 w-10">ID</span>
+            <span className="shrink-0 w-8">Side</span>
+            <span className="shrink-0 w-20">Price</span>
+            <span className="shrink-0 w-16">Size</span>
+            <span className="shrink-0 w-20">Fill</span>
+            <div className="flex-1" />
+            <span className="shrink-0 w-16 text-right">Actions</span>
+          </div>
+          {sortedOrders.map((order) => {
+            const fillPercent = getFillPercent(order);
             const isYesOrder = order.outcome === 1;
-            // Determine if it represents a Buy or Sell in the current view context
-            // YES View: YES order = Buy, NO order (Short YES) = Sell
-            // NO View: NO order = Buy, YES order (Short NO) = Sell
             const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
-
-            const hasFills = totalFills > 0n;
             const orderId = order.orderId.toString();
             const isFullyFilled = fillPercent >= 100;
+            const hasClaimable = order.pendingShares > 0n;
+
+            // Calculate display price (always 1 decimal with ¢)
+            const lower = order.tickLower / 10;
+            const upper = order.tickUpper / 10;
+            let displayPrice = "";
+            if (viewOutcome === 'yes') {
+              if (isYesOrder) {
+                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+              } else {
+                const invLow = 100 - upper;
+                const invHigh = 100 - lower;
+                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+              }
+            } else {
+              if (!isYesOrder) {
+                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+              } else {
+                const invLow = 100 - upper;
+                const invHigh = 100 - lower;
+                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+              }
+            }
 
             return (
               <div
                 key={orderId}
                 className={cn(
-                  "relative group overflow-hidden rounded-lg border transition-all",
-                  isFullyFilled
-                    ? "bg-slate-900/50 border-slate-800/50 opacity-60" // Grey out 100% filled
-                    : isBuy
-                      ? "bg-emerald-950/10 border-emerald-900/20 hover:border-emerald-500/30"
-                      : "bg-rose-950/10 border-rose-900/20 hover:border-rose-500/30"
+                  "flex items-center gap-2 p-2 rounded-lg border transition-all",
+                  isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
                 )}
               >
-                <div className="flex items-center justify-between p-2 pl-3">
-                  {/* Left: Info */}
-                  <div className="flex items-center gap-3">
-                    {/* Outcome Badge - Context Aware */}
-                    <span className={cn(
-                      "w-10 py-0.5 rounded text-[9px] font-bold text-center",
-                      isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                    )}>
-                      {isBuy ? 'BUY' : 'SELL'}
-                    </span>
+                {/* Order ID */}
+                <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{orderId}</span>
 
-                    {/* Price - Context Aware */}
-                    {(() => {
-                      const lower = order.tickLower / 10;
-                      const upper = order.tickUpper / 10;
+                {/* Side Badge */}
+                <span className={cn(
+                  "shrink-0 w-8 py-0.5 rounded text-[8px] font-bold text-center uppercase",
+                  isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                )}>
+                  {isBuy ? 'Buy' : 'Sell'}
+                </span>
 
-                      let displayRange = "";
-                      if (viewOutcome === 'yes') {
-                        if (isYesOrder) {
-                          // Standard YES
-                          displayRange = lower === upper ? `${lower.toFixed(1)}%` : `${lower.toFixed(1)}% – ${upper.toFixed(1)}%`;
-                        } else {
-                          // NO order in YES view -> SHORT YES @ (100-P)
-                          // Tick 40% NO = 60% YES. 
-                          // Range 40-50% NO = 50-60% YES
-                          const invLower = 100 - upper;
-                          const invUpper = 100 - lower;
-                          displayRange = invLower === invUpper ? `${invLower.toFixed(1)}%` : `${invLower.toFixed(1)}% – ${invUpper.toFixed(1)}%`;
-                        }
-                      } else {
-                        if (!isYesOrder) {
-                          // Standard NO Order in NO View
-                          // Tick represents NO Price directly.
-                          displayRange = lower === upper ? `${lower.toFixed(1)}%` : `${lower.toFixed(1)}% – ${upper.toFixed(1)}%`;
-                        } else {
-                          // YES order in NO view -> SHORT NO
-                          // YES order at 60% YES.
-                          // 60% YES = 40% NO.
-                          // So Range = 40% NO.
-                          const noLower = 100 - upper;
-                          const noUpper = 100 - lower;
-                          displayRange = noLower === noUpper ? `${noLower.toFixed(1)}%` : `${noLower.toFixed(1)}% – ${noUpper.toFixed(1)}%`;
-                        }
-                      }
+                {/* Price */}
+                <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
 
-                      return (
-                        <span className="text-[11px] font-mono font-bold text-white min-w-[100px]">{displayRange}</span>
-                      );
-                    })()}
-                    <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-400 font-mono">
-                      <div className="flex gap-1.5">
-                        <span className="text-slate-500 uppercase">Total:</span>
-                        <span className="text-white">{parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString()}</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <span className="text-slate-500 uppercase">Fill:</span>
-                        <span className={cn(hasFills ? "text-amber-400" : "text-slate-500")}>
-                          {parseFloat(formatUnits(totalFills, 18)).toLocaleString()} ({fillPercent}%)
-                        </span>
-                      </div>
-                    </div>
+                {/* Size */}
+                <span className="shrink-0 w-16 text-[10px] font-mono text-slate-400">
+                  {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+
+                {/* Fill Progress Bar */}
+                <div className="shrink-0 w-20 flex items-center gap-1">
+                  <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        fillPercent >= 100 ? "bg-emerald-500" :
+                        fillPercent > 0 ? "bg-amber-500" :
+                        "bg-slate-600"
+                      )}
+                      style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                    />
                   </div>
-
-                  {/* Right: Actions */}
-                  <div className="flex items-center gap-1.5 ml-4">
-                    {order.pendingShares > 0n && (
-                      <button
-                        onClick={() => handleClaimFills(order.orderId)}
-                        disabled={actionInProgress === `claim-${orderId}`}
-                        title="Claim Settlements"
-                        className={cn(
-                          "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
-                          "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/60 shadow-[0_0_10px_rgba(251,191,36,0.1)] hover:shadow-[0_0_15px_rgba(251,191,36,0.2)]"
-                        )}
-                      >
-                        {actionInProgress === `claim-${orderId}` ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            <Zap className="w-2.5 h-2.5" />
-                            <span>Claim</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                    {fillPercent < 100 && (
-                      <button
-                        onClick={() => handleCancelOrder(order.orderId)}
-                        disabled={actionInProgress === `cancel-${orderId}`}
-                        title="Cancel Order"
-                        className={cn(
-                          "h-6 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border",
-                          "bg-slate-900 text-slate-500 border-slate-800 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/5"
-                        )}
-                      >
-                        {actionInProgress === `cancel-${orderId}` ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            <AlertCircle className="w-2.5 h-2.5 opacity-60" />
-                            <span>Cancel</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                    <span className="text-[9px] text-slate-600 font-mono hidden md:inline">#{orderId}</span>
-                  </div>
+                  <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{fillPercent}%</span>
                 </div>
 
-                {/* Micro Fill progress bar at the very bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-800/50">
-                  <div
-                    className={cn(
-                      "h-full transition-all",
-                      isYesOrder ? "bg-emerald-500/50" : "bg-rose-500/50"
-                    )}
-                    style={{ width: `${fillPercent}%` }}
-                  />
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                  {hasClaimable && (
+                    <button
+                      onClick={() => handleClaimFills(order.orderId)}
+                      disabled={actionInProgress === `claim-${orderId}`}
+                      className="h-5 px-2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                    >
+                      {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+                    </button>
+                  )}
+                  {!isFullyFilled && (
+                    <button
+                      onClick={() => handleCancelOrder(order.orderId)}
+                      disabled={actionInProgress === `cancel-${orderId}`}
+                      className="h-5 px-2 rounded text-[9px] font-medium text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    >
+                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : '✕'}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1084,7 +1118,11 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
   // Markets are already confirmed graduated via on-chain discovery
   const { tickBook, isLoading } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
 
-  const bookPrice = tickBook?.probability ?? 0.5;
+  const currentTick = tickBook?.currentTick ?? 0;
+  const rawProb = tickBook?.probability ?? null;
+  const isMarketActive = tickBook?.isActive ?? false;
+  const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
+  const isValidPrice = isMarketActive && rawProb !== null && rawProb > 0;
 
   return (
     <button
@@ -1115,12 +1153,12 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
         <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
 
-      {/* Book Price */}
+      {/* Pro Price */}
       <span className={cn(
         "text-sm font-bold tabular-nums flex-shrink-0",
-        bookPrice > 0.5 ? "text-emerald-400" : bookPrice < 0.5 ? "text-rose-400" : "text-slate-400"
+        proPriceCents > 50 ? "text-emerald-400" : proPriceCents < 50 ? "text-rose-400" : "text-slate-400"
       )}>
-        {isLoading ? '—' : `${(bookPrice * 100).toFixed(0)}%`}
+        {isLoading ? '—' : isValidPrice ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
       </span>
     </button>
   );
@@ -1267,6 +1305,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVaultPanel, setShowVaultPanel] = useState(false);
   const [vaultInput, setVaultInput] = useState('');
+  const [marketKeyCopied, setMarketKeyCopied] = useState(false);
 
   // Slider dragging state
   const trackRef = React.useRef<HTMLDivElement>(null);
@@ -1409,14 +1448,26 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   }, [vaultAllowance, decimals]);
 
   // Derived values
-  // V9.8: currentTick is initialized to MIN_TICK (1) until first crossing occurs.
-  // If currentTick <= 1, there's been no trading - show "N/A" for Book Price.
-  const isBookPriceValid = tickBook?.currentTick !== undefined && tickBook.currentTick > 1;
+  // V9.8: currentTick ranges 1-999 (0.1¢ to 99.9¢). Tick 1 means MIN_TICK (no Pro trades yet).
+  // Show Pro Price if market is active and we have valid probability data.
+  // Note: Tick = 1 means no Pro orderbook trades yet, but market may still be active.
+  const currentTick = tickBook?.currentTick ?? 0;
+  const rawProb = tickBook?.probability ?? null;
+  const isMarketActive = tickBook?.isActive ?? false;
+  // Show Pro Price if market is active and has valid probability (even if tick = 1)
+  const isProPriceValid = isMarketActive && rawProb !== null && rawProb > 0;
+  const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
+  
+  // Debug log for troubleshooting
+  if (tickBook) {
+    console.log(`[Pro] Market ${marketAddr} - currentTick: ${currentTick}, probability: ${rawProb}, isActive: ${isMarketActive}, isProPriceValid: ${isProPriceValid}`);
+  }
   const rawBookProb = tickBook?.probability ?? null;
   const ammProb = amm?.yesProbability ?? 0.5;
-  const tickBookProb = isBookPriceValid ? rawBookProb : null; // null means N/A
-  const arbSpread = isBookPriceValid && rawBookProb !== null ? Math.abs(rawBookProb - ammProb) * 100 : 0;
-  const hasArb = arbSpread >= 0.5; // Show arb indicator if >= 0.5% difference
+  const ammPriceCents = ammProb * 100;
+  const tickBookProb = isProPriceValid ? rawBookProb : null; // null means N/A
+  const arbSpread = isProPriceValid ? Math.abs(proPriceCents - ammPriceCents) : 0;
+  const hasArb = arbSpread >= 0.5; // Show arb indicator if >= 0.5¢ difference
 
   // Use tickBook price as primary (or fall back to AMM if no tickBook data)
   const currentProb = tickBookProb ?? ammProb;
@@ -1738,29 +1789,32 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            {/* TickBook Price (Primary) - larger, amber */}
-            <div className="text-center p-2 rounded-lg bg-slate-950">
-              <div className="text-[9px] text-slate-500 uppercase">Book Price</div>
-              <div className="text-xl font-mono font-bold text-amber-400">
-                {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
-                {hasArb && <span className="ml-1 text-amber-400">⚡</span>}
+            {/* Pro Price */}
+            <div className={cn(
+              "text-center p-2 rounded-lg",
+              isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
+            )}>
+              <div className={cn("text-[9px] uppercase", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
+              <div className={cn("text-base font-mono font-bold", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
+                {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
+                {hasArb && <span className="ml-1">⚡</span>}
               </div>
             </div>
-            {/* AMM Price (Secondary) - smaller, grey */}
+            {/* AMM Price */}
             <div className="text-center p-2 rounded-lg bg-slate-950">
               <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
-              <div className="text-base font-mono font-medium text-slate-400">
-                {(ammProb * 100).toFixed(1)}%
+              <div className="text-base font-mono font-bold text-slate-400">
+                {ammPriceCents.toFixed(1)}¢
               </div>
             </div>
-            {/* Diff indicator - always show */}
+            {/* Diff */}
             <div className={cn(
               "text-center p-2 rounded-lg",
               hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
             )}>
               <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
               <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
-                {arbSpread.toFixed(1)}%
+                {arbSpread.toFixed(1)}¢
               </div>
             </div>
             <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
@@ -1790,19 +1844,22 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
             {/* Price Comparison */}
             <div className="flex items-center gap-4">
-              {/* Book Price */}
-              <div className="text-center">
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Book Price</div>
-                <div className="text-2xl font-mono font-bold text-amber-400 flex items-center gap-1">
-                  {tickBookProb !== null ? `${(tickBookProb * 100).toFixed(1)}%` : 'N/A'}
-                  {hasArb && <Zap className="w-4 h-4 text-amber-400" />}
+              {/* Pro Price */}
+              <div className={cn(
+                "text-center px-3 py-1 rounded-lg",
+                isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : ""
+              )}>
+                <div className={cn("text-[10px] uppercase tracking-wider font-medium", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
+                <div className={cn("text-lg font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
+                  {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
+                  {hasArb && <Zap className="w-4 h-4" />}
                 </div>
               </div>
               {/* AMM Price */}
-              <div className="text-center">
+              <div className="text-center px-3 py-1">
                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">AMM Price</div>
-                <div className="text-lg font-mono text-slate-400">
-                  {(ammProb * 100).toFixed(1)}%
+                <div className="text-lg font-mono font-bold text-slate-400">
+                  {ammPriceCents.toFixed(1)}¢
                 </div>
               </div>
               {/* Diff */}
@@ -1810,9 +1867,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 "text-center px-3 py-1 rounded-lg",
                 hasArb ? "bg-amber-500/10 border border-amber-500/30" : ""
               )}>
-                <div className="text-[10px] text-amber-500/70 uppercase tracking-wider font-medium">Diff</div>
+                <div className={cn("text-[10px] uppercase tracking-wider font-medium", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
                 <div className={cn("text-lg font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
-                  {arbSpread.toFixed(1)}%
+                  {arbSpread.toFixed(1)}¢
                 </div>
               </div>
               {/* Refresh */}
@@ -1824,7 +1881,26 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
           {/* Market Key Info (collapsible for pro users) */}
           <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center gap-4 text-[10px] text-slate-500">
-            <span>Market Key: <code className="text-slate-400 font-mono">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code></span>
+            <button
+              onClick={() => {
+                if (tickBook?.marketKey) {
+                  navigator.clipboard.writeText(tickBook.marketKey);
+                  setMarketKeyCopied(true);
+                  toast.success('Market key copied!');
+                  setTimeout(() => setMarketKeyCopied(false), 2000);
+                }
+              }}
+              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+              title="Click to copy market key"
+            >
+              <span>Market Key:</span>
+              <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
+              {marketKeyCopied ? (
+                <Check className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+              )}
+            </button>
             <span>•</span>
             <a
               href={getAddressExplorerUrl(chainId, marketAddr)}
@@ -1851,7 +1927,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
               <div className="flex items-center gap-3 text-[10px]">
                 <span className="text-emerald-400">◀ {isYes ? 'YES' : 'NO'} Bids</span>
-                <span className="text-white font-bold">{tickBookProb !== null ? `${((isYes ? tickBookProb : 1 - tickBookProb) * 100).toFixed(1)}%` : 'N/A'}</span>
+                <span className="text-white font-bold">{isProPriceValid ? `${(isYes ? proPriceCents : 100 - proPriceCents).toFixed(1)}¢` : 'N/A'}</span>
                 <span className="text-rose-400">{isYes ? 'NO' : 'YES'} Asks ▶</span>
               </div>
             </div>
@@ -2086,10 +2162,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                             "border-slate-700 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 text-slate-200"
                           )}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">¢</span>
                       </div>
                       <div className="text-[9px] text-slate-600">
-                        Won't pay more than {floorPrice || '50'}% per share
+                        Won't pay more than {floorPrice || '50'}¢ per share
                       </div>
                     </div>
                   )}
@@ -2101,7 +2177,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center mb-1">
                     <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Price</div>
-                    <div className="text-[9px] text-slate-600 font-mono">0.1 — 99.9</div>
+                    <div className="text-[9px] text-slate-600 font-mono">0.1¢ — 99.9¢</div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-4">
@@ -2123,7 +2199,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                             isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                           )}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">¢</span>
                       </div>
 
                       {priceMode === 'range' && (
@@ -2145,7 +2221,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                                 isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
                               )}
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">%</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-lg font-bold pointer-events-none">¢</span>
                           </div>
                         </>
                       )}
@@ -2276,8 +2352,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     </span>
                     <span className="font-mono text-amber-400">
                       {priceMode === 'single'
-                        ? `${priceLowNum.toFixed(1)}%`
-                        : `${priceLowNum.toFixed(1)}% – ${priceHighNum.toFixed(1)}%`}
+                        ? `${priceLowNum.toFixed(1)}¢`
+                        : `${priceLowNum.toFixed(1)}¢ – ${priceHighNum.toFixed(1)}¢`}
                     </span>
                   </div>
                 )}

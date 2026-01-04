@@ -19,6 +19,7 @@ export interface RangeOrder {
   pendingShares: bigint;      // Unclaimed fills from accumulator
   collateralUsedWad: bigint;
   active: boolean;
+  createdAt?: number;         // Unix timestamp (seconds) from indexer
 }
 
 // RangeOrderPlaced event signature

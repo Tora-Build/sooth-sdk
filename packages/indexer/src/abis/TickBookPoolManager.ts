@@ -39,7 +39,7 @@ export const TickBookPoolManagerAbi = [
   },
   {
     type: "event",
-    name: "MarketOrderExecuted",
+    name: "MarketOrderFilled",
     inputs: [
       { name: "taker", type: "address", indexed: true },
       { name: "marketKey", type: "bytes32", indexed: true },
