@@ -103,18 +103,17 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
   }
 
   if (args.length < 1) {
-    return { success: false, message: 'Usage: approve <contract> [amount]\n  Contracts: vault, poolmanager, launchpad, all' };
+    return { success: false, message: 'Usage: approve <contract> [amount]\n  Contracts: vault, launchpad, all' };
   }
 
   const contractArg = args[0].toLowerCase();
   const amount = args[1] ? parseWad(args[1]) : MAX_UINT256;
 
   // Map contract names to addresses
+  // Note: PoolManager doesn't need direct USDC allowance - it uses Vault's internal accounting
   const contractMap: Record<string, string> = {
     vault: deployment.contracts.TickBookVault,
     tickbookvault: deployment.contracts.TickBookVault,
-    poolmanager: deployment.contracts.TickBookPoolManager,
-    tickbook: deployment.contracts.TickBookPoolManager,
     launchpad: deployment.contracts.LaunchpadEngine,
     launchpadengine: deployment.contracts.LaunchpadEngine,
   };
@@ -144,7 +143,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
   if (contractArg === 'all') {
     let allSuccess = true;
     for (const [name, addr] of Object.entries(contractMap)) {
-      if (name !== 'tickbookvault' && name !== 'tickbook' && name !== 'launchpadengine') {
+      if (name !== 'tickbookvault' && name !== 'launchpadengine') {
         const ok = await approveContract(name, addr);
         allSuccess = allSuccess && ok;
       }
@@ -154,7 +153,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
 
   const contractAddress = contractMap[contractArg];
   if (!contractAddress) {
-    return { success: false, message: `Unknown contract: ${contractArg}. Use: vault, poolmanager, launchpad, or all` };
+    return { success: false, message: `Unknown contract: ${contractArg}. Use: vault, launchpad, or all` };
   }
 
   const ok = await approveContract(contractArg, contractAddress);
@@ -173,9 +172,9 @@ export async function allowance(ctx: CommandContext, args: string[]): Promise<Co
     return { success: false, message: 'No actor selected' };
   }
 
+  // Note: PoolManager doesn't need direct USDC allowance - it uses Vault's internal accounting
   const contracts = [
     { name: 'Vault', address: deployment.contracts.TickBookVault },
-    { name: 'PoolManager', address: deployment.contracts.TickBookPoolManager },
     { name: 'Launchpad', address: deployment.contracts.LaunchpadEngine },
   ];
 

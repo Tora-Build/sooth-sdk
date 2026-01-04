@@ -2,34 +2,33 @@
 pragma solidity ^0.8.24;
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
-import {ITickBookHooks, HookPermissions} from "./interfaces/ITickBookHooks.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
-import {TransientDelta} from "./libraries/TransientDelta.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title TickBookPoolManager (V9.9.5)
- * @notice Uniswap V4-style singleton manager for all prediction markets
- * @dev Key features:
- *      - Singleton: One contract manages ALL markets (vs per-market contracts)
- *      - Flash Accounting: EIP-1153 transient storage for batch operations
- *      - Hooks: Extensible before/after callbacks with address-encoded permissions
- *      - Permission Encoding: Zero-storage permission checks via address bits
+ * @title TickBookPoolManager V9.9.6
+ * @notice Singleton manager for prediction market orderbooks
+ * @dev V9.9.6 Changes:
+ *      - UNIFIED: Single `placeOrder()` replaces `placeRangeOrder()` and `executeMarketOrder()`
+ *      - ADDED: Auto-claim existing orders before placing new ones
+ *      - TERMINOLOGY: Removed maker/taker language (now resting/crossing orders)
  *
- * Architecture inspired by Uniswap V4 PoolManager
+ *      Order Types via Tick Range:
+ *      - Market order: tickLower=1, tickUpper=999 (fill everything available)
+ *      - Limit order: tickLower=X, tickUpper=X (single tick)
+ *      - Range order: tickLower < tickUpper (spread liquidity)
+ *      - Market with floor: tickLower=floor, tickUpper=999 (fill down to floor, rest at floor)
  *
- * V9.9.5 Changes:
- *   - Added `liquidityRemoved` flag for idempotent order cleanup
- *   - Cap filledShares at sharesTotal to prevent accumulator drift
- *   - Auto-complete orders when fully filled via claimFills
+ *      V9.9.5 Base (inherited):
+ *      - `liquidityRemoved` flag for idempotent order cleanup
+ *      - Cap filledShares at sharesTotal to prevent accumulator drift
+ *      - Auto-complete orders when fully filled
  */
 contract TickBookPoolManager is ReentrancyGuard, Ownable {
     using TickBitmap for TickBitmap.Bitmap;
-    using TransientDelta for address;
-    using HookPermissions for address;
 
     // ============================================
     // Constants
@@ -40,6 +39,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     uint16 private constant MAX_TICK = TickMath.MAX_TICK; // 999
     uint256 private constant Q128 = 2 ** 128;
     uint128 private constant MAX_LIQUIDITY = type(uint128).max;
+    uint24 private constant MAX_FEE_BPS = 1000; // 10% max fee (TOB-2 fix)
 
     // ============================================
     // Custom Errors
@@ -59,11 +59,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     error NoLiquidity();
     error SlippageExceeded();
     error LiquidityOverflow();
-    error UnsettledDeltas();
-    error HookFailed();
-    error InvalidHookResponse();
-    error LockerMismatch();
-    error NotLocked();
+    error FeeTooHigh();
 
     // ============================================
     // Types
@@ -73,7 +69,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address truthMarket;
         address yesToken;
         address noToken;
-        address hook;           // Optional hook contract
         bool isActive;
     }
 
@@ -83,7 +78,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower;
         uint16 tickUpper;
         bool active;
-        bool liquidityRemoved;  // Track if tick liquidity has been cleaned up
+        bool liquidityRemoved;  // V9.9.5: Track if tick liquidity has been cleaned up
         uint128 sharesTotal;
         uint128 liquidity;
         uint128 collateralDepositedWad;
@@ -106,7 +101,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address truthMarket;
         address yesToken;
         address noToken;
-        address hook;
     }
 
     // ============================================
@@ -115,11 +109,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     ITickBookVault public immutable vault;
 
-    // Locker tracking for flash accounting
-    address private _locker;
-    uint256 private _lockCount;
-
-    // Markets (singleton pattern - all markets in one mapping)
+    // Markets (singleton pattern)
     mapping(bytes32 => Market) private _markets;
     mapping(bytes32 => MarketState) private _state;
 
@@ -139,20 +129,25 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     mapping(bytes32 => mapping(uint256 => uint256)) private _fillGrowthLastX128;
     mapping(bytes32 => mapping(uint256 => uint256)) private _collateralUsedGrowthLastX128;
 
-    // Access control: only registrar (LaunchpadEngine) can register markets
-    address public registrar;
+    // V9.9.6-fix9: Pooled refunds for completed orders (O(1) claim)
+    mapping(address => mapping(bytes32 => uint256)) private _pendingRefunds;
 
-    // Fee recipient for collected trading fees
+    // Access control
+    address public registrar;
     address public feeRecipient;
+
+    // Simple fee storage (replaces hook system)
+    uint24 public takerFeeBps = 10;  // 0.1% default
+    uint24 public makerFeeBps = 0;   // No maker fee by default
 
     // ============================================
     // Events
     // ============================================
 
-    event MarketRegistered(bytes32 indexed marketKey, address market, address yesToken, address noToken, address hook);
+    event MarketRegistered(bytes32 indexed marketKey, address market, address yesToken, address noToken);
     event RegistrarChanged(address indexed oldRegistrar, address indexed newRegistrar);
     event FeeRecipientChanged(address indexed newFeeRecipient);
-    event LockerChanged(address indexed oldLocker, address indexed newLocker);
+    event FeesUpdated(uint24 takerFee, uint24 makerFee);
 
     event RangeOrderPlaced(
         address indexed owner,
@@ -172,18 +167,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         bytes32 indexed marketKey,
         uint256 indexed orderId,
         uint256 collateralReleased
-    );
-
-    event MarketOrderExecuted(
-        address indexed taker,
-        bytes32 indexed marketKey,
-        uint8 outcome,
-        uint256 sharesRequested,
-        uint256 sharesFilled,
-        uint256 totalCost,
-        uint16 startTick,
-        uint16 endTick,
-        uint256 refunded
     );
 
     event TickCrossed(bytes32 indexed marketKey, uint16 tick, int128 liquidityDelta);
@@ -206,23 +189,39 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 collateralUsedWad
     );
 
+    // V9.9.6-fix9: Pooled refunds event
+    event PooledRefundsClaimed(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 refund
+    );
+
+    // V9.9.6: Unified order events
+    event OrderPlaced(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed orderId,
+        uint8 outcome,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 shares,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    );
+
+    event AutoClaimExecuted(
+        address indexed user,
+        bytes32 indexed marketKey,
+        uint256 ordersClaimed,
+        uint256 totalShares,
+        uint256 totalCollateralUsed
+    );
+
     // ============================================
     // Modifiers
     // ============================================
 
-    /// @notice Ensures caller is the current locker (for flash operations)
-    modifier onlyLocker() {
-        if (msg.sender != _locker) revert LockerMismatch();
-        _;
-    }
-
-    /// @notice Ensures we're in a locked state
-    modifier whenLocked() {
-        if (_locker == address(0)) revert NotLocked();
-        _;
-    }
-
-    /// @notice Ensures caller is the registrar (LaunchpadEngine) or owner
     modifier onlyRegistrar() {
         if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
         _;
@@ -237,96 +236,27 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         vault = ITickBookVault(_vault);
     }
 
-    /**
-     * @notice Set the registrar address (only LaunchpadEngine should register markets)
-     * @dev Only owner can change registrar. Set to LaunchpadEngine after deployment.
-     * @param _registrar The new registrar address
-     */
+    // ============================================
+    // Admin Functions
+    // ============================================
+
     function setRegistrar(address _registrar) external onlyOwner {
         address old = registrar;
         registrar = _registrar;
         emit RegistrarChanged(old, _registrar);
     }
 
-    /**
-     * @notice Set the fee recipient address for collected trading fees
-     * @param _feeRecipient The address to receive trading fees
-     */
     function setFeeRecipient(address _feeRecipient) external onlyOwner {
         feeRecipient = _feeRecipient;
         emit FeeRecipientChanged(_feeRecipient);
     }
 
-    // ============================================
-    // Flash Accounting (EIP-1153)
-    // ============================================
-
-    /**
-     * @notice Lock the pool manager for batch operations
-     * @dev Uses transient storage for tracking balance deltas
-     * @param data Callback data
-     * @return result Callback return data
-     */
-    function lock(bytes calldata data) external returns (bytes memory result) {
-        address prevLocker = _locker;
-        _locker = msg.sender;
-        _lockCount++;
-
-        emit LockerChanged(prevLocker, msg.sender);
-
-        // Execute callback
-        result = ILockCallback(msg.sender).lockCallback(data);
-
-        // Verify all deltas are settled
-        if (!TransientDelta.isSettled()) {
-            revert UnsettledDeltas();
-        }
-
-        _lockCount--;
-        if (_lockCount == 0) {
-            _locker = address(0);
-            emit LockerChanged(msg.sender, address(0));
-        } else {
-            _locker = prevLocker;
-            emit LockerChanged(msg.sender, prevLocker);
-        }
-    }
-
-    /**
-     * @notice Get current delta for an account
-     */
-    function getDelta(address account) external view returns (int256) {
-        return TransientDelta.getDelta(account);
-    }
-
-    /**
-     * @notice Settle a positive delta by paying USDC
-     * @param account The account to settle
-     * @param amount Amount to pay
-     */
-    function settle(address account, uint256 amount) external whenLocked {
-        int256 delta = TransientDelta.getDelta(account);
-        if (delta > 0) {
-            uint256 owed = uint256(delta);
-            if (amount > owed) amount = owed;
-            TransientDelta.addDelta(account, -int256(amount));
-            // Actual transfer handled by caller
-        }
-    }
-
-    /**
-     * @notice Take USDC for a negative delta (account is owed funds)
-     * @param account The account to take for
-     * @param amount Amount to take
-     */
-    function take(address account, uint256 amount) external whenLocked {
-        int256 delta = TransientDelta.getDelta(account);
-        if (delta < 0) {
-            uint256 owed = uint256(-delta);
-            if (amount > owed) amount = owed;
-            TransientDelta.addDelta(account, int256(amount));
-            // Actual transfer handled by caller
-        }
+    function setFees(uint24 _takerFee, uint24 _makerFee) external onlyOwner {
+        if (_takerFee > MAX_FEE_BPS) revert FeeTooHigh();
+        if (_makerFee > MAX_FEE_BPS) revert FeeTooHigh();
+        takerFeeBps = _takerFee;
+        makerFeeBps = _makerFee;
+        emit FeesUpdated(_takerFee, _makerFee);
     }
 
     // ============================================
@@ -335,7 +265,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     function registerMarket(
         PoolKey calldata key,
-        uint256 initialProbabilityWad
+        uint256 /* initialProbabilityWad */
     ) external onlyRegistrar returns (bytes32 marketKey) {
         if (key.truthMarket == address(0)) revert ZeroAddress();
         if (key.yesToken == address(0)) revert ZeroAddress();
@@ -344,127 +274,124 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         marketKey = _getPoolKey(key);
         if (_markets[marketKey].isActive) revert DuplicateMarket();
 
-        // Validate hook permissions if hook is set
-        if (key.hook != address(0)) {
-            // Hook address encodes permissions in its last 14 bits
-            // This is validated at deployment via CREATE2 mining
-        }
-
         _markets[marketKey] = Market({
             truthMarket: key.truthMarket,
             yesToken: key.yesToken,
             noToken: key.noToken,
-            hook: key.hook,
             isActive: true
         });
 
-        // Initialize currentTick to MIN_TICK - let trading establish the price
-        // The _tryCross function uses bitmap overlap detection, not currentTick
-        // Using MIN_TICK instead of 0 ensures _fill can search both up and down
         _state[marketKey] = MarketState({
             currentTick: MIN_TICK,
             activeLiquidityNo: 0,
             activeLiquidityYes: 0
         });
 
-        emit MarketRegistered(marketKey, key.truthMarket, key.yesToken, key.noToken, key.hook);
+        emit MarketRegistered(marketKey, key.truthMarket, key.yesToken, key.noToken);
     }
 
     /**
-     * @notice Register market with legacy signature (ITickBook compatibility)
-     * @dev Used by LaunchpadEngine - supports optional hook for dynamic fees
-     * @param market Truth market address
-     * @param yesToken YES outcome token
-     * @param noToken NO outcome token
-     * @param initialProbabilityWad Initial probability (unused - currentTick starts at 0)
-     * @param hook Optional hook contract for dynamic fees (address(0) for no hook)
+     * @notice Legacy signature for ITickBook compatibility
+     * @dev hook parameter is ignored in V9.9.5 (no hooks)
      */
     function registerMarket(
         address market,
         address yesToken,
         address noToken,
-        uint256 initialProbabilityWad,
-        address hook
+        uint256 /* initialProbabilityWad */,
+        address /* hook - IGNORED */
     ) external onlyRegistrar returns (bytes32 marketKey) {
         if (market == address(0)) revert ZeroAddress();
         if (yesToken == address(0)) revert ZeroAddress();
         if (noToken == address(0)) revert ZeroAddress();
-        // Note: initialProbabilityWad is kept for interface compatibility but unused
 
-        marketKey = _getPoolKeyFromMemory(PoolKey({
-            truthMarket: market,
-            yesToken: yesToken,
-            noToken: noToken,
-            hook: hook
-        }));
+        marketKey = keccak256(abi.encode(market, yesToken, noToken));
         if (_markets[marketKey].isActive) revert DuplicateMarket();
 
         _markets[marketKey] = Market({
             truthMarket: market,
             yesToken: yesToken,
             noToken: noToken,
-            hook: hook,
             isActive: true
         });
 
-        // Initialize currentTick to MIN_TICK - let trading establish the price
-        // The _tryCross function uses bitmap overlap detection, not currentTick
-        // Using MIN_TICK instead of 0 ensures _fill can search both up and down
         _state[marketKey] = MarketState({
             currentTick: MIN_TICK,
             activeLiquidityNo: 0,
             activeLiquidityYes: 0
         });
 
-        emit MarketRegistered(marketKey, market, yesToken, noToken, hook);
+        emit MarketRegistered(marketKey, market, yesToken, noToken);
     }
 
     // ============================================
-    // Range Orders with Hooks
+    // Unified Order Placement (V9.9.6)
     // ============================================
 
-    function placeRangeOrder(
+    /**
+     * @notice Place an order - unified API for limit, market, and range orders
+     * @dev Order type is determined by tick range:
+     *      - Market order: tickLower=1, tickUpper=999 (fill everything)
+     *      - Limit order: tickLower=X, tickUpper=X (single tick)
+     *      - Range order: tickLower < tickUpper (spread liquidity)
+     *      - Market with floor: tickLower=floor, tickUpper=999 (fill down to floor)
+     *
+     *      Auto-claims all user's existing orders before placing new one.
+     *
+     * @param marketKey The market identifier
+     * @param outcome 0 = NO, 1 = YES
+     * @param shares Total shares to place
+     * @param tickLower Lower tick bound (1-999)
+     * @param tickUpper Upper tick bound (1-999)
+     * @param maxCost Maximum cost willing to pay (slippage protection)
+     * @return orderId The created order ID
+     * @return filledShares Shares filled immediately via crossing
+     * @return filledCost Cost of immediately filled shares
+     * @return restingShares Shares remaining as resting order
+     */
+    function placeOrder(
         bytes32 marketKey,
         uint8 outcome,
+        uint256 shares,
         uint16 tickLower,
         uint16 tickUpper,
-        uint256 sharesTotal
-    ) external nonReentrant returns (uint256 orderId, uint256 crossingFilled, uint256 crossingCost) {
+        uint256 maxCost
+    ) external nonReentrant returns (
+        uint256 orderId,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    ) {
         Market memory m = _markets[marketKey];
         if (!m.isActive) revert MarketNotActive();
         if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
         if (outcome > 1) revert InvalidOutcome();
-        if (sharesTotal == 0) revert ZeroAmount();
+        if (shares == 0) revert ZeroAmount();
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
 
-        // Before hook
-        bytes memory hookData;
-        if (m.hook != address(0) && m.hook.beforePlaceOrder()) {
-            ITickBookHooks.PlaceOrderParams memory params = ITickBookHooks.PlaceOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                outcome: outcome,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                sharesTotal: sharesTotal
-            });
-            (bytes4 selector, bytes memory data) = ITickBookHooks(m.hook).beforePlaceOrder(params);
-            if (selector != ITickBookHooks.beforePlaceOrder.selector) revert InvalidHookResponse();
-            hookData = data;
+        // V9.9.6-fix9: Auto-claim ONLY 100% filled orders (max 10 for gas safety)
+        // Partial fills are NOT claimed automatically - user must call claimFills()
+        _autoClaimUserOrders(marketKey, msg.sender);
+
+        // V9.9.6-fix9: Also auto-release pooled refunds to available balance
+        uint256 pooled = _pendingRefunds[msg.sender][marketKey];
+        if (pooled > 0) {
+            _pendingRefunds[msg.sender][marketKey] = 0;
+            vault.refundMarketToAvailable(m.truthMarket, msg.sender, pooled);
         }
 
         orderId = ++_nextOrderId;
 
         uint256 ticksInRange = uint256(tickUpper) - uint256(tickLower) + 1;
-        uint256 density = sharesTotal / ticksInRange;
+        uint256 density = shares / ticksInRange;
         if (density == 0) revert ZeroDensity();
-
         if (density > MAX_LIQUIDITY) revert LiquidityOverflow();
-        if (sharesTotal > MAX_LIQUIDITY) revert LiquidityOverflow();
+        if (shares > MAX_LIQUIDITY) revert LiquidityOverflow();
 
-        uint256 collateral = _calculateCollateral(outcome, tickLower, tickUpper, sharesTotal);
+        uint256 collateral = _calculateCollateral(outcome, tickLower, tickUpper, shares);
         if (collateral > MAX_LIQUIDITY) revert LiquidityOverflow();
+        if (collateral > maxCost) revert SlippageExceeded();
 
         _orders[marketKey][orderId] = RangeOrder({
             owner: msg.sender,
@@ -473,7 +400,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             tickUpper: tickUpper,
             active: true,
             liquidityRemoved: false,
-            sharesTotal: uint128(sharesTotal),
+            sharesTotal: uint128(shares),
             liquidity: uint128(density),
             collateralDepositedWad: uint128(collateral),
             filledShares: 0,
@@ -484,31 +411,69 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         _fillGrowthLastX128[marketKey][orderId] = _fillGrowthGlobalX128[marketKey][outcome];
         _collateralUsedGrowthLastX128[marketKey][orderId] = _collateralUsedGrowthGlobalX128[marketKey][outcome];
 
-        _totalLiquidity[marketKey][outcome] += sharesTotal;
+        _totalLiquidity[marketKey][outcome] += shares;
         _updateTickBoundaries(marketKey, outcome, tickLower, tickUpper, int128(uint128(density)), true);
         _updateActiveLiquidity(marketKey, outcome, tickLower, tickUpper, uint128(density), true);
 
         vault.spendAvailableToMarket(msg.sender, m.truthMarket, collateral);
 
-        (crossingFilled, crossingCost, ) = _tryCross(marketKey, orderId);
+        // Try crossing with opposite orders
+        uint256 crossingCost;
+        (filledShares, filledCost, crossingCost) = _tryCross(marketKey, orderId);
 
-        // After hook
-        if (m.hook != address(0) && m.hook.afterPlaceOrder()) {
-            ITickBookHooks.PlaceOrderParams memory params = ITickBookHooks.PlaceOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                outcome: outcome,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                sharesTotal: sharesTotal
-            });
-            ITickBookHooks(m.hook).afterPlaceOrder(params, orderId, hookData);
+        restingShares = shares - filledShares;
+
+        emit OrderPlaced(
+            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
+            shares, filledShares, filledCost, restingShares
+        );
+    }
+
+    /**
+     * @notice Auto-claim all user's active orders in a market
+     * @dev Called automatically before placing a new order
+     * @param marketKey The market identifier
+     * @param user The user address
+     * @return totalClaimedShares Total shares claimed across all orders
+     * @return totalCollateralUsed Total collateral used across all orders
+     */
+    function _autoClaimUserOrders(bytes32 marketKey, address user)
+        internal
+        returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
+    {
+        uint256[] storage orderIds = _userOrders[marketKey][user];
+        if (orderIds.length == 0) return (0, 0);
+        
+        uint256 ordersProcessed = 0;
+        uint256 maxProcess = 20; // V9.9.6-fix9j: Process up to 20 (O(1) check per order)
+
+        // Iterate backwards to handle removals safely
+        uint256 i = orderIds.length;
+        while (i > 0 && ordersProcessed < maxProcess) {
+            unchecked { --i; }
+            uint256 orderId = orderIds[i];
+            RangeOrder storage order = _orders[marketKey][orderId];
+            
+            if (!order.active) {
+                ordersProcessed++;
+                continue;
+            }
+            
+            // V9.9.6-fix9j: ONLY check recorded filledShares (O(1))
+            // Skip expensive _getPendingFillsInternal call
+            // Pending fills from crossing are recorded immediately, so this works
+            if (order.filledShares >= order.sharesTotal) {
+                // Order is 100% filled - claim and complete it
+                (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
+                totalClaimedShares += filled;
+                totalCollateralUsed += used;
+            }
+            ordersProcessed++;
         }
 
-        emit RangeOrderPlaced(
-            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
-            density, collateral, crossingFilled, crossingCost
-        );
+        if (totalClaimedShares > 0) {
+            emit AutoClaimExecuted(user, marketKey, ordersProcessed, totalClaimedShares, totalCollateralUsed);
+        }
     }
 
     function cancelOrder(bytes32 marketKey, uint256 orderId) external nonReentrant returns (uint256 collateralReleased) {
@@ -518,229 +483,34 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         Market memory m = _markets[marketKey];
 
-        // Before hook
-        if (m.hook != address(0) && m.hook.beforeCancelOrder()) {
-            ITickBookHooks.CancelOrderParams memory params = ITickBookHooks.CancelOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                orderId: orderId
-            });
-            bytes4 selector = ITickBookHooks(m.hook).beforeCancelOrder(params);
-            if (selector != ITickBookHooks.beforeCancelOrder.selector) revert InvalidHookResponse();
-        }
-
         _claimInternal(marketKey, orderId);
 
-        // V9.9.5: Only remove liquidity if not already removed (idempotent)
+        // V9.9.5: Only remove tick liquidity if not already removed
         if (!order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
-            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
+            _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
         }
-        _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
 
         collateralReleased = order.collateralDepositedWad > order.collateralUsedWad
             ? uint256(order.collateralDepositedWad - order.collateralUsedWad)
             : 0;
 
         order.active = false;
+        _removeFromUserOrders(marketKey, msg.sender, orderId);
 
         if (collateralReleased > 0) {
             vault.refundMarketToAvailable(m.truthMarket, msg.sender, collateralReleased);
-        }
-
-        // After hook
-        if (m.hook != address(0) && m.hook.afterCancelOrder()) {
-            ITickBookHooks.CancelOrderParams memory params = ITickBookHooks.CancelOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                orderId: orderId
-            });
-            ITickBookHooks(m.hook).afterCancelOrder(params, collateralReleased);
         }
 
         emit RangeOrderCancelled(msg.sender, marketKey, orderId, collateralReleased);
     }
 
     // ============================================
-    // Market Orders with Dynamic Fees
-    // ============================================
-
-    function executeMarketOrder(
-        bytes32 marketKey,
-        uint8 outcome,
-        uint256 shares,
-        uint256 maxCost
-    ) external nonReentrant returns (uint256 sharesFilled, uint256 totalCost, uint256 refunded) {
-        Market memory m = _markets[marketKey];
-        if (!m.isActive) revert MarketNotActive();
-        if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
-        if (outcome > 1) revert InvalidOutcome();
-        if (shares == 0) revert ZeroAmount();
-
-        // Before hook
-        bytes memory hookData;
-        if (m.hook != address(0) && m.hook.beforeExecuteOrder()) {
-            ITickBookHooks.ExecuteOrderParams memory params = ITickBookHooks.ExecuteOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                outcome: outcome,
-                shares: shares,
-                maxCost: maxCost
-            });
-            (bytes4 selector, bytes memory data) = ITickBookHooks(m.hook).beforeExecuteOrder(params);
-            if (selector != ITickBookHooks.beforeExecuteOrder.selector) revert InvalidHookResponse();
-            hookData = data;
-        }
-
-        vault.spendAvailableToMarket(msg.sender, m.truthMarket, maxCost);
-
-        MarketState storage state = _state[marketKey];
-        uint16 startTick = state.currentTick;
-        uint8 makerOutcome = outcome == 1 ? 0 : 1;
-        bool isUp = outcome == 1;
-
-        (sharesFilled, totalCost) = _fill(marketKey, state, shares, makerOutcome, isUp);
-
-        // Apply dynamic taker fee if hook supports it
-        uint256 feeAmount = 0;
-        if (m.hook != address(0) && m.hook.getDynamicFee()) {
-            uint24 baseFee = 10; // 0.1% default
-            uint24 fee = ITickBookHooks(m.hook).getDynamicFee(marketKey, outcome, sharesFilled, baseFee);
-            feeAmount = (totalCost * fee) / 10000;
-            totalCost += feeAmount;
-        }
-
-        if (sharesFilled == 0) revert NoLiquidity();
-        if (totalCost > maxCost) revert SlippageExceeded();
-
-        if (sharesFilled > 0) {
-            uint256 totalLiq = _totalLiquidity[marketKey][makerOutcome];
-            if (totalLiq > 0) {
-                _fillGrowthGlobalX128[marketKey][makerOutcome] += (sharesFilled * Q128) / totalLiq;
-
-                // Calculate maker's collateral used (how much USDC makers effectively paid)
-                uint256 makerCollateralUsed = sharesFilled > totalCost ? (sharesFilled - totalCost) : 0;
-
-                // Apply maker rebate if hook supports it
-                if (m.hook != address(0) && m.hook.getMakerFee()) {
-                    (uint24 makerFee, bool isRebate) = ITickBookHooks(m.hook).getMakerFee(
-                        marketKey, makerOutcome, sharesFilled, 0
-                    );
-                    if (isRebate && makerFee > 0) {
-                        // Reduce maker's collateral used (they get more USDC back)
-                        uint256 rebateAmount = (sharesFilled * makerFee) / 10000;
-                        makerCollateralUsed = makerCollateralUsed > rebateAmount
-                            ? makerCollateralUsed - rebateAmount : 0;
-                    }
-                }
-
-                _collateralUsedGrowthGlobalX128[marketKey][makerOutcome] += (makerCollateralUsed * Q128) / totalLiq;
-            }
-            vault.creditOutcome(m.truthMarket, msg.sender, outcome, sharesFilled);
-        }
-
-        if (maxCost > totalCost) {
-            refunded = maxCost - totalCost;
-            vault.refundMarketToAvailable(m.truthMarket, msg.sender, refunded);
-        }
-
-        // Transfer collected fee to recipient
-        if (feeAmount > 0 && feeRecipient != address(0)) {
-            vault.transferFee(m.truthMarket, feeRecipient, feeAmount);
-        }
-
-        // After hook
-        if (m.hook != address(0) && m.hook.afterExecuteOrder()) {
-            ITickBookHooks.ExecuteOrderParams memory params = ITickBookHooks.ExecuteOrderParams({
-                marketKey: marketKey,
-                sender: msg.sender,
-                outcome: outcome,
-                shares: shares,
-                maxCost: maxCost
-            });
-            ITickBookHooks(m.hook).afterExecuteOrder(params, sharesFilled, totalCost, hookData);
-        }
-
-        emit MarketOrderExecuted(msg.sender, marketKey, outcome, shares, sharesFilled, totalCost, startTick, state.currentTick, refunded);
-    }
-
-    // ============================================
-    // Batch Operations (Flash Accounting)
-    // ============================================
-
-    /**
-     * @notice Place multiple orders in a single transaction with flash accounting
-     * @dev Caller must implement ILockCallback and call lock() first
-     */
-    function batchPlaceOrders(
-        bytes32[] calldata marketKeys,
-        uint8[] calldata outcomes,
-        uint16[] calldata tickLowers,
-        uint16[] calldata tickUppers,
-        uint256[] calldata sharesTotals
-    ) external onlyLocker returns (uint256[] memory orderIds) {
-        uint256 len = marketKeys.length;
-        require(
-            outcomes.length == len &&
-            tickLowers.length == len &&
-            tickUppers.length == len &&
-            sharesTotals.length == len,
-            "Length mismatch"
-        );
-
-        orderIds = new uint256[](len);
-        uint256 totalCollateral;
-
-        for (uint256 i = 0; i < len; i++) {
-            Market memory m = _markets[marketKeys[i]];
-            if (!m.isActive) revert MarketNotActive();
-            if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
-
-            uint256 collateral = _calculateCollateral(
-                outcomes[i],
-                tickLowers[i],
-                tickUppers[i],
-                sharesTotals[i]
-            );
-            totalCollateral += collateral;
-
-            // Track delta instead of immediate transfer
-            TransientDelta.addDelta(msg.sender, int256(collateral));
-
-            // Place order (simplified - no hooks in batch for gas)
-            orderIds[i] = ++_nextOrderId;
-            uint256 ticksInRange = uint256(tickUppers[i]) - uint256(tickLowers[i]) + 1;
-            uint256 density = sharesTotals[i] / ticksInRange;
-
-            _orders[marketKeys[i]][orderIds[i]] = RangeOrder({
-                owner: msg.sender,
-                outcome: outcomes[i],
-                tickLower: tickLowers[i],
-                tickUpper: tickUppers[i],
-                active: true,
-                liquidityRemoved: false,
-                sharesTotal: uint128(sharesTotals[i]),
-                liquidity: uint128(density),
-                collateralDepositedWad: uint128(collateral),
-                filledShares: 0,
-                collateralUsedWad: 0
-            });
-
-            _totalLiquidity[marketKeys[i]][outcomes[i]] += sharesTotals[i];
-            _updateTickBoundaries(marketKeys[i], outcomes[i], tickLowers[i], tickUppers[i], int128(uint128(density)), true);
-        }
-    }
-
-    // ============================================
     // Claims
     // ============================================
 
-    /**
-     * @notice Claim fills for your own order
-     * @param marketKey The market
-     * @param orderId The order ID
-     */
     function claimFills(bytes32 marketKey, uint256 orderId)
         external
         returns (uint256 filledShares, uint256 collateralUsedWad)
@@ -750,12 +520,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _claimInternal(marketKey, orderId);
     }
 
-    /**
-     * @notice Permissionless claim - anyone can trigger claims for any order
-     * @dev Enables takers/keepers to auto-settle makers, preventing order flow blockage
-     * @param marketKey The market
-     * @param orderId The order ID
-     */
     function claimFillsFor(bytes32 marketKey, uint256 orderId)
         external
         returns (uint256 filledShares, uint256 collateralUsedWad)
@@ -763,11 +527,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _claimInternal(marketKey, orderId);
     }
 
-    /**
-     * @notice Batch claim for multiple orders (gas efficient for keepers)
-     * @param marketKey The market
-     * @param orderIds Array of order IDs to claim
-     */
     function batchClaimFills(bytes32 marketKey, uint256[] calldata orderIds)
         external
         returns (uint256 totalFilledShares, uint256 totalCollateralUsed)
@@ -779,6 +538,32 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
+    /**
+     * @notice Claim pooled refunds from completed orders (O(1) gas)
+     * @dev V9.9.6-fix9: Refunds are automatically pooled when orders complete
+     * @param marketKey The market key
+     * @return refund Amount of USDC released back to available balance
+     */
+    function claimPooledRefunds(bytes32 marketKey) external returns (uint256 refund) {
+        refund = _pendingRefunds[msg.sender][marketKey];
+        if (refund > 0) {
+            _pendingRefunds[msg.sender][marketKey] = 0;
+            Market memory m = _markets[marketKey];
+            vault.refundMarketToAvailable(m.truthMarket, msg.sender, refund);
+            emit PooledRefundsClaimed(msg.sender, marketKey, refund);
+        }
+    }
+
+    /**
+     * @notice View pending pooled refunds
+     * @param user User address
+     * @param marketKey The market key  
+     * @return Pending refund amount
+     */
+    function getPendingRefunds(address user, bytes32 marketKey) external view returns (uint256) {
+        return _pendingRefunds[user][marketKey];
+    }
+
     function _claimInternal(bytes32 marketKey, uint256 orderId)
         internal
         returns (uint256 filledShares, uint256 collateralUsedWad)
@@ -788,18 +573,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         address owner = order.owner;
         Market memory m = _markets[marketKey];
-
-        // Before hook
-        if (m.hook != address(0) && m.hook.beforeClaim()) {
-            ITickBookHooks.ClaimParams memory params = ITickBookHooks.ClaimParams({
-                marketKey: marketKey,
-                sender: owner,
-                orderId: orderId,
-                filledShares: 0 // Will be calculated
-            });
-            bytes4 selector = ITickBookHooks(m.hook).beforeClaim(params);
-            if (selector != ITickBookHooks.beforeClaim.selector) revert InvalidHookResponse();
-        }
 
         uint8 out = order.outcome;
         uint256 totalLiq = _totalLiquidity[marketKey][out];
@@ -829,6 +602,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             if (filledShares > maxFillable) {
                 filledShares = maxFillable;
             }
+
             if (filledShares > 0) {
                 order.filledShares += uint128(filledShares);
                 vault.creditOutcome(m.truthMarket, owner, order.outcome, filledShares);
@@ -839,45 +613,57 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             order.collateralUsedWad += uint128(collateralUsedWad);
         }
 
-        // V9.9.5: Auto-complete order if fully filled (idempotent cleanup)
+        // V9.9.5: Auto-complete orders when fully filled
+        // V9.9.6-fix9: Pool refund immediately on completion
         if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
-            _totalLiquidity[marketKey][order.outcome] -= order.sharesTotal;
+            _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
+            _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
             order.active = false;
-        }
-
-        // After hook
-        if (m.hook != address(0) && m.hook.afterClaim()) {
-            ITickBookHooks.ClaimParams memory params = ITickBookHooks.ClaimParams({
-                marketKey: marketKey,
-                sender: owner,
-                orderId: orderId,
-                filledShares: filledShares
-            });
-            ITickBookHooks(m.hook).afterClaim(params, collateralUsedWad);
+            _removeFromUserOrders(marketKey, owner, orderId);
+            // Pool the refund (deposited - used)
+            uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
+                ? order.collateralDepositedWad - order.collateralUsedWad : 0;
+            if (refund > 0) {
+                _pendingRefunds[owner][marketKey] += refund;
+            }
         }
 
         emit FillsClaimed(owner, marketKey, orderId, filledShares, collateralUsedWad);
     }
 
     // ============================================
-    // Internal Helpers (same as TickBook)
+    // Internal Helpers
     // ============================================
 
-    function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
-        return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken, key.hook));
+    /**
+     * @notice Remove an order ID from user's order array (swap-and-pop for O(1))
+     * @dev Called when order becomes inactive to keep _userOrders compact
+     */
+    function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
+        uint256[] storage orderIds = _userOrders[marketKey][user];
+        uint256 len = orderIds.length;
+        for (uint256 i = 0; i < len; ) {
+            if (orderIds[i] == orderId) {
+                // Swap with last element and pop
+                orderIds[i] = orderIds[len - 1];
+                orderIds.pop();
+                return;
+            }
+            unchecked { ++i; }
+        }
     }
 
-    function _getPoolKeyFromMemory(PoolKey memory key) internal pure returns (bytes32) {
-        return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken, key.hook));
+    function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
+        return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken));
     }
 
     function _fill(
         bytes32 marketKey,
         MarketState storage state,
         uint256 sharesToFill,
-        uint8 makerOutcome,
+        uint8 crossedOutcome,
         bool isUp
     ) internal returns (uint256 filled, uint256 cost) {
         uint256 remaining = sharesToFill;
@@ -888,19 +674,14 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             if (activeLiq == 0) {
                 uint16 nextTick;
                 if (isUp) {
-                    nextTick = _bitmaps[marketKey][makerOutcome].findNextUp(tick);
-                    
-                    // V9.9.2 FIX: If market is crossed (best maker below current tick), jump back to it
-                    uint16 absoluteLowest = _bitmaps[marketKey][makerOutcome].findNextUp(0);
+                    nextTick = _bitmaps[marketKey][crossedOutcome].findNextUp(tick);
+                    uint16 absoluteLowest = _bitmaps[marketKey][crossedOutcome].findNextUp(0);
                     if (absoluteLowest < tick && absoluteLowest <= MAX_TICK) {
                         nextTick = absoluteLowest;
                     }
                 } else {
-                    nextTick = _bitmaps[marketKey][makerOutcome].findNextDown(tick);
-
-                    // V9.9.2 FIX: If market is crossed (best maker above current tick), jump up to it
-                    // Check looking DOWN from above the book
-                    uint16 absoluteHighest = _bitmaps[marketKey][makerOutcome].findNextDown(MAX_TICK + 1);
+                    nextTick = _bitmaps[marketKey][crossedOutcome].findNextDown(tick);
+                    uint16 absoluteHighest = _bitmaps[marketKey][crossedOutcome].findNextDown(MAX_TICK + 1);
                     if (absoluteHighest > tick && absoluteHighest <= MAX_TICK) {
                         nextTick = absoluteHighest;
                     }
@@ -911,9 +692,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
                 tick = nextTick;
                 int128 delta = isUp
-                    ? _ticks[marketKey][makerOutcome][tick].liquidityNet
-                    : -_ticks[marketKey][makerOutcome][tick].liquidityNet; // V9.9.2 FIX: Use tick, not tick+1
-                activeLiq = uint128(int128(activeLiq) + delta);
+                    ? _ticks[marketKey][crossedOutcome][tick].liquidityNet
+                    : -_ticks[marketKey][crossedOutcome][tick].liquidityNet;
+                activeLiq = _safeAddLiquidity(activeLiq, delta);
                 emit TickCrossed(marketKey, tick, delta);
                 continue;
             }
@@ -922,8 +703,8 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 ? (tick == MAX_TICK ? MAX_TICK : tick + 1)
                 : (tick == MIN_TICK ? MIN_TICK : tick - 1);
             uint16 nextBoundary = isUp
-                ? _bitmaps[marketKey][makerOutcome].findNextUp(searchFrom)
-                : _bitmaps[marketKey][makerOutcome].findNextDown(searchFrom);
+                ? _bitmaps[marketKey][crossedOutcome].findNextUp(searchFrom)
+                : _bitmaps[marketKey][crossedOutcome].findNextDown(searchFrom);
 
             if (isUp && nextBoundary > MAX_TICK) nextBoundary = MAX_TICK;
             if (!isUp && (nextBoundary == 0 || nextBoundary > MAX_TICK)) nextBoundary = MIN_TICK;
@@ -963,11 +744,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             if (tick == nextBoundary) {
                 int128 delta;
                 if (isUp && nextBoundary <= MAX_TICK) {
-                    delta = _ticks[marketKey][makerOutcome][nextBoundary].liquidityNet;
-                    activeLiq = uint128(int128(activeLiq) + delta);
+                    delta = _ticks[marketKey][crossedOutcome][nextBoundary].liquidityNet;
+                    activeLiq = _safeAddLiquidity(activeLiq, delta);
                 } else if (!isUp && nextBoundary >= MIN_TICK) {
-                    delta = _ticks[marketKey][makerOutcome][nextBoundary + 1].liquidityNet;
-                    activeLiq = uint128(int128(activeLiq) - delta);
+                    delta = _ticks[marketKey][crossedOutcome][nextBoundary + 1].liquidityNet;
+                    activeLiq = _safeAddLiquidity(activeLiq, -delta);
                     delta = -delta;
                 }
                 if (delta != 0) {
@@ -982,6 +763,35 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         } else {
             state.activeLiquidityYes = activeLiq;
         }
+    }
+
+    /**
+     * @dev Safely add signed delta to unsigned liquidity, clamping to 0 on underflow
+     */
+    function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
+        if (delta >= 0) {
+            return liq + uint128(delta);
+        } else {
+            uint128 absDelta = uint128(-delta);
+            return liq >= absDelta ? liq - absDelta : 0;
+        }
+    }
+
+    /**
+     * @dev Safely subtract from unsigned liquidity, clamping to 0 on underflow
+     * @notice V9.9.6 FIX: Used in _updateActiveLiquidity() and _tryCross()
+     */
+    function _safeSubLiquidity(uint128 liq, uint128 delta) internal pure returns (uint128) {
+        return liq >= delta ? liq - delta : 0;
+    }
+
+    /**
+     * @dev Safely subtract from _totalLiquidity, clamping to 0 on underflow
+     * @notice V9.9.6-fix8: Prevents underflow when orders are removed during crossing
+     */
+    function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
+        uint256 current = _totalLiquidity[marketKey][outcome];
+        _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
     }
 
     function _updateTickBoundaries(
@@ -1035,13 +845,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 if (isAdd) {
                     state.activeLiquidityNo += liquidityDelta;
                 } else {
-                    state.activeLiquidityNo -= liquidityDelta;
+                    state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, liquidityDelta);
                 }
             } else {
                 if (isAdd) {
                     state.activeLiquidityYes += liquidityDelta;
                 } else {
-                    state.activeLiquidityYes -= liquidityDelta;
+                    state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidityDelta);
                 }
             }
         }
@@ -1049,10 +859,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     /**
      * @notice Try to cross a new order against existing opposite liquidity
-     * @dev V9.9 FIX: Sweep from new order's WORST price toward BEST price
-     *      - SELL orders sweep LOW → HIGH (worst ask → best ask)
-     *      - BUY orders sweep HIGH → LOW (worst bid → best bid)
-     *      This ensures fills happen at the overlap point, not at arbitrary prices.
+     * @dev V9.9.5: Added liquidityRemoved guard for idempotent cleanup
      */
     function _tryCross(
         bytes32 marketKey,
@@ -1064,71 +871,74 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         uint8 opposite = newOrder.outcome == 0 ? 1 : 0;
 
-        // Check if there's ANY opposing liquidity
         uint256 oppTotalLiq = _totalLiquidity[marketKey][opposite];
         if (oppTotalLiq == 0) return (0, 0, 0);
 
-        // Find overlap range between new order and opposite liquidity
-        // For SELL YES (outcome=0): find where BUY YES (outcome=1) orders overlap
-        // For BUY YES (outcome=1): find where SELL YES (outcome=0) orders overlap
         uint16 overlapLow;
         uint16 overlapHigh;
         uint16 crossTick;
 
+        // V9.9.6-fix8: Crossing logic - find CHEAPEST counterparty for maximum crossing
+        // YES at tick Y = buyer pays Y% for YES  
+        // NO at tick N = buyer pays N% for NO = seller accepts (100-N)% for YES
+        // Crossing happens when YES buyer price >= YES seller price:
+        //   Y% >= (100-N)%  =>  Y + N >= 1000 (using tick scale where 1000 = 100%)
+        //
+        // KEY INSIGHT: 
+        // - For YES orders: find HIGHEST NO tick (cheapest seller, lowest asking price)
+        // - For NO orders: find LOWEST YES tick (cheapest buyer for NO = highest YES price)
+        // This ensures we cross with the best available prices first.
+        
         if (newOrder.outcome == 1) {
-            // BUY YES: find lowest SELL YES tick that overlaps our range
-            uint16 lowestSell = _bitmaps[marketKey][0].findNextUp(0);
-            if (lowestSell > MAX_TICK) return (0, 0, 0); // No SELL YES liquidity
-
-            // Overlap exists if lowestSell <= our tickUpper
-            if (lowestSell > newOrder.tickUpper) return (0, 0, 0);
-
-            // Overlap range: max(our tickLower, lowestSell) to our tickUpper
-            overlapLow = lowestSell > newOrder.tickLower ? lowestSell : newOrder.tickLower;
+            // Placing YES order - find HIGHEST NO tick (cheapest YES seller)
+            // Higher NO tick = lower seller asking price = better for buyer
+            uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+            if (highestSell > MAX_TICK) return (0, 0, 0);
+            
+            // NO at tick N implies seller wants (1000-N)% for YES
+            // Higher N = lower seller price = more likely to cross
+            // Crossing when: Y >= 1000-N, i.e., Y + N >= 1000
+            // For cheapest seller at highestSell: Y >= 1000-highestSell
+            uint16 cheapestSellerPrice = 1000 - highestSell;  // Lowest price any seller will accept
+            
+            // No crossing if even the cheapest seller wants more than our max
+            if (cheapestSellerPrice > newOrder.tickUpper) return (0, 0, 0);
+            
+            // Overlap: from our tickLower (or cheapest seller price) up to our tickUpper
+            overlapLow = cheapestSellerPrice > newOrder.tickLower ? cheapestSellerPrice : newOrder.tickLower;
             overlapHigh = newOrder.tickUpper;
-
-            // BUY sweeps HIGH → LOW (start at worst bid = tickUpper)
             crossTick = overlapHigh;
         } else {
-            // SELL YES: find highest BUY YES tick that overlaps our range
+            // Placing NO order - find LOWEST YES tick (highest YES buyer price = best for NO seller)
+            // Lower YES tick = buyer pays less = but still the HIGHEST bidder in the book
+            // Wait - for NO seller, we want highest YES buyer (who pays the most)
             uint16 highestBuy = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
-            if (highestBuy > MAX_TICK) return (0, 0, 0); // No BUY YES liquidity
-
-            // Overlap exists if highestBuy >= our tickLower
-            if (highestBuy < newOrder.tickLower) return (0, 0, 0);
-
-            // Overlap range: our tickLower to min(our tickUpper, highestBuy)
-            overlapLow = newOrder.tickLower;
-            overlapHigh = highestBuy < newOrder.tickUpper ? highestBuy : newOrder.tickUpper;
-
-            // SELL sweeps LOW → HIGH (start at worst ask = tickLower)
+            if (highestBuy > MAX_TICK) return (0, 0, 0);
+            
+            // Our NO order at [tickLower, tickUpper] implies selling YES at prices from
+            // (1000-tickUpper)% to (1000-tickLower)%
+            // Crossing happens when YES buyer (at tick Y) pays >= our asking price
+            // Best YES buyer is at highestBuy
+            uint16 ourLowestAsk = 1000 - newOrder.tickUpper;  // Our cheapest selling price
+            
+            // No crossing if best buyer won't pay our minimum
+            if (highestBuy < ourLowestAsk) return (0, 0, 0);
+            
+            // Overlap in YES price space:
+            uint16 ourHighestAsk = 1000 - newOrder.tickLower;
+            overlapLow = ourLowestAsk > 0 ? ourLowestAsk : 1;
+            overlapHigh = highestBuy < ourHighestAsk ? highestBuy : ourHighestAsk;
             crossTick = overlapLow;
         }
 
-        // Before cross hook
-        if (m.hook != address(0) && m.hook.beforeCross()) {
-            ITickBookHooks.CrossParams memory params = ITickBookHooks.CrossParams({
-                marketKey: marketKey,
-                newOrderId: newOrderId,
-                crossedShares: 0,
-                crossTick: crossTick
-            });
-            bytes4 selector = ITickBookHooks(m.hook).beforeCross(params);
-            if (selector != ITickBookHooks.beforeCross.selector) revert InvalidHookResponse();
-        }
-
-        // Calculate shares available in the overlap range
         uint256 overlapTicks = uint256(overlapHigh) - uint256(overlapLow) + 1;
         uint256 newOrderSharesInOverlap = uint256(newOrder.liquidity) * overlapTicks;
 
-        // Get opposing liquidity in the overlap range only
         uint256 oppLiqInOverlap = _getOverlappingLiquidity(marketKey, opposite, overlapLow, overlapHigh);
 
-        // Cross the minimum of new order shares and opposing liquidity in overlap
         crossedShares = newOrderSharesInOverlap < oppLiqInOverlap ? newOrderSharesInOverlap : oppLiqInOverlap;
         if (crossedShares == 0) return (0, 0, 0);
 
-        // Calculate costs using average price in overlap range
         uint256 priceLow = TickMath.tickToProbability(overlapLow);
         uint256 priceHigh = TickMath.tickToProbability(overlapHigh);
         uint256 avgPrice = (priceLow + priceHigh) / 2;
@@ -1137,95 +947,75 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 noCost = crossedShares - yesCost;
 
         if (newOrder.outcome == 0) {
-            // SELL YES: seller pays NO cost, gets YES proceeds
             newOrderCost = noCost;
             oppositeCost = yesCost;
         } else {
-            // BUY YES: buyer pays YES cost, seller gets NO proceeds
             newOrderCost = yesCost;
             oppositeCost = noCost;
         }
 
-        // Credit shares to new order owner
         vault.creditOutcome(m.truthMarket, newOrder.owner, newOrder.outcome, crossedShares);
         newOrder.filledShares += uint128(crossedShares);
         newOrder.collateralUsedWad += uint128(newOrderCost);
 
-        // V9.9.5: If new order is 100% filled via crossing, remove its tick liquidity (idempotent)
+        // V9.9.5: Mark fully filled orders as inactive and remove liquidity (with guard)
+        // V9.9.6-fix9: Pool refund immediately on completion
         if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
-            _totalLiquidity[marketKey][newOrder.outcome] -= newOrder.sharesTotal;
+            _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
+            _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
+            newOrder.active = false;
+            // Pool the refund (deposited - used)
+            uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad 
+                ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad : 0;
+            if (refund > 0) {
+                _pendingRefunds[newOrder.owner][marketKey] += refund;
+            }
         }
 
-        // Update fill growth globals for opposite side
-        // Only attribute fills to orders that are actually in the overlap range
+        // TOB-1 FIX: Use oppLiqInOverlap as denominator instead of oppTotalLiq
         if (oppLiqInOverlap > 0) {
-            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppTotalLiq;
-            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
+            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppLiqInOverlap;
+            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppLiqInOverlap;
         }
 
-        // Update active liquidity for both sides
         uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         uint128 activeFilled = crossedShares < uint256(oppActiveLiq) ? uint128(crossedShares) : oppActiveLiq;
         if (opposite == 0) {
-            state.activeLiquidityNo -= activeFilled;
+            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, activeFilled);
         } else {
-            state.activeLiquidityYes -= activeFilled;
+            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, activeFilled);
         }
 
         uint128 newActiveLiq = newOrder.outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
         uint128 newFilled = crossedShares < uint256(newActiveLiq) ? uint128(crossedShares) : newActiveLiq;
         if (newOrder.outcome == 0) {
-            state.activeLiquidityNo -= newFilled;
+            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, newFilled);
         } else {
-            state.activeLiquidityYes -= newFilled;
+            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, newFilled);
         }
 
-        // Update currentTick to the crossing point
         state.currentTick = crossTick;
-
-        // After cross hook
-        if (m.hook != address(0) && m.hook.afterCross()) {
-            ITickBookHooks.CrossParams memory params = ITickBookHooks.CrossParams({
-                marketKey: marketKey,
-                newOrderId: newOrderId,
-                crossedShares: crossedShares,
-                crossTick: crossTick
-            });
-            ITickBookHooks(m.hook).afterCross(params, newOrderCost, oppositeCost);
-        }
 
         emit OrdersCrossed(marketKey, newOrderId, newOrder.outcome, crossedShares, newOrderCost, oppositeCost, crossTick);
     }
 
-    /**
-     * @notice Calculate total liquidity in a given tick range for an outcome
-     * @dev Simplified: uses active liquidity at state.currentTick as approximation
-     *      This avoids expensive tick walking and stack-too-deep issues
-     */
     function _getOverlappingLiquidity(
         bytes32 marketKey,
         uint8 outcome,
         uint16 tickLow,
         uint16 tickHigh
     ) internal view returns (uint256) {
-        // Use the active liquidity from state as a proxy for overlapping liquidity
-        // This is safe because:
-        // 1. Active liquidity represents density of orders at currentTick
-        // 2. For crossing, we want to match against whatever is there
         MarketState memory s = _state[marketKey];
         uint128 activeLiq = outcome == 0 ? s.activeLiquidityNo : s.activeLiquidityYes;
 
-        // If there's active liquidity, multiply by the range
-        // V9.9.1 FIX: Cap by total liquidity to prevent phantom growth (>100% fill bugs)
         uint256 totalLiq = _totalLiquidity[marketKey][outcome];
         if (activeLiq > 0) {
             uint256 rangeLiq = uint256(activeLiq) * (uint256(tickHigh) - uint256(tickLow) + 1);
             return rangeLiq > totalLiq ? totalLiq : rangeLiq;
         }
 
-        // Fallback: use total liquidity
         return totalLiq;
     }
 
@@ -1274,26 +1064,22 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address market,
         address yesToken,
         address noToken,
-        address hook,
         bool isActive
     ) {
         Market memory m = _markets[marketKey];
-        return (m.truthMarket, m.yesToken, m.noToken, m.hook, m.isActive);
+        return (m.truthMarket, m.yesToken, m.noToken, m.isActive);
     }
 
-    function locker() external view returns (address) {
-        return _locker;
-    }
-
-    /**
-     * @notice Calculate pending fills for an order without claiming
-     * @param marketKey The market
-     * @param orderId The order ID
-     * @return pendingShares Shares that can be claimed
-     * @return pendingCollateralUsed Collateral used that can be claimed
-     */
     function getPendingFills(bytes32 marketKey, uint256 orderId)
         external
+        view
+        returns (uint256 pendingShares, uint256 pendingCollateralUsed)
+    {
+        return _getPendingFillsInternal(marketKey, orderId);
+    }
+
+    function _getPendingFillsInternal(bytes32 marketKey, uint256 orderId)
+        internal
         view
         returns (uint256 pendingShares, uint256 pendingCollateralUsed)
     {
@@ -1301,14 +1087,21 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (!order.active) return (0, 0);
 
         uint8 out = order.outcome;
-        uint256 totalLiq = _totalLiquidity[marketKey][out];
-        if (totalLiq == 0) return (0, 0);
+        // Note: Don't early-return on totalLiq==0 - pending fills can still exist in accumulator
 
         uint256 globalFillGrowth = _fillGrowthGlobalX128[marketKey][out];
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
         if (globalFillGrowth > lastFillGrowth) {
             uint256 delta = globalFillGrowth - lastFillGrowth;
             pendingShares = (delta * order.sharesTotal) / Q128;
+
+            // V9.9.5: Cap pending shares to prevent showing >100% filled
+            uint256 maxFillable = order.sharesTotal > order.filledShares
+                ? order.sharesTotal - order.filledShares
+                : 0;
+            if (pendingShares > maxFillable) {
+                pendingShares = maxFillable;
+            }
         }
 
         uint256 globalUsedGrowth = _collateralUsedGrowthGlobalX128[marketKey][out];
@@ -1318,12 +1111,42 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             pendingCollateralUsed = (delta * order.sharesTotal) / Q128;
         }
     }
-}
 
-/**
- * @title ILockCallback
- * @notice Callback interface for flash accounting
- */
-interface ILockCallback {
-    function lockCallback(bytes calldata data) external returns (bytes memory);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // V9.9.6-fix4: All Orders Enumeration (for frontend liquidity map)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get the next order ID (for enumeration bounds)
+    function getNextOrderId() external view returns (uint256) {
+        return _nextOrderId;
+    }
+
+    /// @notice Get all active order IDs for a market
+    /// @dev Iterates through all order IDs - O(n) where n is total orders created
+    /// @param marketKey The market to query
+    /// @return orderIds Array of active order IDs
+    function getAllMarketOrders(bytes32 marketKey) external view returns (uint256[] memory) {
+        uint256 maxId = _nextOrderId;
+        
+        // Count active orders first (needed to size the array)
+        uint256 count = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_orders[marketKey][i].active) {
+                unchecked { ++count; }
+            }
+            unchecked { ++i; }
+        }
+        
+        // Collect order IDs
+        uint256[] memory orderIds = new uint256[](count);
+        uint256 idx = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_orders[marketKey][i].active) {
+                orderIds[idx] = i;
+                unchecked { ++idx; }
+            }
+            unchecked { ++i; }
+        }
+        return orderIds;
+    }
 }

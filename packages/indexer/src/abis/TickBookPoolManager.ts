@@ -10,9 +10,10 @@ export const TickBookPoolManagerAbi = [
       { name: "hook", type: "address", indexed: false },
     ],
   },
+  // V9.9.6 uses OrderPlaced instead of RangeOrderPlaced
   {
     type: "event",
-    name: "RangeOrderPlaced",
+    name: "OrderPlaced",
     inputs: [
       { name: "owner", type: "address", indexed: true },
       { name: "marketKey", type: "bytes32", indexed: true },
@@ -20,10 +21,10 @@ export const TickBookPoolManagerAbi = [
       { name: "outcome", type: "uint8", indexed: false },
       { name: "tickLower", type: "uint16", indexed: false },
       { name: "tickUpper", type: "uint16", indexed: false },
-      { name: "liquidity", type: "uint256", indexed: false },
-      { name: "collateralReserved", type: "uint256", indexed: false },
-      { name: "crossingFilled", type: "uint256", indexed: false },
-      { name: "crossingCost", type: "uint256", indexed: false },
+      { name: "shares", type: "uint256", indexed: false },
+      { name: "filledShares", type: "uint256", indexed: false },
+      { name: "filledCost", type: "uint256", indexed: false },
+      { name: "restingShares", type: "uint256", indexed: false },
     ],
   },
   {

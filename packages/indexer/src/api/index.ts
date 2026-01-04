@@ -5,6 +5,15 @@ import { Hono } from "hono";
 
 const app = new Hono();
 
+// Helper to serialize BigInt values to strings for JSON
+function serializeBigInts<T>(obj: T): T {
+  return JSON.parse(
+    JSON.stringify(obj, (_, value) =>
+      typeof value === "bigint" ? value.toString() : value
+    )
+  );
+}
+
 /**
  * Get all active orders for a market
  * GET /orders/:chainId/:marketKey
@@ -25,11 +34,11 @@ app.get("/orders/:chainId/:marketKey", async (c) => {
     )
     .orderBy(desc(schema.order.createdAt));
 
-  return c.json(orders);
+  return c.json(serializeBigInts(orders));
 });
 
 /**
- * Get orders for a specific user in a market
+ * Get orders for a specific user in a market (active orders only)
  * GET /orders/:chainId/:marketKey/:owner
  */
 app.get("/orders/:chainId/:marketKey/:owner", async (c) => {
@@ -44,12 +53,13 @@ app.get("/orders/:chainId/:marketKey/:owner", async (c) => {
       and(
         eq(schema.order.chainId, chainId),
         eq(schema.order.marketKey, marketKey),
-        eq(schema.order.owner, owner)
+        eq(schema.order.owner, owner),
+        eq(schema.order.status, "active")
       )
     )
     .orderBy(desc(schema.order.createdAt));
 
-  return c.json(orders);
+  return c.json(serializeBigInts(orders));
 });
 
 /**
@@ -79,10 +89,10 @@ app.get("/orderbook/:chainId/:marketKey", async (c) => {
     .filter((t) => t.outcome === 0 && t.totalLiquidity > 0n)
     .sort((a, b) => b.tick - a.tick);
 
-  return c.json({
+  return c.json(serializeBigInts({
     yes: yesSide,
     no: noSide,
-  });
+  }));
 });
 
 /**
@@ -104,7 +114,7 @@ app.get("/fills/:chainId/:orderId", async (c) => {
     )
     .orderBy(desc(schema.fillClaim.timestamp));
 
-  return c.json(fills);
+  return c.json(serializeBigInts(fills));
 });
 
 /**
@@ -128,7 +138,7 @@ app.get("/trades/:chainId/:marketKey", async (c) => {
     .orderBy(desc(schema.marketOrder.timestamp))
     .limit(limit);
 
-  return c.json(trades);
+  return c.json(serializeBigInts(trades));
 });
 
 /**
@@ -144,7 +154,7 @@ app.get("/markets/:chainId", async (c) => {
     .where(eq(schema.market.chainId, chainId))
     .orderBy(desc(schema.market.createdAt));
 
-  return c.json(markets);
+  return c.json(serializeBigInts(markets));
 });
 
 export default app;

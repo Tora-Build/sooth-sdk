@@ -136,7 +136,7 @@ check               Alias for invariants
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║          SOOTH V9 INTERACTIVE TEST CONSOLE                  ║
-║ Chain: baseSepolia | Version: 9.9.6                         ║
+║ Chain: baseSepolia | Version: 9.9.6-fix9l                    ║
 ║ Market: BTC100K                                             ║
 ╚════════════════════════════════════════════════════════════╝
 

@@ -343,7 +343,7 @@ function printHelp(): void {
       withdraw <amount>    Withdraw USDC from vault
       reserved             Show reserved balance details
 
-    ${info('Orderbook (V9.9.6 Unified API):')}
+    ${info('Orderbook (V9.9.6-fix9l Range Order API):')}
       order <side> <range> <shares>   Place order (range, limit, or market)
                                       Range:  order yes 40-60 100
                                       Limit:  order yes 50 100

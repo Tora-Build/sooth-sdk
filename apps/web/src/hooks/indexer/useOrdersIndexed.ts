@@ -54,10 +54,7 @@ export function useOrdersIndexed(
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
 
-  // RPC fallback hook
-  const rpcFallback = useUserOrdersDirect(marketKey, userAddress);
-
-  // Check if this specific chain is ready
+  // Check if this specific chain is ready FIRST
   const chainReadyQuery = useQuery({
     queryKey: ["indexer", "chainReady", chainId],
     enabled: USE_INDEXER && !!chainId,
@@ -77,18 +74,28 @@ export function useOrdersIndexed(
         `/orders/${chainId}/${marketKey}/${userAddress}`
       );
       if (!data) return null;
-      return data.map(toRangeOrder);
+      // Filter to only active orders
+      return data.filter(o => o.status === "active").map(toRangeOrder);
     },
     staleTime: 5_000,
     refetchInterval: 10_000,
-    retry: false, // Don't retry indexer - fall back to RPC
+    retry: false,
   });
 
-  // Use indexer data if available, otherwise fall back to RPC
+  // Determine if we should use indexer
   const useIndexer = isChainReady && indexerQuery.data !== null && indexerQuery.data !== undefined;
 
+  // RPC fallback - ONLY enabled when indexer is NOT available
+  const rpcFallback = useUserOrdersDirect(
+    useIndexer ? undefined : marketKey,
+    useIndexer ? undefined : userAddress
+  );
+
+  // Filter RPC results to only active orders
+  const filteredRpcOrders = rpcFallback.orders.filter(o => o.active);
+
   return {
-    orders: useIndexer ? indexerQuery.data : rpcFallback.orders,
+    orders: useIndexer ? indexerQuery.data : filteredRpcOrders,
     isLoading: useIndexer ? indexerQuery.isLoading : rpcFallback.isLoading,
     error: useIndexer ? indexerQuery.error : rpcFallback.error,
     refetch: useIndexer ? indexerQuery.refetch : rpcFallback.refetch,
