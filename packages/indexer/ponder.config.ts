@@ -6,11 +6,15 @@ export default createConfig({
   chains: {
     arcTestnet: {
       id: 5042002,
-      rpc: process.env.PONDER_RPC_URL_ARC_TESTNET ?? "https://rpc.testnet.arc.network",
+      rpc: process.env.ARC_TESTNET_RPC_URL 
+        ?? process.env.PONDER_RPC_URL_ARC_TESTNET 
+        ?? "https://rpc.testnet.arc.network",
     },
     baseSepolia: {
       id: 84532,
-      rpc: process.env.PONDER_RPC_URL_BASE_SEPOLIA ?? "https://sepolia.base.org",
+      rpc: process.env.BASE_SEPOLIA_RPC_URL 
+        ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA 
+        ?? "https://sepolia.base.org",
     },
     monadTestnet: {
       id: 10143,

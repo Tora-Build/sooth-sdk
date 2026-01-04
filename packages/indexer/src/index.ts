@@ -225,3 +225,55 @@ ponder.on("TickBookPoolManager:MarketOrderExecuted", async ({ event, context }) 
     txHash: event.transaction.hash,
   });
 });
+
+/**
+ * Handle OrdersCrossed events - when a new order crosses existing liquidity
+ */
+ponder.on("TickBookPoolManager:OrdersCrossed", async ({ event, context }) => {
+  const {
+    marketKey,
+    newOrderId,
+    newOutcome,
+    crossedShares,
+    newOrderCost,
+    oppositeOrderCost,
+    crossTick,
+  } = event.args;
+
+  const id = eventId(event.transaction.hash, event.log.logIndex);
+
+  await context.db.insert(schema.orderCrossed).values({
+    id,
+    chainId: context.chain.id,
+    marketKey,
+    newOrderId,
+    newOutcome,
+    crossedShares,
+    newOrderCost,
+    oppositeOrderCost,
+    crossTick,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+    txHash: event.transaction.hash,
+  });
+});
+
+/**
+ * Handle TickCrossed events - when market orders consume liquidity at a tick
+ */
+ponder.on("TickBookPoolManager:TickCrossed", async ({ event, context }) => {
+  const { marketKey, tick, liquidityDelta } = event.args;
+
+  const id = eventId(event.transaction.hash, event.log.logIndex);
+
+  await context.db.insert(schema.tickCrossed).values({
+    id,
+    chainId: context.chain.id,
+    marketKey,
+    tick,
+    liquidityDelta,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+    txHash: event.transaction.hash,
+  });
+});

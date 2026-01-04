@@ -35,8 +35,9 @@ const monadHttpOptions = {
 
 // Arc RPC config
 // Docs: https://docs.arc.network/arc/references/connect-to-arc
+// Note: Arc RPC doesn't support eth_newFilter/eth_getFilterChanges
 const arcHttpOptions = {
-  retryCount: 3,
+  retryCount: 2,
   retryDelay: 1000,
   timeout: 30_000,
 };

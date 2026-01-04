@@ -767,6 +767,97 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 };
 
 // ============================================================================
+// Recent Trades Panel - Shows market order history from indexer
+// ============================================================================
+import type { Trade } from '../hooks/indexer/useTradesIndexed';
+
+interface RecentTradesPanelProps {
+  trades: Trade[];
+  isLoading: boolean;
+  isChainReady: boolean;
+}
+
+const RecentTradesPanel = ({ trades, isLoading, isChainReady }: RecentTradesPanelProps) => {
+  if (!isChainReady) {
+    return (
+      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
+        </div>
+        <div className="text-center py-6">
+          <p className="text-xs text-slate-500">Indexer syncing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
+        </div>
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
+        <span className="text-[9px] text-slate-600 font-mono">{trades.length} trades</span>
+      </div>
+
+      {trades.length === 0 ? (
+        <div className="text-center py-6">
+          <TrendingUp className="w-6 h-6 text-slate-600 mx-auto mb-2" />
+          <p className="text-xs text-slate-500">No recent trades</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {/* Header */}
+          <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
+            <span>Time</span>
+            <span>Side</span>
+            <span className="text-right">Price</span>
+            <span className="text-right">Size</span>
+          </div>
+          {/* Trades */}
+          <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+            {trades.map((trade) => {
+              const isBuy = trade.outcome === 1; // YES = buy
+              const time = new Date(Number(trade.timestamp) * 1000);
+              const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const pricePercent = (trade.avgPrice * 100).toFixed(1);
+              const size = parseFloat(formatUnits(trade.sharesFilled, 18));
+
+              return (
+                <div
+                  key={trade.id}
+                  className="grid grid-cols-4 gap-2 px-2 py-1.5 rounded text-xs font-mono hover:bg-slate-800/30 transition-colors"
+                >
+                  <span className="text-slate-400">{timeStr}</span>
+                  <span className={isBuy ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {isBuy ? 'YES' : 'NO'}
+                  </span>
+                  <span className="text-right text-slate-200">{pricePercent}%</span>
+                  <span className="text-right text-slate-400">
+                    {size >= 1000 ? `${(size / 1000).toFixed(1)}k` : size.toFixed(0)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // Main Component
 // ============================================================================
 export const Pro = () => {
@@ -1230,7 +1321,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   );
 
   // Fetch recent trades (indexer only)
-  const { trades, isLoading: isTradesLoading } = useTradesIndexed(
+  const { trades, isLoading: isTradesLoading, isChainReady: isTradesChainReady } = useTradesIndexed(
     tickBook?.marketKey as `0x${string}`,
     20
   );
@@ -1788,6 +1879,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             viewOutcome={isYes ? 'yes' : 'no'}
             yesShares={vault?.yesInternal}
             noShares={vault?.noInternal}
+          />
+
+          {/* Recent Trades from Indexer */}
+          <RecentTradesPanel
+            trades={trades}
+            isLoading={isTradesLoading}
+            isChainReady={isTradesChainReady}
           />
         </div>
 
