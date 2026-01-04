@@ -142,6 +142,30 @@ app.get("/trades/:chainId/:marketKey", async (c) => {
 });
 
 /**
+ * Get order crossings (limit order fills) for a market
+ * GET /crossings/:chainId/:marketKey
+ */
+app.get("/crossings/:chainId/:marketKey", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+  const limit = parseInt(c.req.query("limit") || "50");
+
+  const crossings = await db
+    .select()
+    .from(schema.orderCrossed)
+    .where(
+      and(
+        eq(schema.orderCrossed.chainId, chainId),
+        eq(schema.orderCrossed.marketKey, marketKey)
+      )
+    )
+    .orderBy(desc(schema.orderCrossed.timestamp))
+    .limit(limit);
+
+  return c.json(serializeBigInts(crossings));
+});
+
+/**
  * Get all registered markets
  * GET /markets/:chainId
  */

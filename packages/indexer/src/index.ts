@@ -13,16 +13,19 @@ const tickId = (chainId: number, marketKey: string, outcome: number, tick: numbe
 ponder.on("TickBookPoolManager:MarketRegistered", async ({ event, context }) => {
   const { marketKey, market: marketAddr, yesToken, noToken, hook } = event.args;
 
-  await context.db.insert(schema.market).values({
-    marketKey,
-    chainId: context.chain.id,
-    contractAddress: marketAddr,
-    yesToken,
-    noToken,
-    hook,
-    createdAt: event.block.timestamp,
-    blockNumber: event.block.number,
-  });
+  await context.db
+    .insert(schema.market)
+    .values({
+      marketKey,
+      chainId: context.chain.id,
+      contractAddress: marketAddr,
+      yesToken,
+      noToken,
+      hook,
+      createdAt: event.block.timestamp,
+      blockNumber: event.block.number,
+    })
+    .onConflictDoNothing();
 });
 
 /**
@@ -193,9 +196,9 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
 });
 
 /**
- * Handle MarketOrderExecuted events
+ * Handle MarketOrderFilled events
  */
-ponder.on("TickBookPoolManager:MarketOrderExecuted", async ({ event, context }) => {
+ponder.on("TickBookPoolManager:MarketOrderFilled", async ({ event, context }) => {
   const {
     taker,
     marketKey,

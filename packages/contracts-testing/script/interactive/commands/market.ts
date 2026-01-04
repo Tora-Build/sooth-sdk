@@ -1029,62 +1029,6 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     await sleep(300); // Slightly longer delay for stability
   }
 
-  // Execute market orders to cross liquidity
-  // Only run if we placed some limit orders to fill against
-  console.log('');
-  console.log(`  ${bold('Phase 2: Executing Market Orders')}`);
-
-  let marketOrdersExecuted = 0;
-  let totalRequested = 0n;
-  let totalFilled = 0n;
-  let totalCost = 0n;
-
-  if (stopRequested) {
-    console.log(dim('  Skipping - stopped by user'));
-  } else if (placedOrders.length === 0) {
-    console.log(dim('  Skipping - no limit orders to fill against'));
-  } else {
-    const numMarketOrders = Math.min(Math.floor(numOrders / 3), placedOrders.length);
-
-    for (let i = 0; i < numMarketOrders; i++) {
-      // Check for early stop
-      if (stopRequested) {
-        console.log(warn(`\n  Stopped early by user`));
-        break;
-      }
-      // Target opposite side of a placed order
-      const targetOrder = placedOrders[i % placedOrders.length];
-      const outcome = targetOrder.outcome === 1 ? 0 : 1; // Opposite side
-      const shares = (avgSize * BigInt(20 + Math.floor(rng() * 30))) / 100n; // Smaller size (20-50%)
-      totalRequested += shares;
-
-      const spinner = new Spinner(`  Market ${i + 1}/${numMarketOrders}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)}...`);
-      spinner.start();
-
-      try {
-        // Market orders use placeOrder with full tick range (1-999)
-        const maxCost = shares * 5n; // Generous buffer for market orders
-        const { result } = await writePlaceOrder({ outcome, shares, tickLower: 1, tickUpper: 999, maxCost }, 3);
-        const [, filledShares, filledCost] = result as [bigint, bigint, bigint, bigint];
-
-        marketOrdersExecuted++;
-        totalFilled += filledShares;
-        totalCost += filledCost;
-        spinner.succeed(
-          `Market ${i + 1}: BUY ${outcome === 1 ? 'YES' : 'NO'} ${formatWad(shares)} (filled: ${formatWad(filledShares)}, cost: ${formatWad(filledCost)})`
-        );
-      } catch (err) {
-        const errMsg = (err as Error).message;
-        const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
-          || errMsg.match(/reason:\s*([^\n]+)/i);
-        const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
-        spinner.fail(`Market ${i + 1} failed: ${shortErr}`);
-      }
-
-      await sleep(200);
-    }
-  }
-
   // Cleanup stdin listener
   cleanup();
 
@@ -1093,16 +1037,12 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   console.log('  ' + '─'.repeat(50));
   console.log(`  ${bold('Simulation Complete')}`);
   console.log(`  Limit orders placed: ${placedOrders.length}/${numOrders}`);
-  console.log(`  Market orders executed: ${marketOrdersExecuted}`);
-  console.log(`  Market shares requested: ${formatWad(totalRequested)}`);
-  console.log(`  Market shares filled:    ${formatWad(totalFilled)}`);
-  console.log(`  Total cost:              ${formatWad(totalCost)} USDC`);
   if (stopRequested) {
     console.log(`  ${warn('(stopped early by user)')}`);
   }
   console.log('');
 
-  return { success: true, data: { placedOrders: placedOrders.length, marketOrders: marketOrdersExecuted, totalRequested, totalFilled, totalCost } };
+  return { success: true, data: { placedOrders: placedOrders.length } };
 }
 
 export const marketCommands = {
