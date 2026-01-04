@@ -4,6 +4,34 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Indexer Frontend Integration (2026-01-04)
+- **Conditional RPC Fallback**: `useOrdersIndexed` and `useOrderbookIndexed` now only make RPC calls when indexer is unavailable.
+- **Indexed Orders for LiquidityMap**: Added `/orders/:chainId/:marketKey` query to `useOrderbookIndexed` for LiquidityMap rendering.
+- **Active Orders Only**: Indexer API now filters user orders by `status: "active"`, inactive orders no longer appear in UI.
+- **RPC Batching**: Added HTTP batching config to Base Sepolia transport (`batchSize: 100, wait: 50ms`), eliminating 429 errors.
+- **Frontend Hooks Updated**:
+  - `useOrdersIndexed.ts` — Conditional RPC fallback, active-only filtering
+  - `useOrderbookIndexed.ts` — Added indexed orders query, conditional RPC fallback
+  - `wagmi.ts` — Added batching to Base Sepolia HTTP transport
+
+### V9.9.6-fix9l Recovery (2026-01-04)
+- **Contract Recovery**: Restored correct `TickBookPoolManager` (V9.9.6-fix9l) with:
+  - `placeOrder()` unified API (replaces `placeRangeOrder`)
+  - `getAllMarketOrders(marketKey)` for reliable order enumeration
+  - `getNextOrderId()` for order counter access
+  - Auto-claim 100% filled orders before new order placement
+- **Fresh Deployment**: Base Sepolia at block ~35,877,100
+  - TickBookPoolManager: `0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060`
+  - Collateralizer: `0xE1976fDF7fDe2a2F933a7860326Ed12121358e79`
+  - AMMEngine: `0xf50A729Df4078812edffe9355b73ABF916973629`
+  - TickBookVault: `0x6109B9C9FdD88842da3b49E7cb3DE04F21E083dc`
+  - LaunchpadEngine: `0x3530A1e0519E6e81b5a41074bf253E56757fefF6`
+- **CLI Fixes**:
+  - Fixed ABI to use `placeOrder` instead of `placeRangeOrder`
+  - Fixed argument order: `(marketKey, outcome, shares, tickLower, tickUpper, maxCost)`
+  - Removed unnecessary PoolManager USDC allowance check
+- **Config Sync**: Updated all deployment configs (CLI, frontend, indexer)
+
 ### Ponder Indexer (2026-01-04)
 - **New Package**: `packages/indexer` — Ponder-based event indexer for TickBookPoolManager events.
 - **Schema**: Indexed tables for `market`, `order`, `fillClaim`, `marketOrder`, `tickLiquidity`.

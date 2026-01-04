@@ -837,6 +837,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     txHash: `0x${string}`;
   }[] = [];
 
+  // placeOrder(marketKey, outcome, shares, tickLower, tickUpper, maxCost)
   const writePlaceOrder = async (params: {
     outcome: number;
     shares: bigint;
@@ -932,7 +933,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     const outcome = rng() < 0.55 ? 1 : 0;
 
     // Generate tick range based on order type
-    // V9.9.6 constraints: 1 <= tickLower < tickUpper <= 999
+    // Tick constraints: 1 <= tickLower < tickUpper <= 999
     let tickLower: number;
     let tickUpper: number;
 
@@ -968,10 +969,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     let shares = randSize();
     if (shares < WAD) shares = WAD;
 
-    // maxCost = shares * price_upper_bound
-    // At tick 999 (99.9%), price ≈ 1, so maxCost ≈ shares
-    // Use generous multiplier to avoid slippage failures
-    const maxCost = shares * 5n;
+    // maxCost = shares * 2 (generous slippage buffer)
+    const maxCost = shares * 2n;
 
     // Order type indicator
     const typeIndicator = orderType === 'market' ? 'MKT' : orderType === 'limit' ? 'LMT' : 'RNG';
@@ -986,7 +985,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     spinner.start();
 
     try {
-      // V9.9.6: Use unified placeOrder API
+      // Use placeOrder API
       const { txHash, result } = await writePlaceOrder({ outcome, shares, tickLower, tickUpper, maxCost });
       const [orderId, filledShares, filledCost, restingShares] = result as [bigint, bigint, bigint, bigint];
 
@@ -1063,9 +1062,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       spinner.start();
 
       try {
-        // V9.9.6: Market orders use placeOrder with full tick range (1-999)
-        // maxCost needs to be high enough to cover worst-case price (use 10x buffer)
-        const maxCost = shares * 10n;
+        // Market orders use placeOrder with full tick range (1-999)
+        const maxCost = shares * 5n; // Generous buffer for market orders
         const { result } = await writePlaceOrder({ outcome, shares, tickLower: 1, tickUpper: 999, maxCost }, 3);
         const [, filledShares, filledCost] = result as [bigint, bigint, bigint, bigint];
 

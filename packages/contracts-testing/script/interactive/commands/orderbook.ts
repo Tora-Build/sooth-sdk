@@ -23,7 +23,7 @@ import {
 } from '../utils';
 
 /**
- * Place an order (V9.9.6 Unified API)
+ * Place an order (V9.9.6-fix9l Range Order API)
  * Usage: order <outcome> <tickRange> <shares> [maxCost]
  * Example: order yes 40-60 100
  *          order yes 50 100        (limit order at tick 50)
@@ -57,6 +57,7 @@ export async function order(ctx: CommandContext, args: string[]): Promise<Comman
   spinner.start();
 
   try {
+    // placeOrder(marketKey, outcome, shares, tickLower, tickUpper, maxCost)
     const hash = await walletClient.writeContract({
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
@@ -163,11 +164,11 @@ export async function claim(ctx: CommandContext, args: string[]): Promise<Comman
 }
 
 /**
- * Execute a market order (V9.9.6 Unified API)
+ * Execute a market order (V9.9.6-fix9l Range Order API)
  * Usage: market buy|sell <outcome> <shares> [maxCost]
  * Example: market buy no 50
  *
- * In V9.9.6, market orders use placeOrder with tickLower=1, tickUpper=999
+ * Market orders use placeRangeOrder with tickLower=1, tickUpper=999
  */
 export async function market(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketKey } = ctx;
@@ -200,8 +201,8 @@ export async function market(ctx: CommandContext, args: string[]): Promise<Comma
   spinner.start();
 
   try {
-    // V9.9.6: Market orders use placeOrder with full tick range (1-999)
-    // This will cross all available liquidity up to maxCost
+    // Market orders use placeOrder with full tick range (1-999)
+    // This will cross all available liquidity
     const tickLower = 1;
     const tickUpper = 999;
 

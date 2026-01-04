@@ -8,9 +8,9 @@
 // Default indexer URL (can be overridden via env)
 export const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || "http://localhost:42069";
 
-// Whether to use indexer (disabled by default until indexer is deployed)
-// Set VITE_USE_INDEXER=true to enable
-export const USE_INDEXER = import.meta.env.VITE_USE_INDEXER === "true";
+// Whether to use indexer (enabled by default for development)
+// Set VITE_USE_INDEXER=false to disable
+export const USE_INDEXER = import.meta.env.VITE_USE_INDEXER !== "false";
 
 // Timeout for indexer requests (ms)
 export const INDEXER_TIMEOUT = 5000;

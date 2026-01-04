@@ -24,6 +24,18 @@ export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   arcTestnet as unknown as AppKitNetwork
 ];
 
+// Base Sepolia RPC config with rate limit handling
+// Public RPCs have strict rate limits (~5-10 rps)
+const baseSepoliaHttpOptions = {
+  retryCount: 3,
+  retryDelay: 3000, // 3 seconds between retries (backoff for 429s)
+  timeout: 30_000,
+  batch: {
+    batchSize: 100,    // Max calls per batch
+    wait: 50,          // Wait 50ms to collect batch
+  },
+};
+
 // Monad RPC config with retry and rate limit handling
 // Docs: https://docs.monad.xyz/developer-essentials/testnets
 // Rate limits: QuickNode 25 rps, Ankr 300/10s, Foundation 20 rps
@@ -48,10 +60,10 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    // Base Sepolia: Official + PublicNode fallback
+    // Base Sepolia: Official + PublicNode fallback with batching
     [baseSepolia.id]: fallback([
-      http('https://sepolia.base.org'),
-      http('https://base-sepolia-rpc.publicnode.com')
+      http('https://sepolia.base.org', baseSepoliaHttpOptions),
+      http('https://base-sepolia-rpc.publicnode.com', baseSepoliaHttpOptions)
     ]),
     // Monad: Fallback with retry config - start with Ankr (higher limits)
     // then QuickNode, then Foundation

@@ -1,23 +1,24 @@
 # Project Status
 
 ## Current Focus
-- **Ponder Indexer** — Event indexing service for fast orderbook queries with RPC fallback.
-- **Frontend Refinement** — Per-chain indexer readiness checks for graceful degradation.
+- **Indexer Integration Complete** — Ponder indexer fully integrated with frontend, serving orders/orderbook/trades via REST API.
+- **RPC Rate Limiting Solved** — Added batching and conditional fallback to eliminate 429 errors.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-04** — Ponder Indexer: Full indexer setup with per-chain readiness, all 3 testnets synced.
-- **2026-01-04** — RPC Optimization: Chunked market discovery, multicall for orderbook, and aggressive caching.
+- **2026-01-04** — Indexer Frontend Integration: Fixed conditional RPC fallback, added indexed orders for LiquidityMap, filtered inactive orders from API.
+- **2026-01-04** — RPC Optimization: Added HTTP batching to Base Sepolia transport, fixed 429 rate limiting.
+- **2026-01-04** — V9.9.6-fix9l Recovery: Restored correct TickBookPoolManager with unified `placeOrder()` API + `getAllMarketOrders()`. Redeployed to Base Sepolia.
+- **2026-01-04** — Ponder Indexer: Full indexer setup with per-chain readiness, REST API endpoints for orders/orderbook/trades.
 - **2026-01-03** — Launchpad Redesign Complete: Single-page UI, earnings simulator, and Brevis registry.
-- **2026-01-02** — V9.9.6-fix9d Deployed: Auto-claim 100% filled orders + auto-release pooled USDC.
-- **2026-01-01** — Unified Order API (V9.9.6): Single `placeOrder()` replaces multiple legacy functions.
 
 ## Pending/Blocked
 - **Basescan Verification** — Contract verification for V9.9.6-fix9 series on Base Sepolia.
 - **Monad/Arc Liquidity** — Creating fresh test markets on new deployments.
 
 ## Known Issues
-- ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via chunking).~~
+- ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
+- **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -81,17 +82,17 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.6-fix9d
+### Base Sepolia (chainId: 84532) — V9.9.6-fix9l
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xac4d5854719ba80dfef344bf6b9357492ea73a95` |
-| **Collateralizer** | `0x0bf4b644626d2bf5c6f608e176efdff71ed02856` |
-| **AMMEngine** | `0xa02367e6c3adb22ccba67aad42cfd97cdacda82d` |
-| **TickBookVault** | `0x1f51efbd99e703e294bbc29ee208ebc0cda18ee5` |
-| **LaunchpadEngine** | `0x6c6e2cd8177055a14caf69701f670f7b61bf3106` |
+| **TickBookPoolManager** | `0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060` |
+| **Collateralizer** | `0xE1976fDF7fDe2a2F933a7860326Ed12121358e79` |
+| **AMMEngine** | `0xf50A729Df4078812edffe9355b73ABF916973629` |
+| **TickBookVault** | `0x6109B9C9FdD88842da3b49E7cb3DE04F21E083dc` |
+| **LaunchpadEngine** | `0x3530A1e0519E6e81b5a41074bf253E56757fefF6` |
 | **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
 
-**Note:** Fresh fix9d deployment. Auto-claims 100% filled orders, auto-releases pooled USDC.
+**Note:** V9.9.6-fix9l deployment (2026-01-04). Includes `getAllMarketOrders()`, unified `placeOrder()` API, auto-claim, stress-tested.
 
 ### Monad Testnet (chainId: 10143) — V9.9.6-fix9d
 | Contract | Address |

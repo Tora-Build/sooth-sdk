@@ -26,9 +26,9 @@ ponder.on("TickBookPoolManager:MarketRegistered", async ({ event, context }) => 
 });
 
 /**
- * Handle RangeOrderPlaced events
+ * Handle OrderPlaced events (V9.9.6 unified API)
  */
-ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => {
+ponder.on("TickBookPoolManager:OrderPlaced", async ({ event, context }) => {
   const {
     owner,
     marketKey,
@@ -36,10 +36,10 @@ ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => 
     outcome,
     tickLower,
     tickUpper,
-    liquidity,
-    collateralReserved,
-    crossingFilled,
-    crossingCost,
+    shares,
+    filledShares,
+    filledCost,
+    restingShares,
   } = event.args;
 
   const id = orderId(context.chain.id, orderIdBigInt);
@@ -53,40 +53,42 @@ ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => 
     outcome,
     tickLower,
     tickUpper,
-    liquidity,
-    collateralReserved,
-    crossingFilled,
-    crossingCost,
-    status: "active",
-    filledShares: crossingFilled, // Initial crossing fills
+    liquidity: shares,
+    collateralReserved: 0n, // Not emitted in V9.9.6
+    crossingFilled: filledShares,
+    crossingCost: filledCost,
+    status: restingShares > 0n ? "active" : "filled",
+    filledShares: filledShares,
     claimedShares: 0n,
-    collateralUsed: crossingCost,
+    collateralUsed: filledCost,
     createdAt: event.block.timestamp,
     updatedAt: event.block.timestamp,
     blockNumber: event.block.number,
   });
 
-  // Update tick liquidity for each tick in the range
-  for (let tick = tickLower; tick <= tickUpper; tick++) {
-    const tid = tickId(context.chain.id, marketKey, outcome, tick);
+  // Update tick liquidity for each tick in the range (only if resting shares > 0)
+  if (restingShares > 0n) {
+    for (let tick = tickLower; tick <= tickUpper; tick++) {
+      const tid = tickId(context.chain.id, marketKey, outcome, tick);
 
-    await context.db
-      .insert(schema.tickLiquidity)
-      .values({
-        id: tid,
-        chainId: context.chain.id,
-        marketKey,
-        outcome,
-        tick,
-        totalLiquidity: liquidity,
-        orderCount: 1,
-        updatedAt: event.block.timestamp,
-      })
-      .onConflictDoUpdate((row) => ({
-        totalLiquidity: row.totalLiquidity + liquidity,
-        orderCount: row.orderCount + 1,
-        updatedAt: event.block.timestamp,
-      }));
+      await context.db
+        .insert(schema.tickLiquidity)
+        .values({
+          id: tid,
+          chainId: context.chain.id,
+          marketKey,
+          outcome,
+          tick,
+          totalLiquidity: restingShares,
+          orderCount: 1,
+          updatedAt: event.block.timestamp,
+        })
+        .onConflictDoUpdate((row) => ({
+          totalLiquidity: row.totalLiquidity + restingShares,
+          orderCount: row.orderCount + 1,
+          updatedAt: event.block.timestamp,
+        }));
+    }
   }
 });
 
