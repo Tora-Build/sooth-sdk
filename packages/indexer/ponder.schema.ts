@@ -1,4 +1,4 @@
-import { onchainTable, index, primaryKey } from "@ponder/core";
+import { onchainTable, index } from "ponder";
 
 /**
  * Markets registered in the TickBookPoolManager
@@ -46,7 +46,6 @@ export const order = onchainTable(
     marketIdx: index().on(table.marketKey),
     ownerIdx: index().on(table.owner),
     statusIdx: index().on(table.status),
-    marketOwnerIdx: index().on(table.marketKey, table.owner),
   })
 );
 
@@ -117,6 +116,6 @@ export const tickLiquidity = onchainTable(
     updatedAt: t.bigint().notNull(),
   }),
   (table) => ({
-    marketOutcomeIdx: index().on(table.marketKey, table.outcome),
+    marketOutcomeIdx: index().on(table.marketKey),
   })
 );

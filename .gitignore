@@ -53,6 +53,10 @@ apps/web/.metamask/
 generated/
 graph-data/
 
+# Ponder (indexer)
+.ponder/
+ponder-env.d.ts
+
 
 # Playwright test results
 apps/web/test-results/

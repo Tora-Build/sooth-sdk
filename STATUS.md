@@ -1,15 +1,15 @@
 # Project Status
 
 ## Current Focus
-- **RPC Performance & Stability** — Mitigating 429 (Rate Limit) and 400 (Bad Request) errors on public RPCs.
-- **Frontend Refinement** — Streamlining data fetching and caching for the Pro trading terminal.
+- **Ponder Indexer** — Event indexing service for fast orderbook queries with RPC fallback.
+- **Frontend Refinement** — Per-chain indexer readiness checks for graceful degradation.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-04** — Ponder Indexer: Full indexer setup with per-chain readiness, all 3 testnets synced.
 - **2026-01-04** — RPC Optimization: Chunked market discovery, multicall for orderbook, and aggressive caching.
 - **2026-01-03** — Launchpad Redesign Complete: Single-page UI, earnings simulator, and Brevis registry.
 - **2026-01-02** — V9.9.6-fix9d Deployed: Auto-claim 100% filled orders + auto-release pooled USDC.
 - **2026-01-01** — Unified Order API (V9.9.6): Single `placeOrder()` replaces multiple legacy functions.
-- **2025-12-31** — V9.9.5 LEAN: Hook system removal and fill overflow invariants.
 
 ## Pending/Blocked
 - **Basescan Verification** — Contract verification for V9.9.6-fix9 series on Base Sepolia.

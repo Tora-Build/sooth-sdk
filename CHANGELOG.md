@@ -4,6 +4,24 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Ponder Indexer (2026-01-04)
+- **New Package**: `packages/indexer` — Ponder-based event indexer for TickBookPoolManager events.
+- **Schema**: Indexed tables for `market`, `order`, `fillClaim`, `marketOrder`, `tickLiquidity`.
+- **Events**: Handles `MarketRegistered`, `RangeOrderPlaced`, `RangeOrderCancelled`, `FillsClaimed`, `MarketOrderExecuted`.
+- **API Endpoints**:
+  - `/orders/:chainId/:marketKey` — Active orders for a market
+  - `/orders/:chainId/:marketKey/:owner` — User's orders
+  - `/orderbook/:chainId/:marketKey` — Pre-aggregated tick liquidity
+  - `/trades/:chainId/:marketKey` — Recent market order trades
+  - `/markets/:chainId` — Registered markets
+- **Multi-Chain**: Supports Base Sepolia (84532), Monad Testnet (10143), Arc Testnet (5042002).
+- **Per-Chain Readiness**: Frontend uses `/status` endpoint to check each chain independently.
+- **RPC Fallback**: Frontend automatically falls back to RPC if indexer chain not ready.
+- **Configuration**:
+  - `VITE_USE_INDEXER=true` to enable indexer in frontend
+  - `VITE_INDEXER_URL=http://localhost:42069` for indexer URL
+  - Symlink `.env` for shared config with root
+
 ### Performance & RPC Stability (2026-01-04)
 - **Chunked Market Discovery**: `useOnChainMarkets` now fetches metadata in chunks of 5 with small delays, preventing 429 rate limits on page load.
 - **Multicall Orderbook**: `useAllOrdersDirect` upgraded from parallel `Promise.all` to chunked `multicall3`, reducing 20+ RPC calls per market to 1-2.
