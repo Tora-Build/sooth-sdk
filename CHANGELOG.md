@@ -4,6 +4,16 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Performance & RPC Stability (2026-01-04)
+- **Chunked Market Discovery**: `useOnChainMarkets` now fetches metadata in chunks of 5 with small delays, preventing 429 rate limits on page load.
+- **Multicall Orderbook**: `useAllOrdersDirect` upgraded from parallel `Promise.all` to chunked `multicall3`, reducing 20+ RPC calls per market to 1-2.
+- **Aggressive Caching**: 
+  - Metadata hooks (`useCollateralizerDirect`) now use 60s `staleTime`.
+  - State hooks (`useAmmMarketDirect`, `useTickBookDirect`) now use 10s `staleTime` / 20s `refetchInterval`.
+  - Global `useDirectRead` defaults increased to 5s stale / 15s refetch.
+- **Event Listener Throttling**: Disabled `ActivityListenerV8` on Arc Testnet (ID 10143) to prevent "400 Bad Request" errors from excessive event filter polling.
+- **Streamlined Pro Page**: Removed redundant legacy hook calls (`useUserOrdersDirect`, `useAllOrdersDirect`) in favor of unified V10 counterparts.
+
 ### V9.9.6 Bug Fixes Summary
 
 | Fix | Issue | Solution | Status |

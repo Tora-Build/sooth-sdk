@@ -18,7 +18,10 @@ import { useMarketStatsMath } from '../hooks/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ERC20_ABI, V8_ABIS } from '../config/abis';
-import marketsConfig from '../config/markets.json';
+import marketsConfigRaw from '../config/markets.json';
+import { MarketConfig, MarketsConfigJson } from '../types';
+
+const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 
 const CURRENT_VERSION_PREFIX = 'v9.0'; // Current canonical version
 
@@ -34,7 +37,7 @@ const EmptyState = ({ message }: { message: string }) => (
  * AMMPositionRow - Displays internal shares from AMMEngine
  */
 const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueUpdate }: {
-  market: typeof marketsConfig.markets[0],
+  market: MarketConfig,
   userAddress: `0x${string}`,
   ammEngineAddress: `0x${string}`,
   price?: bigint,
@@ -88,7 +91,7 @@ const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueU
  * LPPositionRow - Displays LP balance and its USDC value
  */
 const LPPositionRow = ({ market, userAddress, lpBalance, lpSupply, floorValue, decimals, onValueUpdate }: {
-  market: typeof marketsConfig.markets[0],
+  market: MarketConfig,
   userAddress: `0x${string}`,
   lpBalance?: bigint,
   lpSupply?: bigint,
@@ -133,7 +136,7 @@ const LPPositionRow = ({ market, userAddress, lpBalance, lpSupply, floorValue, d
  * OutcomeTokenRow - Displays ERC20 tokens in wallet
  */
 const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
-  market: typeof marketsConfig.markets[0],
+  market: MarketConfig,
   userAddress: `0x${string}`,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
@@ -201,7 +204,7 @@ const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
  * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
 const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
-  market: typeof marketsConfig.markets[0],
+  market: MarketConfig,
   userAddress: `0x${string}`,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
@@ -253,7 +256,7 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
  * ProMarginRow - Displays margin reserved for a specific market
  */
 const ProMarginRow = ({ market, userAddress }: {
-  market: typeof marketsConfig.markets[0],
+  market: MarketConfig,
   userAddress: `0x${string}`
 }) => {
   const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.contractAddress as `0x${string}`);
@@ -303,7 +306,7 @@ export const Portfolio = () => {
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
       m.chainId === chainId &&
-      m.version.startsWith('v')
+      m.version?.startsWith('v')
     );
   }, [chainId]);
 

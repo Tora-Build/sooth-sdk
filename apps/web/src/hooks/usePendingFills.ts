@@ -13,11 +13,15 @@ export interface PendingFill {
   isClaimed: boolean;
 }
 
+// Batch size and delay to avoid RPC rate limits (429)
+const BATCH_SIZE = 5;
+const BATCH_DELAY_MS = 100;
+
 /**
  * Hook to get pending fills for a user's orders
  *
- * Pending fills are orders that have been matched but not yet claimed.
- * Users can batch claim all fills at once.
+ * Uses chunked Promise.all with delays to avoid RPC rate limits.
+ * Does NOT use multicall3 (not supported on Arc/Monad/Base testnets).
  */
 export function usePendingFills(
   marketKey: `0x${string}` | undefined,
@@ -35,31 +39,46 @@ export function usePendingFills(
     read: async (client) => {
       const fills: PendingFill[] = [];
 
-      for (const orderId of orderIds) {
-        try {
-          const fill = await readContractSafe<{
-            filledShares: bigint;
-            filledUsdc: bigint;
-            outcome: number;
-            isClaimed: boolean;
-          }>(client, {
-            address: poolManagerAddress!,
-            abi: V996_ABIS.TickBookPoolManager,
-            functionName: "getPendingFills",
-            args: [marketKey!, orderId],
-          });
+      // Chunked Promise.all to avoid RPC rate limits
+      for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+        const batch = orderIds.slice(i, i + BATCH_SIZE);
 
-          if (fill.filledShares > 0n && !fill.isClaimed) {
-            fills.push({
-              orderId,
-              filledShares: fill.filledShares,
-              filledUsdc: fill.filledUsdc,
-              outcome: fill.outcome as 0 | 1,
-              isClaimed: fill.isClaimed,
-            });
-          }
-        } catch {
-          // Order may not exist or have no fills
+        const batchResults = await Promise.all(
+          batch.map(async (orderId) => {
+            try {
+              const result = await readContractSafe<readonly [bigint, bigint]>(client, {
+                address: poolManagerAddress!,
+                abi: V996_ABIS.TickBookPoolManager,
+                functionName: "getPendingFills",
+                args: [marketKey!, orderId],
+              });
+
+              const filledShares = result?.[0] ?? 0n;
+              const filledUsdc = result?.[1] ?? 0n;
+
+              if (filledShares > 0n) {
+                return {
+                  orderId,
+                  filledShares,
+                  filledUsdc,
+                  outcome: 0 as const,
+                  isClaimed: false,
+                };
+              }
+              return null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result) fills.push(result);
+        }
+
+        // Rate limit delay between batches
+        if (i + BATCH_SIZE < orderIds.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
 
@@ -67,12 +86,13 @@ export function usePendingFills(
     },
   });
 
-  const totalClaimableShares = query.data?.reduce((sum, f) => sum + f.filledShares, 0n) ?? 0n;
-  const totalClaimableUsdc = query.data?.reduce((sum, f) => sum + f.filledUsdc, 0n) ?? 0n;
-  const hasClaimable = (query.data?.length ?? 0) > 0;
+  const fills = query.data ?? [];
+  const totalClaimableShares = fills.reduce((sum, f) => sum + (f?.filledShares ?? 0n), 0n);
+  const totalClaimableUsdc = fills.reduce((sum, f) => sum + (f?.filledUsdc ?? 0n), 0n);
+  const hasClaimable = fills.length > 0;
 
   return {
-    fills: query.data ?? [],
+    fills,
     totalClaimableShares,
     totalClaimableUsdc,
     hasClaimable,

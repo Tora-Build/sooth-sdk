@@ -18,19 +18,20 @@ export function GuardianConsole() {
 
   const [isPending, setIsPending] = useState<Record<string, boolean>>({});
 
+  const chainId = selectedChainId ? Number(selectedChainId) : undefined;
+
   // Fetch market guardian states
   const marketCalls = useMemo(() => {
     return markets.flatMap(m => [
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive' },
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' },
-      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLiquidated' },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLive', chainId },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated', chainId },
+      { address: m.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isLiquidated', chainId },
     ]);
-  }, [markets]);
+  }, [markets, chainId]);
 
   const { data: marketStates, isLoading: isLoadingStates, refetch: refetchStates } = useReadContracts({
     contracts: marketCalls,
-    chainId: Number(selectedChainId),
-    query: { enabled: markets.length > 0 }
+    query: { enabled: markets.length > 0 && !!chainId }
   });
 
   const handleGuardianAction = async (marketAddress: `0x${string}`, action: 'forceGraduate' | 'liquidate') => {

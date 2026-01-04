@@ -5,9 +5,9 @@ import { useCallback } from "react";
 
 type Address = `0x${string}`;
 
-// Faster refresh for better UX - data feels more "live"
-const DEFAULT_REFETCH_INTERVAL = 8_000; // 8 seconds
-const DEFAULT_STALE_TIME = 3_000; // 3 seconds
+// Sane defaults to avoid RPC rate limiting (429)
+const DEFAULT_REFETCH_INTERVAL = 15_000; // 15 seconds
+const DEFAULT_STALE_TIME = 5_000; // 5 seconds
 
 export function useDirectRead<TData>(params: {
   queryKey: readonly unknown[];

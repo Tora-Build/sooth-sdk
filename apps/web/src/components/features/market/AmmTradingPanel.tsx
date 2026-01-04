@@ -159,7 +159,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
     const insufficientBalance = !isQuoteLoading && tradeMode === 'buy' && quote && usdcBalanceNum < quote.maxWithSlippage;
 
     // LP Health Check (for info)
-    const { isUnderwater } = useLaunchpadMarket(address);
+    const { launchpad: lpData } = useLaunchpadMarket(address);
+    const isUnderwater = lpData?.floorValue === 0n;
 
     // Helper for Connect Wallet
     const handleConnect = () => {

@@ -6,7 +6,7 @@ interface Market {
   address: string;
   name: string;
   symbol: string;
-  isGraduated: boolean;
+  isGraduated?: boolean;
   deadline?: number;
 }
 

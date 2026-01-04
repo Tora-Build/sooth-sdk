@@ -445,5 +445,49 @@
     "learn": "Learn",
     "faucet": "Faucet",
     "connect": "Connect"
+  },
+  "trading": {
+    "buy": "Buy",
+    "sell": "Sell",
+    "passiveOrder": "Passive Order",
+    "marketPrice": "Market Price",
+    "bestPrice": "Best Price",
+    "yourPrice": "Your Price",
+    "shares": "Shares",
+    "costPerShare": "Cost Per Share",
+    "totalCost": "Total Cost",
+    "insufficientBalance": "Insufficient Balance",
+    "settled": "Settled",
+    "trading": "Trading"
+  },
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "usdc": "USDC",
+    "noPositions": "No positions",
+    "loadingHolders": "Loading holders...",
+    "noHolders": "No LP holders"
+  },
+  "lp": {
+    "title": "LP Positions",
+    "noPositions": "No LP positions",
+    "redeemValue": "Redeem Value",
+    "holders": "Holders",
+    "floor": "Floor",
+    "floorDescription": "Minimum guaranteed LP value",
+    "ceiling": "Ceiling",
+    "ceilingDescription": "Maximum LP value if all positions win",
+    "fairMintingDescription": "Fair minting ensures LP tokens are priced correctly",
+    "loadingHolders": "Loading holders...",
+    "noHolders": "No LP holders",
+    "creatorFloor": "Creator Floor",
+    "yourFloor": "Your Floor",
+    "ceilingValue": "Ceiling Value"
+  },
+  "operator": {
+    "title": "Operator Console",
+    "description": "Manage market operations",
+    "resolve": "Resolve",
+    "guardian": "Guardian"
   }
 }

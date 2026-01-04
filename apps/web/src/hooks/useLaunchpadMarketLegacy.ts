@@ -189,7 +189,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     }, [marketAddress, expireWrite, selectedChainId]);
 
     const claimRefund = useCallback(() => {
-        if (marketAddress) refundWrite({ address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'claimCreatorRefund', chainId: Number(selectedChainId) });
+        if (marketAddress) refundWrite({ address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'claimLiquidationRefund', args: [userAddress!], chainId: Number(selectedChainId) });
     }, [marketAddress, refundWrite, selectedChainId]);
 
     const redeemLP = useCallback((amount: bigint) => {

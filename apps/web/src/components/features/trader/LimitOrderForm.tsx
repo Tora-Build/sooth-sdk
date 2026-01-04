@@ -9,7 +9,7 @@ import { useOrderbook } from '../../../hooks/useOrderbook';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { OUTCOME_TOKEN_ABI, ERC20_ABI } from '../../../config/abis';
+import { ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
 
 interface LimitOrderFormProps {
@@ -44,11 +44,11 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const isPending = isLimitPending;
 
   // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
-  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { amm: configAmmMarket } = useAmmMarket(isAddressFormat ? undefined : (marketId as `0x${string}`));
   const { market: addressMarket } = useAmmMarketByAddress(
     isAddressFormat ? (marketId as `0x${string}`) : undefined
   );
-  const market = isAddressFormat ? addressMarket : configMarket;
+  const market = isAddressFormat ? addressMarket : (configAmmMarket ? { priceYes: configAmmMarket.yesProbability, priceNo: configAmmMarket.noProbability, bParam: 0n, status: 'trading' } : undefined);
 
   const { bids, asks, userYesShares: obYes, userNoShares: obNo } = useOrderbook(marketId);
 

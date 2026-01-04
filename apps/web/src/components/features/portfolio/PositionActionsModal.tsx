@@ -23,7 +23,7 @@ export const PositionActionsModal: React.FC<{
     const { address } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
-    const { availableBalance, decimals, refetch: refetchVault, traderVaultAddress } = useTraderVault();
+    const { availableBalance, decimals, refetch: refetchVault, vaultAddress } = useTraderVault();
     const { markets } = useLaunchpadMarkets();
     const { vaultPositions } = useActivePositions();
     
@@ -89,7 +89,7 @@ export const PositionActionsModal: React.FC<{
                 
                 toast.loading('Merging shares...', { id: toastId });
                 const hash = await writeContractAsync({
-                    address: traderVaultAddress,
+                    address: vaultAddress,
                     abi: TRADER_VAULT_V4_ABI,
                     functionName: 'mergeFromVault',
                     args: [marketAddr, finalAmountBig],
@@ -114,7 +114,7 @@ export const PositionActionsModal: React.FC<{
                 
                 toast.loading('Splitting USDC into shares...', { id: toastId });
                 const hash = await writeContractAsync({
-                    address: traderVaultAddress,
+                    address: vaultAddress,
                     abi: TRADER_VAULT_V4_ABI,
                     functionName: 'splitAndDeposit',
                     args: [marketAddr, finalAmountBig],

@@ -17,7 +17,10 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { InfoTooltip } from '../components/ui/Tooltip';
 import { useTruthMarketDirect, useLaunchpadMarketDirect } from '../hooks';
-import marketsConfig from '../config/markets.json';
+import marketsConfigRaw from '../config/markets.json';
+import { MarketConfig, MarketsConfigJson } from '../types';
+
+const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 
 type Tab = 'veto' | 'finalized' | 'settings';
 
@@ -66,7 +69,7 @@ const CountdownTimer: React.FC<{ deadline: number }> = ({ deadline }) => {
 
 // Veto card for pending settlements
 interface VetoCardProps {
-  market: typeof marketsConfig.markets[0];
+  market: MarketConfig;
   userAddress?: string;
 }
 
@@ -166,7 +169,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
 
 // Finalized market row - fetches real data from contracts
 interface FinalizedRowProps {
-  market: typeof marketsConfig.markets[0];
+  market: MarketConfig;
 }
 
 const FinalizedRow: React.FC<FinalizedRowProps> = ({ market }) => {
@@ -246,7 +249,7 @@ export const Gov = () => {
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
-      m.version.startsWith('v') && m.chainId === chainId
+      m.version?.startsWith('v') && m.chainId === chainId
     );
   }, [chainId]);
 

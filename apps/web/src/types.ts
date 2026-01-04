@@ -1,18 +1,28 @@
 export type MarketStatus = 'trading' | 'cooldown' | 'settling' | 'clearing' | 'settled' | 'paused';
 
+export interface MarketsConfigJson {
+  version: string;
+  markets: MarketConfig[];
+}
+
 export type AdjudicatorKind = string;
 
 export interface MarketConfig {
   id: string;
   id_numeric?: number;
   chainId?: number;
+  version?: string;
   name: string;
+  symbol?: string;
+  description?: string;
   question: string;
   adjudicatorKind: string;
   adjudicatorLabel?: string;
   openEnded: boolean;
   contractAddress: string;
-  outcomeTokenAddress?: string; // ERC1155 outcome tokens
+  outcomeTokenAddress?: string;
+  yesToken?: string;
+  noToken?: string;
   adjudicatorId: string;
   eventId: string;
   initialStatus?: MarketStatus;

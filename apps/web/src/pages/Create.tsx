@@ -25,8 +25,11 @@ import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } fr
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS, ERC20_ABI } from '../config/abis';
 import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
-import marketsConfig from '../config/markets.json';
+import marketsConfigRaw from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
+import { MarketConfig, MarketsConfigJson } from '../types';
+
+const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 import toast from 'react-hot-toast';
 
 const { create: content } = uiContent;
@@ -34,9 +37,8 @@ const { create: content } = uiContent;
 // Tabs
 type Tab = 'markets' | 'settlements' | 'create';
 
-// Market card for creator view
 interface CreatorMarketCardProps {
-  market: typeof marketsConfig.markets[0];
+  market: MarketConfig;
   userAddress?: string;
   isCreator: boolean;
   isAdjudicator: boolean;
@@ -164,7 +166,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
 
 // Settlement card for adjudicator view
 interface SettlementCardProps {
-  market: typeof marketsConfig.markets[0];
+  market: MarketConfig;
   userAddress?: string;
 }
 
@@ -311,7 +313,7 @@ export const Create = () => {
   // Calculate deposit based on liquidity (b)
   const depositAmount = Math.floor(parseInt(wizardData.liquidity) * 0.693);
   const depositAmountWei = BigInt(depositAmount) * 10n ** 18n;
-  const isApproved = allowance !== undefined && allowance >= depositAmountWei;
+  const isApproved = typeof allowance === 'bigint' && allowance >= depositAmountWei;
 
   // Handle deploy market
   const handleDeployMarket = useCallback(async () => {
@@ -391,7 +393,7 @@ export const Create = () => {
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
     return marketsConfig.markets.filter(m =>
-      m.version.startsWith('v') && m.chainId === chainId
+      m.version?.startsWith('v') && m.chainId === chainId
     );
   }, [chainId]);
 

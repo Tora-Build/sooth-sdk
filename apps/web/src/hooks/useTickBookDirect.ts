@@ -11,7 +11,11 @@ import { useDirectRead, readContractSafe } from "./useDirectRead";
 export function useTickBookDirect(
   marketAddress: Address | undefined,
   yesTokenInput?: Address,
-  noTokenInput?: Address
+  noTokenInput?: Address,
+  options?: {
+    staleTime?: number;
+    refetchInterval?: number;
+  }
 ) {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
@@ -23,6 +27,8 @@ export function useTickBookDirect(
     queryKey: ["v9", "tickBookDirect", chainId, poolManagerAddress, marketAddress, yesTokenInput, noTokenInput],
     enabled: !!marketAddress && !!chainId && !!poolManagerAddress && !!collateralizerAddress,
     chainId,
+    staleTime: options?.staleTime ?? 10_000, // Default 10s for TickBook data
+    refetchInterval: options?.refetchInterval ?? 20_000, // Default 20s
     read: async (client) => {
       try {
         console.log(`[useTickBookDirect] Initializing for ${marketAddress}`);
@@ -51,11 +57,9 @@ export function useTickBookDirect(
         // 2. Format Addresses Robustly
         const robustAddress = (addr: string | undefined): Address => {
           if (!addr || isZero(addr)) return "0x0000000000000000000000000000000000000000";
-          // Ensure it is 40 hex chars (+0x)
           let standard = addr.toLowerCase();
           if (standard.length > 42) standard = `0x${standard.slice(-40)}`;
           if (standard.length < 42 && standard.startsWith("0x")) {
-            // Pad if misses leading zero
             standard = `0x${standard.slice(2).padStart(40, "0")}`;
           }
           try {
@@ -65,8 +69,6 @@ export function useTickBookDirect(
             return standard as Address;
           }
         };
-
-
 
         // 3. Calculate Market Key
         const marketKey = keccak256(encodeAbiParameters(
@@ -115,7 +117,50 @@ export function useTickBookDirect(
           };
         }
 
-        // 5. Return basic market state (Orderbook depth requires Ponder in V9)
+        // 5. Sample liquidity across full tick range for depth chart
+        // V10: Ticks range 1-999, sample every 20 ticks for efficiency (50 samples total)
+        const sampleTicks = async (outcome: number) => {
+          const ticks: Array<{ tick: number; liquidity: bigint }> = [];
+          const step = 20; 
+
+          const ticksToSample = [];
+          for (let tick = step; tick <= 990; tick += step) {
+            ticksToSample.push(tick);
+          }
+
+          // Sample in parallel batches of 10 to avoid rate limits
+          const batchSize = 10;
+          for (let i = 0; i < ticksToSample.length; i += batchSize) {
+            const batch = ticksToSample.slice(i, i + batchSize);
+            const results = await Promise.all(
+              batch.map(async (tick) => {
+                try {
+                  const liq = await readContractSafe<bigint>(client, {
+                    address: poolManagerAddress!,
+                    abi: poolManagerAbi,
+                    functionName: "getLiquidityAtTick",
+                    args: [marketKey, outcome, tick],
+                  });
+                  return { tick, liquidity: liq };
+                } catch {
+                  return { tick, liquidity: 0n };
+                }
+              })
+            );
+            for (const r of results) {
+              if (r.liquidity > 0n) {
+                ticks.push(r);
+              }
+            }
+          }
+          return ticks;
+        };
+
+        const [yesLiquidity, noLiquidity] = await Promise.all([
+          sampleTicks(1), // YES
+          sampleTicks(0), // NO
+        ]);
+
         console.log(`[useTickBookDirect] Success! Probability: ${Number(probabilityWad) / 10 ** 18}`);
 
         return {
@@ -129,8 +174,8 @@ export function useTickBookDirect(
           hook: undefined,
           activeLiquidityNo: activeLiqNo,
           activeLiquidityYes: activeLiqYes,
-          bids: [],
-          asks: [],
+          bids: yesLiquidity,
+          asks: noLiquidity,
         };
       } catch (err) {
         console.error(`[useTickBookDirect] CRITICAL FAILURE for ${marketAddress}:`, err);

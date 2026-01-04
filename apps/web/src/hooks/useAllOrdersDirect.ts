@@ -26,11 +26,16 @@ const RANGE_ORDER_PLACED_EVENT = parseAbiItem(
   "event RangeOrderPlaced(address indexed owner, bytes32 indexed marketKey, uint256 indexed orderId, uint8 outcome, uint16 tickLower, uint16 tickUpper, uint256 liquidity, uint256 collateralReserved, uint256 crossingFilled, uint256 crossingCost)"
 );
 
+// Batch size and delay to avoid RPC rate limits (429)
+const BATCH_SIZE = 5;
+const BATCH_DELAY_MS = 100;
+
 /**
  * Hook to fetch ALL orders for a market from TickBookPoolManager (V9 Architecture)
  * Used for displaying the full orderbook depth on the Pro page.
  *
- * Unlike useUserOrdersDirect, this fetches orders from ALL users.
+ * Uses chunked Promise.all with delays to avoid RPC rate limits.
+ * Does NOT use multicall3 (not supported on Arc/Monad/Base testnets).
  */
 export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
   const { selectedChainId } = useChainStore();
@@ -62,6 +67,7 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
           console.log(`[useAllOrdersDirect] getAllMarketOrders not available, falling back to events`);
 
           const currentBlock = await client.getBlockNumber();
+          // Monad has stricter limits - use smaller block range
           const blocksToQuery = chainId === 10143 ? 50n : 50000n;
           const fromBlock = currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
 
@@ -92,13 +98,13 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
           return [];
         }
 
-        // Fetch each order's details in parallel (batch for performance)
+        // Chunked Promise.all to avoid RPC rate limits (no multicall3 support)
         const orders: RangeOrder[] = [];
-        const batchSize = 10;
 
-        for (let i = 0; i < orderIds.length; i += batchSize) {
-          const batch = orderIds.slice(i, i + batchSize);
-          const results = await Promise.all(
+        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+          const batch = orderIds.slice(i, i + BATCH_SIZE);
+          
+          const batchResults = await Promise.all(
             batch.map(async (orderId) => {
               try {
                 const [order, pendingFills] = await Promise.all([
@@ -128,11 +134,10 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
                 ]);
 
                 if (order && order.active) {
-                  const pendingShares = pendingFills?.[0] ?? 0n;
                   return {
                     orderId,
                     ...order,
-                    pendingShares,
+                    pendingShares: pendingFills?.[0] ?? 0n,
                   };
                 }
                 return null;
@@ -143,8 +148,13 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
             })
           );
 
-          for (const result of results) {
+          for (const result of batchResults) {
             if (result) orders.push(result);
+          }
+
+          // Rate limit delay between batches
+          if (i + BATCH_SIZE < orderIds.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
           }
         }
 

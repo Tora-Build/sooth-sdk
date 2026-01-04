@@ -43,7 +43,7 @@ export const ClaimFillsButton = ({
   const handleClaim = () => {
     if (!marketKey || !poolManagerAddress || fills.length === 0) return;
 
-    const claimableIds = fills.map((f) => f.orderId);
+    const claimableIds = fills.filter(f => f !== null).map((f) => f.orderId);
 
     writeContract(
       {

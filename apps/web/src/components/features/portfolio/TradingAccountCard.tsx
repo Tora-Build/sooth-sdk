@@ -19,13 +19,13 @@ export const TradingAccountCard: React.FC = () => {
   // Trading Account data
   const { 
     availableBalance, 
-    pendingBalance, 
+    reservedBalance, 
     totalBalance, 
     userUsdcBalance, 
     decimals, 
     allowance, 
     approveUSDC, 
-    isApproving,
+    isPending,
     deposit,
     withdraw
   } = useTraderVault();
@@ -46,7 +46,7 @@ export const TradingAccountCard: React.FC = () => {
   // Use the decimals read from the contract
   const DISPLAY_DECIMALS = decimals || 6;
   const available = parseFloat(formatUnits(availableBalance, DISPLAY_DECIMALS));
-  const reserved = parseFloat(formatUnits(pendingBalance, DISPLAY_DECIMALS));
+  const reserved = parseFloat(formatUnits(reservedBalance, DISPLAY_DECIMALS));
   const cashValue = parseFloat(formatUnits(totalBalance, DISPLAY_DECIMALS));
   const totalAccountValue = cashValue + vaultValue;
   const walletAvailable = parseFloat(formatUnits(userUsdcBalance || 0n, DISPLAY_DECIMALS));
@@ -237,8 +237,8 @@ export const TradingAccountCard: React.FC = () => {
           </div>
           <div className="text-xs text-slate-500 text-right">Available to deposit: {formatCurrency(walletAvailable)}</div>
 
-          <Button onClick={() => deposit(depositAmount)} disabled={isApproving || !depositAmount} className="w-full py-2 text-sm font-bold">
-            {isApproving ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
+          <Button onClick={() => deposit(depositAmount)} disabled={isPending || !depositAmount} className="w-full py-2 text-sm font-bold">
+            {isPending ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
           </Button>
         </div>
       </Dialog>

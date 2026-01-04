@@ -15,6 +15,7 @@ export interface UseLockedFundsResult {
     total: bigint;
     vaultLocked: bigint;
     marketLocked: bigint;
+    decimals: number;
 
     // State
     nextUnlockAmount: bigint;
@@ -60,22 +61,10 @@ export function useLockedFunds(): UseLockedFundsResult {
     const traderVault = contracts?.SoothTraderVault as `0x${string}` | undefined;
     const { markets, isLoading: marketsLoading } = useLaunchpadMarkets();
 
-    // 1. Build unique market list from both factory and static config
     const uniqueMarkets = useMemo(() => {
         const list: { address: `0x${string}`, name: string }[] = [];
         const seen = new Set<string>();
 
-        // From deployments.json (Static)
-        if (config.marketInfo) {
-            Object.values(config.marketInfo).forEach((m: any) => {
-                if (m.address && !seen.has(m.address.toLowerCase())) {
-                    seen.add(m.address.toLowerCase());
-                    list.push({ address: m.address, name: m.name });
-                }
-            });
-        }
-
-        // From LaunchpadFactory (Dynamic)
         if (markets) {
             markets.forEach(m => {
                 if (m.address && !seen.has(m.address.toLowerCase())) {
@@ -86,7 +75,7 @@ export function useLockedFunds(): UseLockedFundsResult {
         }
 
         return list;
-    }, [config.marketInfo, markets]);
+    }, [markets]);
 
     // 2. Build contract calls
     const lockContracts = useMemo(() => {
@@ -125,7 +114,6 @@ export function useLockedFunds(): UseLockedFundsResult {
             ...lockContracts,
             { address: contracts?.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals', chainId }
         ],
-        chainId,
         query: { 
             enabled: !!address && lockContracts.length > 0 && !!contracts?.MockUSDC,
             refetchInterval: 30000,

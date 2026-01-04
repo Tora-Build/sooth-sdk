@@ -1,27 +1,23 @@
 # Project Status
 
-> Last Updated: 2026-01-03 (Launchpad Redesign Complete)
+## Current Focus
+- **RPC Performance & Stability** — Mitigating 429 (Rate Limit) and 400 (Bad Request) errors on public RPCs.
+- **Frontend Refinement** — Streamlining data fetching and caching for the Pro trading terminal.
 
-- **✅ V9.9.6-fix9d DEPLOYED** — Auto-claim 100% filled orders + auto-release pooled USDC
-- **✅ V9.9.6-fix8 DEPLOYED** — Bitmap traversal direction + `_safeSubTotalLiquidity()` underflow guard
-- **✅ V9.9.6-fix7 DEPLOYED** — Corrected crossing overlap calculation
-- **✅ V9.9.6-fix6 DEPLOYED** — Fixed crossing logic for YES/NO price inversion (`YES_tick + NO_tick >= 1000`)
-- **✅ V9.9.6-fix4 DEPLOYED** — Added `getAllMarketOrders()` for reliable order enumeration + array iteration fix
-- **✅ V9.9.6-fix3 DEPLOYED** — Fixed array iteration in `_autoClaimUserOrders()` (iterate backwards)
-- **✅ V9.9.6-fix2 DEPLOYED** — User orders array cleanup with swap-and-pop removal
-- **✅ V9.9.6-fix1 DEPLOYED** — Active liquidity underflow fixed with `_safeSubLiquidity()` helper
-- **✅ PRO PAGE UI REFACTOR** — Layout now matches Trade page (60/40 grid, Market Summary Card, Vault Card)
-- **✅ PRO PAGE ORDERBOOK** — Now shows ALL orders via `getAllMarketOrders()` contract call
-- **✅ CLI DEPOSIT FIX** — Fixed MockUSDC decimal conversion (18 decimals, not 6)
-- **✅ V9.9.6 COMPLETE** — Unified `placeOrder()` API replaces `placeRangeOrder()` + `executeMarketOrder()`
-- **✅ FE HOOKS READY** — `usePlaceOrder` hook with helpers (marketOrder, limitOrder, rangeOrder, marketWithFloor)
-- **✅ AUTO-CLAIM** — Now only claims 100% filled orders, skips partials (gas bounded)
-- **✅ TESTS PASSING** — 138/138 tests pass
-- **✅ INTERACTIVE CLI** — Full market lifecycle from CLI (create, graduate, orderbook)
-- **✅ PACKAGE SPLIT COMPLETE** — `contracts-evm` split into `contracts-core` + `contracts-testing`
-- **✅ ON-CHAIN MARKET DISCOVERY** — `getMarkets()` + `useOnChainMarkets` hook
-- **✅ UI INTEGRATION** — Pro and Trade pages now use dynamic on-chain discovery and the Unified Order API.
-- **✅ LAUNCHPAD REDESIGN** — Single-page consolidated UI, Brevis Registry, Earnings Simulator, and Flexible Expiration.
+## Recent Changes (Last 5 Sessions)
+- **2026-01-04** — RPC Optimization: Chunked market discovery, multicall for orderbook, and aggressive caching.
+- **2026-01-03** — Launchpad Redesign Complete: Single-page UI, earnings simulator, and Brevis registry.
+- **2026-01-02** — V9.9.6-fix9d Deployed: Auto-claim 100% filled orders + auto-release pooled USDC.
+- **2026-01-01** — Unified Order API (V9.9.6): Single `placeOrder()` replaces multiple legacy functions.
+- **2025-12-31** — V9.9.5 LEAN: Hook system removal and fill overflow invariants.
+
+## Pending/Blocked
+- **Basescan Verification** — Contract verification for V9.9.6-fix9 series on Base Sepolia.
+- **Monad/Arc Liquidity** — Creating fresh test markets on new deployments.
+
+## Known Issues
+- ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via chunking).~~
+- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 

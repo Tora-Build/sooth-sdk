@@ -1,5 +1,33 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-068: RPC Rate Limit (429) & Bad Request (400) Mitigation Strategy
+- **Date**: 2026-01-04
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - The Pro trading terminal and market discovery hooks were causing frequent 429 (Too Many Requests) errors on public RPC nodes (Base Sepolia).
+  - Arc Testnet RPCs were returning 400 (Bad Request) errors when multiple high-frequency event listeners were active.
+  - The page load triggered 20+ simultaneous metadata requests for market discovery.
+- **Decision**:
+  1. **Chunked Sequential Fetching**: Implement batching (5 items/batch) with 100ms delays for market discovery metadata.
+  2. **Multicall Aggregation**: Replace individual `readContract` loops with `multicall3` for orderbook enumeration.
+  3. **Tiered Caching Strategy**:
+     - **Static/Meta**: 60s stale time (Tokens, Addresses).
+     - **Dynamic/State**: 10s stale time / 20s refresh (Prices, Liquidity).
+  4. **Chain-Specific Throttling**: Disable event-based Activity Listeners on Arc Testnet (ID 10143) where RPC filtering is unreliable.
+- **Rationale**:
+  - **Stability**: Prevents frontend "white-screens" caused by RPC provider lockouts.
+  - **UX**: Maintains responsive data updates while staying within free-tier RPC quotas.
+  - **Maintainability**: Centralized caching defaults in `useDirectRead` provide a safety net for all future hooks.
+- **Consequences**:
+  - **Data Freshness**: Prices may lag by up to 10 seconds (acceptable for alpha).
+  - **Event Log Gap**: Activity logs on Arc Testnet will require manual refresh or won't be live-updating.
+- **Files Changed**:
+  - `apps/web/src/hooks/useDirectRead.ts` (Defaults)
+  - `apps/web/src/hooks/useOnChainMarkets.ts` (Chunking)
+  - `apps/web/src/hooks/useAllOrdersDirect.ts` (Multicall)
+  - `apps/web/src/pages/Pro.tsx` (Tiered Caching)
+  - `apps/web/src/components/features/ActivityListenerV8.tsx` (Arc disable)
+
 ## ADR-067: Launchpad V9.9.6 Redesign (Single Page & Features)
 - **Date**: 2026-01-03
 - **Status**: Implemented (Frontend)

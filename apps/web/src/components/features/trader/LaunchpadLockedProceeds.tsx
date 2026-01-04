@@ -49,7 +49,7 @@ export const LaunchpadLockedProceeds: React.FC<{
                         <p className="text-xs text-slate-400">
                             Sell proceeds are locked for 24h. You can reinvest them or claim after unlock.
                         </p>
-                        {totalLocked && totalLocked > 0n && (
+                        {totalLocked !== undefined && totalLocked > 0n && (
                             <p className="text-xs text-slate-500 mt-1">
                                 Total market locked: ${Number(formatUnits(totalLocked, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
