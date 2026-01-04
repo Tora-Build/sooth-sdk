@@ -1,5 +1,30 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-070: RPC-Only Fill Tracking for Orders
+- **Date**: 2026-01-04
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - The Ponder indexer tracks `FillsClaimed` events but cannot accurately compute **pending fills**.
+  - The contract uses a global pro-rata accumulator system (`_fillGrowthGlobalX128`) to distribute fills across all orders in a tick range.
+  - Only the on-chain `getPendingFills(marketKey, orderId)` view function knows the true pending amount.
+  - Previous attempts to merge indexer data with RPC were error-prone and caused stale data issues.
+- **Decision**:
+  1. **Always use RPC** for user orders via `useUserOrdersDirect` hook.
+  2. **Indexer for historical data only** — orderbook depth, trade history, market list.
+  3. **Simplified order actions**:
+     - Open orders (< 100% filled) → Cancel button (also claims pending)
+     - Filled orders (100%) → Claim button
+  4. **Remove "claimable" filter** — redundant since cancel claims pending anyway.
+- **Rationale**:
+  - **Accuracy**: RPC calls `getPendingFills()` which reads accumulator state correctly.
+  - **Simplicity**: Single data source eliminates merge/reconciliation bugs.
+  - **Performance**: User orders are typically < 200 per market; RPC is fast enough.
+- **Consequences**:
+  - **No offline pending fills**: UI requires RPC access to show accurate fill status.
+  - **Indexer limitation documented**: Clear separation of indexer vs RPC responsibilities.
+- **Files Changed**:
+  - `apps/web/src/hooks/indexer/useOrdersIndexed.ts` — Always delegates to RPC
+
 ## ADR-069: Ponder Indexer with Per-Chain Readiness
 - **Date**: 2026-01-04
 - **Status**: Accepted (Implemented)

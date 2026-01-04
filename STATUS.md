@@ -1,17 +1,20 @@
 # Project Status
 
 ## Current Focus
-- **Indexer Integration Complete** — Ponder indexer fully integrated with frontend, serving orders/orderbook/trades via REST API.
-- **RPC Rate Limiting Solved** — Added batching and conditional fallback to eliminate 429 errors.
+- **Pro Page Order Management Fixed** — Order actions simplified (Cancel/Claim), fill tracking uses RPC-only (indexer can't track accumulator-based pending fills).
+- **Batch Operations Ready** — `batchCancelOrders` added to contract (pending redeploy), `batchClaimFills` working.
+- **Spot Sell Disabled** — Contract lacks spot sell support; users directed to AMM for selling existing tokens.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract, disabled spot sell.
 - **2026-01-04** — Indexer Frontend Integration: Fixed conditional RPC fallback, added indexed orders for LiquidityMap, filtered inactive orders from API.
 - **2026-01-04** — RPC Optimization: Added HTTP batching to Base Sepolia transport, fixed 429 rate limiting.
 - **2026-01-04** — V9.9.6-fix9l Recovery: Restored correct TickBookPoolManager with unified `placeOrder()` API + `getAllMarketOrders()`. Redeployed to Base Sepolia.
 - **2026-01-04** — Ponder Indexer: Full indexer setup with per-chain readiness, REST API endpoints for orders/orderbook/trades.
-- **2026-01-03** — Launchpad Redesign Complete: Single-page UI, earnings simulator, and Brevis registry.
 
 ## Pending/Blocked
+- **Contract Redeploy** — V9.9.6 with `batchCancelOrders` needs deployment to Base Sepolia.
+- **Spot Sell Implementation** — Wire up Vault's `lockShares`/`transferLockedShares` in PoolManager.
 - **Basescan Verification** — Contract verification for V9.9.6-fix9 series on Base Sepolia.
 - **Monad/Arc Liquidity** — Creating fresh test markets on new deployments.
 

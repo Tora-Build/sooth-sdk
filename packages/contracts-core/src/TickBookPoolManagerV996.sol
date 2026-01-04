@@ -477,6 +477,20 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     }
 
     function cancelOrder(bytes32 marketKey, uint256 orderId) external nonReentrant returns (uint256 collateralReleased) {
+        return _cancelInternal(marketKey, orderId);
+    }
+
+    function batchCancelOrders(bytes32 marketKey, uint256[] calldata orderIds)
+        external
+        nonReentrant
+        returns (uint256 totalCollateralReleased)
+    {
+        for (uint256 i = 0; i < orderIds.length; i++) {
+            totalCollateralReleased += _cancelInternal(marketKey, orderIds[i]);
+        }
+    }
+
+    function _cancelInternal(bytes32 marketKey, uint256 orderId) internal returns (uint256 collateralReleased) {
         RangeOrder storage order = _orders[marketKey][orderId];
         if (!order.active) revert OrderNotActive();
         if (order.owner != msg.sender) revert NotOwner();
