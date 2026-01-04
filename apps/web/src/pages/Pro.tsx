@@ -451,10 +451,10 @@ interface UserOrdersPanelProps {
   noShares?: bigint;
 }
 
-type OrderFilter = 'all' | 'open' | 'filled' | 'claimable';
+type OrderFilter = 'all' | 'open' | 'filled';
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
 
-const MAX_BATCH_CLAIM = 10;
+const MAX_BATCH_SIZE = 20;
 
 const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
@@ -477,7 +477,6 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     switch (filter) {
       case 'open': return fillPct < 100;
       case 'filled': return fillPct >= 100;
-      case 'claimable': return o.pendingShares > 0n;
       default: return true;
     }
   });
@@ -495,49 +494,109 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     }
   });
 
-  // Separate orders for claim buttons (capped at MAX_BATCH_CLAIM each)
+  // Fully filled orders for batch claim (capped at MAX_BATCH_SIZE)
   const fullyFilledOrders = orders.filter(o => {
-    if (!o.active || o.pendingShares <= 0n) return false;
+    if (!o.active) return false;
     return getFillPercent(o) >= 100;
-  }).slice(0, MAX_BATCH_CLAIM);
-  
-  const partialFilledOrders = orders.filter(o => {
-    if (!o.active || o.pendingShares <= 0n) return false;
-    return getFillPercent(o) > 0 && getFillPercent(o) < 100;
-  }).slice(0, MAX_BATCH_CLAIM);
+  }).slice(0, MAX_BATCH_SIZE);
 
-  const handleCancelOrder = async (orderId: bigint) => {
-    if (!marketKey) return;
-    setActionInProgress(`cancel-${orderId.toString()}`);
-    const toastId = toast.loading('Cancelling order...');
+  // Open (not fully filled) orders for batch cancel
+  const openOrders = orders.filter(o => {
+    if (!o.active) return false;
+    return getFillPercent(o) < 100;
+  }).slice(0, MAX_BATCH_SIZE);
+
+  // Batch cancel handler
+  const handleBatchCancel = async () => {
+    if (!marketKey || openOrders.length === 0) return;
+    if (!contracts.TickBookPoolManager) {
+      toast.error('TickBookPoolManager not deployed');
+      return;
+    }
+    
+    setActionInProgress('batch-cancel');
+    const toastId = toast.loading(`Cancelling ${openOrders.length} order(s)...`);
+    
     try {
+      const orderIds = openOrders.map(o => o.orderId);
+      console.log('[BatchCancel] Calling batchCancelOrders:', { marketKey, orderIds: orderIds.map(id => id.toString()) });
+      
       const hash = await writeContractAsync({
         address: contracts.TickBookPoolManager as `0x${string}`,
         abi: V996_ABIS.TickBookPoolManager,
-        functionName: 'cancelOrder',
-        args: [marketKey, orderId]
+        functionName: 'batchCancelOrders',
+        args: [marketKey, orderIds],
+        gas: BigInt(200000 + openOrders.length * 150000),
       });
+      
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted', { id: toastId, duration: 5000 });
+          setActionInProgress(null);
+          return;
+        }
+      }
+      
+      toast.success(`Cancelled ${openOrders.length} order(s)`, { id: toastId, duration: 5000 });
+      onRefresh();
+    } catch (e: any) {
+      console.error('[BatchCancel] Error:', e);
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Batch cancel failed';
+      toast.error(msg, { id: toastId, duration: 5000 });
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: bigint) => {
+    if (!marketKey) return;
+    if (!contracts.TickBookPoolManager) {
+      toast.error('TickBookPoolManager not deployed');
+      return;
+    }
+    setActionInProgress(`cancel-${orderId.toString()}`);
+    const toastId = toast.loading('Cancelling order...');
+    try {
+      console.log('[Cancel] Calling cancelOrder:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
+      
+      let hash: `0x${string}`;
+      try {
+        hash = await writeContractAsync({
+          address: contracts.TickBookPoolManager as `0x${string}`,
+          abi: V996_ABIS.TickBookPoolManager,
+          functionName: 'cancelOrder',
+          args: [marketKey, orderId]
+        });
+      } catch (simError: any) {
+        console.error('[Cancel] Simulation/wallet error:', simError);
+        const simMsg = simError?.cause?.reason || simError?.shortMessage || simError?.message || 'Transaction failed';
+        toast.error(simMsg, { id: toastId, duration: 5000 });
+        setActionInProgress(null);
+        return;
+      }
+      console.log('[Cancel] TX submitted:', hash);
 
       toast.loading('Waiting for confirmation...', { id: toastId });
 
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        console.log('[Cancel] TX receipt:', receipt.status, receipt);
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted on-chain', { id: toastId });
+          return;
+        }
       }
 
-      toast.success(
-        <div className="flex items-center gap-2">
-          <span>Order cancelled!</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>,
-        { id: toastId }
-      );
+      toast.success(`Order cancelled! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
+      console.log('[Cancel] Success! Refreshing...');
       onRefresh();
     } catch (e: any) {
-      const msg = e?.cause?.reason || e?.shortMessage || 'Cancel failed';
-      toast.error(msg, { id: toastId });
-      console.error(e);
+      console.error('[Cancel] Error:', e);
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Cancel failed';
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setActionInProgress(null);
     }
@@ -545,37 +604,66 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 
   const handleClaimFills = async (orderId: bigint) => {
     if (!marketKey) return;
+    if (!contracts.TickBookPoolManager) {
+      toast.error('TickBookPoolManager not deployed');
+      return;
+    }
+    
+    // Contract computes pending fills from accumulator - no frontend check needed
+    console.log('[Claim] Calling claimFills:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
+    
     setActionInProgress(`claim-${orderId.toString()}`);
     const toastId = toast.loading('Claiming fills...');
     try {
-      const hash = await writeContractAsync({
-        address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V996_ABIS.TickBookPoolManager,
-        functionName: 'claimFills',
-        args: [marketKey, orderId]
-      });
+      
+      let hash: `0x${string}`;
+      try {
+        hash = await writeContractAsync({
+          address: contracts.TickBookPoolManager as `0x${string}`,
+          abi: V996_ABIS.TickBookPoolManager,
+          functionName: 'claimFills',
+          args: [marketKey, orderId]
+        });
+      } catch (simError: any) {
+        console.error('[Claim] Simulation/wallet error:', simError);
+        const simMsg = simError?.cause?.reason || simError?.shortMessage || simError?.message || 'Transaction failed';
+        toast.error(simMsg, { id: toastId, duration: 5000 });
+        setActionInProgress(null);
+        return;
+      }
+      console.log('[Claim] TX submitted:', hash);
 
       toast.loading('Waiting for confirmation...', { id: toastId });
+      console.log('[Claim] Waiting for receipt...');
 
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash });
+        try {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+          console.log('[Claim] TX receipt:', receipt.status, receipt);
+          if (receipt.status === 'reverted') {
+            toast.error('Transaction reverted on-chain', { id: toastId, duration: 5000 });
+            setActionInProgress(null);
+            return;
+          }
+        } catch (receiptError: any) {
+          console.error('[Claim] Receipt error:', receiptError);
+          toast.error(`Receipt error: ${receiptError?.message || 'Unknown'}`, { id: toastId, duration: 5000 });
+          setActionInProgress(null);
+          return;
+        }
+      } else {
+        console.warn('[Claim] No publicClient - cannot wait for receipt');
       }
 
-      toast.success(
-        <div className="flex items-center gap-2">
-          <span>Fills claimed!</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>,
-        { id: toastId }
-      );
+      toast.success(`Fills claimed! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
+      console.log('[Claim] Success! Refreshing...');
       onRefresh();
     } catch (e: any) {
-      const msg = e?.cause?.reason || e?.shortMessage || 'Claim failed';
-      toast.error(msg, { id: toastId });
-      console.error(e);
+      console.error('[Claim] Outer error:', e);
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Claim failed';
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
+      console.log('[Claim] Finally block - clearing action');
       setActionInProgress(null);
     }
   };
@@ -603,23 +691,29 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
           YOUR ORDERS <span className="text-slate-600">({sortedOrders.length})</span>
         </span>
         <div className="flex items-center gap-2">
-          {/* Claim Partial Button - always visible */}
-          <ClaimFillsButton
-            marketKey={marketKey}
-            orderIds={partialFilledOrders.map(o => o.orderId)}
-            compact
-            label={`Partial (${partialFilledOrders.length})`}
-            variant="partial"
-            disabled={partialFilledOrders.length === 0}
-          />
-          {/* Claim Filled Button - always visible */}
+          {/* Batch Cancel Open Orders */}
+          <button
+            onClick={handleBatchCancel}
+            disabled={openOrders.length === 0 || actionInProgress === 'batch-cancel'}
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all border',
+              openOrders.length === 0 || actionInProgress === 'batch-cancel'
+                ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+            )}
+          >
+            {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
+            Cancel All ({openOrders.length})
+          </button>
+          {/* Batch Claim Filled Orders */}
           <ClaimFillsButton
             marketKey={marketKey}
             orderIds={fullyFilledOrders.map(o => o.orderId)}
             compact
-            label={`Filled (${fullyFilledOrders.length})`}
+            label={`Claim All (${fullyFilledOrders.length})`}
             variant="filled"
             disabled={fullyFilledOrders.length === 0}
+            onSuccess={onRefresh}
           />
           <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh">
             <RefreshCw className="w-4 h-4 text-slate-500" />
@@ -630,18 +724,31 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       {/* Filter & Sort Row */}
       <div className="flex items-center gap-2 mb-3 text-[10px]">
         <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-          {(['all', 'open', 'filled', 'claimable'] as OrderFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "px-2 py-1 rounded-md font-medium transition-colors capitalize",
-                filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              {f}
-            </button>
-          ))}
+          {(['all', 'open', 'filled'] as OrderFilter[]).map((f) => {
+            // Calculate count for each filter
+            const count = orders.filter(o => {
+              if (!o.active) return false;
+              const fillPct = getFillPercent(o);
+              switch (f) {
+                case 'open': return fillPct < 100;
+                case 'filled': return fillPct >= 100;
+                default: return true;
+              }
+            }).length;
+            
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  "px-2 py-1 rounded-md font-medium transition-colors capitalize",
+                  filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                {f} <span className="text-slate-600">({count})</span>
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <span className="text-slate-600">Sort:</span>
@@ -689,10 +796,10 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             <span className="shrink-0 w-10">ID</span>
             <span className="shrink-0 w-8">Side</span>
             <span className="shrink-0 w-20">Price</span>
-            <span className="shrink-0 w-16">Size</span>
-            <span className="shrink-0 w-20">Fill</span>
+            <span className="shrink-0 w-14">Size</span>
+            <span className="shrink-0 w-16">Fill</span>
             <div className="flex-1" />
-            <span className="shrink-0 w-16 text-right">Actions</span>
+            <span className="shrink-0 w-14 text-right">Action</span>
           </div>
           {sortedOrders.map((order) => {
             const fillPercent = getFillPercent(order);
@@ -700,7 +807,6 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
             const orderId = order.orderId.toString();
             const isFullyFilled = fillPercent >= 100;
-            const hasClaimable = order.pendingShares > 0n;
 
             // Calculate display price (always 1 decimal with ¢)
             const lower = order.tickLower / 10;
@@ -747,12 +853,12 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                 <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
 
                 {/* Size */}
-                <span className="shrink-0 w-16 text-[10px] font-mono text-slate-400">
+                <span className="shrink-0 w-14 text-[10px] font-mono text-slate-400">
                   {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
 
                 {/* Fill Progress Bar */}
-                <div className="shrink-0 w-20 flex items-center gap-1">
+                <div className="shrink-0 w-16 flex items-center gap-1">
                   <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className={cn(
@@ -764,30 +870,30 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                       style={{ width: `${Math.min(fillPercent, 100)}%` }}
                     />
                   </div>
-                  <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{fillPercent}%</span>
+                  <span className="text-[9px] font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
                 </div>
 
                 {/* Spacer */}
                 <div className="flex-1" />
 
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                  {hasClaimable && (
+                {/* Actions: Cancel for open, Claim for fully filled */}
+                <div className="shrink-0 w-14 flex items-center justify-end">
+                  {isFullyFilled ? (
                     <button
                       onClick={() => handleClaimFills(order.orderId)}
                       disabled={actionInProgress === `claim-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      className="h-5 px-2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center"
                     >
                       {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
                     </button>
-                  )}
-                  {!isFullyFilled && (
+                  ) : (
                     <button
                       onClick={() => handleCancelOrder(order.orderId)}
                       disabled={actionInProgress === `cancel-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-medium text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center"
+                      title="Cancel order (claims any pending fills)"
                     >
-                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : '✕'}
+                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
                     </button>
                   )}
                 </div>
@@ -1454,8 +1560,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const currentTick = tickBook?.currentTick ?? 0;
   const rawProb = tickBook?.probability ?? null;
   const isMarketActive = tickBook?.isActive ?? false;
-  // Show Pro Price if market is active and has valid probability (even if tick = 1)
-  const isProPriceValid = isMarketActive && rawProb !== null && rawProb > 0;
+  // Show Pro Price only if market is active, has valid probability, AND trades have occurred (tick > 1)
+  // currentTick === 1 means MIN_TICK (no Pro trades yet)
+  const isProPriceValid = isMarketActive && rawProb !== null && rawProb > 0 && currentTick > 1;
   const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
   
   // Debug log for troubleshooting
@@ -1683,43 +1790,42 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         if (isMarketOrderType) {
           if (hasFullShares || hasPartialShares) {
-            toast.error('Spot sell not supported in V9.9.6 - use limit order instead');
+            // SPOT SELL MARKET - NOT SUPPORTED
+            toast.error('Spot sell not supported yet. Use AMM to sell existing tokens.');
             setIsSubmitting(false);
             return;
           } else {
-            // SHORT SELL: Buy opposite outcome
+            // SHORT SELL MARKET: Buy opposite outcome
+            // Selling YES = Buying NO, Selling NO = Buying YES
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const maxCost = (finalCostWad * 110n) / 100n;
+            console.log('[Pro] SHORT SELL MARKET:', { isYes, oppositeOutcome, maxCost: maxCost.toString() });
             result = await marketOrder(oppositeOutcome, amountBg, maxCost);
           }
         } else {
           // LIMIT ORDERS for SELL
-          if (hasFullShares) {
-            // SPOT SELL LIMIT
-            const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000);
-            if (priceMode === 'single') {
-              result = await limitOrder(outcome, amountBg, priceLowNum, maxCost);
-            } else {
-              result = await rangeOrder(outcome, amountBg, priceLowNum, priceHighNum, maxCost);
-            }
-          } else if (userHolding === 0n) {
+          // NOTE: SPOT SELL is not yet supported in contract - only SHORT SELL works
+          if (hasFullShares || hasPartialShares) {
+            // SPOT SELL - NOT SUPPORTED YET
+            // The contract doesn't have lockShares/sellOrder wired up
+            toast.error('Spot sell not supported yet. Use AMM to sell existing tokens, or short sell (place opposite order).');
+            setIsSubmitting(false);
+            return;
+          } else {
             // SHORT SELL LIMIT: Buy opposite at inverted price
+            // Selling YES @ 60% = Buying NO @ 40%
+            // Selling NO @ 40% = Buying YES @ 60%
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const invertedPriceLow = 100 - priceHighNum;
             const invertedPriceHigh = 100 - priceLowNum;
             const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceHigh, 1000);
+            console.log('[Pro] SHORT SELL:', { isYes, oppositeOutcome, invertedPriceLow, invertedPriceHigh, maxCost: maxCost.toString() });
             if (priceMode === 'single') {
               result = await limitOrder(oppositeOutcome, amountBg, invertedPriceLow, maxCost);
             } else {
               result = await rangeOrder(oppositeOutcome, amountBg, invertedPriceLow, invertedPriceHigh, maxCost);
             }
-          } else {
-            // HYBRID not supported
-            const sharesFormatted = parseFloat(formatUnits(userHolding, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
-            toast.error(`You have ${sharesFormatted} ${isYes ? 'YES' : 'NO'} shares. For limit orders, sell exactly that amount (spot) or enter 0 to short sell.`);
-            setIsSubmitting(false);
-            return;
           }
         }
       }
@@ -1945,6 +2051,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           </div>
 
           {/* Your Orders & Positions Combined */}
+          {/* Debug: Data source = {ordersSource} */}
           <UserOrdersPanel
             orders={userOrders ?? []}
             marketKey={tickBook?.marketKey as `0x${string}`}
@@ -1956,6 +2063,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             yesShares={vault?.yesInternal}
             noShares={vault?.noInternal}
           />
+          {ordersSource && (
+            <div className="text-[9px] text-slate-600 text-right -mt-2">
+              Data: {ordersSource}
+            </div>
+          )}
 
           {/* Recent Trades from Indexer */}
           <RecentTradesPanel

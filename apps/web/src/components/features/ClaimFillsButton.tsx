@@ -6,12 +6,10 @@
 import { useState } from 'react';
 import { Gift, Loader2, ExternalLink } from 'lucide-react';
 import { useAccount, useWriteContract, useChainId, usePublicClient } from 'wagmi';
-import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { Button } from '../ui/Button';
 import { useDeployments } from '../../hooks/useDeployments';
-import { usePendingFills } from '../../hooks';
-import { V9_ABIS } from '../../config/abis';
+import { V996_ABIS } from '../../config/abis';
 import { cn } from '../../lib/utils';
 
 // Explorer URL helper
@@ -34,6 +32,7 @@ interface ClaimFillsButtonProps {
   label?: string;
   variant?: 'filled' | 'partial';
   disabled?: boolean; // External disable (e.g., no orders to claim)
+  onSuccess?: () => void; // Callback after successful claim
 }
 
 export const ClaimFillsButton = ({
@@ -44,6 +43,7 @@ export const ClaimFillsButton = ({
   label,
   variant = 'filled',
   disabled = false,
+  onSuccess,
 }: ClaimFillsButtonProps) => {
   const { isConnected } = useAccount();
   const chainId = useChainId();
@@ -51,55 +51,64 @@ export const ClaimFillsButton = ({
   const deployments = useDeployments();
   const poolManagerAddress = deployments?.contracts?.TickBookPoolManager as Address | undefined;
 
-  const { fills, totalClaimableShares, hasClaimable, refetch } = usePendingFills(marketKey, orderIds);
-
   const { writeContractAsync, isPending } = useWriteContract();
   const [isConfirming, setIsConfirming] = useState(false);
 
   const handleClaim = async () => {
-    if (!marketKey || !poolManagerAddress || fills.length === 0) return;
+    if (!marketKey || !poolManagerAddress || orderIds.length === 0) return;
 
-    const toastId = toast.loading('Submitting claim...');
-    const claimableIds = fills.filter(f => f !== null).map((f) => f.orderId);
+    const toastId = toast.loading(`Claiming ${orderIds.length} order(s)...`);
 
     try {
+      console.log('[BatchClaim] Calling batchClaimFills:', { 
+        marketKey, 
+        orderIds: orderIds.map(id => id.toString()), 
+        poolManager: poolManagerAddress 
+      });
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V9_ABIS.TickBookPoolManager,
+        abi: V996_ABIS.TickBookPoolManager,
         functionName: 'batchClaimFills',
-        args: [marketKey, claimableIds],
-        gas: 500000n,
+        args: [marketKey, orderIds],
+        gas: BigInt(200000 + orderIds.length * 100000), // Dynamic gas based on order count
       });
+      console.log('[BatchClaim] TX submitted:', hash);
 
       toast.loading('Waiting for confirmation...', { id: toastId });
       setIsConfirming(true);
 
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        console.log('[BatchClaim] TX receipt:', receipt.status, receipt);
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted on-chain', { id: toastId });
+          setIsConfirming(false);
+          return;
+        }
       }
 
       toast.success(
         <div className="flex items-center gap-2">
-          <span>Fills claimed!</span>
+          <span>{orderIds.length} fill(s) claimed!</span>
           <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
         { id: toastId }
       );
-      refetch();
+      onSuccess?.();
     } catch (e: any) {
+      console.error('[BatchClaim] Error:', e);
       const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Claim failed';
       toast.error(msg, { id: toastId });
-      console.error(e);
     } finally {
       setIsConfirming(false);
     }
   };
 
   const isLoading = isPending || isConfirming;
-  const isDisabled = disabled || !isConnected || !hasClaimable || isLoading;
-  const sharesFormatted = Number(formatUnits(totalClaimableShares, 18)).toFixed(2);
+  const hasOrders = orderIds.length > 0;
+  const isDisabled = disabled || !isConnected || !hasOrders || isLoading;
 
   if (compact) {
     return (
@@ -121,7 +130,7 @@ export const ClaimFillsButton = ({
         ) : (
           <Gift size={10} />
         )}
-        {label || `Claim ${fills.length}`}
+        {label || `Claim ${orderIds.length}`}
       </button>
     );
   }
@@ -144,7 +153,7 @@ export const ClaimFillsButton = ({
         <Gift size={16} />
       )}
       <span>
-        Claim {fills.length} Fill{fills.length > 1 ? 's' : ''} ({sharesFormatted} shares)
+        Claim {orderIds.length} Fill{orderIds.length > 1 ? 's' : ''}
       </span>
     </Button>
   );

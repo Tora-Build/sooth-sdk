@@ -16,7 +16,8 @@ export interface RangeOrder {
   liquidity: bigint;
   collateralDepositedWad: bigint;
   filledShares: bigint;       // Claimed fills
-  pendingShares: bigint;      // Unclaimed fills from accumulator
+  pendingShares: bigint;      // Unclaimed fills from accumulator (shares)
+  pendingUsdc?: bigint;       // Unclaimed fills from accumulator (USDC)
   collateralUsedWad: bigint;
   active: boolean;
   createdAt?: number;         // Unix timestamp (seconds) from indexer
@@ -130,6 +131,7 @@ export function useUserOrdersDirect(
                   orderId,
                   ...order,
                   pendingShares: pendingFills?.[0] ?? 0n,
+                  pendingUsdc: pendingFills?.[1] ?? 0n,
                 };
               }
               return null;

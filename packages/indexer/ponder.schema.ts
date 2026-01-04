@@ -34,8 +34,10 @@ export const order = onchainTable(
     crossingCost: t.bigint().notNull(),
     // Mutable state
     status: t.text().notNull(), // 'active' | 'cancelled' | 'filled'
-    filledShares: t.bigint().notNull(),
-    claimedShares: t.bigint().notNull(),
+    filledShares: t.bigint().notNull(),       // Total filled (from OrdersCrossed)
+    claimedShares: t.bigint().notNull(),      // Already claimed
+    pendingShares: t.bigint().notNull(),      // filledShares - claimedShares
+    pendingUsdc: t.bigint().notNull(),        // USDC value of pending fills
     collateralUsed: t.bigint().notNull(),
     // Timestamps
     createdAt: t.bigint().notNull(),

@@ -4,6 +4,26 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Pro Page Order Management (2026-01-04)
+- **Fill Tracking Fix**: `useOrdersIndexed` now always uses RPC (`useUserOrdersDirect`) — indexer cannot accurately track pending fills due to contract's global pro-rata accumulator system.
+- **Order Actions Simplified**:
+  - Open orders (< 100% filled) → Cancel button (claims pending + releases collateral)
+  - Filled orders (100%) → Claim button
+  - Removed redundant "Claimable" column and filter tab (now All/Open/Filled)
+- **Batch Operations**:
+  - Added `batchCancelOrders(marketKey, orderIds[])` to `TickBookPoolManagerV996.sol`
+  - Added ABI entry to `TickBookPoolManagerV996.json`
+  - Both "Cancel All" and "Claim All" batch buttons with `MAX_BATCH_SIZE = 20`
+- **Sell Order Logic**:
+  - **Spot Sell disabled** — contract lacks `lockShares`/`transferLockedShares` wiring in PoolManager
+  - Users directed to AMM for selling existing tokens
+  - **Short Sell works** — places opposite outcome order at inverted price
+- **Files Changed**:
+  - `apps/web/src/hooks/indexer/useOrdersIndexed.ts`
+  - `apps/web/src/pages/Pro.tsx`
+  - `apps/web/src/config/abis/TickBookPoolManagerV996.json`
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol`
+
 ### Indexer Frontend Integration (2026-01-04)
 - **Conditional RPC Fallback**: `useOrdersIndexed` and `useOrderbookIndexed` now only make RPC calls when indexer is unavailable.
 - **Indexed Orders for LiquidityMap**: Added `/orders/:chainId/:marketKey` query to `useOrderbookIndexed` for LiquidityMap rendering.

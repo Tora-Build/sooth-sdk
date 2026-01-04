@@ -63,6 +63,8 @@ ponder.on("TickBookPoolManager:OrderPlaced", async ({ event, context }) => {
     status: restingShares > 0n ? "active" : "filled",
     filledShares: filledShares,
     claimedShares: 0n,
+    pendingShares: filledShares, // Initially, all filled shares are pending
+    pendingUsdc: filledCost,     // USDC cost of pending fills
     collateralUsed: filledCost,
     createdAt: event.block.timestamp,
     updatedAt: event.block.timestamp,
@@ -161,6 +163,14 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   if (existingOrder) {
     const newClaimedShares = existingOrder.claimedShares + filledShares;
     const newCollateralUsed = existingOrder.collateralUsed + collateralUsedWad;
+    
+    // Calculate new pending amounts (subtract claimed from pending)
+    const newPendingShares = existingOrder.pendingShares > filledShares 
+      ? existingOrder.pendingShares - filledShares 
+      : 0n;
+    const newPendingUsdc = existingOrder.pendingUsdc > collateralUsedWad
+      ? existingOrder.pendingUsdc - collateralUsedWad
+      : 0n;
 
     // Check if order is now fully filled
     const isFullyFilled = newClaimedShares >= existingOrder.liquidity;
@@ -168,6 +178,8 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
     await context.db.update(schema.order, { id: oid }).set({
       claimedShares: newClaimedShares,
       collateralUsed: newCollateralUsed,
+      pendingShares: newPendingShares,
+      pendingUsdc: newPendingUsdc,
       status: isFullyFilled ? "filled" : existingOrder.status,
       updatedAt: event.block.timestamp,
     });
