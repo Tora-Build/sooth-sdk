@@ -35,6 +35,7 @@ import {
   RangeOrder
 } from '../hooks';
 import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
+import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS, V9_ABIS, V996_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
@@ -565,7 +566,11 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
         </span>
         <div className="flex items-center gap-2">
           {hasPartialFills && (
-            <span className="px-2 py-1 text-[9px] bg-amber-500/20 text-amber-400 rounded-full">Has fills to claim</span>
+            <ClaimFillsButton
+              marketKey={marketKey}
+              orderIds={orders.filter(o => o.pendingShares > 0n && o.active).map(o => o.orderId)}
+              compact
+            />
           )}
           <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh Orders">
             <RefreshCw className="w-4 h-4 text-slate-500" />
@@ -1762,8 +1767,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
             <div className="p-4">
               <LiquidityMap
-                tickBook={tickBook}
-                allOrders={allOrders}
+                tickBook={tickBook as any}
+                allOrders={allOrders ?? []}
                 currentProb={currentProb}
                 ammProb={ammProb}
                 isLoading={isTickBookLoading || isAllOrdersLoading}

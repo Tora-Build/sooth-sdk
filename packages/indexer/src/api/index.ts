@@ -1,20 +1,29 @@
-import { ponder } from "@ponder/core";
-import { eq, and, desc } from "drizzle-orm";
-import { order, fillClaim, marketOrder, tickLiquidity, market } from "../../ponder.schema";
+import { db } from "ponder:api";
+import schema from "ponder:schema";
+import { eq, and, desc } from "ponder";
+import { Hono } from "hono";
+
+const app = new Hono();
 
 /**
  * Get all active orders for a market
  * GET /orders/:chainId/:marketKey
  */
-ponder.get("/orders/:chainId/:marketKey", async (c) => {
+app.get("/orders/:chainId/:marketKey", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
   const marketKey = c.req.param("marketKey") as `0x${string}`;
 
-  const orders = await c.db
+  const orders = await db
     .select()
-    .from(order)
-    .where(and(eq(order.chainId, chainId), eq(order.marketKey, marketKey), eq(order.status, "active")))
-    .orderBy(desc(order.createdAt));
+    .from(schema.order)
+    .where(
+      and(
+        eq(schema.order.chainId, chainId),
+        eq(schema.order.marketKey, marketKey),
+        eq(schema.order.status, "active")
+      )
+    )
+    .orderBy(desc(schema.order.createdAt));
 
   return c.json(orders);
 });
@@ -23,22 +32,22 @@ ponder.get("/orders/:chainId/:marketKey", async (c) => {
  * Get orders for a specific user in a market
  * GET /orders/:chainId/:marketKey/:owner
  */
-ponder.get("/orders/:chainId/:marketKey/:owner", async (c) => {
+app.get("/orders/:chainId/:marketKey/:owner", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
   const marketKey = c.req.param("marketKey") as `0x${string}`;
   const owner = c.req.param("owner").toLowerCase() as `0x${string}`;
 
-  const orders = await c.db
+  const orders = await db
     .select()
-    .from(order)
+    .from(schema.order)
     .where(
       and(
-        eq(order.chainId, chainId),
-        eq(order.marketKey, marketKey),
-        eq(order.owner, owner)
+        eq(schema.order.chainId, chainId),
+        eq(schema.order.marketKey, marketKey),
+        eq(schema.order.owner, owner)
       )
     )
-    .orderBy(desc(order.createdAt));
+    .orderBy(desc(schema.order.createdAt));
 
   return c.json(orders);
 });
@@ -47,14 +56,19 @@ ponder.get("/orders/:chainId/:marketKey/:owner", async (c) => {
  * Get orderbook depth (tick liquidity) for a market
  * GET /orderbook/:chainId/:marketKey
  */
-ponder.get("/orderbook/:chainId/:marketKey", async (c) => {
+app.get("/orderbook/:chainId/:marketKey", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
   const marketKey = c.req.param("marketKey") as `0x${string}`;
 
-  const ticks = await c.db
+  const ticks = await db
     .select()
-    .from(tickLiquidity)
-    .where(and(eq(tickLiquidity.chainId, chainId), eq(tickLiquidity.marketKey, marketKey)));
+    .from(schema.tickLiquidity)
+    .where(
+      and(
+        eq(schema.tickLiquidity.chainId, chainId),
+        eq(schema.tickLiquidity.marketKey, marketKey)
+      )
+    );
 
   // Separate into YES (outcome=1) and NO (outcome=0) sides
   const yesSide = ticks
@@ -75,15 +89,20 @@ ponder.get("/orderbook/:chainId/:marketKey", async (c) => {
  * Get fill history for an order
  * GET /fills/:chainId/:orderId
  */
-ponder.get("/fills/:chainId/:orderId", async (c) => {
+app.get("/fills/:chainId/:orderId", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
   const orderIdParam = BigInt(c.req.param("orderId"));
 
-  const fills = await c.db
+  const fills = await db
     .select()
-    .from(fillClaim)
-    .where(and(eq(fillClaim.chainId, chainId), eq(fillClaim.orderId, orderIdParam)))
-    .orderBy(desc(fillClaim.timestamp));
+    .from(schema.fillClaim)
+    .where(
+      and(
+        eq(schema.fillClaim.chainId, chainId),
+        eq(schema.fillClaim.orderId, orderIdParam)
+      )
+    )
+    .orderBy(desc(schema.fillClaim.timestamp));
 
   return c.json(fills);
 });
@@ -92,16 +111,21 @@ ponder.get("/fills/:chainId/:orderId", async (c) => {
  * Get recent market orders (trades) for a market
  * GET /trades/:chainId/:marketKey
  */
-ponder.get("/trades/:chainId/:marketKey", async (c) => {
+app.get("/trades/:chainId/:marketKey", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
   const marketKey = c.req.param("marketKey") as `0x${string}`;
   const limit = parseInt(c.req.query("limit") || "50");
 
-  const trades = await c.db
+  const trades = await db
     .select()
-    .from(marketOrder)
-    .where(and(eq(marketOrder.chainId, chainId), eq(marketOrder.marketKey, marketKey)))
-    .orderBy(desc(marketOrder.timestamp))
+    .from(schema.marketOrder)
+    .where(
+      and(
+        eq(schema.marketOrder.chainId, chainId),
+        eq(schema.marketOrder.marketKey, marketKey)
+      )
+    )
+    .orderBy(desc(schema.marketOrder.timestamp))
     .limit(limit);
 
   return c.json(trades);
@@ -111,22 +135,16 @@ ponder.get("/trades/:chainId/:marketKey", async (c) => {
  * Get all registered markets
  * GET /markets/:chainId
  */
-ponder.get("/markets/:chainId", async (c) => {
+app.get("/markets/:chainId", async (c) => {
   const chainId = parseInt(c.req.param("chainId"));
 
-  const markets = await c.db
+  const markets = await db
     .select()
-    .from(market)
-    .where(eq(market.chainId, chainId))
-    .orderBy(desc(market.createdAt));
+    .from(schema.market)
+    .where(eq(schema.market.chainId, chainId))
+    .orderBy(desc(schema.market.createdAt));
 
   return c.json(markets);
 });
 
-/**
- * Health check
- * GET /health
- */
-ponder.get("/health", async (c) => {
-  return c.json({ status: "ok", timestamp: Date.now() });
-});
+export default app;

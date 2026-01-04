@@ -1,5 +1,32 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-069: Ponder Indexer with Per-Chain Readiness
+- **Date**: 2026-01-04
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - RPC-based order enumeration was hitting rate limits and causing slow page loads.
+  - The Pro terminal needed fast access to orderbook depth and trade history.
+  - Multi-chain deployment required graceful degradation when one chain's indexer lags.
+- **Decision**:
+  1. **Ponder Indexer**: Use Ponder v0.15 for event indexing with PGlite embedded database.
+  2. **Per-Chain Readiness**: Frontend checks `/status` endpoint and enables indexer per-chain.
+  3. **RPC Fallback**: If a chain isn't synced, frontend falls back to direct RPC calls.
+  4. **Start Blocks**: Configure recent start blocks to minimize backfill time.
+  5. **Symlinked Config**: Indexer uses root `.env` via symlink for shared RPC URLs.
+- **Rationale**:
+  - **Performance**: Pre-indexed data eliminates N+1 RPC queries for orderbook.
+  - **Resilience**: Per-chain checks prevent one slow chain from blocking entire UI.
+  - **Developer Experience**: Ponder provides hot-reload and type-safe schema.
+- **Consequences**:
+  - **Operational**: Indexer must run alongside frontend for full functionality.
+  - **Cold Start**: First backfill takes minutes depending on RPC rate limits.
+- **Files Added**:
+  - `packages/indexer/` — Complete Ponder indexer package
+  - `apps/web/src/hooks/indexer/config.ts` — Per-chain readiness checks
+  - `apps/web/src/hooks/indexer/useOrdersIndexed.ts`
+  - `apps/web/src/hooks/indexer/useOrderbookIndexed.ts`
+  - `apps/web/src/hooks/indexer/useTradesIndexed.ts`
+
 ## ADR-068: RPC Rate Limit (429) & Bad Request (400) Mitigation Strategy
 - **Date**: 2026-01-04
 - **Status**: Accepted (Implemented)

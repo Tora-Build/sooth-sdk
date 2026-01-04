@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
-import { fetchFromIndexer, USE_INDEXER } from "./config";
+import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 import { useAllOrdersDirect, RangeOrder } from "../useAllOrdersDirect";
 
 type Address = `0x${string}`;
@@ -28,7 +28,7 @@ export interface TickData {
 }
 
 /**
- * Hook to fetch orderbook depth - uses indexer with RPC fallback
+ * Hook to fetch orderbook depth - uses indexer with RPC fallback (per-chain readiness)
  */
 export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
   const { selectedChainId } = useChainStore();
@@ -37,10 +37,21 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
   // RPC fallback - gets all orders and aggregates
   const rpcFallback = useAllOrdersDirect(marketKey);
 
+  // Check if this specific chain is ready
+  const chainReadyQuery = useQuery({
+    queryKey: ["indexer", "chainReady", chainId],
+    enabled: USE_INDEXER && !!chainId,
+    queryFn: () => checkChainReady(chainId),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const isChainReady = chainReadyQuery.data === true;
+
   // Indexer query - gets pre-aggregated tick liquidity
   const indexerQuery = useQuery({
     queryKey: ["indexer", "orderbook", chainId, marketKey],
-    enabled: USE_INDEXER && !!marketKey && !!chainId,
+    enabled: USE_INDEXER && isChainReady && !!marketKey && !!chainId,
     queryFn: async () => {
       const data = await fetchFromIndexer<OrderbookResponse>(
         `/orderbook/${chainId}/${marketKey}`
@@ -92,7 +103,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
     };
   };
 
-  const useIndexer = indexerQuery.data !== null && indexerQuery.data !== undefined;
+  const useIndexer = isChainReady && indexerQuery.data !== null && indexerQuery.data !== undefined;
   const rpcAggregated = aggregateOrdersToTicks(rpcFallback.orders);
 
   return {

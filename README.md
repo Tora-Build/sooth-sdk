@@ -2,7 +2,7 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V8.4.x  
+**Current Version**: V9.9.6  
 **Status**: Alpha (breaking changes allowed)
 
 ## Structure
@@ -12,8 +12,11 @@ sooth-alpha/
 ├── apps/
 │   └── web/                      # Frontend dApp (Vite + React 18)
 ├── packages/
-│   └── contracts-evm/            # Solidity smart contracts (Foundry)
+│   ├── contracts-core/           # Solidity smart contracts (Foundry)
+│   ├── contracts-testing/        # Contract tests & deployment scripts
+│   └── indexer/                  # Ponder indexer for orderbook data
 ├── .agent/                       # Agent workflows and knowledge base
+├── start-all.sh                  # Dev environment launcher
 ├── package.json                  # pnpm workspace root
 ├── pnpm-workspace.yaml
 └── turbo.json                    # Build pipeline
@@ -39,17 +42,42 @@ pnpm build
 
 ### Development
 
-**Frontend:**
+**Start Everything (Recommended):**
 
 ```bash
-pnpm --filter web dev
-# Opens at http://localhost:5173
+# Start web + indexer together
+pnpm dev:all
+
+# Or with process management (logs, PID tracking)
+./start-all.sh
+```
+
+**Individual Services:**
+
+```bash
+# Frontend only
+pnpm dev:web
+# → http://localhost:5173
+
+# Indexer only
+pnpm dev:indexer
+# → http://localhost:42069
+```
+
+**Service Management:**
+
+```bash
+# Check status
+./start-all.sh --status
+
+# Stop all
+./start-all.sh --stop
 ```
 
 **Contracts:**
 
 ```bash
-cd packages/contracts-evm
+cd packages/contracts-core
 forge build
 forge test
 ```
@@ -121,10 +149,14 @@ Run `/preflight` at session start to load context.
 
 ## Scripts
 
-| Script                  | Description                    |
-| ----------------------- | ------------------------------ |
-| `./sync-deployments.sh` | Sync deployment addresses      |
-| `verify-deployment.sh`  | Validate on-chain state        |
+| Script                  | Description                         |
+| ----------------------- | ----------------------------------- |
+| `./start-all.sh`        | Start all dev services              |
+| `./start-all.sh --stop` | Stop all services                   |
+| `./start-all.sh --status` | Check service status              |
+| `pnpm dev:all`          | Start web + indexer (parallel)      |
+| `pnpm dev:web`          | Start web only                      |
+| `pnpm dev:indexer`      | Start indexer only                  |
 
 ## Documentation
 

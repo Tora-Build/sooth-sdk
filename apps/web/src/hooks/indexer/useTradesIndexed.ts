@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
-import { fetchFromIndexer, USE_INDEXER } from "./config";
+import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 
 interface IndexedTrade {
   id: string;
@@ -31,7 +31,7 @@ export interface Trade {
 }
 
 /**
- * Hook to fetch recent trades for a market
+ * Hook to fetch recent trades for a market (per-chain readiness)
  * Only available via indexer (no RPC equivalent)
  */
 export function useTradesIndexed(
@@ -41,9 +41,20 @@ export function useTradesIndexed(
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
 
+  // Check if this specific chain is ready
+  const chainReadyQuery = useQuery({
+    queryKey: ["indexer", "chainReady", chainId],
+    enabled: USE_INDEXER && !!chainId,
+    queryFn: () => checkChainReady(chainId),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const isChainReady = chainReadyQuery.data === true;
+
   const query = useQuery({
     queryKey: ["indexer", "trades", chainId, marketKey, limit],
-    enabled: USE_INDEXER && !!marketKey && !!chainId,
+    enabled: USE_INDEXER && isChainReady && !!marketKey && !!chainId,
     queryFn: async () => {
       const data = await fetchFromIndexer<IndexedTrade[]>(
         `/trades/${chainId}/${marketKey}?limit=${limit}`
@@ -78,5 +89,6 @@ export function useTradesIndexed(
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,
+    isChainReady,
   };
 }

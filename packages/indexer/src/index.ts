@@ -1,5 +1,5 @@
-import { ponder } from "@ponder/core";
-import { market, order, fillClaim, marketOrder, tickLiquidity } from "../ponder.schema";
+import { ponder } from "ponder:registry";
+import schema from "ponder:schema";
 
 // Helper to create unique IDs
 const orderId = (chainId: number, id: bigint) => `${chainId}-${id.toString()}`;
@@ -13,9 +13,9 @@ const tickId = (chainId: number, marketKey: string, outcome: number, tick: numbe
 ponder.on("TickBookPoolManager:MarketRegistered", async ({ event, context }) => {
   const { marketKey, market: marketAddr, yesToken, noToken, hook } = event.args;
 
-  await context.db.insert(market).values({
+  await context.db.insert(schema.market).values({
     marketKey,
-    chainId: context.network.chainId,
+    chainId: context.chain.id,
     contractAddress: marketAddr,
     yesToken,
     noToken,
@@ -42,11 +42,11 @@ ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => 
     crossingCost,
   } = event.args;
 
-  const id = orderId(context.network.chainId, orderIdBigInt);
+  const id = orderId(context.chain.id, orderIdBigInt);
 
-  await context.db.insert(order).values({
+  await context.db.insert(schema.order).values({
     id,
-    chainId: context.network.chainId,
+    chainId: context.chain.id,
     orderId: orderIdBigInt,
     marketKey,
     owner,
@@ -68,13 +68,13 @@ ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => 
 
   // Update tick liquidity for each tick in the range
   for (let tick = tickLower; tick <= tickUpper; tick++) {
-    const tid = tickId(context.network.chainId, marketKey, outcome, tick);
+    const tid = tickId(context.chain.id, marketKey, outcome, tick);
 
     await context.db
-      .insert(tickLiquidity)
+      .insert(schema.tickLiquidity)
       .values({
         id: tid,
-        chainId: context.network.chainId,
+        chainId: context.chain.id,
         marketKey,
         outcome,
         tick,
@@ -94,15 +94,15 @@ ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => 
  * Handle RangeOrderCancelled events
  */
 ponder.on("TickBookPoolManager:RangeOrderCancelled", async ({ event, context }) => {
-  const { orderId: orderIdBigInt, collateralReleased } = event.args;
+  const { orderId: orderIdBigInt } = event.args;
 
-  const id = orderId(context.network.chainId, orderIdBigInt);
+  const id = orderId(context.chain.id, orderIdBigInt);
 
   // Get the order to update tick liquidity
-  const existingOrder = await context.db.find(order, { id });
+  const existingOrder = await context.db.find(schema.order, { id });
 
   if (existingOrder) {
-    await context.db.update(order, { id }).set({
+    await context.db.update(schema.order, { id }).set({
       status: "cancelled",
       updatedAt: event.block.timestamp,
     });
@@ -110,17 +110,20 @@ ponder.on("TickBookPoolManager:RangeOrderCancelled", async ({ event, context }) 
     // Update tick liquidity
     for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
       const tid = tickId(
-        context.network.chainId,
+        context.chain.id,
         existingOrder.marketKey,
         existingOrder.outcome,
         tick
       );
 
-      await context.db.update(tickLiquidity, { id: tid }).set((row) => ({
-        totalLiquidity: row.totalLiquidity - existingOrder.liquidity,
-        orderCount: row.orderCount - 1,
-        updatedAt: event.block.timestamp,
-      }));
+      const existingTick = await context.db.find(schema.tickLiquidity, { id: tid });
+      if (existingTick) {
+        await context.db.update(schema.tickLiquidity, { id: tid }).set({
+          totalLiquidity: existingTick.totalLiquidity - existingOrder.liquidity,
+          orderCount: existingTick.orderCount - 1,
+          updatedAt: event.block.timestamp,
+        });
+      }
     }
   }
 });
@@ -132,12 +135,12 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   const { owner, marketKey, orderId: orderIdBigInt, filledShares, collateralUsedWad } = event.args;
 
   const id = eventId(event.transaction.hash, event.log.logIndex);
-  const oid = orderId(context.network.chainId, orderIdBigInt);
+  const oid = orderId(context.chain.id, orderIdBigInt);
 
   // Record the claim
-  await context.db.insert(fillClaim).values({
+  await context.db.insert(schema.fillClaim).values({
     id,
-    chainId: context.network.chainId,
+    chainId: context.chain.id,
     orderId: orderIdBigInt,
     marketKey,
     owner,
@@ -149,7 +152,7 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   });
 
   // Update order state
-  const existingOrder = await context.db.find(order, { id: oid });
+  const existingOrder = await context.db.find(schema.order, { id: oid });
   if (existingOrder) {
     const newClaimedShares = existingOrder.claimedShares + filledShares;
     const newCollateralUsed = existingOrder.collateralUsed + collateralUsedWad;
@@ -157,7 +160,7 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
     // Check if order is now fully filled
     const isFullyFilled = newClaimedShares >= existingOrder.liquidity;
 
-    await context.db.update(order, { id: oid }).set({
+    await context.db.update(schema.order, { id: oid }).set({
       claimedShares: newClaimedShares,
       collateralUsed: newCollateralUsed,
       status: isFullyFilled ? "filled" : existingOrder.status,
@@ -168,17 +171,20 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
     if (isFullyFilled) {
       for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
         const tid = tickId(
-          context.network.chainId,
+          context.chain.id,
           existingOrder.marketKey,
           existingOrder.outcome,
           tick
         );
 
-        await context.db.update(tickLiquidity, { id: tid }).set((row) => ({
-          totalLiquidity: row.totalLiquidity - existingOrder.liquidity,
-          orderCount: row.orderCount - 1,
-          updatedAt: event.block.timestamp,
-        }));
+        const existingTick = await context.db.find(schema.tickLiquidity, { id: tid });
+        if (existingTick) {
+          await context.db.update(schema.tickLiquidity, { id: tid }).set({
+            totalLiquidity: existingTick.totalLiquidity - existingOrder.liquidity,
+            orderCount: existingTick.orderCount - 1,
+            updatedAt: event.block.timestamp,
+          });
+        }
       }
     }
   }
@@ -202,9 +208,9 @@ ponder.on("TickBookPoolManager:MarketOrderExecuted", async ({ event, context }) 
 
   const id = eventId(event.transaction.hash, event.log.logIndex);
 
-  await context.db.insert(marketOrder).values({
+  await context.db.insert(schema.marketOrder).values({
     id,
-    chainId: context.network.chainId,
+    chainId: context.chain.id,
     marketKey,
     taker,
     outcome,

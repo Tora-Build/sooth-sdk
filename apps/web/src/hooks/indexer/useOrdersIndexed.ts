@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
-import { fetchFromIndexer, USE_INDEXER } from "./config";
+import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 import { useUserOrdersDirect, RangeOrder } from "../useUserOrdersDirect";
 
 type Address = `0x${string}`;
@@ -45,7 +45,7 @@ function toRangeOrder(indexed: IndexedOrder): RangeOrder {
 }
 
 /**
- * Hook to fetch user's orders - uses indexer with RPC fallback
+ * Hook to fetch user's orders - uses indexer with RPC fallback (per-chain readiness)
  */
 export function useOrdersIndexed(
   marketKey: `0x${string}` | undefined,
@@ -57,10 +57,21 @@ export function useOrdersIndexed(
   // RPC fallback hook
   const rpcFallback = useUserOrdersDirect(marketKey, userAddress);
 
-  // Indexer query
+  // Check if this specific chain is ready
+  const chainReadyQuery = useQuery({
+    queryKey: ["indexer", "chainReady", chainId],
+    enabled: USE_INDEXER && !!chainId,
+    queryFn: () => checkChainReady(chainId),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const isChainReady = chainReadyQuery.data === true;
+
+  // Indexer query - only enabled if chain is ready
   const indexerQuery = useQuery({
     queryKey: ["indexer", "userOrders", chainId, marketKey, userAddress],
-    enabled: USE_INDEXER && !!marketKey && !!userAddress && !!chainId,
+    enabled: USE_INDEXER && isChainReady && !!marketKey && !!userAddress && !!chainId,
     queryFn: async () => {
       const data = await fetchFromIndexer<IndexedOrder[]>(
         `/orders/${chainId}/${marketKey}/${userAddress}`
@@ -74,7 +85,7 @@ export function useOrdersIndexed(
   });
 
   // Use indexer data if available, otherwise fall back to RPC
-  const useIndexer = indexerQuery.data !== null && indexerQuery.data !== undefined;
+  const useIndexer = isChainReady && indexerQuery.data !== null && indexerQuery.data !== undefined;
 
   return {
     orders: useIndexer ? indexerQuery.data : rpcFallback.orders,
