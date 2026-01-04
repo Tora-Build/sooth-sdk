@@ -7,7 +7,7 @@ interface DialogProps {
     isOpen: boolean;
     onClose: () => void;
     children: React.ReactNode;
-    title?: string;
+    title?: React.ReactNode;
     className?: string;
     maxWidth?: string; // e.g. "max-w-2xl"
 }

@@ -191,7 +191,7 @@ message SettlementProof {
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
           <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            © 2025 Sooth Protocol | v8.1.0-alpha
+            © 2025 Sooth Protocol | v9.9.6-fix9L
           </div>
           <div className="flex items-center gap-8">
             <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>

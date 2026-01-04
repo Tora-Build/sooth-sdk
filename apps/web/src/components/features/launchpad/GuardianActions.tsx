@@ -86,7 +86,7 @@ export const GuardianActions: React.FC<{
                                 <p className="text-sm text-slate-400">
                                     Force market to graduate without meeting threshold. Use only if market is stuck.
                                 </p>
-                                {bBase && graduationThreshold && (
+                                {bBase !== undefined && graduationThreshold !== undefined && (
                                     <p className="text-xs text-slate-500 mt-1">
                                         Current: {formatEther(bBase)} / Threshold: {formatEther(graduationThreshold)}
                                     </p>
@@ -115,10 +115,10 @@ export const GuardianActions: React.FC<{
                                 <p className="text-sm text-slate-400">
                                     Liquidate expired market. Protocol fee will be taken and users can claim refunds.
                                 </p>
-                                {liquidationFeeBps && (
+                                {liquidationFeeBps !== undefined && (
                                     <p className="text-xs text-slate-500 mt-1">
                                         Protocol fee: {Number(liquidationFeeBps) / 100}%
-                                        {totalAssets && liquidationFee > 0n && (
+                                        {totalAssets !== undefined && liquidationFee > 0n && (
                                             <span className="ml-1">
                                                 ({formatEther(liquidationFee)} USDC)
                                             </span>

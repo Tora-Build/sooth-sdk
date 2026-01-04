@@ -13,6 +13,7 @@ import { useAccount } from "wagmi";
  */
 export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
     const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
     const { address: userAddress } = useAccount();
     const deployments = useDeployments();
 
@@ -27,7 +28,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
             // Graduation progress (feesAccrued, threshold, progressBps)
             {
@@ -35,7 +36,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
             // Creator's LP balance (for share/yield computations)
             {
@@ -43,7 +44,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "getLPBalance",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
@@ -193,6 +194,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
 export function useIsCreator(marketAddress: `0x${string}` | undefined) {
     const { address: userAddress } = useAccount();
     const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
     const deployments = useDeployments();
 
     const launchpadEngineAddress = deployments?.contracts
@@ -205,11 +207,11 @@ export function useIsCreator(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
-            enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!selectedChainId,
+            enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!chainId,
             refetchInterval: false,
             staleTime: Infinity,
         },

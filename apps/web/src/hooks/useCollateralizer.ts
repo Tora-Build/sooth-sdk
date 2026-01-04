@@ -13,6 +13,7 @@ import { useAccount } from "wagmi";
  */
 export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
     const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
     const { address: userAddress } = useAccount();
     const deployments = useDeployments();
 
@@ -27,7 +28,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.Collateralizer,
                 functionName: "getOutcomeTokens",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
@@ -45,11 +46,11 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.Collateralizer,
                 functionName: "getTotalCollateral",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
-            enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId,
+            enabled: !!marketAddress && !!collateralizerAddress && !!chainId,
             refetchInterval: 30000,
             staleTime: 10000,
         },
@@ -63,11 +64,11 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
                 abi: V8_ABIS.Collateralizer,
                 functionName: "getBalances",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
-            enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId && !!userAddress,
+            enabled: !!marketAddress && !!collateralizerAddress && !!chainId && !!userAddress,
             refetchInterval: 30000,
             staleTime: 10000,
         },
@@ -148,6 +149,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
  */
 export function useOutcomeToken(tokenAddress: `0x${string}` | undefined) {
     const { selectedChainId } = useChainStore();
+    const chainId = selectedChainId ? Number(selectedChainId) : undefined;
 
     const { data, isLoading, error } = useReadContracts({
         contracts: [
@@ -155,23 +157,23 @@ export function useOutcomeToken(tokenAddress: `0x${string}` | undefined) {
                 address: tokenAddress,
                 abi: V8_ABIS.OutcomeToken,
                 functionName: "name",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: tokenAddress,
                 abi: V8_ABIS.OutcomeToken,
                 functionName: "symbol",
-                chainId: selectedChainId,
+                chainId,
             },
             {
                 address: tokenAddress,
                 abi: V8_ABIS.OutcomeToken,
                 functionName: "market",
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {
-            enabled: !!tokenAddress && !!selectedChainId,
+            enabled: !!tokenAddress && !!chainId,
             refetchInterval: false,
             staleTime: Infinity,
         },

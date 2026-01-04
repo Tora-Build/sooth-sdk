@@ -42,24 +42,10 @@ export const useActivePositions = () => {
     // Get real markets from LaunchpadFactory (on-chain)
     const { markets: launchpadMarkets } = useLaunchpadMarkets();
     
-    // Build unique market list from both factory and static config
+    // Build market list from LaunchpadFactory (Dynamic)
     const uniqueMarkets = useMemo(() => {
         const list: { address: `0x${string}`, name: string, outcomeToken: `0x${string}` }[] = [];
         const seen = new Set<string>();
-
-        // From deployments.json (Static)
-        if (config.marketInfo) {
-            Object.values(config.marketInfo).forEach((m: any) => {
-                if (m.address && !seen.has(m.address.toLowerCase())) {
-                    seen.add(m.address.toLowerCase());
-                    list.push({ 
-                        address: m.address, 
-                        name: m.name, 
-                        outcomeToken: m.outcomeToken || '0x0000000000000000000000000000000000000000' 
-                    });
-                }
-            });
-        }
 
         // From LaunchpadFactory (Dynamic)
         if (launchpadMarkets) {
@@ -76,7 +62,7 @@ export const useActivePositions = () => {
         }
 
         return list;
-    }, [config.marketInfo, launchpadMarkets]);
+    }, [launchpadMarkets]);
 
     // Batch Contract Calls
     const marketContracts = useMemo(() => {
@@ -168,6 +154,8 @@ export const useActivePositions = () => {
                         liquidNo: no,
                         lockedYes: 0,
                         lockedNo: 0,
+                        walletYes: 0,
+                        walletNo: 0,
                         unlockTime: 0,
                         value: val,
                         priceYes: market.priceYes || 0.5,

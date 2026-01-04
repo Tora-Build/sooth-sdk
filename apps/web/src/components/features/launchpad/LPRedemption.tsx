@@ -75,7 +75,7 @@ export const LPRedemption: React.FC<{
                         <span>Your LP Balance:</span>
                         <span className="font-mono text-white">{maxAmountDisplay} LP</span>
                     </div>
-                    {totalAssets && lpTotalSupply && (
+                    {totalAssets !== undefined && lpTotalSupply !== undefined && (
                         <>
                             <div className="flex justify-between">
                                 <span>Total Market Assets:</span>

@@ -73,7 +73,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
                 address: marketAddress,
                 abi: V8_ABIS.TruthMarket,
                 functionName: "question",
-                chainId: selectedChainId,
+                chainId,
             },
         ],
         query: {

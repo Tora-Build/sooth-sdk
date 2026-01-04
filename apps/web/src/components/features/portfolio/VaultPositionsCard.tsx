@@ -73,9 +73,9 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                         <div className="flex items-center gap-1.5">
                             <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes + pos.walletYes) * priceYes)}</div>
                             <div className="flex gap-0.5 opacity-40">
-                                {pos.walletYes > 0 && <Wallet size={7} className="text-emerald-400" title="AMM Shares (Wallet)" />}
-                                {pos.lockedYes > 0 && <Lock size={7} className="text-amber-400" title="Locked (Vault)" />}
-                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-indigo-400" title="Orderbook (Vault)" />}
+                                {pos.walletYes > 0 && <Wallet size={7} className="text-emerald-400" />}
+                                {pos.lockedYes > 0 && <Lock size={7} className="text-amber-400" />}
+                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
                             </div>
                         </div>
                     </div>
@@ -89,9 +89,9 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                         <div className="flex items-center gap-1.5">
                             <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo + pos.walletNo) * priceNo)}</div>
                             <div className="flex gap-0.5 opacity-40">
-                                {pos.walletNo > 0 && <Wallet size={7} className="text-rose-400" title="AMM Shares (Wallet)" />}
-                                {pos.lockedNo > 0 && <Lock size={7} className="text-amber-400" title="Locked (Vault)" />}
-                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-indigo-400" title="Orderbook (Vault)" />}
+                                {pos.walletNo > 0 && <Wallet size={7} className="text-rose-400" />}
+                                {pos.lockedNo > 0 && <Lock size={7} className="text-amber-400" />}
+                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
                             </div>
                         </div>
                     </div>

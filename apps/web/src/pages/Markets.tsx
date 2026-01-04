@@ -79,7 +79,7 @@ export const Markets = () => {
               address={market.address as `0x${string}`}
               name={market.name}
               symbol={market.symbol}
-              isGraduated={market.isGraduated}
+              isGraduated={market.isGraduated ?? false}
               deadline={market.deadline}
             />
           ))}

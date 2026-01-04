@@ -28,14 +28,13 @@ import {
   useTickBookQuoteDirect,
   useTickBookVaultDirect,
   useTokenBalances,
-  useUserOrdersDirect,
-  useAllOrdersDirect,
   useAmmMarketDirect,
   useInvalidateQueries,
   usePlaceOrder,
   useOnChainMarkets,
   RangeOrder
 } from '../hooks';
+import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
 import { useDeployments } from '../hooks/useDeployments';
 import { V8_ABIS, V9_ABIS, V996_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
@@ -1193,6 +1192,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // CRITICAL: Use marketId directly as the address - don't require it to be in static config
   const marketAddr = marketId as `0x${string}`;
   const invalidateV8Queries = useInvalidateQueries();
+
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
@@ -1212,14 +1212,22 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     isPending: isOrderPending,
     calculateMaxCost,
   } = usePlaceOrder(tickBook?.marketKey as `0x${string}`);
-  const { orders: userOrders, isLoading: isOrdersLoading } = useUserOrdersDirect(
+
+  // Fetch user's orders (indexer with RPC fallback)
+  const { orders: userOrders, isLoading: isOrdersLoading, source: ordersSource } = useOrdersIndexed(
     tickBook?.marketKey as `0x${string}`,
     userAddress
   );
 
-  // Fetch ALL orders for the liquidity map (shows full orderbook depth, not just user's)
-  const { orders: allOrders, isLoading: isAllOrdersLoading } = useAllOrdersDirect(
+  // Fetch orderbook data (indexer with RPC fallback)
+  const { orders: allOrders, orderbook, isLoading: isAllOrdersLoading, source: orderbookSource } = useOrderbookIndexed(
     tickBook?.marketKey as `0x${string}`
+  );
+
+  // Fetch recent trades (indexer only)
+  const { trades, isLoading: isTradesLoading } = useTradesIndexed(
+    tickBook?.marketKey as `0x${string}`,
+    20
   );
 
   const { balances } = useTokenBalances(useMemo(() => [
@@ -1766,7 +1774,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
           {/* Your Orders & Positions Combined */}
           <UserOrdersPanel
-            orders={userOrders}
+            orders={userOrders ?? []}
             marketKey={tickBook?.marketKey as `0x${string}`}
             isLoading={isOrdersLoading}
             onRefresh={() => invalidateV8Queries()}

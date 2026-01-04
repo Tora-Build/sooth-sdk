@@ -43,16 +43,15 @@ export function useLaunchpadMarkets() {
     const combinedContracts = useMemo(() => {
         if (!addresses.length) return [];
         return addresses.flatMap(addr => [
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' as const },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' as const },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' as const },
-            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'adjudicator' as const }
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'outcomeToken' as const, chainId },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'isGraduated' as const, chainId },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'deadline' as const, chainId },
+            { address: addr, abi: LAUNCHPAD_MARKET_ABI, functionName: 'adjudicator' as const, chainId }
         ]);
-    }, [addresses]);
+    }, [addresses, chainId]);
     
     const { data: combinedData, isLoading: isLoadingCombined } = useReadContracts({
         contracts: combinedContracts,
-        chainId,
         query: { enabled: addresses.length > 0 && !!chainId, refetchInterval: 30000 }
     });
 
@@ -89,15 +88,14 @@ export function useLaunchpadMarkets() {
             const tokenAddr = m.outcomeToken;
             const effectiveAddr = (tokenAddr && tokenAddr !== '0x0000000000000000000000000000000000000000') ? tokenAddr : undefined;
             return [
-                { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'name' },
-                { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol' }
+                { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'name', chainId },
+                { address: effectiveAddr, abi: LAUNCHPAD_OUTCOME_TOKEN_ABI, functionName: 'symbol', chainId }
             ];
         });
-    }, [v7Markets]);
+    }, [v7Markets, chainId]);
 
     const { data: tokenData, isLoading: isLoadingTokenData } = useReadContracts({
         contracts: tokenCalls,
-        chainId,
         query: { enabled: tokenCalls.length > 0 && !!chainId, refetchInterval: 60000 }
     });
 

@@ -36,7 +36,7 @@ export function useOrderbook(marketId: string) {
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
 
   // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
-  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { amm: configMarket } = useAmmMarket(isAddressFormat ? undefined : marketId as `0x${string}` | undefined);
   const { market: addressMarket } = useAmmMarketByAddress(
     isAddressFormat ? (marketId as `0x${string}`) : undefined
   );
@@ -54,7 +54,7 @@ export function useOrderbook(marketId: string) {
   const [isSupported, setIsSupported] = useState<boolean>(true);
 
   // For address-format markets, use the marketId directly as the contract address
-  const contractAddress = isAddressFormat ? (marketId as `0x${string}`) : market?.contractAddress;
+  const contractAddress = isAddressFormat ? (marketId as `0x${string}`) : (market as any)?.contractAddress || (market as any)?.address;
 
   // Fetch User Balances (Custodial - From Vault)
   const { data: shareBalances, refetch: refetchBalances } = useReadContracts({
@@ -167,17 +167,15 @@ export function useOrderbook(marketId: string) {
                 if (owner && owner !== '0x0000000000000000000000000000000000000000') {
                   realOwner = owner;
                 } else {
-                  // Try spotOrders (Spot Sell orders)
-                  // SpotOrder struct: [address user, address market, uint8 outcome, uint256 amount]
-                  const spotData = await publicClient.readContract({
+                  const ownerData = await publicClient.readContract({
                     address: traderVaultAddress,
                     abi: TRADER_VAULT_V4_ABI,
-                    functionName: 'spotOrders',
+                    functionName: 'orderOwners',
                     args: [currentId]
-                  }) as [string, string, number, bigint];
+                  }) as `0x${string}`;
                   
-                  if (spotData && spotData[0] && spotData[0] !== '0x0000000000000000000000000000000000000000') {
-                    realOwner = spotData[0];
+                  if (ownerData && ownerData !== '0x0000000000000000000000000000000000000000') {
+                    realOwner = ownerData;
                   }
                 }
               } catch (e) {

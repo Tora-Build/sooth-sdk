@@ -65,15 +65,15 @@ const LaunchpadMarketWatcher: React.FC<{ market: { address: `0x${string}`, name:
     },
   });
 
-  // Watch Claimed (Unlocked proceeds)
+  // Watch Locked (Sell Lock)
   useWatchContractEvent({
     address: market.address,
     abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'Claimed',
+    eventName: 'Locked',
     onLogs(logs: any[]) {
       logs.forEach(log => {
         const { amount } = log.args;
-        const description = `Unlocked proceeds claimed: ${formatUnits(amount || 0n, 6)} USDC`;
+        const description = `Proceeds locked: ${formatUnits(amount || 0n, 6)} USDC`;
         addActivity({
           type: 'claim',
           market: market.name,
@@ -144,20 +144,10 @@ export const ActivityListener: React.FC = () => {
   const chainId = useChainId();
   const { markets } = useLaunchpadMarkets();
 
-  // 1. Build unique market list from both factory and static config
+  // Build market list from LaunchpadFactory (Dynamic)
   const uniqueMarkets = useMemo(() => {
     const list: { address: `0x${string}`, name: string }[] = [];
     const seen = new Set<string>();
-
-    // From deployments.json (Static)
-    if (config.marketInfo) {
-      Object.values(config.marketInfo).forEach((m: any) => {
-        if (m.address && !seen.has(m.address.toLowerCase())) {
-          seen.add(m.address.toLowerCase());
-          list.push({ address: m.address, name: m.name });
-        }
-      });
-    }
 
     // From LaunchpadFactory (Dynamic)
     if (markets) {
@@ -170,7 +160,7 @@ export const ActivityListener: React.FC = () => {
     }
 
     return list;
-  }, [config.marketInfo, markets]);
+  }, [markets]);
 
   // LP vault
   const vaultAddress = deployments.SoothLiquidityVault as `0x${string}`;

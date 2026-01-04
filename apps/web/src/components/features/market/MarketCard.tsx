@@ -31,19 +31,18 @@ export const MarketCard = ({
   bBase: propBBase,
   graduationThreshold: propGraduationThreshold
 }: MarketCardProps) => {
-  const { 
-    bBase: hookBBase, 
-    graduationThreshold: hookGraduationThreshold,
-    pureFloor,
-    totalLockedProceeds,
-    decimals,
-    adjudicator,
-    isSettled,
-    winningOutcome,
-    tStar
-  } = useLaunchpadMarket(
+  const { launchpad } = useLaunchpadMarket(
     (prefetchedMarket || propBBase) ? undefined : address
   );
+  const hookBBase = launchpad?.initialBBase;
+  const hookGraduationThreshold = launchpad?.graduationThreshold;
+  const pureFloor = launchpad?.floorValue;
+  const decimals = 18;
+  const totalLockedProceeds = 0n;
+  const adjudicator: string | undefined = undefined;
+  const isSettled = false;
+  const winningOutcome: number | null = null;
+  const tStar: number | undefined = undefined;
   const { market: hookMarket } = useAmmMarketByAddress(prefetchedMarket ? undefined : address);
   
   const market = prefetchedMarket || hookMarket;
@@ -103,11 +102,7 @@ export const MarketCard = ({
                 🔥 Bonding
               </Badge>
             )}
-            {adjudicator && (
-              <Badge variant="secondary" className="text-[9px] bg-slate-800/50 text-slate-500 border-slate-700/50 py-0 h-4">
-                ⚖️ {adjudicator.slice(0, 4)}...{adjudicator.slice(-2)}
-              </Badge>
-            )}
+
           </div>
         </div>
 

@@ -26,12 +26,15 @@ const RANGE_ORDER_PLACED_EVENT = parseAbiItem(
   "event RangeOrderPlaced(address indexed owner, bytes32 indexed marketKey, uint256 indexed orderId, uint8 outcome, uint16 tickLower, uint16 tickUpper, uint256 liquidity, uint256 collateralReserved, uint256 crossingFilled, uint256 crossingCost)"
 );
 
+// Batch size and delay to avoid RPC rate limits (429)
+const BATCH_SIZE = 5;
+const BATCH_DELAY_MS = 100;
+
 /**
  * Hook to fetch user's orders from TickBookPoolManager (V9 Architecture)
  *
- * Note: Uses event logs to discover order IDs since getUserOrders() is missing
- * from the deployed contract. This will be replaced with direct contract call
- * after contract redeployment.
+ * Uses chunked Promise.all with delays to avoid RPC rate limits.
+ * Does NOT use multicall3 (not supported on Arc/Monad/Base testnets).
  */
 export function useUserOrdersDirect(
   marketKey: `0x${string}` | undefined,
@@ -62,7 +65,11 @@ export function useUserOrdersDirect(
         // getUserOrders not available - fallback to event logs
         console.log("[useUserOrdersDirect] getUserOrders not available, using event logs");
 
-        // Query RangeOrderPlaced events for this user and market
+        // Monad has stricter limits - use smaller block range
+        const currentBlock = await client.getBlockNumber();
+        const blocksToQuery = chainId === 10143 ? 50n : 50000n;
+        const fromBlock = currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
+
         const logs = await client.getLogs({
           address: tickBookManagerAddress!,
           event: RANGE_ORDER_PLACED_EVENT,
@@ -70,7 +77,7 @@ export function useUserOrdersDirect(
             owner: userAddress!,
             marketKey: marketKey!,
           },
-          fromBlock: "earliest",
+          fromBlock,
           toBlock: "latest",
         });
 
@@ -82,57 +89,67 @@ export function useUserOrdersDirect(
         return [];
       }
 
-      // Fetch each order's details
+      // Chunked Promise.all to avoid RPC rate limits (no multicall3 support)
       const orders: RangeOrder[] = [];
-      for (const orderId of orderIds) {
-        try {
-          // Solidity struct order: owner, outcome, tickLower, tickUpper, active, sharesTotal, liquidity, collateralDepositedWad, filledShares, collateralUsedWad
-          const [order, pendingFills] = await Promise.all([
-            readContractSafe<{
-              owner: Address;
-              outcome: number;
-              tickLower: number;
-              tickUpper: number;
-              active: boolean;
-              sharesTotal: bigint;
-              liquidity: bigint;
-              collateralDepositedWad: bigint;
-              filledShares: bigint;
-              collateralUsedWad: bigint;
-            }>(client, {
-              address: tickBookManagerAddress!,
-              abi: V996_ABIS.TickBookPoolManager,
-              functionName: "getOrder",
-              args: [marketKey!, orderId],
-            }),
-            readContractSafe<readonly [bigint, bigint]>(client, {
-              address: tickBookManagerAddress!,
-              abi: V996_ABIS.TickBookPoolManager,
-              functionName: "getPendingFills",
-              args: [marketKey!, orderId],
-            }),
-          ]);
 
-          console.log(`[useUserOrdersDirect] Order ${orderId}:`, order ? `active=${order.active}, filled=${order.filledShares}, pending=${pendingFills?.[0]}` : 'null');
+      for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+        const batch = orderIds.slice(i, i + BATCH_SIZE);
 
-          if (order && order.active) {
-            // Keep pending fills separate for proper UI logic
-            const pendingShares = pendingFills?.[0] ?? 0n;
+        const batchResults = await Promise.all(
+          batch.map(async (orderId) => {
+            try {
+              const [order, pendingFills] = await Promise.all([
+                readContractSafe<{
+                  owner: Address;
+                  outcome: number;
+                  tickLower: number;
+                  tickUpper: number;
+                  active: boolean;
+                  sharesTotal: bigint;
+                  liquidity: bigint;
+                  collateralDepositedWad: bigint;
+                  filledShares: bigint;
+                  collateralUsedWad: bigint;
+                }>(client, {
+                  address: tickBookManagerAddress!,
+                  abi: V996_ABIS.TickBookPoolManager,
+                  functionName: "getOrder",
+                  args: [marketKey!, orderId],
+                }),
+                readContractSafe<readonly [bigint, bigint]>(client, {
+                  address: tickBookManagerAddress!,
+                  abi: V996_ABIS.TickBookPoolManager,
+                  functionName: "getPendingFills",
+                  args: [marketKey!, orderId],
+                }),
+              ]);
 
-            orders.push({
-              orderId,
-              ...order,
-              pendingShares,  // Keep separate from filledShares
-            });
-            console.log(`[useUserOrdersDirect] Order ${orderId} ACTIVE, claimed=${order.filledShares}, pending=${pendingShares}`);
-          }
-        } catch (err) {
-          console.error(`[useUserOrdersDirect] Failed to fetch order ${orderId}:`, err);
+              if (order && order.active) {
+                return {
+                  orderId,
+                  ...order,
+                  pendingShares: pendingFills?.[0] ?? 0n,
+                };
+              }
+              return null;
+            } catch (err) {
+              console.error(`[useUserOrdersDirect] Failed to fetch order ${orderId}:`, err);
+              return null;
+            }
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result) orders.push(result);
+        }
+
+        // Rate limit delay between batches
+        if (i + BATCH_SIZE < orderIds.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
 
       console.log(`[useUserOrdersDirect] Final result: ${orders.length} active orders`);
-
       return orders;
     },
   });

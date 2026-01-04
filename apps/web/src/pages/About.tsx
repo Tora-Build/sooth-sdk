@@ -457,7 +457,7 @@ export const About = () => {
         <footer className="py-8 border-t border-slate-800/50 mt-16">
           <div className="container mx-auto max-w-7xl px-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500 font-mono">
-              <div>© 2025 Sooth Protocol</div>
+              <div>© 2025 Sooth Protocol | v9.9.6-fix9L</div>
               <div className="flex gap-6">
                 <a href="https://docs.sooth.xyz/whitepaper" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">Whitepaper</a>
                 <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">Docs</a>

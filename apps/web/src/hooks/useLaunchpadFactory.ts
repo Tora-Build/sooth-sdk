@@ -45,7 +45,8 @@ export function useLaunchpadFactory() {
         description: string,
         tierIndex: number,
         isOpenEnd: boolean,
-        durationSeconds: number
+        durationSeconds: number,
+        marketAdjudicator: `0x${string}` = '0x0000000000000000000000000000000000000000'
     ) => {
         if (!factoryAddress) throw new Error("Factory not configured");
 
@@ -53,7 +54,7 @@ export function useLaunchpadFactory() {
             address: factoryAddress,
             abi: LAUNCHPAD_FACTORY_ABI,
             functionName: 'createMarket',
-            args: [name, symbol, description, tierIndex, isOpenEnd, durationSeconds],
+            args: [name, symbol, description, tierIndex, isOpenEnd, durationSeconds, marketAdjudicator],
         });
     };
 

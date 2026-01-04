@@ -47,66 +47,80 @@ export function useOnChainMarkets() {
         return [];
       }
 
-      // Fetch market details in parallel
-      const marketDetails = await Promise.all(
-        marketAddresses.map(async (marketAddress) => {
-          try {
-            const marketsMapping = await readContractSafe<
-              readonly [
-                Address, // creator
-                bigint,  // bBase
-                bigint,  // bCurrent
-                bigint,  // creatorDeposit
-                bigint,  // feesAccrued
-                bigint,  // totalLPSupply
-                bigint,  // lpYieldPool
-                boolean, // isGraduated
-                bigint,  // createdAt (uint64)
-                bigint,  // graduatedAt (uint64)
-                string,  // name
-                string   // symbol
-              ]
-            >(client, {
-              address: launchpadEngineAddress!,
-              abi: V9_ABIS.LaunchpadEngine,
-              functionName: "markets",
-              args: [marketAddress],
-            });
+      // Process markets in chunks to avoid 429 rate limiting
+      const CHUNK_SIZE = 5;
+      const marketDetails: OnChainMarket[] = [];
 
-            const [
-              creator,
-              bBase,
-              bCurrent,
-              _creatorDeposit,
-              _feesAccrued,
-              _totalLPSupply,
-              _lpYieldPool,
-              isGraduated,
-              createdAt,
-              _graduatedAt,
-              name,
-              symbol,
-            ] = marketsMapping;
+      for (let i = 0; i < marketAddresses.length; i += CHUNK_SIZE) {
+        const chunk = marketAddresses.slice(i, i + CHUNK_SIZE);
+        
+        const chunkResults = await Promise.all(
+          chunk.map(async (marketAddress) => {
+            try {
+              const marketsMapping = await readContractSafe<
+                readonly [
+                  Address, // creator
+                  bigint,  // bBase
+                  bigint,  // bCurrent
+                  bigint,  // creatorDeposit
+                  bigint,  // feesAccrued
+                  bigint,  // totalLPSupply
+                  bigint,  // lpYieldPool
+                  boolean, // isGraduated
+                  bigint,  // createdAt (uint64)
+                  bigint,  // graduatedAt (uint64)
+                  string,  // name
+                  string   // symbol
+                ]
+              >(client, {
+                address: launchpadEngineAddress!,
+                abi: V9_ABIS.LaunchpadEngine,
+                functionName: "markets",
+                args: [marketAddress],
+              });
 
-            return {
-              address: marketAddress,
-              name,
-              symbol,
-              creator,
-              isGraduated,
-              createdAt,
-              bBase,
-              bCurrent,
-            } as OnChainMarket;
-          } catch (error) {
-            console.warn(`Failed to fetch market ${marketAddress}:`, error);
-            return null;
-          }
-        })
-      );
+              const [
+                creator,
+                bBase,
+                bCurrent,
+                _creatorDeposit,
+                _feesAccrued,
+                _totalLPSupply,
+                _lpYieldPool,
+                isGraduated,
+                createdAt,
+                _graduatedAt,
+                name,
+                symbol,
+              ] = marketsMapping;
 
-      // Filter out failed fetches
-      return marketDetails.filter((m): m is OnChainMarket => m !== null);
+              return {
+                address: marketAddress,
+                name,
+                symbol,
+                creator,
+                isGraduated,
+                createdAt,
+                bBase,
+                bCurrent,
+              } as OnChainMarket;
+            } catch (error) {
+              console.warn(`Failed to fetch market ${marketAddress}:`, error);
+              return null;
+            }
+          })
+        );
+        
+        // Add valid results from this chunk
+        marketDetails.push(...chunkResults.filter((m): m is OnChainMarket => m !== null));
+        
+        // Small delay between chunks to be nice to the RPC
+        if (i + CHUNK_SIZE < marketAddresses.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      return marketDetails;
     },
   });
 

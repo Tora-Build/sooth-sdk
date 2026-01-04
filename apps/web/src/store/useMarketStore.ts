@@ -5,9 +5,11 @@ import marketsConfig from '../config/markets.json';
 interface MarketState {
   mode: 'demo' | 'real';
   markets: Market[];
+  refreshKey: number;
 
   setMode: (mode: 'demo' | 'real') => void;
   updateMarket: (marketId: string, updates: Partial<Market>) => void;
+  triggerRefresh: () => void;
 }
 
 import marketOverrides from '../config/marketOverrides.json';
@@ -17,8 +19,8 @@ import marketOverrides from '../config/marketOverrides.json';
 const configMarkets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
 
 const initialDemoMarkets: Market[] = configMarkets
-  .filter(m => (m as any).mode === 'demo') // Only include demo markets
-  .map(m => {
+  .filter((m: any) => m.mode === 'demo')
+  .map((m: any) => {
   // Apply overrides if they exist for this market ID
   const override = (marketOverrides.overrides as Record<string, any>)[m.id] || {};
   const mergedMarket = { ...m, ...override };
@@ -77,8 +79,9 @@ const initialDemoMarkets: Market[] = configMarkets
 });
 
 export const useMarketStore = create<MarketState>((set) => ({
-  markets: initialDemoMarkets, // Assuming INITIAL_MARKETS was a typo and should be initialDemoMarkets
-  mode: 'real', // Default to Real Mode for V4
+  markets: initialDemoMarkets,
+  mode: 'real',
+  refreshKey: 0,
   setMode: (mode) => set({ mode }),
 
   updateMarket: (marketId, updates) => set((state) => ({
@@ -86,4 +89,6 @@ export const useMarketStore = create<MarketState>((set) => ({
       m.id === marketId ? { ...m, ...updates } : m
     )
   })),
+
+  triggerRefresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })),
 }));

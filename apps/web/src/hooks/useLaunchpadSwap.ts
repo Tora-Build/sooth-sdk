@@ -26,18 +26,7 @@ export function useLaunchpadSwap(marketAddress?: `0x${string}`) {
     const [isPending, setIsPending] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
 
-    // Get USDC address from market (fallback/verification)
-    const { data: usdcAddressFromMarket } = useReadContract({
-        address: marketAddress,
-        abi: LAUNCHPAD_MARKET_ABI,
-        functionName: 'asset',
-        chainId: Number(selectedChainId),
-        query: { 
-            enabled: !!marketAddress,
-        }
-    });
-
-    const usdcAddress = usdcAddressFromConfig || usdcAddressFromMarket;
+    const usdcAddress = usdcAddressFromConfig;
 
     // Get USDC decimals
     const { data: usdcDecimals } = useReadContract({

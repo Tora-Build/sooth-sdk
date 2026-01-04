@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { LAUNCHPAD_QUOTER_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/abis';
+import { LAUNCHPAD_QUOTER_ABI, LAUNCHPAD_MARKET_ABI, MARKET_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useChainStore } from '../store/useChainStore';
 import { getDeployments } from './useDeployments';
 
@@ -82,7 +82,7 @@ export function useLaunchpadTradeQuote(
                         console.log(`[Quote] Falling back to direct market call (Quoter result null)`);
                         const marketResult = await publicClient.readContract({
                             address: marketAddress,
-                            abi: LAUNCHPAD_MARKET_ABI,
+                            abi: MARKET_V4_ABI,
                             functionName: 'calculateAMMTradeCost',
                             args: [outcomeIndex, shareAmountBig, isBuy]
                         }) as [bigint, bigint, bigint, bigint];
@@ -90,10 +90,9 @@ export function useLaunchpadTradeQuote(
                     }
                 } else {
                     console.log(`[Quote] Using Direct Market Call (No quoter address)`);
-                    // V6.1 Fallback: Use market directly if no quoter deployed on this chain
                     const marketResult = await publicClient.readContract({
                         address: marketAddress,
-                        abi: LAUNCHPAD_MARKET_ABI,
+                        abi: MARKET_V4_ABI,
                         functionName: 'calculateAMMTradeCost',
                         args: [outcomeIndex, shareAmountBig, isBuy]
                     }) as [bigint, bigint, bigint, bigint];

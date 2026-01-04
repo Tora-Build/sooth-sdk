@@ -50,6 +50,11 @@ export function buildInitialMarkets(): Market[] {
     userAvgEntryYes: null,
     userAvgEntryNo: null,
     adjudicatorProofUploaded: false,
+    qYes: 0n,
+    qNo: 0n,
+    bParam: 0n,
+    userYesOutcomeTokens: 0,
+    userNoOutcomeTokens: 0,
   }));
 }
 

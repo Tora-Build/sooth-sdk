@@ -498,7 +498,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
-  const { refetch: refetchVault, availableBalance, decimals, traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
+  const { refetch: refetchVault, availableBalance, decimals, vaultAddress: traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
   const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
   
   // Fetch vault share balances for this market
@@ -526,56 +526,60 @@ export const MarketDetail = () => {
   const mergeableAmount = Math.min(vaultYesShares, vaultNoShares);
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
-
   const {
-    isGraduated,
-    graduationThreshold,
-    bBase,
-    deadline,
-    creator,
-    isLive,
-    isSettled,
-    graduate,
-    isGraduatePending,
-    feesAccrued,
-    outcomeToken,
-    totalCreatorDeposit,
-    // V6: LP Token data (Isolated Ledger)
-    totalSupply,
-    totalAssets,
-    totalNetAssets,
-    ammReserve,
-    qYes,
-    qNo,
-    totalSupplyYes,
-    totalSupplyNo,
-    userLpBalance,
-    userLpNetValue,
-    userLpCeilingValue,
-    ammCash,
-    pureFloor,
-    pureCeiling,
-    isUnderwater,
-    userSharePercent,
-    totalLockedProceeds,
-    lockedProceeds,
-    adjudicator,
-    tStar,
-    winningOutcome,
-    decimals: marketDecimals,
-    // V6.2.5: Positions & Prices
-    userYesShares,
-    userNoShares,
-    userYesWallet,
-    userNoWallet,
-    priceYes,
-    priceNo,
-    creatorLpBalance,
-    // V6: LP actions
+    launchpad,
+    isLoading: launchpadLoading,
     redeemLP,
-    isRedeemLPPending,
-    bEffective,
+    isPending: isRedeemLPPending,
   } = marketData;
+
+  // TODO: Graduate function should be added to useLaunchpadMarket hook
+  const graduate = async () => { console.warn('Graduate not implemented'); };
+  const isGraduatePending = false;
+
+  const isGraduated = launchpad?.isGraduated ?? false;
+  const graduationThreshold = launchpad?.graduationThreshold ?? 0n;
+  const bBase = launchpad?.initialBBase ?? 0n;
+  const bEffective = launchpad?.currentBBase ?? 0n;
+  const creator = launchpad?.creator;
+  const feesAccrued = launchpad?.feesAccrued ?? 0n;
+  const totalCreatorDeposit = launchpad?.creatorDeposit ?? 0n;
+  const userLpBalance = launchpad?.userLpBalance ?? 0n;
+  const creatorLpBalance = launchpad?.userLpBalance ?? 0n;
+  const floorValue = launchpad?.floorValue ?? 0n;
+
+  // TODO: These properties should be fetched from TruthMarket/AMMEngine hooks
+  const deadline = 0;
+  const isLive = !isGraduated;
+  const isSettled = false;
+  const outcomeToken = undefined as `0x${string}` | undefined;
+  const adjudicator = undefined as `0x${string}` | undefined;
+  const tStar = 0n;
+  const winningOutcome = 0;
+  const marketDecimals = decimals || 6;
+  const totalSupply = launchpad?.lpSupply ?? 0n;
+  const totalAssets = 0n;
+  const totalNetAssets = 0n;
+  const ammReserve = 0n;
+  const qYes = 0n;
+  const qNo = 0n;
+  const totalSupplyYes = 0n;
+  const totalSupplyNo = 0n;
+  const userLpNetValue = 0n;
+  const userLpCeilingValue = 0n;
+  const ammCash = 0n;
+  const pureFloor = floorValue;
+  const pureCeiling = 0n;
+  const isUnderwater = false;
+  const userSharePercent = 0;
+  const totalLockedProceeds = 0n;
+  const lockedProceeds = 0n;
+  const userYesShares = 0n;
+  const userNoShares = 0n;
+  const userYesWallet = 0n;
+  const userNoWallet = 0n;
+  const priceYes = 0.5;
+  const priceNo = 0.5;
 
   const { markets: allMarkets, isLoading: marketsLoading } = useLaunchpadMarkets();
   const marketMeta = allMarkets?.find(m => m.address.toLowerCase() === address?.toLowerCase());

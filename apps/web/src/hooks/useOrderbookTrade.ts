@@ -17,14 +17,14 @@ export function useOrderbookTrade(marketId: string) {
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
 
   // Use useAmmMarketByAddress for dynamic V5 markets, useAmmMarket for config-based V4
-  const { market: configMarket } = useAmmMarket(isAddressFormat ? '' : marketId);
+  const { amm: configMarket } = useAmmMarket(isAddressFormat ? undefined : marketId as `0x${string}` | undefined);
   const { market: addressMarket } = useAmmMarketByAddress(
     isAddressFormat ? (marketId as `0x${string}`) : undefined
   );
   const market = isAddressFormat ? addressMarket : configMarket;
 
   // For address-format markets, use the marketId directly as the contract address
-  const marketContractAddress = (isAddressFormat ? marketId : market?.contractAddress) as `0x${string}`;
+  const marketContractAddress = (isAddressFormat ? marketId : (market as any)?.contractAddress || (market as any)?.address) as `0x${string}`;
 
   const { config } = useDeployments();
   const deployments = config.contracts;
@@ -180,8 +180,8 @@ export function useOrderbookTrade(marketId: string) {
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
-        functionName: 'placeSpotOrder',
-        args: [marketContractAddress, outcome, priceBig, amountBig],
+        functionName: 'placeOrder',
+        args: [marketContractAddress, outcome, priceBig, amountBig, false],
       });
 
       const toastId = toast.loading('Placing Spot Order...');
@@ -232,8 +232,8 @@ export function useOrderbookTrade(marketId: string) {
             account: address,
             address: traderVaultAddress,
             abi: TRADER_VAULT_V4_ABI,
-            functionName: 'executeHybridSell',
-            args: [marketContractAddress, outcome, priceBig, amountBig],
+            functionName: 'placeOrder',
+            args: [marketContractAddress, outcome, priceBig, amountBig, false],
           });
           gasEstimate = (gasEstimate * 150n) / 100n; // 1.5x multiplier
         } catch (e) {
@@ -244,8 +244,8 @@ export function useOrderbookTrade(marketId: string) {
       const hash = await writeContractAsync({
         address: traderVaultAddress,
         abi: TRADER_VAULT_V4_ABI,
-        functionName: 'executeHybridSell',
-        args: [marketContractAddress, outcome, priceBig, amountBig],
+        functionName: 'placeOrder',
+        args: [marketContractAddress, outcome, priceBig, amountBig, false],
         gas: gasEstimate,
       });
 
@@ -347,7 +347,7 @@ export function useOrderbookTrade(marketId: string) {
       } else {
         // V7: Check holdings for Sells
         // Note: strict check might fail if data is stale, but better than revert on-chain
-        const userShares = market ? (outcome === 0 ? market.userYesShares : market.userNoShares) : 0;
+        const userShares = market ? (outcome === 0 ? (market as any).userYesShares ?? 0 : (market as any).userNoShares ?? 0) : 0;
         if (Number(amount) > (userShares || 0)) {
           throw new Error(`Insufficient shares. Have ${userShares?.toFixed(2)}, trying to sell ${amount}`);
         }
