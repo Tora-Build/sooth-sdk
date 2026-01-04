@@ -144,6 +144,11 @@ export const ActivityListener: React.FC = () => {
   const chainId = useChainId();
   const { markets } = useLaunchpadMarkets();
 
+  // Disable on all testnet chains to reduce RPC load (they rate-limit heavily)
+  // Monad (10143), Arc (5042002), Base Sepolia (84532)
+  const isTestnetChain = chainId === 10143 || chainId === 5042002 || chainId === 84532;
+  const enabled = mode === 'real' && !isTestnetChain;
+
   // Build market list from LaunchpadFactory (Dynamic)
   const uniqueMarkets = useMemo(() => {
     const list: { address: `0x${string}`, name: string }[] = [];
@@ -188,7 +193,7 @@ export const ActivityListener: React.FC = () => {
         toast.success(description, { icon: '📥' });
       });
     },
-    enabled: mode === 'real',
+    enabled,
   });
 
   // Watch Vault Withdraws (Governor Vault)
@@ -212,7 +217,7 @@ export const ActivityListener: React.FC = () => {
         toast.success(description, { icon: '📤' });
       });
     },
-    enabled: mode === 'real',
+    enabled,
   });
 
   // Watch TradeExecuted on TraderVault (Aggregates all markets)
@@ -246,7 +251,7 @@ export const ActivityListener: React.FC = () => {
         toast.success(description, { icon: '🔄' });
       });
     },
-    enabled: mode === 'real' && !!traderVaultAddress,
+    enabled: enabled && !!traderVaultAddress,
   });
 
   // Watch OrderPlaced on TraderVault
@@ -288,7 +293,7 @@ export const ActivityListener: React.FC = () => {
         toast.success(description, { icon: '📝' });
       });
     },
-    enabled: mode === 'real' && !!traderVaultAddress,
+    enabled: enabled && !!traderVaultAddress,
   });
 
   // Watch OrderCancelled on TraderVault
@@ -319,7 +324,7 @@ export const ActivityListener: React.FC = () => {
         toast(description, { icon: '🚫' });
       });
     },
-    enabled: mode === 'real' && !!traderVaultAddress,
+    enabled: enabled && !!traderVaultAddress,
   });
 
   // Watch Locked events on TraderVault
@@ -343,7 +348,7 @@ export const ActivityListener: React.FC = () => {
         toast(description, { icon: '🔒' });
       });
     },
-    enabled: mode === 'real' && !!traderVaultAddress,
+    enabled: enabled && !!traderVaultAddress,
   });
 
   // Watch Claimed events on TraderVault
@@ -367,12 +372,12 @@ export const ActivityListener: React.FC = () => {
         toast.success(description, { icon: '💰' });
       });
     },
-    enabled: mode === 'real' && !!traderVaultAddress,
+    enabled: enabled && !!traderVaultAddress,
   });
 
   return (
     <>
-      {mode === 'real' && uniqueMarkets.map(market => (
+      {enabled && uniqueMarkets.map(market => (
         <LaunchpadMarketWatcher key={market.address} market={market} chainId={chainId} />
       ))}
     </>

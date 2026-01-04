@@ -41,8 +41,9 @@ export function ActivityListenerV8() {
   const ammEngine = contracts.AMMEngine as Address | undefined;
 
   const isMonad = chainId === 10143;
-  // Disable activity listener on Monad/Arc to avoid 400 Bad Request errors from excessive event polling
-  const enabled = mode === "real" && !!userAddress && !!chainId && !isMonad;
+  const isArc = chainId === 5042002;
+  // Disable activity listener on Monad/Arc to avoid 400 Bad Request errors from eth_newFilter unsupported
+  const enabled = mode === "real" && !!userAddress && !!chainId && !isMonad && !isArc;
 
   const userTopic = useMemo(() => userAddress as Address | undefined, [userAddress]);
 

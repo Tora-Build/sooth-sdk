@@ -119,3 +119,48 @@ export const tickLiquidity = onchainTable(
     marketOutcomeIdx: index().on(table.marketKey),
   })
 );
+
+/**
+ * Orders crossed - when a new order crosses existing liquidity
+ */
+export const orderCrossed = onchainTable(
+  "order_crossed",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    newOrderId: t.bigint().notNull(),
+    newOutcome: t.integer().notNull(),
+    crossedShares: t.bigint().notNull(),
+    newOrderCost: t.bigint().notNull(),
+    oppositeOrderCost: t.bigint().notNull(),
+    crossTick: t.integer().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    orderIdx: index().on(table.newOrderId),
+  })
+);
+
+/**
+ * Tick crossed events - when market orders consume liquidity at a tick
+ */
+export const tickCrossed = onchainTable(
+  "tick_crossed",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    tick: t.integer().notNull(),
+    liquidityDelta: t.bigint().notNull(), // Signed: positive = added, negative = removed
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+  })
+);

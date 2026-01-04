@@ -211,6 +211,7 @@ export const monadTestnet = defineChain({
 // Define Arc Testnet using viem
 // Docs: https://docs.arc.network/arc/references/connect-to-arc
 // Circle-backed chain with native USDC as gas token
+// Note: Arc RPC doesn't support eth_newFilter/eth_getFilterChanges - use polling
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
@@ -228,6 +229,8 @@ export const arcTestnet = defineChain({
     default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
   },
   testnet: true,
+  // Disable filter-based watching - use polling instead
+  contracts: {},
 });
 
 // EVM-only chains for wagmi
