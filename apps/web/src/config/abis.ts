@@ -9,8 +9,6 @@ import TickBookVaultABI from "./abis/TickBookVault.json";
 import TruthMarketABI from "./abis/TruthMarket.json";
 import OutcomeTokenABI from "./abis/OutcomeToken.json";
 import TickBookPoolManagerABI from "./abis/TickBookPoolManager.json";
-import TickBookPoolManagerV996ABI from "./abis/TickBookPoolManagerV996.json";
-import TickBookPoolManagerV10ABI from "./abis/TickBookPoolManagerV10.json";
 import TickBookVaultPoolManagerABI from "./abis/TickBookVaultPoolManager.json";
 import DynamicFeeHookABI from "./abis/DynamicFeeHook.json";
 import ITickBookHooksABI from "./abis/ITickBookHooks.json";
@@ -31,53 +29,11 @@ export const ABIS = {
   ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
 };
 
-// Legacy aliases for backward compatibility
-export const V8_ABIS = {
-  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
-  Collateralizer: (CollateralizerABI as any).abi as Abi,
-  AMMEngine: (AMMEngineABI as any).abi as Abi,
-  TickBook: (TickBookABI as any).abi as Abi,
-  TickBookVault: (TickBookVaultABI as any).abi as Abi,
-  TruthMarket: (TruthMarketABI as any).abi as Abi,
-  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
-};
 
-export const V9_ABIS = {
-  TickBookPoolManager: (TickBookPoolManagerABI as any).abi as Abi,
-  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
-  DynamicFeeHook: (DynamicFeeHookABI as any).abi as Abi,
-  ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
-  // Re-export unchanged contracts
-  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
-  Collateralizer: (CollateralizerABI as any).abi as Abi,
-  AMMEngine: (AMMEngineABI as any).abi as Abi,
-  TruthMarket: (TruthMarketABI as any).abi as Abi,
-  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
-};
 
-// V9.9.6 ABIs - Unified Order API (TickBookPoolManagerV996.json is raw array)
-export const V996_ABIS = {
-  TickBookPoolManager: TickBookPoolManagerV996ABI as Abi,
-  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
-  // Re-export unchanged contracts
-  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
-  Collateralizer: (CollateralizerABI as any).abi as Abi,
-  AMMEngine: (AMMEngineABI as any).abi as Abi,
-  TruthMarket: (TruthMarketABI as any).abi as Abi,
-  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
-};
+// Legacy V9/V996 removed in favor of canonical V10
 
-// V10 ABIs - Unified Crossing Architecture (spot-first + range)
-export const V10_ABIS = {
-  TickBookPoolManager: TickBookPoolManagerV10ABI as Abi,
-  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
-  // Re-export unchanged contracts
-  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
-  Collateralizer: (CollateralizerABI as any).abi as Abi,
-  AMMEngine: (AMMEngineABI as any).abi as Abi,
-  TruthMarket: (TruthMarketABI as any).abi as Abi,
-  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
-};
+
 
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([

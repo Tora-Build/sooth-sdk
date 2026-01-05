@@ -23,7 +23,7 @@ import { SettlementPanel } from '../components/features/SettlementPanel';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, ERC20_ABI } from '../config/abis';
+import { ABIS, ERC20_ABI } from '../config/abis';
 import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
 import marketsConfigRaw from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
@@ -347,7 +347,7 @@ export const Create = () => {
       const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
 
       const truthMarketAddr = await deployContract(config, {
-        abi: V8_ABIS.TruthMarket,
+        abi: ABIS.TruthMarket,
         bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
         args: [wizardData.question, BigInt(deadline), adjudicatorAddr, guardianAddr],
       });
@@ -361,7 +361,7 @@ export const Create = () => {
       const liquidityWei = BigInt(wizardData.liquidity) * 10n ** 18n;
       writeCreate({
         address: launchpadEngineAddress,
-        abi: V8_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
         args: [truthMarketAddr, liquidityWei, wizardData.question.slice(0, 50), wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '')],
       });
@@ -402,12 +402,12 @@ export const Create = () => {
     contracts: v8Markets.flatMap(m => [
       {
         address: m.contractAddress as `0x${string}`,
-        abi: V8_ABIS.TruthMarket,
+        abi: ABIS.TruthMarket,
         functionName: 'creator',
       },
       {
         address: m.contractAddress as `0x${string}`,
-        abi: V8_ABIS.TruthMarket,
+        abi: ABIS.TruthMarket,
         functionName: 'adjudicator',
       },
     ]),

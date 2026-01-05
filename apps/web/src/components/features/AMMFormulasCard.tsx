@@ -17,7 +17,7 @@ import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { formatUnits } from 'viem';
 import { useReadContract } from 'wagmi';
 import { useDeployments } from '../../hooks/useDeployments';
-import { V8_ABIS } from '../../config/abis';
+import { ABIS } from '../../config/abis';
 
 interface AMMFormulasCardProps {
   address: `0x${string}`;
@@ -33,7 +33,7 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
   // Get USDC Decimals
   const { data: usdcDecimals } = useReadContract({
     address: deployments?.contracts?.MockUSDC as `0x${string}`,
-    abi: V8_ABIS.OutcomeToken,
+    abi: ABIS.OutcomeToken,
     functionName: 'decimals',
     query: { enabled: !!deployments?.contracts?.MockUSDC, staleTime: Infinity, refetchInterval: false },
   });

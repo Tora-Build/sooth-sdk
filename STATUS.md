@@ -10,6 +10,7 @@
 - **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
 - **2026-01-05** — **Frontend Fixes**: Fixed hybrid sell (now splits spot + short correctly), fixed `calculateMaxCost` for range orders (uses correct bounds per outcome), removed failing publicnode RPC.
 - **2026-01-05** — **CLI Enhancements**: Added `claimspotsell`, `hybridsell` commands. Added spot/hybrid sell to simulate. Increased batch claim limit to 50.
+- **2026-01-05** — **Repo Hygiene**: Librarian cleanup executed. Enforced canonical filenames (`TickBookPoolManager.json`, `baseSepolia.json`). Removed versioned ABI keys, unified around `ABIS`.
 - **2026-01-05** — **V10 Audit & Cleanup**: Removed historical `TickBookPoolManagerV996.sol` and legacy V9 tests. Renamed CLI variables (`keyV996` → `keyV10`) for consistency.
 - **2026-01-05** — V10 Unified Crossing: Created `TickBookPoolManagerV10.sol` with dual-collateral architecture. Spot fills first, then range. See ADR-073.
 - **2026-01-05** — V9.9.8 Bug Fixes: Fixed `cancelSpotSell` double-credit vulnerability (proceeds zeroed before credit), indexer tick liquidity on cancel, MarketRegistered ABI mismatch.
@@ -69,7 +70,7 @@
 - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
 - `apps/web/src/hooks/usePlaceOrder.ts`
 - `apps/web/src/hooks/useOnChainMarkets.ts`
-- `apps/web/src/config/abis/TickBookPoolManagerV996.json`
+- `apps/web/src/config/abis/TickBookPoolManager.json`
 
 ---
 
@@ -90,29 +91,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.0.1
+### Base Sepolia (chainId: 84532) — V10.2.0
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager (V10)** | `0x62391e82b1ea1b93e2107dc2873627d6466c0ec0` |
-| **Collateralizer** | `0x86aee68ce1107e9e549a6ba3cb1e77d7a9084839` |
-| **AMMEngine** | `0xd16397ebdc46956f7e4fccb2e84b7f82457f4101` |
-| **TickBookVault** | `0x4cf56f234427c358cf21b64e3d3bbf4512e8f028` |
-| **LaunchpadEngine** | `0x82093ae9a10c2b37aa022bcf332750af50aacd6c` |
-| **MockUSDC** | `0x2082a7e45ae216656b13c834fcde2ac00a869055` |
+| **TickBookPoolManager** | `0xfb05e855195ab2e43eb497c55cbd7af9594f6443` |
+| **Collateralizer** | `0x1412234744d95f00167f71a0968a332b6c9c76dd` |
+| **AMMEngine** | `0x23784acd7adb0d2239876280da424800e838d821` |
+| **TickBookVault** | `0xdd3d4ba2a33b44830acbbfdf45672ba34e61d975` |
+| **LaunchpadEngine** | `0x4cf2d6080ee07a5f5fca895d516f67ff3c6d925b` |
+| **MockUSDC** | `0x5d0fcaa7ebdaa94189917e6f423281374bbebf34` |
 
-**Note:** V10.0.1 deployment (2026-01-05). **Pro-rata accumulator fix** — uses `oppTotalLiq` as denominator.
+**Note:** V10.2.0 deployment (2026-01-05). **Unified Crossing** via `_crossUnified()` with `tickLower - 1` fix for inclusive spot search.
 
-### Monad Testnet (chainId: 10143) — V10.0.1
+### Monad Testnet (chainId: 10143) — V10.2.0
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager (V10)** | `0x83fec84e171b71649f06103cdbe4af3fd2e49722` |
-| **Collateralizer** | `0xd8729aab3ec111877c013d04b77781f5a33c5246` |
-| **AMMEngine** | `0x03eb09e3ed8b2e0f959797f94ff023b384bd0434` |
-| **TickBookVault** | `0x171c806394ba71d4e0e142750b2c866f1e44f3b8` |
-| **LaunchpadEngine** | `0xa9250a287d5c8c106a4c6776ae2a55d6554f737d` |
-| **MockUSDC** | `0xbebab685d544fcb1b74757b8a533ce917de08c4a` |
+| **TickBookPoolManager** | `0x58188956b234417c5b5409b8d2e8262789ecde1b` |
+| **Collateralizer** | `0x95773cc178996726e3d407671f2c0f9f9b1a8ca1` |
+| **AMMEngine** | `0x9ebd94d5f093b8729205a8f832a094439a83f78f` |
+| **TickBookVault** | `0xad0d083c8077470c18b9a5211fe0782857521601` |
+| **LaunchpadEngine** | `0x5523f5ce8ffa2ef313c93ceb6c71943750a98fa2` |
+| **MockUSDC** | `0xf48e053f9bbd9d1e5a725b076b56fd5f76a8e7e0` |
 
-**Note:** V10.0.1 deployment (2026-01-05). **Pro-rata accumulator fix** — uses `oppTotalLiq` as denominator.
+**Note:** V10.2.0 deployment (2026-01-05). **Unified Crossing** via `_crossUnified()` with `tickLower - 1` fix for inclusive spot search.
 
 
 ---
@@ -124,7 +125,7 @@
 packages/contracts-core/
 ├── src/                 # Core contracts (audit scope)
 ├── script/              # 1_DeployCore, deploy-multichain, verify
-├── deployments/         # v9-baseSepolia.json, v9-monadTestnet.json
+├── deployments/         # baseSepolia.json, monadTestnet.json
 ├── abi/                 # Generated ABIs
 └── lib/                 # Dependencies
 ```

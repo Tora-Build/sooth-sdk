@@ -3,7 +3,7 @@ import { Card } from '../ui/Card';
 import { useDirectRead, readContractSafe, useLaunchpadMarketDirect } from '../../hooks';
 import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../hooks/useDeployments';
-import { ERC20_ABI, V8_ABIS } from '../../config/abis';
+import { ERC20_ABI, ABIS } from '../../config/abis';
 import { formatUnits } from 'viem';
 import { useReadContract } from 'wagmi';
 import { BarChart3 } from 'lucide-react';
@@ -43,7 +43,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
             const [[qYes, qNo, price], ammEngineUsdcBalance] = await Promise.all([
                 readContractSafe<readonly [bigint, bigint, bigint]>(client, {
                     address: ammEngineAddress!,
-                    abi: V8_ABIS.AMMEngine,
+                    abi: ABIS.AMMEngine,
                     functionName: 'getMarketState',
                     args: [marketAddress],
                 }),

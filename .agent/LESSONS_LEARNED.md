@@ -675,5 +675,67 @@ if (lowestSell > maxCrossableNoTick) return (0, 0, 0);
 
 ---
 
-*Last updated: 2026-01-02*
+*Last updated: 2026-01-05*
+
+
+---
+
+## 28. Duplicate Contract Files = Stale Deployment (2026-01-05)
+
+### ❌ Pattern: Two contract files with same purpose but different content
+- **Date:** 2026-01-05
+- **Bug:** Deployed contract had pro-rata bug despite source code showing the fix.
+- **Root Cause:** Codebase had TWO files:
+  - `TickBookPoolManager.sol` — had the pro-rata fix
+  - `TickBookPoolManagerV10.sol` — STALE copy WITHOUT the fix
+- **Deploy script used `TickBookPoolManagerV10`** → deployed the buggy version
+- **Symptom:** Fresh orders showed 99% filled immediately (accumulator overflow).
+- **Detection:** `cast call getOrder()` showed `filledShares ≈ sharesTotal` on brand new orders.
+
+### The Trap:
+```bash
+# Both files had the fix comment, but V10 had OLD denominator logic
+grep "V9.9.8-fix" TickBookPoolManager.sol     # ✓ found
+grep "V9.9.8-fix" TickBookPoolManagerV10.sol  # ✓ found (misleading!)
+
+# But actual logic differed:
+TickBookPoolManager.sol:     oppTotalLiq  ← CORRECT
+TickBookPoolManagerV10.sol:  oppLiqInOverlap ← WRONG (stale)
+```
+
+### Rule:
+- **NEVER** have two files for the same contract (e.g., `Foo.sol` and `FooV10.sol`)
+- If you must version, use Git tags/branches, not filename suffixes
+- After any contract change, verify deploy script references the CORRECT file:
+  ```bash
+  grep -r "deployContract.*TickBook" script/
+  ```
+- Before deployment, diff the file being deployed against expected source:
+  ```bash
+  forge inspect TickBookPoolManager bytecode | md5
+  ```
+
+### Fix Applied:
+1. Deleted `TickBookPoolManagerV10.sol`
+2. Updated deploy script: `'TickBookPoolManagerV10'` → `'TickBookPoolManager'`
+3. Regenerated ABI from single source
+
+---
+
+## Forbidden: Versioned Filenames (2026-01-05)
+
+### ❌ Pattern: `ContractV9.sol`, `MarketV10.ts`, `deploy-v9.json`
+- **Date:** 2026-01-05
+- **Problem:** Files named `TickBookPoolManagerV10.sol` or `v9-baseSepolia.json` create hard dependencies on specific versions.
+- **Issues:**
+  - **Refactor Friction:** upgrading logic requires renaming files and updating all imports.
+  - **Git History Split:** Renaming a file breaks `git blame` continuity often.
+  - **Ambiguity:** Is `AppV2.tsx` the current one? Or `AppV3.tsx`?
+- **Solution:** Use canonical names.
+  - `TickBookPoolManager.sol` (use Git tags/branches for versions)
+  - `deployments.json` (use `version` field inside JSON)
+- **Rule:** 
+  - **Canonical Names Only**: Always keep one current version of the file (e.g. `Market.ts`).
+  - **Single Source of Truth**: Do not maintain `FeatureV1.tsx` and `FeatureV2.tsx` concurrently in the active codebase. 
+  - **Archive Strategy**: If strict backward compatibility requires keeping old code, move it to a distinct `archive/` or `legacy/` directory. Otherwise, overwrite it and rely on Git history.
 

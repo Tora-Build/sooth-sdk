@@ -1,6 +1,6 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 
@@ -24,7 +24,7 @@ export function useAmmMarket(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: ammEngineAddress,
-                abi: V8_ABIS.AMMEngine,
+                abi: ABIS.AMMEngine,
                 functionName: "getMarketState",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -104,7 +104,7 @@ export function useAmmTradeCost(
         contracts: [
             {
                 address: ammEngineAddress,
-                abi: V8_ABIS.AMMEngine,
+                abi: ABIS.AMMEngine,
                 functionName: "getPositionQuote",
                 args: marketAddress && deltaShares !== 0n
                     ? [marketAddress, deltaShares]

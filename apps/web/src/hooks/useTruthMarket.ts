@@ -1,6 +1,6 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 
 /**
@@ -19,43 +19,43 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "isLive",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "isSettled",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "winningOutcome",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "deadline",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "creator",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "adjudicator",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "guardian",
                 chainId,
             },
@@ -71,7 +71,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "question",
                 chainId,
             },

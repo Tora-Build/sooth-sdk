@@ -1,5 +1,0 @@
-{
-  "artifactType": "ARTIFACT_TYPE_OTHER",
-  "summary": "Documentation of the client-side simulation logic used for the 'Demo Mode'. Includes algorithms for vAMM price impact, position bookkeeping, and LP exposure updates.",
-  "updatedAt": "2025-11-28T17:27:07.477218Z"
-}

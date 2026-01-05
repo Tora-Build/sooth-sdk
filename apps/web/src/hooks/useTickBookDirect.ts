@@ -1,7 +1,7 @@
 import { keccak256, encodeAbiParameters, parseAbiParameters, getAddress, type Address } from "viem";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS, V10_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 /**
@@ -34,7 +34,7 @@ export function useTickBookDirect(
         console.log(`[useTickBookDirect] Initializing for ${marketAddress}`);
 
         // Determine ABI based on chain
-        const poolManagerAbi = V10_ABIS.TickBookPoolManager;
+        const poolManagerAbi = ABIS.TickBookPoolManager;
 
         let yesToken = yesTokenInput;
         let noToken = noTokenInput;
@@ -45,7 +45,7 @@ export function useTickBookDirect(
           console.log(`[useTickBookDirect] Fetching tokens from Collateralizer at ${collateralizerAddress}`);
           const tokens = await readContractSafe<readonly [Address, Address]>(client, {
             address: collateralizerAddress!,
-            abi: V9_ABIS.Collateralizer,
+            abi: ABIS.Collateralizer,
             functionName: "getOutcomeTokens",
             args: [marketAddress!],
           });
@@ -121,7 +121,7 @@ export function useTickBookDirect(
         // V10: Ticks range 1-999, sample every 20 ticks for efficiency (50 samples total)
         const sampleTicks = async (outcome: number) => {
           const ticks: Array<{ tick: number; liquidity: bigint }> = [];
-          const step = 20; 
+          const step = 20;
 
           const ticksToSample = [];
           for (let tick = step; tick <= 990; tick += step) {
@@ -135,12 +135,15 @@ export function useTickBookDirect(
             const results = await Promise.all(
               batch.map(async (tick) => {
                 try {
-                  const liq = await readContractSafe<bigint>(client, {
+                  // getTickLiquidity returns [rangeLiquidityNet, rangeLiquidityGross, spotLiquidity]
+                  const result = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
                     address: poolManagerAddress!,
                     abi: poolManagerAbi,
-                    functionName: "getLiquidityAtTick",
+                    functionName: "getTickLiquidity",
                     args: [marketKey, outcome, tick],
                   });
+                  // Use rangeLiquidityGross (index 1) as the total liquidity at this tick
+                  const liq = result[1];
                   return { tick, liquidity: liq };
                 } catch {
                   return { tick, liquidity: 0n };
@@ -180,7 +183,7 @@ export function useTickBookDirect(
       } catch (err) {
         console.error(`[useTickBookDirect] CRITICAL FAILURE for ${marketAddress}:`, err);
         return {
-          marketKey: "0x0" as `0x${string}`,
+          marketKey: "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
           currentTick: 500,
           probability: 0.5,
           isActive: false,

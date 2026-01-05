@@ -1,6 +1,6 @@
 import { useAccount } from 'wagmi';
 import { useDirectRead, readContractSafe } from './useDirectRead';
-import { V9_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
 
@@ -22,7 +22,7 @@ export function useAMMPositionDirect(marketAddress?: `0x${string}`) {
       // getPosition returns (uint256 yesShares, uint256 noShares)
       const result = await readContractSafe<readonly [bigint, bigint]>(client, {
         address: ammEngineAddress!,
-        abi: V9_ABIS.AMMEngine,
+        abi: ABIS.AMMEngine,
         functionName: 'getPosition',
         args: [marketAddress, userAddress],
       });

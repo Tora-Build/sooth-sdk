@@ -27,7 +27,10 @@ You are acting as a **Full-Stack Developer** for Sooth Protocol with access to b
    - Use `apps/web/src/config/ui-content.json` for all UI text.
    - Run `npm run validate-config` to verify integrity.
    - **Never** hardcode strings in components.
-   - **Never** manually modify `deployments.json` without validation.
+6. **File Naming & Versioning**:
+   - **Canonical Names Only**: Use `Market.sol`, NOT `MarketV10.sol`.
+   - **Single Active Version**: Never keep `V1.ts` and `V2.ts` side-by-side. 
+   - **Archiving**: If you must keep old code, move it to `archive/` or `legacy/` folders, or trust Git history. Do not pollute the main source tree.
 
 ## Common Workflows
 

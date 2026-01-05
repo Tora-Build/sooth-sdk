@@ -842,7 +842,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
   // Unified order execution helper
   type OrderType = 'range' | 'limit' | 'market' | 'spotsell' | 'hybrid';
-  
+
   interface ExecuteOrderParams {
     orderType: OrderType;
     outcome: number;
@@ -850,7 +850,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     tickLower: number;
     tickUpper: number;
   }
-  
+
   interface ExecuteOrderResult {
     orderId: bigint;
     filledShares: bigint;
@@ -860,6 +860,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     actualType: OrderType; // May differ if fallback occurred
     spotAmount?: bigint;
     shortAmount?: bigint;
+    gasUsed: bigint;
   }
 
   // Cache market info for spot/hybrid sells
@@ -871,8 +872,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         abi: ABIS.TickBookPoolManager,
         functionName: 'getMarketInfo',
         args: [marketKey],
-      }) as [string, string, string];
-      cachedMarketInfo = { truthMarket };
+      }) as unknown as [string, string, string];
+      cachedMarketInfo = { truthMarket: truthMarket[0] };
     }
     return cachedMarketInfo;
   };
@@ -884,7 +885,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       address: vault,
       abi: ABIS.TickBookVault,
       functionName: 'getInternalOutcomes',
-      args: [market.truthMarket, address],
+      args: [market.truthMarket as `0x${string}`, address],
     }) as [bigint, bigint];
     return outcome === 1 ? yesShares : noShares;
   };
@@ -914,20 +915,23 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
             abi: ABIS.TickBookPoolManager,
             functionName: 'placeSpotSell',
             args: [marketKey, outcome, spotAmount, tickLower, tickUpper],
-            gas: 2000000n,
+            gas: 5000000n,
           });
-          await actorManager.waitForTransactionReceipt(spotHash);
+          const spotReceipt = await actorManager.waitForTransactionReceipt(spotHash);
+          let gasUsed = spotReceipt.gasUsed;
 
           // Place short sell for hybrid
+          let shortHash: `0x${string}` = '0x0';
           if (shortAmount > 0n) {
-            const shortHash = await walletClient.writeContract({
+            shortHash = await walletClient.writeContract({
               address: deployment.contracts.TickBookPoolManager as `0x${string}`,
               abi: ABIS.TickBookPoolManager,
               functionName: 'placeOrder',
               args: [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n],
-              gas: 2000000n,
+              gas: 5000000n,
             });
-            await actorManager.waitForTransactionReceipt(shortHash);
+            const shortReceipt = await actorManager.waitForTransactionReceipt(shortHash);
+            gasUsed += shortReceipt.gasUsed;
           }
 
           return {
@@ -935,10 +939,11 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
             filledShares: 0n,
             filledCost: 0n,
             restingShares: spotAmount + shortAmount,
-            txHash: spotHash,
+            txHash: shortAmount > 0n ? shortHash : spotHash,
             actualType: shortAmount > 0n ? 'hybrid' : 'spotsell',
             spotAmount,
             shortAmount,
+            gasUsed,
           };
         }
 
@@ -948,7 +953,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
           abi: ABIS.TickBookPoolManager,
           functionName: 'placeOrder' as const,
           args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const,
-          gas: 2000000n,
+          gas: 5000000n,
         };
 
         // Try simulation first
@@ -958,13 +963,13 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         } catch (simErr: any) {
           const simErrMsg = simErr?.message?.toLowerCase() || '';
           if (simErrMsg.includes('revert') || simErrMsg.includes('overflow') ||
-              simErrMsg.includes('underflow') || simErrMsg.includes('insufficient')) {
+            simErrMsg.includes('underflow') || simErrMsg.includes('insufficient')) {
             throw simErr;
           }
         }
 
         const txHash = await walletClient.writeContract(contractArgs);
-        await actorManager.waitForTransactionReceipt(txHash);
+        const receipt = await actorManager.waitForTransactionReceipt(txHash);
 
         const result = simResult?.result
           ? simResult.result as [bigint, bigint, bigint, bigint]
@@ -977,6 +982,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
           restingShares: result[3],
           txHash,
           actualType: orderType,
+          gasUsed: receipt.gasUsed,
         };
       } catch (err) {
         lastError = err as Error;
@@ -996,6 +1002,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   const debugFirstOrder = true;
   let consecutiveFailures = 0;
   const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures to save gas
+  let totalSimGas = 0n;
 
   for (let i = 0; i < numOrders; i++) {
     // Check for early stop
@@ -1078,37 +1085,38 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
     try {
       const result = await executeOrder({ orderType, outcome, shares, tickLower, tickUpper });
-      
+
       // Format output based on actual order type executed
-      const actualIndicator = result.actualType === 'market' ? 'MKT' : result.actualType === 'limit' ? 'LMT' 
+      const actualIndicator = result.actualType === 'market' ? 'MKT' : result.actualType === 'limit' ? 'LMT'
         : result.actualType === 'spotsell' ? 'SPOT' : result.actualType === 'hybrid' ? 'HYB' : 'RNG';
-      
+
       if (result.actualType === 'hybrid') {
         spinner.succeed(
-          `Order ${i + 1}: HYB ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] spot:${formatWad(result.spotAmount || 0n)} + short:${formatWad(result.shortAmount || 0n)}`
+          `Order ${i + 1}: HYB ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] spot:${formatWad(result.spotAmount || 0n)} + short:${formatWad(result.shortAmount || 0n)} ${dim(`(gas: ${result.gasUsed})`)}`
         );
       } else if (result.actualType === 'spotsell') {
         spinner.succeed(
-          `Order ${i + 1}: SPOT ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(result.spotAmount || shares)} shares`
+          `Order ${i + 1}: SPOT ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(result.spotAmount || shares)} shares ${dim(`(gas: ${result.gasUsed})`)}`
         );
       } else {
         spinner.succeed(
-          `Order ${i + 1}: ${actualIndicator} #${result.orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(result.filledShares)}, resting: ${formatWad(result.restingShares)})`
+          `Order ${i + 1}: ${actualIndicator} #${result.orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(result.filledShares)}, resting: ${formatWad(result.restingShares)}) ${dim(`(gas: ${result.gasUsed})`)}`
         );
       }
 
-      placedOrders.push({ 
-        orderId: result.orderId, 
-        outcome, 
-        tickLower, 
-        tickUpper, 
-        shares: result.spotAmount && result.shortAmount ? result.spotAmount + result.shortAmount : shares, 
-        filledShares: result.filledShares, 
-        filledCost: result.filledCost, 
-        restingShares: result.restingShares, 
-        txHash: result.txHash 
+      placedOrders.push({
+        orderId: result.orderId,
+        outcome,
+        tickLower,
+        tickUpper,
+        shares: result.spotAmount && result.shortAmount ? result.spotAmount + result.shortAmount : shares,
+        filledShares: result.filledShares,
+        filledCost: result.filledCost,
+        restingShares: result.restingShares,
+        txHash: result.txHash
       });
       consecutiveFailures = 0;
+      totalSimGas += result.gasUsed;
     } catch (err) {
       const errMsg = (err as Error).message;
       // Extract revert reason if present
@@ -1130,7 +1138,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         errLower.includes('underflow') ||
         errLower.includes('insufficient');
 
-      if (isContractError) {
+      if (isContractError || errLower.includes('out of gas')) {
         consecutiveFailures++;
         if (consecutiveFailures >= maxConsecutiveFailures) {
           console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive contract failures`));
@@ -1150,7 +1158,11 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   console.log('');
   console.log('  ' + '─'.repeat(50));
   console.log(`  ${bold('Simulation Complete')}`);
-  console.log(`  Limit orders placed: ${placedOrders.length}/${numOrders}`);
+  console.log(`  Orders placed: ${placedOrders.length}/${numOrders}`);
+  console.log(`  Total gas used: ${totalSimGas}`);
+  if (placedOrders.length > 0) {
+    console.log(`  Avg gas per order: ${totalSimGas / BigInt(placedOrders.length)}`);
+  }
   if (stopRequested) {
     console.log(`  ${warn('(stopped early by user)')}`);
   }

@@ -7,6 +7,10 @@ import { baseSepolia } from 'viem/chains';
 import type { Chain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env from monorepo root
 const envPaths = [
@@ -86,7 +90,7 @@ export const CHAINS: Record<string, ChainConfig> = {
   baseSepolia: {
     chain: baseSepolia,
     rpc: 'https://sepolia.base.org',
-    deploymentFile: 'v9-baseSepolia.json',
+    deploymentFile: 'baseSepolia.json',
     confirmations: 1,
     postTxWaitMs: 0,
     aliases: ['base', 'base-sepolia', 'basesepolia'],
@@ -94,7 +98,7 @@ export const CHAINS: Record<string, ChainConfig> = {
   monadTestnet: {
     chain: monadTestnet,
     rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
-    deploymentFile: 'v9-monadTestnet.json',
+    deploymentFile: 'monadTestnet.json',
     confirmations: 1,
     // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
     postTxWaitMs: 8000,
@@ -103,7 +107,7 @@ export const CHAINS: Record<string, ChainConfig> = {
   arcTestnet: {
     chain: arcTestnet,
     rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.quicknode.testnet.arc.network',
-    deploymentFile: 'v9-arcTestnet.json',
+    deploymentFile: 'arcTestnet.json',
     confirmations: 1,
     postTxWaitMs: 2000,
     aliases: ['arc', 'arc-testnet', 'arctestnet'],

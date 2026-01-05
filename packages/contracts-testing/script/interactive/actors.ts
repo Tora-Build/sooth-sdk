@@ -17,7 +17,11 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { shortAddress, error, success, info } from './utils';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export type ActorRole = 'maker' | 'taker' | 'arbitrageur' | 'keeper' | 'admin';
 

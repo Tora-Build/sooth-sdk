@@ -1,29 +1,28 @@
 # QA Report: Protocol V10 (Unified Crossing)
+**Date**: 2026-01-05
+**Status**: ✅ **PASSED & FIXED**
 
 ## Executive Summary
-**Result**: ✅ **SUCCESS / READY FOR PRODUCTION**
-The V10 architecture (`TickBookPoolManagerV10.sol`) successfully implements **Unified Liquidity Crossing**, resolving the "Fractured Liquidity" issue (Issue #997) found in V9. Regular `placeOrder` calls now automatically cross against both Spot Sell orders (prioritized) and Range Orders.
+The V10 codebase has been stabilized. A critical logic bug in Unified Crossing was identified via recovered regression tests and fixed. The full test suite (79 tests) is now passing.
 
-## Test Verification (`UnifiedCrossingV10.t.sol`)
-All V10-specific tests passed. Key scenarios verified:
+## 1. Unified Crossing Logic Fix
+- **Issue**: `placeOrder` failed to cross Spot Liquidity when no Range Liquidity existed.
+- **Root Cause**: `_hasSpotLiquidity` utilized `findNextUp(tickLower)`, which performs an *exclusive* search. For an order at `tick` crossing liquidity at `tick`, the liquidity was skipped.
+- **Fix**: Updated usage to `findNextUp(tickLower - 1)` (inclusive search).
+- **Verification**: `test_Unified_PlaceOrderCrossesSpotSell` (Repro) passed after fix.
 
-| Test Case | Result | Notes |
-|:---|:---|:---|
-| `test_UnifiedCrossing_SpotFilledFirst` | ✅ PASS | `placeOrder` consumed Spot Sell liquidity **before** touching Range Order liquidity. |
-| `test_UnifiedCrossing_RangeOnlyFill` | ✅ PASS | `placeOrder` fell back to Range Order liquidity when no Spot Sells existed. |
-| `test_UnifiedCrossing_MixedFill` | ✅ PASS | Large `placeOrder` correctly split between Spot Sells (partial fill) and Range Orders (remainder). |
-| `test_SpotSellUpdatesTickLiquidity` | ✅ PASS | Spot Sells correctly update the global tick bitmap and per-tick counters. |
+## 2. Test Suite Recovery
+The legacy V9 test suite was recovered and migrated to the V10 package structure:
+- **Hierarchy Restored**:
+  - `test/unit`: `TruthMarket.t.sol` etc.
+  - `test/integration`: `OrderSystem.t.sol` (Updated to V10), `SellSideFee.t.sol`.
+  - `test/repro`: `SpotSell.t.sol`.
+  - `test/invariants`: `ActiveLiquidity.t.sol`.
+- **Total Coverage**: 79 Tests Verified (All Passing).
 
-## Code Audit Findings (`TickBookPoolManagerV10.sol`)
-The `_crossUnified` function (Rule 16.1 compliance) was inspected and confirms the architectural intent:
+## 3. Alignment
+- **Contract**: `packages/contracts-core/src/TickBookPoolManager.sol` (V10).
+- **Docs**: `DECISIONS.md` updated to reflect V10 implementation. `CHANGELOG.md` updated.
 
-1.  **Phase 1 (Priority)**: Calls `_fillSpotLiquidity`. This recycles existing locked shares from users.
-2.  **Phase 2 (Fallback)**: Calls `_claimInternal` / mint logic for Range Orders using `remainingToFill`.
-3.  **Efficiency**: Uses efficient bitmaps (`_spotBitmaps`) to skip empty ticks, maintaining O(1) performance characteristics for the crossing loop.
-
-## Conclusion
-The V10 codebase is robust and addresses the critical liquidity fragmentation risks. The `TODO` comments in the test file were outdated relative to the actual implementation status; the features are fully implemented and working.
-
-## Artifacts
--   Test Suite: `packages/contracts-testing/test/v10/UnifiedCrossingV10.t.sol`
--   Core Logic: `packages/contracts-core/src/TickBookPoolManagerV10.sol` (lines 1029-1151)
+## Recommendations
+- **Deploy**: The codebase is ready for V10.0.2 deployment (containing the crossing fix).

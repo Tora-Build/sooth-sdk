@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -39,7 +39,7 @@ export function useOnChainMarkets() {
       // Get all market addresses
       const marketAddresses = await readContractSafe<readonly Address[]>(client, {
         address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: "getMarkets",
       });
 
@@ -74,7 +74,7 @@ export function useOnChainMarkets() {
                 ]
               >(client, {
                 address: launchpadEngineAddress!,
-                abi: V9_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: [marketAddress],
               });
@@ -151,7 +151,7 @@ export function useOnChainMarketCount() {
     read: async (client) => {
       const count = await readContractSafe<bigint>(client, {
         address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: "getMarketCount",
       });
       return Number(count);

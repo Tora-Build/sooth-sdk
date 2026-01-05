@@ -12,7 +12,7 @@ import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2 } from 'luci
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features/v8';
+import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features';
 import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';

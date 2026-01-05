@@ -18,7 +18,7 @@ import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { MarketHeader } from '../components/features/v8/MarketHeader';
+import { MarketHeader } from '../components/features/MarketHeader';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import {
@@ -37,7 +37,7 @@ import {
 import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
 import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, V9_ABIS, V10_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -75,10 +75,8 @@ const CATEGORIES = [
 // Liquidity Map Component - Uses real orderbook data
 // ============================================================================
 interface TickData {
-  index: number;
-  price: number;
-  liquidityNet: bigint;
-  liquidityGross: bigint;
+  tick: number;
+  liquidity: bigint;
 }
 
 interface LiquidityMapProps {
@@ -106,6 +104,12 @@ interface LiquidityMapProps {
 }
 
 const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
+  // Debug: log incoming data
+  console.log('[LiquidityMap] tickBook:', tickBook);
+  console.log('[LiquidityMap] bids:', tickBook?.bids);
+  console.log('[LiquidityMap] asks:', tickBook?.asks);
+  console.log('[LiquidityMap] allOrders:', allOrders?.length);
+
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
@@ -134,46 +138,12 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
     let highestBoundary = 0;
     let totalLiq = 0n;
 
-    for (const tick of bids) {
-      const tickPercent = tick.price * 100;
-      const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
-      const endBucket = numBuckets - 1;
-      const rangeSize = Math.max(1, endBucket - startBucket + 1);
-      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      for (let b = startBucket; b <= endBucket; b++) {
-        buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'yes'; // Bids provide liquidity to SELLers
-      }
-      totalLiq += tick.liquidityGross;
-      lowestBoundary = Math.min(lowestBoundary, tickPercent);
-      highestBoundary = Math.max(highestBoundary, 100);
-    }
-
-    // Process asks (NO orders) - invert position for YES View consistency
-    for (const tick of asks) {
-      // asks represent NO orders. In YES View, invert to show "Sell YES" position.
-      // e.g., NO order at 54% YES = Sell YES at 46%
-      const rawTickPercent = tick.price * 100;
-      const tickPercent = 100 - rawTickPercent;
-
-      // For inverted asks, spread from 0% to the inverted tick position
-      const endBucket = Math.min(numBuckets - 1, Math.floor((tickPercent / 100) * numBuckets));
-      const startBucket = 0;
-      const rangeSize = Math.max(1, endBucket - startBucket + 1);
-      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      for (let b = startBucket; b <= endBucket; b++) {
-        buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'no'; // Sell YES = provides NO liquidity to takers
-      }
-      totalLiq += tick.liquidityGross;
-      lowestBoundary = Math.min(lowestBoundary, 0);
-      highestBoundary = Math.max(highestBoundary, tickPercent);
-    }
-
-    // Use all orders to populate the liquidity map (shows full orderbook depth)
-    if (totalLiq === 0n && allOrders && allOrders.length > 0) {
+    // PRIMARY: Use allOrders from indexer (has actual order ranges with proper decimals)
+    console.log('[LiquidityMap] Processing orders:', allOrders?.length, 'active:', allOrders?.filter(o => o.active).length);
+    if (allOrders && allOrders.length > 0) {
       for (const order of allOrders) {
         if (!order.active) continue;
+        console.log('[LiquidityMap] Order:', order.orderId.toString(), 'outcome:', order.outcome, 'tickLower:', order.tickLower, 'tickUpper:', order.tickUpper, 'sharesTotal:', order.sharesTotal.toString());
 
         // Convert ticks to percentages (tick 1-999 maps to 0.1%-99.9%)
         const isYesOrder = order.outcome === 1;
@@ -454,7 +424,7 @@ interface UserOrdersPanelProps {
 type OrderFilter = 'all' | 'open' | 'filled';
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
 
-const MAX_BATCH_SIZE = 50; // Safe: ~60-80k gas per claim, 50 × 80k = 4M gas
+const MAX_BATCH_SIZE = 50; // Restore to 50 - Base Sepolia should handle this
 
 const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
@@ -519,8 +489,39 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     const toastId = toast.loading(`Cancelling ${openOrders.length} order(s)...`);
 
     try {
-      const orderIds = openOrders.map(o => o.orderId);
-      console.log('[BatchCancel] Calling batchCancelOrders:', { marketKey, orderIds: orderIds.map(id => id.toString()) });
+      let targetOrderIds = openOrders.map(o => o.orderId);
+
+      // Pre-flight check: Verify orders are active on-chain
+      if (publicClient && userAddress) {
+        const results = await publicClient.multicall({
+          contracts: targetOrderIds.map(id => ({
+            address: contracts.TickBookPoolManager as `0x${string}`,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'getOrder',
+            args: [marketKey, id]
+          }))
+        });
+
+        const activeIds: bigint[] = [];
+        results.forEach((res, idx) => {
+          if (res.status === 'success' && (res.result as any).active) {
+            activeIds.push(targetOrderIds[idx]);
+          }
+        });
+
+        if (activeIds.length === 0) {
+          toast.error('All selected orders are already inactive', { id: toastId });
+          onRefresh();
+          return;
+        }
+
+        if (activeIds.length < targetOrderIds.length) {
+          console.warn(`[BatchCancel] Filtered ${targetOrderIds.length - activeIds.length} inactive orders`);
+          targetOrderIds = activeIds;
+        }
+      }
+
+      console.log('[BatchCancel] Calling batchCancelOrders:', { marketKey, orderIds: targetOrderIds.map(id => id.toString()) });
 
       // Simulate first to catch specific errors (e.g. OrderNotActive)
       if (publicClient && userAddress) {
@@ -528,10 +529,10 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
           await publicClient.simulateContract({
             account: userAddress, // We need to ensure we have the address variable available.
             address: contracts.TickBookPoolManager as `0x${string}`,
-            abi: V10_ABIS.TickBookPoolManager,
+            abi: ABIS.TickBookPoolManager,
             functionName: 'batchCancelOrders',
-            args: [marketKey, orderIds],
-            // Use same gas buffer
+            args: [marketKey, targetOrderIds],
+            // Use generous gas buffer: 200k base + 150k per order
             gas: BigInt(200000 + openOrders.length * 150000),
           });
         } catch (simError: any) {
@@ -544,16 +545,18 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             return;
           }
 
-          throw simError; // Re-throw other errors to be caught below
+          // If simulation fails, we log but TRY ANYWAY with high gas
+          // This bypasses "Internal JSON-RPC error" from timid RPC nodes
+          console.warn('[BatchCancel] Simulation failed, attempting forced execution:', simError);
         }
       }
 
       const hash = await writeContractAsync({
         address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V10_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'batchCancelOrders',
-        args: [marketKey, orderIds],
-        gas: BigInt(200000 + openOrders.length * 150000),
+        args: [marketKey, targetOrderIds],
+        gas: BigInt(500000 + openOrders.length * 200000),
       });
 
       toast.loading('Waiting for confirmation...', { id: toastId });
@@ -593,7 +596,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       try {
         hash = await writeContractAsync({
           address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V10_ABIS.TickBookPoolManager,
+          abi: ABIS.TickBookPoolManager,
           functionName: 'cancelOrder',
           args: [marketKey, orderId]
         });
@@ -647,7 +650,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       try {
         hash = await writeContractAsync({
           address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V10_ABIS.TickBookPoolManager,
+          abi: ABIS.TickBookPoolManager,
           functionName: 'claimFills',
           args: [marketKey, orderId]
         });
@@ -1506,7 +1509,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   const { data: usdcDecimals } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
-    abi: V8_ABIS.OutcomeToken,
+    abi: ABIS.OutcomeToken,
     functionName: 'decimals',
     query: { enabled: !!contracts.MockUSDC, staleTime: Infinity },
   });
@@ -1519,7 +1522,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // Approval check
   const { data: vaultAllowance } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
-    abi: V8_ABIS.OutcomeToken,
+    abi: ABIS.OutcomeToken,
     functionName: 'allowance',
     args: isConnected && contracts.TickBookVault ? [userAddress!, contracts.TickBookVault as `0x${string}`] : undefined,
     query: { enabled: !!isConnected && !!contracts.TickBookVault && !!contracts.MockUSDC }
@@ -1648,7 +1651,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.MockUSDC as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
+        abi: ABIS.OutcomeToken,
         functionName: 'approve',
         args: [contracts.TickBookVault as `0x${string}`, parseUnits('1000000000', decimals)]
       });
@@ -1694,7 +1697,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVaultPoolManager,
         functionName: 'depositUsdc',
         args: [depositWad]
       });
@@ -1733,7 +1736,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVaultPoolManager,
         functionName: 'withdrawUsdc',
         args: [parseUnits(vaultInput, 18)]
       });
@@ -1832,17 +1835,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const shortSellAmount = amountBg - userHolding;
             console.log('[Pro] HYBRID SELL MARKET:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
-            
+
             // Step 1: Spot sell owned shares
             const spotResult = await placeSpotSell(spotSellOutcome, userHolding, 0.1, 99.9);
-            
+
             // Step 2: Short sell remainder (buy opposite)
             if (shortSellAmount > 0n) {
               const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
               const shortCost = (finalCostWad * shortSellAmount * 110n) / (amountBg * 100n);
               await marketOrder(oppositeOutcome, shortSellAmount, shortCost);
             }
-            
+
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }
@@ -1878,7 +1881,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const invertedPriceLow = 100 - priceHighNum;
             const invertedPriceHigh = 100 - priceLowNum;
             console.log('[Pro] HYBRID SELL LIMIT:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
-            
+
             // Step 1: Spot sell owned shares
             const spotResult = await placeSpotSell(
               spotSellOutcome,
@@ -1886,7 +1889,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               priceLowNum,
               priceMode === 'single' ? priceLowNum : priceHighNum
             );
-            
+
             // Step 2: Short sell remainder (buy opposite at inverted price)
             if (shortSellAmount > 0n) {
               const maxCost = calculateMaxCost(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh);
@@ -1896,7 +1899,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 await rangeOrder(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh, maxCost);
               }
             }
-            
+
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }

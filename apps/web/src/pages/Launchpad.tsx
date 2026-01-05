@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
-import { V8_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { ERC20_ABI } from '../config/abis';
 import { useDeployments } from '../hooks/useDeployments';
 import { Card } from '../components/ui/Card';
@@ -346,7 +346,7 @@ export const Launchpad = () => {
             toast.loading('Deploying Market Contract...', { id: toastId });
             const deadline = getDeadline();
             const deployHash = await deployContract(config, {
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
                 args: [
                     userAddress, // Owner (temp)
@@ -376,7 +376,7 @@ export const Launchpad = () => {
             localStorage.setItem(marketMetaKey, JSON.stringify(metadata));
 
             await writeContractAsync({
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 address: launchpadEngineAddress,
                 functionName: 'createMarket',
                 args: [

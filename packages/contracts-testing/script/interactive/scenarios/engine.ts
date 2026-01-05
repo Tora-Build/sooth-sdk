@@ -6,7 +6,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
+import { fileURLToPath } from 'url';
 import type { ActorManager } from '../actors';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import type { CommandContext, RecordedCommand, Scenario, ScenarioStep } from '../commands/types';
 import { success, error, info, dim, bold, warn, formatWad, parseWad } from '../utils';
 

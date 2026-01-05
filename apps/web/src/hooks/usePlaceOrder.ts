@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, decodeEventLog } from 'viem';
-import { V10_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
 import toast from 'react-hot-toast';
@@ -59,8 +59,24 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     tickUpper: number,
     maxCost: bigint
   ): Promise<PlaceOrderResult | null> => {
+    console.log('[usePlaceOrder] placeOrder called:', {
+      marketKey,
+      poolManagerAddress,
+      address,
+      outcome,
+      shares: shares.toString(),
+      tickLower,
+      tickUpper,
+      maxCost: maxCost.toString(),
+    });
+
     if (!marketKey || !poolManagerAddress || !address) {
-      toast.error('Missing market or wallet connection');
+      const missing = [];
+      if (!marketKey) missing.push('marketKey');
+      if (!poolManagerAddress) missing.push('poolManagerAddress');
+      if (!address) missing.push('wallet address');
+      toast.error(`Missing: ${missing.join(', ')}`);
+      console.error('[usePlaceOrder] Missing dependencies:', missing);
       return null;
     }
 
@@ -96,7 +112,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
-            abi: V10_ABIS.TickBookPoolManager,
+            abi: ABIS.TickBookPoolManager,
             functionName: 'placeOrder',
             args,
           });
@@ -108,7 +124,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V10_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
         gas: 5000000n, // Monad testnet requires high gas limit for matching logic
@@ -296,7 +312,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V10_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'placeSpotSell',
         args,
         chainId,
@@ -317,7 +333,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V10_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });
@@ -362,7 +378,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     try {
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V10_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'cancelSpotSell',
         args: [marketKey, sellId],
         chainId,
@@ -382,7 +398,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V10_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });
