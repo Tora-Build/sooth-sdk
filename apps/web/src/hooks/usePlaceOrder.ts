@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, decodeEventLog } from 'viem';
-import { V996_ABIS } from '../config/abis';
+import { V10_ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
 import toast from 'react-hot-toast';
@@ -96,7 +96,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
-            abi: V996_ABIS.TickBookPoolManager,
+            abi: V10_ABIS.TickBookPoolManager,
             functionName: 'placeOrder',
             args,
           });
@@ -108,9 +108,10 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: V10_ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
+        gas: 5000000n, // Monad testnet requires high gas limit for matching logic
       });
 
       toast.loading('Confirming...', { id: toastId });
@@ -221,22 +222,34 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
    * Calculate max cost for a limit order at given price
    */
   const calculateMaxCost = useMemo(() => {
-    return (outcome: 0 | 1, shares: bigint, priceCents: number, slippageBps = 100): bigint => {
-      // For YES at price P: cost = P * shares
-      // For NO at price P: cost = (1-P) * shares
-      const priceWad = parseUnits(String(priceCents / 100), 18);
+    /**
+     * Calculate max cost for range orders matching contract's _calculateCollateral logic.
+     * 
+     * Contract uses: 
+     *   - YES: pHigh * shares (uses tickUpper + 1)
+     *   - NO: (1 - pLow) * shares (uses tickLower - 1)
+     * 
+     * @param outcome 0=NO, 1=YES
+     * @param shares Amount of shares
+     * @param priceLowCents Lower tick price in cents (for NO collateral calculation)
+     * @param priceHighCents Upper tick price in cents (for YES collateral calculation)
+     * @param slippageBps Slippage buffer in basis points (default 500 = 5%)
+     */
+    return (outcome: 0 | 1, shares: bigint, priceLowCents: number, priceHighCents: number, slippageBps = 500): bigint => {
       const WAD = parseUnits('1', 18);
 
       let baseCost: bigint;
       if (outcome === 1) {
-        // YES: cost = price * shares
-        baseCost = (priceWad * shares) / WAD;
+        // YES: collateral based on upper bound (tickUpper + 1 tick ≈ priceHigh + 0.1%)
+        const pHighWad = parseUnits(String(Math.min((priceHighCents + 1) / 100, 1)), 18);
+        baseCost = (pHighWad * shares) / WAD;
       } else {
-        // NO: cost = (1 - price) * shares
-        baseCost = ((WAD - priceWad) * shares) / WAD;
+        // NO: collateral based on lower bound (tickLower - 1 tick ≈ priceLow - 0.1%)
+        const pLowWad = parseUnits(String(Math.max((priceLowCents - 1) / 100, 0)), 18);
+        baseCost = ((WAD - pLowWad) * shares) / WAD;
       }
 
-      // Add slippage buffer
+      // Add slippage buffer (default 5% to be safe)
       return (baseCost * (10000n + BigInt(slippageBps))) / 10000n;
     };
   }, []);
@@ -283,7 +296,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: V10_ABIS.TickBookPoolManager,
         functionName: 'placeSpotSell',
         args,
         chainId,
@@ -304,7 +317,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V996_ABIS.TickBookPoolManager,
+              abi: V10_ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });
@@ -349,7 +362,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     try {
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: V10_ABIS.TickBookPoolManager,
         functionName: 'cancelSpotSell',
         args: [marketKey, sellId],
         chainId,
@@ -369,7 +382,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V996_ABIS.TickBookPoolManager,
+              abi: V10_ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });

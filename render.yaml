@@ -1,0 +1,54 @@
+services:
+  # --------------------------------------------------------------------------------
+  # INDEXER SERVICE
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: sooth-indexer
+    runtime: node
+    plan: starter
+    region: singapore
+    repo: https://github.com/danieltang/sooth-alpha
+    branch: V10
+    # Root directory is blank to respect monorepo lockfile
+    rootDir: ""
+    # Pnpm filter to install root deps & codegen
+    buildCommand: pnpm install && pnpm --filter @sooth/indexer codegen
+    # Start command for the indexer
+    startCommand: pnpm --filter @sooth/indexer start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sooth-db
+          property: connectionString
+      - key: NODE_VERSION
+        value: 20
+      # You must add these manually in the dashboard or sync env groups:
+      # - BASE_SEPOLIA_RPC_URL
+      # - MONAD_TESTNET_RPC_URL
+
+  # --------------------------------------------------------------------------------
+  # FRONTEND (Static Site is better for Vite, but Web Service works too if you prefer)
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: sooth-alpha-web
+    runtime: node
+    plan: starter
+    region: singapore
+    repo: https://github.com/danieltang/sooth-alpha
+    branch: V10
+    rootDir: ""
+    buildCommand: pnpm install && pnpm --filter ./apps/web build
+    startCommand: npx serve -s apps/web/dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      # All VITE_ variables must be added manually
+
+databases:
+  - name: sooth-db
+    region: singapore
+    plan: starter
+    databaseName: ponder
+    user: ponder
+
+version: "1"

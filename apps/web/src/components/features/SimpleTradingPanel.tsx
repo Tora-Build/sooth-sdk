@@ -511,9 +511,35 @@ export const SimpleTradingPanel = ({
       // 3. Contract pulls ONLY needed remainder from wallet
       // 4. No need for manual 'depositAndTradeAMM'
       // Dynamic gas estimation based on this trade's graduation impact:
-      // - Normal trades: 600k gas
-      // - Trades predicted to trigger graduation: 1.5x gas to cover token deploy + TickBook registration
-      const gasLimit = quote.willGraduate ? 900000n : 600000n;
+      // - Normal trades: 2M gas (safe for Monad)
+      // - Trades predicted to trigger graduation: 5M gas to cover token deploy + TickBook registration
+      const gasLimit = quote.willGraduate ? 5000000n : 2000000n;
+
+      // Simulate first to catch specific revert reasons
+      if (publicClient) {
+        try {
+          console.log('[Trade] Simulating tradePositions...', {
+            address: contracts.LaunchpadEngine,
+            args: [address, selectedOutcome, deltaShares, limitCost]
+          });
+
+          await publicClient.simulateContract({
+            account: userAddress,
+            address: contracts.LaunchpadEngine as `0x${string}`,
+            abi: V9_ABIS.LaunchpadEngine,
+            functionName: 'tradePositions',
+            args: [address, selectedOutcome, deltaShares, limitCost],
+            // Use same gas limit for simulation to catch OOG
+            gas: gasLimit,
+          });
+          console.log('[Trade] Simulation successful');
+        } catch (simError: any) {
+          console.error('[Trade] Simulation failed:', simError);
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Unknown revert reason';
+          toast.error(`Simulation failed: ${reason}`);
+          return; // Abort trade
+        }
+      }
 
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,

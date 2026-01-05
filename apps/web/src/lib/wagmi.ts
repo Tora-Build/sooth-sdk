@@ -60,11 +60,8 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    // Base Sepolia: Official + PublicNode fallback with batching
-    [baseSepolia.id]: fallback([
-      http('https://sepolia.base.org', baseSepoliaHttpOptions),
-      http('https://base-sepolia-rpc.publicnode.com', baseSepoliaHttpOptions)
-    ]),
+    // Base Sepolia: Official RPC only (publicnode has QUIC protocol issues)
+    [baseSepolia.id]: http('https://sepolia.base.org', baseSepoliaHttpOptions),
     // Monad: Fallback with retry config - start with Ankr (higher limits)
     // then QuickNode, then Foundation
     [monadTestnet.id]: fallback(

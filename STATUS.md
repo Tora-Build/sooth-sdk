@@ -1,21 +1,23 @@
 # Project Status
 
 ## Current Focus
-- **V9.9.8 Ready** — Critical bug fixes applied to V9.9.7 spot sell, needs redeployment.
-- **Pro Page Order Management Fixed** — Order actions simplified (Cancel/Claim), fill tracking uses RPC-only.
-- **No Markets Yet** — Fresh deployment needs markets created via CLI or Launchpad.
+- **V10.0.1 DEPLOYED** — Pro-rata fill accumulator bug fixed and deployed to both testnets.
+- **Frontend Updated** — All deployment addresses synced for V10.0.1.
+- **Fresh Deployments** — Both testnets have new contract addresses; markets need to be created.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
+- **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
+- **2026-01-05** — **Frontend Fixes**: Fixed hybrid sell (now splits spot + short correctly), fixed `calculateMaxCost` for range orders (uses correct bounds per outcome), removed failing publicnode RPC.
+- **2026-01-05** — **CLI Enhancements**: Added `claimspotsell`, `hybridsell` commands. Added spot/hybrid sell to simulate. Increased batch claim limit to 50.
+- **2026-01-05** — **V10 Audit & Cleanup**: Removed historical `TickBookPoolManagerV996.sol` and legacy V9 tests. Renamed CLI variables (`keyV996` → `keyV10`) for consistency.
+- **2026-01-05** — V10 Unified Crossing: Created `TickBookPoolManagerV10.sol` with dual-collateral architecture. Spot fills first, then range. See ADR-073.
 - **2026-01-05** — V9.9.8 Bug Fixes: Fixed `cancelSpotSell` double-credit vulnerability (proceeds zeroed before credit), indexer tick liquidity on cancel, MarketRegistered ABI mismatch.
 - **2026-01-05** — V9.9.7 Spot Sell: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` to contract. Frontend Pro.tsx updated to use spot sell for users with existing shares.
 - **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract.
-- **2026-01-04** — Indexer Frontend Integration: Fixed conditional RPC fallback, added indexed orders for LiquidityMap, filtered inactive orders from API.
-- **2026-01-04** — RPC Optimization: Added HTTP batching to Base Sepolia transport, fixed 429 rate limiting.
-- **2026-01-04** — V9.9.6-fix9l Recovery: Restored correct TickBookPoolManager with unified `placeOrder()` API + `getAllMarketOrders()`. Redeployed to Base Sepolia.
 
 ## Pending/Blocked
-- **Redeploy V9.9.8** — Critical `cancelSpotSell` double-credit fix needs deployment to Base Sepolia and Monad Testnet.
-- **Create Test Markets** — Fresh deployment needs markets created via CLI or Launchpad.
+- **Create Test Markets** — Fresh V10.0.1 deployments need new markets created via CLI.
 - **Basescan Verification** — Contract verification on Base Sepolia.
 - **Test Suite Cleanup** — V9 tests reference removed `ILockCallback` interface (hook system removed in V9.9.4).
 - **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
@@ -88,29 +90,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.7
+### Base Sepolia (chainId: 84532) — V10.0.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x32c228f558eca71a1aab8663162b4b4bf87bdd1a` |
-| **Collateralizer** | `0x34542cddbfb9294e753f99e2417633f9c4c8a54d` |
-| **AMMEngine** | `0xd4311bb4febe5cbaf9d6fe75ce00c448e972f681` |
-| **TickBookVault** | `0xb4e467e35767f8efc3bff5117e1631b81beb204d` |
-| **LaunchpadEngine** | `0x0539fddb35529d6d8e81355e7fb278bf273595b5` |
-| **MockUSDC** | `0xd4832b4738e0b9ac4dc7b4e1f032a903e3051cbc` |
+| **TickBookPoolManager (V10)** | `0x62391e82b1ea1b93e2107dc2873627d6466c0ec0` |
+| **Collateralizer** | `0x86aee68ce1107e9e549a6ba3cb1e77d7a9084839` |
+| **AMMEngine** | `0xd16397ebdc46956f7e4fccb2e84b7f82457f4101` |
+| **TickBookVault** | `0x4cf56f234427c358cf21b64e3d3bbf4512e8f028` |
+| **LaunchpadEngine** | `0x82093ae9a10c2b37aa022bcf332750af50aacd6c` |
+| **MockUSDC** | `0x2082a7e45ae216656b13c834fcde2ac00a869055` |
 
-**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell (`placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell`), `batchCancelOrders`, unified `placeOrder()` API.
+**Note:** V10.0.1 deployment (2026-01-05). **Pro-rata accumulator fix** — uses `oppTotalLiq` as denominator.
 
-### Monad Testnet (chainId: 10143) — V9.9.7
+### Monad Testnet (chainId: 10143) — V10.0.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xc80c8b4c56a62614d9408b805b40580dd9420361` |
-| **Collateralizer** | `0xd7c843926622c59a3c85d35d6628caa369262778` |
-| **AMMEngine** | `0xb3c313e3973761cd5a7862db494492ecba38871e` |
-| **TickBookVault** | `0xea8438f6871a733e35de08b15015b404d6c8b234` |
-| **LaunchpadEngine** | `0x07073c1fe986b3321f811f450b9f19703b08feec` |
-| **MockUSDC** | `0x6427a20feb8289e325916bd60f5efd191ce3e7a1` |
+| **TickBookPoolManager (V10)** | `0x83fec84e171b71649f06103cdbe4af3fd2e49722` |
+| **Collateralizer** | `0xd8729aab3ec111877c013d04b77781f5a33c5246` |
+| **AMMEngine** | `0x03eb09e3ed8b2e0f959797f94ff023b384bd0434` |
+| **TickBookVault** | `0x171c806394ba71d4e0e142750b2c866f1e44f3b8` |
+| **LaunchpadEngine** | `0xa9250a287d5c8c106a4c6776ae2a55d6554f737d` |
+| **MockUSDC** | `0xbebab685d544fcb1b74757b8a533ce917de08c4a` |
 
-**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell + batchCancelOrders.
+**Note:** V10.0.1 deployment (2026-01-05). **Pro-rata accumulator fix** — uses `oppTotalLiq` as denominator.
 
 
 ---
@@ -130,7 +132,7 @@ packages/contracts-core/
 ### contracts-testing (Partner + QA)
 ```
 packages/contracts-testing/
-├── test/                # All V9 tests (138 passing)
+├── test/                # V10 tests only (legacy V9 removed)
 ├── script/
 │   ├── markets/         # Market creation & init scripts
 │   ├── deploy/          # Version-specific deploy scripts

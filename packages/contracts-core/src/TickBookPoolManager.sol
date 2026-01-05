@@ -1294,10 +1294,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             }
         }
 
-        // TOB-1 FIX: Use oppLiqInOverlap as denominator instead of oppTotalLiq
-        if (oppLiqInOverlap > 0) {
-            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppLiqInOverlap;
-            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppLiqInOverlap;
+        // V9.9.8-fix: Use oppTotalLiq as denominator for correct pro-rata distribution
+        // Using oppLiqInOverlap caused over-crediting when overlap was small subset of total liquidity
+        if (oppTotalLiq > 0) {
+            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppTotalLiq;
+            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
         }
 
         uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;

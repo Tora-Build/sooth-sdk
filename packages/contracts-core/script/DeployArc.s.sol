@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
-import {TickBookPoolManagerV996} from "../src/TickBookPoolManagerV996.sol";
+import {TickBookPoolManagerV10} from "../src/TickBookPoolManagerV10.sol";
 import {TickBookVault} from "../src/TickBookVault.sol";
 import {AMMEngine} from "../src/AMMEngine.sol";
 import {Collateralizer} from "../src/Collateralizer.sol";
@@ -48,9 +48,9 @@ contract DeployArc is Script {
         TickBookVault vault = new TickBookVault(address(mockUSDC), deployer);
         console.log("[4/6] TickBookVault:", address(vault));
 
-        // 5. Deploy TickBookPoolManager V9.9.6
-        TickBookPoolManagerV996 poolManager = new TickBookPoolManagerV996(address(vault));
-        console.log("[5/6] TickBookPoolManager (V9.9.6):", address(poolManager));
+        // 5. Deploy TickBookPoolManager V10
+        TickBookPoolManagerV10 poolManager = new TickBookPoolManagerV10(address(vault));
+        console.log("[5/6] TickBookPoolManager (V10):", address(poolManager));
 
         // Link vault to pool manager
         vault.setTickBook(address(poolManager));

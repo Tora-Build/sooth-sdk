@@ -221,7 +221,7 @@ export const ABIS = {
   ],
 
   TickBookPoolManager: [
-    // V9.9.6-fix9l Unified Order API
+    // V10 Unified Crossing Architecture (spot-first + range)
     {
       name: 'placeOrder', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
@@ -261,12 +261,13 @@ export const ABIS = {
           { name: 'outcome', type: 'uint8' },
           { name: 'tickLower', type: 'uint16' },
           { name: 'tickUpper', type: 'uint16' },
-          { name: 'sharesTotal', type: 'uint128' },
-          { name: 'filledShares', type: 'uint128' },
-          { name: 'collateralDepositedWad', type: 'uint256' },
-          { name: 'fillGrowthInsideLastX128', type: 'uint256' },
           { name: 'active', type: 'bool' },
           { name: 'liquidityRemoved', type: 'bool' },
+          { name: 'sharesTotal', type: 'uint128' },
+          { name: 'liquidity', type: 'uint128' },
+          { name: 'collateralDepositedWad', type: 'uint128' },
+          { name: 'filledShares', type: 'uint128' },
+          { name: 'collateralUsedWad', type: 'uint128' },
         ]
       }], stateMutability: 'view'
     },
@@ -276,9 +277,9 @@ export const ABIS = {
     },
     {
       name: 'getMarketInfo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }],
-      outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }], stateMutability: 'view'
+      outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'bool' }], stateMutability: 'view'
     },
-    // V9.9.7: Spot Sell
+    // V10: Spot Sell (unified crossing)
     {
       name: 'placeSpotSell', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
@@ -303,6 +304,12 @@ export const ABIS = {
       ], outputs: [{ type: 'uint256', name: 'cost' }], stateMutability: 'nonpayable'
     },
     {
+      name: 'claimSpotSellProceeds', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+      ], outputs: [{ type: 'uint256', name: 'proceeds' }], stateMutability: 'nonpayable'
+    },
+    {
       name: 'getUserSpotSells', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
         { type: 'address', name: 'user' },
@@ -325,12 +332,40 @@ export const ABIS = {
         ]
       }], stateMutability: 'view'
     },
-    // V9.9.7: Batch Cancel
+    {
+      name: 'getSpotSellLiquidity', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'uint16', name: 'tick' },
+      ], outputs: [{ type: 'uint128' }], stateMutability: 'view'
+    },
+    // V10: Unified tick liquidity view
+    {
+      name: 'getTickLiquidity', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'uint16', name: 'tick' },
+      ], outputs: [
+        { type: 'int128', name: 'rangeLiquidityNet' },
+        { type: 'uint128', name: 'rangeLiquidityGross' },
+        { type: 'uint128', name: 'spotLiquidity' },
+      ], stateMutability: 'view'
+    },
+    // Batch operations
     {
       name: 'batchCancelOrders', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
         { type: 'uint256[]', name: 'orderIds' },
       ], outputs: [{ type: 'uint256', name: 'totalCollateralReleased' }], stateMutability: 'nonpayable'
+    },
+    {
+      name: 'batchClaimFills', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256[]', name: 'orderIds' },
+      ], outputs: [
+        { type: 'uint256', name: 'totalFilledShares' },
+        { type: 'uint256', name: 'totalCollateralUsed' },
+      ], stateMutability: 'nonpayable'
     },
   ],
 
