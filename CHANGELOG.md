@@ -4,6 +4,49 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V9.9.8 Critical Bug Fixes (2026-01-05)
+- **CRITICAL: cancelSpotSell Double-Credit Fix**:
+  - **Bug**: User could claim proceeds twice by calling `cancelSpotSell()` then `claimSpotSellProceeds()` (proceeds not zeroed in cancel)
+  - **Fix**: Zero `order.proceedsWad` before crediting in `cancelSpotSell()`
+  - **Impact**: Security fix, requires redeployment
+- **Indexer: SpotSellCancelled Tick Liquidity Fix**:
+  - **Bug**: Subtracting `sharesReturned` instead of original `shares` left phantom liquidity for partially filled orders
+  - **Fix**: Always subtract `existingOrder.shares` on cancel
+- **ABI: MarketRegistered Mismatch Fix**:
+  - **Bug**: Contract has 4 fields (no hook), indexer ABI expected 5 (with hook)
+  - **Fix**: Removed `hook` field from indexer ABI, handler now sets `hook: null`
+- **Known Limitation: Fractured Liquidity** (ADR-072):
+  - Spot Sells are stored separately from Range Orders
+  - Standard `placeOrder()` does NOT cross against Spot Sells
+  - Buyers must explicitly call `buyFromSpotSell()` or frontend must route
+  - **Deferred to V10**: Unified crossing algorithm will integrate all liquidity types
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol`
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol`
+  - `packages/indexer/src/index.ts`
+  - `packages/indexer/src/abis/TickBookPoolManager.ts`
+
+### V9.9.7 Spot Sell Implementation (2026-01-05)
+- **Contract Changes** (`TickBookPoolManagerV996.sol`):
+  - Added `SpotSellOrder` struct for tracking sell orders (locked shares as collateral)
+  - Added `placeSpotSell(marketKey, outcome, shares, tickLower, tickUpper)` — Lock existing shares and place resting ask
+  - Added `cancelSpotSell(marketKey, sellId)` — Unlock shares back to seller
+  - Added `buyFromSpotSell(marketKey, sellId, shares, maxCost)` — Buyer fills against spot sell order
+  - Added `claimSpotSellProceeds(marketKey, sellId)` — Claim USDC proceeds from filled orders
+  - Added view functions: `getSpotSellOrder`, `getUserSpotSells`, `getSpotSellLiquidity`
+  - Added custom errors: `InsufficientShares`, `SpotSellNotActive`
+  - Added events: `SpotSellPlaced`, `SpotSellCancelled`, `SpotSellFilled`
+- **Frontend Changes**:
+  - Added `placeSpotSell` and `cancelSpotSell` to `usePlaceOrder` hook
+  - Updated `Pro.tsx` to use spot sell when user has existing shares to sell
+  - Removed "spot sell not supported" error messages
+- **ABI Updated**: `TickBookPoolManagerV996.json` regenerated with new functions
+- **How Spot Sell Works**:
+  - User with YES/NO tokens can place a limit sell order at their desired price
+  - Tokens are locked in the Vault (`lockOutcome`)
+  - When a buyer calls `buyFromSpotSell`, tokens transfer to buyer (`transferLockedOutcome`)
+  - Seller receives USDC proceeds immediately (`creditUsdcAvailable`)
+
 ### Pro Page Order Management (2026-01-04)
 - **Fill Tracking Fix**: `useOrdersIndexed` now always uses RPC (`useUserOrdersDirect`) — indexer cannot accurately track pending fills due to contract's global pro-rata accumulator system.
 - **Order Actions Simplified**:

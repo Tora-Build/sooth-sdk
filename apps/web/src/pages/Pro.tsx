@@ -1450,6 +1450,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     marketWithFloor,
     rangeOrder,
     limitOrder,
+    placeSpotSell,
+    cancelSpotSell,
     isPending: isOrderPending,
     calculateMaxCost,
   } = usePlaceOrder(tickBook?.marketKey as `0x${string}`);
@@ -1790,10 +1792,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         if (isMarketOrderType) {
           if (hasFullShares || hasPartialShares) {
-            // SPOT SELL MARKET - NOT SUPPORTED
-            toast.error('Spot sell not supported yet. Use AMM to sell existing tokens.');
-            setIsSubmitting(false);
-            return;
+            // SPOT SELL MARKET - Use full tick range (1-999)
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            console.log('[Pro] SPOT SELL MARKET:', { isYes, outcome: spotSellOutcome, shares: amountBg.toString() });
+            const spotResult = await placeSpotSell(spotSellOutcome, amountBg, 0.1, 99.9);
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
           } else {
             // SHORT SELL MARKET: Buy opposite outcome
             // Selling YES = Buying NO, Selling NO = Buying YES
@@ -1805,13 +1810,19 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           }
         } else {
           // LIMIT ORDERS for SELL
-          // NOTE: SPOT SELL is not yet supported in contract - only SHORT SELL works
           if (hasFullShares || hasPartialShares) {
-            // SPOT SELL - NOT SUPPORTED YET
-            // The contract doesn't have lockShares/sellOrder wired up
-            toast.error('Spot sell not supported yet. Use AMM to sell existing tokens, or short sell (place opposite order).');
-            setIsSubmitting(false);
-            return;
+            // SPOT SELL LIMIT - Lock shares and place resting ask
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            console.log('[Pro] SPOT SELL LIMIT:', { isYes, outcome: spotSellOutcome, priceLow: priceLowNum, priceHigh: priceHighNum });
+            const spotResult = await placeSpotSell(
+              spotSellOutcome,
+              amountBg,
+              priceLowNum,
+              priceMode === 'single' ? priceLowNum : priceHighNum
+            );
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
           } else {
             // SHORT SELL LIMIT: Buy opposite at inverted price
             // Selling YES @ 60% = Buying NO @ 40%

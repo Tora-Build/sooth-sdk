@@ -364,6 +364,203 @@ export async function getorder(ctx: CommandContext, args: string[]): Promise<Com
   }
 }
 
+// ============================================
+// V9.9.7: Spot Sell Commands
+// ============================================
+
+/**
+ * Place a spot sell order - sell existing shares
+ * Usage: spotsell <outcome> <tickRange> <shares>
+ * Example: spotsell yes 50-60 100
+ */
+export async function spotsell(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected. Use: setmarket <address>' };
+  }
+
+  if (args.length < 3) {
+    return { success: false, message: 'Usage: spotsell <outcome> <tickRange> <shares>\n  Example: spotsell yes 50-60 100' };
+  }
+
+  const outcome = parseOutcome(args[0]);
+  const { tickLower, tickUpper } = parseTickRange(args[1]);
+  const shares = parseWad(args[2]);
+
+  const spinner = new Spinner(`Placing spot sell ${formatOutcome(outcome)} at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares...`);
+  spinner.start();
+
+  try {
+    // placeSpotSell(marketKey, outcome, shares, tickLower, tickUpper)
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'placeSpotSell',
+      args: [marketKey, outcome, shares, tickLower, tickUpper],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+
+    spinner.succeed(`Placed spot sell ${formatOutcome(outcome)} at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Spot sell failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+/**
+ * Cancel a spot sell order
+ * Usage: cancelspotsell <sellId>
+ */
+export async function cancelspotsell(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  if (args.length < 1) {
+    return { success: false, message: 'Usage: cancelspotsell <sellId>' };
+  }
+
+  const sellId = BigInt(args[0]);
+
+  const spinner = new Spinner(`Cancelling spot sell #${sellId}...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'cancelSpotSell',
+      args: [marketKey, sellId],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+
+    spinner.succeed(`Cancelled spot sell #${sellId} ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Cancel failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+/**
+ * Buy from a spot sell order
+ * Usage: buyspotsell <sellId> <shares> [maxCost]
+ */
+export async function buyspotsell(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  if (args.length < 2) {
+    return { success: false, message: 'Usage: buyspotsell <sellId> <shares> [maxCost]' };
+  }
+
+  const sellId = BigInt(args[0]);
+  const shares = parseWad(args[1]);
+  const maxCost = args[2] ? parseWad(args[2]) : shares * 2n;
+
+  const spinner = new Spinner(`Buying ${formatWad(shares)} shares from spot sell #${sellId}...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'buyFromSpotSell',
+      args: [marketKey, sellId, shares, maxCost],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+
+    spinner.succeed(`Bought ${formatWad(shares)} shares from spot sell #${sellId} ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Buy failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+/**
+ * List user's spot sell orders
+ * Usage: spotsells
+ */
+export async function spotsells(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const publicClient = actorManager.getPublicClient();
+  const actor = actorManager.currentActor();
+
+  if (!actor) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  try {
+    const sellIds = await publicClient.readContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'getUserSpotSells',
+      args: [marketKey, actor.address],
+    }) as bigint[];
+
+    if (sellIds.length === 0) {
+      console.log(dim('  No spot sell orders found'));
+      return { success: true };
+    }
+
+    console.log(info(`\nSpot Sell Orders (${sellIds.length}):`));
+
+    for (const sellId of sellIds) {
+      const order = await publicClient.readContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'getSpotSellOrder',
+        args: [marketKey, sellId],
+      }) as any;
+
+      const fillPct = order.sharesTotal > 0n
+        ? Number((order.sharesFilled * 100n) / order.sharesTotal)
+        : 0;
+
+      console.log(`  #${sellId} ${formatOutcome(order.outcome)} ${formatTick(order.tickLower)}-${formatTick(order.tickUpper)} ` +
+        `${formatWad(order.sharesTotal)} shares (${fillPct}% filled) ` +
+        `${order.active ? success('ACTIVE') : dim('INACTIVE')}`);
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: `Failed to list spot sells: ${(err as Error).message}` };
+  }
+}
+
 export const orderbookCommands = {
   order,
   cancel,
@@ -371,4 +568,9 @@ export const orderbookCommands = {
   market,
   orders,
   getorder,
+  // V9.9.7: Spot Sell
+  spotsell,
+  cancelspotsell,
+  buyspotsell,
+  spotsells,
 };

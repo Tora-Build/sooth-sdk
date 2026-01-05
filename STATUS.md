@@ -1,27 +1,30 @@
 # Project Status
 
 ## Current Focus
-- **Pro Page Order Management Fixed** — Order actions simplified (Cancel/Claim), fill tracking uses RPC-only (indexer can't track accumulator-based pending fills).
-- **Batch Operations Ready** — `batchCancelOrders` added to contract (pending redeploy), `batchClaimFills` working.
-- **Spot Sell Disabled** — Contract lacks spot sell support; users directed to AMM for selling existing tokens.
+- **V9.9.8 Ready** — Critical bug fixes applied to V9.9.7 spot sell, needs redeployment.
+- **Pro Page Order Management Fixed** — Order actions simplified (Cancel/Claim), fill tracking uses RPC-only.
+- **No Markets Yet** — Fresh deployment needs markets created via CLI or Launchpad.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract, disabled spot sell.
+- **2026-01-05** — V9.9.8 Bug Fixes: Fixed `cancelSpotSell` double-credit vulnerability (proceeds zeroed before credit), indexer tick liquidity on cancel, MarketRegistered ABI mismatch.
+- **2026-01-05** — V9.9.7 Spot Sell: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` to contract. Frontend Pro.tsx updated to use spot sell for users with existing shares.
+- **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract.
 - **2026-01-04** — Indexer Frontend Integration: Fixed conditional RPC fallback, added indexed orders for LiquidityMap, filtered inactive orders from API.
 - **2026-01-04** — RPC Optimization: Added HTTP batching to Base Sepolia transport, fixed 429 rate limiting.
 - **2026-01-04** — V9.9.6-fix9l Recovery: Restored correct TickBookPoolManager with unified `placeOrder()` API + `getAllMarketOrders()`. Redeployed to Base Sepolia.
-- **2026-01-04** — Ponder Indexer: Full indexer setup with per-chain readiness, REST API endpoints for orders/orderbook/trades.
 
 ## Pending/Blocked
-- **Contract Redeploy** — V9.9.6 with `batchCancelOrders` needs deployment to Base Sepolia.
-- **Spot Sell Implementation** — Wire up Vault's `lockShares`/`transferLockedShares` in PoolManager.
-- **Basescan Verification** — Contract verification for V9.9.6-fix9 series on Base Sepolia.
-- **Monad/Arc Liquidity** — Creating fresh test markets on new deployments.
+- **Redeploy V9.9.8** — Critical `cancelSpotSell` double-credit fix needs deployment to Base Sepolia and Monad Testnet.
+- **Create Test Markets** — Fresh deployment needs markets created via CLI or Launchpad.
+- **Basescan Verification** — Contract verification on Base Sepolia.
+- **Test Suite Cleanup** — V9 tests reference removed `ILockCallback` interface (hook system removed in V9.9.4).
+- **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
 
 ## Known Issues
 - ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
+- **⚠️ Fractured Liquidity (V9.9.8)** — Spot Sells are NOT crossed by standard `placeOrder()`. Buyers must explicitly call `buyFromSpotSell()`. Frontend routing required. See ADR-072. **Fix planned: V10 unified crossing.**
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -85,29 +88,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.6-fix9l
+### Base Sepolia (chainId: 84532) — V9.9.7
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060` |
-| **Collateralizer** | `0xE1976fDF7fDe2a2F933a7860326Ed12121358e79` |
-| **AMMEngine** | `0xf50A729Df4078812edffe9355b73ABF916973629` |
-| **TickBookVault** | `0x6109B9C9FdD88842da3b49E7cb3DE04F21E083dc` |
-| **LaunchpadEngine** | `0x3530A1e0519E6e81b5a41074bf253E56757fefF6` |
-| **MockUSDC** | `0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3` |
+| **TickBookPoolManager** | `0x32c228f558eca71a1aab8663162b4b4bf87bdd1a` |
+| **Collateralizer** | `0x34542cddbfb9294e753f99e2417633f9c4c8a54d` |
+| **AMMEngine** | `0xd4311bb4febe5cbaf9d6fe75ce00c448e972f681` |
+| **TickBookVault** | `0xb4e467e35767f8efc3bff5117e1631b81beb204d` |
+| **LaunchpadEngine** | `0x0539fddb35529d6d8e81355e7fb278bf273595b5` |
+| **MockUSDC** | `0xd4832b4738e0b9ac4dc7b4e1f032a903e3051cbc` |
 
-**Note:** V9.9.6-fix9l deployment (2026-01-04). Includes `getAllMarketOrders()`, unified `placeOrder()` API, auto-claim, stress-tested.
+**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell (`placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell`), `batchCancelOrders`, unified `placeOrder()` API.
 
-### Monad Testnet (chainId: 10143) — V9.9.6-fix9d
+### Monad Testnet (chainId: 10143) — V9.9.7
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xd4ff5b639b05c581a93d3e925656f58c269440f4` |
-| **Collateralizer** | `0x8850a38d4ff466e8bdd3de1825694b81df5c2b53` |
-| **AMMEngine** | `0x54b51215d6e70def99c68f84e11f9b6245d92b15` |
-| **TickBookVault** | `0xa31fd66ad0c593364bb579bfeb1bb61b73e56de3` |
-| **LaunchpadEngine** | `0x044dfcbf8b16fee5e8b4f39bf3c26adff1ae6159` |
-| **MockUSDC** | `0x7192f46FA78e7d1b5BB6BA687D15d0b6A0802dA3` |
+| **TickBookPoolManager** | `0xc80c8b4c56a62614d9408b805b40580dd9420361` |
+| **Collateralizer** | `0xd7c843926622c59a3c85d35d6628caa369262778` |
+| **AMMEngine** | `0xb3c313e3973761cd5a7862db494492ecba38871e` |
+| **TickBookVault** | `0xea8438f6871a733e35de08b15015b404d6c8b234` |
+| **LaunchpadEngine** | `0x07073c1fe986b3321f811f450b9f19703b08feec` |
+| **MockUSDC** | `0x6427a20feb8289e325916bd60f5efd191ce3e7a1` |
 
-**Note:** Fresh fix9d deployment. No markets created yet.
+**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell + batchCancelOrders.
 
 
 ---

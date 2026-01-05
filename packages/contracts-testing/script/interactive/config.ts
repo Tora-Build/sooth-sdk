@@ -278,6 +278,60 @@ export const ABIS = {
       name: 'getMarketInfo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }],
       outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }], stateMutability: 'view'
     },
+    // V9.9.7: Spot Sell
+    {
+      name: 'placeSpotSell', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'uint256', name: 'shares' },
+        { type: 'uint16', name: 'tickLower' },
+        { type: 'uint16', name: 'tickUpper' },
+      ], outputs: [{ type: 'uint256', name: 'sellId' }], stateMutability: 'nonpayable'
+    },
+    {
+      name: 'cancelSpotSell', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+      ], outputs: [{ type: 'uint256', name: 'sharesReturned' }], stateMutability: 'nonpayable'
+    },
+    {
+      name: 'buyFromSpotSell', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+        { type: 'uint256', name: 'shares' },
+        { type: 'uint256', name: 'maxCost' },
+      ], outputs: [{ type: 'uint256', name: 'cost' }], stateMutability: 'nonpayable'
+    },
+    {
+      name: 'getUserSpotSells', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'address', name: 'user' },
+      ], outputs: [{ type: 'uint256[]' }], stateMutability: 'view'
+    },
+    {
+      name: 'getSpotSellOrder', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+      ], outputs: [{
+        type: 'tuple', components: [
+          { name: 'owner', type: 'address' },
+          { name: 'outcome', type: 'uint8' },
+          { name: 'tickLower', type: 'uint16' },
+          { name: 'tickUpper', type: 'uint16' },
+          { name: 'active', type: 'bool' },
+          { name: 'sharesTotal', type: 'uint128' },
+          { name: 'sharesFilled', type: 'uint128' },
+          { name: 'proceedsWad', type: 'uint128' },
+        ]
+      }], stateMutability: 'view'
+    },
+    // V9.9.7: Batch Cancel
+    {
+      name: 'batchCancelOrders', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256[]', name: 'orderIds' },
+      ], outputs: [{ type: 'uint256', name: 'totalCollateralReleased' }], stateMutability: 'nonpayable'
+    },
   ],
 
   LaunchpadEngine: [

@@ -181,4 +181,77 @@ app.get("/markets/:chainId", async (c) => {
   return c.json(serializeBigInts(markets));
 });
 
+// ============================================
+// V9.9.7: Spot Sell API Endpoints
+// ============================================
+
+/**
+ * Get active spot sell orders for a market
+ * GET /spotsells/:chainId/:marketKey
+ */
+app.get("/spotsells/:chainId/:marketKey", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+
+  const orders = await db
+    .select()
+    .from(schema.spotSellOrder)
+    .where(
+      and(
+        eq(schema.spotSellOrder.chainId, chainId),
+        eq(schema.spotSellOrder.marketKey, marketKey),
+        eq(schema.spotSellOrder.status, "active")
+      )
+    )
+    .orderBy(desc(schema.spotSellOrder.createdAt));
+
+  return c.json(serializeBigInts(orders));
+});
+
+/**
+ * Get spot sell orders for a specific user in a market
+ * GET /spotsells/:chainId/:marketKey/:owner
+ */
+app.get("/spotsells/:chainId/:marketKey/:owner", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+  const owner = c.req.param("owner").toLowerCase() as `0x${string}`;
+
+  const orders = await db
+    .select()
+    .from(schema.spotSellOrder)
+    .where(
+      and(
+        eq(schema.spotSellOrder.chainId, chainId),
+        eq(schema.spotSellOrder.marketKey, marketKey),
+        eq(schema.spotSellOrder.owner, owner)
+      )
+    )
+    .orderBy(desc(schema.spotSellOrder.createdAt));
+
+  return c.json(serializeBigInts(orders));
+});
+
+/**
+ * Get fill history for a spot sell order
+ * GET /spotsell-fills/:chainId/:sellId
+ */
+app.get("/spotsell-fills/:chainId/:sellId", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const sellIdParam = BigInt(c.req.param("sellId"));
+
+  const fills = await db
+    .select()
+    .from(schema.spotSellFill)
+    .where(
+      and(
+        eq(schema.spotSellFill.chainId, chainId),
+        eq(schema.spotSellFill.sellId, sellIdParam)
+      )
+    )
+    .orderBy(desc(schema.spotSellFill.timestamp));
+
+  return c.json(serializeBigInts(fills));
+});
+
 export default app;

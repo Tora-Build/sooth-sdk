@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
-import { parseUnits, formatUnits } from 'viem';
+import { parseUnits, formatUnits, decodeEventLog } from 'viem';
 import { V996_ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
@@ -241,6 +241,162 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     };
   }, []);
 
+  // ============================================
+  // V9.9.7: Spot Sell Functions
+  // ============================================
+
+  /**
+   * Place a spot sell order - sell shares you already own
+   * Locks your internal shares and places a resting ask
+   *
+   * @param outcome Which token to sell (0=NO, 1=YES)
+   * @param shares Amount of shares to sell
+   * @param priceLowCents Minimum ask price in cents
+   * @param priceHighCents Maximum ask price in cents
+   */
+  const placeSpotSell = useCallback(async (
+    outcome: 0 | 1,
+    shares: bigint,
+    priceLowCents: number,
+    priceHighCents: number
+  ): Promise<{ sellId: bigint; txHash: `0x${string}` } | null> => {
+    if (!marketKey || !poolManagerAddress || !address) {
+      toast.error('Missing market or wallet connection');
+      return null;
+    }
+
+    setIsPending(true);
+    const toastId = toast.loading('Placing spot sell order...');
+
+    try {
+      const tickLower = Math.round(priceLowCents * 10);
+      const tickUpper = Math.round(priceHighCents * 10);
+
+      if (tickLower < MIN_TICK || tickUpper > MAX_TICK) {
+        throw new Error(`Invalid tick range: must be ${MIN_TICK}-${MAX_TICK}`);
+      }
+      if (tickLower > tickUpper) {
+        throw new Error('priceLow cannot exceed priceHigh');
+      }
+
+      const args = [marketKey, outcome, shares, tickLower, tickUpper] as const;
+
+      const hash = await writeContractAsync({
+        address: poolManagerAddress,
+        abi: V996_ABIS.TickBookPoolManager,
+        functionName: 'placeSpotSell',
+        args,
+        chainId,
+      });
+
+      toast.loading('Waiting for confirmation...', { id: toastId });
+
+      let sellId = 0n;
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted', { id: toastId });
+          return null;
+        }
+
+        // Parse SpotSellPlaced event to get sellId
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
+          try {
+            const decoded = decodeEventLog({
+              abi: V996_ABIS.TickBookPoolManager,
+              data: log.data,
+              topics: log.topics,
+            });
+
+            if (decoded.eventName === 'SpotSellPlaced') {
+              const args = decoded.args as unknown as { sellId: bigint };
+              sellId = args.sellId;
+              break;
+            }
+          } catch {
+            // Ignore non-matching logs
+          }
+        }
+      }
+
+      toast.success(`Spot sell order placed!`, { id: toastId, duration: 5000 });
+      return { sellId, txHash: hash };
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Spot sell failed';
+      toast.error(msg, { id: toastId });
+      console.error('[placeSpotSell] Error:', e);
+      return null;
+    } finally {
+      setIsPending(false);
+    }
+  }, [marketKey, poolManagerAddress, address, writeContractAsync, publicClient, chainId]);
+
+  /**
+   * Cancel a spot sell order
+   */
+  const cancelSpotSell = useCallback(async (
+    sellId: bigint
+  ): Promise<{ sharesReturned: bigint; txHash: `0x${string}` } | null> => {
+    if (!marketKey || !poolManagerAddress || !address) {
+      toast.error('Missing market or wallet connection');
+      return null;
+    }
+
+    setIsPending(true);
+    const toastId = toast.loading('Cancelling spot sell...');
+
+    try {
+      const hash = await writeContractAsync({
+        address: poolManagerAddress,
+        abi: V996_ABIS.TickBookPoolManager,
+        functionName: 'cancelSpotSell',
+        args: [marketKey, sellId],
+        chainId,
+      });
+
+      toast.loading('Waiting for confirmation...', { id: toastId });
+
+      let sharesReturned = 0n;
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted', { id: toastId });
+          return null;
+        }
+
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
+          try {
+            const decoded = decodeEventLog({
+              abi: V996_ABIS.TickBookPoolManager,
+              data: log.data,
+              topics: log.topics,
+            });
+
+            if (decoded.eventName === 'SpotSellCancelled') {
+              const args = decoded.args as unknown as { sharesReturned: bigint };
+              sharesReturned = args.sharesReturned;
+              break;
+            }
+          } catch {
+            // Ignore non-matching logs
+          }
+        }
+      }
+
+      toast.success(`Spot sell cancelled!`, { id: toastId, duration: 5000 });
+      return { sharesReturned, txHash: hash };
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Cancel failed';
+      toast.error(msg, { id: toastId });
+      console.error('[cancelSpotSell] Error:', e);
+      return null;
+    } finally {
+      setIsPending(false);
+    }
+  }, [marketKey, poolManagerAddress, address, writeContractAsync, publicClient, chainId]);
+
   return {
     // Core function
     placeOrder,
@@ -250,6 +406,10 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     limitOrder,
     rangeOrder,
     marketWithFloor,
+
+    // V9.9.7: Spot Sell
+    placeSpotSell,
+    cancelSpotSell,
 
     // Utilities
     calculateMaxCost,
