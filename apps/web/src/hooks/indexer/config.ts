@@ -78,8 +78,8 @@ export async function checkChainReady(chainId: number): Promise<boolean> {
     // We consider it "ready" if it has indexed at least 1000 blocks past start
     const chainStatus = status[chainName];
     const startBlocks: Record<number, number> = {
-      84532: 35_877_100,
-      10143: 3_989_818,
+      84532: 35_900_000,  // V9.9.7 deployment 2026-01-05
+      10143: 3_989_818,   // V9.9.7 deployment 2026-01-05
       5042002: 19_000_000,
     };
     

@@ -1,5 +1,164 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-073: V10 Unified Crossing with Dual-Collateral Architecture
+- **Date**: 2026-01-05
+- **Status**: Proposed (V10 Scope)
+- **Context**:
+  - V9.9.7/V9.9.8 has fractured liquidity: Range Orders (USDC-backed) and Spot Sells (token-backed) use separate storage and crossing logic.
+  - Standard `placeOrder()` only crosses against Range Orders, ignoring potentially cheaper Spot Sell liquidity.
+  - This is documented as a known limitation (ADR-072) with frontend routing as mitigation.
+  - For V10, we need unified crossing that treats all liquidity sources as a single orderbook.
+- **Decision**:
+  1. **Unified TickLiquidity structure**: Each tick stores both range and spot liquidity.
+     ```solidity
+     struct TickLiquidity {
+         int128 rangeLiquidityNet;
+         uint128 rangeLiquidityGross;
+         uint128 spotLiquidity;  // NEW: outcome-token-backed shares
+     }
+     ```
+  2. **Combined bitmap**: OR of (ticks with range liquidity) and (ticks with spot liquidity) for efficient traversal.
+  3. **Single `_crossUnified()` function**: Replaces current `_tryCross()`, consumes both sources per tick.
+  4. **Fill priority**: Spot first, then range — recycles existing tokens before minting synthetic exposure.
+  5. **Settlement branching**: After determining fill source, branch to appropriate vault operations:
+     - Spot: `transferLockedOutcome()` to buyer, `creditUsdcAvailable()` to seller
+     - Range: Update growth accumulators, mint synthetic positions
+  6. **Spot fill attribution**: Two options evaluated:
+     - **Per-tick order queue**: `spotSellIdsAtTick[marketKey][outcome][tick][]` — simpler but gas-heavy
+     - **Spot growth accumulator**: `_spotFillGrowthGlobalX128` — matches range pattern, more complex math
+     - Decision: TBD based on gas benchmarks during V10 development.
+- **Rationale**:
+  - **Single canonical orderbook**: Any taker gets best available price from all liquidity.
+  - **Cleaner integration**: Integrators don't need to know about dual liquidity systems.
+  - **Better capital efficiency**: Natural sellers (token holders) compete directly with market makers.
+  - **Unified price discovery**: `activeLiquidity` and tick traversal reflect true market depth.
+- **Consequences**:
+  - **Major refactor**: Tick data structures, bitmap logic, and crossing algorithm all change.
+  - **Audit required**: Matching and settlement logic modifications need fresh security review.
+  - **Migration**: Existing orders on V9.9.x deployments won't migrate; fresh V10 deployment required.
+  - **Gas impact**: Per-tick iteration may increase if both sources have liquidity; needs benchmarking.
+- **Architecture Diagram**:
+  ```
+  ┌─────────────────────────────────────────────────┐
+  │              TickLiquidity (per tick)           │
+  ├─────────────────────────────────────────────────┤
+  │  rangeLiquidityNet: int128   (range orders)     │
+  │  rangeLiquidityGross: uint128                   │
+  │  spotLiquidity: uint128      (spot sells)       │
+  └─────────────────────────────────────────────────┘
+                        │
+                        ▼
+  ┌─────────────────────────────────────────────────┐
+  │            _crossUnified()                       │
+  ├─────────────────────────────────────────────────┤
+  │ 1. Traverse ticks via combined bitmap           │
+  │ 2. At each tick T:                              │
+  │    spotAvail = tick.spotLiquidity               │
+  │    rangeAvail = f(tick.rangeLiquidityGross)     │
+  │ 3. Fill spot FIRST (recycle existing tokens)    │
+  │ 4. Then fill range (mint synthetic)             │
+  │ 5. Branch settlement by source type             │
+  │ 6. Update growth accumulators                   │
+  └─────────────────────────────────────────────────┘
+  ```
+- **Alternative Considered**: Router contract that orchestrates `buyFromSpotSell()` + `placeOrder()` calls.
+  - Pros: No core contract changes, ships fast
+  - Cons: Fragmented for direct on-chain callers, extra gas for multi-call
+  - Decision: Router is V9.9.8 mitigation; V10 should have native unified crossing.
+- **Files Affected (V10)**:
+  - `packages/contracts-core/src/TickBookPoolManagerV10.sol` — New contract version
+  - `packages/contracts-core/src/libraries/TickBitmap.sol` — Combined bitmap logic
+  - `packages/contracts-core/src/interfaces/ITickBookPoolManager.sol` — Updated interface
+- **Dependencies**:
+  - ADR-072 (V9.9.8 known limitation) documents the gap this addresses
+  - Requires fresh audit before mainnet deployment
+- **Timeline**: V10 development cycle (post-V9.9.x stabilization)
+
+## ADR-073: V10 Unified Crossing with Dual-Collateral Architecture
+- **Date**: 2026-01-05
+- **Status**: Proposed (V10 Scope)
+- **Context**:
+  - V9.9.8 has fractured liquidity: Range Orders (USDC-backed) and Spot Sells (token-backed) use separate storage and crossing logic.
+  - Standard `placeOrder()` only crosses against Range Orders, ignoring Spot Sell liquidity.
+  - ADR-072 documents this as a known limitation with frontend routing as mitigation.
+- **Decision**:
+  1. **Unified TickLiquidity**: Each tick stores both range and spot liquidity.
+  2. **Combined bitmap**: OR of range + spot ticks for efficient traversal.
+  3. **Single `_crossUnified()`**: Replaces `_tryCross()`, consumes both sources per tick.
+  4. **Fill priority**: Spot first (recycle tokens), then range (mint synthetic).
+  5. **Settlement branching**: Spot → `transferLockedOutcome`, Range → growth accumulators.
+- **Architecture**:
+  ```
+  TickLiquidity {
+    rangeLiquidityNet: int128
+    rangeLiquidityGross: uint128
+    spotLiquidity: uint128  ← NEW
+  }
+  
+  _crossUnified():
+    1. Traverse combined bitmap
+    2. At each tick: fill spot first, then range
+    3. Branch settlement by source type
+  ```
+- **Rationale**:
+  - Single canonical orderbook for all integrators.
+  - Better capital efficiency — natural sellers compete with market makers.
+  - Unified price discovery reflects true market depth.
+- **Consequences**:
+  - Major refactor of tick structures, bitmap logic, crossing algorithm.
+  - Fresh audit required before mainnet.
+  - No migration from V9.9.x; fresh V10 deployment.
+- **Timeline**: V10 development cycle (post-V9.9.x stabilization)
+- **Dependencies**: ADR-072 (documents the gap this addresses)
+
+## ADR-072: Fractured Liquidity — Spot Sell Isolation (V9.9.8 Known Limitation)
+- **Date**: 2026-01-05
+- **Status**: Accepted (Known Limitation, Fix Deferred to V10)
+- **Context**:
+  - V9.9.7 introduced Spot Sell as an "add-on" feature for users to sell existing shares.
+  - Spot Sell orders are stored in separate mappings: `_spotSellOrders`, `_spotSellLiquidity`.
+  - The `_tryCross()` function in `placeOrder()` only iterates over Range Order liquidity.
+  - QA testing confirmed: standard Buy orders do NOT match against Spot Sells.
+- **Decision**:
+  1. **Accept as V9.9.8 limitation**: Do not modify crossing logic in this release.
+  2. **Frontend mitigation required**: Pro.tsx Buy flow must check `getSpotSellLiquidity()` and route to `buyFromSpotSell()` if better price exists.
+  3. **Defer unified crossing to V10**: Full integration requires significant `_tryCross()` refactor.
+- **Rationale**:
+  - **Scope control**: V9.9.8 is a bug-fix release; crossing refactor is high-risk.
+  - **Testability**: Separate liquidity pools are easier to reason about and test.
+  - **Time constraint**: Frontend routing is faster to implement than contract changes.
+- **Consequences**:
+  - **UX impact**: Buyers may miss cheaper Spot Sell prices if frontend routing fails.
+  - **Fractured depth**: Orderbook visualization must aggregate both liquidity types.
+  - **V10 requirement**: Unified crossing is now a hard requirement for V10.
+- **Files Affected**:
+  - `apps/web/src/pages/Pro.tsx` — Needs Spot Sell routing logic
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol` — `_tryCross()` unchanged
+- **QA Reference**: `~/.gemini/antigravity/brain/.../qa_report_997.md.resolved`
+
+## ADR-071: cancelSpotSell Proceeds Double-Claim Prevention
+- **Date**: 2026-01-05
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - V9.9.7 introduced spot sell functionality with `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell`, and `claimSpotSellProceeds`.
+  - The `SpotSellOrder` struct tracks `proceedsWad` — USDC owed to seller from partial fills.
+  - Both `cancelSpotSell` and `claimSpotSellProceeds` credit proceeds to the seller.
+  - **Bug**: `cancelSpotSell` credited `order.proceedsWad` but did NOT zero it, allowing a second credit via `claimSpotSellProceeds`.
+- **Decision**:
+  1. **Zero proceeds before credit**: In `cancelSpotSell`, capture proceeds to local variable, zero storage, then credit.
+  2. **Pattern consistency**: Match the existing pattern in `claimSpotSellProceeds` which already zeros before crediting.
+  3. **No separate claim after cancel**: `claimSpotSellProceeds` becomes a no-op after cancel (proceeds already zeroed).
+- **Rationale**:
+  - **Security**: Prevents double-credit attack that mints extra USDC to sellers.
+  - **Simplicity**: Single-line fix, no architectural change needed.
+  - **Idempotency**: Either cancel or claim can be called first; the second is a safe no-op.
+- **Consequences**:
+  - **Requires redeployment**: Contracts must be redeployed to fix vulnerability.
+  - **No migration needed**: No state to migrate; new orders use fixed logic.
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Lines 793-798
+  - `packages/contracts-core/src/TickBookPoolManagerV996.sol` — Lines 793-798
+
 ## ADR-070: RPC-Only Fill Tracking for Orders
 - **Date**: 2026-01-04
 - **Status**: Accepted (Implemented)

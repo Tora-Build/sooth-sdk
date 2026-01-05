@@ -21,12 +21,12 @@ export default createConfig({
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060",
-          startBlock: 35_877_100, // V9.9.6-fix9l deployment 2026-01-04
+          address: "0x32c228f558eca71a1aab8663162b4b4bf87bdd1a",
+          startBlock: 35_900_000, // V9.9.7 deployment 2026-01-05
         },
         monadTestnet: {
-          address: "0x4e12e307165fcc37c8d67bef306c8204ff140946",
-          startBlock: 3_989_818, // V9.9.6 deployment 2026-01-04
+          address: "0xc80c8b4c56a62614d9408b805b40580dd9420361",
+          startBlock: 3_989_818, // V9.9.7 deployment 2026-01-05
         },
       },
     },

@@ -7,7 +7,7 @@ export const TickBookPoolManagerAbi = [
       { name: "market", type: "address", indexed: false },
       { name: "yesToken", type: "address", indexed: false },
       { name: "noToken", type: "address", indexed: false },
-      { name: "hook", type: "address", indexed: false },
+      // V9.9.7: hook field removed (simple fee storage replaces hook system)
     ],
   },
   // V9.9.6 uses OrderPlaced instead of RangeOrderPlaced
@@ -83,6 +83,40 @@ export const TickBookPoolManagerAbi = [
       { name: "marketKey", type: "bytes32", indexed: true },
       { name: "tick", type: "uint16", indexed: false },
       { name: "liquidityDelta", type: "int128", indexed: false },
+    ],
+  },
+  // V9.9.7: Spot Sell Events
+  {
+    type: "event",
+    name: "SpotSellPlaced",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "sellId", type: "uint256", indexed: true },
+      { name: "outcome", type: "uint8", indexed: false },
+      { name: "tickLower", type: "uint16", indexed: false },
+      { name: "tickUpper", type: "uint16", indexed: false },
+      { name: "shares", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "SpotSellCancelled",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "sellId", type: "uint256", indexed: true },
+      { name: "sharesReturned", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "SpotSellFilled",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "sellId", type: "uint256", indexed: true },
+      { name: "sharesFilled", type: "uint256", indexed: false },
+      { name: "proceeds", type: "uint256", indexed: false },
     ],
   },
 ] as const;

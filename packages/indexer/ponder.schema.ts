@@ -166,3 +166,56 @@ export const tickCrossed = onchainTable(
     marketIdx: index().on(table.marketKey),
   })
 );
+
+/**
+ * V9.9.7: Spot sell orders - users selling existing shares (not short sell)
+ */
+export const spotSellOrder = onchainTable(
+  "spot_sell_order",
+  (t) => ({
+    id: t.text().primaryKey(), // chainId-sellId
+    chainId: t.integer().notNull(),
+    sellId: t.bigint().notNull(),
+    marketKey: t.hex().notNull(),
+    owner: t.hex().notNull(),
+    outcome: t.integer().notNull(), // 0 = NO, 1 = YES
+    tickLower: t.integer().notNull(),
+    tickUpper: t.integer().notNull(),
+    shares: t.bigint().notNull(),
+    // Mutable state
+    status: t.text().notNull(), // 'active' | 'cancelled' | 'filled'
+    filledShares: t.bigint().notNull(),
+    proceeds: t.bigint().notNull(), // USDC received from fills
+    // Timestamps
+    createdAt: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    ownerIdx: index().on(table.owner),
+    statusIdx: index().on(table.status),
+  })
+);
+
+/**
+ * V9.9.7: Spot sell fills - when buyers purchase from spot sells
+ */
+export const spotSellFill = onchainTable(
+  "spot_sell_fill",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    sellId: t.bigint().notNull(),
+    marketKey: t.hex().notNull(),
+    sharesFilled: t.bigint().notNull(),
+    proceeds: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    sellIdx: index().on(table.sellId),
+    marketIdx: index().on(table.marketKey),
+  })
+);

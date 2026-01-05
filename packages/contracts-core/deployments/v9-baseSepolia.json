@@ -1,18 +1,18 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "9.9.6-fix9l",
-  "timestamp": "2026-01-04T12:00:00.000Z",
+  "version": "9.9.7",
+  "timestamp": "2026-01-04T18:07:53.598Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3",
-    "Collateralizer": "0xE1976fDF7fDe2a2F933a7860326Ed12121358e79",
-    "AMMEngine": "0xf50A729Df4078812edffe9355b73ABF916973629",
-    "TickBookVault": "0x6109B9C9FdD88842da3b49E7cb3DE04F21E083dc",
-    "TickBookPoolManager": "0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060",
-    "TickBook": "0xa613fe3F71fCa0913964E8f9c8b4e3f0320fC060",
-    "LaunchpadEngine": "0x3530A1e0519E6e81b5a41074bf253E56757fefF6"
+    "MockUSDC": "0xd4832b4738e0b9ac4dc7b4e1f032a903e3051cbc",
+    "Collateralizer": "0x34542cddbfb9294e753f99e2417633f9c4c8a54d",
+    "AMMEngine": "0xd4311bb4febe5cbaf9d6fe75ce00c448e972f681",
+    "TickBookVault": "0xb4e467e35767f8efc3bff5117e1631b81beb204d",
+    "TickBookPoolManager": "0x32c228f558eca71a1aab8663162b4b4bf87bdd1a",
+    "TickBook": "0x32c228f558eca71a1aab8663162b4b4bf87bdd1a",
+    "LaunchpadEngine": "0x0539fddb35529d6d8e81355e7fb278bf273595b5"
   },
   "markets": [],
-  "notes": "V9.9.6-fix9l with getAllMarketOrders, placeOrder unified API"
+  "notes": "V9.9.7 with spot sell (placeSpotSell, cancelSpotSell, buyFromSpotSell) + batchCancelOrders"
 }

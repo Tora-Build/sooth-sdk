@@ -9,18 +9,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title TickBookPoolManager V9.9.6
+ * @title TickBookPoolManager V9.9.7
  * @notice Singleton manager for prediction market orderbooks
- * @dev V9.9.6 Changes:
- *      - UNIFIED: Single `placeOrder()` replaces `placeRangeOrder()` and `executeMarketOrder()`
- *      - ADDED: Auto-claim existing orders before placing new ones
- *      - TERMINOLOGY: Removed maker/taker language (now resting/crossing orders)
+ * @dev V9.9.7 Changes:
+ *      - SPOT SELL: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` for selling existing shares
+ *      - BATCH CANCEL: Added `batchCancelOrders` for gas-efficient multi-order cancellation
  *
- *      Order Types via Tick Range:
- *      - Market order: tickLower=1, tickUpper=999 (fill everything available)
- *      - Limit order: tickLower=X, tickUpper=X (single tick)
- *      - Range order: tickLower < tickUpper (spread liquidity)
- *      - Market with floor: tickLower=floor, tickUpper=999 (fill down to floor, rest at floor)
+ *      V9.9.6 Base (inherited):
+ *      - UNIFIED: Single `placeOrder()` replaces `placeRangeOrder()` and `executeMarketOrder()`
+ *      - AUTO-CLAIM: Claims all user's pending fills before placing new order
+ *      - Order Types via Tick Range:
+ *        - Market order: tickLower=1, tickUpper=999 (fill everything available)
+ *        - Limit order: tickLower=X, tickUpper=X (single tick)
+ *        - Range order: tickLower < tickUpper (spread liquidity)
  *
  *      V9.9.5 Base (inherited):
  *      - `liquidityRemoved` flag for idempotent order cleanup
@@ -60,6 +61,8 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
     error SlippageExceeded();
     error LiquidityOverflow();
     error FeeTooHigh();
+    error InsufficientShares();
+    error SpotSellNotActive();
 
     // ============================================
     // Types
@@ -103,6 +106,18 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         address noToken;
     }
 
+    // V9.9.7: Spot Sell Order (sell existing shares, not short sell)
+    struct SpotSellOrder {
+        address owner;
+        uint8 outcome;           // Which token they're selling (0=NO, 1=YES)
+        uint16 tickLower;
+        uint16 tickUpper;
+        bool active;
+        uint128 sharesTotal;     // Total shares locked for sale
+        uint128 sharesFilled;    // Shares sold to buyers
+        uint128 proceedsWad;     // USDC received from sales
+    }
+
     // ============================================
     // Storage
     // ============================================
@@ -131,6 +146,13 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
 
     // V9.9.6-fix9: Pooled refunds for completed orders (O(1) claim)
     mapping(address => mapping(bytes32 => uint256)) private _pendingRefunds;
+
+    // V9.9.7: Spot Sell Orders (separate from range orders)
+    mapping(bytes32 => mapping(uint256 => SpotSellOrder)) private _spotSellOrders;
+    mapping(bytes32 => mapping(address => uint256[])) private _userSpotSells;
+    uint256 private _nextSpotSellId;
+    // Spot sell tick liquidity (separate from range order liquidity)
+    mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint128))) private _spotSellLiquidity;
 
     // Access control
     address public registrar;
@@ -216,6 +238,31 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         uint256 ordersClaimed,
         uint256 totalShares,
         uint256 totalCollateralUsed
+    );
+
+    // V9.9.7: Spot Sell Events
+    event SpotSellPlaced(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed sellId,
+        uint8 outcome,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 shares
+    );
+
+    event SpotSellCancelled(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed sellId,
+        uint256 sharesReturned
+    );
+
+    event SpotSellFilled(
+        bytes32 indexed marketKey,
+        uint256 indexed sellId,
+        uint256 sharesFilled,
+        uint256 proceeds
     );
 
     // ============================================
@@ -645,6 +692,265 @@ contract TickBookPoolManagerV996 is ReentrancyGuard, Ownable {
         }
 
         emit FillsClaimed(owner, marketKey, orderId, filledShares, collateralUsedWad);
+    }
+
+    // ============================================
+    // V9.9.7: Spot Sell (Sell Existing Shares)
+    // ============================================
+
+    /**
+     * @notice Place a spot sell order - sell shares you already own
+     * @dev Locks your internal shares in the vault and places a resting ask
+     * @param marketKey The market identifier
+     * @param outcome Which token to sell (0=NO, 1=YES)
+     * @param shares Amount of shares to sell
+     * @param tickLower Lower tick bound (ask price range start)
+     * @param tickUpper Upper tick bound (ask price range end)
+     * @return sellId The created spot sell order ID
+     */
+    function placeSpotSell(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint16 tickLower,
+        uint16 tickUpper
+    ) external nonReentrant returns (uint256 sellId) {
+        Market memory m = _markets[marketKey];
+        if (!m.isActive) revert MarketNotActive();
+        if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
+        if (outcome > 1) revert InvalidOutcome();
+        if (shares == 0) revert ZeroAmount();
+        if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
+        if (tickLower > tickUpper) revert InvalidTickRange();
+        if (shares > MAX_LIQUIDITY) revert LiquidityOverflow();
+
+        // Lock the shares in the vault (will revert if insufficient)
+        vault.lockOutcome(m.truthMarket, msg.sender, outcome, shares);
+
+        sellId = ++_nextSpotSellId;
+
+        uint256 ticksInRange = uint256(tickUpper) - uint256(tickLower) + 1;
+        uint128 density = uint128(shares / ticksInRange);
+
+        _spotSellOrders[marketKey][sellId] = SpotSellOrder({
+            owner: msg.sender,
+            outcome: outcome,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            active: true,
+            sharesTotal: uint128(shares),
+            sharesFilled: 0,
+            proceedsWad: 0
+        });
+        _userSpotSells[marketKey][msg.sender].push(sellId);
+
+        // Add liquidity to each tick in the range
+        for (uint16 t = tickLower; t <= tickUpper; t++) {
+            _spotSellLiquidity[marketKey][outcome][t] += density;
+        }
+
+        emit SpotSellPlaced(msg.sender, marketKey, sellId, outcome, tickLower, tickUpper, shares);
+    }
+
+    /**
+     * @notice Cancel a spot sell order and unlock shares
+     * @param marketKey The market identifier
+     * @param sellId The spot sell order ID
+     * @return sharesReturned The shares unlocked back to the user
+     */
+    function cancelSpotSell(bytes32 marketKey, uint256 sellId)
+        external
+        nonReentrant
+        returns (uint256 sharesReturned)
+    {
+        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
+        if (!order.active) revert SpotSellNotActive();
+        if (order.owner != msg.sender) revert NotOwner();
+
+        Market memory m = _markets[marketKey];
+
+        // Calculate remaining shares
+        sharesReturned = order.sharesTotal - order.sharesFilled;
+
+        // Remove liquidity from ticks
+        uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
+        uint128 density = uint128(order.sharesTotal / ticksInRange);
+        for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
+            if (_spotSellLiquidity[marketKey][order.outcome][t] >= density) {
+                _spotSellLiquidity[marketKey][order.outcome][t] -= density;
+            } else {
+                _spotSellLiquidity[marketKey][order.outcome][t] = 0;
+            }
+        }
+
+        order.active = false;
+        _removeFromUserSpotSells(marketKey, msg.sender, sellId);
+
+        // Unlock remaining shares back to user
+        if (sharesReturned > 0) {
+            vault.unlockOutcome(m.truthMarket, msg.sender, order.outcome, sharesReturned);
+        }
+
+        // Credit any proceeds from partial fills (zero it to prevent double-claim)
+        uint256 proceeds = order.proceedsWad;
+        order.proceedsWad = 0;
+        if (proceeds > 0) {
+            vault.creditUsdcAvailable(msg.sender, proceeds);
+        }
+
+        emit SpotSellCancelled(msg.sender, marketKey, sellId, sharesReturned);
+    }
+
+    /**
+     * @notice Claim proceeds from filled spot sell order
+     * @param marketKey The market identifier
+     * @param sellId The spot sell order ID
+     * @return proceeds USDC proceeds credited to user
+     */
+    function claimSpotSellProceeds(bytes32 marketKey, uint256 sellId)
+        external
+        nonReentrant
+        returns (uint256 proceeds)
+    {
+        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
+        if (order.owner != msg.sender) revert NotOwner();
+
+        proceeds = order.proceedsWad;
+        order.proceedsWad = 0;
+
+        if (proceeds > 0) {
+            vault.creditUsdcAvailable(msg.sender, proceeds);
+        }
+
+        // If fully filled, mark inactive and clean up
+        if (order.sharesFilled >= order.sharesTotal) {
+            order.active = false;
+            _removeFromUserSpotSells(marketKey, msg.sender, sellId);
+        }
+    }
+
+    /**
+     * @notice Get spot sell order details
+     */
+    function getSpotSellOrder(bytes32 marketKey, uint256 sellId)
+        external
+        view
+        returns (SpotSellOrder memory)
+    {
+        return _spotSellOrders[marketKey][sellId];
+    }
+
+    /**
+     * @notice Get user's spot sell order IDs
+     */
+    function getUserSpotSells(bytes32 marketKey, address user)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        return _userSpotSells[marketKey][user];
+    }
+
+    /**
+     * @notice Get spot sell liquidity at a tick
+     */
+    function getSpotSellLiquidity(bytes32 marketKey, uint8 outcome, uint16 tick)
+        external
+        view
+        returns (uint128)
+    {
+        return _spotSellLiquidity[marketKey][outcome][tick];
+    }
+
+    /**
+     * @notice Buy shares from a spot sell order
+     * @dev Buyer pays USDC, receives shares from seller's locked position
+     * @param marketKey The market identifier
+     * @param sellId The spot sell order to buy from
+     * @param shares Amount of shares to buy
+     * @param maxCost Maximum USDC willing to pay (slippage protection)
+     * @return cost Actual USDC paid
+     */
+    function buyFromSpotSell(
+        bytes32 marketKey,
+        uint256 sellId,
+        uint256 shares,
+        uint256 maxCost
+    ) external nonReentrant returns (uint256 cost) {
+        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
+        if (!order.active) revert SpotSellNotActive();
+        
+        Market memory m = _markets[marketKey];
+        if (!m.isActive) revert MarketNotActive();
+        if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
+
+        uint256 available = order.sharesTotal - order.sharesFilled;
+        if (shares > available) revert InsufficientShares();
+        if (shares == 0) revert ZeroAmount();
+
+        // Calculate cost at the midpoint of the order's price range
+        uint256 priceLow = TickMath.tickToProbability(order.tickLower);
+        uint256 priceHigh = TickMath.tickToProbability(order.tickUpper);
+        uint256 avgPrice = (priceLow + priceHigh) / 2;
+        
+        cost = (avgPrice * shares) / WAD;
+        if (cost > maxCost) revert SlippageExceeded();
+
+        // Apply taker fee
+        uint256 fee = (cost * takerFeeBps) / 10000;
+        uint256 totalCost = cost + fee;
+
+        // Spend buyer's available USDC
+        vault.spendAvailableToMarket(msg.sender, m.truthMarket, totalCost);
+
+        // Transfer locked shares from seller to buyer
+        vault.transferLockedOutcome(m.truthMarket, order.owner, msg.sender, order.outcome, shares);
+
+        // Credit seller with proceeds (cost minus seller portion of fee if any)
+        order.sharesFilled += uint128(shares);
+        order.proceedsWad += uint128(cost);
+
+        // Remove liquidity from ticks proportionally
+        uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
+        uint128 densityReduction = uint128(shares / ticksInRange);
+        for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
+            if (_spotSellLiquidity[marketKey][order.outcome][t] >= densityReduction) {
+                _spotSellLiquidity[marketKey][order.outcome][t] -= densityReduction;
+            } else {
+                _spotSellLiquidity[marketKey][order.outcome][t] = 0;
+            }
+        }
+
+        // Collect fee
+        if (fee > 0 && feeRecipient != address(0)) {
+            vault.transferFee(m.truthMarket, feeRecipient, fee);
+        }
+
+        // Auto-complete if fully filled
+        if (order.sharesFilled >= order.sharesTotal) {
+            order.active = false;
+            _removeFromUserSpotSells(marketKey, order.owner, sellId);
+            // Credit proceeds to seller
+            if (order.proceedsWad > 0) {
+                vault.creditUsdcAvailable(order.owner, order.proceedsWad);
+                order.proceedsWad = 0;
+            }
+        }
+
+        emit SpotSellFilled(marketKey, sellId, shares, cost);
+    }
+
+    function _removeFromUserSpotSells(bytes32 marketKey, address user, uint256 sellId) internal {
+        uint256[] storage sellIds = _userSpotSells[marketKey][user];
+        uint256 len = sellIds.length;
+        for (uint256 i = 0; i < len; ) {
+            if (sellIds[i] == sellId) {
+                sellIds[i] = sellIds[len - 1];
+                sellIds.pop();
+                return;
+            }
+            unchecked { ++i; }
+        }
     }
 
     // ============================================
