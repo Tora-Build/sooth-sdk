@@ -645,14 +645,14 @@ export async function hybridsell(ctx: CommandContext, args: string[]): Promise<C
     abi: ABIS.TickBookPoolManager,
     functionName: 'getMarketInfo',
     args: [marketKey],
-  }) as [string, string, string];
+  }) as unknown as [string, string, string];
 
   const vault = deployment.contracts.TickBookVault as `0x${string}`;
   const [yesShares, noShares] = await publicClient.readContract({
     address: vault,
     abi: ABIS.TickBookVault,
     functionName: 'getInternalOutcomes',
-    args: [truthMarket, actor.account.address],
+    args: [truthMarket as `0x${string}`, actor.account.address],
   }) as [bigint, bigint];
   const userShares = outcome === 1 ? yesShares : noShares;
 
@@ -675,7 +675,8 @@ export async function hybridsell(ctx: CommandContext, args: string[]): Promise<C
   try {
     // Step 1: Spot sell owned shares
     if (spotSellAmount > 0n) {
-      spinner.update(`Placing spot sell for ${formatWad(spotSellAmount)} shares...`);
+      // spinner.update(`Placing spot sell for ${formatWad(spotSellAmount)} shares...`);
+      console.log(`  Placing spot sell for ${formatWad(spotSellAmount)} shares...`);
       const spotHash = await walletClient.writeContract({
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
@@ -688,12 +689,13 @@ export async function hybridsell(ctx: CommandContext, args: string[]): Promise<C
 
     // Step 2: Short sell the rest (regular limit order)
     if (shortSellAmount > 0n) {
-      spinner.update(`Placing short sell for ${formatWad(shortSellAmount)} shares...`);
+      // spinner.update(`Placing short sell for ${formatWad(shortSellAmount)} shares...`);
+      console.log(`  Placing short sell for ${formatWad(shortSellAmount)} shares...`);
       const shortHash = await walletClient.writeContract({
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
-        args: [marketKey, outcome, shortSellAmount, tickLower, tickUpper],
+        args: [marketKey, outcome, shortSellAmount, tickLower, tickUpper, shortSellAmount * 2n],
       });
       await actorManager.waitForTransactionReceipt(shortHash);
       console.log(`  ✓ Short sell placed ${dim(`(tx: ${shortTx(shortHash)})`)}`);

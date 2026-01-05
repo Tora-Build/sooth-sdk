@@ -9,24 +9,18 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title TickBookPoolManager V9.9.7
- * @notice Singleton manager for prediction market orderbooks
- * @dev V9.9.7 Changes:
- *      - SPOT SELL: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` for selling existing shares
- *      - BATCH CANCEL: Added `batchCancelOrders` for gas-efficient multi-order cancellation
+ * @title TickBookPoolManager V10
+ * @notice Singleton manager for prediction market orderbooks with unified crossing architecture
+ * @dev V10 Changes:
+ *      - UNIFIED TICK LIQUIDITY: Single struct holds range + spot liquidity
+ *      - UNIFIED CROSSING: `_crossUnified()` fills spot liquidity first (recycle), then range (mint)
+ *      - SPOT BITMAPS: Separate bitmap tracks spot liquidity for efficient traversal
  *
- *      V9.9.6 Base (inherited):
- *      - UNIFIED: Single `placeOrder()` replaces `placeRangeOrder()` and `executeMarketOrder()`
- *      - AUTO-CLAIM: Claims all user's pending fills before placing new order
- *      - Order Types via Tick Range:
- *        - Market order: tickLower=1, tickUpper=999 (fill everything available)
- *        - Limit order: tickLower=X, tickUpper=X (single tick)
- *        - Range order: tickLower < tickUpper (spread liquidity)
- *
- *      V9.9.5 Base (inherited):
- *      - `liquidityRemoved` flag for idempotent order cleanup
- *      - Cap filledShares at sharesTotal to prevent accumulator drift
- *      - Auto-complete orders when fully filled
+ *      Inherited from V9.9.6/7:
+ *      - UNIFIED: Single `placeOrder()` for limit, market, and range orders
+ *      - AUTO-CLAIM: Claims user's pending fills before placing new order
+ *      - SPOT SELL: Sell existing shares via `placeSpotSell`, `cancelSpotSell`
+ *      - BATCH CANCEL: Gas-efficient multi-order cancellation
  */
 contract TickBookPoolManager is ReentrancyGuard, Ownable {
     using TickBitmap for TickBitmap.Bitmap;
@@ -40,7 +34,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     uint16 private constant MAX_TICK = TickMath.MAX_TICK; // 999
     uint256 private constant Q128 = 2 ** 128;
     uint128 private constant MAX_LIQUIDITY = type(uint128).max;
-    uint24 private constant MAX_FEE_BPS = 1000; // 10% max fee (TOB-2 fix)
+    uint24 private constant MAX_FEE_BPS = 1000; // 10% max fee
 
     // ============================================
     // Custom Errors
@@ -81,7 +75,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower;
         uint16 tickUpper;
         bool active;
-        bool liquidityRemoved;  // V9.9.5: Track if tick liquidity has been cleaned up
+        bool liquidityRemoved;
         uint128 sharesTotal;
         uint128 liquidity;
         uint128 collateralDepositedWad;
@@ -89,9 +83,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint128 collateralUsedWad;
     }
 
-    struct TickInfo {
-        int128 liquidityNet;
-        uint128 liquidityGross;
+    /// @dev V10: Unified tick liquidity - combines range and spot in one struct
+    struct TickLiquidity {
+        int128 rangeLiquidityNet;     // Range order net liquidity (for crossing)
+        uint128 rangeLiquidityGross;  // Range order gross liquidity (for bitmap cleanup)
+        uint128 spotLiquidity;        // Spot sell liquidity at this tick
     }
 
     struct MarketState {
@@ -106,16 +102,26 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         address noToken;
     }
 
-    // V9.9.7: Spot Sell Order (sell existing shares, not short sell)
     struct SpotSellOrder {
         address owner;
-        uint8 outcome;           // Which token they're selling (0=NO, 1=YES)
+        uint8 outcome;
         uint16 tickLower;
         uint16 tickUpper;
         bool active;
-        uint128 sharesTotal;     // Total shares locked for sale
-        uint128 sharesFilled;    // Shares sold to buyers
-        uint128 proceedsWad;     // USDC received from sales
+        uint128 sharesTotal;
+        uint128 sharesFilled;
+        uint128 proceedsWad;
+    }
+
+    /// @dev V10: Internal struct for unified crossing results
+    struct CrossingResult {
+        uint256 totalFilled;
+        uint256 spotFilled;
+        uint256 rangeFilled;
+        uint256 newOrderCost;
+        uint256 spotCost;
+        uint256 rangeCost;
+        uint16 crossTick;
     }
 
     // ============================================
@@ -128,9 +134,14 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     mapping(bytes32 => Market) private _markets;
     mapping(bytes32 => MarketState) private _state;
 
-    // Tick data
-    mapping(bytes32 => mapping(uint8 => mapping(uint16 => TickInfo))) private _ticks;
+    /// @dev V10: Unified tick liquidity storage (replaces _ticks + _spotSellLiquidity)
+    mapping(bytes32 => mapping(uint8 => mapping(uint16 => TickLiquidity))) private _tickLiquidity;
+    
+    /// @dev Range order bitmaps (existing)
     mapping(bytes32 => mapping(uint8 => TickBitmap.Bitmap)) private _bitmaps;
+    
+    /// @dev V10: Separate bitmap for spot liquidity
+    mapping(bytes32 => mapping(uint8 => TickBitmap.Bitmap)) private _spotBitmaps;
 
     // Orders
     mapping(bytes32 => mapping(uint256 => RangeOrder)) private _orders;
@@ -144,21 +155,19 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     mapping(bytes32 => mapping(uint256 => uint256)) private _fillGrowthLastX128;
     mapping(bytes32 => mapping(uint256 => uint256)) private _collateralUsedGrowthLastX128;
 
-    // V9.9.6-fix9: Pooled refunds for completed orders (O(1) claim)
+    // Pooled refunds for completed orders (O(1) claim)
     mapping(address => mapping(bytes32 => uint256)) private _pendingRefunds;
 
-    // V9.9.7: Spot Sell Orders (separate from range orders)
+    // Spot Sell Orders
     mapping(bytes32 => mapping(uint256 => SpotSellOrder)) private _spotSellOrders;
     mapping(bytes32 => mapping(address => uint256[])) private _userSpotSells;
     uint256 private _nextSpotSellId;
-    // Spot sell tick liquidity (separate from range order liquidity)
-    mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint128))) private _spotSellLiquidity;
 
     // Access control
     address public registrar;
     address public feeRecipient;
 
-    // Simple fee storage (replaces hook system)
+    // Simple fee storage
     uint24 public takerFeeBps = 10;  // 0.1% default
     uint24 public makerFeeBps = 0;   // No maker fee by default
 
@@ -203,6 +212,18 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 crossTick
     );
 
+    /// @dev V10: Enhanced crossing event with source breakdown
+    event UnifiedCrossing(
+        bytes32 indexed marketKey,
+        uint256 indexed newOrderId,
+        uint8 newOutcome,
+        uint256 spotFilled,
+        uint256 rangeFilled,
+        uint256 spotCost,
+        uint256 rangeCost,
+        uint16 crossTick
+    );
+
     event FillsClaimed(
         address indexed owner,
         bytes32 indexed marketKey,
@@ -211,14 +232,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 collateralUsedWad
     );
 
-    // V9.9.6-fix9: Pooled refunds event
     event PooledRefundsClaimed(
         address indexed owner,
         bytes32 indexed marketKey,
         uint256 refund
     );
 
-    // V9.9.6: Unified order events
     event OrderPlaced(
         address indexed owner,
         bytes32 indexed marketKey,
@@ -240,7 +259,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 totalCollateralUsed
     );
 
-    // V9.9.7: Spot Sell Events
     event SpotSellPlaced(
         address indexed owner,
         bytes32 indexed marketKey,
@@ -337,10 +355,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         emit MarketRegistered(marketKey, key.truthMarket, key.yesToken, key.noToken);
     }
 
-    /**
-     * @notice Legacy signature for ITickBook compatibility
-     * @dev hook parameter is ignored in V9.9.5 (no hooks)
-     */
     function registerMarket(
         address market,
         address yesToken,
@@ -372,16 +386,17 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     }
 
     // ============================================
-    // Unified Order Placement (V9.9.6)
+    // Unified Order Placement (V10)
     // ============================================
 
     /**
      * @notice Place an order - unified API for limit, market, and range orders
-     * @dev Order type is determined by tick range:
+     * @dev V10: Uses `_crossUnified()` which fills spot liquidity FIRST, then range
+     *
+     *      Order type is determined by tick range:
      *      - Market order: tickLower=1, tickUpper=999 (fill everything)
      *      - Limit order: tickLower=X, tickUpper=X (single tick)
      *      - Range order: tickLower < tickUpper (spread liquidity)
-     *      - Market with floor: tickLower=floor, tickUpper=999 (fill down to floor)
      *
      *      Auto-claims all user's existing orders before placing new one.
      *
@@ -417,11 +432,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
 
-        // V9.9.6-fix9: Auto-claim ONLY 100% filled orders (max 10 for gas safety)
-        // Partial fills are NOT claimed automatically - user must call claimFills()
+        // Auto-claim ONLY 100% filled orders (max 20 for gas safety)
         _autoClaimUserOrders(marketKey, msg.sender);
 
-        // V9.9.6-fix9: Also auto-release pooled refunds to available balance
+        // Also auto-release pooled refunds to available balance
         uint256 pooled = _pendingRefunds[msg.sender][marketKey];
         if (pooled > 0) {
             _pendingRefunds[msg.sender][marketKey] = 0;
@@ -464,9 +478,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         vault.spendAvailableToMarket(msg.sender, m.truthMarket, collateral);
 
-        // Try crossing with opposite orders
-        uint256 crossingCost;
-        (filledShares, filledCost, crossingCost) = _tryCross(marketKey, orderId);
+        // V10: Try unified crossing (spot first, then range)
+        CrossingResult memory result = _crossUnified(marketKey, orderId);
+        filledShares = result.totalFilled;
+        filledCost = result.newOrderCost;
 
         restingShares = shares - filledShares;
 
@@ -476,14 +491,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         );
     }
 
-    /**
-     * @notice Auto-claim all user's active orders in a market
-     * @dev Called automatically before placing a new order
-     * @param marketKey The market identifier
-     * @param user The user address
-     * @return totalClaimedShares Total shares claimed across all orders
-     * @return totalCollateralUsed Total collateral used across all orders
-     */
     function _autoClaimUserOrders(bytes32 marketKey, address user)
         internal
         returns (uint256 totalClaimedShares, uint256 totalCollateralUsed)
@@ -492,9 +499,8 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (orderIds.length == 0) return (0, 0);
         
         uint256 ordersProcessed = 0;
-        uint256 maxProcess = 20; // V9.9.6-fix9j: Process up to 20 (O(1) check per order)
+        uint256 maxProcess = 20;
 
-        // Iterate backwards to handle removals safely
         uint256 i = orderIds.length;
         while (i > 0 && ordersProcessed < maxProcess) {
             unchecked { --i; }
@@ -506,11 +512,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 continue;
             }
             
-            // V9.9.6-fix9j: ONLY check recorded filledShares (O(1))
-            // Skip expensive _getPendingFillsInternal call
-            // Pending fills from crossing are recorded immediately, so this works
             if (order.filledShares >= order.sharesTotal) {
-                // Order is 100% filled - claim and complete it
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 totalClaimedShares += filled;
                 totalCollateralUsed += used;
@@ -546,7 +548,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         _claimInternal(marketKey, orderId);
 
-        // V9.9.5: Only remove tick liquidity if not already removed
         if (!order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
@@ -599,12 +600,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
-    /**
-     * @notice Claim pooled refunds from completed orders (O(1) gas)
-     * @dev V9.9.6-fix9: Refunds are automatically pooled when orders complete
-     * @param marketKey The market key
-     * @return refund Amount of USDC released back to available balance
-     */
     function claimPooledRefunds(bytes32 marketKey) external returns (uint256 refund) {
         refund = _pendingRefunds[msg.sender][marketKey];
         if (refund > 0) {
@@ -615,12 +610,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
-    /**
-     * @notice View pending pooled refunds
-     * @param user User address
-     * @param marketKey The market key  
-     * @return Pending refund amount
-     */
     function getPendingRefunds(address user, bytes32 marketKey) external view returns (uint256) {
         return _pendingRefunds[user][marketKey];
     }
@@ -656,7 +645,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
 
         if (filledShares > 0) {
-            // V9.9.5: Cap filledShares to prevent precision overflow from accumulator math
             uint256 maxFillable = order.sharesTotal > order.filledShares
                 ? order.sharesTotal - order.filledShares
                 : 0;
@@ -674,8 +662,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             order.collateralUsedWad += uint128(collateralUsedWad);
         }
 
-        // V9.9.5: Auto-complete orders when fully filled
-        // V9.9.6-fix9: Pool refund immediately on completion
         if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
@@ -683,7 +669,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             order.liquidityRemoved = true;
             order.active = false;
             _removeFromUserOrders(marketKey, owner, orderId);
-            // Pool the refund (deposited - used)
             uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
                 ? order.collateralDepositedWad - order.collateralUsedWad : 0;
             if (refund > 0) {
@@ -695,12 +680,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     }
 
     // ============================================
-    // V9.9.7: Spot Sell (Sell Existing Shares)
+    // Spot Sell Orders
     // ============================================
 
     /**
      * @notice Place a spot sell order - sell shares you already own
-     * @dev Locks your internal shares in the vault and places a resting ask
+     * @dev V10: Uses unified tick liquidity storage
      * @param marketKey The market identifier
      * @param outcome Which token to sell (0=NO, 1=YES)
      * @param shares Amount of shares to sell
@@ -744,20 +729,18 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         });
         _userSpotSells[marketKey][msg.sender].push(sellId);
 
-        // Add liquidity to each tick in the range
+        // V10: Add spot liquidity to unified tick storage + spot bitmap
         for (uint16 t = tickLower; t <= tickUpper; t++) {
-            _spotSellLiquidity[marketKey][outcome][t] += density;
+            _tickLiquidity[marketKey][outcome][t].spotLiquidity += density;
+            // Set spot bitmap bit if this is first liquidity at tick
+            if (_tickLiquidity[marketKey][outcome][t].spotLiquidity == density) {
+                _spotBitmaps[marketKey][outcome].setBit(t);
+            }
         }
 
         emit SpotSellPlaced(msg.sender, marketKey, sellId, outcome, tickLower, tickUpper, shares);
     }
 
-    /**
-     * @notice Cancel a spot sell order and unlock shares
-     * @param marketKey The market identifier
-     * @param sellId The spot sell order ID
-     * @return sharesReturned The shares unlocked back to the user
-     */
     function cancelSpotSell(bytes32 marketKey, uint256 sellId)
         external
         nonReentrant
@@ -769,29 +752,31 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         Market memory m = _markets[marketKey];
 
-        // Calculate remaining shares
         sharesReturned = order.sharesTotal - order.sharesFilled;
 
-        // Remove liquidity from ticks
+        // V10: Remove from unified tick liquidity + spot bitmap
         uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
         uint128 density = uint128(order.sharesTotal / ticksInRange);
         for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
-            if (_spotSellLiquidity[marketKey][order.outcome][t] >= density) {
-                _spotSellLiquidity[marketKey][order.outcome][t] -= density;
+            TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
+            if (tick.spotLiquidity >= density) {
+                tick.spotLiquidity -= density;
             } else {
-                _spotSellLiquidity[marketKey][order.outcome][t] = 0;
+                tick.spotLiquidity = 0;
+            }
+            // Clear spot bitmap if no more spot liquidity
+            if (tick.spotLiquidity == 0) {
+                _spotBitmaps[marketKey][order.outcome].clearBit(t);
             }
         }
 
         order.active = false;
         _removeFromUserSpotSells(marketKey, msg.sender, sellId);
 
-        // Unlock remaining shares back to user
         if (sharesReturned > 0) {
             vault.unlockOutcome(m.truthMarket, msg.sender, order.outcome, sharesReturned);
         }
 
-        // Credit any proceeds from partial fills (zero it to prevent double-claim)
         uint256 proceeds = order.proceedsWad;
         order.proceedsWad = 0;
         if (proceeds > 0) {
@@ -801,12 +786,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         emit SpotSellCancelled(msg.sender, marketKey, sellId, sharesReturned);
     }
 
-    /**
-     * @notice Claim proceeds from filled spot sell order
-     * @param marketKey The market identifier
-     * @param sellId The spot sell order ID
-     * @return proceeds USDC proceeds credited to user
-     */
     function claimSpotSellProceeds(bytes32 marketKey, uint256 sellId)
         external
         nonReentrant
@@ -822,16 +801,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             vault.creditUsdcAvailable(msg.sender, proceeds);
         }
 
-        // If fully filled, mark inactive and clean up
         if (order.sharesFilled >= order.sharesTotal) {
             order.active = false;
             _removeFromUserSpotSells(marketKey, msg.sender, sellId);
         }
     }
 
-    /**
-     * @notice Get spot sell order details
-     */
     function getSpotSellOrder(bytes32 marketKey, uint256 sellId)
         external
         view
@@ -840,9 +815,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _spotSellOrders[marketKey][sellId];
     }
 
-    /**
-     * @notice Get user's spot sell order IDs
-     */
     function getUserSpotSells(bytes32 marketKey, address user)
         external
         view
@@ -851,26 +823,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _userSpotSells[marketKey][user];
     }
 
-    /**
-     * @notice Get spot sell liquidity at a tick
-     */
+    /// @dev V10: Get spot sell liquidity at a tick from unified storage
     function getSpotSellLiquidity(bytes32 marketKey, uint8 outcome, uint16 tick)
         external
         view
         returns (uint128)
     {
-        return _spotSellLiquidity[marketKey][outcome][tick];
+        return _tickLiquidity[marketKey][outcome][tick].spotLiquidity;
     }
 
-    /**
-     * @notice Buy shares from a spot sell order
-     * @dev Buyer pays USDC, receives shares from seller's locked position
-     * @param marketKey The market identifier
-     * @param sellId The spot sell order to buy from
-     * @param shares Amount of shares to buy
-     * @param maxCost Maximum USDC willing to pay (slippage protection)
-     * @return cost Actual USDC paid
-     */
     function buyFromSpotSell(
         bytes32 marketKey,
         uint256 sellId,
@@ -888,7 +849,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (shares > available) revert InsufficientShares();
         if (shares == 0) revert ZeroAmount();
 
-        // Calculate cost at the midpoint of the order's price range
         uint256 priceLow = TickMath.tickToProbability(order.tickLower);
         uint256 priceHigh = TickMath.tickToProbability(order.tickUpper);
         uint256 avgPrice = (priceLow + priceHigh) / 2;
@@ -896,41 +856,37 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         cost = (avgPrice * shares) / WAD;
         if (cost > maxCost) revert SlippageExceeded();
 
-        // Apply taker fee
         uint256 fee = (cost * takerFeeBps) / 10000;
         uint256 totalCost = cost + fee;
 
-        // Spend buyer's available USDC
         vault.spendAvailableToMarket(msg.sender, m.truthMarket, totalCost);
-
-        // Transfer locked shares from seller to buyer
         vault.transferLockedOutcome(m.truthMarket, order.owner, msg.sender, order.outcome, shares);
 
-        // Credit seller with proceeds (cost minus seller portion of fee if any)
         order.sharesFilled += uint128(shares);
         order.proceedsWad += uint128(cost);
 
-        // Remove liquidity from ticks proportionally
+        // V10: Remove from unified tick liquidity
         uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
         uint128 densityReduction = uint128(shares / ticksInRange);
         for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
-            if (_spotSellLiquidity[marketKey][order.outcome][t] >= densityReduction) {
-                _spotSellLiquidity[marketKey][order.outcome][t] -= densityReduction;
+            TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
+            if (tick.spotLiquidity >= densityReduction) {
+                tick.spotLiquidity -= densityReduction;
             } else {
-                _spotSellLiquidity[marketKey][order.outcome][t] = 0;
+                tick.spotLiquidity = 0;
+            }
+            if (tick.spotLiquidity == 0) {
+                _spotBitmaps[marketKey][order.outcome].clearBit(t);
             }
         }
 
-        // Collect fee
         if (fee > 0 && feeRecipient != address(0)) {
             vault.transferFee(m.truthMarket, feeRecipient, fee);
         }
 
-        // Auto-complete if fully filled
         if (order.sharesFilled >= order.sharesTotal) {
             order.active = false;
             _removeFromUserSpotSells(marketKey, order.owner, sellId);
-            // Credit proceeds to seller
             if (order.proceedsWad > 0) {
                 vault.creditUsdcAvailable(order.owner, order.proceedsWad);
                 order.proceedsWad = 0;
@@ -957,16 +913,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Internal Helpers
     // ============================================
 
-    /**
-     * @notice Remove an order ID from user's order array (swap-and-pop for O(1))
-     * @dev Called when order becomes inactive to keep _userOrders compact
-     */
     function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
         uint256[] storage orderIds = _userOrders[marketKey][user];
         uint256 len = orderIds.length;
         for (uint256 i = 0; i < len; ) {
             if (orderIds[i] == orderId) {
-                // Swap with last element and pop
                 orderIds[i] = orderIds[len - 1];
                 orderIds.pop();
                 return;
@@ -979,115 +930,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return keccak256(abi.encode(key.truthMarket, key.yesToken, key.noToken));
     }
 
-    function _fill(
-        bytes32 marketKey,
-        MarketState storage state,
-        uint256 sharesToFill,
-        uint8 crossedOutcome,
-        bool isUp
-    ) internal returns (uint256 filled, uint256 cost) {
-        uint256 remaining = sharesToFill;
-        uint16 tick = state.currentTick;
-        uint128 activeLiq = isUp ? state.activeLiquidityNo : state.activeLiquidityYes;
-
-        while (remaining > 0) {
-            if (activeLiq == 0) {
-                uint16 nextTick;
-                if (isUp) {
-                    nextTick = _bitmaps[marketKey][crossedOutcome].findNextUp(tick);
-                    uint16 absoluteLowest = _bitmaps[marketKey][crossedOutcome].findNextUp(0);
-                    if (absoluteLowest < tick && absoluteLowest <= MAX_TICK) {
-                        nextTick = absoluteLowest;
-                    }
-                } else {
-                    nextTick = _bitmaps[marketKey][crossedOutcome].findNextDown(tick);
-                    uint16 absoluteHighest = _bitmaps[marketKey][crossedOutcome].findNextDown(MAX_TICK + 1);
-                    if (absoluteHighest > tick && absoluteHighest <= MAX_TICK) {
-                        nextTick = absoluteHighest;
-                    }
-                }
-
-                if (isUp && nextTick > MAX_TICK) break;
-                if (!isUp && (nextTick == 0 || nextTick > MAX_TICK)) break;
-
-                tick = nextTick;
-                int128 delta = isUp
-                    ? _ticks[marketKey][crossedOutcome][tick].liquidityNet
-                    : -_ticks[marketKey][crossedOutcome][tick].liquidityNet;
-                activeLiq = _safeAddLiquidity(activeLiq, delta);
-                emit TickCrossed(marketKey, tick, delta);
-                continue;
-            }
-
-            uint16 searchFrom = isUp
-                ? (tick == MAX_TICK ? MAX_TICK : tick + 1)
-                : (tick == MIN_TICK ? MIN_TICK : tick - 1);
-            uint16 nextBoundary = isUp
-                ? _bitmaps[marketKey][crossedOutcome].findNextUp(searchFrom)
-                : _bitmaps[marketKey][crossedOutcome].findNextDown(searchFrom);
-
-            if (isUp && nextBoundary > MAX_TICK) nextBoundary = MAX_TICK;
-            if (!isUp && (nextBoundary == 0 || nextBoundary > MAX_TICK)) nextBoundary = MIN_TICK;
-
-            uint256 ticksToNext = isUp
-                ? uint256(nextBoundary - tick)
-                : uint256(tick - nextBoundary);
-            uint256 maxSharesInSegment = uint256(activeLiq) * ticksToNext;
-
-            uint256 fillNow = remaining < maxSharesInSegment ? remaining : maxSharesInSegment;
-            uint256 ticksMoved = (fillNow + uint256(activeLiq) - 1) / uint256(activeLiq);
-            if (ticksMoved > ticksToNext) ticksMoved = ticksToNext;
-            if (ticksMoved == 0) ticksMoved = 1;
-
-            uint256 priceStart;
-            uint256 priceEnd;
-            if (isUp) {
-                priceStart = TickMath.tickToProbability(tick);
-                priceEnd = TickMath.tickToProbability(tick + uint16(ticksMoved));
-            } else {
-                priceStart = WAD - TickMath.tickToProbability(tick);
-                priceEnd = WAD - TickMath.tickToProbability(tick - uint16(ticksMoved));
-            }
-            uint256 avgPrice = (priceStart + priceEnd) / 2;
-            uint256 segmentCost = (avgPrice * fillNow) / WAD;
-
-            filled += fillNow;
-            cost += segmentCost;
-            remaining -= fillNow;
-
-            if (isUp) {
-                tick += uint16(ticksMoved);
-            } else {
-                tick -= uint16(ticksMoved);
-            }
-
-            if (tick == nextBoundary) {
-                int128 delta;
-                if (isUp && nextBoundary <= MAX_TICK) {
-                    delta = _ticks[marketKey][crossedOutcome][nextBoundary].liquidityNet;
-                    activeLiq = _safeAddLiquidity(activeLiq, delta);
-                } else if (!isUp && nextBoundary >= MIN_TICK) {
-                    delta = _ticks[marketKey][crossedOutcome][nextBoundary + 1].liquidityNet;
-                    activeLiq = _safeAddLiquidity(activeLiq, -delta);
-                    delta = -delta;
-                }
-                if (delta != 0) {
-                    emit TickCrossed(marketKey, nextBoundary, delta);
-                }
-            }
-        }
-
-        state.currentTick = tick;
-        if (isUp) {
-            state.activeLiquidityNo = activeLiq;
-        } else {
-            state.activeLiquidityYes = activeLiq;
-        }
-    }
-
-    /**
-     * @dev Safely add signed delta to unsigned liquidity, clamping to 0 on underflow
-     */
     function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
         if (delta >= 0) {
             return liq + uint128(delta);
@@ -1097,18 +939,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
-    /**
-     * @dev Safely subtract from unsigned liquidity, clamping to 0 on underflow
-     * @notice V9.9.6 FIX: Used in _updateActiveLiquidity() and _tryCross()
-     */
     function _safeSubLiquidity(uint128 liq, uint128 delta) internal pure returns (uint128) {
         return liq >= delta ? liq - delta : 0;
     }
 
-    /**
-     * @dev Safely subtract from _totalLiquidity, clamping to 0 on underflow
-     * @notice V9.9.6-fix8: Prevents underflow when orders are removed during crossing
-     */
     function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
         uint256 current = _totalLiquidity[marketKey][outcome];
         _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
@@ -1123,29 +957,29 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         bool isAdd
     ) internal {
         if (isAdd) {
-            _ticks[marketKey][outcome][tickLower].liquidityNet += liquidityDelta;
-            _ticks[marketKey][outcome][tickLower].liquidityGross += uint128(liquidityDelta);
+            _tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityNet += liquidityDelta;
+            _tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityGross += uint128(liquidityDelta);
 
             uint16 upperBoundary = tickUpper + 1;
-            _ticks[marketKey][outcome][upperBoundary].liquidityNet -= liquidityDelta;
-            _ticks[marketKey][outcome][upperBoundary].liquidityGross += uint128(liquidityDelta);
+            _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityNet -= liquidityDelta;
+            _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityGross += uint128(liquidityDelta);
 
             _bitmaps[marketKey][outcome].setBit(tickLower);
             if (upperBoundary <= MAX_TICK) {
                 _bitmaps[marketKey][outcome].setBit(upperBoundary);
             }
         } else {
-            _ticks[marketKey][outcome][tickLower].liquidityNet += liquidityDelta;
-            _ticks[marketKey][outcome][tickLower].liquidityGross -= uint128(-liquidityDelta);
+            _tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityNet += liquidityDelta;
+            _tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityGross -= uint128(-liquidityDelta);
 
             uint16 upperBoundary = tickUpper + 1;
-            _ticks[marketKey][outcome][upperBoundary].liquidityNet -= liquidityDelta;
-            _ticks[marketKey][outcome][upperBoundary].liquidityGross -= uint128(-liquidityDelta);
+            _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityNet -= liquidityDelta;
+            _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityGross -= uint128(-liquidityDelta);
 
-            if (_ticks[marketKey][outcome][tickLower].liquidityGross == 0) {
+            if (_tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityGross == 0) {
                 _bitmaps[marketKey][outcome].clearBit(tickLower);
             }
-            if (upperBoundary <= MAX_TICK && _ticks[marketKey][outcome][upperBoundary].liquidityGross == 0) {
+            if (upperBoundary <= MAX_TICK && _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityGross == 0) {
                 _bitmaps[marketKey][outcome].clearBit(upperBoundary);
             }
         }
@@ -1177,116 +1011,102 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
+    // ============================================
+    // V10: Unified Crossing Logic
+    // ============================================
+
     /**
-     * @notice Try to cross a new order against existing opposite liquidity
-     * @dev V9.9.5: Added liquidityRemoved guard for idempotent cleanup
+     * @notice V10: Unified crossing - fills spot liquidity FIRST, then range
+     * @dev Traverses ticks checking BOTH range and spot liquidity:
+     *      1. Fills spot liquidity FIRST (recycles existing tokens - no minting)
+     *      2. Then fills range liquidity (mints synthetic tokens)
+     *      3. Branches settlement by source type
+     *
+     * @param marketKey The market identifier
+     * @param newOrderId The new order attempting to cross
+     * @return result Crossing result with spot/range breakdown
      */
-    function _tryCross(
+    function _crossUnified(
         bytes32 marketKey,
         uint256 newOrderId
-    ) internal returns (uint256 crossedShares, uint256 newOrderCost, uint256 oppositeCost) {
+    ) internal returns (CrossingResult memory result) {
         RangeOrder storage newOrder = _orders[marketKey][newOrderId];
         Market memory m = _markets[marketKey];
         MarketState storage state = _state[marketKey];
 
         uint8 opposite = newOrder.outcome == 0 ? 1 : 0;
 
+        // Check if there's any liquidity to cross against
+        // Range liquidity is from opposite outcome, spot liquidity is from same outcome
         uint256 oppTotalLiq = _totalLiquidity[marketKey][opposite];
-        if (oppTotalLiq == 0) return (0, 0, 0);
-
-        uint16 overlapLow;
-        uint16 overlapHigh;
-        uint16 crossTick;
-
-        // V9.9.6-fix8: Crossing logic - find CHEAPEST counterparty for maximum crossing
-        // YES at tick Y = buyer pays Y% for YES  
-        // NO at tick N = buyer pays N% for NO = seller accepts (100-N)% for YES
-        // Crossing happens when YES buyer price >= YES seller price:
-        //   Y% >= (100-N)%  =>  Y + N >= 1000 (using tick scale where 1000 = 100%)
-        //
-        // KEY INSIGHT: 
-        // - For YES orders: find HIGHEST NO tick (cheapest seller, lowest asking price)
-        // - For NO orders: find LOWEST YES tick (cheapest buyer for NO = highest YES price)
-        // This ensures we cross with the best available prices first.
+        bool hasSpotLiq = _hasSpotLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper);
         
-        if (newOrder.outcome == 1) {
-            // Placing YES order - find HIGHEST NO tick (cheapest YES seller)
-            // Higher NO tick = lower seller asking price = better for buyer
-            uint16 highestSell = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
-            if (highestSell > MAX_TICK) return (0, 0, 0);
-            
-            // NO at tick N implies seller wants (1000-N)% for YES
-            // Higher N = lower seller price = more likely to cross
-            // Crossing when: Y >= 1000-N, i.e., Y + N >= 1000
-            // For cheapest seller at highestSell: Y >= 1000-highestSell
-            uint16 cheapestSellerPrice = 1000 - highestSell;  // Lowest price any seller will accept
-            
-            // No crossing if even the cheapest seller wants more than our max
-            if (cheapestSellerPrice > newOrder.tickUpper) return (0, 0, 0);
-            
-            // Overlap: from our tickLower (or cheapest seller price) up to our tickUpper
-            overlapLow = cheapestSellerPrice > newOrder.tickLower ? cheapestSellerPrice : newOrder.tickLower;
-            overlapHigh = newOrder.tickUpper;
-            crossTick = overlapHigh;
-        } else {
-            // Placing NO order - find LOWEST YES tick (highest YES buyer price = best for NO seller)
-            // Lower YES tick = buyer pays less = but still the HIGHEST bidder in the book
-            // Wait - for NO seller, we want highest YES buyer (who pays the most)
-            uint16 highestBuy = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
-            if (highestBuy > MAX_TICK) return (0, 0, 0);
-            
-            // Our NO order at [tickLower, tickUpper] implies selling YES at prices from
-            // (1000-tickUpper)% to (1000-tickLower)%
-            // Crossing happens when YES buyer (at tick Y) pays >= our asking price
-            // Best YES buyer is at highestBuy
-            uint16 ourLowestAsk = 1000 - newOrder.tickUpper;  // Our cheapest selling price
-            
-            // No crossing if best buyer won't pay our minimum
-            if (highestBuy < ourLowestAsk) return (0, 0, 0);
-            
-            // Overlap in YES price space:
-            uint16 ourHighestAsk = 1000 - newOrder.tickLower;
-            overlapLow = ourLowestAsk > 0 ? ourLowestAsk : 1;
-            overlapHigh = highestBuy < ourHighestAsk ? highestBuy : ourHighestAsk;
-            crossTick = overlapLow;
-        }
+        if (oppTotalLiq == 0 && !hasSpotLiq) return result;
+
+        // Calculate overlap range
+        (uint16 overlapLow, uint16 overlapHigh, bool hasOverlap) = _calculateOverlap(
+            marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper
+        );
+        if (!hasOverlap) return result;
 
         uint256 overlapTicks = uint256(overlapHigh) - uint256(overlapLow) + 1;
         uint256 newOrderSharesInOverlap = uint256(newOrder.liquidity) * overlapTicks;
 
-        uint256 oppLiqInOverlap = _getOverlappingLiquidity(marketKey, opposite, overlapLow, overlapHigh);
-
-        crossedShares = newOrderSharesInOverlap < oppLiqInOverlap ? newOrderSharesInOverlap : oppLiqInOverlap;
-        if (crossedShares == 0) return (0, 0, 0);
-
+        // Calculate average price for cost computation
         uint256 priceLow = TickMath.tickToProbability(overlapLow);
         uint256 priceHigh = TickMath.tickToProbability(overlapHigh);
         uint256 avgPrice = (priceLow + priceHigh) / 2;
 
-        uint256 yesCost = (avgPrice * crossedShares) / WAD;
-        uint256 noCost = crossedShares - yesCost;
-
-        if (newOrder.outcome == 0) {
-            newOrderCost = noCost;
-            oppositeCost = yesCost;
-        } else {
-            newOrderCost = yesCost;
-            oppositeCost = noCost;
+        // PHASE 1: Fill spot liquidity FIRST (recycle existing tokens)
+        // Note: For spot sells, we want the SAME outcome as buyer (buyer wants YES, needs YES spot sells)
+        result.spotFilled = _fillSpotLiquidity(
+            marketKey, m, newOrder.owner, newOrder.outcome, newOrder.outcome, overlapLow, overlapHigh, newOrderSharesInOverlap
+        );
+        
+        if (result.spotFilled > 0) {
+            result.spotCost = _calculateCostForOutcome(newOrder.outcome, result.spotFilled, avgPrice);
         }
 
-        vault.creditOutcome(m.truthMarket, newOrder.owner, newOrder.outcome, crossedShares);
-        newOrder.filledShares += uint128(crossedShares);
-        newOrder.collateralUsedWad += uint128(newOrderCost);
+        uint256 remainingToFill = newOrderSharesInOverlap - result.spotFilled;
 
-        // V9.9.5: Mark fully filled orders as inactive and remove liquidity (with guard)
-        // V9.9.6-fix9: Pool refund immediately on completion
+        // PHASE 2: Fill range liquidity (mint synthetic tokens)
+        if (remainingToFill > 0) {
+            uint256 oppLiqInOverlap = _getOverlappingLiquidity(marketKey, opposite, overlapLow, overlapHigh);
+            result.rangeFilled = remainingToFill < oppLiqInOverlap ? remainingToFill : oppLiqInOverlap;
+            
+            if (result.rangeFilled > 0) {
+                result.rangeCost = _calculateCostForOutcome(newOrder.outcome, result.rangeFilled, avgPrice);
+                
+                // Credit minted shares to new order owner
+                vault.creditOutcome(m.truthMarket, newOrder.owner, newOrder.outcome, result.rangeFilled);
+                
+                // V9.9.8-fix: Use oppTotalLiq as denominator for correct pro-rata distribution
+                // Using oppLiqInOverlap caused over-crediting when overlap was small subset of total liquidity
+                if (oppTotalLiq > 0) {
+                    uint256 oppositeCost = _calculateCostForOutcome(opposite, result.rangeFilled, avgPrice);
+                    _fillGrowthGlobalX128[marketKey][opposite] += (result.rangeFilled * Q128) / oppTotalLiq;
+                    _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
+                }
+            }
+        }
+
+        // Compute totals
+        result.totalFilled = result.spotFilled + result.rangeFilled;
+        result.newOrderCost = result.spotCost + result.rangeCost;
+
+        if (result.totalFilled == 0) return result;
+
+        // Update new order state
+        newOrder.filledShares += uint128(result.totalFilled);
+        newOrder.collateralUsedWad += uint128(result.newOrderCost);
+
+        // Check if new order is fully filled
         if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
             _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
             newOrder.active = false;
-            // Pool the refund (deposited - used)
             uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad 
                 ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad : 0;
             if (refund > 0) {
@@ -1294,32 +1114,204 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             }
         }
 
-        // V9.9.8-fix: Use oppTotalLiq as denominator for correct pro-rata distribution
-        // Using oppLiqInOverlap caused over-crediting when overlap was small subset of total liquidity
-        if (oppTotalLiq > 0) {
-            _fillGrowthGlobalX128[marketKey][opposite] += (crossedShares * Q128) / oppTotalLiq;
-            _collateralUsedGrowthGlobalX128[marketKey][opposite] += (oppositeCost * Q128) / oppTotalLiq;
-        }
-
+        // Update active liquidity for opposite side
         uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
-        uint128 activeFilled = crossedShares < uint256(oppActiveLiq) ? uint128(crossedShares) : oppActiveLiq;
+        uint128 activeFilled = result.rangeFilled < uint256(oppActiveLiq) ? uint128(result.rangeFilled) : oppActiveLiq;
         if (opposite == 0) {
             state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, activeFilled);
         } else {
             state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, activeFilled);
         }
 
+        // Update active liquidity for new order side
         uint128 newActiveLiq = newOrder.outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
-        uint128 newFilled = crossedShares < uint256(newActiveLiq) ? uint128(crossedShares) : newActiveLiq;
+        uint128 newFilled = result.totalFilled < uint256(newActiveLiq) ? uint128(result.totalFilled) : newActiveLiq;
         if (newOrder.outcome == 0) {
             state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, newFilled);
         } else {
             state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, newFilled);
         }
 
-        state.currentTick = crossTick;
+        // Update cross tick
+        result.crossTick = newOrder.outcome == 1 ? overlapHigh : overlapLow;
+        state.currentTick = result.crossTick;
 
-        emit OrdersCrossed(marketKey, newOrderId, newOrder.outcome, crossedShares, newOrderCost, oppositeCost, crossTick);
+        emit UnifiedCrossing(
+            marketKey, newOrderId, newOrder.outcome,
+            result.spotFilled, result.rangeFilled,
+            result.spotCost, result.rangeCost,
+            result.crossTick
+        );
+
+        emit OrdersCrossed(
+            marketKey, newOrderId, newOrder.outcome,
+            result.totalFilled, result.newOrderCost,
+            result.totalFilled - result.newOrderCost, // approximate opposite cost
+            result.crossTick
+        );
+    }
+
+    /**
+     * @notice Check if there's any spot liquidity in the given tick range
+     */
+    function _hasSpotLiquidity(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint16 tickLower,
+        uint16 tickUpper
+    ) internal view returns (bool) {
+        // Use spot bitmap to efficiently check
+        // Use tickLower - 1 because findNextUp search is exclusive
+        uint16 nextSpot = _spotBitmaps[marketKey][outcome].findNextUp(tickLower - 1);
+        return nextSpot <= tickUpper;
+    }
+
+    /**
+     * @notice Calculate the overlap range between new order and opposite liquidity
+     */
+    function _calculateOverlap(
+        bytes32 marketKey,
+        uint8 newOutcome,
+        uint16 tickLower,
+        uint16 tickUpper
+    ) internal view returns (uint16 overlapLow, uint16 overlapHigh, bool hasOverlap) {
+        if (newOutcome == 1) {
+            // Placing YES order - find liquidity to cross against:
+            // 1. NO range orders (at high NO ticks = low YES asking price)
+            // 2. YES spot sells (direct YES share sellers)
+            uint16 highestNoRange = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+            uint16 highestYesSpot = _spotBitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
+            
+            // For NO range: higher NO tick = seller accepts lower YES price
+            // For YES spot: tick IS the asking price directly
+            uint16 cheapestFromRange = highestNoRange <= MAX_TICK ? 1000 - highestNoRange : MAX_TICK + 1;
+            uint16 cheapestFromSpot = highestYesSpot <= MAX_TICK ? highestYesSpot : MAX_TICK + 1;
+            
+            uint16 cheapestSellerPrice = cheapestFromRange < cheapestFromSpot ? cheapestFromRange : cheapestFromSpot;
+            if (cheapestSellerPrice > MAX_TICK || cheapestSellerPrice > tickUpper) return (0, 0, false);
+            
+            overlapLow = cheapestSellerPrice > tickLower ? cheapestSellerPrice : tickLower;
+            overlapHigh = tickUpper;
+            hasOverlap = true;
+        } else {
+            // Placing NO order - find liquidity to cross against:
+            // 1. YES range orders (buyers bidding for YES)
+            // 2. NO spot sells (direct NO share sellers)
+            uint16 highestYesRange = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
+            uint16 highestNoSpot = _spotBitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+            
+            // For YES range: tick IS the bid price
+            // For NO spot: higher NO tick = seller accepts lower NO price (higher YES equiv)
+            uint16 bestFromRange = highestYesRange <= MAX_TICK ? highestYesRange : 0;
+            uint16 bestFromSpot = highestNoSpot <= MAX_TICK ? 1000 - highestNoSpot : 0;
+            
+            uint16 bestBuy = bestFromRange > bestFromSpot ? bestFromRange : bestFromSpot;
+            if (bestBuy == 0) return (0, 0, false);
+            
+            uint16 ourLowestAsk = 1000 - tickUpper;
+            if (bestBuy < ourLowestAsk) return (0, 0, false);
+            
+            uint16 ourHighestAsk = 1000 - tickLower;
+            overlapLow = ourLowestAsk > 0 ? ourLowestAsk : 1;
+            overlapHigh = bestBuy < ourHighestAsk ? bestBuy : ourHighestAsk;
+            hasOverlap = true;
+        }
+    }
+
+    /**
+     * @notice Fill spot liquidity in the overlap range
+     * @dev Transfers existing locked tokens from spot sellers to buyer
+     */
+    function _fillSpotLiquidity(
+        bytes32 marketKey,
+        Market memory m,
+        address buyer,
+        uint8, /* buyerOutcome */
+        uint8 sellerOutcome,
+        uint16 overlapLow,
+        uint16 overlapHigh,
+        uint256 maxToFill
+    ) internal returns (uint256 filled) {
+        uint256 remaining = maxToFill;
+        
+        // Iterate through spot sell orders to find matches
+        // Note: _nextSpotSellId is the NEXT id to assign, so current max is _nextSpotSellId
+        uint256 maxSpotId = _nextSpotSellId;
+        
+        for (uint256 sellId = 1; sellId <= maxSpotId && remaining > 0; sellId++) {
+            SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
+            
+            if (!spotOrder.active) continue;
+            if (spotOrder.outcome != sellerOutcome) continue;
+            
+            // Check if spot order overlaps with our range
+            if (spotOrder.tickUpper < overlapLow || spotOrder.tickLower > overlapHigh) continue;
+            
+            uint256 available = spotOrder.sharesTotal - spotOrder.sharesFilled;
+            if (available == 0) continue;
+            
+            uint256 toFill = remaining < available ? remaining : available;
+            
+            // Calculate cost at spot order's price
+            uint256 spotPriceLow = TickMath.tickToProbability(spotOrder.tickLower);
+            uint256 spotPriceHigh = TickMath.tickToProbability(spotOrder.tickUpper);
+            uint256 spotAvgPrice = (spotPriceLow + spotPriceHigh) / 2;
+            uint256 cost = (spotAvgPrice * toFill) / WAD;
+            
+            // Transfer locked shares from seller to buyer
+            vault.transferLockedOutcome(m.truthMarket, spotOrder.owner, buyer, sellerOutcome, toFill);
+            
+            // Update spot order state
+            spotOrder.sharesFilled += uint128(toFill);
+            spotOrder.proceedsWad += uint128(cost);
+            
+            // Reduce spot liquidity in ticks
+            uint256 ticksInRange = uint256(spotOrder.tickUpper) - uint256(spotOrder.tickLower) + 1;
+            uint128 densityReduction = uint128(toFill / ticksInRange);
+            for (uint16 t = spotOrder.tickLower; t <= spotOrder.tickUpper; t++) {
+                TickLiquidity storage tick = _tickLiquidity[marketKey][sellerOutcome][t];
+                if (tick.spotLiquidity >= densityReduction) {
+                    tick.spotLiquidity -= densityReduction;
+                } else {
+                    tick.spotLiquidity = 0;
+                }
+                if (tick.spotLiquidity == 0) {
+                    _spotBitmaps[marketKey][sellerOutcome].clearBit(t);
+                }
+            }
+            
+            // Auto-complete spot order if fully filled
+            if (spotOrder.sharesFilled >= spotOrder.sharesTotal) {
+                spotOrder.active = false;
+                _removeFromUserSpotSells(marketKey, spotOrder.owner, sellId);
+                if (spotOrder.proceedsWad > 0) {
+                    vault.creditUsdcAvailable(spotOrder.owner, spotOrder.proceedsWad);
+                    spotOrder.proceedsWad = 0;
+                }
+            }
+            
+            emit SpotSellFilled(marketKey, sellId, toFill, cost);
+            
+            filled += toFill;
+            remaining -= toFill;
+        }
+    }
+
+    /**
+     * @notice Calculate cost based on outcome and price
+     */
+    function _calculateCostForOutcome(
+        uint8 outcome,
+        uint256 shares,
+        uint256 avgPrice
+    ) internal pure returns (uint256) {
+        if (outcome == 1) {
+            // YES buyer pays avgPrice per share
+            return (avgPrice * shares) / WAD;
+        } else {
+            // NO buyer pays (1 - avgPrice) per share
+            return ((WAD - avgPrice) * shares) / WAD;
+        }
     }
 
     function _getOverlappingLiquidity(
@@ -1408,7 +1400,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (!order.active) return (0, 0);
 
         uint8 out = order.outcome;
-        // Note: Don't early-return on totalLiq==0 - pending fills can still exist in accumulator
 
         uint256 globalFillGrowth = _fillGrowthGlobalX128[marketKey][out];
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
@@ -1416,7 +1407,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             uint256 delta = globalFillGrowth - lastFillGrowth;
             pendingShares = (delta * order.sharesTotal) / Q128;
 
-            // V9.9.5: Cap pending shares to prevent showing >100% filled
             uint256 maxFillable = order.sharesTotal > order.filledShares
                 ? order.sharesTotal - order.filledShares
                 : 0;
@@ -1433,23 +1423,27 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // V9.9.6-fix4: All Orders Enumeration (for frontend liquidity map)
-    // ═══════════════════════════════════════════════════════════════════════════
+    /// @dev V10: Get unified tick liquidity (range + spot)
+    function getTickLiquidity(bytes32 marketKey, uint8 outcome, uint16 tick)
+        external
+        view
+        returns (int128 rangeLiquidityNet, uint128 rangeLiquidityGross, uint128 spotLiquidity)
+    {
+        TickLiquidity memory t = _tickLiquidity[marketKey][outcome][tick];
+        return (t.rangeLiquidityNet, t.rangeLiquidityGross, t.spotLiquidity);
+    }
 
-    /// @notice Get the next order ID (for enumeration bounds)
     function getNextOrderId() external view returns (uint256) {
         return _nextOrderId;
     }
 
-    /// @notice Get all active order IDs for a market
-    /// @dev Iterates through all order IDs - O(n) where n is total orders created
-    /// @param marketKey The market to query
-    /// @return orderIds Array of active order IDs
+    function getNextSpotSellId() external view returns (uint256) {
+        return _nextSpotSellId;
+    }
+
     function getAllMarketOrders(bytes32 marketKey) external view returns (uint256[] memory) {
         uint256 maxId = _nextOrderId;
         
-        // Count active orders first (needed to size the array)
         uint256 count = 0;
         for (uint256 i = 1; i < maxId; ) {
             if (_orders[marketKey][i].active) {
@@ -1458,7 +1452,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             unchecked { ++i; }
         }
         
-        // Collect order IDs
         uint256[] memory orderIds = new uint256[](count);
         uint256 idx = 0;
         for (uint256 i = 1; i < maxId; ) {
@@ -1469,5 +1462,28 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             unchecked { ++i; }
         }
         return orderIds;
+    }
+
+    function getAllMarketSpotSells(bytes32 marketKey) external view returns (uint256[] memory) {
+        uint256 maxId = _nextSpotSellId;
+        
+        uint256 count = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_spotSellOrders[marketKey][i].active) {
+                unchecked { ++count; }
+            }
+            unchecked { ++i; }
+        }
+        
+        uint256[] memory sellIds = new uint256[](count);
+        uint256 idx = 0;
+        for (uint256 i = 1; i < maxId; ) {
+            if (_spotSellOrders[marketKey][i].active) {
+                sellIds[idx] = i;
+                unchecked { ++idx; }
+            }
+            unchecked { ++i; }
+        }
+        return sellIds;
     }
 }

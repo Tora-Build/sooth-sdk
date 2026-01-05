@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V10_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { parseAbiItem } from "viem";
 
@@ -41,7 +41,7 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
 
   const query = useDirectRead({
     queryKey: ["v9", "allOrders", chainId, tickBookManagerAddress, marketKey],
-    enabled: !!marketKey && !!chainId && !!tickBookManagerAddress,
+    enabled: !!marketKey && marketKey !== "0x0" && marketKey !== "0x0000000000000000000000000000000000000000000000000000000000000000" && !!chainId && !!tickBookManagerAddress,
     chainId,
     read: async (client) => {
       console.log(`[useAllOrdersDirect] Querying ALL orders for market ${marketKey}`);
@@ -53,7 +53,7 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
         try {
           orderIds = await readContractSafe<bigint[]>(client, {
             address: tickBookManagerAddress!,
-            abi: V10_ABIS.TickBookPoolManager,
+            abi: ABIS.TickBookPoolManager,
             functionName: "getAllMarketOrders",
             args: [marketKey!],
           }) ?? [];
@@ -106,13 +106,13 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
           const contracts = batchIds.flatMap(orderId => [
             {
               address: tickBookManagerAddress!,
-              abi: V10_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               functionName: "getOrder",
               args: [marketKey!, orderId]
             },
             {
               address: tickBookManagerAddress!,
-              abi: V10_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               functionName: "getPendingFills",
               args: [marketKey!, orderId]
             }

@@ -9,7 +9,7 @@ import { Button } from '../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries } from '../../hooks';
 import { useDeployments } from '../../hooks/useDeployments';
-import { V8_ABIS, V9_ABIS, ERC20_ABI } from '../../config/abis';
+import { ABIS, ERC20_ABI } from '../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
@@ -400,7 +400,7 @@ export const SimpleTradingPanel = ({
       try {
         const [netCost] = await publicClient.readContract({
           address: ammEngineAddress,
-          abi: V8_ABIS.AMMEngine,
+          abi: ABIS.AMMEngine,
           functionName: 'getPositionQuote',
           args: [address, selectedOutcome, deltaShares],
         }) as readonly [bigint, bigint];
@@ -526,7 +526,7 @@ export const SimpleTradingPanel = ({
           await publicClient.simulateContract({
             account: userAddress,
             address: contracts.LaunchpadEngine as `0x${string}`,
-            abi: V9_ABIS.LaunchpadEngine,
+            abi: ABIS.LaunchpadEngine,
             functionName: 'tradePositions',
             args: [address, selectedOutcome, deltaShares, limitCost],
             // Use same gas limit for simulation to catch OOG
@@ -543,7 +543,7 @@ export const SimpleTradingPanel = ({
 
       trade({
         address: contracts.LaunchpadEngine as `0x${string}`,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [address, selectedOutcome, deltaShares, limitCost],
         gas: gasLimit,

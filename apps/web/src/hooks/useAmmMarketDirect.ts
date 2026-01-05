@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS, ERC20_ABI } from "../config/abis";
+import { ABIS, ERC20_ABI } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -24,7 +24,7 @@ export function useAmmMarketDirect(marketAddress: Address | undefined) {
       const [liquidity, lockedProceeds] = await Promise.all([
         readContractSafe<bigint>(client, {
           address: ammEngineAddress!,
-          abi: V9_ABIS.AMMEngine,
+          abi: ABIS.AMMEngine,
           functionName: "getLiquidity",
           args: [marketAddress!],
         }),
@@ -47,7 +47,7 @@ export function useAmmMarketDirect(marketAddress: Address | undefined) {
       if (isInitialized) {
         const state = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
           address: ammEngineAddress!,
-          abi: V9_ABIS.AMMEngine,
+          abi: ABIS.AMMEngine,
           functionName: "getMarketState",
           args: [marketAddress!],
         });

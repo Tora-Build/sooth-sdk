@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'react-hot-toast';
-import { V8_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 
 export interface ClaimUnlockedData {
     claim: (maxClaims?: number) => void;
@@ -42,7 +42,7 @@ export function useClaimUnlocked(
 
         writeContract({
             address: ammEngineAddress,
-            abi: V8_ABIS.AMMEngine,
+            abi: ABIS.AMMEngine,
             functionName: 'claimUnlocked',
             args: [BigInt(maxClaims)],
         }, {

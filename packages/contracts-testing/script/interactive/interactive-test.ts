@@ -37,7 +37,10 @@ import { runAllInvariants, printInvariantResults } from './assertions';
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
-const chainArg = args.find(a => a.startsWith('--chain='))?.split('=')[1] || 'baseSepolia';
+// Support both --chain=monad and positional: interactive-test.ts monad
+const chainArg = args.find(a => a.startsWith('--chain='))?.split('=')[1] 
+  || args.find(a => !a.startsWith('--'))  // First non-flag arg
+  || 'baseSepolia';
 const marketArg = args.find(a => a.startsWith('--market='))?.split('=')[1];
 const rpcArg = args.find(a => a.startsWith('--rpc='))?.split('=')[1];
 

@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -20,13 +20,13 @@ export function useCollateralizerDirect(marketAddress: Address | undefined) {
         const [tokens, totalCollateral] = await Promise.all([
           readContractSafe<readonly [Address, Address]>(client, {
             address: collateralizerAddress!,
-            abi: V8_ABIS.Collateralizer,
+            abi: ABIS.Collateralizer,
             functionName: "getOutcomeTokens",
             args: [marketAddress!],
           }),
           readContractSafe<bigint>(client, {
             address: collateralizerAddress!,
-            abi: V8_ABIS.Collateralizer,
+            abi: ABIS.Collateralizer,
             functionName: "getTotalCollateral",
             args: [marketAddress!],
           }),

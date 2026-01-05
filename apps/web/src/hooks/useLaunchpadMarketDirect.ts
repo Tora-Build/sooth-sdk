@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -41,7 +41,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         ]
       >(client, {
         address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: "markets",
         args: [marketAddress!],
       });
@@ -62,9 +62,9 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
       ] = marketsMapping;
 
       const [preGradFeeBps, postGradFeeBps, graduationMultiplier] = await Promise.all([
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
-        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: V9_ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: ABIS.LaunchpadEngine, functionName: "postGradFeeBps" }),
+        readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: ABIS.LaunchpadEngine, functionName: "graduationMultiplier" }),
       ]);
 
       const isCreated = creator !== ZERO_ADDRESS;
@@ -72,7 +72,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
 
       const [feesAccrued, graduationThreshold, progressBps] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
         address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: "getGraduationProgress",
         args: [marketAddress!],
       });
@@ -84,7 +84,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
       const userLpBalance = userAddress
         ? await readContractSafe<bigint>(client, {
           address: launchpadEngineAddress!,
-          abi: V9_ABIS.LaunchpadEngine,
+          abi: ABIS.LaunchpadEngine,
           functionName: "lpBalances",
           args: [marketAddress!, userAddress],
         })
@@ -97,7 +97,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
           readonly [Address, bigint, bigint, bigint, boolean, bigint]
         >(client, {
           address: launchpadEngineAddress!,
-          abi: V9_ABIS.LaunchpadEngine,
+          abi: ABIS.LaunchpadEngine,
           functionName: "getMarketState",
           args: [marketAddress!],
         });

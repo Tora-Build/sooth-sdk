@@ -1,6 +1,6 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
@@ -25,7 +25,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getOutcomeTokens",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -43,7 +43,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getTotalCollateral",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -61,7 +61,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getBalances",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
@@ -155,19 +155,19 @@ export function useOutcomeToken(tokenAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "name",
                 chainId,
             },
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "symbol",
                 chainId,
             },
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "market",
                 chainId,
             },

@@ -17,7 +17,7 @@ import { useDirectRead, readContractSafe, useAMMPositionDirect, useTickBookVault
 import { useMarketStatsMath } from '../hooks/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { ERC20_ABI, V8_ABIS } from '../config/abis';
+import { ERC20_ABI, ABIS } from '../config/abis';
 import marketsConfigRaw from '../config/markets.json';
 import { MarketConfig, MarketsConfigJson } from '../types';
 
@@ -145,13 +145,13 @@ const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
     contracts: [
       {
         address: market.yesToken as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
+        abi: ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: [userAddress],
       },
       {
         address: market.noToken as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
+        abi: ABIS.OutcomeToken,
         functionName: 'balanceOf',
         args: [userAddress],
       }
@@ -350,10 +350,10 @@ export const Portfolio = () => {
   // Batch Read: Market Prices, Internal Shares, LP Balances
   const { data: batchData, isLoading: isLoadingBatch } = useReadContracts({
     contracts: v8Markets.flatMap(m => [
-      { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getMarketState', args: [m.contractAddress] },
-      { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getPosition', args: [m.contractAddress, userAddress] },
-      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.contractAddress, userAddress] },
-      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.contractAddress] }
+      { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getMarketState', args: [m.contractAddress] },
+      { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getPosition', args: [m.contractAddress, userAddress] },
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.contractAddress, userAddress] },
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.contractAddress] }
     ]),
     query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && v8Markets.length > 0 }
   });

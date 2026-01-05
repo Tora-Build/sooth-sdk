@@ -1,5 +1,5 @@
 import { useChainStore } from "../store/useChainStore";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -25,16 +25,16 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         tStar,
         state,
       ] = await Promise.all([
-        readContractSafe<boolean>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "isLive" }),
-        readContractSafe<boolean>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "isSettled" }),
-        readContractSafe<number>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "winningOutcome" }),
-        readContractSafe<bigint>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "deadline" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "creator" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "adjudicator" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "guardian" }),
-        readContractSafe<string>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "question" }),
-        readContractSafe<bigint>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "tStar" }),
-        readContractSafe<number>(client, { address: marketAddress!, abi: V8_ABIS.TruthMarket, functionName: "state" }),
+        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isLive" }),
+        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isSettled" }),
+        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "winningOutcome" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "deadline" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "creator" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "adjudicator" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "guardian" }),
+        readContractSafe<string>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "question" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "tStar" }),
+        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "state" }),
       ]);
 
       const now = Math.floor(Date.now() / 1000);

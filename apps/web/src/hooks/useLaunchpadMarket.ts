@@ -1,6 +1,6 @@
 import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract, useConfig } from "wagmi";
 import { useMemo, useCallback, useEffect } from "react";
-import { V8_ABIS, ERC20_ABI } from "../config/abis";
+import { ABIS, ERC20_ABI } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
@@ -64,21 +64,21 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getMarketState",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -96,7 +96,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getLPBalance",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
@@ -114,19 +114,19 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "preGradFeeBps",
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "postGradFeeBps",
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "graduationMultiplier",
                 chainId,
             },
@@ -163,7 +163,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         guardian: `0x${string}`
     ) => {
         return await deployContract(config, {
-            abi: V8_ABIS.TruthMarket,
+            abi: ABIS.TruthMarket,
             bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
             args: [question, BigInt(deadline), adjudicator, guardian],
         });
@@ -178,7 +178,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         if (!launchpadEngineAddress) return;
         writeContract({
             address: launchpadEngineAddress,
-            abi: V8_ABIS.LaunchpadEngine,
+            abi: ABIS.LaunchpadEngine,
             functionName: "createMarket",
             args: [truthMarketAddr, initialLiquidity, name, symbol],
         });
@@ -198,7 +198,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         if (!launchpadEngineAddress || !marketAddress) return;
         writeContract({
             address: launchpadEngineAddress,
-            abi: V8_ABIS.LaunchpadEngine,
+            abi: ABIS.LaunchpadEngine,
             functionName: 'redeemLP',
             args: [marketAddress, amount]
         });

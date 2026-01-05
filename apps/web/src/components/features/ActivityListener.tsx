@@ -1,385 +1,244 @@
-import React, { useMemo } from 'react';
-import { useChainId, useWatchContractEvent } from 'wagmi';
-import { formatUnits } from 'viem';
-import { GOVERNOR_VAULT_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI } from '../../config/abis';
-import { useDeployments } from '../../hooks/useDeployments';
-import { useLaunchpadMarkets } from '../../hooks/useLaunchpadMarkets';
-import { useActivityStore } from '../../store/useActivityStore';
-import { useOrderStore } from '../../store/useOrderStore';
-import { useMarketStore } from '../../store/useMarketStore';
-import toast from 'react-hot-toast';
+import { useMemo } from "react";
+import { useAccount, useWatchContractEvent } from "wagmi";
+import { formatUnits } from "viem";
+import { ABIS } from "../../config/abis";
+import { useDeployments } from "../../hooks/useDeployments";
+import { useChainStore } from "../../store/useChainStore";
+import { useMarketStore } from "../../store/useMarketStore";
+import { useActivityStore } from "../../store/useActivityStore";
+import marketsConfig from "../../config/markets.json";
+
+type Address = `0x${string}`;
+
+function toAddressLower(a?: string) {
+  return (a ?? "").toLowerCase();
+}
+
+function resolveMarketNameByAddress(marketAddress: string, chainId: number | undefined): string {
+  const list = Array.isArray(marketsConfig) ? (marketsConfig as any) : (marketsConfig as any).markets || [];
+  const m = list.find((x: any) => {
+    if (!x?.contractAddress) return false;
+    if (chainId && x.chainId && Number(x.chainId) !== Number(chainId)) return false;
+    return toAddressLower(x.contractAddress) === toAddressLower(marketAddress);
+  });
+  return m?.name || marketAddress;
+}
 
 /**
- * Component to watch events for a specific Launchpad Market
+ * V8 ActivityListener
+ * - Watches V8 core contract events for the connected wallet only
+ * - Appends them to `useActivityStore` so ActivityLog stays live and persisted
  */
-const LaunchpadMarketWatcher: React.FC<{ market: { address: `0x${string}`, name: string }; chainId: number }> = ({ market, chainId }) => {
+export function ActivityListener() {
   const { addActivity } = useActivityStore();
+  const { mode } = useMarketStore();
+  const { address: userAddress } = useAccount();
+  const { selectedChainId } = useChainStore();
+  const chainId = Number(selectedChainId);
+  const { contracts } = useDeployments();
 
-  // Watch TradeAMM (Direct swaps)
+  const launchpadEngine = contracts.LaunchpadEngine as Address | undefined;
+  const ammEngine = contracts.AMMEngine as Address | undefined;
+
+  const isMonad = chainId === 10143;
+  const isArc = chainId === 5042002;
+  // Disable activity listener on Monad/Arc to avoid 400 Bad Request errors from eth_newFilter unsupported
+  const enabled = mode === "real" && !!userAddress && !!chainId && !isMonad && !isArc;
+
+  const userTopic = useMemo(() => userAddress as Address | undefined, [userAddress]);
+
+  // ----------------------------
+  // LaunchpadEngine events
+  // ----------------------------
+
   useWatchContractEvent({
-    address: market.address,
-    abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'TradeAMM',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { user, outcome, deltaShares } = log.args;
-        const isBuy = (deltaShares || 0n) > 0n;
-        const shares = formatUnits(deltaShares || 0n, 18);
-        const outcomeText = outcome === 0 ? 'YES' : 'NO';
-        const description = `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`;
+    address: launchpadEngine,
+    chainId,
+    abi: ABIS.LaunchpadEngine,
+    eventName: "PositionTraded",
+    // trader is indexed; filter server-side when possible.
+    args: userTopic ? { trader: userTopic } : undefined,
+    enabled: enabled && !!launchpadEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const trader = log?.args?.trader as string | undefined;
+        if (!trader || toAddressLower(trader) !== toAddressLower(userAddress)) return;
+
+        const market = log?.args?.market as string | undefined;
+        const deltaShares = (log?.args?.deltaShares as bigint | undefined) ?? 0n;
+        const outcomeText = deltaShares >= 0n ? "YES" : "NO";
+        const sharesAbs = deltaShares >= 0n ? deltaShares : -deltaShares;
+        const shares = Number(formatUnits(sharesAbs, 18));
+        const isBuy = deltaShares > 0n;
 
         addActivity({
-          type: 'trade',
-          market: market.name,
-          description,
+          type: "trade",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: `${isBuy ? "Bought" : "Sold"} ${shares.toFixed(2)} ${outcomeText} shares`,
           hash: log.transactionHash,
-          mode: 'real',
+          mode: "real",
           timestamp: Date.now(),
           chainId,
         });
-        toast.success(description, { icon: '🔄' });
       });
     },
   });
 
-  // Watch Locked (Pre-graduation locking)
   useWatchContractEvent({
-    address: market.address,
-    abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'Locked',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { amount } = log.args;
-        const description = `Proceeds locked (24h): ${formatUnits(amount || 0n, 6)} USDC`;
+    address: launchpadEngine,
+    chainId,
+    abi: ABIS.LaunchpadEngine,
+    eventName: "MarketCreated",
+    enabled: enabled && !!launchpadEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const creator = log?.args?.creator as string | undefined;
+        if (!creator || toAddressLower(creator) !== toAddressLower(userAddress)) return;
+        const market = log?.args?.market as string | undefined;
         addActivity({
-          type: 'liquidity',
-          market: market.name,
-          description,
+          type: "admin",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: "Created market (LaunchpadEngine initialized)",
           hash: log.transactionHash,
-          mode: 'real',
+          mode: "real",
           timestamp: Date.now(),
           chainId,
         });
-        toast(description, { icon: '🔒' });
       });
     },
   });
 
-  // Watch Locked (Sell Lock)
   useWatchContractEvent({
-    address: market.address,
-    abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'Locked',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { amount } = log.args;
-        const description = `Proceeds locked: ${formatUnits(amount || 0n, 6)} USDC`;
+    address: launchpadEngine,
+    chainId,
+    abi: ABIS.LaunchpadEngine,
+    eventName: "MarketGraduated",
+    enabled: enabled && !!launchpadEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const market = log?.args?.market as string | undefined;
         addActivity({
-          type: 'claim',
-          market: market.name,
-          description,
+          type: "settle",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: "Market graduated",
           hash: log.transactionHash,
-          mode: 'real',
+          mode: "real",
           timestamp: Date.now(),
           chainId,
         });
-        toast.success(description, { icon: '💰' });
       });
     },
   });
 
-  // Watch LpTokensRedeemed
   useWatchContractEvent({
-    address: market.address,
-    abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'LpTokensRedeemed',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { amount, assets } = log.args;
-        const description = `Redeemed ${formatUnits(amount || 0n, 18)} LP for ${formatUnits(assets || 0n, 6)} USDC`;
+    address: launchpadEngine,
+    chainId,
+    abi: ABIS.LaunchpadEngine,
+    eventName: "LPRedeemed",
+    args: userTopic ? { user: userTopic } : undefined,
+    enabled: enabled && !!launchpadEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const user = log?.args?.user as string | undefined;
+        if (!user || toAddressLower(user) !== toAddressLower(userAddress)) return;
+        const market = log?.args?.market as string | undefined;
+        const usdcAmount = (log?.args?.usdcAmount as bigint | undefined) ?? 0n;
         addActivity({
-          type: 'liquidity',
-          market: market.name,
-          description,
+          type: "liquidity",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: `Redeemed LP for ${formatUnits(usdcAmount, 6)} USDC`,
           hash: log.transactionHash,
-          mode: 'real',
+          mode: "real",
           timestamp: Date.now(),
           chainId,
         });
-        toast.success(description, { icon: '🏦' });
       });
     },
   });
 
-  // Watch MarketGraduated
   useWatchContractEvent({
-    address: market.address,
-    abi: LAUNCHPAD_MARKET_ABI,
-    eventName: 'MarketGraduated',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const description = `🎓 Market Graduated to Full AMM!`;
+    address: launchpadEngine,
+    chainId,
+    abi: ABIS.LaunchpadEngine,
+    eventName: "LiquidityIncreased",
+    args: userTopic ? { creator: userTopic } : undefined,
+    enabled: enabled && !!launchpadEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const creator = log?.args?.creator as string | undefined;
+        if (!creator || toAddressLower(creator) !== toAddressLower(userAddress)) return;
+        const market = log?.args?.market as string | undefined;
+        const amount = (log?.args?.amount as bigint | undefined) ?? 0n;
         addActivity({
-          type: 'settle',
-          market: market.name,
-          description,
+          type: "liquidity",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: `Increased liquidity by ${formatUnits(amount, 6)} USDC`,
           hash: log.transactionHash,
-          mode: 'real',
+          mode: "real",
           timestamp: Date.now(),
           chainId,
         });
-        toast.success(description, { icon: '🏆', duration: 10000 });
+      });
+    },
+  });
+
+  // ----------------------------
+  // AMMEngine events (spendable/locked proceeds)
+  // ----------------------------
+
+  useWatchContractEvent({
+    address: ammEngine,
+    chainId,
+    abi: ABIS.AMMEngine,
+    eventName: "ProceedsLocked",
+    args: userTopic ? { user: userTopic } : undefined,
+    enabled: enabled && !!ammEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const user = log?.args?.user as string | undefined;
+        if (!user || toAddressLower(user) !== toAddressLower(userAddress)) return;
+        const market = log?.args?.market as string | undefined;
+        const amount = (log?.args?.amount as bigint | undefined) ?? 0n;
+        addActivity({
+          type: "claim",
+          market: resolveMarketNameByAddress(market ?? "Unknown Market", chainId),
+          description: `Proceeds locked (24h): ${formatUnits(amount, 18)} USDC`,
+          hash: log.transactionHash,
+          mode: "real",
+          timestamp: Date.now(),
+          chainId,
+        });
+      });
+    },
+  });
+
+  useWatchContractEvent({
+    address: ammEngine,
+    chainId,
+    abi: ABIS.AMMEngine,
+    eventName: "ProceedsClaimed",
+    args: userTopic ? { user: userTopic } : undefined,
+    enabled: enabled && !!ammEngine,
+    onLogs: (logs) => {
+      logs.forEach((log: any) => {
+        const user = log?.args?.user as string | undefined;
+        if (!user || toAddressLower(user) !== toAddressLower(userAddress)) return;
+        const market = log?.args?.market as string | undefined;
+        const amount = (log?.args?.amount as bigint | undefined) ?? 0n;
+        addActivity({
+          type: "claim",
+          market: resolveMarketNameByAddress(market ?? "AMMEngine", chainId),
+          description: `Unlocked proceeds claimed: ${formatUnits(amount, 18)} USDC`,
+          hash: log.transactionHash,
+          mode: "real",
+          timestamp: Date.now(),
+          chainId,
+        });
       });
     },
   });
 
   return null;
-};
+}
 
-export const ActivityListener: React.FC = () => {
-  const { addActivity } = useActivityStore();
-  const { mode } = useMarketStore();
-  const { config } = useDeployments();
-  const deployments = config.contracts;
-  const chainId = useChainId();
-  const { markets } = useLaunchpadMarkets();
 
-  // Disable on all testnet chains to reduce RPC load (they rate-limit heavily)
-  // Monad (10143), Arc (5042002), Base Sepolia (84532)
-  const isTestnetChain = chainId === 10143 || chainId === 5042002 || chainId === 84532;
-  const enabled = mode === 'real' && !isTestnetChain;
-
-  // Build market list from LaunchpadFactory (Dynamic)
-  const uniqueMarkets = useMemo(() => {
-    const list: { address: `0x${string}`, name: string }[] = [];
-    const seen = new Set<string>();
-
-    // From LaunchpadFactory (Dynamic)
-    if (markets) {
-      markets.forEach(m => {
-        if (m.address && !seen.has(m.address.toLowerCase())) {
-          seen.add(m.address.toLowerCase());
-          list.push({ address: m.address, name: m.name });
-        }
-      });
-    }
-
-    return list;
-  }, [markets]);
-
-  // LP vault
-  const vaultAddress = deployments.SoothLiquidityVault as `0x${string}`;
-  // Trader Vault
-  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
-
-  // Watch Vault Deposits (Governor Vault)
-  useWatchContractEvent({
-    address: vaultAddress,
-    abi: GOVERNOR_VAULT_V4_ABI,
-    eventName: 'Deposit',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const assets = log.args.assets;
-        const description = `Deposited ${formatUnits(assets || 0n, 18)} USDC`;
-        addActivity({
-          type: 'liquidity',
-          market: 'USDC Vault',
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast.success(description, { icon: '📥' });
-      });
-    },
-    enabled,
-  });
-
-  // Watch Vault Withdraws (Governor Vault)
-  useWatchContractEvent({
-    address: vaultAddress,
-    abi: GOVERNOR_VAULT_V4_ABI,
-    eventName: 'Withdraw',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const assets = log.args.assets;
-        const description = `Withdrew ${formatUnits(assets || 0n, 18)} USDC`;
-        addActivity({
-          type: 'liquidity',
-          market: 'USDC Vault',
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast.success(description, { icon: '📤' });
-      });
-    },
-    enabled,
-  });
-
-  // Watch TradeExecuted on TraderVault (Aggregates all markets)
-  useWatchContractEvent({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    eventName: 'TradeExecuted',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { market: marketAddress, outcome, deltaShares } = log.args;
-
-        const marketMeta = uniqueMarkets.find(m =>
-          m.address.toLowerCase() === marketAddress?.toLowerCase()
-        );
-        const marketName = marketMeta?.name || 'Unknown Market';
-
-        const outcomeText = outcome === 0 ? 'YES' : 'NO';
-        const shares = formatUnits(deltaShares || 0n, 18);
-        const isBuy = (deltaShares || 0n) > 0n;
-        const description = `${isBuy ? 'Bought' : 'Sold'} ${parseFloat(shares).toFixed(2)} ${outcomeText} shares`;
-
-        addActivity({
-          type: 'trade',
-          market: marketName,
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast.success(description, { icon: '🔄' });
-      });
-    },
-    enabled: enabled && !!traderVaultAddress,
-  });
-
-  // Watch OrderPlaced on TraderVault
-  useWatchContractEvent({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    eventName: 'OrderPlaced',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { market: marketAddress, orderId, outcome, price, amount } = log.args;
-        
-        const marketMeta = uniqueMarkets.find(m =>
-          m.address.toLowerCase() === marketAddress?.toLowerCase()
-        );
-        const marketName = marketMeta?.name || 'Unknown Market';
-
-        useOrderStore.getState().addOrder({
-          id: orderId.toString(),
-          marketAddress: marketAddress as `0x${string}`,
-          marketName,
-          outcome: outcome as 0 | 1,
-          price: Number(formatUnits(price || 0n, 18)),
-          amount: Number(formatUnits(amount || 0n, 18)),
-          timestamp: Date.now(),
-          isBuy: true, // Simplified for alpha
-          hash: log.transactionHash
-        });
-
-        const description = `Limit Order Placed: ${parseFloat(formatUnits(amount || 0n, 18)).toFixed(2)} shares @ $${parseFloat(formatUnits(price || 0n, 18)).toFixed(2)}`;
-        addActivity({
-          type: 'trade',
-          market: marketName,
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast.success(description, { icon: '📝' });
-      });
-    },
-    enabled: enabled && !!traderVaultAddress,
-  });
-
-  // Watch OrderCancelled on TraderVault
-  useWatchContractEvent({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    eventName: 'OrderCancelled',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { orderId, market: marketAddress } = log.args;
-        useOrderStore.getState().removeOrder(orderId.toString());
-        
-        const marketMeta = uniqueMarkets.find(m =>
-          m.address.toLowerCase() === marketAddress?.toLowerCase()
-        );
-        const marketName = marketMeta?.name || 'Unknown Market';
-
-        const description = `Order #${orderId.toString()} Cancelled`;
-        addActivity({
-          type: 'trade',
-          market: marketName,
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast(description, { icon: '🚫' });
-      });
-    },
-    enabled: enabled && !!traderVaultAddress,
-  });
-
-  // Watch Locked events on TraderVault
-  useWatchContractEvent({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    eventName: 'Locked',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { amount } = log.args;
-        const description = `Proceeds locked: ${formatUnits(amount || 0n, 6)} USDC`;
-        addActivity({
-          type: 'liquidity',
-          market: 'Trading Vault',
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast(description, { icon: '🔒' });
-      });
-    },
-    enabled: enabled && !!traderVaultAddress,
-  });
-
-  // Watch Claimed events on TraderVault
-  useWatchContractEvent({
-    address: traderVaultAddress,
-    abi: TRADER_VAULT_V4_ABI,
-    eventName: 'Claimed',
-    onLogs(logs: any[]) {
-      logs.forEach(log => {
-        const { amount } = log.args;
-        const description = `Unlocked funds claimed: ${formatUnits(amount || 0n, 6)} USDC`;
-        addActivity({
-          type: 'claim',
-          market: 'Trading Vault',
-          description,
-          hash: log.transactionHash,
-          mode: 'real',
-          timestamp: Date.now(),
-          chainId,
-        });
-        toast.success(description, { icon: '💰' });
-      });
-    },
-    enabled: enabled && !!traderVaultAddress,
-  });
-
-  return (
-    <>
-      {enabled && uniqueMarkets.map(market => (
-        <LaunchpadMarketWatcher key={market.address} market={market} chainId={chainId} />
-      ))}
-    </>
-  );
-};

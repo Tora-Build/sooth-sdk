@@ -9,7 +9,7 @@ import { useAccount, useWriteContract, useChainId, usePublicClient } from 'wagmi
 import toast from 'react-hot-toast';
 import { Button } from '../ui/Button';
 import { useDeployments } from '../../hooks/useDeployments';
-import { V10_ABIS } from '../../config/abis';
+import { ABIS } from '../../config/abis';
 import { cn } from '../../lib/utils';
 
 // Explorer URL helper
@@ -60,6 +60,44 @@ export const ClaimFillsButton = ({
     const toastId = toast.loading(`Claiming ${orderIds.length} order(s)...`);
 
     try {
+      // Step 1: Pre-flight check - verify which orders are actually active
+      // This prevents "Internal JSON-RPC Error" (revert) if indexer is stale
+      if (publicClient) {
+        const results = await publicClient.multicall({
+          contracts: orderIds.map(id => ({
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'getOrder',
+            args: [marketKey, id]
+          }))
+        });
+
+        // Filter for active orders that are NOT null/error
+        const validOrderIds: bigint[] = [];
+        results.forEach((res, idx) => {
+          if (res.status === 'success' && res.result) {
+            const order = res.result as any;
+            // In V10, even active orders might have 0 pending shares, but usually batchClaim doesn't revert on 0 pending.
+            // It DEFINITELY reverts if order is inactive/invalid.
+            if (order.active) {
+              validOrderIds.push(orderIds[idx]);
+            }
+          }
+        });
+
+        if (validOrderIds.length === 0) {
+          toast.error('No active orders found to claim (indexer might be stale)', { id: toastId });
+          onSuccess?.(); // Refresh to sync UI
+          return;
+        }
+
+        if (validOrderIds.length < orderIds.length) {
+          console.warn(`[BatchClaim] Filtered ${orderIds.length - validOrderIds.length} stale/inactive orders`);
+          // Update the list to claim
+          orderIds = validOrderIds;
+        }
+      }
+
       console.log('[BatchClaim] Calling batchClaimFills:', {
         marketKey,
         orderIds: orderIds.map(id => id.toString()),
@@ -71,10 +109,10 @@ export const ClaimFillsButton = ({
           await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
-            abi: V10_ABIS.TickBookPoolManager,
+            abi: ABIS.TickBookPoolManager,
             functionName: 'batchClaimFills',
             args: [marketKey, orderIds],
-            gas: BigInt(200000 + orderIds.length * 100000),
+            gas: BigInt(500000 + orderIds.length * 200000),
           });
         } catch (simError: any) {
           console.error('[BatchClaim] Simulation failed:', simError);
@@ -85,16 +123,17 @@ export const ClaimFillsButton = ({
             onSuccess?.(); // Trigger refresh
             return;
           }
-          throw simError;
+          // Non-blocking simulation
+          console.warn('[BatchClaim] Simulation failed, attempting forced execution:', simError);
         }
       }
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V10_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'batchClaimFills',
         args: [marketKey, orderIds],
-        gas: BigInt(200000 + orderIds.length * 100000), // Dynamic gas based on order count
+        gas: BigInt(500000 + orderIds.length * 200000), // Aggressive buffer
       });
       console.log('[BatchClaim] TX submitted:', hash);
 

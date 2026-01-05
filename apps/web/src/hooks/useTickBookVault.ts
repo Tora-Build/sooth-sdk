@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -45,13 +45,13 @@ export function useTickBookVault(
       const [availableWad, reservedWad] = await Promise.all([
         readContractSafe<bigint>(client, {
           address: vaultAddress!,
-          abi: V9_ABIS.TickBookVault,
+          abi: ABIS.TickBookVault,
           functionName: "availableUsdcWad",
           args: [userAddress!],
         }),
         readContractSafe<bigint>(client, {
           address: vaultAddress!,
-          abi: V9_ABIS.TickBookVault,
+          abi: ABIS.TickBookVault,
           functionName: "reservedUsdcWad",
           args: [userAddress!],
         }),
@@ -65,7 +65,7 @@ export function useTickBookVault(
         try {
           const outcomes = await readContractSafe<readonly [bigint, bigint]>(client, {
             address: vaultAddress!,
-            abi: V9_ABIS.TickBookVault,
+            abi: ABIS.TickBookVault,
             functionName: "getInternalOutcomes",
             args: [marketAddress, userAddress!],
           });

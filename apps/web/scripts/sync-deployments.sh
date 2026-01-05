@@ -3,7 +3,7 @@
 # Sync deployment files from contracts-core to frontend
 # Run this after deploying contracts via forge script
 #
-# Source of truth: packages/contracts-core/deployments/v9-*.json
+# Source of truth: packages/contracts-core/deployments/*.json
 # Target: apps/web/src/config/deployments.json
 
 set -e
@@ -15,7 +15,7 @@ CONTRACTS_DIR="$REPO_ROOT/packages/contracts-core/deployments"
 FRONTEND_CONFIG="$REPO_ROOT/apps/web/src/config/deployments.json"
 
 echo "📦 Syncing deployments from contracts-core to frontend..."
-echo "Source: $CONTRACTS_DIR/v9-*.json"
+echo "Source: $CONTRACTS_DIR/*.json"
 echo "Target: $FRONTEND_CONFIG"
 
 # Check if source files exist
@@ -33,18 +33,22 @@ cat > "$FRONTEND_CONFIG" << 'EOF'
 }
 EOF
 
-# Read each v9-*.json and merge into frontend config
+# Read each *.json and merge into frontend config
 FIRST_VERSION=""
-for network_file in "$CONTRACTS_DIR"/v9-*.json; do
+for network_file in "$CONTRACTS_DIR"/*.json; do
   if [ ! -f "$network_file" ]; then
-    echo "⚠️  No v9-*.json files found in $CONTRACTS_DIR"
+    echo "⚠️  No json deployment files found in $CONTRACTS_DIR"
     exit 1
   fi
   
-  # Extract network name from filename (e.g., v9-baseSepolia.json -> baseSepolia)
+  # Extract network name from filename (e.g., baseSepolia.json -> baseSepolia)
   filename=$(basename "$network_file")
-  network_name="${filename#v9-}"
-  network_name="${network_name%.json}"
+  # Skip non-deployment files if any (simple heuristic: must have contracts key)
+  if ! jq -e '.contracts' "$network_file" > /dev/null 2>&1; then
+    continue
+  fi
+
+  network_name="${filename%.json}"
   
   echo "  Processing: $filename -> $network_name"
   

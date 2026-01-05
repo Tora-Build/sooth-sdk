@@ -3,7 +3,7 @@ import { Card } from '../ui/Card';
 import { useLaunchpadMarketDirect, useDirectRead, readContractSafe } from '../../hooks';
 import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../hooks/useDeployments';
-import { ERC20_ABI, V8_ABIS } from '../../config/abis';
+import { ERC20_ABI, ABIS } from '../../config/abis';
 import { formatUnits } from 'viem';
 import { CircleDollarSign, HelpCircle } from 'lucide-react';
 import { useChainStore } from '../../store/useChainStore';
@@ -38,7 +38,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
         read: async (client) => {
             const balance = await readContractSafe<bigint>(client, {
                 address: launchpadEngineAddress!,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: 'getLPBalance',
                 args: [marketAddress, launchpad!.creator as `0x${string}`],
             });
@@ -63,7 +63,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
         read: async (client) => {
             const [qYes, qNo, price] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
                 address: ammEngineAddress!,
-                abi: V8_ABIS.AMMEngine,
+                abi: ABIS.AMMEngine,
                 functionName: 'getMarketState',
                 args: [marketAddress],
             });

@@ -82,6 +82,10 @@ Quick reference for when to use which workflow or rule.
 - **No UI Masking**: Never patch the UI to hide or "clean up" underlying protocol/math errors (e.g., capping a >100% fill). Masking makes root causes harder to find.
 - **Contract Integrity**: Before patching contracts, verify changes don't conflict with recent architectural decisions (e.g., V9.9 sweep matching) or the core design (e.g., Global Pro-Rata distribution).
 - **Proactive Root Cause Analysis**: If you see an anomaly (like a >100% fill), find the leak in the engine before applying "band-aid" caps in code.
+- **File Naming & Versioning**:
+   - **Canonical Names Only**: Use `Market.sol`, `App.tsx`, `deployments.json`.
+   - **NO Version Numbers**: `MarketV10.tsx` or `ContractV2.sol` is **STRICTLY FORBIDDEN**.
+   - **Single Active Source**: Archive old files (`/archive/`) or rely on Git. Never keep parallel `V1` and `V2` files active.
 
 ---
 

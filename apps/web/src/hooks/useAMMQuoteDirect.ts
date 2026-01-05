@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead } from "./useDirectRead";
 import { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
 import { useAmmMarketDirect } from "./useAmmMarketDirect";
@@ -89,7 +89,7 @@ export function useAMMQuoteDirect(
       // getPositionQuote(market, outcome, deltaShares) returns (uint256 cost, uint256 newPrice)
       const result = await client.readContract({
         address: ammEngineAddress!,
-        abi: V9_ABIS.AMMEngine,
+        abi: ABIS.AMMEngine,
         functionName: 'getPositionQuote',
         args: [marketAddress!, outcome, deltaShares]
       }) as readonly [bigint, bigint];

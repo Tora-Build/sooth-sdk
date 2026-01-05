@@ -4,6 +4,17 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10 Critical Fix (2026-01-05)
+- **Bug Fix**: `_hasSpotLiquidity` used exclusive search `findNextUp(tick)`, causing `placeOrder` to skip spot liquidity at the exact start tick. Fixed to uses inclusive search `findNextUp(tick - 1)`.
+- **Test Recovery**: Restored and migrated variable V9 test suite (79 tests) to V10 structure in `packages/contracts-testing/test/`.
+- **Verification**: `test_Unified_PlaceOrderCrossesSpotSell` now passes.
+
+### Repo Hygiene (2026-01-05)
+- **Breaking Change**: Renamed deployment files to remove version prefixes (`v9-baseSepolia.json` -> `baseSepolia.json`, etc.).
+- **Breaking Change**: Removed legacy ABI exports (`V8_ABIS`, `V9_ABIS`, `V10_ABIS`) from `apps/web/src/config/abis.ts`. Unified all usage to `ABIS`.
+- **Cleanup**: Renamed `ActivityListenerV8` to `ActivityListener`.
+- **Docs**: Enforced "No Versioned Filenames" policy in `STATUS.md` and `LESSONS_LEARNED.md`.
+
 ### V9.9.8-fix: Pro-rata Fill Accumulator Bug (2026-01-05)
 - **CRITICAL: Fill Growth Denominator Fix**:
   - **Bug**: `_tryCross()` used `oppLiqInOverlap` as denominator for fill growth calculation

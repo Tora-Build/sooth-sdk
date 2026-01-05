@@ -29,6 +29,10 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env file if present
 const envPath = path.join(process.cwd(), '.env');
@@ -176,7 +180,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 
   // 4. Singleton TickBook Components (V10 Unified Crossing)
   const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, ctx.deployer]);
-  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManagerV10', [tickBookVault]);
+  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault]);
   const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
 
   // 5. LaunchpadEngine

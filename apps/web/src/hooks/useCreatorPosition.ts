@@ -1,6 +1,6 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
@@ -25,7 +25,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             // Full market struct from mapping `markets(market)`
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -33,7 +33,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             // Graduation progress (feesAccrued, threshold, progressBps)
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -41,7 +41,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             // Creator's LP balance (for share/yield computations)
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getLPBalance",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
@@ -204,7 +204,7 @@ export function useIsCreator(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,

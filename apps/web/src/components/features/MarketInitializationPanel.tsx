@@ -11,7 +11,7 @@ import { Droplets, DollarSign, AlertTriangle, CheckCircle, ArrowRight, Info } fr
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { useLaunchpadMarketDirect, useTruthMarketDirect } from '../../hooks';
 import { useDeployments } from '../../hooks/useDeployments';
-import { V9_ABIS, ERC20_ABI } from '../../config/abis';
+import { ABIS, ERC20_ABI } from '../../config/abis';
 import { parseUnits } from 'viem';
 import toast from 'react-hot-toast';
 
@@ -105,7 +105,7 @@ export const MarketInitializationPanel = ({ address }: MarketInitializationPanel
       const bWad = parseUnits(tier.bValue.toString(), 18);
       const hash = await writeContractAsync({
         address: deployments.contracts.LaunchpadEngine as `0x${string}`,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
         args: [address, bWad, truthMarket?.question || "Sooth Market", "SOOTH"],
       });
