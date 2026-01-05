@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Actor Management System
  * Handles multiple test wallets for multi-user simulation
@@ -11,6 +12,7 @@ import {
   type WalletClient,
   type Account,
   type Chain,
+  type Transport,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
@@ -23,7 +25,7 @@ export interface Actor {
   name: string;
   account: Account;
   role: ActorRole;
-  walletClient: WalletClient;
+  walletClient: WalletClient<Transport, Chain, Account>;
 }
 
 export interface ActorConfig {
@@ -244,7 +246,7 @@ export class ActorManager {
   /**
    * Get current actor's wallet client
    */
-  currentWalletClient(): WalletClient | null {
+  currentWalletClient(): WalletClient<Transport, Chain, Account> | null {
     const actor = this.currentActor();
     return actor?.walletClient || null;
   }

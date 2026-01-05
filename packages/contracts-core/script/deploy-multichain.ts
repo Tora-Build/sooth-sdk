@@ -163,7 +163,7 @@ interface CoreContracts {
 }
 
 async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContracts> {
-  console.log(`\n[${ctx.chainName}] === Deploying Core V9 Contracts ===`);
+  console.log(`\n[${ctx.chainName}] === Deploying Core V10 Contracts ===`);
 
   // 1. MockUSDC
   const mockUSDC = await deployContract(ctx, 'MockUSDC', ['Mock USDC', 'USDC']);
@@ -174,9 +174,9 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   // 3. AMMEngine
   const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, ctx.deployer]);
 
-  // 4. Singleton TickBook Components
+  // 4. Singleton TickBook Components (V10 Unified Crossing)
   const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, ctx.deployer]);
-  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault]);
+  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManagerV10', [tickBookVault]);
   const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
 
   // 5. LaunchpadEngine

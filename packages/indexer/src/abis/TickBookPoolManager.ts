@@ -119,4 +119,19 @@ export const TickBookPoolManagerAbi = [
       { name: "proceeds", type: "uint256", indexed: false },
     ],
   },
+  // V10: Unified Crossing Event (spot-first + range)
+  {
+    type: "event",
+    name: "UnifiedCrossing",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "newOrderId", type: "uint256", indexed: true },
+      { name: "newOutcome", type: "uint8", indexed: false },
+      { name: "spotFilled", type: "uint256", indexed: false },
+      { name: "rangeFilled", type: "uint256", indexed: false },
+      { name: "spotCost", type: "uint256", indexed: false },
+      { name: "rangeCost", type: "uint256", indexed: false },
+      { name: "crossTick", type: "uint16", indexed: false },
+    ],
+  },
 ] as const;

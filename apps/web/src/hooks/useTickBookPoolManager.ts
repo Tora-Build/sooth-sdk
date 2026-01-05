@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V996_ABIS } from "../config/abis";
+import { V10_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { useMarketKey } from "./useMarketKey";
 
@@ -52,7 +52,7 @@ export function useTickBookPoolManager(
     enabled: !!marketKey && !!chainId && !!poolManagerAddress,
     chainId,
     read: async (client) => {
-      const abi = V996_ABIS.TickBookPoolManager;
+      const abi = V10_ABIS.TickBookPoolManager;
 
       // Batch read market state and info
       const [marketState, marketInfo] = await Promise.all([

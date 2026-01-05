@@ -231,7 +231,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         yesToken = yes;
         noToken = no;
         // Try V9.9.6 key (includes hook) first, then fall back to legacy key (no hook)
-        const keyV996 = computeMarketKey(marketAddress, yesToken, noToken);
+        const keyV10 = computeMarketKey(marketAddress, yesToken, noToken);
         const keyLegacy = computeLegacyMarketKey(marketAddress, yesToken, noToken);
 
         const tryKey = async (k: `0x${string}`) => {
@@ -241,7 +241,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
               abi: ABIS.TickBookPoolManager,
               functionName: 'getMarketInfo',
               args: [k],
-            }) as [string, string, string, string];
+            }) as [string, string, string, boolean];
 
             const active =
               tm !== '0x0000000000000000000000000000000000000000' &&
@@ -254,16 +254,16 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           }
         };
 
-        const infoV996 = await tryKey(keyV996);
-        const infoLegacy = keyLegacy !== keyV996 ? await tryKey(keyLegacy) : { ok: false as const };
+        const infoV10 = await tryKey(keyV10);
+        const infoLegacy = keyLegacy !== keyV10 ? await tryKey(keyLegacy) : { ok: false as const };
 
-        if (infoV996.ok && infoV996.active) {
-          currentMarketKey = keyV996;
+        if (infoV10.ok && infoV10.active) {
+          currentMarketKey = keyV10;
         } else if (infoLegacy.ok && infoLegacy.active) {
           currentMarketKey = keyLegacy;
           console.log(warn('  Using legacy marketKey (no hook) for this TickBook deployment'));
         } else {
-          currentMarketKey = keyV996;
+          currentMarketKey = keyV10;
           console.log(warn('  TickBook market not active/registered yet for this marketKey'));
         }
         console.log(dim(`  YES Token: ${shortAddress(yesToken)}`));
@@ -343,7 +343,7 @@ function printHelp(): void {
       withdraw <amount>    Withdraw USDC from vault
       reserved             Show reserved balance details
 
-    ${info('Orderbook (V9.9.6-fix9l Range Order API):')}
+    ${info('Orderbook (V10 Unified Order API):')}
       order <side> <range> <shares>   Place order (range, limit, or market)
                                       Range:  order yes 40-60 100
                                       Limit:  order yes 50 100
@@ -672,7 +672,7 @@ async function main(): Promise<void> {
     : 'none';
 
   printBox([
-    bold('SOOTH V9 INTERACTIVE TEST CONSOLE'),
+    bold('SOOTH V10 INTERACTIVE TEST CONSOLE'),
     `Chain: ${config.chainName} | Version: ${config.deployment.version}`,
     `RPC: ${config.rpc.length > 40 ? config.rpc.slice(0, 37) + '...' : config.rpc}`,
     `Market: ${marketName}`,

@@ -455,3 +455,41 @@ ponder.on("TickBookPoolManager:SpotSellFilled", async ({ event, context }) => {
     }
   }
 });
+
+// ============================================
+// V10: Unified Crossing Event Handler
+// ============================================
+
+/**
+ * Handle UnifiedCrossing events - V10 spot-first + range crossing
+ */
+ponder.on("TickBookPoolManager:UnifiedCrossing", async ({ event, context }) => {
+  const {
+    marketKey,
+    newOrderId,
+    newOutcome,
+    spotFilled,
+    rangeFilled,
+    spotCost,
+    rangeCost,
+    crossTick,
+  } = event.args;
+
+  const id = eventId(event.transaction.hash, event.log.logIndex);
+
+  await context.db.insert(schema.unifiedCrossing).values({
+    id,
+    chainId: context.chain.id,
+    marketKey,
+    newOrderId,
+    newOutcome,
+    spotFilled,
+    rangeFilled,
+    spotCost,
+    rangeCost,
+    crossTick,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+    txHash: event.transaction.hash,
+  });
+});

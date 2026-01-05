@@ -26,18 +26,17 @@ export const baseSepolia = defineChain({
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://sepolia.base.org', 'https://base-sepolia-rpc.publicnode.com'] },
+    default: { http: ['https://sepolia.base.org'] },
   },
   blockExplorers: {
     default: { name: 'Basescan', url: 'https://sepolia.basescan.org' },
   },
-  /* 
   contracts: {
     multicall3: {
       address: '0xca11bde05977b3631167028862be2a173976ca11',
+      blockCreated: 5882,
     },
   },
-  */
   testnet: true,
 });
 
@@ -50,6 +49,12 @@ export const bnbTestnet = defineChain({
   },
   blockExplorers: {
     default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
   },
   testnet: true,
 });
@@ -183,6 +188,12 @@ export const megaethTestnet = defineChain({
   blockExplorers: {
     default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
   },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
+  },
   testnet: true,
 });
 
@@ -204,6 +215,12 @@ export const monadTestnet = defineChain({
   },
   blockExplorers: {
     default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
   },
   testnet: true,
 });
@@ -228,9 +245,13 @@ export const arcTestnet = defineChain({
   blockExplorers: {
     default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
   },
+  contracts: {
+    multicall3: {
+      address: '0xca11bde05977b3631167028862be2a173976ca11',
+      blockCreated: 5882, // Placeholder
+    },
+  },
   testnet: true,
-  // Disable filter-based watching - use polling instead
-  contracts: {},
 });
 
 // EVM-only chains for wagmi

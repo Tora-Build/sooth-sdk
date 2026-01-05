@@ -4,6 +4,77 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V9.9.8-fix: Pro-rata Fill Accumulator Bug (2026-01-05)
+- **CRITICAL: Fill Growth Denominator Fix**:
+  - **Bug**: `_tryCross()` used `oppLiqInOverlap` as denominator for fill growth calculation
+  - **Impact**: When overlap liquidity was small, fill growth became inflated (e.g., 10 shares crossed → 100% fill growth for all orders)
+  - **Symptom**: Orders showed 99% filled when only small crossings occurred
+  - **Fix**: Changed to use `oppTotalLiq` (total liquidity for that outcome) as denominator
+  - **Files**: `TickBookPoolManager.sol`, `TickBookPoolManagerV10.sol`
+  - **Status**: Requires redeployment
+
+### Frontend Fixes (2026-01-05)
+- **Hybrid Sell Fixed**: Now correctly splits spot sell (owned shares) + short sell (remainder)
+  - Before: Tried to spot sell full amount even with partial shares → "insufficient YES" error
+  - After: Spot sells only `userHolding`, short sells `amount - userHolding`
+- **calculateMaxCost Fixed**: Now uses correct bounds per outcome type
+  - YES orders: collateral = `pHigh * shares`
+  - NO orders: collateral = `(1 - pLow) * shares`
+  - Increased default slippage from 1% to 5%
+- **RPC Fix**: Removed failing `base-sepolia-rpc.publicnode.com` from wagmi fallback
+
+### CLI Enhancements (2026-01-05)
+- **New Commands**:
+  - `claimspotsell <sellId>` — Claim USDC proceeds from filled spot sells
+  - `hybridsell <outcome> <tickRange> <totalShares>` — Auto-split spot + short sell
+- **Simulate Updates**:
+  - Added spot sell (10%) and hybrid sell (5%) to order type distribution
+  - Refactored to use unified `executeOrder()` helper for all order types
+  - Fixed `getMarketInfo` and `getInternalOutcomes` function names
+- **Batch Claim**: Increased `MAX_BATCH_SIZE` from 20 to 50
+
+## [10.0.0] - 2026-01-05
+
+### V10 Deployed to Base Sepolia & Monad Testnet
+- **Deployment Complete**: `TickBookPoolManagerV10` live on both testnets
+  - Base Sepolia: `0x36abe6344a3756868f6ac26d81f1c7a40d68b0ba`
+  - Monad Testnet: `0x0d9cb90f5bb982ed6a96a412a423317580d032ad`
+- **Frontend Updated**: All hooks migrated from `V996_ABIS` to `V10_ABIS`
+- **CLI Updated**: Interactive CLI config updated with V10 ABI schema
+- **Files Changed**:
+  - `apps/web/src/config/deployments.json` → V10 addresses
+  - `apps/web/src/config/abis.ts` → Added `V10_ABIS` export
+  - `apps/web/src/config/abis/TickBookPoolManagerV10.json` → New ABI
+  - 8 frontend hooks updated to use `V10_ABIS`
+  - `packages/contracts-testing/script/interactive/config.ts` → V10 ABI
+
+### V10 Unified Crossing Architecture (2026-01-05)
+- **New Contract**: `TickBookPoolManagerV10.sol` — Unified crossing for dual-collateral orderbook
+- **Unified TickLiquidity Struct**:
+  - `rangeLiquidityNet` — Range order net liquidity (for crossing)
+  - `rangeLiquidityGross` — Range order gross liquidity (for bitmap cleanup)
+  - `spotLiquidity` — Spot sell liquidity at this tick (NEW)
+- **Separate Spot Bitmaps**: `_spotBitmaps` for efficient spot liquidity traversal
+- **`_crossUnified()` Function**:
+  - Fills spot liquidity FIRST (recycle existing tokens)
+  - Then fills range liquidity (mint synthetic tokens)
+  - Branches settlement by source type
+- **New Events**:
+  - `UnifiedCrossing` — Emits spot/range breakdown for each crossing
+- **Tests**: `UnifiedCrossingV10.t.sol` (7 passing, 2 TODO for full auto-crossing)
+- **ADR-073**: Documents the V10 unified crossing design
+- **Files Added**:
+  - `packages/contracts-core/src/TickBookPoolManagerV10.sol`
+  - `packages/contracts-testing/test/v10/UnifiedCrossingV10.t.sol`
+
+### V10 Version Consistency Audit (2026-01-05)
+- **Removed**: Legacy `TickBookPoolManagerV996.sol` (historical V9).
+- **Removed**: `packages/contracts-testing/test/v9` directory (legacy tests).
+- **Renamed**: `UnifiedOrderSystem.t.sol` → `UnifiedOrderSystemV9.t.sol` (explicit regression test).
+- **Fixed**: `interactive-test.ts` now uses `keyV10` instead of `keyV996`.
+- **Fixed**: `Pro.tsx` fully migrated to `V10_ABIS` (removed lingering V996 ABI imports).
+
+
 ### V9.9.8 Critical Bug Fixes (2026-01-05)
 - **CRITICAL: cancelSpotSell Double-Credit Fix**:
   - **Bug**: User could claim proceeds twice by calling `cancelSpotSell()` then `claimSpotSellProceeds()` (proceeds not zeroed in cancel)

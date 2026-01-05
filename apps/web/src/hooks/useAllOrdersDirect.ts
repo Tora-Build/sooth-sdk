@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V996_ABIS } from "../config/abis";
+import { V10_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { parseAbiItem } from "viem";
 
@@ -26,16 +26,12 @@ const RANGE_ORDER_PLACED_EVENT = parseAbiItem(
   "event RangeOrderPlaced(address indexed owner, bytes32 indexed marketKey, uint256 indexed orderId, uint8 outcome, uint16 tickLower, uint16 tickUpper, uint256 liquidity, uint256 collateralReserved, uint256 crossingFilled, uint256 crossingCost)"
 );
 
-// Batch size and delay to avoid RPC rate limits (429)
-const BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 100;
 
 /**
  * Hook to fetch ALL orders for a market from TickBookPoolManager (V9 Architecture)
  * Used for displaying the full orderbook depth on the Pro page.
  *
- * Uses chunked Promise.all with delays to avoid RPC rate limits.
- * Does NOT use multicall3 (not supported on Arc/Monad/Base testnets).
+ * Uses multicall to efficiently fetch order details.
  */
 export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
   const { selectedChainId } = useChainStore();
@@ -57,7 +53,7 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
         try {
           orderIds = await readContractSafe<bigint[]>(client, {
             address: tickBookManagerAddress!,
-            abi: V996_ABIS.TickBookPoolManager,
+            abi: V10_ABIS.TickBookPoolManager,
             functionName: "getAllMarketOrders",
             args: [marketKey!],
           }) ?? [];
@@ -98,63 +94,61 @@ export function useAllOrdersDirect(marketKey: `0x${string}` | undefined) {
           return [];
         }
 
-        // Chunked Promise.all to avoid RPC rate limits (no multicall3 support)
+        // Use Multicall for efficiency
+        // Batch size of 50 to avoid RPC payload limits
+        const MULTICALL_BATCH_SIZE = 50;
         const orders: RangeOrder[] = [];
 
-        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
-          const batch = orderIds.slice(i, i + BATCH_SIZE);
-          
-          const batchResults = await Promise.all(
-            batch.map(async (orderId) => {
-              try {
-                const [order, pendingFills] = await Promise.all([
-                  readContractSafe<{
-                    owner: Address;
-                    outcome: number;
-                    tickLower: number;
-                    tickUpper: number;
-                    active: boolean;
-                    sharesTotal: bigint;
-                    liquidity: bigint;
-                    collateralDepositedWad: bigint;
-                    filledShares: bigint;
-                    collateralUsedWad: bigint;
-                  }>(client, {
-                    address: tickBookManagerAddress!,
-                    abi: V996_ABIS.TickBookPoolManager,
-                    functionName: "getOrder",
-                    args: [marketKey!, orderId],
-                  }),
-                  readContractSafe<readonly [bigint, bigint]>(client, {
-                    address: tickBookManagerAddress!,
-                    abi: V996_ABIS.TickBookPoolManager,
-                    functionName: "getPendingFills",
-                    args: [marketKey!, orderId],
-                  }),
-                ]);
+        for (let i = 0; i < orderIds.length; i += MULTICALL_BATCH_SIZE) {
+          const batchIds = orderIds.slice(i, i + MULTICALL_BATCH_SIZE);
+
+          // Prepare contract calls for this batch
+          const contracts = batchIds.flatMap(orderId => [
+            {
+              address: tickBookManagerAddress!,
+              abi: V10_ABIS.TickBookPoolManager,
+              functionName: "getOrder",
+              args: [marketKey!, orderId]
+            },
+            {
+              address: tickBookManagerAddress!,
+              abi: V10_ABIS.TickBookPoolManager,
+              functionName: "getPendingFills",
+              args: [marketKey!, orderId]
+            }
+          ]);
+
+          try {
+            // Execute multicall
+            const results = await client.multicall({
+              contracts,
+              allowFailure: true
+            });
+
+            // Process results
+            for (let j = 0; j < batchIds.length; j++) {
+              const orderId = batchIds[j];
+              const orderResult = results[j * 2];
+              const fillsResult = results[j * 2 + 1];
+
+              if (orderResult.status === 'success' && orderResult.result) {
+                const order = orderResult.result as any;
 
                 if (order && order.active) {
-                  return {
+                  const pendingFills = fillsResult.status === 'success'
+                    ? (fillsResult.result as [bigint, bigint])
+                    : [0n, 0n];
+
+                  orders.push({
                     orderId,
                     ...order,
                     pendingShares: pendingFills?.[0] ?? 0n,
-                  };
+                  });
                 }
-                return null;
-              } catch (err) {
-                console.error(`[useAllOrdersDirect] Failed to fetch order ${orderId}:`, err);
-                return null;
               }
-            })
-          );
-
-          for (const result of batchResults) {
-            if (result) orders.push(result);
-          }
-
-          // Rate limit delay between batches
-          if (i + BATCH_SIZE < orderIds.length) {
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+            }
+          } catch (err) {
+            console.error(`[useAllOrdersDirect] Multicall batch failed:`, err);
           }
         }
 

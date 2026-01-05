@@ -528,7 +528,7 @@ export async function spotsells(ctx: CommandContext, _args: string[]): Promise<C
       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
       abi: ABIS.TickBookPoolManager,
       functionName: 'getUserSpotSells',
-      args: [marketKey, actor.address],
+      args: [marketKey, actor.account.address],
     }) as bigint[];
 
     if (sellIds.length === 0) {
@@ -561,6 +561,153 @@ export async function spotsells(ctx: CommandContext, _args: string[]): Promise<C
   }
 }
 
+/**
+ * Claim proceeds from filled spot sell orders
+ * Usage: claimspotsell <sellId>
+ */
+export async function claimspotsell(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  if (args.length < 1) {
+    return { success: false, message: 'Usage: claimspotsell <sellId>' };
+  }
+
+  const sellId = BigInt(args[0]);
+
+  const spinner = new Spinner(`Claiming proceeds from spot sell #${sellId}...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'claimSpotSellProceeds',
+      args: [marketKey, sellId],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+
+    spinner.succeed(`Claimed proceeds from spot sell #${sellId} ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Claim failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+/**
+ * Hybrid sell: Spot sell shares you own + short sell the rest
+ * Usage: hybridsell <outcome> <tickRange> <totalShares>
+ * Example: hybridsell yes 50-60 100
+ * If you own 30 YES, this will spot sell 30 + short sell 70
+ */
+export async function hybridsell(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const publicClient = actorManager.getPublicClient();
+  const actor = actorManager.currentActor();
+
+  if (!walletClient || !actor) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  if (args.length < 3) {
+    return { success: false, message: 'Usage: hybridsell <outcome> <tickRange> <totalShares>\n  Example: hybridsell yes 50-60 100' };
+  }
+
+  const outcome = args[0].toLowerCase() === 'yes' ? 1 : 0;
+  const [tickLowerStr, tickUpperStr] = args[1].split('-');
+  const tickLower = parseInt(tickLowerStr);
+  const tickUpper = parseInt(tickUpperStr);
+  const totalShares = parseWad(args[2]);
+
+  if (isNaN(tickLower) || isNaN(tickUpper) || tickLower >= tickUpper) {
+    return { success: false, message: 'Invalid tick range. Use format: 50-60' };
+  }
+
+  // Check user's share balance
+  const [truthMarket] = await publicClient.readContract({
+    address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+    abi: ABIS.TickBookPoolManager,
+    functionName: 'getMarketInfo',
+    args: [marketKey],
+  }) as [string, string, string];
+
+  const vault = deployment.contracts.TickBookVault as `0x${string}`;
+  const [yesShares, noShares] = await publicClient.readContract({
+    address: vault,
+    abi: ABIS.TickBookVault,
+    functionName: 'getInternalOutcomes',
+    args: [truthMarket, actor.account.address],
+  }) as [bigint, bigint];
+  const userShares = outcome === 1 ? yesShares : noShares;
+
+  const spotSellAmount = userShares > totalShares ? totalShares : userShares;
+  const shortSellAmount = totalShares > userShares ? totalShares - userShares : 0n;
+
+  console.log(info(`\nHybrid Sell Breakdown:`));
+  console.log(`  Total: ${formatWad(totalShares)} shares`);
+  console.log(`  Owned: ${formatWad(userShares)} shares`);
+  console.log(`  → Spot Sell: ${formatWad(spotSellAmount)} shares`);
+  console.log(`  → Short Sell: ${formatWad(shortSellAmount)} shares`);
+
+  if (spotSellAmount === 0n && shortSellAmount === 0n) {
+    return { success: false, message: 'Nothing to sell' };
+  }
+
+  const spinner = new Spinner(`Executing hybrid sell...`);
+  spinner.start();
+
+  try {
+    // Step 1: Spot sell owned shares
+    if (spotSellAmount > 0n) {
+      spinner.update(`Placing spot sell for ${formatWad(spotSellAmount)} shares...`);
+      const spotHash = await walletClient.writeContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'placeSpotSell',
+        args: [marketKey, outcome, spotSellAmount, tickLower, tickUpper],
+      });
+      await actorManager.waitForTransactionReceipt(spotHash);
+      console.log(`  ✓ Spot sell placed ${dim(`(tx: ${shortTx(spotHash)})`)}`);
+    }
+
+    // Step 2: Short sell the rest (regular limit order)
+    if (shortSellAmount > 0n) {
+      spinner.update(`Placing short sell for ${formatWad(shortSellAmount)} shares...`);
+      const shortHash = await walletClient.writeContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'placeOrder',
+        args: [marketKey, outcome, shortSellAmount, tickLower, tickUpper],
+      });
+      await actorManager.waitForTransactionReceipt(shortHash);
+      console.log(`  ✓ Short sell placed ${dim(`(tx: ${shortTx(shortHash)})`)}`);
+    }
+
+    spinner.succeed(`Hybrid sell complete!`);
+
+    return { success: true };
+  } catch (err) {
+    spinner.fail(`Hybrid sell failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
 export const orderbookCommands = {
   order,
   cancel,
@@ -568,9 +715,11 @@ export const orderbookCommands = {
   market,
   orders,
   getorder,
-  // V9.9.7: Spot Sell
+  // V10: Spot Sell
   spotsell,
   cancelspotsell,
   buyspotsell,
   spotsells,
+  claimspotsell,
+  hybridsell,
 };

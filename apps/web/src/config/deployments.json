@@ -1,40 +1,28 @@
 {
-  "version": "9.9.7",
+  "version": "10.0.1",
   "networks": {
-    "arcTestnet": {
-      "chainId": 5042002,
-      "contracts": {
-        "MockUSDC": "0xD9DfdEC3046eaD9891714f9fb465DbE89Da48689",
-        "Collateralizer": "0x0f450a5589f0cea761c914e8d75e097d3fb1c27f",
-        "AMMEngine": "0x8352aa95a7670057ac2ee73b7c8c39c5ae0901f5",
-        "TickBookVault": "0xd3337bc58e82ac818685b9f1d6ea0280078b585c",
-        "TickBookPoolManager": "0x5ab590b3526bfd4ba3c51858be917271e0361311",
-        "TickBook": "0x5ab590b3526bfd4ba3c51858be917271e0361311",
-        "LaunchpadEngine": "0x02672d30f6f08fa021d37539ba86ff4366acdd31"
-      }
-    },
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0xd4832b4738e0b9ac4dc7b4e1f032a903e3051cbc",
-        "Collateralizer": "0x34542cddbfb9294e753f99e2417633f9c4c8a54d",
-        "AMMEngine": "0xd4311bb4febe5cbaf9d6fe75ce00c448e972f681",
-        "TickBookVault": "0xb4e467e35767f8efc3bff5117e1631b81beb204d",
-        "TickBookPoolManager": "0x32c228f558eca71a1aab8663162b4b4bf87bdd1a",
-        "TickBook": "0x32c228f558eca71a1aab8663162b4b4bf87bdd1a",
-        "LaunchpadEngine": "0x0539fddb35529d6d8e81355e7fb278bf273595b5"
+        "MockUSDC": "0x2082a7e45ae216656b13c834fcde2ac00a869055",
+        "Collateralizer": "0x86aee68ce1107e9e549a6ba3cb1e77d7a9084839",
+        "AMMEngine": "0xd16397ebdc46956f7e4fccb2e84b7f82457f4101",
+        "TickBookVault": "0x4cf56f234427c358cf21b64e3d3bbf4512e8f028",
+        "TickBookPoolManager": "0x62391e82b1ea1b93e2107dc2873627d6466c0ec0",
+        "TickBook": "0x62391e82b1ea1b93e2107dc2873627d6466c0ec0",
+        "LaunchpadEngine": "0x82093ae9a10c2b37aa022bcf332750af50aacd6c"
       }
     },
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
-        "MockUSDC": "0x6427a20feb8289e325916bd60f5efd191ce3e7a1",
-        "Collateralizer": "0xd7c843926622c59a3c85d35d6628caa369262778",
-        "AMMEngine": "0xb3c313e3973761cd5a7862db494492ecba38871e",
-        "TickBookVault": "0xea8438f6871a733e35de08b15015b404d6c8b234",
-        "TickBookPoolManager": "0xc80c8b4c56a62614d9408b805b40580dd9420361",
-        "TickBook": "0xc80c8b4c56a62614d9408b805b40580dd9420361",
-        "LaunchpadEngine": "0x07073c1fe986b3321f811f450b9f19703b08feec"
+        "MockUSDC": "0xbebab685d544fcb1b74757b8a533ce917de08c4a",
+        "Collateralizer": "0xd8729aab3ec111877c013d04b77781f5a33c5246",
+        "AMMEngine": "0x03eb09e3ed8b2e0f959797f94ff023b384bd0434",
+        "TickBookVault": "0x171c806394ba71d4e0e142750b2c866f1e44f3b8",
+        "TickBookPoolManager": "0x83fec84e171b71649f06103cdbe4af3fd2e49722",
+        "TickBook": "0x83fec84e171b71649f06103cdbe4af3fd2e49722",
+        "LaunchpadEngine": "0xa9250a287d5c8c106a4c6776ae2a55d6554f737d"
       }
     }
   }

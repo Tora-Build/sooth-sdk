@@ -10,6 +10,7 @@ import TruthMarketABI from "./abis/TruthMarket.json";
 import OutcomeTokenABI from "./abis/OutcomeToken.json";
 import TickBookPoolManagerABI from "./abis/TickBookPoolManager.json";
 import TickBookPoolManagerV996ABI from "./abis/TickBookPoolManagerV996.json";
+import TickBookPoolManagerV10ABI from "./abis/TickBookPoolManagerV10.json";
 import TickBookVaultPoolManagerABI from "./abis/TickBookVaultPoolManager.json";
 import DynamicFeeHookABI from "./abis/DynamicFeeHook.json";
 import ITickBookHooksABI from "./abis/ITickBookHooks.json";
@@ -57,6 +58,18 @@ export const V9_ABIS = {
 // V9.9.6 ABIs - Unified Order API (TickBookPoolManagerV996.json is raw array)
 export const V996_ABIS = {
   TickBookPoolManager: TickBookPoolManagerV996ABI as Abi,
+  TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
+  // Re-export unchanged contracts
+  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
+  Collateralizer: (CollateralizerABI as any).abi as Abi,
+  AMMEngine: (AMMEngineABI as any).abi as Abi,
+  TruthMarket: (TruthMarketABI as any).abi as Abi,
+  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
+};
+
+// V10 ABIs - Unified Crossing Architecture (spot-first + range)
+export const V10_ABIS = {
+  TickBookPoolManager: TickBookPoolManagerV10ABI as Abi,
   TickBookVault: (TickBookVaultPoolManagerABI as any).abi as Abi,
   // Re-export unchanged contracts
   LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,

@@ -219,3 +219,29 @@ export const spotSellFill = onchainTable(
     marketIdx: index().on(table.marketKey),
   })
 );
+
+/**
+ * V10: Unified crossing events - spot-first + range crossing
+ */
+export const unifiedCrossing = onchainTable(
+  "unified_crossing",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    newOrderId: t.bigint().notNull(),
+    newOutcome: t.integer().notNull(),
+    spotFilled: t.bigint().notNull(),
+    rangeFilled: t.bigint().notNull(),
+    spotCost: t.bigint().notNull(),
+    rangeCost: t.bigint().notNull(),
+    crossTick: t.integer().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    orderIdx: index().on(table.newOrderId),
+  })
+);

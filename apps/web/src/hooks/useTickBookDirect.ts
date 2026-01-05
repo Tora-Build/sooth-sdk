@@ -1,7 +1,7 @@
 import { keccak256, encodeAbiParameters, parseAbiParameters, getAddress, type Address } from "viem";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS, V996_ABIS } from "../config/abis";
+import { V9_ABIS, V10_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 /**
@@ -34,7 +34,7 @@ export function useTickBookDirect(
         console.log(`[useTickBookDirect] Initializing for ${marketAddress}`);
 
         // Determine ABI based on chain
-        const poolManagerAbi = V996_ABIS.TickBookPoolManager;
+        const poolManagerAbi = V10_ABIS.TickBookPoolManager;
 
         let yesToken = yesTokenInput;
         let noToken = noTokenInput;

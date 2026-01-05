@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V996_ABIS } from "../config/abis";
+import { V10_ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -48,7 +48,7 @@ export function usePendingFills(
             try {
               const result = await readContractSafe<readonly [bigint, bigint]>(client, {
                 address: poolManagerAddress!,
-                abi: V996_ABIS.TickBookPoolManager,
+                abi: V10_ABIS.TickBookPoolManager,
                 functionName: "getPendingFills",
                 args: [marketKey!, orderId],
               });

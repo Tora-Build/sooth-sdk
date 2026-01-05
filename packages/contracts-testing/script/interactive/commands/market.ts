@@ -23,7 +23,7 @@ import {
 import { keccak256, encodeAbiParameters, parseAbiParameters, parseAbi, encodeDeployData } from 'viem';
 
 // TruthMarket bytecode from compiled artifacts
-const TRUTH_MARKET_BYTECODE = '0x60806040523461038b57610ef2803803806100198161038f565b92833981019060808183031261038b5780516001600160401b03811161038b57810182601f8201121561038b578051906001600160401b0382116102a85761006a601f8301601f191660200161038f565b938285526020838301011161038b57815f9260208093018387015e8401015260208101516001600160401b038116919082900361038b576100b960606100b2604084016103b4565b92016103b4565b42831115610346576001600160a01b03821615610301576001600160a01b03169182156102bc5783516001600160401b0381116102a857600154600181811c9116801561029e575b602082101461028a57601f8111610227575b50602094601f82116001146101c4579481929394955f926101b9575b50508160011b915f199060031b1c1916176001555b600280546001600160e01b03191690911733604090811b600160401b600160e01b039081169290921790925560038054600160401b600160e01b03191693831b90911692909217909155600480546001600160a01b031916929092179091555f805460ff1916905551610b2990816103c98239f35b015190505f8061012f565b601f1982169560015f52805f20915f5b88811061020f575083600195969798106101f7575b505050811b01600155610144565b01515f1960f88460031b161c191690555f80806101e9565b919260206001819286850151815501940192016101d4565b60015f527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6601f830160051c81019160208410610280575b601f0160051c01905b8181106102755750610113565b5f8155600101610268565b909150819061025f565b634e487b7160e01b5f52602260045260245ffd5b90607f1690610101565b634e487b7160e01b5f52604160045260245ffd5b60405162461bcd60e51b815260206004820152601a60248201527f54727574684d61726b65743a207a65726f20677561726469616e0000000000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a207a65726f2061646a7564696361746f720000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a20646561646c696e6520696e20706173740000006044820152606490fd5b5f80fd5b6040519190601f01601f191682016001600160401b038111838210176102a857604052565b51906001600160a01b038216820361038b5756fe6080806040526004361015610012575f80fd5b5f3560e01c90816302d05d3f14610984575080630f15f4c01461084057806329dcb0cf146108185780633270bb5b146107d65780633fad9ae01461069d578063452a9320146106755780634bb278f3146105a257806353c2ed8e1461057857806359217ba3146105505780638d4e40831461052457806396f25d42146104c55780639b34ae03146104a2578063aed4119114610477578063b43e2afd14610252578063b8f7a6651461020a578063c19d93fb146101e25763ef9b78c6146100d7575f80fd5b346101de575f3660031901126101de576004546001600160a01b0316330361019d5760ff5f5416600581101561018957600361011391146109ba565b60028054600380545f805460ff19168517905560ff60e01b1983169093556001600160401b03198316905560405130927fd928781d9dc29331b3bb4199b6c4b9e4ae738cd00bf919b6ad1c85b321a68ff3928291610184916001600160401b03919091169060e01c60ff1683610ad6565b0390a2005b634e487b7160e01b5f52602160045260245ffd5b60405162461bcd60e51b81526020600482015260196024820152782a393aba3426b0b935b2ba1d103737ba1033bab0b93234b0b760391b6044820152606490fd5b5f80fd5b346101de575f3660031901126101de5760ff5f54166040516005821015610189576020918152f35b346101de575f3660031901126101de5760ff5f54166005811015610189576001148061023e575b6020906040519015158152f35b506002546001600160401b03164210610231565b346101de5760403660031901126101de5761026b6109aa565b6024356001600160401b038116908181036101de57600354604081901c6001600160a01b031633036104335760ff5f541660058110156101895760018114908115610428575b50156103eb576102c7600260ff86161115610a01565b82610338575b6002805460ff60e01b191660e086901b60ff60e01b161790556001600160401b03191690911760039081555f805460ff1916909117905560405130927f1d70fe3b705dff19e2f3638f5308ff5245252369594c794c78dccb6b01dec503928291610184919083610ad6565b904283116103a7576002546001600160401b0316831161035857906102cd565b60405162461bcd60e51b815260206004820152602160248201527f54727574684d61726b65743a20745374617220616674657220646561646c696e6044820152606560f81b6064820152608490fd5b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20745374617220696e2066757475726560201b6044820152606490fd5b60405162461bcd60e51b815260206004820152601560248201527454727574684d61726b65743a206e6f74206c69766560581b6044820152606490fd5b6002915014856102b1565b60405162461bcd60e51b815260206004820152601c60248201527b2a393aba3426b0b935b2ba1d103737ba1030b2353ab234b1b0ba37b960211b6044820152606490fd5b346101de5760203660031901126101de57602061049a6104956109aa565b610a4c565b604051908152f35b346101de575f3660031901126101de57602060ff60025460e01c16604051908152f35b346101de575f3660031901126101de5760ff5f541660058110156101895780600160209214908161050e575b8115610503575b506040519015158152f35b6002915014826104f8565b6002546001600160401b031642101591506104f1565b346101de575f3660031901126101de5760ff5f5416600581101561018957602090600460405191148152f35b346101de575f3660031901126101de576003546040516001600160401b039091168152602090f35b346101de575f3660031901126101de576003546040805191901c6001600160a01b03168152602090f35b346101de575f3660031901126101de576003543360409190911c6001600160a01b0316148015610661575b1561061e5760ff5f541660058110156101895760036105ec91146109ba565b600460ff195f5416175f55307fea680de9d32012ab006cb4c36859d95875bc1fda742aabcc8810fe82e4309e6d5f80a2005b60405162461bcd60e51b815260206004820152601b60248201527a151c9d5d1a13585c9ad95d0e881b9bdd08185d5d1a1bdc9a5e9959602a1b6044820152606490fd5b506004546001600160a01b031633146105cd565b346101de575f3660031901126101de576004546040516001600160a01b039091168152602090f35b346101de575f3660031901126101de576040515f600154908160011c600183169283156107cc575b6020821084146107b857818552602085019390811561079f5750600114610749575b50829003601f01601f19168201916001600160401b03831181841017610735576040918391828452602083525180918160208501528484015e5f828201840152601f01601f19168101030190f35b634e487b7160e01b5f52604160045260245ffd5b60015f9081529091507fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf65b828210610789575060209150830101836106e7565b6001816020925483858901015201910190610774565b60ff1916845250151560051b83016020019050836106e7565b634e487b7160e01b5f52602260045260245ffd5b90607f16906106c5565b346101de575f3660031901126101de5760ff5f54166005811015610189578060036020921490811561080d57506040519015158152f35b6004915014826104f8565b346101de575f3660031901126101de576002546040516001600160401b039091168152602090f35b346101de575f3660031901126101de57600254604081901c6001600160a01b031633036109445760ff5f5416600581101561018957610904576001600160401b03164210156108c257600160ff195f5416175f556040514281527f58a8b7fba1050fb318f768a3c190f08d007439609907800ff8d7b97763556ab760203092a2005b60405162461bcd60e51b815260206004820152601a60248201527954727574684d61726b65743a207061737420646561646c696e6560301b6044820152606490fd5b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd0818dc99585d195960421b6044820152606490fd5b60405162461bcd60e51b81526020600482015260186024820152772a393aba3426b0b935b2ba1d103737ba1031b932b0ba37b960411b6044820152606490fd5b346101de575f3660031901126101de5760025460401c6001600160a01b03168152602090f35b6004359060ff821682036101de57565b156109c157565b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd081cd95d1d1b195960421b6044820152606490fd5b15610a0857565b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20696e76616c6964206f7574636f6d6560201b6044820152606490fd5b60ff5f541690600582101561018957610a7382600360ff9414908115610acb575b506109ba565b16610a816001821115610a01565b60025460e01c60ff1680610aa45750610aa057670de0b6b3a764000090565b5f90565b600103610abe57600103610aa057670de0b6b3a764000090565b506706f05b59d3b2000090565b60049150145f610a6d565b60ff90911681526001600160401b0390911660208201526040019056fea2646970667358221220a6820373129387216c7e468fffd1af5ae03f41830982f5d0e2ff4205bebb82e264736f6c634300081e0033' as `0x${string}`;
+const TRUTH_MARKET_BYTECODE = '0x60806040523461038b57610ef2803803806100198161038f565b92833981019060808183031261038b5780516001600160401b03811161038b57810182601f8201121561038b578051906001600160401b0382116102a85761006a601f8301601f191660200161038f565b938285526020838301011161038b57815f9260208093018387015e8401015260208101516001600160401b038116919082900361038b576100b960606100b2604084016103b4565b92016103b4565b42831115610346576001600160a01b03821615610301576001600160a01b03169182156102bc5783516001600160401b0381116102a857600154600181811c9116801561029e575b602082101461028a57601f8111610227575b50602094601f82116001146101c4579481929394955f926101b9575b50508160011b915f199060031b1c1916176001555b600280546001600160e01b03191690911733604090811b600160401b600160e01b039081169290921790925560038054600160401b600160e01b03191693831b90911692909217909155600480546001600160a01b031916929092179091555f805460ff1916905551610b2990816103c98239f35b015190505f8061012f565b601f1982169560015f52805f20915f5b88811061020f575083600195969798106101f7575b505050811b01600155610144565b01515f1960f88460031b161c191690555f80806101e9565b919260206001819286850151815501940192016101d4565b60015f527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6601f830160051c81019160208410610280575b601f0160051c01905b8181106102755750610113565b5f8155600101610268565b909150819061025f565b634e487b7160e01b5f52602260045260245ffd5b90607f1690610101565b634e487b7160e01b5f52604160045260245ffd5b60405162461bcd60e51b815260206004820152601a60248201527f54727574684d61726b65743a207a65726f20677561726469616e0000000000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a207a65726f2061646a7564696361746f720000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a20646561646c696e6520696e20706173740000006044820152606490fd5b5f80fd5b6040519190601f01601f191682016001600160401b038111838210176102a857604052565b51906001600160a01b038216820361038b5756fe6080806040526004361015610012575f80fd5b5f3560e01c90816302d05d3f14610984575080630f15f4c01461084057806329dcb0cf146108185780633270bb5b146107d65780633fad9ae01461069d578063452a9320146106755780634bb278f3146105a257806353c2ed8e1461057857806359217ba3146105505780638d4e40831461052457806396f25d42146104c55780639b34ae03146104a2578063aed4119114610477578063b43e2afd14610252578063b8f7a6651461020a578063c19d93fb146101e25763ef9b78c6146100d7575f80fd5b346101de575f3660031901126101de576004546001600160a01b0316330361019d5760ff5f5416600581101561018957600361011391146109ba565b60028054600380545f805460ff19168517905560ff60e01b1983169093556001600160401b03198316905560405130927fd928781d9dc29331b3bb4199b6c4b9e4ae738cd00bf919b6ad1c85b321a68ff3928291610184916001600160401b03919091169060e01c60ff1683610ad6565b0390a2005b634e487b7160e01b5f52602160045260245ffd5b60405162461bcd60e51b81526020600482015260196024820152782a393aba3426b0b935b2ba1d103737ba1033bab0b93234b0b760391b6044820152606490fd5b5f80fd5b346101de575f3660031901126101de5760ff5f54166040516005821015610189576020918152f35b346101de575f3660031901126101de5760ff5f54166005811015610189576001148061023e575b6020906040519015158152f35b506002546001600160401b03164210610231565b346101de5760403660031901126101de5761026b6109aa565b6024356001600160401b038116908181036101de57600354604081901c6001600160a01b031633036104335760ff5f541660058110156101895760018114908115610428575b50156103eb576102c7600260ff86161115610a01565b82610338575b6002805460ff60e01b191660e086901b60ff60e01b161790556001600160401b03191690911760039081555f805460ff1916909117905560405130927f1d70fe3b705dff19e2f3638f5308ff5245252369594c794c78dccb6b01dec503928291610184919083610ad6565b904283116103a7576002546001600160401b0316831161035857906102cd565b60405162461bcd60e51b815260206004820152602160248201527f54727574684d61726b65743a20745374617220616674657220646561646c696e6044820152606560f81b6064820152608490fd5b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20745374617220696e2066757475726560201b6044820152606490fd5b60405162461bcd60e51b815260206004820152601560248201527454727574684d61726b65743a206e6f74206c69766560581b6044820152606490fd5b6002915014856102b1565b60405162461bcd60e51b815260206004820152601c60248201527b2a393aba3426b0b935b2ba1d103737ba1030b2353ab234b1b0ba37b960211b6044820152606490fd5b346101de5760203660031901126101de57602061049a6104956109aa565b610a4c565b604051908152f35b346101de575f3660031901126101de57602060ff60025460e01c16604051908152f35b346101de575f3660031901126101de5760ff5f541660058110156101895780600160209214908161050e575b8115610503575b506040519015158152f35b6002915014826104f8565b6002546001600160401b031642101591506104f1565b346101de575f3660031901126101de5760ff5f5416600581101561018957602090600460405191148152f35b346101de575f3660031901126101de576003546040516001600160401b039091168152602090f35b346101de575f3660031901126101de576003546040805191901c6001600160a01b03168152602090f35b346101de575f3660031901126101de576003543360409190911c6001600160a01b0316148015610661575b1561061e5760ff5f541660058110156101895760036105ec91146109ba565b600460ff195f5416175f55307fea680de9d32012ab006cb4c36859d95875bc1fda742aabcc8810fe82e4309e6d5f80a2005b60405162461bcd60e51b815260206004820152601b60248201527a151c9d5d1a13585c9ad95d0e881b9bdd08185d5d1a1bdc9a5e9959602a1b6044820152606490fd5b506004546001600160a01b031633146105cd565b346101de575f3660031901126101de576004546040516001600160a01b039091168152602090f35b346101de575f3660031901126101de576040515f600154908160011c600183169283156107cc575b6020821084146107b857818552602085019390811561079f5750600114610749575b50829003601f01601f19168201916001600160401b03831181841017610735576040918391828452602083525180918160208501528484015e5f828201840152601f01601f19168101030190f35b634e487b7160e01b5f52604160045260245ffd5b60015f9081529091507fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf65b828210610789575060209150830101836106e7565b6001816020925483858901015201910190610774565b60ff1916845250151560051b83016020019050836106e7565b634e487b7160e01b5f52602260045260245ffd5b90607f16906106c5565b346101de575f3660031901126101de5760ff5f54166005811015610189578060036020921490811561080d57506040519015158152f35b6004915014826104f8565b346101de575f3660031901126101de576002546040516001600160401b039091168152602090f35b346101de575f3660031901126101de57600254604081901c6001600160a01b031633036109445760ff5f5416600581101561018957610904576001600160401b03164210156108c257600160ff195f5416175f556040514281527f58a8b7fba1050fb318f768a3c190f08d007439609907800ff8d7b97763556ab760203092a2005b60405162461bcd60e51b815260206004820152601a60248201527954727574684d61726b65743a207061737420646561646c696e6560301b6044820152606490fd5b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd0818dc99585d195960421b6044820152606490fd5b60405162461bcd60e51b81526020600482015260186024820152772a393aba3426b0b935b2ba1d103737ba1031b932b0ba37b960411b6044820152606490fd5b346101de575f3660031901126101de5760025460401c6001600160a01b03168152602090f35b6004359060ff821682036101de57565b156109c157565b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd081cd95d1d1b195960421b6044820152606490fd5b15610a0857565b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20696e76616c6964206f7574636f6d6560201b6044820152606490fd5b60ff5f541690600582101561018957610a7382600360ff9414908115610acb575b506109ba565b16610a816001821115610a01565b60025460e01c60ff1680610aa45750610aa057670de0b6b3a764000090565b5f90565b600103610abe57600103610aa057670de0b6b3a764000090565b506706f05b59d3b2000090565b60049150145f610a6d565b60ff90911681526001600160401b0390911660208201526040019056fea26469706673582212208ef23350280c46934ac1988a2ea83d3e23435cdbf3bbfe24a6a5522c8542646f64736f6c634300081e0033';
 
 const TruthMarketAbiForDeploy = parseAbi([
   'constructor(string question, uint64 deadline, address adjudicator, address guardian)',
@@ -153,13 +153,12 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       args: [address],
     }) as bigint;
 
-    // Estimate required USDC: b × ln(2) in USDC decimals
-    // LaunchpadEngine calculates: depositWad = (b × LN2_WAD) / WAD, then converts to USDC
+    // Estimate required USDC: b × ln(2) (MockUSDC uses 18 decimals like WAD)
+    // LaunchpadEngine calculates: depositWad = (b × LN2_WAD) / WAD
     const LN2_WAD = 693147180559945309n; // ln(2) × 1e18
-    const requiredWad = (liquidityWad * LN2_WAD) / WAD;
-    const required = (requiredWad + WAD / 10n ** 12n - 1n) / (WAD / 10n ** 12n); // WAD to USDC ceil
+    const required = (liquidityWad * LN2_WAD) / WAD; // Result is in WAD (18 decimals) = MockUSDC (18 decimals)
     if (usdcBalance < required) {
-      console.log(warn(`  Insufficient USDC. Minting ${(Number(required) / 1e6).toFixed(2)} USDC...`));
+      console.log(warn(`  Insufficient USDC. Minting ${formatWad(required)} USDC...`));
       const mintHash = await walletClient.writeContract({
         address: deployment.contracts.MockUSDC as `0x${string}`,
         abi: ABIS.MockUSDC,
@@ -184,8 +183,10 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       args: [template.question, deadline, address, address], // adjudicator & guardian = deployer
     });
 
+    // Send deployment transaction
     const deployHash = await walletClient.sendTransaction({
       data: deployData,
+      gas: 1500000n, // TruthMarket deployment needs ~900k gas
     });
 
     const deployReceipt = await actorManager.waitForTransactionReceipt(deployHash);
@@ -344,7 +345,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       abi: LaunchpadEngineAbi,
       functionName: 'tradePositions',
       args: [marketAddress, 1, tinyTrade, MAX_UINT256],
-      gas: 2000000n,
+      gas: 5000000n,
     });
     await actorManager.waitForTransactionReceipt(hash);
 
@@ -361,7 +362,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     abi: LaunchpadEngineAbi,
     functionName: 'preGradFeeBps',
   });
-  const feeBps = BigInt(feeBpsRaw as bigint);
+  const feeBps = BigInt(Number(feeBpsRaw));
 
   // Calculate trade size to reach 110% of threshold
   // Fee = cost * feeBps / 10000
@@ -450,7 +451,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         abi: LaunchpadEngineAbi,
         functionName: 'tradePositions',
         args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
-        gas: 2000000n, // High gas for potential graduation
+        gas: 5000000n, // High gas for potential graduation (Monad needs ~5M)
       });
 
       const receipt = await actorManager.waitForTransactionReceipt(hash);
@@ -664,9 +665,11 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
  *   simulate 20 100 12345 - deterministic with seed 12345
  *
  * Order types generated:
- *   - Range orders (70%): Random tick ranges within 10-90%
+ *   - Range orders (55%): Random tick ranges within 10-90%
  *   - Limit orders (20%): Single-tick orders at specific prices
  *   - Market orders (10%): Full range 1-999 for immediate fills
+ *   - Spot sell (10%): Sell owned shares at limit price
+ *   - Hybrid sell (5%): Partial spot + partial short sell
  */
 export async function simulate(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketKey, marketAddress } = ctx;
@@ -723,7 +726,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.TickBookPoolManager,
       functionName: 'getMarketInfo',
       args: [marketKey],
-    }) as [string, string, string, string];
+    }) as unknown as [string, string, string, string];
 
     const active =
       truthMarket !== '0x0000000000000000000000000000000000000000' &&
@@ -837,72 +840,155 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     txHash: `0x${string}`;
   }[] = [];
 
-  // placeOrder(marketKey, outcome, shares, tickLower, tickUpper, maxCost)
-  const writePlaceOrder = async (params: {
+  // Unified order execution helper
+  type OrderType = 'range' | 'limit' | 'market' | 'spotsell' | 'hybrid';
+  
+  interface ExecuteOrderParams {
+    orderType: OrderType;
     outcome: number;
     shares: bigint;
     tickLower: number;
     tickUpper: number;
-    maxCost: bigint;
-  }, retries = 3) => {
+  }
+  
+  interface ExecuteOrderResult {
+    orderId: bigint;
+    filledShares: bigint;
+    filledCost: bigint;
+    restingShares: bigint;
+    txHash: `0x${string}`;
+    actualType: OrderType; // May differ if fallback occurred
+    spotAmount?: bigint;
+    shortAmount?: bigint;
+  }
+
+  // Cache market info for spot/hybrid sells
+  let cachedMarketInfo: { truthMarket: string } | null = null;
+  const getMarketInfoCached = async () => {
+    if (!cachedMarketInfo) {
+      const [truthMarket] = await publicClient.readContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'getMarketInfo',
+        args: [marketKey],
+      }) as [string, string, string];
+      cachedMarketInfo = { truthMarket };
+    }
+    return cachedMarketInfo;
+  };
+
+  const getUserShares = async (outcome: number): Promise<bigint> => {
+    const market = await getMarketInfoCached();
+    const vault = deployment.contracts.TickBookVault as `0x${string}`;
+    const [yesShares, noShares] = await publicClient.readContract({
+      address: vault,
+      abi: ABIS.TickBookVault,
+      functionName: 'getInternalOutcomes',
+      args: [market.truthMarket, address],
+    }) as [bigint, bigint];
+    return outcome === 1 ? yesShares : noShares;
+  };
+
+  const executeOrder = async (params: ExecuteOrderParams, retries = 3): Promise<ExecuteOrderResult> => {
+    const { orderType, outcome, shares, tickLower, tickUpper } = params;
+    const maxCost = shares * 2n;
     let lastError: Error | null = null;
-    const contractArgs = {
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'placeOrder' as const,
-      args: [marketKey, params.outcome, params.shares, params.tickLower, params.tickUpper, params.maxCost] as const,
-      gas: 2000000n,
-    };
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        // Try simulation first to get better error messages (skip if RPC doesn't support it)
+        // Handle spot sell / hybrid
+        if (orderType === 'spotsell' || orderType === 'hybrid') {
+          const userShares = await getUserShares(outcome);
+
+          if (userShares === 0n) {
+            // Fallback to range order
+            return executeOrder({ ...params, orderType: 'range' }, 1);
+          }
+
+          const spotAmount = userShares > shares ? shares : userShares;
+          const shortAmount = orderType === 'hybrid' && shares > userShares ? shares - userShares : 0n;
+
+          // Place spot sell
+          const spotHash = await walletClient.writeContract({
+            address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'placeSpotSell',
+            args: [marketKey, outcome, spotAmount, tickLower, tickUpper],
+            gas: 2000000n,
+          });
+          await actorManager.waitForTransactionReceipt(spotHash);
+
+          // Place short sell for hybrid
+          if (shortAmount > 0n) {
+            const shortHash = await walletClient.writeContract({
+              address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+              abi: ABIS.TickBookPoolManager,
+              functionName: 'placeOrder',
+              args: [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n],
+              gas: 2000000n,
+            });
+            await actorManager.waitForTransactionReceipt(shortHash);
+          }
+
+          return {
+            orderId: 0n,
+            filledShares: 0n,
+            filledCost: 0n,
+            restingShares: spotAmount + shortAmount,
+            txHash: spotHash,
+            actualType: shortAmount > 0n ? 'hybrid' : 'spotsell',
+            spotAmount,
+            shortAmount,
+          };
+        }
+
+        // Handle range / limit / market orders
+        const contractArgs = {
+          address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+          abi: ABIS.TickBookPoolManager,
+          functionName: 'placeOrder' as const,
+          args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const,
+          gas: 2000000n,
+        };
+
+        // Try simulation first
         let simResult: any = null;
         try {
-          simResult = await publicClient.simulateContract({
-            ...contractArgs,
-            account: address,
-          });
+          simResult = await publicClient.simulateContract({ ...contractArgs, account: address });
         } catch (simErr: any) {
           const simErrMsg = simErr?.message?.toLowerCase() || '';
-          // If it's a contract revert, throw immediately with the error
           if (simErrMsg.includes('revert') || simErrMsg.includes('overflow') ||
               simErrMsg.includes('underflow') || simErrMsg.includes('insufficient')) {
             throw simErr;
           }
-          // Otherwise RPC doesn't support simulation, proceed with writeContract
         }
 
         const txHash = await walletClient.writeContract(contractArgs);
-        const receipt = await actorManager.waitForTransactionReceipt(txHash);
+        await actorManager.waitForTransactionReceipt(txHash);
 
-        // Use simResult if available, otherwise placeholders
         const result = simResult?.result
           ? simResult.result as [bigint, bigint, bigint, bigint]
-          : [0n, 0n, 0n, params.shares] as [bigint, bigint, bigint, bigint];
+          : [0n, 0n, 0n, shares] as [bigint, bigint, bigint, bigint];
 
-        return { txHash, result };
+        return {
+          orderId: result[0],
+          filledShares: result[1],
+          filledCost: result[2],
+          restingShares: result[3],
+          txHash,
+          actualType: orderType,
+        };
       } catch (err) {
         lastError = err as Error;
         const errMsg = lastError.message.toLowerCase();
+        const isTransient = errMsg.includes('timeout') || errMsg.includes('network') ||
+          errMsg.includes('nonce') || errMsg.includes('already known') ||
+          errMsg.includes('replacement transaction') || errMsg.includes('connection');
 
-        // Only retry on transient errors (network, timeout, nonce)
-        const isTransient = errMsg.includes('timeout') ||
-          errMsg.includes('network') ||
-          errMsg.includes('nonce') ||
-          errMsg.includes('already known') ||
-          errMsg.includes('replacement transaction') ||
-          errMsg.includes('connection');
-
-        if (!isTransient || attempt === retries) {
-          throw lastError;
-        }
-
-        // Wait before retry (exponential backoff)
+        if (!isTransient || attempt === retries) throw lastError;
         await sleep(500 * attempt);
       }
     }
-
     throw lastError!;
   };
 
@@ -918,15 +1004,19 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       break;
     }
 
-    // Randomly select order type: 70% range, 20% limit, 10% market
+    // Randomly select order type: 55% range, 20% limit, 10% market, 10% spot sell, 5% hybrid
     const orderTypeRoll = rng();
-    let orderType: 'range' | 'limit' | 'market';
-    if (orderTypeRoll < 0.70) {
+    let orderType: 'range' | 'limit' | 'market' | 'spotsell' | 'hybrid';
+    if (orderTypeRoll < 0.55) {
       orderType = 'range';
-    } else if (orderTypeRoll < 0.90) {
+    } else if (orderTypeRoll < 0.75) {
       orderType = 'limit';
-    } else {
+    } else if (orderTypeRoll < 0.85) {
       orderType = 'market';
+    } else if (orderTypeRoll < 0.95) {
+      orderType = 'spotsell';
+    } else {
+      orderType = 'hybrid';
     }
 
     // Random outcome (YES=1, NO=0) with slight bias toward YES
@@ -941,11 +1031,16 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       // Market order: full range for immediate fill
       tickLower = 1;
       tickUpper = 999;
-    } else if (orderType === 'limit') {
-      // Limit order: narrow range at specific price (10%-89.8%)
+    } else if (orderType === 'limit' || orderType === 'spotsell') {
+      // Limit order / spot sell: narrow range at specific price (10%-89.8%)
       // Ensure tickUpper <= 999: tickLower max = 998
       tickLower = randInt(100, 898);
       tickUpper = tickLower + randInt(1, 3); // 1-3 tick width for "limit-like"
+      tickUpper = Math.min(tickUpper, 999);
+    } else if (orderType === 'hybrid') {
+      // Hybrid sell: similar to limit but may be at any price
+      tickLower = randInt(100, 800);
+      tickUpper = tickLower + randInt(10, 50);
       tickUpper = Math.min(tickUpper, 999);
     } else {
       // Range order: random range within safe bounds
@@ -969,11 +1064,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     let shares = randSize();
     if (shares < WAD) shares = WAD;
 
-    // maxCost = shares * 2 (generous slippage buffer)
-    const maxCost = shares * 2n;
-
     // Order type indicator
-    const typeIndicator = orderType === 'market' ? 'MKT' : orderType === 'limit' ? 'LMT' : 'RNG';
+    const typeIndicator = orderType === 'market' ? 'MKT' : orderType === 'limit' ? 'LMT' : orderType === 'spotsell' ? 'SPOT' : orderType === 'hybrid' ? 'HYB' : 'RNG';
 
     // Debug output for first order
     if (debugFirstOrder && i === 0) {
@@ -985,16 +1077,38 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     spinner.start();
 
     try {
-      // Use placeOrder API
-      const { txHash, result } = await writePlaceOrder({ outcome, shares, tickLower, tickUpper, maxCost });
-      const [orderId, filledShares, filledCost, restingShares] = result as [bigint, bigint, bigint, bigint];
+      const result = await executeOrder({ orderType, outcome, shares, tickLower, tickUpper });
+      
+      // Format output based on actual order type executed
+      const actualIndicator = result.actualType === 'market' ? 'MKT' : result.actualType === 'limit' ? 'LMT' 
+        : result.actualType === 'spotsell' ? 'SPOT' : result.actualType === 'hybrid' ? 'HYB' : 'RNG';
+      
+      if (result.actualType === 'hybrid') {
+        spinner.succeed(
+          `Order ${i + 1}: HYB ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] spot:${formatWad(result.spotAmount || 0n)} + short:${formatWad(result.shortAmount || 0n)}`
+        );
+      } else if (result.actualType === 'spotsell') {
+        spinner.succeed(
+          `Order ${i + 1}: SPOT ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(result.spotAmount || shares)} shares`
+        );
+      } else {
+        spinner.succeed(
+          `Order ${i + 1}: ${actualIndicator} #${result.orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(result.filledShares)}, resting: ${formatWad(result.restingShares)})`
+        );
+      }
 
-      spinner.succeed(
-        `Order ${i + 1}: ${typeIndicator} #${orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(filledShares)}, resting: ${formatWad(restingShares)})`
-      );
-
-      placedOrders.push({ orderId, outcome, tickLower, tickUpper, shares, filledShares, filledCost, restingShares, txHash });
-      consecutiveFailures = 0; // Reset on success
+      placedOrders.push({ 
+        orderId: result.orderId, 
+        outcome, 
+        tickLower, 
+        tickUpper, 
+        shares: result.spotAmount && result.shortAmount ? result.spotAmount + result.shortAmount : shares, 
+        filledShares: result.filledShares, 
+        filledCost: result.filledCost, 
+        restingShares: result.restingShares, 
+        txHash: result.txHash 
+      });
+      consecutiveFailures = 0;
     } catch (err) {
       const errMsg = (err as Error).message;
       // Extract revert reason if present

@@ -9,7 +9,7 @@ import { useAccount, useWriteContract, useChainId, usePublicClient } from 'wagmi
 import toast from 'react-hot-toast';
 import { Button } from '../ui/Button';
 import { useDeployments } from '../../hooks/useDeployments';
-import { V996_ABIS } from '../../config/abis';
+import { V10_ABIS } from '../../config/abis';
 import { cn } from '../../lib/utils';
 
 // Explorer URL helper
@@ -45,7 +45,7 @@ export const ClaimFillsButton = ({
   disabled = false,
   onSuccess,
 }: ClaimFillsButtonProps) => {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const deployments = useDeployments();
@@ -60,14 +60,38 @@ export const ClaimFillsButton = ({
     const toastId = toast.loading(`Claiming ${orderIds.length} order(s)...`);
 
     try {
-      console.log('[BatchClaim] Calling batchClaimFills:', { 
-        marketKey, 
-        orderIds: orderIds.map(id => id.toString()), 
-        poolManager: poolManagerAddress 
+      console.log('[BatchClaim] Calling batchClaimFills:', {
+        marketKey,
+        orderIds: orderIds.map(id => id.toString()),
+        poolManager: poolManagerAddress
       });
+      // Simulate first
+      if (publicClient && address) {
+        try {
+          await publicClient.simulateContract({
+            account: address,
+            address: poolManagerAddress,
+            abi: V10_ABIS.TickBookPoolManager,
+            functionName: 'batchClaimFills',
+            args: [marketKey, orderIds],
+            gas: BigInt(200000 + orderIds.length * 100000),
+          });
+        } catch (simError: any) {
+          console.error('[BatchClaim] Simulation failed:', simError);
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Simulation failed';
+
+          if (reason.includes('OrderNotActive')) {
+            toast.error('Some orders are no longer active. Refreshing...', { id: toastId });
+            onSuccess?.(); // Trigger refresh
+            return;
+          }
+          throw simError;
+        }
+      }
+
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: V10_ABIS.TickBookPoolManager,
         functionName: 'batchClaimFills',
         args: [marketKey, orderIds],
         gas: BigInt(200000 + orderIds.length * 100000), // Dynamic gas based on order count

@@ -37,7 +37,7 @@ import {
 import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
 import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, V9_ABIS, V996_ABIS } from '../config/abis';
+import { V8_ABIS, V9_ABIS, V10_ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -454,10 +454,11 @@ interface UserOrdersPanelProps {
 type OrderFilter = 'all' | 'open' | 'filled';
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
 
-const MAX_BATCH_SIZE = 20;
+const MAX_BATCH_SIZE = 50; // Safe: ~60-80k gas per claim, 50 × 80k = 4M gas
 
 const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
+  const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>('all');
@@ -513,24 +514,50 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       toast.error('TickBookPoolManager not deployed');
       return;
     }
-    
+
     setActionInProgress('batch-cancel');
     const toastId = toast.loading(`Cancelling ${openOrders.length} order(s)...`);
-    
+
     try {
       const orderIds = openOrders.map(o => o.orderId);
       console.log('[BatchCancel] Calling batchCancelOrders:', { marketKey, orderIds: orderIds.map(id => id.toString()) });
-      
+
+      // Simulate first to catch specific errors (e.g. OrderNotActive)
+      if (publicClient && userAddress) {
+        try {
+          await publicClient.simulateContract({
+            account: userAddress, // We need to ensure we have the address variable available.
+            address: contracts.TickBookPoolManager as `0x${string}`,
+            abi: V10_ABIS.TickBookPoolManager,
+            functionName: 'batchCancelOrders',
+            args: [marketKey, orderIds],
+            // Use same gas buffer
+            gas: BigInt(200000 + openOrders.length * 150000),
+          });
+        } catch (simError: any) {
+          console.error('[BatchCancel] Simulation failed:', simError);
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Simulation failed';
+
+          if (reason.includes('OrderNotActive')) {
+            toast.error('Some orders are no longer active. Refreshing...', { id: toastId });
+            onRefresh();
+            return;
+          }
+
+          throw simError; // Re-throw other errors to be caught below
+        }
+      }
+
       const hash = await writeContractAsync({
         address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: V10_ABIS.TickBookPoolManager,
         functionName: 'batchCancelOrders',
         args: [marketKey, orderIds],
         gas: BigInt(200000 + openOrders.length * 150000),
       });
-      
+
       toast.loading('Waiting for confirmation...', { id: toastId });
-      
+
       if (publicClient) {
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
         if (receipt.status === 'reverted') {
@@ -539,7 +566,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
           return;
         }
       }
-      
+
       toast.success(`Cancelled ${openOrders.length} order(s)`, { id: toastId, duration: 5000 });
       onRefresh();
     } catch (e: any) {
@@ -561,12 +588,12 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     const toastId = toast.loading('Cancelling order...');
     try {
       console.log('[Cancel] Calling cancelOrder:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
-      
+
       let hash: `0x${string}`;
       try {
         hash = await writeContractAsync({
           address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V996_ABIS.TickBookPoolManager,
+          abi: V10_ABIS.TickBookPoolManager,
           functionName: 'cancelOrder',
           args: [marketKey, orderId]
         });
@@ -608,19 +635,19 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       toast.error('TickBookPoolManager not deployed');
       return;
     }
-    
+
     // Contract computes pending fills from accumulator - no frontend check needed
     console.log('[Claim] Calling claimFills:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
-    
+
     setActionInProgress(`claim-${orderId.toString()}`);
     const toastId = toast.loading('Claiming fills...');
     try {
-      
+
       let hash: `0x${string}`;
       try {
         hash = await writeContractAsync({
           address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V996_ABIS.TickBookPoolManager,
+          abi: V10_ABIS.TickBookPoolManager,
           functionName: 'claimFills',
           args: [marketKey, orderId]
         });
@@ -735,7 +762,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                 default: return true;
               }
             }).length;
-            
+
             return (
               <button
                 key={f}
@@ -864,8 +891,8 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
                       className={cn(
                         "h-full rounded-full transition-all",
                         fillPercent >= 100 ? "bg-emerald-500" :
-                        fillPercent > 0 ? "bg-amber-500" :
-                        "bg-slate-600"
+                          fillPercent > 0 ? "bg-amber-500" :
+                            "bg-slate-600"
                       )}
                       style={{ width: `${Math.min(fillPercent, 100)}%` }}
                     />
@@ -1566,7 +1593,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // currentTick === 1 means MIN_TICK (no Pro trades yet)
   const isProPriceValid = isMarketActive && rawProb !== null && rawProb > 0 && currentTick > 1;
   const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
-  
+
   // Debug log for troubleshooting
   if (tickBook) {
     console.log(`[Pro] Market ${marketAddr} - currentTick: ${currentTick}, probability: ${rawProb}, isActive: ${isMarketActive}, isProPriceValid: ${isProPriceValid}`);
@@ -1774,7 +1801,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           }
         } else {
           // V9.9.6: Use rangeOrder or limitOrder based on priceMode
-          const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000); // 10% slippage
+          const maxCost = calculateMaxCost(outcome, amountBg, priceLowNum, priceHighNum);
           if (priceMode === 'single') {
             result = await limitOrder(outcome, amountBg, priceLowNum, maxCost);
           } else {
@@ -1791,11 +1818,31 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         const hasPartialShares = userHolding > 0n && userHolding < amountBg;
 
         if (isMarketOrderType) {
-          if (hasFullShares || hasPartialShares) {
-            // SPOT SELL MARKET - Use full tick range (1-999)
+          if (hasFullShares) {
+            // PURE SPOT SELL MARKET - Use full tick range (1-999)
             const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
             console.log('[Pro] SPOT SELL MARKET:', { isYes, outcome: spotSellOutcome, shares: amountBg.toString() });
             const spotResult = await placeSpotSell(spotSellOutcome, amountBg, 0.1, 99.9);
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
+          } else if (hasPartialShares) {
+            // HYBRID SELL MARKET: Spot sell owned shares + short sell remainder
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
+            const shortSellAmount = amountBg - userHolding;
+            console.log('[Pro] HYBRID SELL MARKET:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
+            
+            // Step 1: Spot sell owned shares
+            const spotResult = await placeSpotSell(spotSellOutcome, userHolding, 0.1, 99.9);
+            
+            // Step 2: Short sell remainder (buy opposite)
+            if (shortSellAmount > 0n) {
+              const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+              const shortCost = (finalCostWad * shortSellAmount * 110n) / (amountBg * 100n);
+              await marketOrder(oppositeOutcome, shortSellAmount, shortCost);
+            }
+            
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }
@@ -1810,8 +1857,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           }
         } else {
           // LIMIT ORDERS for SELL
-          if (hasFullShares || hasPartialShares) {
-            // SPOT SELL LIMIT - Lock shares and place resting ask
+          if (hasFullShares) {
+            // PURE SPOT SELL LIMIT - Lock shares and place resting ask
             const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
             console.log('[Pro] SPOT SELL LIMIT:', { isYes, outcome: spotSellOutcome, priceLow: priceLowNum, priceHigh: priceHighNum });
             const spotResult = await placeSpotSell(
@@ -1823,6 +1870,36 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }
+          } else if (hasPartialShares) {
+            // HYBRID SELL LIMIT: Spot sell owned shares + short sell remainder
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
+            const shortSellAmount = amountBg - userHolding;
+            const invertedPriceLow = 100 - priceHighNum;
+            const invertedPriceHigh = 100 - priceLowNum;
+            console.log('[Pro] HYBRID SELL LIMIT:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
+            
+            // Step 1: Spot sell owned shares
+            const spotResult = await placeSpotSell(
+              spotSellOutcome,
+              userHolding,
+              priceLowNum,
+              priceMode === 'single' ? priceLowNum : priceHighNum
+            );
+            
+            // Step 2: Short sell remainder (buy opposite at inverted price)
+            if (shortSellAmount > 0n) {
+              const maxCost = calculateMaxCost(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh);
+              if (priceMode === 'single') {
+                await limitOrder(oppositeOutcome, shortSellAmount, invertedPriceLow, maxCost);
+              } else {
+                await rangeOrder(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh, maxCost);
+              }
+            }
+            
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
           } else {
             // SHORT SELL LIMIT: Buy opposite at inverted price
             // Selling YES @ 60% = Buying NO @ 40%
@@ -1830,7 +1907,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const invertedPriceLow = 100 - priceHighNum;
             const invertedPriceHigh = 100 - priceLowNum;
-            const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceHigh, 1000);
+            const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceLow, invertedPriceHigh);
             console.log('[Pro] SHORT SELL:', { isYes, oppositeOutcome, invertedPriceLow, invertedPriceHigh, maxCost: maxCost.toString() });
             if (priceMode === 'single') {
               result = await limitOrder(oppositeOutcome, amountBg, invertedPriceLow, maxCost);
