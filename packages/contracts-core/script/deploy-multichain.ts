@@ -329,7 +329,7 @@ async function main() {
   const args = process.argv.slice(2);
   let targetChains: string[] = getAllChainNames();
 
-  const chainsArg = args.find(a => a.startsWith('--chains='));
+  const chainsArg = args.find((a: string) => a.startsWith('--chains='));
   if (chainsArg) {
     targetChains = chainsArg.replace('--chains=', '').split(',');
   }

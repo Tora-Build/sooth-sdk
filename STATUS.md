@@ -1,9 +1,8 @@
 # Project Status
 
 ## Current Focus
-- **V10.3.0 Stabilization (Base Sepolia / Monad)** — Pro trading UI + indexer integration.
-- **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until semantics are fixed.
-- **MAX_TICK Boundary Bugfix (Contracts)** — Improve overlap discovery for orders ending at tick 999 (requires redeploy to take effect on-chain).
+- **V10.3.1 DEPLOYED (2026-01-06)** — MAX_TICK boundary fix deployed to Base Sepolia + Monad Testnet.
+- **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
@@ -25,9 +24,7 @@
 
 ## Pending/Blocked
 - **Basescan Verification** — Contract verification on Base Sepolia.
-- **Redeploy PoolManager** — Deploy V10 with MAX_TICK boundary fix for real tick-999 overlap discovery.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
-- **Test Suite Cleanup** — V9 tests reference removed `ILockCallback` interface (hook system removed in V9.9.4).
 - **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
 
 ## Known Issues
@@ -99,29 +96,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.3.0
+### Base Sepolia (chainId: 84532) — V10.3.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x113067ee976fd86e5e764b559a04c2e277a82a2d` |
-| **Collateralizer** | `0x5f4a0f8be1501d2b2a4621a20ffa5dea8c3684c0` |
-| **AMMEngine** | `0xe8501dc028ebb1cfd19dc31729083625fb2e4b6f` |
-| **TickBookVault** | `0x84a9fbf1155dcdb1e59874aa5038953330f24cdc` |
-| **LaunchpadEngine** | `0x89911dab57defd02662741d66736910da3e561fc` |
-| **MockUSDC** | `0x1c2ed7f8035f7f4236b664da23b27ba4fd012003` |
+| **TickBookPoolManager** | `0x8e14f863109cc93ec91540919287556cc368ff0b` |
+| **Collateralizer** | `0x5e35d7b086f6061bd1f131b43bc0adeff9a89323` |
+| **AMMEngine** | `0x595d59b6a34ae60a884312d918a8539772acae5f` |
+| **TickBookVault** | `0xe0f8459ff26b53ebecbc4224ef764593657050a5` |
+| **LaunchpadEngine** | `0x11f921f0b2b36e8e0536afb8a292f1954700e695` |
+| **MockUSDC** | `0x515728b80658b61cc030ebc8b63ca4b0bf6c8174` |
 
-**Note:** V10.3.0 deployment (2026-01-06). Fresh deployment with V10 unified crossing.
+**Note:** V10.3.1 deployment (2026-01-06). Includes MAX_TICK boundary fix (ADR-074).
 
-### Monad Testnet (chainId: 10143) — V10.3.0
+### Monad Testnet (chainId: 10143) — V10.3.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xb5b7fe0e6ceb1e58976b6171ec2cb060c8c522f1` |
-| **Collateralizer** | `0x15eda2a9910cb97a6e5ef30851c08c740141a5bd` |
-| **AMMEngine** | `0xcb84c418b7a626ab3e77a8e121b6e121532d1c2a` |
-| **TickBookVault** | `0x77898fb6f314c4877c3bca45287e2a4b25b76ba2` |
-| **LaunchpadEngine** | `0xce10ceb89b9de5491abec54ab68aa25b8ce5ee06` |
-| **MockUSDC** | `0xd0adfaebd1b6f57e8f06c9e275d41db0d1432742` |
+| **TickBookPoolManager** | `0x9decb678ec60a4ef90b62271b57eae015f750563` |
+| **Collateralizer** | `0x68ce0d0e4c50b444c51d287cf30915e4f53a3376` |
+| **AMMEngine** | `0xb14f808c3f90d7154f51423bfc95a61a327a735f` |
+| **TickBookVault** | `0xc03703b78b93a55b5d21e5abbba6bca75dac1152` |
+| **LaunchpadEngine** | `0xae6b89ebf3d4b34d095811da9219b15f25447357` |
+| **MockUSDC** | `0xac7082e54f16a6336781a2a9d74b5ceb11640774` |
 
-**Note:** V10.3.0 deployment (2026-01-06). Fresh deployment with V10 unified crossing.
+**Note:** V10.3.1 deployment (2026-01-06). Includes MAX_TICK boundary fix (ADR-074).
 
 
 ---
