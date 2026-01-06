@@ -4,6 +4,7 @@ import { parseUnits, formatUnits, decodeEventLog } from 'viem';
 import { ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
+import { MONAD_TESTNET_CHAIN_ID } from '../lib/polling';
 import toast from 'react-hot-toast';
 
 type Address = `0x${string}`;
@@ -113,6 +114,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       });
 
       let gasLimit: bigint | undefined;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
 
       // Simulate first to catch reverts
       if (publicClient) {
@@ -125,8 +127,8 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
             args,
           });
 
-          if (simulation.request.gas) {
-            // Provide headroom; observed Base Sepolia orders can exceed 5M gas.
+          if (simulation.request.gas && isMonad) {
+            // Monad charges gas_limit not gas_used, so use tight 1.2x buffer
             gasLimit = (simulation.request.gas * 120n) / 100n;
           }
         } catch (simError: any) {
@@ -140,7 +142,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
-        gas: gasLimit ?? 10_000_000n,
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Confirming...', { id: toastId });
@@ -379,6 +381,27 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       }
 
       const args = [marketKey, outcome, shares, tickLower, tickUpper] as const;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+
+      let gasLimit: bigint | undefined;
+      if (publicClient && isMonad) {
+        try {
+          const simulation = await publicClient.simulateContract({
+            account: address,
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'placeSpotSell',
+            args,
+          });
+          if (simulation.request.gas) {
+            // Monad charges gas_limit not gas_used
+            gasLimit = (simulation.request.gas * 120n) / 100n;
+          }
+        } catch (simError: any) {
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message;
+          throw new Error(`Simulation failed: ${reason}`);
+        }
+      }
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
@@ -386,6 +409,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         functionName: 'placeSpotSell',
         args,
         chainId,
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Waiting for confirmation...', { id: toastId });
@@ -446,12 +470,35 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     const toastId = toast.loading('Cancelling spot sell...');
 
     try {
+      const args = [marketKey, sellId] as const;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+
+      let gasLimit: bigint | undefined;
+      if (publicClient && isMonad) {
+        try {
+          const simulation = await publicClient.simulateContract({
+            account: address,
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'cancelSpotSell',
+            args,
+          });
+          if (simulation.request.gas) {
+            gasLimit = (simulation.request.gas * 120n) / 100n;
+          }
+        } catch (simError: any) {
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message;
+          throw new Error(`Simulation failed: ${reason}`);
+        }
+      }
+
       const hash = await writeContractAsync({
         address: poolManagerAddress,
         abi: ABIS.TickBookPoolManager,
         functionName: 'cancelSpotSell',
-        args: [marketKey, sellId],
+        args,
         chainId,
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Waiting for confirmation...', { id: toastId });
