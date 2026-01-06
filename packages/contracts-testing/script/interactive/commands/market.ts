@@ -906,7 +906,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   ): Promise<bigint> => {
     const MIN_GAS = 500_000n;
     const MAX_GAS = 5_000_000n;
-    const GAS_BUFFER_PERCENT = 150n;
+    const GAS_BUFFER_PERCENT = 120n;
 
     try {
       const estimated = await publicClient.estimateContractGas({
