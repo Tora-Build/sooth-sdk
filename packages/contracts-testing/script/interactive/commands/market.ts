@@ -918,7 +918,10 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       });
       const withBuffer = (estimated * GAS_BUFFER_PERCENT) / 100n;
       return withBuffer < MIN_GAS ? MIN_GAS : withBuffer > MAX_GAS ? MAX_GAS : withBuffer;
-    } catch {
+    } catch (err) {
+      if (isContractError(err as Error)) {
+        throw err;
+      }
       return 2_000_000n;
     }
   };
@@ -1068,19 +1071,15 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     let tickUpper: number;
 
     if (orderType === 'market') {
-      // Market order: full range for immediate fill
       tickLower = 1;
       tickUpper = 999;
-    } else if (orderType === 'limit' || orderType === 'spotsell') {
-      // Limit order / spot sell: narrow range at specific price (10%-89.8%)
-      // Ensure tickUpper <= 999: tickLower max = 998
+    } else if (orderType === 'limit') {
       tickLower = randInt(100, 898);
-      tickUpper = tickLower + randInt(1, 3); // 1-3 tick width for "limit-like"
+      tickUpper = tickLower + randInt(1, 3);
       tickUpper = Math.min(tickUpper, 999);
-    } else if (orderType === 'hybrid') {
-      // Hybrid sell: similar to limit but may be at any price
-      tickLower = randInt(100, 800);
-      tickUpper = tickLower + randInt(10, 50);
+    } else if (orderType === 'spotsell' || orderType === 'hybrid') {
+      tickLower = randInt(100, 950);
+      tickUpper = tickLower + randInt(0, 49);
       tickUpper = Math.min(tickUpper, 999);
     } else {
       // Range order: random range within safe bounds
@@ -1152,10 +1151,10 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       totalSimGas += result.gasUsed;
     } catch (err) {
       const decodedErr = decodeError(err as Error);
-      spinner.fail(`Order ${i + 1} failed: ${decodedErr}`);
+      spinner.fail(`Order ${i + 1} failed: ${typeIndicator} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] - ${decodedErr}`);
 
-      if (i === 0) {
-        console.log(dim(`  Raw error: ${(err as Error).message.slice(0, 200)}`));
+      if (i === 0 || decodedErr.includes('Unknown') || decodedErr.includes('RPC')) {
+        console.log(dim(`    Params: shares=${formatWad(shares)}, maxCost=${formatWad(shares * 2n)}`));
       }
 
       if (isContractError(err as Error) || (err as Error).message.toLowerCase().includes('out of gas')) {
