@@ -393,6 +393,12 @@ export async function spotsell(ctx: CommandContext, args: string[]): Promise<Com
   const { tickLower, tickUpper } = parseTickRange(args[1]);
   const shares = parseWad(args[2]);
 
+  // V10.4: Validate spot sell range (max 50 ticks)
+  const ticksInRange = tickUpper - tickLower + 1;
+  if (ticksInRange > 50) {
+    return { success: false, message: `Spot sell range too wide: ${ticksInRange} ticks (max 50). Use a narrower price range.` };
+  }
+
   const spinner = new Spinner(`Placing spot sell ${formatOutcome(outcome)} at ${formatTick(tickLower)}-${formatTick(tickUpper)} for ${formatWad(shares)} shares...`);
   spinner.start();
 
@@ -637,6 +643,12 @@ export async function hybridsell(ctx: CommandContext, args: string[]): Promise<C
 
   if (isNaN(tickLower) || isNaN(tickUpper) || tickLower >= tickUpper) {
     return { success: false, message: 'Invalid tick range. Use format: 50-60' };
+  }
+
+  // V10.4: Validate spot sell range (max 50 ticks)
+  const ticksInRange = tickUpper - tickLower + 1;
+  if (ticksInRange > 50) {
+    return { success: false, message: `Spot sell range too wide: ${ticksInRange} ticks (max 50). Use a narrower price range.` };
   }
 
   // Check user's share balance

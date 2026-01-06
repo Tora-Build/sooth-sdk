@@ -98,29 +98,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.3.1
+### Base Sepolia (chainId: 84532) — V10.4
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x8e14f863109cc93ec91540919287556cc368ff0b` |
-| **Collateralizer** | `0x5e35d7b086f6061bd1f131b43bc0adeff9a89323` |
-| **AMMEngine** | `0x595d59b6a34ae60a884312d918a8539772acae5f` |
-| **TickBookVault** | `0xe0f8459ff26b53ebecbc4224ef764593657050a5` |
-| **LaunchpadEngine** | `0x11f921f0b2b36e8e0536afb8a292f1954700e695` |
-| **MockUSDC** | `0x515728b80658b61cc030ebc8b63ca4b0bf6c8174` |
+| **TickBookPoolManager** | `0x427be97e230a55039990eee66951f256511bb292` |
+| **Collateralizer** | `0xcb1c1a5ccd9a1846fffb9072cfdbf30051628319` |
+| **AMMEngine** | `0x15269aced65616ebfcd5690e6b8c702150012133` |
+| **TickBookVault** | `0xe8a0d8cccc15d5b82b555dab7f32f11579aa13b0` |
+| **LaunchpadEngine** | `0x1072d1daae1d7454ffcdfce9b684c58379a86192` |
+| **MockUSDC** | `0xfa62cb28bbcf5d5edf3322e66abdf8ecf15d9e7f` |
 
-**Note:** V10.3.1 deployment (2026-01-06). Includes MAX_TICK boundary fix (ADR-074).
+**Note:** V10.4 deployment (2026-01-06). Includes RFC-001 spot fill gas optimization (ADR-075).
 
-### Monad Testnet (chainId: 10143) — V10.3.1
+### Monad Testnet (chainId: 10143) — V10.4
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x9decb678ec60a4ef90b62271b57eae015f750563` |
-| **Collateralizer** | `0x68ce0d0e4c50b444c51d287cf30915e4f53a3376` |
-| **AMMEngine** | `0xb14f808c3f90d7154f51423bfc95a61a327a735f` |
-| **TickBookVault** | `0xc03703b78b93a55b5d21e5abbba6bca75dac1152` |
-| **LaunchpadEngine** | `0xae6b89ebf3d4b34d095811da9219b15f25447357` |
-| **MockUSDC** | `0xac7082e54f16a6336781a2a9d74b5ceb11640774` |
+| **TickBookPoolManager** | `0x7e42f86b66061725c5da6c0282f4273b20a1e940` |
+| **Collateralizer** | `0xfeac27914b87ccc089ed6695262df6d9e5e7ac24` |
+| **AMMEngine** | `0x7a03737cf4c696d8514022be3346cdb8bf3f00fd` |
+| **TickBookVault** | `0x28101ee3a5764cdb08da83415e2254cb51a90a32` |
+| **LaunchpadEngine** | `0x3b52f8210492d28a3f78555b5df886151eee5315` |
+| **MockUSDC** | `0xe5b7ff9e8cdb77397c1dae023968af3020d9d31c` |
 
-**Note:** V10.3.1 deployment (2026-01-06). Includes MAX_TICK boundary fix (ADR-074).
+**Note:** V10.4 deployment (2026-01-06). Includes RFC-001 spot fill gas optimization (ADR-075).
 
 
 ---
