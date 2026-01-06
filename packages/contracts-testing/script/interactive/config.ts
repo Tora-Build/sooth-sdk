@@ -198,7 +198,7 @@ export function createConfig(chainName: string): InteractiveConfig {
     chain: chainConfig.chain,
     rpc: chainConfig.rpc,
     deployment,
-    gasMultiplier: 1.5,
+    gasMultiplier: 1.2,
     confirmations: chainConfig.confirmations ?? 1,
     postTxWaitMs: chainConfig.postTxWaitMs ?? 0,
     defaultMarketIndex: 0,
