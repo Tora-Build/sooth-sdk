@@ -1,5 +1,63 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-075: Tick-Indexed Spot Fills for O(overlap) Gas Complexity (V10.4)
+- **Date**: 2026-01-06
+- **Status**: Accepted (Implementation in `spot-fill-gas-opt` branch)
+- **RFC**: RFC-001 (packages/contracts-core/docs/RFC-001-SpotFillGasOptimization.md)
+- **Context**:
+  - V10's `_fillSpotLiquidity` had O(N) complexity where N = all historical spot sell orders.
+  - Even inactive orders cost ~2,100 gas (cold SLOAD) to check the `active` flag.
+  - With 500 orders, gas costs grew from ~380k to ~680k+ (with spikes to 1.3M for crossing).
+  - Root cause: `for (uint256 sellId = 1; sellId <= maxSpotId; ...)` never decrements.
+- **Decision**:
+  1. **Tick-Indexed Storage**: Add `_spotSellIdsAtTick[marketKey][outcome][tick][]` mapping.
+  2. **Range Cap**: Enforce `MAX_SPOT_RANGE = 50` ticks for spot sell orders.
+  3. **Canonical Tick Deduplication**: Process each order once at `max(tickLower, overlapLow)`.
+  4. **Eager Cleanup**: Remove from tick arrays on cancel/complete via swap-and-pop.
+- **Implementation**:
+  ```solidity
+  // New storage
+  mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint256[]))) private _spotSellIdsAtTick;
+  
+  // Range validation in placeSpotSell
+  if (tickUpper - tickLower + 1 > MAX_SPOT_RANGE) revert SpotRangeTooWide();
+  
+  // Fill loop: iterate by tick, not by ID
+  for (uint16 t = overlapLow; t <= overlapHigh && remaining > 0; t++) {
+      uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
+      for (uint256 i = 0; i < sellIds.length && remaining > 0; i++) {
+          // Canonical tick check prevents double-fills
+          uint16 canonicalTick = spotOrder.tickLower > overlapLow ? spotOrder.tickLower : overlapLow;
+          if (t != canonicalTick) continue;
+          // ... fill logic
+      }
+  }
+  ```
+- **Gas Impact**:
+  | Operation | Before | After | Change |
+  |-----------|--------|-------|--------|
+  | Cross with 50 historical spots | ~210k | ~20k | **-90%** |
+  | Cross with 200 historical spots | ~420k | ~20k | **-95%** |
+  | Place 50-tick spot sell | ~350k | ~600k | +70% (bounded) |
+- **Rationale**:
+  - **Crosser Priority**: Makers (placers) pay more so takers (crossers) get predictable gas.
+  - **Bounded Overhead**: 50-tick cap limits placement overhead to ~250k gas maximum.
+  - **Simplicity**: Array indexing is simpler than accumulator-based pro-rata.
+- **Alternatives Considered**:
+  - **Option B (Linked List)**: Still O(active), doesn't leverage tick locality.
+  - **Option C (Growth Accumulator)**: Complex Q128 math, changes settlement semantics.
+  - **Option D (Boundary Indexing)**: O(1) placement, but complex active-set management in fill loop. Deferred to V10.5 if wider ranges needed.
+- **Consequences**:
+  - **Breaking Change**: Requires V10.4 deployment.
+  - **UX Impact**: Wide spot sells (>50 ticks) now revert with `SpotRangeTooWide()`.
+  - **SDK/Frontend**: Should document "narrow range preferred" constraint.
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Tick-indexed storage + fill rewrite
+  - `packages/contracts-testing/test/crossing/UnifiedCrossing.t.sol` — Range cap test
+- **Test Coverage**: 10/10 crossing tests pass, including new `test_SpotSellRangeCapped()`.
+
+---
+
 ## ADR-073: V10 Unified Crossing with Dual-Collateral Architecture
 - **Date**: 2026-01-05
 - **Status**: Accepted (Implemented)
