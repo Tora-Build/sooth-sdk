@@ -38,6 +38,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     
     /// @dev RFC-001: Maximum tick range for spot sell orders (gas optimization)
     uint16 private constant MAX_SPOT_RANGE = 50;
+    
+    /// @dev Dust threshold for auto-closing nearly-filled orders (1000 wei = 1e-15 shares)
+    uint256 private constant DUST_THRESHOLD = 1000;
 
     // ============================================
     // Custom Errors
@@ -669,7 +672,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             order.collateralUsedWad += uint128(collateralUsedWad);
         }
 
-        if (order.filledShares >= order.sharesTotal && !order.liquidityRemoved) {
+        uint256 unfilled = order.sharesTotal > order.filledShares ? order.sharesTotal - order.filledShares : 0;
+        bool isEffectivelyFilled = order.filledShares >= order.sharesTotal || unfilled < DUST_THRESHOLD;
+        
+        if (isEffectivelyFilled && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
             _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
@@ -1147,8 +1153,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         newOrder.filledShares += uint128(result.totalFilled);
         newOrder.collateralUsedWad += uint128(result.newOrderCost);
 
-        // Check if new order is fully filled
-        if (newOrder.filledShares >= newOrder.sharesTotal && !newOrder.liquidityRemoved) {
+        // Check if new order is fully filled (including dust threshold)
+        uint256 newUnfilled = newOrder.sharesTotal > newOrder.filledShares ? newOrder.sharesTotal - newOrder.filledShares : 0;
+        bool newIsEffectivelyFilled = newOrder.filledShares >= newOrder.sharesTotal || newUnfilled < DUST_THRESHOLD;
+        
+        if (newIsEffectivelyFilled && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
             _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
