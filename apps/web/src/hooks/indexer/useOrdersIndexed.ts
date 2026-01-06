@@ -66,68 +66,75 @@ export function useOrdersIndexed(
     retry: false,
   });
 
-  const pendingFillsQuery = useQuery({
-    queryKey: ["rpc", "pendingFills", chainId, marketKey, indexerQuery.data?.map(o => o.orderId).join(",")],
+  const rpcOrdersQuery = useQuery({
+    queryKey: ["rpc", "orderDetails", chainId, marketKey, indexerQuery.data?.map(o => o.orderId).join(",")],
     enabled: !!indexerQuery.data?.length && !!publicClient && !!tickBookManagerAddress && !!marketKey,
     queryFn: async () => {
-      const orders = indexerQuery.data!;
-      if (!orders.length) return new Map<string, [bigint, bigint]>();
+      const orderIds = indexerQuery.data!.map(o => BigInt(o.orderId));
+      if (!orderIds.length) return [];
 
-      const contracts = orders.map(o => ({
-        address: tickBookManagerAddress!,
-        abi: ABIS.TickBookPoolManager,
-        functionName: "getPendingFills",
-        args: [marketKey!, BigInt(o.orderId)],
-      }));
+      const contracts = orderIds.flatMap(orderId => [
+        {
+          address: tickBookManagerAddress!,
+          abi: ABIS.TickBookPoolManager,
+          functionName: "getOrder",
+          args: [marketKey!, orderId],
+        },
+        {
+          address: tickBookManagerAddress!,
+          abi: ABIS.TickBookPoolManager,
+          functionName: "getPendingFills",
+          args: [marketKey!, orderId],
+        },
+      ]);
 
       const results = await publicClient!.multicall({
         contracts,
         allowFailure: true,
       });
 
-      const fillsMap = new Map<string, [bigint, bigint]>();
-      results.forEach((result, i) => {
-        if (result.status === "success") {
-          fillsMap.set(orders[i].orderId, result.result as [bigint, bigint]);
-        }
-      });
+      const orders: RangeOrder[] = [];
+      for (let i = 0; i < orderIds.length; i++) {
+        const orderResult = results[i * 2];
+        const fillsResult = results[i * 2 + 1];
 
-      return fillsMap;
+        if (orderResult.status === "success" && orderResult.result) {
+          const order = orderResult.result as any;
+          if (!order.active) continue;
+
+          const pendingFills = fillsResult.status === "success"
+            ? (fillsResult.result as [bigint, bigint])
+            : [0n, 0n];
+
+          const sharesTotal = order.sharesTotal ?? order.liquidity ?? 0n;
+          const ticksInRange = BigInt(Math.max(1, order.tickUpper - order.tickLower + 1));
+
+          orders.push({
+            orderId: orderIds[i],
+            owner: order.owner,
+            outcome: order.outcome,
+            tickLower: order.tickLower,
+            tickUpper: order.tickUpper,
+            sharesTotal,
+            liquidity: sharesTotal / ticksInRange,
+            collateralDepositedWad: order.collateralDepositedWad ?? 0n,
+            filledShares: order.filledShares ?? 0n,
+            pendingShares: pendingFills[0],
+            pendingUsdc: pendingFills[1],
+            collateralUsedWad: order.collateralUsedWad ?? 0n,
+            active: true,
+          });
+        }
+      }
+
+      return orders;
     },
     staleTime: 5_000,
     refetchInterval: 10_000,
   });
 
-  const indexedOrders = indexerQuery.data ?? [];
-  const pendingFillsMap = pendingFillsQuery.data ?? new Map();
-  const useIndexer = USE_INDEXER && isChainReady && indexedOrders.length > 0;
-
-  const ordersFromIndexer: RangeOrder[] = indexedOrders.map(o => {
-    const sharesTotal = BigInt(o.liquidity);
-    const ticksInRange = BigInt(Math.max(1, o.tickUpper - o.tickLower + 1));
-    const claimedShares = BigInt(o.claimedShares);
-    const indexerFilledShares = BigInt(o.filledShares);
-    
-    const rpcPendingFills = pendingFillsMap.get(o.orderId);
-    const pendingShares = rpcPendingFills ? rpcPendingFills[0] : (indexerFilledShares - claimedShares);
-    const pendingUsdc = rpcPendingFills ? rpcPendingFills[1] : 0n;
-    
-    return {
-      orderId: BigInt(o.orderId),
-      owner: o.owner as Address,
-      outcome: o.outcome,
-      tickLower: o.tickLower,
-      tickUpper: o.tickUpper,
-      sharesTotal,
-      liquidity: sharesTotal / ticksInRange,
-      collateralDepositedWad: BigInt(o.collateralReserved),
-      filledShares: claimedShares,
-      pendingShares,
-      pendingUsdc,
-      collateralUsedWad: BigInt(o.collateralUsed),
-      active: true,
-    };
-  });
+  const useIndexer = USE_INDEXER && isChainReady && (indexerQuery.data?.length ?? 0) > 0;
+  const ordersFromIndexer = rpcOrdersQuery.data ?? [];
 
   const rpcQuery = useUserOrdersDirect(
     useIndexer ? undefined : marketKey,
@@ -139,11 +146,11 @@ export function useOrdersIndexed(
   return {
     orders: finalOrders,
     isLoading: useIndexer 
-      ? (indexerQuery.isLoading || pendingFillsQuery.isLoading)
+      ? (indexerQuery.isLoading || rpcOrdersQuery.isLoading)
       : rpcQuery.isLoading,
     error: useIndexer ? indexerQuery.error : rpcQuery.error,
     refetch: useIndexer 
-      ? () => { indexerQuery.refetch(); pendingFillsQuery.refetch(); }
+      ? () => { indexerQuery.refetch(); rpcOrdersQuery.refetch(); }
       : rpcQuery.refetch,
     source: useIndexer ? "indexer" as const : "rpc" as const,
   };
