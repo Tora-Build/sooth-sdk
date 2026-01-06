@@ -1701,7 +1701,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   // V10.4: Spot sell range limited to 50 ticks (5% price range) for gas optimization
   const MAX_SPOT_RANGE = 50;
-  const isSpotRangeTooWide = !isBuying && priceMode === 'range' && numTicks > MAX_SPOT_RANGE;
+  // When range is too wide for spot sell, we'll automatically use short sell instead
+  const spotRangeExceedsLimit = priceMode === 'range' && numTicks > MAX_SPOT_RANGE;
 
   // Calculate required collateral based on action
 
@@ -1722,14 +1723,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     : true; // For sells, check if user has enough shares (handled separately)
 
   // Determine sell type for display purposes
+  // V10.4: If range > 50 ticks, force short sell (can't use spot sell for wide ranges)
   const sellType = useMemo(() => {
     if (isBuying || !amountNum) return null;
+    // Wide ranges always use short sell (buying opposite) due to V10.4 gas optimization
+    if (spotRangeExceedsLimit) return 'short';
     const shares = isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n);
     const needed = parseUnits(amountNum.toFixed(18), 18);
     if (shares >= needed) return 'spot';
     if (shares > 0n && shares < needed) return 'hybrid';
     return 'short';
-  }, [isBuying, amountNum, isYes, vault?.yesInternal, vault?.noInternal]);
+  }, [isBuying, amountNum, isYes, vault?.yesInternal, vault?.noInternal, spotRangeExceedsLimit]);
 
   // Handlers - with proper transaction tracking
   const handleApprove = async () => {
@@ -2542,9 +2546,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <div className="text-center text-[10px] font-mono">
                       {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
-                        : <span className={cn("text-slate-500", isSpotRangeTooWide && "text-amber-500")}>
-                          <span className={cn("font-bold", isSpotRangeTooWide ? "text-amber-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
-                          {isSpotRangeTooWide ? <span> ticks <span className="text-amber-400">(max {MAX_SPOT_RANGE} for sells)</span></span> : ' ticks'}
+                        : <span className={cn("text-slate-500", !isBuying && spotRangeExceedsLimit && "text-amber-500")}>
+                          <span className={cn("font-bold", (!isBuying && spotRangeExceedsLimit) ? "text-amber-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
+                          {(!isBuying && spotRangeExceedsLimit) ? <span> ticks <span className="text-amber-400">(short only)</span></span> : ' ticks'}
                         </span>
                       }
                     </div>
@@ -2680,13 +2684,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Execute Button */}
               <Button
                 onClick={handleTrade}
-                disabled={!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance) || isSpotRangeTooWide}
+                disabled={!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)}
                 className={cn(
                   "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
                   action === 'buy_yes' && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
                   action === 'buy_no' && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
                   (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
-                  (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance) || isSpotRangeTooWide) && "opacity-50 cursor-not-allowed"
+                  (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isSubmitting ? (
@@ -2700,8 +2704,6 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   </span>
                 ) : !tickBook.isActive ? (
                   'TickBook Not Initialized'
-                ) : isSpotRangeTooWide ? (
-                  `Narrow Range to ≤${MAX_SPOT_RANGE} Ticks (5%)`
                 ) : !amount ? (
                   'Enter Amount'
                 ) : (
