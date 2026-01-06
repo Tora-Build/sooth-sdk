@@ -35,6 +35,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     uint256 private constant Q128 = 2 ** 128;
     uint128 private constant MAX_LIQUIDITY = type(uint128).max;
     uint24 private constant MAX_FEE_BPS = 1000; // 10% max fee
+    
+    /// @dev RFC-001: Maximum tick range for spot sell orders (gas optimization)
+    uint16 private constant MAX_SPOT_RANGE = 50;
 
     // ============================================
     // Custom Errors
@@ -57,6 +60,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     error FeeTooHigh();
     error InsufficientShares();
     error SpotSellNotActive();
+    error SpotRangeTooWide();
 
     // ============================================
     // Types
@@ -162,6 +166,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     mapping(bytes32 => mapping(uint256 => SpotSellOrder)) private _spotSellOrders;
     mapping(bytes32 => mapping(address => uint256[])) private _userSpotSells;
     uint256 private _nextSpotSellId;
+    
+    /// @dev RFC-001: Tick-indexed spot sell IDs for O(overlap) fill instead of O(N)
+    mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint256[]))) private _spotSellIdsAtTick;
 
     // Access control
     address public registrar;
@@ -708,6 +715,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (tickLower < MIN_TICK || tickUpper > MAX_TICK) revert InvalidTickRange();
         if (tickLower > tickUpper) revert InvalidTickRange();
         if (shares > MAX_LIQUIDITY) revert LiquidityOverflow();
+        
+        // RFC-001: Enforce max spot sell range to bound placement gas costs
+        if (tickUpper - tickLower + 1 > MAX_SPOT_RANGE) revert SpotRangeTooWide();
 
         // Lock the shares in the vault (will revert if insufficient)
         vault.lockOutcome(m.truthMarket, msg.sender, outcome, shares);
@@ -730,8 +740,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         _userSpotSells[marketKey][msg.sender].push(sellId);
 
         // V10: Add spot liquidity to unified tick storage + spot bitmap
+        // RFC-001: Also index sellId at each tick for O(overlap) fill
         for (uint16 t = tickLower; t <= tickUpper; t++) {
             _tickLiquidity[marketKey][outcome][t].spotLiquidity += density;
+            _spotSellIdsAtTick[marketKey][outcome][t].push(sellId);  // RFC-001
             // Set spot bitmap bit if this is first liquidity at tick
             if (_tickLiquidity[marketKey][outcome][t].spotLiquidity == density) {
                 _spotBitmaps[marketKey][outcome].setBit(t);
@@ -755,6 +767,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         sharesReturned = order.sharesTotal - order.sharesFilled;
 
         // V10: Remove from unified tick liquidity + spot bitmap
+        // RFC-001: Also remove from tick-indexed arrays
         uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
         uint128 density = uint128(order.sharesTotal / ticksInRange);
         for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
@@ -768,6 +781,8 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             if (tick.spotLiquidity == 0) {
                 _spotBitmaps[marketKey][order.outcome].clearBit(t);
             }
+            // RFC-001: Remove from tick index
+            _removeFromSpotSellIdsAtTick(marketKey, order.outcome, t, sellId);
         }
 
         order.active = false;
@@ -906,6 +921,27 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 return;
             }
             unchecked { ++i; }
+        }
+    }
+
+    /// @dev RFC-001: Remove sellId from tick-indexed array (swap-and-pop)
+    function _removeFromSpotSellIdsAtTick(bytes32 marketKey, uint8 outcome, uint16 tick, uint256 sellId) internal {
+        uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][outcome][tick];
+        uint256 len = sellIds.length;
+        for (uint256 i = 0; i < len; ) {
+            if (sellIds[i] == sellId) {
+                sellIds[i] = sellIds[len - 1];
+                sellIds.pop();
+                return;
+            }
+            unchecked { ++i; }
+        }
+    }
+
+    /// @dev RFC-001: Remove sellId from all ticks in its range
+    function _removeSpotSellFromAllTicks(bytes32 marketKey, uint8 outcome, uint16 tickLower, uint16 tickUpper, uint256 sellId) internal {
+        for (uint16 t = tickLower; t <= tickUpper; t++) {
+            _removeFromSpotSellIdsAtTick(marketKey, outcome, t, sellId);
         }
     }
 
@@ -1231,7 +1267,8 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     /**
      * @notice Fill spot liquidity in the overlap range
-     * @dev Transfers existing locked tokens from spot sellers to buyer
+     * @dev RFC-001: Tick-indexed iteration for O(overlap × ordersPerTick) instead of O(N)
+     *      Each order is processed exactly once at max(order.tickLower, overlapLow)
      */
     function _fillSpotLiquidity(
         bytes32 marketKey,
@@ -1245,66 +1282,73 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     ) internal returns (uint256 filled) {
         uint256 remaining = maxToFill;
         
-        // Iterate through spot sell orders to find matches
-        // Note: _nextSpotSellId is the NEXT id to assign, so current max is _nextSpotSellId
-        uint256 maxSpotId = _nextSpotSellId;
-        
-        for (uint256 sellId = 1; sellId <= maxSpotId && remaining > 0; sellId++) {
-            SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
+        // RFC-001: Iterate through ticks in overlap range instead of all historical IDs
+        for (uint16 t = overlapLow; t <= overlapHigh && remaining > 0; t++) {
+            uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
+            uint256 len = sellIds.length;
             
-            if (!spotOrder.active) continue;
-            if (spotOrder.outcome != sellerOutcome) continue;
-            
-            // Check if spot order overlaps with our range
-            if (spotOrder.tickUpper < overlapLow || spotOrder.tickLower > overlapHigh) continue;
-            
-            uint256 available = spotOrder.sharesTotal - spotOrder.sharesFilled;
-            if (available == 0) continue;
-            
-            uint256 toFill = remaining < available ? remaining : available;
-            
-            // Calculate cost at spot order's price
-            uint256 spotPriceLow = TickMath.tickToProbability(spotOrder.tickLower);
-            uint256 spotPriceHigh = TickMath.tickToProbability(spotOrder.tickUpper);
-            uint256 spotAvgPrice = (spotPriceLow + spotPriceHigh) / 2;
-            uint256 cost = (spotAvgPrice * toFill) / WAD;
-            
-            // Transfer locked shares from seller to buyer
-            vault.transferLockedOutcome(m.truthMarket, spotOrder.owner, buyer, sellerOutcome, toFill);
-            
-            // Update spot order state
-            spotOrder.sharesFilled += uint128(toFill);
-            spotOrder.proceedsWad += uint128(cost);
-            
-            // Reduce spot liquidity in ticks
-            uint256 ticksInRange = uint256(spotOrder.tickUpper) - uint256(spotOrder.tickLower) + 1;
-            uint128 densityReduction = uint128(toFill / ticksInRange);
-            for (uint16 t = spotOrder.tickLower; t <= spotOrder.tickUpper; t++) {
-                TickLiquidity storage tick = _tickLiquidity[marketKey][sellerOutcome][t];
-                if (tick.spotLiquidity >= densityReduction) {
-                    tick.spotLiquidity -= densityReduction;
-                } else {
-                    tick.spotLiquidity = 0;
+            for (uint256 i = 0; i < len && remaining > 0; i++) {
+                uint256 sellId = sellIds[i];
+                SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
+                
+                if (!spotOrder.active) continue;
+                
+                // RFC-001: Process each order exactly once at its "canonical" tick
+                // The canonical tick is max(tickLower, overlapLow) - the first tick where
+                // this order becomes relevant to this fill operation
+                uint16 canonicalTick = spotOrder.tickLower > overlapLow ? spotOrder.tickLower : overlapLow;
+                if (t != canonicalTick) continue;
+                
+                uint256 available = spotOrder.sharesTotal - spotOrder.sharesFilled;
+                if (available == 0) continue;
+                
+                uint256 toFill = remaining < available ? remaining : available;
+                
+                // Calculate cost at spot order's price
+                uint256 spotPriceLow = TickMath.tickToProbability(spotOrder.tickLower);
+                uint256 spotPriceHigh = TickMath.tickToProbability(spotOrder.tickUpper);
+                uint256 spotAvgPrice = (spotPriceLow + spotPriceHigh) / 2;
+                uint256 cost = (spotAvgPrice * toFill) / WAD;
+                
+                // Transfer locked shares from seller to buyer
+                vault.transferLockedOutcome(m.truthMarket, spotOrder.owner, buyer, sellerOutcome, toFill);
+                
+                // Update spot order state
+                spotOrder.sharesFilled += uint128(toFill);
+                spotOrder.proceedsWad += uint128(cost);
+                
+                // Reduce spot liquidity in ticks
+                uint256 ticksInRange = uint256(spotOrder.tickUpper) - uint256(spotOrder.tickLower) + 1;
+                uint128 densityReduction = uint128(toFill / ticksInRange);
+                for (uint16 tickIter = spotOrder.tickLower; tickIter <= spotOrder.tickUpper; tickIter++) {
+                    TickLiquidity storage tick = _tickLiquidity[marketKey][sellerOutcome][tickIter];
+                    if (tick.spotLiquidity >= densityReduction) {
+                        tick.spotLiquidity -= densityReduction;
+                    } else {
+                        tick.spotLiquidity = 0;
+                    }
+                    if (tick.spotLiquidity == 0) {
+                        _spotBitmaps[marketKey][sellerOutcome].clearBit(tickIter);
+                    }
                 }
-                if (tick.spotLiquidity == 0) {
-                    _spotBitmaps[marketKey][sellerOutcome].clearBit(t);
+                
+                // Auto-complete spot order if fully filled
+                if (spotOrder.sharesFilled >= spotOrder.sharesTotal) {
+                    spotOrder.active = false;
+                    _removeFromUserSpotSells(marketKey, spotOrder.owner, sellId);
+                    // RFC-001: Remove from all tick arrays
+                    _removeSpotSellFromAllTicks(marketKey, sellerOutcome, spotOrder.tickLower, spotOrder.tickUpper, sellId);
+                    if (spotOrder.proceedsWad > 0) {
+                        vault.creditUsdcAvailable(spotOrder.owner, spotOrder.proceedsWad);
+                        spotOrder.proceedsWad = 0;
+                    }
                 }
+                
+                emit SpotSellFilled(marketKey, sellId, toFill, cost);
+                
+                filled += toFill;
+                remaining -= toFill;
             }
-            
-            // Auto-complete spot order if fully filled
-            if (spotOrder.sharesFilled >= spotOrder.sharesTotal) {
-                spotOrder.active = false;
-                _removeFromUserSpotSells(marketKey, spotOrder.owner, sellId);
-                if (spotOrder.proceedsWad > 0) {
-                    vault.creditUsdcAvailable(spotOrder.owner, spotOrder.proceedsWad);
-                    spotOrder.proceedsWad = 0;
-                }
-            }
-            
-            emit SpotSellFilled(marketKey, sellId, toFill, cost);
-            
-            filled += toFill;
-            remaining -= toFill;
         }
     }
 

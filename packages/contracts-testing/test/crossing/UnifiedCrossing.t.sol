@@ -222,14 +222,15 @@ contract UnifiedCrossingV10Test is Test {
             500e18       // maxCost
         );
 
-        // Alice places spot sell for YES at tick 500-600 (smaller amount)
+        // Alice places spot sell for YES at tick 500-549 (50 ticks, within MAX_SPOT_RANGE)
+        // RFC-001: Spot sells are now capped at 50 ticks for gas optimization
         vm.prank(alice);
         uint256 spotSellId = poolManager.placeSpotSell(
             marketKey,
             1,           // YES
             100e18,      // Only 100 shares as spot
             500,         // tickLower
-            600          // tickUpper
+            549          // tickUpper (50 tick range)
         );
 
         // Verify spot liquidity was added
@@ -410,5 +411,24 @@ contract UnifiedCrossingV10Test is Test {
         // Verify spot liquidity reduced
         uint128 spotLiqAfter = poolManager.getSpotSellLiquidity(marketKey, 1, 500);
         assertEq(spotLiqAfter, 300e18, "Spot liquidity should be reduced to 300e18");
+    }
+
+    /**
+     * @notice RFC-001: Test that spot sell range is capped at MAX_SPOT_RANGE (50 ticks)
+     */
+    function test_SpotSellRangeCapped() public {
+        // 50 ticks should work (500-549 = 50 ticks)
+        vm.prank(alice);
+        poolManager.placeSpotSell(marketKey, 1, 500e18, 500, 549);
+
+        // 51 ticks should revert (500-550 = 51 ticks)
+        vm.prank(alice);
+        vm.expectRevert(TickBookPoolManager.SpotRangeTooWide.selector);
+        poolManager.placeSpotSell(marketKey, 1, 500e18, 500, 550);
+
+        // Wide range (100+ ticks) should definitely revert
+        vm.prank(alice);
+        vm.expectRevert(TickBookPoolManager.SpotRangeTooWide.selector);
+        poolManager.placeSpotSell(marketKey, 1, 500e18, 400, 600);
     }
 }
