@@ -2,8 +2,24 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V9.9.6  
+**Current Version**: V10.3.1  
 **Status**: Alpha (breaking changes allowed)
+
+## Active Deployments
+
+### Base Sepolia (chainId: 84532)
+| Contract | Address |
+|----------|---------|
+| TickBookPoolManager | `0x8e14f863109cc93ec91540919287556cc368ff0b` |
+| LaunchpadEngine | `0x11f921f0b2b36e8e0536afb8a292f1954700e695` |
+| MockUSDC | `0x515728b80658b61cc030ebc8b63ca4b0bf6c8174` |
+
+### Monad Testnet (chainId: 10143)
+| Contract | Address |
+|----------|---------|
+| TickBookPoolManager | `0x9decb678ec60a4ef90b62271b57eae015f750563` |
+| LaunchpadEngine | `0xae6b89ebf3d4b34d095811da9219b15f25447357` |
+| MockUSDC | `0xac7082e54f16a6336781a2a9d74b5ceb11640774` |
 
 ## Structure
 
@@ -12,8 +28,8 @@ sooth-alpha/
 ├── apps/
 │   └── web/                      # Frontend dApp (Vite + React 18)
 ├── packages/
-│   ├── contracts-core/           # Solidity smart contracts (Foundry)
-│   ├── contracts-testing/        # Contract tests & deployment scripts
+│   ├── contracts-core/           # Solidity smart contracts (Foundry) - Audit scope
+│   ├── contracts-testing/        # Contract tests, CLI & deployment scripts
 │   └── indexer/                  # Ponder indexer for orderbook data
 ├── .agent/                       # Agent workflows and knowledge base
 ├── start-all.sh                  # Dev environment launcher
@@ -29,6 +45,7 @@ sooth-alpha/
 - **Node.js** 18+
 - **pnpm** 9+ (`npm install -g pnpm`)
 - **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`)
+- **Bun** (for deployment scripts: `curl -fsSL https://bun.sh/install | bash`)
 
 ### Setup
 
@@ -77,23 +94,38 @@ pnpm dev:indexer
 **Contracts:**
 
 ```bash
-cd packages/contracts-core
-forge build
-forge test
+# Build core contracts
+cd packages/contracts-core && forge build
+
+# Run tests
+cd packages/contracts-testing && forge test
+
+# Deploy to testnets
+bun run packages/contracts-core/script/deploy-multichain.ts --chains=baseSepolia,monadTestnet
 ```
 
-## Architecture (V8 Modular)
+**Interactive CLI:**
 
-V8 is a modular stack with clear domain separation:
+```bash
+# Interactive REPL for testing
+pnpm interactive:base     # Base Sepolia
+pnpm interactive:monad    # Monad Testnet
+```
+
+## Architecture (V10 Unified Crossing)
+
+V10 introduces unified crossing where `placeOrder` natively crosses both Spot Sells and Range Orders:
 
 ```
 TruthMarket (lifecycle + settlement)
   ↑ (queried by)
-LaunchpadEngine (creator economics, governance params)
+LaunchpadEngine (creator economics, graduation mechanics)
   ↓ (delegates to)
-AMMEngine (LMSR positions + 24h sell locks)
-TickBook (orderbook venue)
-Collateralizer (split/merge/redeem)
+AMMEngine (LMSR positions for pre-graduation)
+TickBookPoolManager (unified orderbook: spot + range liquidity)
+  ↓ (manages)
+TickBookVault (USDC + outcome token custody)
+Collateralizer (split/merge/redeem for graduated markets)
 ```
 
 ### Key Concepts
@@ -101,9 +133,10 @@ Collateralizer (split/merge/redeem)
 | Concept | Description |
 |---------|-------------|
 | **TruthMarket** | Canonical lifecycle + settlement authority |
-| **LaunchpadEngine** | Creator deposit + LP accounting + fee distribution + graduation mechanics |
-| **AMMEngine** | Pure LMSR trading logic + 24h sell lock mechanics |
-| **TickBook** | Orderbook venue (separate domain from AMM) |
+| **LaunchpadEngine** | Creator deposit + fee distribution + graduation |
+| **AMMEngine** | LMSR trading logic for pre-graduation markets |
+| **TickBookPoolManager** | V10 unified orderbook (spot-first, then range crossing) |
+| **TickBookVault** | User fund custody (USDC + outcome tokens) |
 | **Collateralizer** | Token split/merge/redeem operations |
 
 ## Packages
@@ -112,27 +145,28 @@ Collateralizer (split/merge/redeem)
 
 Vite + React 18 dApp with:
 
-- Wagmi v2 for Web3 connectivity
+- Wagmi v2 + Viem for Web3 connectivity
 - Zustand for state management
-- Tailwind CSS for styling
+- CSS variables for theming
 
-### `packages/contracts-evm`
+### `packages/contracts-core`
 
-Foundry project containing:
+Foundry project containing the **audit scope**:
 
-- `TruthMarket` — Lifecycle + settlement authority
-- `LaunchpadEngine` — Creator economics wrapper (governance-controlled)
-- `AMMEngine` — Pure trading logic (LMSR)
-- `TickBook` — Orderbook venue
+- `TickBookPoolManager` — V10 unified orderbook with spot-first crossing
+- `TickBookVault` — User fund custody
+- `LaunchpadEngine` — Market creation + graduation
+- `AMMEngine` — LMSR trading (pre-graduation)
 - `Collateralizer` — Token management
-- `OutcomeToken` — Outcome token contract
+- `TruthMarket` — Lifecycle + settlement
 
-## Active Deployments
+### `packages/contracts-testing`
 
-Deployment addresses change frequently in alpha.
+Testing & deployment tools:
 
-- **Source of truth (frontend config)**: `apps/web/src/config/deployments.json` + `apps/web/src/config/markets.json`
-- **Current status / known issues**: `STATUS.md`
+- Forge test suites (79 tests)
+- Interactive CLI for on-chain testing
+- Deployment scripts (multi-chain)
 
 ## Agent Workflows
 
@@ -144,6 +178,7 @@ This repo supports **scoped agent contexts** for different developer roles:
 | Frontend Dev | `/frontend-dev` | React dApp                 |
 | Full-Stack   | `/fullstack-dev`| Cross-package features     |
 | Librarian    | `/librarian`    | Docs & cleanup             |
+| Preflight    | `/preflight`    | Session startup checklist  |
 
 Run `/preflight` at session start to load context.
 
@@ -157,24 +192,13 @@ Run `/preflight` at session start to load context.
 | `pnpm dev:all`          | Start web + indexer (parallel)      |
 | `pnpm dev:web`          | Start web only                      |
 | `pnpm dev:indexer`      | Start indexer only                  |
-
-## Documentation
-
-- [Web Specs Index (V8)](./apps/web/docs/specs/README.md)
-- [EVM Docs Root](./packages/contracts-evm/docs/README.md)
-- [V8 Modular Architecture (research)](./packages/contracts-evm/docs/research/V8/V8_MODULAR_ARCHITECTURE.md)
-- [V8 Launchpad Architecture (research)](./packages/contracts-evm/docs/research/V8/V8_LAUNCHPAD_ARCHITECTURE.md)
-- [Deployment (V8)](./packages/contracts-evm/docs/V8_DEPLOYMENT_GUIDE.md)
-- [Money Flow Diagram](./packages/contracts-evm/docs/core/MONEY_FLOW_DIAGRAM.md)
-
-Historical docs are kept under per-package `_archive/` folders:
-
-- [Web archives](./apps/web/docs/_archive/README.md)
-- [EVM archives](./packages/contracts-evm/docs/_archive/README.md)
+| `pnpm test:contracts`   | Run forge tests                     |
+| `pnpm interactive:base` | Interactive CLI (Base Sepolia)      |
+| `pnpm interactive:monad`| Interactive CLI (Monad Testnet)     |
 
 ## Key Files
 
-- `STATUS.md` — Current project state
+- `STATUS.md` — Current project state & deployments
 - `CHANGELOG.md` — Release history
 - `DECISIONS.md` — Architecture decisions (ADRs)
 - `.agent/KNOWLEDGE.md` — Protocol facts and formulas

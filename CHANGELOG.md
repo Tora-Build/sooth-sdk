@@ -4,6 +4,11 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10.3.1 Deployed (2026-01-06)
+- **Deployment**: Fresh V10.3.1 contracts deployed to Base Sepolia and Monad Testnet with MAX_TICK boundary fix.
+- **Frontend**: Updated `deployments.json` with V10.3.1 addresses. CLI dynamically loads from contracts-core.
+- **README**: Updated to reflect V10 architecture and current deployments.
+
 ### Pro Terminal + Tick 999 Boundary Fix (2026-01-06)
 - **Frontend**: Temporarily disabled Pro "Market" order UI (full-range + `maxCost` is not a true sweep and can leave resting shares).
 - **Contracts**: Fixed MAX_TICK (999) boundary visibility by special-casing range orders that end at tick 999 so overlap discovery can still see top-of-book liquidity.
