@@ -916,124 +916,124 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
 
       {group === 'orders' ? (
         sortedOrders.length === 0 ? (
-        <div className="text-center py-8">
-          <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-          <p className="text-sm text-slate-500">No active orders</p>
-          <p className="text-xs text-slate-600">Place a limit order to get started</p>
-        </div>
-        ) : (
-        <div className="space-y-1">
-          {/* Header Row */}
-          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
-            <span className="shrink-0 w-10">ID</span>
-            <span className="shrink-0 w-8">Side</span>
-            <span className="shrink-0 w-20">Price</span>
-            <span className="shrink-0 w-14">Size</span>
-            <span className="shrink-0 w-16">Fill</span>
-            <div className="flex-1" />
-            <span className="shrink-0 w-14 text-right">Action</span>
+          <div className="text-center py-8">
+            <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">No active orders</p>
+            <p className="text-xs text-slate-600">Place a limit order to get started</p>
           </div>
-          {sortedOrders.map((order) => {
-            const fillPercent = getFillPercent(order);
-            const isYesOrder = order.outcome === 1;
-            const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
-            const orderId = order.orderId.toString();
-            const isFullyFilled = fillPercent >= 100;
-            const hasPendingFills = order.pendingShares > 0n;
+        ) : (
+          <div className="space-y-1">
+            {/* Header Row */}
+            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
+              <span className="shrink-0 w-10">ID</span>
+              <span className="shrink-0 w-8">Side</span>
+              <span className="shrink-0 w-20">Price</span>
+              <span className="shrink-0 w-14">Size</span>
+              <span className="shrink-0 w-16">Fill</span>
+              <div className="flex-1" />
+              <span className="shrink-0 w-14 text-right">Action</span>
+            </div>
+            {sortedOrders.map((order) => {
+              const fillPercent = getFillPercent(order);
+              const isYesOrder = order.outcome === 1;
+              const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
+              const orderId = order.orderId.toString();
+              const isFullyFilled = fillPercent >= 100;
+              const hasPendingFills = order.pendingShares > 0n;
 
-            // Calculate display price (always 1 decimal with ¢)
-            const lower = order.tickLower / 10;
-            const upper = order.tickUpper / 10;
-            let displayPrice = "";
-            if (viewOutcome === 'yes') {
-              if (isYesOrder) {
-                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+              // Calculate display price (always 1 decimal with ¢)
+              const lower = order.tickLower / 10;
+              const upper = order.tickUpper / 10;
+              let displayPrice = "";
+              if (viewOutcome === 'yes') {
+                if (isYesOrder) {
+                  displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+                } else {
+                  const invLow = 100 - upper;
+                  const invHigh = 100 - lower;
+                  displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                }
               } else {
-                const invLow = 100 - upper;
-                const invHigh = 100 - lower;
-                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                if (!isYesOrder) {
+                  displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+                } else {
+                  const invLow = 100 - upper;
+                  const invHigh = 100 - lower;
+                  displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                }
               }
-            } else {
-              if (!isYesOrder) {
-                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
-              } else {
-                const invLow = 100 - upper;
-                const invHigh = 100 - lower;
-                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
-              }
-            }
 
-            return (
-              <div
-                key={orderId}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg border transition-all",
-                  isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
-                )}
-              >
-                {/* Order ID */}
-                <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{orderId}</span>
-
-                {/* Side Badge */}
-                <span className={cn(
-                  "shrink-0 w-8 py-0.5 rounded text-[8px] font-bold text-center uppercase",
-                  isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                )}>
-                  {isBuy ? 'Buy' : 'Sell'}
-                </span>
-
-                {/* Price */}
-                <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
-
-                {/* Size */}
-                <span className="shrink-0 w-14 text-[10px] font-mono text-slate-400">
-                  {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </span>
-
-                {/* Fill Progress Bar */}
-                <div className="shrink-0 w-16 flex items-center gap-1">
-                  <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        fillPercent >= 100 ? "bg-emerald-500" :
-                          fillPercent > 0 ? "bg-amber-500" :
-                            "bg-slate-600"
-                      )}
-                      style={{ width: `${Math.min(fillPercent, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
-                </div>
-
-                {/* Spacer */}
-                <div className="flex-1" />
-
-                {/* Actions: Cancel for open, Claim for fully filled */}
-                <div className="shrink-0 w-14 flex items-center justify-end">
-                  {isFullyFilled || hasPendingFills ? (
-                    <button
-                      onClick={() => handleClaimFills(order.orderId)}
-                      disabled={actionInProgress === `claim-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center"
-                    >
-                      {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleCancelOrder(order.orderId)}
-                      disabled={actionInProgress === `cancel-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center"
-                      title="Cancel order (claims any pending fills)"
-                    >
-                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
-                    </button>
+              return (
+                <div
+                  key={orderId}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg border transition-all",
+                    isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
                   )}
+                >
+                  {/* Order ID */}
+                  <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{orderId}</span>
+
+                  {/* Side Badge */}
+                  <span className={cn(
+                    "shrink-0 w-8 py-0.5 rounded text-[8px] font-bold text-center uppercase",
+                    isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                  )}>
+                    {isBuy ? 'Buy' : 'Sell'}
+                  </span>
+
+                  {/* Price */}
+                  <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
+
+                  {/* Size */}
+                  <span className="shrink-0 w-14 text-[10px] font-mono text-slate-400">
+                    {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+
+                  {/* Fill Progress Bar */}
+                  <div className="shrink-0 w-16 flex items-center gap-1">
+                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          fillPercent >= 100 ? "bg-emerald-500" :
+                            fillPercent > 0 ? "bg-amber-500" :
+                              "bg-slate-600"
+                        )}
+                        style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
+                  </div>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Actions: Cancel for open, Claim for fully filled */}
+                  <div className="shrink-0 w-14 flex items-center justify-end">
+                    {isFullyFilled || hasPendingFills ? (
+                      <button
+                        onClick={() => handleClaimFills(order.orderId)}
+                        disabled={actionInProgress === `claim-${orderId}`}
+                        className="h-5 px-2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center"
+                      >
+                        {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleCancelOrder(order.orderId)}
+                        disabled={actionInProgress === `cancel-${orderId}`}
+                        className="h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center"
+                        title="Cancel order (claims any pending fills)"
+                      >
+                        {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         )
       ) : (
         userSpotSells.length === 0 ? (
@@ -1698,6 +1698,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const amountNum = parseFloat(amount) || 0;
   const numTicks = priceMode === 'single' ? 1 : Math.max(1, Math.round((priceHighNum - priceLowNum) * 10) + 1);
   const avgPrice = priceMode === 'single' ? priceLowNum : (priceLowNum + priceHighNum) / 2;
+
+  // V10.4: Spot sell range limited to 50 ticks (5% price range) for gas optimization
+  const MAX_SPOT_RANGE = 50;
+  const isSpotRangeTooWide = !isBuying && priceMode === 'range' && numTicks > MAX_SPOT_RANGE;
 
   // Calculate required collateral based on action
 
@@ -2538,7 +2542,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <div className="text-center text-[10px] font-mono">
                       {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
-                        : <span className="text-slate-500"><span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{numTicks}</span> ticks</span>
+                        : <span className={cn("text-slate-500", isSpotRangeTooWide && "text-amber-500")}>
+                          <span className={cn("font-bold", isSpotRangeTooWide ? "text-amber-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
+                          {isSpotRangeTooWide ? <span> ticks <span className="text-amber-400">(max {MAX_SPOT_RANGE} for sells)</span></span> : ' ticks'}
+                        </span>
                       }
                     </div>
                   </div>
@@ -2673,13 +2680,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Execute Button */}
               <Button
                 onClick={handleTrade}
-                disabled={!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)}
+                disabled={!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance) || isSpotRangeTooWide}
                 className={cn(
                   "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
                   action === 'buy_yes' && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
                   action === 'buy_no' && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
                   (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
-                  (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
+                  (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance) || isSpotRangeTooWide) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isSubmitting ? (
@@ -2693,6 +2700,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   </span>
                 ) : !tickBook.isActive ? (
                   'TickBook Not Initialized'
+                ) : isSpotRangeTooWide ? (
+                  `Narrow Range to ≤${MAX_SPOT_RANGE} Ticks (5%)`
                 ) : !amount ? (
                   'Enter Amount'
                 ) : (
