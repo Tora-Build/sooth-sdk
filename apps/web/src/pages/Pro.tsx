@@ -2255,8 +2255,19 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             onCancelSpotSell={cancelSpotSell}
           />
           {ordersSource && (
-            <div className="text-[9px] text-slate-600 text-right -mt-2">
-              Data: {ordersSource}
+            <div className="flex justify-end -mt-2">
+              <span className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium",
+                ordersSource === 'indexer'
+                  ? "bg-emerald-950/50 text-emerald-500/70 border border-emerald-900/30"
+                  : "bg-amber-950/50 text-amber-500/70 border border-amber-900/30"
+              )}>
+                <span className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  ordersSource === 'indexer' ? "bg-emerald-500" : "bg-amber-500"
+                )} />
+                {ordersSource === 'indexer' ? 'Indexer' : 'RPC'}
+              </span>
             </div>
           )}
 
