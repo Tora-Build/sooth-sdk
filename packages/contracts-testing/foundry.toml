@@ -28,3 +28,4 @@ gas_price = 100000000
 
 [profile.monad]
 # Standard EIP-1559 gas settings
+gas_limit = 2000000

@@ -174,7 +174,24 @@ export const Trade = () => {
   // Find selected market
   const selectedMarket = useMemo(() => {
     if (selectedMarketAddress) {
-      return filteredMarkets.find(m => m.contractAddress.toLowerCase() === selectedMarketAddress.toLowerCase()) || filteredMarkets[0];
+      const found = filteredMarkets.find(m => m.contractAddress.toLowerCase() === selectedMarketAddress.toLowerCase());
+      if (found) return found;
+
+      // Fallback: If valid address but not in list (e.g. new market), return skeleton
+      if (selectedMarketAddress.startsWith('0x')) {
+        return {
+          contractAddress: selectedMarketAddress,
+          id: selectedMarketAddress,
+          name: 'Loading Market...',
+          symbol: '...',
+          category: 'other',
+          description: 'Fetching market data...',
+          imageUrl: null,
+          isGraduated: false,
+          creator: '0x0000000000000000000000000000000000000000',
+          createdAt: Math.floor(Date.now() / 1000),
+        };
+      }
     }
     return filteredMarkets[0];
   }, [selectedMarketAddress, filteredMarkets]);

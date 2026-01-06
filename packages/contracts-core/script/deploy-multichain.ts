@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Multi-Chain V9 Core Deployment Script
+ * Multi-Chain V10 Core Deployment Script
  * 
- * Deploys V9 Singleton core contracts to multiple chains:
+ * Deploys V10 Singleton core contracts to multiple chains:
  * - Base Sepolia (testnet)
  * - Monad Testnet
  * - Arc Testnet
@@ -60,6 +60,8 @@ import {
   type ChainConfig,
   type DeploymentArtifact,
 } from './chainConfigs.js';
+
+const DEPLOYMENT_VERSION = 'V10.3.1';
 
 // ============================================
 // Artifact Loading
@@ -148,7 +150,7 @@ async function deployContract(
     throw new Error(`Contract deployment failed: ${contractName}`);
   }
 
-  console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress}`);
+  console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress} (block ${receipt.blockNumber})`);
   return receipt.contractAddress;
 }
 
@@ -275,7 +277,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[${chainName}] Starting V9 Core Deployment`);
+  console.log(`[${chainName}] Starting V10 Core Deployment`);
   console.log(`[${chainName}] Chain ID: ${config.chain.id}`);
   console.log(`[${chainName}] Deployer: ${account.address}`);
   console.log(`${'='.repeat(60)}`);
@@ -295,6 +297,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   const artifact: DeploymentArtifact = {
     chainId: config.chain.id,
     chainName,
+    version: DEPLOYMENT_VERSION,
     timestamp: new Date().toISOString(),
     deployer: account.address,
     contracts: {
@@ -310,7 +313,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   // Save artifact
-  const artifactPath = path.join(__dirname, `../deployments/v9-${chainName}.json`);
+  const artifactPath = path.join(__dirname, `../deployments/${chainName}.json`);
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   console.log(`\n[${chainName}] ✓ Deployment artifact saved to: ${artifactPath}`);
 
@@ -345,7 +348,7 @@ async function main() {
     : `0x${privateKey}` as `0x${string}`;
 
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║         SOOTH PROTOCOL V9 CORE CONTRACT DEPLOYMENT         ║');
+  console.log('║         SOOTH PROTOCOL V10 CORE CONTRACT DEPLOYMENT        ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
   console.log(`║ Target Chains: ${targetChains.join(', ').padEnd(44)}║`);
   console.log('╚════════════════════════════════════════════════════════════╝');

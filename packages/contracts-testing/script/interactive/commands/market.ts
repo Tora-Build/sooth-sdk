@@ -873,14 +873,21 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         functionName: 'getMarketInfo',
         args: [marketKey],
       }) as unknown as [string, string, string];
-      cachedMarketInfo = { truthMarket: truthMarket[0] };
+      cachedMarketInfo = { truthMarket };
     }
     return cachedMarketInfo;
   };
 
   const getUserShares = async (outcome: number): Promise<bigint> => {
     const market = await getMarketInfoCached();
+    if (!market || !market.truthMarket) {
+      // Just console error if invalid, but truthMarket structure is fixed now
+      return 0n;
+    }
     const vault = deployment.contracts.TickBookVault as `0x${string}`;
+    // Debug addresses
+    // console.log(`  Debug: getUserShares vault=${vault} market=${market.truthMarket} user=${address}`);
+
     const [yesShares, noShares] = await publicClient.readContract({
       address: vault,
       abi: ABIS.TickBookVault,
@@ -915,7 +922,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
             abi: ABIS.TickBookPoolManager,
             functionName: 'placeSpotSell',
             args: [marketKey, outcome, spotAmount, tickLower, tickUpper],
-            gas: 5000000n,
+            gas: 2000000n,
           });
           const spotReceipt = await actorManager.waitForTransactionReceipt(spotHash);
           let gasUsed = spotReceipt.gasUsed;
@@ -928,7 +935,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
               abi: ABIS.TickBookPoolManager,
               functionName: 'placeOrder',
               args: [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n],
-              gas: 5000000n,
+              gas: 2000000n,
             });
             const shortReceipt = await actorManager.waitForTransactionReceipt(shortHash);
             gasUsed += shortReceipt.gasUsed;
@@ -953,7 +960,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
           abi: ABIS.TickBookPoolManager,
           functionName: 'placeOrder' as const,
           args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const,
-          gas: 5000000n,
+          gas: 2000000n,
         };
 
         // Try simulation first

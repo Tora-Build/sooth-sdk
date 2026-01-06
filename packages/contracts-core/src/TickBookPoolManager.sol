@@ -967,6 +967,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             _bitmaps[marketKey][outcome].setBit(tickLower);
             if (upperBoundary <= MAX_TICK) {
                 _bitmaps[marketKey][outcome].setBit(upperBoundary);
+            } else if (tickUpper == MAX_TICK && tickLower < MAX_TICK) {
+                // MAX_TICK edge: upper boundary (tickUpper + 1) is out of bitmap range.
+                // Track a sentinel boundary at MAX_TICK so overlap discovery can still "see" liquidity
+                // that extends to the top tick.
+                _tickLiquidity[marketKey][outcome][MAX_TICK].rangeLiquidityGross += uint128(liquidityDelta);
+                _bitmaps[marketKey][outcome].setBit(MAX_TICK);
             }
         } else {
             _tickLiquidity[marketKey][outcome][tickLower].rangeLiquidityNet += liquidityDelta;
@@ -981,6 +987,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             }
             if (upperBoundary <= MAX_TICK && _tickLiquidity[marketKey][outcome][upperBoundary].rangeLiquidityGross == 0) {
                 _bitmaps[marketKey][outcome].clearBit(upperBoundary);
+            } else if (tickUpper == MAX_TICK && tickLower < MAX_TICK) {
+                _tickLiquidity[marketKey][outcome][MAX_TICK].rangeLiquidityGross -= uint128(-liquidityDelta);
+                if (_tickLiquidity[marketKey][outcome][MAX_TICK].rangeLiquidityGross == 0) {
+                    _bitmaps[marketKey][outcome].clearBit(MAX_TICK);
+                }
             }
         }
     }

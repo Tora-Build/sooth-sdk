@@ -1,6 +1,6 @@
 #!/bin/bash
 # verify-deployment.sh
-# Validates that deployments.json is consistent with on-chain state for V9 Architecture
+# Validates that deployments.json is consistent with on-chain state for V10 Architecture
 # Run after any deployment to catch config errors BEFORE frontend testing
 
 set -e
@@ -15,7 +15,7 @@ DEPLOYMENTS_JSON="${REPO_ROOT}/apps/web/src/config/deployments.json"
 MARKETS_JSON="${REPO_ROOT}/apps/web/src/config/markets.json"
 
 echo "=========================================="
-echo "  V9 Deployment Verification Script"
+echo "  V10 Deployment Verification Script"
 echo "=========================================="
 echo "RPC: $RPC_URL"
 echo "Network: $NETWORK"
@@ -33,6 +33,7 @@ AMM_ENGINE=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.AMMEngine' "$
 COLLATERALIZER=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.Collateralizer' "$DEPLOYMENTS_JSON")
 LAUNCHPAD_ENGINE=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.LaunchpadEngine' "$DEPLOYMENTS_JSON")
 TICKBOOK=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.TickBook // .networks[$net].contracts.TickBookVault' "$DEPLOYMENTS_JSON")
+TICKBOOK_VAULT=$(jq -r --arg net "$NETWORK" '.networks[$net].contracts.TickBookVault' "$DEPLOYMENTS_JSON")
 
 echo "Config Addresses:"
 echo "  ChainId:          $CHAIN_ID"
@@ -40,7 +41,8 @@ echo "  USDC:             $USDC"
 echo "  AMMEngine:        $AMM_ENGINE"
 echo "  Collateralizer:   $COLLATERALIZER"
 echo "  LaunchpadEngine:  $LAUNCHPAD_ENGINE"
-echo "  TickBook:         $TICKBOOK"
+echo "  TickBook:         $TICKBOOK"  # TickBookPoolManager (alias)
+echo "  TickBookVault:    $TICKBOOK_VAULT"
 echo ""
 
 ERRORS=0
@@ -93,6 +95,9 @@ call_contract() {
             ;;
         "tickBook()(address)")
             calldata="0x92089e8c"
+            ;;
+        "vault()(address)")
+            calldata="0xfbfa77cf"
             ;;
         "router()(address)")
             calldata="0xf887ea40"
@@ -154,6 +159,7 @@ check_code "AMMEngine" $AMM_ENGINE
 check_code "Collateralizer" $COLLATERALIZER
 check_code "LaunchpadEngine" $LAUNCHPAD_ENGINE
 check_code "TickBook" $TICKBOOK
+check_code "TickBookVault" $TICKBOOK_VAULT
 echo ""
 
 # 2. Verify USDC linkages
@@ -179,10 +185,11 @@ validate_link() {
 if [ "$AMM_ENGINE" != "null" ]; then validate_link "AMMEngine" $AMM_ENGINE $USDC; fi
 if [ "$COLLATERALIZER" != "null" ]; then validate_link "Collateralizer" $COLLATERALIZER $USDC; fi
 if [ "$LAUNCHPAD_ENGINE" != "null" ]; then validate_link "LaunchpadEngine" $LAUNCHPAD_ENGINE $USDC; fi
+if [ "$TICKBOOK_VAULT" != "null" ]; then validate_link "TickBookVault" $TICKBOOK_VAULT $USDC; fi
 echo ""
 
-# 3. Verify V9 Engine Links
-echo "--- Step 3: Verify Engine Topology ---"
+# 3. Verify V10 Engine Links
+echo "--- Step 3: Verify Engine Topology (V10) ---"
 
 # AMMEngine.router() -> LaunchpadEngine (if set)
 if [ "$AMM_ENGINE" != "null" ] && [ "$LAUNCHPAD_ENGINE" != "null" ]; then
@@ -239,44 +246,155 @@ if [ "$LAUNCHPAD_ENGINE" != "null" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
+
+# TickBookPoolManager.vault() -> TickBookVault
+if [ "$TICKBOOK" != "null" ] && [ "$TICKBOOK_VAULT" != "null" ]; then
+    VAL=$(call_contract $TICKBOOK "vault()(address)")
+    VAL_L=$(echo "$VAL" | tr '[:upper:]' '[:lower:]')
+    EXP_L=$(echo "$TICKBOOK_VAULT" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$VAL_L" == "$EXP_L" ]; then
+        echo "✅ TickBook.vault() -> TickBookVault"
+    else
+        echo "❌ TickBook.vault() = $VAL (expected $TICKBOOK_VAULT)"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# TickBookVault.tickBook() -> TickBookPoolManager
+if [ "$TICKBOOK_VAULT" != "null" ] && [ "$TICKBOOK" != "null" ]; then
+    VAL=$(call_contract $TICKBOOK_VAULT "tickBook()(address)")
+    VAL_L=$(echo "$VAL" | tr '[:upper:]' '[:lower:]')
+    EXP_L=$(echo "$TICKBOOK" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$VAL_L" == "$EXP_L" ]; then
+        echo "✅ TickBookVault.tickBook() -> TickBook"
+    else
+        echo "❌ TickBookVault.tickBook() = $VAL (expected $TICKBOOK)"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# TickBookPoolManager.registrar() -> LaunchpadEngine (expected in standard deployments)
+if [ "$TICKBOOK" != "null" ] && [ "$LAUNCHPAD_ENGINE" != "null" ]; then
+    VAL=$(call_contract $TICKBOOK "registrar()(address)")
+    VAL_L=$(echo "$VAL" | tr '[:upper:]' '[:lower:]')
+    EXP_L=$(echo "$LAUNCHPAD_ENGINE" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$VAL_L" == "$EXP_L" ]; then
+        echo "✅ TickBook.registrar() -> LaunchpadEngine"
+    else
+        echo "⚠️  TickBook.registrar() = $VAL (expected LaunchpadEngine in standard deployments)"
+        # Not a hard error: owner may be registrar during migrations
+    fi
+fi
 echo ""
 
-# 4. Verify Markets
-echo "--- Step 4: Verify markets.json ---"
+# 4. Verify Markets (On-chain via LaunchpadEngine)
+echo "--- Step 4: Verify On-Chain Markets ---"
 
-# Extract all real-mode markets for this chain from markets.json
-MARKET_IDS=$(jq -r --argjson chainId "$CHAIN_ID" '.markets[] | select(.mode == "real" and .chainId == $chainId) | .id' "$MARKETS_JSON" 2>/dev/null)
-
-if [ -z "$MARKET_IDS" ]; then
-    echo "⚠️  No real markets found in markets.json for chainId=$CHAIN_ID"
+ONCHAIN=$(cast call $LAUNCHPAD_ENGINE "getMarkets()(address[])" --rpc-url $RPC_URL 2>/dev/null || echo "")
+if [ -z "$ONCHAIN" ] || [ "$ONCHAIN" == "[]" ]; then
+    echo "⚠️  No markets returned by LaunchpadEngine.getMarkets()"
+    echo "    (Note: apps/web/src/config/markets.json may be empty; this repo uses on-chain market discovery.)"
 else
-    # We iterate by ID to fetch address and name nicely
-    for MID in $MARKET_IDS; do
-        ADDR=$(jq -r --arg mid "$MID" '.markets[] | select(.id == $mid) | .contractAddress' "$MARKETS_JSON")
-        NAME=$(jq -r --arg mid "$MID" '.markets[] | select(.id == $mid) | .name' "$MARKETS_JSON")
-        
-        if [ "$ADDR" != "null" ] && [ -n "$ADDR" ]; then
-            # 1. Check code
-            CODE=$(get_code $ADDR)
-            if [ "$CODE" == "0x" ] || [ -z "$CODE" ] || [ "$CODE" == "null" ]; then
-                echo "❌ $MID ($NAME): NO CODE at $ADDR"
-                ERRORS=$((ERRORS + 1))
-                continue
-            fi
-            
-            # 2. Check AMMEngine state (initialized)
-            # Use cast call directly to check if getMarketState success
-            # getMarketState(address) signature 0x1f7b8cb0 (Need to verify this)
-            # Actually let's use cast call which handles text signature
-            IS_INIT=$(cast call $AMM_ENGINE "getMarketState(address)(uint256,uint256,uint256)" "$ADDR" --rpc-url $RPC_URL 2>/dev/null | grep -v "revert" || echo "FAILED")
-            
-            if [ "$IS_INIT" != "FAILED" ] && [ -n "$IS_INIT" ]; then
-                 echo "✅ $MID: AMM Initialized"
-            else
-                 echo "❌ $MID: AMM Not Initialized (getMarketState failed)"
-                 ERRORS=$((ERRORS + 1))
-            fi
+    # Parse output like: [0xabc..., 0xdef...]
+    MARKETS=$(echo "$ONCHAIN" | tr -d '[],' )
+    COUNT=0
+    for MARKET in $MARKETS; do
+        COUNT=$((COUNT + 1))
+        echo "Market[$COUNT]: $MARKET"
+
+        CODE=$(get_code $MARKET)
+        if [ "$CODE" == "0x" ] || [ -z "$CODE" ] || [ "$CODE" == "null" ]; then
+            echo "❌ Market[$COUNT]: NO CODE at $MARKET"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
         fi
+
+        IS_REG=$(cast call $COLLATERALIZER "isMarketRegistered(address)(bool)" "$MARKET" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+        if [ "$IS_REG" != "true" ]; then
+            echo "❌ Collateralizer.isMarketRegistered($MARKET) = $IS_REG (expected true)"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
+        fi
+
+        TOKENS=$(cast call $COLLATERALIZER "getOutcomeTokens(address)(address,address)" "$MARKET" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+        if [ "$TOKENS" == "FAILED" ] || [ -z "$TOKENS" ]; then
+            echo "❌ Collateralizer.getOutcomeTokens($MARKET) failed"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
+        fi
+        TOKENS_FLAT=$(echo "$TOKENS" | tr '\n' ' ')
+        set -- $TOKENS_FLAT
+        YES_TOKEN=$1
+        NO_TOKEN=$2
+        echo "  YES: $YES_TOKEN"
+        echo "  NO:  $NO_TOKEN"
+
+        # TickBook registration: marketKey = keccak256(abi.encode(market, yesToken, noToken))
+        ENCODED=$(cast abi-encode "f(address,address,address)" "$MARKET" "$YES_TOKEN" "$NO_TOKEN" 2>/dev/null || echo "")
+        if [ -z "$ENCODED" ]; then
+            echo "❌ Failed to abi-encode pool key"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
+        fi
+        MARKET_KEY=$(cast keccak "$ENCODED" 2>/dev/null || echo "")
+        if [ -z "$MARKET_KEY" ]; then
+            echo "❌ Failed to compute marketKey"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
+        fi
+        echo "  marketKey: $MARKET_KEY"
+
+        INFO=$(cast call $TICKBOOK "getMarketInfo(bytes32)(address,address,address,bool)" "$MARKET_KEY" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+        if [ "$INFO" == "FAILED" ] || [ -z "$INFO" ]; then
+            echo "❌ TickBook.getMarketInfo($MARKET_KEY) failed (market not registered?)"
+            ERRORS=$((ERRORS + 1))
+            echo ""
+            continue
+        fi
+        INFO_FLAT=$(echo "$INFO" | tr '\n' ' ')
+        set -- $INFO_FLAT
+        TB_MARKET=$1
+        TB_YES=$2
+        TB_NO=$3
+        TB_ACTIVE=$4
+
+        if [ "$(echo "$TB_MARKET" | tr '[:upper:]' '[:lower:]')" != "$(echo "$MARKET" | tr '[:upper:]' '[:lower:]')" ]; then
+            echo "❌ TickBook market mismatch: $TB_MARKET (expected $MARKET)"
+            ERRORS=$((ERRORS + 1))
+        fi
+        if [ "$(echo "$TB_YES" | tr '[:upper:]' '[:lower:]')" != "$(echo "$YES_TOKEN" | tr '[:upper:]' '[:lower:]')" ]; then
+            echo "❌ TickBook YES token mismatch: $TB_YES (expected $YES_TOKEN)"
+            ERRORS=$((ERRORS + 1))
+        fi
+        if [ "$(echo "$TB_NO" | tr '[:upper:]' '[:lower:]')" != "$(echo "$NO_TOKEN" | tr '[:upper:]' '[:lower:]')" ]; then
+            echo "❌ TickBook NO token mismatch: $TB_NO (expected $NO_TOKEN)"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        if [ "$TB_ACTIVE" == "true" ]; then
+            echo "✅ TickBook registered + active"
+        else
+            echo "❌ TickBook market is not active (isActive=$TB_ACTIVE)"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        AMM_STATE=$(cast call $AMM_ENGINE "getMarketState(address)(uint256,uint256,uint256)" "$MARKET" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+        if [ "$AMM_STATE" == "FAILED" ] || [ -z "$AMM_STATE" ]; then
+            echo "❌ AMMEngine.getMarketState($MARKET) failed"
+            ERRORS=$((ERRORS + 1))
+        else
+            echo "✅ AMM initialized"
+        fi
+
+        echo ""
     done
 fi
 echo ""

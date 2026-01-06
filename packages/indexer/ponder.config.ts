@@ -21,12 +21,15 @@ export default createConfig({
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0x36abe6344a3756868f6ac26d81f1c7a40d68b0ba",
-          startBlock: 22_000_000, // V10.0.0 deployment 2026-01-05
+          // V10.3.0 deployment (matches packages/contracts-core/deployments/baseSepolia.json)
+          address: "0x113067ee976fd86e5e764b559a04c2e277a82a2d",
+          // Earliest observed MarketRegistered for ALIEN market: 35,932,801
+          startBlock: 35_932_000,
         },
         monadTestnet: {
-          address: "0x0d9cb90f5bb982ed6a96a412a423317580d032ad",
-          startBlock: 4_100_000, // V10.0.0 deployment 2026-01-05
+          // V10.3.0 deployment (matches packages/contracts-core/deployments/monadTestnet.json)
+          address: "0xb5b7fe0e6ceb1e58976b6171ec2cb060c8c522f1",
+          startBlock: 4_000_000,
         },
       },
     },

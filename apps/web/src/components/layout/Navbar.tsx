@@ -35,7 +35,7 @@ export const Navbar = () => {
     : '';
 
   const isActive = (path: string) => location.pathname === path;
-  const isMoreActive = ['/gov', '/about', '/faucet'].some(p => isActive(p));
+  const isMoreActive = ['/gov', '/learn', '/faucet'].some(p => isActive(p));
 
   return (
     <header className="h-16 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-40">
@@ -96,7 +96,7 @@ export const Navbar = () => {
                     <Shield className="w-4 h-4 text-blue-400" />
                     <span className="text-white font-bold">{content.gov}</span>
                   </DropdownLink>
-                  <DropdownLink to="/about" active={isActive('/about')} onClick={() => setMoreOpen(false)}>
+                  <DropdownLink to="/learn" active={isActive('/learn')} onClick={() => setMoreOpen(false)}>
                     <BookOpen className="w-4 h-4 text-amber-400" />
                     <span className="text-white font-bold">{content.learn}</span>
                   </DropdownLink>
@@ -199,8 +199,8 @@ export const Navbar = () => {
           </MobileNavLink>
 
           <MobileNavLink
-            to="/about"
-            active={isActive('/about')}
+            to="/learn"
+            active={isActive('/learn')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <BookOpen className="w-5 h-5" />
