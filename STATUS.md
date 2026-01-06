@@ -1,9 +1,9 @@
 # Project Status
 
 ## Current Focus
-- **V10.0.1 DEPLOYED** — Pro-rata fill accumulator bug fixed and deployed to both testnets.
-- **Frontend Updated** — All deployment addresses synced for V10.0.1.
-- **Fresh Deployments** — Both testnets have new contract addresses; markets need to be created.
+- **V10.3.0 Stabilization (Base Sepolia / Monad)** — Pro trading UI + indexer integration.
+- **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until semantics are fixed.
+- **MAX_TICK Boundary Bugfix (Contracts)** — Improve overlap discovery for orders ending at tick 999 (requires redeploy to take effect on-chain).
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
@@ -17,9 +17,16 @@
 - **2026-01-05** — V9.9.7 Spot Sell: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` to contract. Frontend Pro.tsx updated to use spot sell for users with existing shares.
 - **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract.
 
+- **2026-01-06** — **Monad Testnet Stable**: Fixed `simulate` CLI crash, configured 2M gas limit, and successfully created test markets ("UN Confirms Alien Life").
+- **2026-01-06** — **Frontend V10 Integrated**: Updated addresses and ABIs for V10.3.0 deployment.
+- **2026-01-06** — **Graduate Command Verified**: Validated fee accumulation and graduation logic on V10.
+- **2026-01-06** — **Pro Market Order Disabled**: Removed Market toggle / floor UI from Pro terminal pending contract-level market sweep semantics.
+- **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
+
 ## Pending/Blocked
-- **Create Test Markets** — Fresh V10.0.1 deployments need new markets created via CLI.
 - **Basescan Verification** — Contract verification on Base Sepolia.
+- **Redeploy PoolManager** — Deploy V10 with MAX_TICK boundary fix for real tick-999 overlap discovery.
+- **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 - **Test Suite Cleanup** — V9 tests reference removed `ILockCallback` interface (hook system removed in V9.9.4).
 - **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
 
@@ -27,7 +34,8 @@
 - ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
-- **⚠️ Fractured Liquidity (V9.9.8)** — Spot Sells are NOT crossed by standard `placeOrder()`. Buyers must explicitly call `buyFromSpotSell()`. Frontend routing required. See ADR-072. **Fix planned: V10 unified crossing.**
+- **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
+- ~~**Fractured Liquidity (V9.9.8)** — Spot Sells not crossed by `placeOrder()`.~~ **Resolved in V10** via unified crossing (ADR-073).
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -91,29 +99,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.2.0
+### Base Sepolia (chainId: 84532) — V10.3.0
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xfb05e855195ab2e43eb497c55cbd7af9594f6443` |
-| **Collateralizer** | `0x1412234744d95f00167f71a0968a332b6c9c76dd` |
-| **AMMEngine** | `0x23784acd7adb0d2239876280da424800e838d821` |
-| **TickBookVault** | `0xdd3d4ba2a33b44830acbbfdf45672ba34e61d975` |
-| **LaunchpadEngine** | `0x4cf2d6080ee07a5f5fca895d516f67ff3c6d925b` |
-| **MockUSDC** | `0x5d0fcaa7ebdaa94189917e6f423281374bbebf34` |
+| **TickBookPoolManager** | `0x113067ee976fd86e5e764b559a04c2e277a82a2d` |
+| **Collateralizer** | `0x5f4a0f8be1501d2b2a4621a20ffa5dea8c3684c0` |
+| **AMMEngine** | `0xe8501dc028ebb1cfd19dc31729083625fb2e4b6f` |
+| **TickBookVault** | `0x84a9fbf1155dcdb1e59874aa5038953330f24cdc` |
+| **LaunchpadEngine** | `0x89911dab57defd02662741d66736910da3e561fc` |
+| **MockUSDC** | `0x1c2ed7f8035f7f4236b664da23b27ba4fd012003` |
 
-**Note:** V10.2.0 deployment (2026-01-05). **Unified Crossing** via `_crossUnified()` with `tickLower - 1` fix for inclusive spot search.
+**Note:** V10.3.0 deployment (2026-01-06). Fresh deployment with V10 unified crossing.
 
-### Monad Testnet (chainId: 10143) — V10.2.0
+### Monad Testnet (chainId: 10143) — V10.3.0
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x58188956b234417c5b5409b8d2e8262789ecde1b` |
-| **Collateralizer** | `0x95773cc178996726e3d407671f2c0f9f9b1a8ca1` |
-| **AMMEngine** | `0x9ebd94d5f093b8729205a8f832a094439a83f78f` |
-| **TickBookVault** | `0xad0d083c8077470c18b9a5211fe0782857521601` |
-| **LaunchpadEngine** | `0x5523f5ce8ffa2ef313c93ceb6c71943750a98fa2` |
-| **MockUSDC** | `0xf48e053f9bbd9d1e5a725b076b56fd5f76a8e7e0` |
+| **TickBookPoolManager** | `0xb5b7fe0e6ceb1e58976b6171ec2cb060c8c522f1` |
+| **Collateralizer** | `0x15eda2a9910cb97a6e5ef30851c08c740141a5bd` |
+| **AMMEngine** | `0xcb84c418b7a626ab3e77a8e121b6e121532d1c2a` |
+| **TickBookVault** | `0x77898fb6f314c4877c3bca45287e2a4b25b76ba2` |
+| **LaunchpadEngine** | `0xce10ceb89b9de5491abec54ab68aa25b8ce5ee06` |
+| **MockUSDC** | `0xd0adfaebd1b6f57e8f06c9e275d41db0d1432742` |
 
-**Note:** V10.2.0 deployment (2026-01-05). **Unified Crossing** via `_crossUnified()` with `tickLower - 1` fix for inclusive spot search.
+**Note:** V10.3.0 deployment (2026-01-06). Fresh deployment with V10 unified crossing.
 
 
 ---
@@ -160,7 +168,12 @@ pnpm benchmark  # → contracts-testing
 
 ---
 
-## Recent Improvements (2026-01-01)
+## Recent Improvements (2026-01-06)
+
+### V10 Unified Crossing (ADR-073)
+- **Unified Liquidity**: `placeOrder` now natively crosses both Spot Sells and Range Orders.
+- **Spot Priority**: Takers automatically get the best price (Spot > Range).
+- **Verified**: Regression tests (`UnifiedCrossing.t.sol`) confirm correct priority and settlement.
 
 ### Interactive CLI (contracts-testing)
 New REPL for on-chain testing without external scripts:
@@ -210,7 +223,7 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 2. SELL trades are half the size of BUY trades
 3. With LMSR at ~50% price, cost ≈ 0.5 × shares
 
-**Fix**: Changed formula from `volumeNeeded * 4 / (3 * numTrades)` to `volumeNeeded * 8 / (3 * numTrades)` to account for:
+**Fix**: Changed formula from `volumeNeeded * 8 / (3 * numTrades)` to account for:
 - BUY cost ≈ shares × 0.5
 - SELL cost ≈ (shares/2) × 0.5
 
@@ -247,20 +260,16 @@ Added on-chain market enumeration to replace static `markets.json` config.
 ## Pending Work
 
 ### Critical (Blocking)
-- [ ] **Redeploy V9.9.6-fix2** — User orders cleanup fix needs deployment to both testnets
-- [ ] **Create test markets** — Fresh deployment needs new markets
+- [x] **Create test markets** — V10.3.0 markets created on Monad & Base Sepolia.
+- [x] **Frontend Integration** — Connected V10 contracts to web app.
 
 ### High Priority
-- [x] ~~**Pro Page Orderbook**~~ — Now shows all orders via `useAllOrdersDirect` hook
-- [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
+- [x] **Verify Graduate Command** — Validated on V10 markets.
+- [ ] **Contract Verification** — Verify V10 contracts on Basescan
 
 ### Medium Priority
-- [x] ~~**CLI Deposit Bug**~~ — Fixed MockUSDC decimal conversion in simulate command
-- [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
-- [x] ~~**BPS Bug Fixes**~~ — Fixed in markets list and graduate command
-- [x] ~~**Collateralizer Error**~~ — Pre-graduation markets now handled gracefully
-- [ ] **Contract Verification** — Verify on Basescan
 - [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
+- [ ] **Documentation** — Update developer guides for V10 changes
 
 ### Interactive CLI Next Steps
 - [ ] **Tune graduate trade sizes** — Current formula gets ~70% progress; may need more iterations
@@ -269,46 +278,19 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ### Known Issues
 - Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
-- Both testnets have empty markets array (fresh deployment)
 
 ---
 
 ## Critical Bug Fix (2026-01-01)
 
-### V9.9.6 Active Liquidity Underflow
+### V9.9.6 Active Liquidity Underflow (RESOLVED in V10)
 
 **Symptom**: First several trades succeed, then one fails with "arithmetic underflow or overflow", and ALL subsequent trades fail.
 
-**Root Cause**: In `_fill()` function, lines 613, 664, 667 had unsafe type casts:
-```solidity
-// BEFORE (buggy)
-activeLiq = uint128(int128(activeLiq) + delta);
-```
+**Root Cause**: In `_fill()` function, unsafe type casts when `|delta| > activeLiq`.
 
-When crossing tick boundaries, `delta` (from `liquidityNet`) could be negative. If `|delta| > activeLiq`, the result becomes negative, and casting to `uint128` causes panic.
+**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0.
 
-**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0:
-```solidity
-function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
-    if (delta >= 0) {
-        return liq + uint128(delta);
-    } else {
-        uint128 absDelta = uint128(-delta);
-        return liq >= absDelta ? liq - absDelta : 0;
-    }
-}
-```
+**Status**: **RESOLVED**. Included in V10.3.0.
 
-**Files Changed**:
-- `packages/contracts-core/src/TickBookPoolManagerV996.sol`:
-  - Added `_safeSubLiquidity()` helper (lines 695-703)
-  - Fixed `_updateActiveLiquidity()` (lines 755, 761)
-  - Fixed `_tryCross()` (lines 851, 853, 859, 861)
-  - Original `_safeAddLiquidity()` fix for `_fill()` (lines 613, 664, 667)
-
-**Regression Tests Added**:
-- `packages/contracts-testing/test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests)
-
-**Action Required**: Redeploy TickBookPoolManager to both testnets.
-
-*Last updated: 2026-01-02*
+*Last updated: 2026-01-06*

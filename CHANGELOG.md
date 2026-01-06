@@ -4,6 +4,17 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Pro Terminal + Tick 999 Boundary Fix (2026-01-06)
+- **Frontend**: Temporarily disabled Pro "Market" order UI (full-range + `maxCost` is not a true sweep and can leave resting shares).
+- **Contracts**: Fixed MAX_TICK (999) boundary visibility by special-casing range orders that end at tick 999 so overlap discovery can still see top-of-book liquidity.
+
+### CLI & Monad Config Fixes (2026-01-06)
+- **Monad Gas Config**: Explicitly set `gas_limit = 2000000` in `contracts-testing/foundry.toml` [profile.monad] to prevent OutOfGas.
+- **CLI Fixes**:
+  - Reduced `simulate` gas limit from 5M to 2M in `market.ts` to match network config.
+  - Fixed `simulate` command `Address "0" is invalid` crash (incorrect destructuring of `truthMarket`).
+  - Updated `2_CreateMarket.s.sol` to support configurable `USDC` address via env var.
+
 ### V10 Critical Fix (2026-01-05)
 - **Bug Fix**: `_hasSpotLiquidity` used exclusive search `findNextUp(tick)`, causing `placeOrder` to skip spot liquidity at the exact start tick. Fixed to uses inclusive search `findNextUp(tick - 1)`.
 - **Test Recovery**: Restored and migrated variable V9 test suite (79 tests) to V10 structure in `packages/contracts-testing/test/`.

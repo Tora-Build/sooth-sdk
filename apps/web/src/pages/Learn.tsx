@@ -1,15 +1,15 @@
 /**
- * Learn Page - Actor-Centric Onboarding
+ * About Page (formerly Learn) - Actor-Centric Onboarding
  * 
  * Based on Sooth Whitepaper (Dec 2025)
  * Refactored to focus on Actor-Driven Design and the 3 Pillars of Decentralization.
  */
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  BookOpen, ChevronRight, ChevronLeft, CheckCircle, 
+import {
+  BookOpen, ChevronRight, ChevronLeft, CheckCircle,
   TrendingUp, TrendingDown, DollarSign, Clock, Lock,
-  Zap, GraduationCap, Rocket, Scale, BarChart3, 
+  Zap, GraduationCap, Rocket, Scale, BarChart3,
   Users, Target, RefreshCw, Sword, Info
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
@@ -52,7 +52,7 @@ const ActorCard: React.FC<{
   colorClass: string;
   onClick?: () => void;
 }> = ({ icon: Icon, title, motivation, colorClass, onClick }) => (
-  <button 
+  <button
     onClick={onClick}
     className={`w-full text-left p-4 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all hover:-translate-y-1 focus-ring group`}
   >
@@ -138,7 +138,7 @@ const LMSRCurve: React.FC = () => {
               {shares > 0 ? 'Buying' : 'Selling'} {Math.abs(shares)} shares
             </span>
             <span className="text-emerald-400 font-mono font-bold">
-              {shares > 0 ? 'Impact' : 'Recovery'}: +{(Math.abs(shares)/10).toFixed(1)}%
+              {shares > 0 ? 'Impact' : 'Recovery'}: +{(Math.abs(shares) / 10).toFixed(1)}%
             </span>
           </div>
         </div>
@@ -169,34 +169,28 @@ const SandboxTradingPanel: React.FC<{
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => setSelectedOutcome('yes')}
-          className={`p-4 rounded-xl border-2 transition-all focus-ring ${
-            selectedOutcome === 'yes'
-              ? 'border-emerald-500 bg-emerald-500/20 shadow-lg shadow-emerald-500/10'
-              : 'border-slate-700 bg-slate-800/50 hover:border-emerald-500/50 hover:-translate-y-0.5'
-          }`}
+          className={`p-4 rounded-xl border-2 transition-all focus-ring ${selectedOutcome === 'yes'
+            ? 'border-emerald-500 bg-emerald-500/20 shadow-lg shadow-emerald-500/10'
+            : 'border-slate-700 bg-slate-800/50 hover:border-emerald-500/50 hover:-translate-y-0.5'
+            }`}
         >
-          <TrendingUp className={`w-6 h-6 mx-auto mb-2 transition-transform ${
-            selectedOutcome === 'yes' ? 'text-emerald-400 scale-110' : 'text-slate-500'
-          }`} />
-          <p className={`font-bold ${
-            selectedOutcome === 'yes' ? 'text-emerald-400' : 'text-slate-400'
-          }`}>YES</p>
+          <TrendingUp className={`w-6 h-6 mx-auto mb-2 transition-transform ${selectedOutcome === 'yes' ? 'text-emerald-400 scale-110' : 'text-slate-500'
+            }`} />
+          <p className={`font-bold ${selectedOutcome === 'yes' ? 'text-emerald-400' : 'text-slate-400'
+            }`}>YES</p>
           <p className="text-2xl font-bold mt-1 text-white tabular-nums">62%</p>
         </button>
         <button
           onClick={() => setSelectedOutcome('no')}
-          className={`p-4 rounded-xl border-2 transition-all focus-ring ${
-            selectedOutcome === 'no'
-              ? 'border-rose-500 bg-rose-500/20 shadow-lg shadow-rose-500/10'
-              : 'border-slate-700 bg-slate-800/50 hover:border-rose-500/50 hover:-translate-y-0.5'
-          }`}
+          className={`p-4 rounded-xl border-2 transition-all focus-ring ${selectedOutcome === 'no'
+            ? 'border-rose-500 bg-rose-500/20 shadow-lg shadow-rose-500/10'
+            : 'border-slate-700 bg-slate-800/50 hover:border-rose-500/50 hover:-translate-y-0.5'
+            }`}
         >
-          <TrendingDown className={`w-6 h-6 mx-auto mb-2 transition-transform ${
-            selectedOutcome === 'no' ? 'text-rose-400 scale-110' : 'text-slate-500'
-          }`} />
-          <p className={`font-bold ${
-            selectedOutcome === 'no' ? 'text-rose-400' : 'text-slate-400'
-          }`}>NO</p>
+          <TrendingDown className={`w-6 h-6 mx-auto mb-2 transition-transform ${selectedOutcome === 'no' ? 'text-rose-400 scale-110' : 'text-slate-500'
+            }`} />
+          <p className={`font-bold ${selectedOutcome === 'no' ? 'text-rose-400' : 'text-slate-400'
+            }`}>NO</p>
           <p className="text-2xl font-bold mt-1 text-white tabular-nums">38%</p>
         </button>
       </div>
@@ -306,17 +300,15 @@ export const Learn = () => {
               <div key={s.id} className="flex flex-col items-center">
                 <button
                   onClick={() => setCurrentStep(i)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    i < currentStep ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' :
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${i < currentStep ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' :
                     i === currentStep ? 'bg-slate-900 border-2 border-indigo-500 text-indigo-400 scale-110' :
-                    'bg-slate-900 border-2 border-slate-700 text-slate-500'
-                  }`}
+                      'bg-slate-900 border-2 border-slate-700 text-slate-500'
+                    }`}
                 >
                   {i < currentStep ? <CheckCircle className="w-6 h-6" /> : i + 1}
                 </button>
-                <span className={`text-[10px] uppercase tracking-widest mt-3 font-bold ${
-                  i === currentStep ? 'text-indigo-400' : 'text-slate-500'
-                }`}>
+                <span className={`text-[10px] uppercase tracking-widest mt-3 font-bold ${i === currentStep ? 'text-indigo-400' : 'text-slate-500'
+                  }`}>
                   {s.id}
                 </span>
               </div>
@@ -326,11 +318,11 @@ export const Learn = () => {
 
         {/* Content Container */}
         <div className="grid lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Main Tutorial Card */}
           <div className="lg:col-span-8">
             <Card className="p-8 border-slate-700/50 min-h-[500px] flex flex-col">
-              
+
               {/* Step 1: Decentralization Thesis */}
               {currentStep === 0 && (
                 <div className="space-y-8 animate-fade-in flex-1">
@@ -343,21 +335,21 @@ export const Learn = () => {
                   </div>
 
                   <div className="grid sm:grid-cols-3 gap-4">
-                    <PillarCard 
-                      icon={Rocket} 
-                      title={content.pillars.launchpad.title} 
+                    <PillarCard
+                      icon={Rocket}
+                      title={content.pillars.launchpad.title}
                       description={content.pillars.launchpad.description}
                       innovation={content.pillars.launchpad.innovation}
                     />
-                    <PillarCard 
-                      icon={Scale} 
-                      title={content.pillars.zkRules.title} 
+                    <PillarCard
+                      icon={Scale}
+                      title={content.pillars.zkRules.title}
                       description={content.pillars.zkRules.description}
                       innovation={content.pillars.zkRules.innovation}
                     />
-                    <PillarCard 
-                      icon={BarChart3} 
-                      title={content.pillars.tickBook.title} 
+                    <PillarCard
+                      icon={BarChart3}
+                      title={content.pillars.tickBook.title}
                       description={content.pillars.tickBook.description}
                       innovation={content.pillars.tickBook.innovation}
                     />
@@ -473,7 +465,7 @@ export const Learn = () => {
                           ))}
                         </div>
                       </div>
-                      
+
                       <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800">
                         <h4 className="text-sm font-bold text-white mb-4">{content.gaming.pricingTitle}</h4>
                         <LMSRCurve />
@@ -485,7 +477,7 @@ export const Learn = () => {
                         <h4 className="text-sm font-bold text-white mb-4">{content.gaming.practiceTitle}</h4>
                         <SandboxTradingPanel onTrade={handleSandboxTrade} />
                       </div>
-                      
+
                       <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
                         <Lock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                         <div>
@@ -522,7 +514,7 @@ export const Learn = () => {
                         <ul className="space-y-3 text-xs text-slate-400">
                           {content.pro.amm.items.map((item, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{item[0]}</span> 
+                              <span>{item[0]}</span>
                               <span className={cn("text-white", item[1].includes('24h') && "text-amber-400")}>{item[1]}</span>
                             </li>
                           ))}
@@ -536,7 +528,7 @@ export const Learn = () => {
                         <ul className="space-y-3 text-xs text-slate-400">
                           {content.pro.tickBook.items.map((item, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{item[0]}</span> 
+                              <span>{item[0]}</span>
                               <span className={cn("text-white", (item[1].includes('Instant') || item[1].includes('ERC20')) && "font-bold text-emerald-400")}>{item[1]}</span>
                             </li>
                           ))}
@@ -555,8 +547,8 @@ export const Learn = () => {
                         {content.pro.arb.description}
                       </p>
                       <div className="p-4 rounded-lg bg-slate-900 font-mono text-[10px] text-slate-300">
-                        AMM Price: 62% <br/>
-                        TickBook Ask: 58% <br/>
+                        AMM Price: 62% <br />
+                        TickBook Ask: 58% <br />
                         <span className="text-emerald-400">→ Arb: +4¢ per share</span>
                       </div>
                     </div>
@@ -610,11 +602,11 @@ export const Learn = () => {
 
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                     {content.ready.actors.map((actor, i) => (
-                      <ActorCard 
+                      <ActorCard
                         key={i}
-                        icon={[Rocket, Target, RefreshCw, Sword][i]} 
-                        title={actor.title} 
-                        motivation={actor.motivation} 
+                        icon={[Rocket, Target, RefreshCw, Sword][i]}
+                        title={actor.title}
+                        motivation={actor.motivation}
                         colorClass={["bg-cyan-500/10 text-cyan-400", "bg-emerald-500/10 text-emerald-400", "bg-purple-500/10 text-purple-400", "bg-rose-500/10 text-rose-400"][i]}
                         onClick={() => window.location.href = ['/create', '/trade', '/pro', '/pro'][i]}
                       />
@@ -686,7 +678,7 @@ export const Learn = () => {
                 <Info className="w-3 h-3" />
                 {content.context.title}
               </h3>
-              
+
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
                   <p className="text-[11px] text-slate-400 italic leading-relaxed">
@@ -726,5 +718,3 @@ export const Learn = () => {
     </div>
   );
 };
-
-export default Learn;

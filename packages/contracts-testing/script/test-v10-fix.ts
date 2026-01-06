@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * V10.0.1 Pro-rata Fix Test Script
- * Creates market, graduates, places orders, and verifies fill percentages
+ * V10 Pro-rata Fix Test Script
+ * Uses an existing on-chain market, places crossing orders, and sanity-checks fill percentages.
  */
 
 import {
@@ -9,15 +9,17 @@ import {
   createPublicClient,
   http,
   parseAbi,
-  encodeDeployData,
   formatEther,
+  keccak256,
+  encodeAbiParameters,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Load environment
-const envPath = path.join(process.cwd(), '../../.env');
+// Load environment from repo root (.env)
+const repoRoot = path.join(__dirname, '../../..');
+const envPath = path.join(repoRoot, '.env');
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf-8');
   for (const line of envContent.split('\n')) {
@@ -34,47 +36,46 @@ if (fs.existsSync(envPath)) {
 }
 
 const WAD = 10n ** 18n;
-const Q128 = 2n ** 128n;
 const MAX_UINT256 = 2n ** 256n - 1n;
 
-// Monad Testnet chain config
-const monadTestnet = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
+const baseSepolia = {
+  id: 84532,
+  name: 'Base Sepolia',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { http: ['https://sepolia.base.org'] },
   },
 };
 
-// Load deployment
-const deploymentPath = path.join(__dirname, '../../contracts-core/deployments/v9-monadTestnet.json');
-const deployment = JSON.parse(fs.readFileSync(deploymentPath, 'utf-8'));
+type ChainName = 'baseSepolia' | 'monadTestnet';
 
-// Load TruthMarket bytecode from compiled artifacts
-const truthMarketArtifactPath = path.join(__dirname, '../out/TruthMarket.sol/TruthMarket.json');
-const truthMarketArtifact = JSON.parse(fs.readFileSync(truthMarketArtifactPath, 'utf-8'));
-const TRUTH_MARKET_BYTECODE = truthMarketArtifact.bytecode.object as `0x${string}`;
+function getArgValue(flag: string): string | undefined {
+  const idx = process.argv.indexOf(flag);
+  if (idx === -1) return undefined;
+  return process.argv[idx + 1];
+}
+
+function loadDeployment(chainName: ChainName) {
+  const deploymentPath = path.join(repoRoot, 'packages/contracts-core/deployments', `${chainName}.json`);
+  return JSON.parse(fs.readFileSync(deploymentPath, 'utf-8'));
+}
 
 // ABIs
 const MockUSDCAbi = parseAbi([
   'function mint(address to, uint256 amount) external',
   'function approve(address spender, uint256 amount) external returns (bool)',
   'function balanceOf(address account) view returns (uint256)',
-]);
-
-const TruthMarketAbi = parseAbi([
-  'function activate() external',
-  'function creator() view returns (address)',
-  'constructor(string question, uint64 deadline, address adjudicator, address guardian)',
+  'function decimals() view returns (uint8)',
 ]);
 
 const LaunchpadAbi = parseAbi([
-  'function createMarket(address market, uint256 initialLiquidity, string name, string symbol) external returns (uint256 lpTokens)',
-  'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
-  'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
+  'function getMarkets() view returns (address[])',
   'function markets(address) view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt, string name, string symbol)',
-  'function graduationMultiplier() view returns (uint16)',
+]);
+
+const TickBookVaultAbi = parseAbi([
+  'function depositUsdc(uint256 amountAsset) external',
+  'function availableUsdcWad(address user) view returns (uint256)',
 ]);
 
 const TickBookAbi = [
@@ -85,16 +86,36 @@ const TickBookAbi = [
     inputs: [
       { name: 'marketKey', type: 'bytes32' },
       { name: 'outcome', type: 'uint8' },
-      { name: 'shares', type: 'uint128' },
-      { name: 'tickLower', type: 'int24' },
-      { name: 'tickUpper', type: 'int24' },
+      { name: 'shares', type: 'uint256' },
+      { name: 'tickLower', type: 'uint16' },
+      { name: 'tickUpper', type: 'uint16' },
       { name: 'maxCost', type: 'uint256' },
     ],
     outputs: [
       { name: 'orderId', type: 'uint256' },
-      { name: 'filled', type: 'uint128' },
-      { name: 'resting', type: 'uint128' },
-      { name: 'costUsed', type: 'uint256' },
+      { name: 'filledShares', type: 'uint256' },
+      { name: 'filledCost', type: 'uint256' },
+      { name: 'restingShares', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'getNextOrderId',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getPendingFills',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'orderId', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'pendingShares', type: 'uint256' },
+      { name: 'pendingCollateralUsed', type: 'uint256' },
     ],
   },
   {
@@ -111,31 +132,18 @@ const TickBookAbi = [
         type: 'tuple',
         components: [
           { name: 'owner', type: 'address' },
-          { name: 'outcome', type: 'uint8' },
-          { name: 'tickLower', type: 'int24' },
-          { name: 'tickUpper', type: 'int24' },
-          { name: 'shares', type: 'uint128' },
-          { name: 'filledShares', type: 'uint128' },
+          { name: 'outcome', type: 'uint256' },
+          { name: 'tickLower', type: 'uint256' },
+          { name: 'tickUpper', type: 'uint256' },
           { name: 'active', type: 'bool' },
-          { name: 'fillGrowthInsideLastX128', type: 'uint256' },
-          { name: 'collateralUsedGrowthInsideLastX128', type: 'uint256' },
-          { name: 'createdBlock', type: 'uint256' },
           { name: 'liquidityRemoved', type: 'bool' },
+          { name: 'sharesTotal', type: 'uint256' },
+          { name: 'liquidity', type: 'uint256' },
+          { name: 'collateralDepositedWad', type: 'uint256' },
+          { name: 'filledShares', type: 'uint256' },
+          { name: 'collateralUsedWad', type: 'uint256' },
         ],
       },
-    ],
-  },
-  {
-    name: 'claimFills',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'marketKey', type: 'bytes32' },
-      { name: 'orderId', type: 'uint256' },
-    ],
-    outputs: [
-      { name: 'shares', type: 'uint128' },
-      { name: 'collateralRefund', type: 'uint256' },
     ],
   },
 ] as const;
@@ -145,24 +153,35 @@ const CollateralizerAbi = parseAbi([
 ]);
 
 async function main() {
+  const chainName = (getArgValue('--chain') ?? (process.env.CHAIN as string) ?? 'baseSepolia') as ChainName;
+  if (chainName !== 'baseSepolia' && chainName !== 'monadTestnet') {
+    throw new Error(`Unsupported chain: ${chainName}`);
+  }
+
+  if (chainName !== 'baseSepolia') {
+    throw new Error(`This script run was requested for baseSepolia; got chain=${chainName}`);
+  }
+
   const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
   if (!privateKey) throw new Error('PRIVATE_KEY required');
   
   const account = privateKeyToAccount(privateKey);
+  const deployment = loadDeployment(chainName);
+
   const publicClient = createPublicClient({
-    chain: monadTestnet as any,
-    transport: http(monadTestnet.rpcUrls.default.http[0]),
+    chain: baseSepolia as any,
+    transport: http(baseSepolia.rpcUrls.default.http[0]),
   });
   const walletClient = createWalletClient({
     account,
-    chain: monadTestnet as any,
-    transport: http(monadTestnet.rpcUrls.default.http[0]),
+    chain: baseSepolia as any,
+    transport: http(baseSepolia.rpcUrls.default.http[0]),
   });
 
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║           V10.0.1 PRO-RATA FIX TEST                        ║');
+  console.log('║                V10 PRO-RATA FIX TEST                       ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
-  console.log(`║ Chain:    Monad Testnet (${monadTestnet.id})                         ║`);
+  console.log(`║ Chain:    Base Sepolia (${baseSepolia.id})                            ║`);
   console.log(`║ Deployer: ${account.address.slice(0, 20)}...            ║`);
   console.log('╚════════════════════════════════════════════════════════════╝');
 
@@ -170,40 +189,78 @@ async function main() {
     MockUSDC: deployment.contracts.MockUSDC as `0x${string}`,
     LaunchpadEngine: deployment.contracts.LaunchpadEngine as `0x${string}`,
     TickBook: deployment.contracts.TickBookPoolManager as `0x${string}`,
+    TickBookVault: deployment.contracts.TickBookVault as `0x${string}`,
     Collateralizer: deployment.contracts.Collateralizer as `0x${string}`,
   };
 
-  // Get ALIEN market from LaunchpadEngine (first graduated market)
-  const allMarkets = await publicClient.readContract({
+  const allMarkets = (await publicClient.readContract({
     address: contracts.LaunchpadEngine,
-    abi: parseAbi(['function getMarkets() view returns (address[])']),
+    abi: LaunchpadAbi,
     functionName: 'getMarkets',
     args: [],
-  }) as `0x${string}`[];
+  })) as `0x${string}`[];
+
+  if (!allMarkets.length) throw new Error('No markets returned by LaunchpadEngine.getMarkets()');
+
+  let marketAddress: `0x${string}` | undefined;
+  for (const m of allMarkets) {
+    const state = (await publicClient.readContract({
+      address: contracts.LaunchpadEngine,
+      abi: LaunchpadAbi,
+      functionName: 'markets',
+      args: [m],
+    })) as any;
+    const symbol = (state as any)[11] as string;
+    if (symbol === 'ALIEN') {
+      marketAddress = m;
+      break;
+    }
+  }
+
+  marketAddress = marketAddress ?? allMarkets[0];
+  console.log(`\n  Using market: ${marketAddress}`);
   
-  // Find the first graduated market (ALIEN)
-  const marketAddress = allMarkets[0]; // ALIEN is first
-  console.log(`\n  Using ALIEN market: ${marketAddress}`);
-  
-  // 1. Mint USDC and approve TickBook
-  console.log('\n[1/3] Setting up USDC...');
-  const mintAmount = 10000n * WAD;
+  // 1. Mint USDC, deposit to TickBookVault (required for placeOrder)
+  console.log('\n[1/3] Setting up USDC + vault deposit...');
+  const usdcDecimals = (await publicClient.readContract({
+    address: contracts.MockUSDC,
+    abi: MockUSDCAbi,
+    functionName: 'decimals',
+    args: [],
+  })) as number;
+  const mintAmountAsset = 10_000n * 10n ** BigInt(usdcDecimals);
+
   let hash = await walletClient.writeContract({
     address: contracts.MockUSDC,
     abi: MockUSDCAbi,
     functionName: 'mint',
-    args: [account.address, mintAmount],
+    args: [account.address, mintAmountAsset],
   });
   await publicClient.waitForTransactionReceipt({ hash });
-  
+
   hash = await walletClient.writeContract({
     address: contracts.MockUSDC,
     abi: MockUSDCAbi,
     functionName: 'approve',
-    args: [contracts.TickBook, MAX_UINT256],
+    args: [contracts.TickBookVault, MAX_UINT256],
   });
   await publicClient.waitForTransactionReceipt({ hash });
-  console.log('  ✓ Minted 10,000 USDC and approved TickBook');
+
+  hash = await walletClient.writeContract({
+    address: contracts.TickBookVault,
+    abi: TickBookVaultAbi,
+    functionName: 'depositUsdc',
+    args: [mintAmountAsset],
+  });
+  await publicClient.waitForTransactionReceipt({ hash });
+
+  const available = (await publicClient.readContract({
+    address: contracts.TickBookVault,
+    abi: TickBookVaultAbi,
+    functionName: 'availableUsdcWad',
+    args: [account.address],
+  })) as bigint;
+  console.log(`  ✓ Minted + deposited: availableUsdcWad=${formatEther(available)}`);
 
   // Get marketKey
   const [yesToken, noToken] = await publicClient.readContract({
@@ -212,15 +269,24 @@ async function main() {
     functionName: 'getOutcomeTokens',
     args: [marketAddress],
   }) as [`0x${string}`, `0x${string}`];
-  
-  const { keccak256, encodePacked } = await import('viem');
-  const marketKey = keccak256(encodePacked(['address', 'address'], [yesToken, noToken]));
+
+  const marketKey = keccak256(
+    encodeAbiParameters(
+      [
+        { type: 'address' },
+        { type: 'address' },
+        { type: 'address' },
+      ],
+      [marketAddress, yesToken, noToken]
+    )
+  );
   console.log(`  MarketKey: ${marketKey.slice(0, 18)}...`);
 
-  // 6. Test pro-rata fix: Place range orders and cross
-  console.log('\n[6/6] Testing pro-rata accumulator fix...');
-  
-  // Approve TickBook
+  // 2. Place two overlapping opposite-outcome orders and ensure fill isn't absurdly high
+  console.log('\n[2/3] Placing orders to exercise pro-rata accumulator...');
+
+  // Approve TickBookVault to move funds already in-vault is not needed; orders spend from availableUsdcWad.
+  // We still approve TickBook to be safe for any token interactions.
   hash = await walletClient.writeContract({
     address: contracts.MockUSDC,
     abi: MockUSDCAbi,
@@ -229,37 +295,55 @@ async function main() {
   });
   await publicClient.waitForTransactionReceipt({ hash });
 
-  // Place a YES range order at 40-60 cents
-  console.log('  Placing YES range order (40-60¢, 100 shares)...');
-  const placeResult = await walletClient.writeContract({
+  // Pro-rata accumulator regression test (on-chain):
+  // 1) Place a WIDE YES range order (large sharesTotal spread across many ticks)
+  // 2) Place a tiny NO limit order that only overlaps ONE tick worth of that YES liquidity
+  // If the old bug exists (using oppLiqInOverlap as denominator), the YES maker order would show near-100% pending fill.
+  const yesTickLower = 1;
+  const yesTickUpper = 300;
+  const yesSharesTotal = 30_000n * WAD; // density = 100 shares per tick
+
+  const noTick = 900; // implies overlapLow=overlapHigh=1000-noTick = 100
+  const noShares = 100n * WAD;
+
+  console.log(`  Placing YES range order (ticks=${yesTickLower}-${yesTickUpper}, shares=${formatEther(yesSharesTotal)})...`);
+  const nextBefore = (await publicClient.readContract({
     address: contracts.TickBook,
     abi: TickBookAbi,
-    functionName: 'placeOrder',
-    args: [marketKey, 0, 100n * WAD, 400, 600, 100n * WAD],
-    gas: 1000000n,
-  });
-  const placeReceipt = await publicClient.waitForTransactionReceipt({ hash: placeResult });
-  
-  // Get order ID - use simulateContract to get return value
-  const { result: orderResult } = await publicClient.simulateContract({
-    address: contracts.TickBook,
-    abi: TickBookAbi,
-    functionName: 'placeOrder',
-    args: [marketKey, 0, 1n * WAD, 400, 600, 10n * WAD], // Small dummy order to get next ID
-    account: account.address,
-  });
-  // Our order is the previous one
-  const orderId = (orderResult as any)[0] - 1n;
-  console.log(`  Order ID: ${orderId}`);
-  
-  // Place a NO order that should cross
-  console.log('  Placing NO crossing order (45-55¢, 50 shares)...');
+    functionName: 'getNextOrderId',
+    args: [],
+  })) as bigint;
+
   hash = await walletClient.writeContract({
     address: contracts.TickBook,
     abi: TickBookAbi,
     functionName: 'placeOrder',
-    args: [marketKey, 1, 50n * WAD, 450, 550, 100n * WAD],
-    gas: 1000000n,
+    args: [marketKey, 1, yesSharesTotal, yesTickLower, yesTickUpper, 10_000n * WAD],
+  });
+  await publicClient.waitForTransactionReceipt({ hash });
+  const yesOrderId = nextBefore + 1n;
+  console.log(`  YES Order ID: ${yesOrderId}`);
+
+  // Sanity: new YES order should not have immediate fills in this scenario.
+  const yesOrderBefore = (await publicClient.readContract({
+    address: contracts.TickBook,
+    abi: TickBookAbi,
+    functionName: 'getOrder',
+    args: [marketKey, yesOrderId],
+  })) as any;
+
+  if ((yesOrderBefore.filledShares as bigint) > 0n) {
+    console.log(`  ⚠️  Unexpected: YES order filled immediately=${formatEther(yesOrderBefore.filledShares as bigint)}.`);
+    console.log('     Aborting to avoid false signals from existing book liquidity.');
+    process.exit(1);
+  }
+
+  console.log(`  Placing NO limit order (tick=${noTick}, shares=${formatEther(noShares)}) to cross 1-tick of YES liquidity...`);
+  hash = await walletClient.writeContract({
+    address: contracts.TickBook,
+    abi: TickBookAbi,
+    functionName: 'placeOrder',
+    args: [marketKey, 0, noShares, noTick, noTick, 10_000n * WAD],
   });
   await publicClient.waitForTransactionReceipt({ hash });
 
@@ -268,28 +352,42 @@ async function main() {
     address: contracts.TickBook,
     abi: TickBookAbi,
     functionName: 'getOrder',
-    args: [marketKey, orderId],
+    args: [marketKey, yesOrderId],
   }) as any;
 
-  const shares = order.shares as bigint;
-  const filledShares = order.filledShares as bigint;
-  const fillPercent = shares > 0n ? (filledShares * 100n) / shares : 0n;
+  const pending = (await publicClient.readContract({
+    address: contracts.TickBook,
+    abi: TickBookAbi,
+    functionName: 'getPendingFills',
+    args: [marketKey, yesOrderId],
+  })) as readonly [bigint, bigint];
+
+  const shares = order.sharesTotal as bigint;
+  const filledSharesClaimed = order.filledShares as bigint;
+  const pendingShares = pending[0];
+  const filledSharesTotal = filledSharesClaimed + pendingShares;
+  const fillBps = shares > 0n ? (filledSharesTotal * 10_000n) / shares : 0n;
 
   console.log('\n  ══════════════════════════════════════════════════');
   console.log('  ORDER STATUS:');
   console.log(`    Shares:       ${formatEther(shares)}`);
-  console.log(`    Filled:       ${formatEther(filledShares)}`);
-  console.log(`    Fill %:       ${fillPercent}%`);
+  console.log(`    Filled:       ${formatEther(filledSharesTotal)} (claimed=${formatEther(filledSharesClaimed)}, pending=${formatEther(pendingShares)})`);
+  console.log(`    Fill (bps):   ${fillBps}`);
   console.log('  ══════════════════════════════════════════════════');
 
-  // The bug would show 99% filled when only ~50% should be filled
-  if (fillPercent > 60n) {
-    console.log('\n  ❌ FAIL: Fill percentage too high - pro-rata bug may still exist!');
+  if (pendingShares == 0n) {
+    console.log('\n  ❌ FAIL: pendingShares=0 (no crossing occurred, or rounding to zero)');
     process.exit(1);
-  } else {
-    console.log('\n  ✓ PASS: Fill percentage looks correct (≤60%)');
-    console.log('  V10.0.1 pro-rata fix verified!');
   }
+
+  // Expected: pendingShares ~= 100 shares (one tick worth of liquidity), NOT anywhere near the full 30,000.
+  // The historic bug (using oppLiqInOverlap as denominator) would often make pendingShares explode toward sharesTotal.
+  if (pendingShares > 1_000n * WAD) {
+    console.log('\n  ❌ FAIL: pendingShares too large for a 1-tick cross (suggests pro-rata denominator bug)');
+    process.exit(1);
+  }
+
+  console.log('\n  ✓ PASS: pendingShares is small (pro-rata accumulator looks healthy).');
 }
 
 main().catch(err => {

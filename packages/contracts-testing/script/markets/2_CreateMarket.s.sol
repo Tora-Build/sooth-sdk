@@ -27,7 +27,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *      forge script script/2_CreateMarket.s.sol --rpc-url $RPC --broadcast
  */
 contract CreateMarket is Script {
-    address constant USDC = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
+    address USDC;
+    // Base Sepolia default
+    address constant DEFAULT_USDC = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
 
     // Market configuration - EDIT THESE
     string constant QUESTION = "Will UN confirm alien life by 2026?";
@@ -37,6 +39,8 @@ contract CreateMarket is Script {
     uint256 constant INITIAL_LIQUIDITY = 500 * 1e18; // 500 WAD
 
     function run() external {
+        USDC = vm.envOr("USDC", DEFAULT_USDC);
+
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 

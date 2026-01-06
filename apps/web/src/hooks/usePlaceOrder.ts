@@ -21,6 +21,11 @@ export interface PlaceOrderResult {
   filledCost: bigint;
   restingShares: bigint;
   txHash: `0x${string}`;
+  autoClaim?: {
+    ordersClaimed: bigint;
+    totalShares: bigint;
+    totalCollateralUsed: bigint;
+  };
 }
 
 /**
@@ -106,16 +111,23 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         address
       });
 
+      let gasLimit: bigint | undefined;
+
       // Simulate first to catch reverts
       if (publicClient) {
         try {
-          await publicClient.simulateContract({
+          const simulation = await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
             abi: ABIS.TickBookPoolManager,
             functionName: 'placeOrder',
             args,
           });
+
+          if (simulation.request.gas) {
+            // Provide headroom; observed Base Sepolia orders can exceed 5M gas.
+            gasLimit = (simulation.request.gas * 120n) / 100n;
+          }
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;
           throw new Error(`Simulation failed: ${reason}`);
@@ -127,7 +139,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
-        gas: 5000000n, // Monad testnet requires high gas limit for matching logic
+        gas: gasLimit ?? 10_000_000n,
       });
 
       toast.loading('Confirming...', { id: toastId });
@@ -135,16 +147,68 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       if (publicClient) {
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-        // Parse OrderPlaced event from receipt
-        // TODO: Parse actual values from event logs
-        toast.success('Order placed!', { id: toastId });
+        let orderId = 0n;
+        let filledShares = 0n;
+        let filledCost = 0n;
+        let restingShares = shares;
+        let autoClaim: PlaceOrderResult['autoClaim'];
+
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
+
+          try {
+            const decoded = decodeEventLog({
+              abi: ABIS.TickBookPoolManager,
+              data: log.data,
+              topics: log.topics,
+            });
+
+            if (decoded.eventName === 'OrderPlaced') {
+              const args = decoded.args as unknown as {
+                orderId: bigint;
+                filledShares: bigint;
+                filledCost: bigint;
+                restingShares: bigint;
+              };
+
+              orderId = args.orderId;
+              filledShares = args.filledShares;
+              filledCost = args.filledCost;
+              restingShares = args.restingShares;
+            }
+
+            if (decoded.eventName === 'AutoClaimExecuted') {
+              const args = decoded.args as unknown as {
+                ordersClaimed: bigint;
+                totalShares: bigint;
+                totalCollateralUsed: bigint;
+              };
+
+              autoClaim = {
+                ordersClaimed: args.ordersClaimed,
+                totalShares: args.totalShares,
+                totalCollateralUsed: args.totalCollateralUsed,
+              };
+            }
+          } catch {
+            // Ignore non-matching logs
+          }
+        }
+
+        toast.success(
+          autoClaim && autoClaim.ordersClaimed > 0n
+            ? `Order placed (auto-claimed ${autoClaim.ordersClaimed.toString()} order${autoClaim.ordersClaimed === 1n ? '' : 's'})!`
+            : 'Order placed!',
+          { id: toastId }
+        );
 
         return {
-          orderId: 0n, // TODO: Parse from event
-          filledShares: 0n,
-          filledCost: 0n,
-          restingShares: shares,
+          orderId,
+          filledShares,
+          filledCost,
+          restingShares,
           txHash: hash,
+          autoClaim,
         };
       }
 

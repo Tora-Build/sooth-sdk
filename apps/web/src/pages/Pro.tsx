@@ -11,13 +11,14 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Tooltip } from '../components/ui/Tooltip';
 import { MarketHeader } from '../components/features/MarketHeader';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
@@ -34,7 +35,7 @@ import {
   useOnChainMarkets,
   RangeOrder
 } from '../hooks';
-import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
+import { useOrdersIndexed, useOrderbookIndexed, useSpotSellsIndexed, type SpotSellOrderIndexed } from '../hooks/indexer';
 import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
 import { useDeployments } from '../hooks/useDeployments';
 import { ABIS } from '../config/abis';
@@ -62,6 +63,8 @@ const staticMarkets = (marketsConfig.markets || []) as StaticMarket[];
 // ============================================================================
 type OrderAction = 'buy_yes' | 'sell_yes' | 'buy_no' | 'sell_no';
 type OrderType = 'limit' | 'market';
+
+const MARKET_ORDER_ENABLED = false;
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -97,18 +100,20 @@ interface LiquidityMapProps {
     pendingShares: bigint;
     active: boolean;
   }>;
+  spotSells?: SpotSellOrderIndexed[];
   currentProb: number;
   ammProb: number;
   isLoading: boolean;
   viewOutcome: 'yes' | 'no';
 }
 
-const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
+const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
   // Debug: log incoming data
   console.log('[LiquidityMap] tickBook:', tickBook);
   console.log('[LiquidityMap] bids:', tickBook?.bids);
   console.log('[LiquidityMap] asks:', tickBook?.asks);
   console.log('[LiquidityMap] allOrders:', allOrders?.length);
+  console.log('[LiquidityMap] spotSells:', spotSells?.length);
 
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
@@ -138,7 +143,7 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
     let highestBoundary = 0;
     let totalLiq = 0n;
 
-    // PRIMARY: Use allOrders from indexer (has actual order ranges with proper decimals)
+    // PRIMARY: Use allOrders from indexer (range orders)
     console.log('[LiquidityMap] Processing orders:', allOrders?.length, 'active:', allOrders?.filter(o => o.active).length);
     if (allOrders && allOrders.length > 0) {
       for (const order of allOrders) {
@@ -189,6 +194,55 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
       }
     }
 
+    // Spot sells (asks) and their implied opposite bids.
+    // - If the spot sell outcome matches viewOutcome, it is an ASK (red) on this view.
+    // - If it is the opposite outcome, it implies a BID (green) on this view at the inverted price.
+    if (spotSells && spotSells.length > 0) {
+      for (const s of spotSells) {
+        if (!s.active) continue;
+
+        const remaining = s.sharesTotal > s.sharesFilled ? s.sharesTotal - s.sharesFilled : 0n;
+        if (remaining === 0n) continue;
+
+        const sellIsYes = s.outcome === 1;
+        const viewIsYes = viewOutcome === 'yes';
+        const sameOutcome = sellIsYes === viewIsYes;
+
+        // Convert spot sell ticks to THIS view's percentage scale.
+        // - Same outcome: direct (e.g. sell YES at 80-99.9 shows at 80-99.9)
+        // - Opposite outcome: inverted (e.g. sell NO at 10-20 implies buy YES at 90-80)
+        let lowPercent = s.tickLower / 10;
+        let highPercent = s.tickUpper / 10;
+        if (!sameOutcome) {
+          const invLow = 100 - highPercent;
+          const invHigh = 100 - lowPercent;
+          lowPercent = invLow;
+          highPercent = invHigh;
+        }
+
+        const startBucket = Math.max(0, Math.floor((lowPercent / 100) * numBuckets));
+        const endBucket = Math.min(numBuckets - 1, Math.floor((highPercent / 100) * numBuckets));
+        const rangeSize = Math.max(1, endBucket - startBucket + 1);
+        const liqPerBucket = remaining / BigInt(rangeSize);
+
+        // Encoding for existing color logic:
+        // - bucket.side === viewOutcome => green
+        // - bucket.side !== viewOutcome => red
+        const sideForColor: 'yes' | 'no' = sameOutcome
+          ? (viewIsYes ? 'no' : 'yes')
+          : (viewIsYes ? 'yes' : 'no');
+
+        for (let b = startBucket; b <= endBucket; b++) {
+          buckets[b].liquidity += liqPerBucket;
+          buckets[b].side = sideForColor;
+        }
+
+        totalLiq += remaining;
+        lowestBoundary = Math.min(lowestBoundary, lowPercent);
+        highestBoundary = Math.max(highestBoundary, highPercent);
+      }
+    }
+
     // Fallback: If we have active liquidity but couldn't match boundaries, spread across range
     if (totalLiq === 0n && (activeLiqYes > 0n || activeLiqNo > 0n)) {
       // Spread active liquidity across the entire range
@@ -226,7 +280,7 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
       hasYesLiq,
       hasNoLiq,
     };
-  }, [tickBook, allOrders, currentProb, ammProb]);
+  }, [tickBook, allOrders, spotSells, currentProb, ammProb, viewOutcome]);
 
   // Adjust for View Outcome (flip if NO)
   const displayBuckets = useMemo(() => {
@@ -245,6 +299,8 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
   const displayProb = viewOutcome === 'yes' ? currentProb : (1 - currentProb);
   const displayAmmProb = viewOutcome === 'yes' ? ammProb : (1 - ammProb);
   const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0 || (allOrders?.filter(o => o.active)?.length ?? 0) > 0;
+  const hasSpotSells = (spotSells?.filter(s => s.active)?.length ?? 0) > 0;
+  const hasAnyData = hasRealData || hasSpotSells;
 
   return (
     <div className="relative">
@@ -263,7 +319,7 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
           </div>
-        ) : !hasRealData ? (
+        ) : !hasAnyData ? (
           // No liquidity - simple empty state
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-sm text-slate-500">No orders yet</span>
@@ -306,7 +362,7 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
           </div>
         </div>
 
-        {!isLoading && hasRealData && (
+        {!isLoading && hasAnyData && (
           <div className="flex-1 h-full flex items-end gap-[1px] pl-8">
             {displayBuckets.map((bucket, col) => {
               // Ensure even tiny liquidity shows at least one dimmed block
@@ -411,6 +467,7 @@ const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, vi
 // ============================================================================
 interface UserOrdersPanelProps {
   orders: RangeOrder[];
+  spotSells?: SpotSellOrderIndexed[];
   marketKey: `0x${string}` | undefined;
   isLoading: boolean;
   onRefresh: () => void;
@@ -419,20 +476,31 @@ interface UserOrdersPanelProps {
   viewOutcome: 'yes' | 'no';
   yesShares?: bigint;
   noShares?: bigint;
+  onCancelSpotSell?: (sellId: bigint) => Promise<{ sharesReturned: bigint; txHash: `0x${string}` } | null>;
 }
 
 type OrderFilter = 'all' | 'open' | 'filled';
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
+type OrdersGroup = 'orders' | 'spot';
 
 const MAX_BATCH_SIZE = 50; // Restore to 50 - Base Sepolia should handle this
 
-const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
+const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares, onCancelSpotSell }: UserOrdersPanelProps) => {
   const { writeContractAsync } = useWriteContract();
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [group, setGroup] = useState<OrdersGroup>('orders');
   const [filter, setFilter] = useState<OrderFilter>('all');
   const [sortBy, setSortBy] = useState<OrderSort>('newest');
+
+  const userSpotSells = useMemo(() => {
+    const addr = userAddress?.toLowerCase();
+    if (!addr || !spotSells) return [];
+    return spotSells
+      .filter((s) => s.active && s.owner.toLowerCase() === addr)
+      .sort((a, b) => Number(b.sellId - a.sellId));
+  }, [spotSells, userAddress]);
 
   // Helper to calculate fill percent
   const getFillPercent = (o: RangeOrder) => {
@@ -476,6 +544,8 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
     if (!o.active) return false;
     return getFillPercent(o) < 100;
   }).slice(0, MAX_BATCH_SIZE);
+
+  const displayedCount = group === 'orders' ? sortedOrders.length : userSpotSells.length;
 
   // Batch cancel handler
   const handleBatchCancel = async () => {
@@ -718,16 +788,16 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          YOUR ORDERS <span className="text-slate-600">({sortedOrders.length})</span>
+          YOUR ORDERS <span className="text-slate-600">({displayedCount})</span>
         </span>
         <div className="flex items-center gap-2">
           {/* Batch Cancel Open Orders */}
           <button
             onClick={handleBatchCancel}
-            disabled={openOrders.length === 0 || actionInProgress === 'batch-cancel'}
+            disabled={group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'}
             className={cn(
               'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all border',
-              openOrders.length === 0 || actionInProgress === 'batch-cancel'
+              group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'
                 ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
                 : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
             )}
@@ -742,57 +812,88 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             compact
             label={`Claim All (${fullyFilledOrders.length})`}
             variant="filled"
-            disabled={fullyFilledOrders.length === 0}
+            disabled={group !== 'orders' || fullyFilledOrders.length === 0}
             onSuccess={onRefresh}
           />
-          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh">
-            <RefreshCw className="w-4 h-4 text-slate-500" />
-          </button>
+          <Tooltip
+            content="Spot sells are asks backed by shares you already own. If you only own some of what you’re selling, the app may do a hybrid sell (spot + short), often as 2 transactions. Spot sells cancel one-by-one; Cancel All / Claim All only apply to Orders."
+            position="bottom"
+          >
+            <button type="button" className="p-1 hover:bg-slate-800 rounded transition-colors" aria-label="Hint">
+              <HelpCircle className="w-4 h-4 text-slate-500" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       {/* Filter & Sort Row */}
       <div className="flex items-center gap-2 mb-3 text-[10px]">
+        {/* Group toggle (left of filters) */}
         <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-          {(['all', 'open', 'filled'] as OrderFilter[]).map((f) => {
-            // Calculate count for each filter
-            const count = orders.filter(o => {
-              if (!o.active) return false;
-              const fillPct = getFillPercent(o);
-              switch (f) {
-                case 'open': return fillPct < 100;
-                case 'filled': return fillPct >= 100;
-                default: return true;
-              }
-            }).length;
-
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-2 py-1 rounded-md font-medium transition-colors capitalize",
-                  filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                {f} <span className="text-slate-600">({count})</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="text-slate-600">Sort:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as OrderSort)}
-            className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-[10px] focus:ring-0"
+          <button
+            onClick={() => setGroup('orders')}
+            className={cn(
+              "px-2 py-1 rounded-md font-medium transition-colors",
+              group === 'orders' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
           >
-            <option value="newest">Order ID</option>
-            <option value="created">Created</option>
-            <option value="price">Price</option>
-            <option value="fill">Fill %</option>
-          </select>
+            Orders
+          </button>
+          <button
+            onClick={() => setGroup('spot')}
+            className={cn(
+              "px-2 py-1 rounded-md font-medium transition-colors",
+              group === 'spot' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Spot Sells
+          </button>
         </div>
+
+        {group === 'orders' && (
+          <>
+            <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
+              {(['all', 'open', 'filled'] as OrderFilter[]).map((f) => {
+                // Calculate count for each filter
+                const count = orders.filter(o => {
+                  if (!o.active) return false;
+                  const fillPct = getFillPercent(o);
+                  switch (f) {
+                    case 'open': return fillPct < 100;
+                    case 'filled': return fillPct >= 100;
+                    default: return true;
+                  }
+                }).length;
+
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={cn(
+                      "px-2 py-1 rounded-md font-medium transition-colors capitalize",
+                      filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    {f} <span className="text-slate-600">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1 ml-auto">
+              <span className="text-slate-600">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as OrderSort)}
+                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-[10px] focus:ring-0"
+              >
+                <option value="newest">Order ID</option>
+                <option value="created">Created</option>
+                <option value="price">Price</option>
+                <option value="fill">Fill %</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -813,13 +914,14 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
         </div>
       )}
 
-      {sortedOrders.length === 0 ? (
+      {group === 'orders' ? (
+        sortedOrders.length === 0 ? (
         <div className="text-center py-8">
           <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
           <p className="text-sm text-slate-500">No active orders</p>
           <p className="text-xs text-slate-600">Place a limit order to get started</p>
         </div>
-      ) : (
+        ) : (
         <div className="space-y-1">
           {/* Header Row */}
           <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
@@ -837,6 +939,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
             const orderId = order.orderId.toString();
             const isFullyFilled = fillPercent >= 100;
+            const hasPendingFills = order.pendingShares > 0n;
 
             // Calculate display price (always 1 decimal with ¢)
             const lower = order.tickLower / 10;
@@ -908,7 +1011,7 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
 
                 {/* Actions: Cancel for open, Claim for fully filled */}
                 <div className="shrink-0 w-14 flex items-center justify-end">
-                  {isFullyFilled ? (
+                  {isFullyFilled || hasPendingFills ? (
                     <button
                       onClick={() => handleClaimFills(order.orderId)}
                       disabled={actionInProgress === `claim-${orderId}`}
@@ -931,97 +1034,73 @@ const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, c
             );
           })}
         </div>
-      )}
-    </div>
-  );
-};
-
-// ============================================================================
-// Recent Trades Panel - Shows market order history from indexer
-// ============================================================================
-import type { Trade } from '../hooks/indexer/useTradesIndexed';
-
-interface RecentTradesPanelProps {
-  trades: Trade[];
-  isLoading: boolean;
-  isChainReady: boolean;
-}
-
-const RecentTradesPanel = ({ trades, isLoading, isChainReady }: RecentTradesPanelProps) => {
-  if (!isChainReady) {
-    return (
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        </div>
-        <div className="text-center py-6">
-          <p className="text-xs text-slate-500">Indexer syncing...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        </div>
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        <span className="text-[9px] text-slate-600 font-mono">{trades.length} trades</span>
-      </div>
-
-      {trades.length === 0 ? (
-        <div className="text-center py-6">
-          <TrendingUp className="w-6 h-6 text-slate-600 mx-auto mb-2" />
-          <p className="text-xs text-slate-500">No recent trades</p>
-        </div>
+        )
       ) : (
-        <div className="space-y-1">
-          {/* Header */}
-          <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
-            <span>Time</span>
-            <span>Side</span>
-            <span className="text-right">Price</span>
-            <span className="text-right">Size</span>
+        userSpotSells.length === 0 ? (
+          <div className="text-center py-8">
+            <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">No active spot sells</p>
+            <p className="text-xs text-slate-600">Sell shares you already own to post an ask</p>
           </div>
-          {/* Trades */}
-          <div className="max-h-[200px] overflow-y-auto space-y-0.5">
-            {trades.map((trade) => {
-              const isBuy = trade.outcome === 1; // YES = buy
-              const time = new Date(Number(trade.timestamp) * 1000);
-              const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const pricePercent = (trade.avgPrice * 100).toFixed(1);
-              const size = parseFloat(formatUnits(trade.sharesFilled, 18));
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
+              <span className="shrink-0 w-10">ID</span>
+              <span className="shrink-0 w-10">Token</span>
+              <span className="shrink-0 w-24">Price</span>
+              <span className="shrink-0 w-20">Size</span>
+              <div className="flex-1" />
+              <span className="shrink-0 w-14 text-right">Action</span>
+            </div>
+            {userSpotSells.map((s) => {
+              const lower = s.tickLower / 10;
+              const upper = s.tickUpper / 10;
+              const remaining = s.sharesTotal > s.sharesFilled ? s.sharesTotal - s.sharesFilled : 0n;
+              const sellOutcomeLabel = s.outcome === 1 ? 'YES' : 'NO';
+              const cancelKey = `spotsell-cancel-${s.sellId.toString()}`;
+              const isCancelling = actionInProgress === cancelKey;
 
               return (
                 <div
-                  key={trade.id}
-                  className="grid grid-cols-4 gap-2 px-2 py-1.5 rounded text-xs font-mono hover:bg-slate-800/30 transition-colors"
+                  key={s.sellId.toString()}
+                  className="flex items-center gap-2 p-2 rounded-lg border bg-slate-900/40 border-slate-800/40"
                 >
-                  <span className="text-slate-400">{timeStr}</span>
-                  <span className={isBuy ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                    {isBuy ? 'YES' : 'NO'}
+                  <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{s.sellId.toString()}</span>
+                  <span className="shrink-0 w-10 text-[9px] font-bold text-slate-400 uppercase">{sellOutcomeLabel}</span>
+                  <span className="shrink-0 w-24 text-[11px] font-mono font-medium text-white">
+                    {lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`}
                   </span>
-                  <span className="text-right text-slate-200">{pricePercent}%</span>
-                  <span className="text-right text-slate-400">
-                    {size >= 1000 ? `${(size / 1000).toFixed(1)}k` : size.toFixed(0)}
+                  <span className="shrink-0 w-20 text-[10px] font-mono text-slate-400">
+                    {parseFloat(formatUnits(remaining, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
+                  <div className="flex-1" />
+                  <div className="shrink-0 w-14 flex items-center justify-end">
+                    <button
+                      onClick={async () => {
+                        if (!onCancelSpotSell) return;
+                        setActionInProgress(cancelKey);
+                        try {
+                          await onCancelSpotSell(s.sellId);
+                          onRefresh();
+                        } finally {
+                          setActionInProgress(null);
+                        }
+                      }}
+                      disabled={!onCancelSpotSell || isCancelling}
+                      className={cn(
+                        "h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center",
+                        (!onCancelSpotSell || isCancelling) && "opacity-60 cursor-not-allowed hover:bg-rose-500/20"
+                      )}
+                      title="Cancel spot sell"
+                    >
+                      {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        )
       )}
     </div>
   );
@@ -1443,6 +1522,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [vaultInput, setVaultInput] = useState('');
   const [marketKeyCopied, setMarketKeyCopied] = useState(false);
 
+  useEffect(() => {
+    if (!MARKET_ORDER_ENABLED && orderType === 'market') {
+      setOrderType('limit');
+    }
+  }, [orderType, setOrderType]);
+
   // Slider dragging state
   const trackRef = React.useRef<HTMLDivElement>(null);
   const [isLowDragging, setIsLowDragging] = React.useState(false);
@@ -1497,10 +1582,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     tickBook?.marketKey as `0x${string}`
   );
 
-  // Fetch recent trades (indexer only)
-  const { trades, isLoading: isTradesLoading, isChainReady: isTradesChainReady } = useTradesIndexed(
-    tickBook?.marketKey as `0x${string}`,
-    20
+  const { spotSells, isLoading: isSpotSellsLoading } = useSpotSellsIndexed(
+    tickBook?.marketKey as `0x${string}`
   );
 
   const { balances } = useTokenBalances(useMemo(() => [
@@ -1779,7 +1862,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
     // Determine outcome: outcome=1 credits YES, outcome=0 credits NO
     const outcome = (isYes ? 1 : 0) as 0 | 1;
-    const isMarketOrderType = orderType === 'market';
+    const isMarketOrderType = MARKET_ORDER_ENABLED && orderType === 'market';
+
+    if (!MARKET_ORDER_ENABLED && orderType === 'market') {
+      toast.error('Market orders are temporarily disabled');
+      return;
+    }
 
     try {
       let result: any;
@@ -2014,7 +2102,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 {arbSpread.toFixed(1)}¢
               </div>
             </div>
-            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
             </button>
           </div>
@@ -2070,7 +2158,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 </div>
               </div>
               {/* Refresh */}
-              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
                 <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
               </button>
             </div>
@@ -2133,9 +2221,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <LiquidityMap
                 tickBook={tickBook as any}
                 allOrders={allOrders ?? []}
+                spotSells={spotSells ?? []}
                 currentProb={currentProb}
                 ammProb={ammProb}
-                isLoading={isTickBookLoading || isAllOrdersLoading}
+                isLoading={isTickBookLoading || isAllOrdersLoading || isSpotSellsLoading}
                 viewOutcome={isYes ? 'yes' : 'no'}
               />
             </div>
@@ -2145,6 +2234,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           {/* Debug: Data source = {ordersSource} */}
           <UserOrdersPanel
             orders={userOrders ?? []}
+            spotSells={spotSells ?? []}
             marketKey={tickBook?.marketKey as `0x${string}`}
             isLoading={isOrdersLoading}
             onRefresh={() => invalidateV8Queries()}
@@ -2153,6 +2243,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             viewOutcome={isYes ? 'yes' : 'no'}
             yesShares={vault?.yesInternal}
             noShares={vault?.noInternal}
+            onCancelSpotSell={cancelSpotSell}
           />
           {ordersSource && (
             <div className="text-[9px] text-slate-600 text-right -mt-2">
@@ -2160,12 +2251,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           )}
 
-          {/* Recent Trades from Indexer */}
-          <RecentTradesPanel
-            trades={trades}
-            isLoading={isTradesLoading}
-            isChainReady={isTradesChainReady}
-          />
+
         </div>
 
         {/* RIGHT COLUMN: Vault Card + Trading Panel (40%) */}
@@ -2318,62 +2404,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   >
                     Limit
                   </button>
-                  <button
-                    onClick={() => setOrderType('market')}
-                    className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                      orderType === 'market'
-                        ? isYes
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
-                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                    )}
-                  >
-                    Market
-                  </button>
                 </div>
               </div>
-
-              {/* Floor Price Toggle (Market order only) */}
-              {orderType === 'market' && (
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={useFloorPrice}
-                      onChange={(e) => setUseFloorPrice(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500/50"
-                    />
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold group-hover:text-slate-300 transition-colors">
-                      Set Floor Price
-                    </span>
-                  </label>
-
-                  {useFloorPrice && (
-                    <div className="pl-7 space-y-1">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          max="99.9"
-                          value={floorPrice}
-                          onChange={(e) => setFloorPrice(e.target.value)}
-                          placeholder="50"
-                          className={cn(
-                            "w-full h-9 px-3 bg-slate-800/50 border rounded-lg text-sm font-mono transition-all",
-                            "border-slate-700 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 text-slate-200"
-                          )}
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">¢</span>
-                      </div>
-                      <div className="text-[9px] text-slate-600">
-                        Won't pay more than {floorPrice || '50'}¢ per share
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Price Input (Limit only) */}
               {orderType === 'limit' && (

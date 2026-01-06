@@ -194,6 +194,7 @@ export function getChainById(chainId: number): ChainConfig | undefined {
 export interface DeploymentArtifact {
   chainId: number;
   chainName: string;
+  version: string;
   timestamp: string;
   deployer: string;
   contracts: {

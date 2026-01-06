@@ -75,6 +75,24 @@
 - **Timeline**: V10 development cycle (post-V9.9.x stabilization)
 
 
+## ADR-074: MAX_TICK (999) Range Boundary Visibility for Overlap Discovery
+- **Date**: 2026-01-06
+- **Status**: Accepted (Implemented in code; requires redeploy)
+- **Context**:
+  - TickBook represents tradable ticks as `1..999` (0.1¢..99.9¢).
+  - Range order boundaries are tracked via a bitmap to discover available liquidity.
+  - For an order ending at `tickUpper = 999`, the natural upper boundary would be `tickUpper + 1 = 1000`, which is outside the tradable tick space and not representable in the existing bitmap.
+  - This can cause overlap discovery to miss liquidity that extends to the top tick, leading to under-crossing and confusing “full range” behavior.
+- **Decision**:
+  1. Keep tradable ticks as `1..999`.
+  2. Special-case `tickUpper == MAX_TICK` boundary bookkeeping:
+     - Do not attempt to set a bitmap bit at `1000`.
+     - Instead, record a sentinel boundary at `MAX_TICK` so bitmap-based discovery can still "see" liquidity reaching the top.
+- **Consequences**:
+  - Requires redeploying `TickBookPoolManager` for on-chain behavior to change.
+  - Market orders in the frontend are temporarily disabled until sweep semantics are clarified.
+
+
 
 ## ADR-072: Fractured Liquidity — Spot Sell Isolation (V9.9.8 Known Limitation)
 - **Date**: 2026-01-05

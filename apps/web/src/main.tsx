@@ -15,10 +15,9 @@ import { Landing } from './pages/Landing';
 import { AppLayout } from './layouts/AppLayout';
 import { Faucet } from './pages/Faucet';
 
-// Role-Based Pages (V8.1)
+// Role-Based Pages (V10)
 import { Trade } from './pages/Trade';
-import { Create as Dashboard } from './pages/Create'; // Renamed import
-import { Launchpad } from './pages/Launchpad'; // New page
+import { Launchpad } from './pages/Launchpad';
 import { Pro } from './pages/Pro';
 import { Portfolio } from './pages/Portfolio';
 import { Gov } from './pages/Gov';
@@ -73,15 +72,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route element={<AppLayout />}>
-              <Route path="/about" element={<Learn />} />
-              {/* Role-Based Pages (V8.1) */}
+              <Route path="/learn" element={<Learn />} />
               <Route path="/trade" element={<Trade />} />
               <Route path="/trade/:marketId" element={<Trade />} />
               <Route path="/pro" element={<Pro />} />
               <Route path="/pro/:marketId" element={<Pro />} />
-              <Route path="/pro/:marketId" element={<Pro />} />
               <Route path="/create" element={<Launchpad />} />
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/gov" element={<Gov />} />
               <Route path="/faucet" element={<Faucet />} />

@@ -142,8 +142,8 @@ export function useTickBookDirect(
                     functionName: "getTickLiquidity",
                     args: [marketKey, outcome, tick],
                   });
-                  // Use rangeLiquidityGross (index 1) as the total liquidity at this tick
-                  const liq = result[1];
+                  // Include spot sells + range liquidity for UI depth.
+                  const liq = result[1] + result[2];
                   return { tick, liquidity: liq };
                 } catch {
                   return { tick, liquidity: 0n };
