@@ -106,23 +106,11 @@ export function useOrdersIndexed(
             ? (fillsResult.result as [bigint, bigint])
             : [0n, 0n];
 
-          const sharesTotal = order.sharesTotal ?? order.liquidity ?? 0n;
-          const ticksInRange = BigInt(Math.max(1, order.tickUpper - order.tickLower + 1));
-
           orders.push({
             orderId: orderIds[i],
-            owner: order.owner,
-            outcome: order.outcome,
-            tickLower: order.tickLower,
-            tickUpper: order.tickUpper,
-            sharesTotal,
-            liquidity: sharesTotal / ticksInRange,
-            collateralDepositedWad: order.collateralDepositedWad ?? 0n,
-            filledShares: order.filledShares ?? 0n,
+            ...order,
             pendingShares: pendingFills[0],
             pendingUsdc: pendingFills[1],
-            collateralUsedWad: order.collateralUsedWad ?? 0n,
-            active: true,
           });
         }
       }
