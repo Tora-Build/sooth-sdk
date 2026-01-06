@@ -19,6 +19,9 @@ import {
   warn,
   printTable,
   sleep,
+  decodeError,
+  isTransientError,
+  isContractError,
 } from '../utils';
 import { keccak256, encodeAbiParameters, parseAbiParameters, parseAbi, encodeDeployData } from 'viem';
 
@@ -897,6 +900,29 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     return outcome === 1 ? yesShares : noShares;
   };
 
+  const estimateGas = async (
+    functionName: 'placeOrder' | 'placeSpotSell',
+    args: readonly unknown[],
+  ): Promise<bigint> => {
+    const MIN_GAS = 500_000n;
+    const MAX_GAS = 5_000_000n;
+    const GAS_BUFFER_PERCENT = 150n;
+
+    try {
+      const estimated = await publicClient.estimateContractGas({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName,
+        args,
+        account: address,
+      });
+      const withBuffer = (estimated * GAS_BUFFER_PERCENT) / 100n;
+      return withBuffer < MIN_GAS ? MIN_GAS : withBuffer > MAX_GAS ? MAX_GAS : withBuffer;
+    } catch {
+      return 2_000_000n;
+    }
+  };
+
   const executeOrder = async (params: ExecuteOrderParams, retries = 3): Promise<ExecuteOrderResult> => {
     const { orderType, outcome, shares, tickLower, tickUpper } = params;
     const maxCost = shares * 2n;
@@ -904,38 +930,40 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        // Handle spot sell / hybrid
         if (orderType === 'spotsell' || orderType === 'hybrid') {
           const userShares = await getUserShares(outcome);
 
           if (userShares === 0n) {
-            // Fallback to range order
             return executeOrder({ ...params, orderType: 'range' }, 1);
           }
 
           const spotAmount = userShares > shares ? shares : userShares;
           const shortAmount = orderType === 'hybrid' && shares > userShares ? shares - userShares : 0n;
 
-          // Place spot sell
+          const spotArgs = [marketKey, outcome, spotAmount, tickLower, tickUpper] as const;
+          const spotGas = await estimateGas('placeSpotSell', spotArgs);
+
           const spotHash = await walletClient.writeContract({
             address: deployment.contracts.TickBookPoolManager as `0x${string}`,
             abi: ABIS.TickBookPoolManager,
             functionName: 'placeSpotSell',
-            args: [marketKey, outcome, spotAmount, tickLower, tickUpper],
-            gas: 2000000n,
+            args: spotArgs,
+            gas: spotGas,
           });
           const spotReceipt = await actorManager.waitForTransactionReceipt(spotHash);
           let gasUsed = spotReceipt.gasUsed;
 
-          // Place short sell for hybrid
           let shortHash: `0x${string}` = '0x0';
           if (shortAmount > 0n) {
+            const shortArgs = [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n] as const;
+            const shortGas = await estimateGas('placeOrder', shortArgs);
+
             shortHash = await walletClient.writeContract({
               address: deployment.contracts.TickBookPoolManager as `0x${string}`,
               abi: ABIS.TickBookPoolManager,
               functionName: 'placeOrder',
-              args: [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n],
-              gas: 2000000n,
+              args: shortArgs,
+              gas: shortGas,
             });
             const shortReceipt = await actorManager.waitForTransactionReceipt(shortHash);
             gasUsed += shortReceipt.gasUsed;
@@ -954,28 +982,31 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
           };
         }
 
-        // Handle range / limit / market orders
-        const contractArgs = {
-          address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-          abi: ABIS.TickBookPoolManager,
-          functionName: 'placeOrder' as const,
-          args: [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const,
-          gas: 2000000n,
-        };
+        const orderArgs = [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const;
+        const estimatedGas = await estimateGas('placeOrder', orderArgs);
 
-        // Try simulation first
         let simResult: any = null;
         try {
-          simResult = await publicClient.simulateContract({ ...contractArgs, account: address });
+          simResult = await publicClient.simulateContract({
+            address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'placeOrder',
+            args: orderArgs,
+            account: address,
+          });
         } catch (simErr: any) {
-          const simErrMsg = simErr?.message?.toLowerCase() || '';
-          if (simErrMsg.includes('revert') || simErrMsg.includes('overflow') ||
-            simErrMsg.includes('underflow') || simErrMsg.includes('insufficient')) {
+          if (isContractError(simErr)) {
             throw simErr;
           }
         }
 
-        const txHash = await walletClient.writeContract(contractArgs);
+        const txHash = await walletClient.writeContract({
+          address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+          abi: ABIS.TickBookPoolManager,
+          functionName: 'placeOrder',
+          args: orderArgs,
+          gas: estimatedGas,
+        });
         const receipt = await actorManager.waitForTransactionReceipt(txHash);
 
         const result = simResult?.result
@@ -993,12 +1024,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         };
       } catch (err) {
         lastError = err as Error;
-        const errMsg = lastError.message.toLowerCase();
-        const isTransient = errMsg.includes('timeout') || errMsg.includes('network') ||
-          errMsg.includes('nonce') || errMsg.includes('already known') ||
-          errMsg.includes('replacement transaction') || errMsg.includes('connection');
-
-        if (!isTransient || attempt === retries) throw lastError;
+        if (!isTransientError(lastError) || attempt === retries) throw lastError;
         await sleep(500 * attempt);
       }
     }
@@ -1125,34 +1151,20 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
       consecutiveFailures = 0;
       totalSimGas += result.gasUsed;
     } catch (err) {
-      const errMsg = (err as Error).message;
-      // Extract revert reason if present
-      const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
-        || errMsg.match(/reason:\s*([^\n]+)/i)
-        || errMsg.match(/Error:\s*([^\n]+)/i);
-      const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
-      spinner.fail(`Order ${i + 1} failed: ${shortErr}`);
+      const decodedErr = decodeError(err as Error);
+      spinner.fail(`Order ${i + 1} failed: ${decodedErr}`);
 
-      // Show full error on first failure for debugging
       if (i === 0) {
-        console.log(dim(`  Full error: ${errMsg.slice(0, 300)}`));
+        console.log(dim(`  Raw error: ${(err as Error).message.slice(0, 200)}`));
       }
 
-      // Check if it's a transient error that was already retried
-      const errLower = errMsg.toLowerCase();
-      const isContractError = errLower.includes('revert') ||
-        errLower.includes('overflow') ||
-        errLower.includes('underflow') ||
-        errLower.includes('insufficient');
-
-      if (isContractError || errLower.includes('out of gas')) {
+      if (isContractError(err as Error) || (err as Error).message.toLowerCase().includes('out of gas')) {
         consecutiveFailures++;
         if (consecutiveFailures >= maxConsecutiveFailures) {
           console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive contract failures`));
           break;
         }
       }
-      // Transient errors don't count toward consecutive failures (already retried)
     }
 
     await sleep(300); // Slightly longer delay for stability

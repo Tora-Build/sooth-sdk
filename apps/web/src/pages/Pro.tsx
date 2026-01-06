@@ -2654,6 +2654,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 const hasPartial = shares > 0n && shares < needed;
                 const hasNone = shares === 0n;
 
+                // V10.4: Wide ranges (>50 ticks) force short sell even if user has shares
+                if (spotRangeExceedsLimit) {
+                  const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-950/30 border border-amber-900/30 text-amber-400 text-xs">
+                      <span>📉 Short Sell: Range too wide for spot ({numTicks} ticks &gt; 50). Buying {neededFmt} {isYes ? 'NO' : 'YES'} instead.</span>
+                    </div>
+                  );
+                }
+
                 if (hasAll) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   const sharesFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
