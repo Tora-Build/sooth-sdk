@@ -256,6 +256,9 @@ export function parseCommand(input: string): { command: string; args: string[] }
  * Generated from: forge inspect TickBookPoolManager errors
  */
 export const ERROR_SELECTORS: Record<string, string> = {
+  // Known contract address prefixes (RPC returning address instead of error)
+  '0x427be97e': 'RPC_ERROR: Returned contract address (gas estimation failed?)',
+  '0x7e42f86b': 'RPC_ERROR: Returned contract address (Monad TickBookPoolManager)',
   // TickBookPoolManager errors
   '0xedd7c146': 'DuplicateMarket()',
   '0xcd4e6167': 'FeeTooHigh()',
@@ -342,9 +345,12 @@ export function decodeErrorHex(hex: string): string {
     return hex || 'Unknown error';
   }
   
-  // Extract selector (first 4 bytes = 8 hex chars after 0x)
   if (hex.length < 10) {
     return `Unknown error: ${hex}`;
+  }
+  
+  if (hex.length === 42) {
+    return `RPC error (returned address): ${hex.slice(0, 10)}...`;
   }
   
   const selector = hex.slice(0, 10).toLowerCase();
