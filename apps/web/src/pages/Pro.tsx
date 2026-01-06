@@ -454,7 +454,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         <div className="text-center p-2 rounded-lg bg-slate-950">
           <div className="text-[9px] text-slate-500 uppercase">Total Liq</div>
           <div className="text-sm font-mono font-bold text-white">
-            ${parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            {parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
           </div>
         </div>
       </div>
