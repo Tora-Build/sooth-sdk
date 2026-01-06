@@ -1913,8 +1913,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         const userNoInternal = vault?.noInternal ?? 0n;
         const userHolding = isYes ? userYesInternal : userNoInternal;
 
-        const hasFullShares = userHolding >= amountBg;
-        const hasPartialShares = userHolding > 0n && userHolding < amountBg;
+        // V10.4: Wide ranges (>50 ticks) force short sell - can't use placeSpotSell
+        const hasFullShares = !spotRangeExceedsLimit && userHolding >= amountBg;
+        const hasPartialShares = !spotRangeExceedsLimit && userHolding > 0n && userHolding < amountBg;
 
         if (isMarketOrderType) {
           if (hasFullShares) {

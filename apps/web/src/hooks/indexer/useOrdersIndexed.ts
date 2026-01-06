@@ -103,9 +103,14 @@ export function useOrdersIndexed(
   const useIndexer = USE_INDEXER && isChainReady && indexedOrders.length > 0;
 
   const ordersFromIndexer: RangeOrder[] = indexedOrders.map(o => {
-    const pendingFills = pendingFillsMap.get(o.orderId) ?? [0n, 0n];
     const sharesTotal = BigInt(o.liquidity);
     const ticksInRange = BigInt(Math.max(1, o.tickUpper - o.tickLower + 1));
+    const claimedShares = BigInt(o.claimedShares);
+    const indexerFilledShares = BigInt(o.filledShares);
+    
+    const rpcPendingFills = pendingFillsMap.get(o.orderId);
+    const pendingShares = rpcPendingFills ? rpcPendingFills[0] : (indexerFilledShares - claimedShares);
+    const pendingUsdc = rpcPendingFills ? rpcPendingFills[1] : 0n;
     
     return {
       orderId: BigInt(o.orderId),
@@ -116,9 +121,9 @@ export function useOrdersIndexed(
       sharesTotal,
       liquidity: sharesTotal / ticksInRange,
       collateralDepositedWad: BigInt(o.collateralReserved),
-      filledShares: BigInt(o.claimedShares),
-      pendingShares: pendingFills[0],
-      pendingUsdc: pendingFills[1],
+      filledShares: claimedShares,
+      pendingShares,
+      pendingUsdc,
       collateralUsedWad: BigInt(o.collateralUsed),
       active: true,
     };
