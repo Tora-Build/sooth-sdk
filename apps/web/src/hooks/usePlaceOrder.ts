@@ -11,6 +11,7 @@ type Address = `0x${string}`;
 // Tick constants matching contract
 const MIN_TICK = 1;
 const MAX_TICK = 999;
+const MAX_SPOT_RANGE = 50; // V10.4: Max ticks for spot sell range
 
 /**
  * Result from placeOrder call
@@ -370,6 +371,11 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       }
       if (tickLower > tickUpper) {
         throw new Error('priceLow cannot exceed priceHigh');
+      }
+      // V10.4: Spot sell range capped at 50 ticks for gas optimization
+      const ticksInRange = tickUpper - tickLower + 1;
+      if (ticksInRange > MAX_SPOT_RANGE) {
+        throw new Error(`Spot sell range too wide: ${ticksInRange} ticks (max ${MAX_SPOT_RANGE}). Use a narrower price range.`);
       }
 
       const args = [marketKey, outcome, shares, tickLower, tickUpper] as const;
