@@ -1,10 +1,12 @@
 # Project Status
 
 ## Current Focus
+- **V10.4 MERGED (2026-01-06)** — RFC-001 spot fill gas optimization merged from `spot-fill-gas-opt` branch. Awaiting deployment.
 - **V10.3.1 DEPLOYED (2026-01-06)** — MAX_TICK boundary fix deployed to Base Sepolia + Monad Testnet.
 - **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
 - **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
 - **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
 - **2026-01-05** — **Frontend Fixes**: Fixed hybrid sell (now splits spot + short correctly), fixed `calculateMaxCost` for range orders (uses correct bounds per outcome), removed failing publicnode RPC.
