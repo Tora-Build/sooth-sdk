@@ -6,7 +6,10 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ### V10.6 Deployed (2026-01-07)
 - **Contract Fix**: Dust orders (<1000 wei unfilled) now stay `active=true` instead of being marked inactive. Order remains visible and claimable; only liquidity is removed from orderbook.
-- **Deployment**: Fresh V10.6 contracts deployed to Base Sepolia and Monad Testnet.
+- **Deployment**: Fresh V10.6 contracts deployed to all 3 testnets:
+  - Base Sepolia: TickBookPoolManager `0x1b6c55c70ae4dafdc8cda646af83bb3554dac388`
+  - Monad Testnet: TickBookPoolManager `0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0`
+  - Arc Testnet: TickBookPoolManager `0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68`
 - **Frontend**: Version strings updated to V10.6 across Footer, Landing page, and config files.
 - **Indexer**: Updated `ponder.config.ts` with V10.6 contract addresses and start blocks.
 - **UX**: Order action buttons (Claim/Cancel) now always visible with disabled states when not applicable, providing consistent button positions across all order types.
