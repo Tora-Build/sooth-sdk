@@ -33,8 +33,8 @@ export default createConfig({
           startBlock: 4_457_270,
         },
         arcTestnet: {
-          address: "0xb59bd815986b21a799ef2845a0ab568aa6616e41",
-          startBlock: 20_376_149,
+          address: "0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68",
+          startBlock: 20_402_700,
         },
       },
     },

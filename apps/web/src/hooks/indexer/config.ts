@@ -80,7 +80,7 @@ export async function checkChainReady(chainId: number): Promise<boolean> {
     const startBlocks: Record<number, number> = {
       84532: 35_975_000,
       10143: 4_457_000,
-      5042002: 20_376_000,
+      5042002: 20_402_000,
     };
     
     const startBlock = startBlocks[chainId] || 0;
