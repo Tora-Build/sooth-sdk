@@ -1,10 +1,11 @@
 # Project Status
 
 ## Current Focus
-- **V10.6 DEPLOYED (2026-01-07)** — Dust order visibility fix. Orders with <1000 wei unfilled now stay `active=true`.
+- **V10.6 DEPLOYED TO ALL CHAINS (2026-01-07)** — Dust order visibility fix complete. All 3 testnets now on V10.6.
 - **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.
 - **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable. Deployed to Base Sepolia + Monad. Indexer updated with new addresses.
 - **2026-01-07** — **FE Order Actions UX**: Both Cancel + Claim buttons now always visible with disabled states when not applicable. Unified button positions across all order types.
 - **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
@@ -28,7 +29,6 @@
 ## Pending/Blocked
 - **Basescan Verification** — Contract verification on Base Sepolia.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
-- **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
 
 ## Known Issues
 - ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
@@ -110,6 +110,18 @@
 | **MockUSDC** | `0x9f5d25d19595e9df513a3172c778174df18bd105` |
 
 **Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
+
+### Arc Testnet (chainId: 5042002) — V10.6
+| Contract | Address |
+|----------|---------|
+| **TickBookPoolManager** | `0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68` |
+| **Collateralizer** | `0x1D9A2B863c650e04DDdF5893FfbD2f31F87e8C6f` |
+| **AMMEngine** | `0xAC8F9866FCB0406856443df4C3D1F065357077dd` |
+| **TickBookVault** | `0x536D85d924848776995429C9769b5DA12478819b` |
+| **LaunchpadEngine** | `0x63215FA8716417FC805A705a7d7608abF8260598` |
+| **MockUSDC** | `0xec165cDc464cD689732a550776a19c960386329c` |
+
+**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix. Arc uses USDC as native gas token.
 
 ### Monad Testnet (chainId: 10143) — V10.6
 | Contract | Address |
