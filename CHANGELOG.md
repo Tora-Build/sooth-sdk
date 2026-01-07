@@ -4,6 +4,23 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Launchpad UI Overhaul (2026-01-07)
+- **Two-Column Layout**: Refactored `Launchpad.tsx` with sticky form (left) + scrollable context (right).
+- **P&L Simulator Drawer**: Moved 4-archetype P&L simulator into slide-out drawer (triggered by button).
+- **Mobile Tab Selector**: Create/Learn toggle for mobile users (switches between form and context).
+- **New Components**:
+  - `PnLSimulator.tsx` — Interactive 4-archetype P&L calculator (Creator, Gaming Trader, Arbitrageur, PvP Trader)
+  - `TrustSpectrum.tsx` — Visual trust model selector (Trustless → Trust Required)
+  - `TraderBenefitsBanner.tsx` — Fee→LP investment explanation
+  - `RiskDisclosure.tsx` — Always-visible risk matrix
+  - `CreatorEconomicsPanel.tsx` — Deposit/LP/graduation economics
+  - `MarketJourneyTimeline.tsx` — Market lifecycle visualization
+- **P&L Calculators**: `apps/web/src/lib/pnl-calculators.ts` with functions for all 4 archetypes.
+- **Enhanced Registries**: `registries.ts` now includes Brevis adjudicator types with trust levels.
+- **Enhanced AddressSelector**: Trust badges and expandable "How it works" details.
+- **Fee Terminology Fix**: Changed "bonus" to "investment" for pre-graduation LP tokens.
+- **Removed**: Mobile swipe (conflicted with sliders), redundant CreatorEconomicsPanel from context.
+
 ### V10.6 Deployed (2026-01-07)
 - **Contract Fix**: Dust orders (<1000 wei unfilled) now stay `active=true` instead of being marked inactive. Order remains visible and claimable; only liquidity is removed from orderbook.
 - **Deployment**: Fresh V10.6 contracts deployed to all 3 testnets:

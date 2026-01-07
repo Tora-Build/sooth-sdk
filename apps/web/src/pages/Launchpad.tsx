@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useAccount, useChainId, useConfig, useReadContract, useWriteContract } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { useAccount, useConfig, useReadContract, useWriteContract } from 'wagmi';
 import { deployContract, waitForTransactionReceipt } from 'wagmi/actions';
 import { parseUnits, Address } from 'viem';
 import {
     Rocket, Scale, Shield, DollarSign,
-    Info, Activity
+    Activity, Check, Coins, Calculator,
+    BookOpen, ChevronRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -13,31 +14,23 @@ import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
 import { ABIS, ERC20_ABI } from '../config/abis';
 import { ADJUDICATOR_REGISTRY, GUARDIAN_REGISTRY } from '../config/registries';
 import { useDeployments } from '../hooks/useDeployments';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Drawer } from '../components/ui/Drawer';
 import { cn } from '../lib/utils';
 
-// Features
 import { LaunchpadHeader } from '../components/features/launchpad/LaunchpadHeader';
-import { EarningsSimulator } from '../components/features/launchpad/EarningsSimulator';
 import { AddressSelector } from '../components/common/AddressSelector';
+import { TraderBenefitsBanner } from '../components/features/launchpad/TraderBenefitsBanner';
+import { PnLSimulator } from '../components/features/launchpad/PnLSimulator';
+import { MarketJourneyTimeline } from '../components/features/launchpad/MarketJourneyTimeline';
+import { RiskDisclosure } from '../components/features/launchpad/RiskDisclosure';
 
 const MARKET_CATEGORIES = [
-    { id: 'crypto', name: 'Crypto', icon: '₿' },
-    { id: 'sports', name: 'Sports', icon: '⚽' },
-    { id: 'politics', name: 'Politics', icon: '⚖️' },
-    { id: 'custom', name: 'Custom', icon: '✨' }
+    { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-orange-500 to-amber-500' },
+    { id: 'sports', name: 'Sports', icon: '⚽', gradient: 'from-emerald-500 to-teal-500' },
+    { id: 'politics', name: 'Politics', icon: '⚖️', gradient: 'from-blue-500 to-indigo-500' },
+    { id: 'custom', name: 'Custom', icon: '✨', gradient: 'from-violet-500 to-fuchsia-500' }
 ];
-
-const InfoTooltip = ({ content }: { content: string }) => (
-    <div className="group relative inline-block ml-1">
-        <Info className="w-4 h-4 text-slate-500 hover:text-cyan-400 transition-colors cursor-help" />
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-            {content}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-        </div>
-    </div>
-);
 
 export const Launchpad = () => {
     const { address: userAddress } = useAccount();
@@ -46,17 +39,15 @@ export const Launchpad = () => {
     const deployments = useDeployments();
     const { writeContractAsync } = useWriteContract();
 
-    // --- Form State ---
     const [form, setForm] = useState({
         question: '',
         category: 'crypto',
-        expirationMode: '7d', // 7d, 30d, custom, open
+        expirationMode: '7d',
         customExpiration: '',
-        initialLiquidity: '1000', // USDC
+        initialLiquidity: '1000',
         deployPending: false
     });
 
-    // --- Selector States ---
     const [adjudicatorMode, setAdjudicatorMode] = useState<'registry' | 'custom'>('registry');
     const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-opt');
     const [customAdjudicator, setCustomAdjudicator] = useState<string>(ADJUDICATOR_REGISTRY[0].address);
@@ -65,18 +56,18 @@ export const Launchpad = () => {
     const [selectedGuardianId, setSelectedGuardianId] = useState('me');
     const [customGuardian, setCustomGuardian] = useState<string>('');
 
-    // Set default guardian to user address on load
+    const [mobileTab, setMobileTab] = useState<'create' | 'learn'>('create');
+    const [showSimulator, setShowSimulator] = useState(false);
+
     useEffect(() => {
         if (userAddress && selectedGuardianId === 'me') {
             setCustomGuardian(userAddress);
         }
     }, [userAddress, selectedGuardianId]);
 
-    // --- Derived State ---
     const launchpadEngineAddress = deployments?.contracts['LaunchpadEngine'] as Address;
     const usdcAddress = deployments?.contracts['MockUSDC'] as Address;
 
-    // USDC Decimals
     const { data: usdcDecimals } = useReadContract({
         address: usdcAddress,
         abi: ERC20_ABI,
@@ -84,15 +75,10 @@ export const Launchpad = () => {
         query: { enabled: !!usdcAddress }
     });
 
-    // Calculate b (Liquidity Parameter)
-    // deposit = b * ln(2) => b = deposit / ln(2)
-    // b ~= deposit * 1.4427
     const depositAmount = parseFloat(form.initialLiquidity || '0');
-    // const bValue = depositAmount * 1.442695; // Math checked
     const bWei = usdcDecimals ? parseUnits((depositAmount * 1.442695).toFixed(6), 18) : BigInt(0);
     const depositWei = usdcDecimals ? parseUnits(depositAmount.toString(), usdcDecimals as number) : BigInt(0);
 
-    // Allowance Check
     const { data: allowanceData } = useReadContract({
         address: usdcAddress,
         abi: ERC20_ABI,
@@ -102,17 +88,15 @@ export const Launchpad = () => {
     });
     const allowance = allowanceData as bigint | undefined;
 
-    // --- Handlers ---
-
     const getDeadline = () => {
-        if (form.expirationMode === 'open') return 4102444800; // Jan 1 2100
+        if (form.expirationMode === 'open') return 4102444800;
         const now = Math.floor(Date.now() / 1000);
         if (form.expirationMode === '7d') return now + 7 * 86400;
         if (form.expirationMode === '30d') return now + 30 * 86400;
         if (form.expirationMode === 'custom' && form.customExpiration) {
             return Math.floor(new Date(form.customExpiration).getTime() / 1000);
         }
-        return now + 7 * 86400; // Fallback
+        return now + 7 * 86400;
     };
 
     const handleDeploy = async () => {
@@ -130,7 +114,6 @@ export const Launchpad = () => {
         setForm(p => ({ ...p, deployPending: true }));
 
         try {
-            // 1. Approve USDC if needed
             if (allowance === undefined || allowance < depositWei) {
                 toast.loading('Please approve USDC...', { id: toastId });
                 const approveHash = await writeContractAsync({
@@ -144,7 +127,6 @@ export const Launchpad = () => {
                 toast.success("USDC Approved!", { id: toastId });
             }
 
-            // 2. Deploy TruthMarket
             toast.loading('Deploying Market Contract...', { id: toastId });
             const deadline = getDeadline();
             const deployHash = await deployContract(config, {
@@ -163,11 +145,9 @@ export const Launchpad = () => {
 
             if (!marketAddress) throw new Error("Deployment failed");
 
-            // 3. Register Market
             toast.loading('Initializing Liquidity...', { id: toastId });
             const symbol = "PRED";
 
-            // Save metadata to local storage (Legacy/Fallback)
             const marketMetaKey = `market_meta_${marketAddress.toLowerCase()}`;
             const metadata = {
                 name: form.question,
@@ -190,240 +170,286 @@ export const Launchpad = () => {
             });
 
             toast.success('Market Launched!', { id: toastId });
-
-            // Navigate directly to trade page 
-            // Trade.tsx now supports direct address lookup for unindexed markets
             navigate(`/trade/${marketAddress}`);
 
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const error = e as { shortMessage?: string; message: string };
             console.error(e);
-            toast.error('Failed: ' + (e.shortMessage || e.message), { id: toastId });
+            toast.error('Failed: ' + (error.shortMessage || error.message), { id: toastId });
         } finally {
             setForm(p => ({ ...p, deployPending: false }));
         }
     };
 
-    return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-24">
-            <LaunchpadHeader />
+    const isFormValid = form.question && form.initialLiquidity && customAdjudicator && customGuardian;
 
-            {/* 1. Market Details */}
-            <Card className="p-6 border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-slate-700 font-mono">1</span>
-                    Market Question
-                </h2>
+    const FormContent = () => (
+        <div className="space-y-6">
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Question</label>
+                <input
+                    type="text"
+                    value={form.question}
+                    onChange={e => setForm(p => ({ ...p, question: e.target.value }))}
+                    placeholder="Will Bitcoin exceed $100k by 2026?"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all placeholder:text-white/20"
+                />
+            </div>
 
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300">Question</label>
-                        <input
-                            type="text"
-                            value={form.question}
-                            onChange={e => setForm(p => ({ ...p, question: e.target.value }))}
-                            placeholder="e.g. Will Bitcoin exceed $100k by 2026?"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-base text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600"
-                        />
-                        <p className="text-xs text-slate-500">Must be resolvable with a clear Yes/No outcome.</p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300">Category</label>
-                        <div className="flex flex-wrap gap-2">
-                            {MARKET_CATEGORIES.map(cat => (
-                                <button
-                                    key={cat.id}
-                                    onClick={() => setForm(p => ({ ...p, category: cat.id }))}
-                                    className={cn(
-                                        "px-4 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2",
-                                        form.category === cat.id
-                                            ? "bg-slate-800 text-white border-slate-600 ring-1 ring-slate-500"
-                                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                                    )}
-                                >
-                                    <span>{cat.icon}</span>
-                                    {cat.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                            Expiration
-                            <InfoTooltip content="When trading stops and the market waits for resolution." />
-                        </label>
-                        <div className="grid grid-cols-4 gap-2 mb-2">
-                            {[
-                                { id: '7d', label: '7 Days' },
-                                { id: '30d', label: '30 Days' },
-                                { id: 'custom', label: 'Custom' },
-                                { id: 'open', label: 'Open-End' }
-                            ].map(mode => (
-                                <button
-                                    key={mode.id}
-                                    onClick={() => setForm(p => ({ ...p, expirationMode: mode.id }))}
-                                    className={cn(
-                                        "py-2 rounded-lg text-xs font-bold border transition-all",
-                                        form.expirationMode === mode.id
-                                            ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/50"
-                                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                                    )}
-                                >
-                                    {mode.label}
-                                </button>
-                            ))}
-                        </div>
-                        {form.expirationMode === 'custom' && (
-                            <div className="animate-in fade-in slide-in-from-top-2">
-                                <input
-                                    type="datetime-local"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
-                                    value={form.customExpiration}
-                                    onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
-                                />
-                            </div>
-                        )}
-                        {form.expirationMode === 'open' && (
-                            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg flex items-start gap-3 animate-in fade-in">
-                                <Activity className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                                <p className="text-xs text-indigo-300">
-                                    <span className="font-bold">Open-Ended Market:</span> Deadline set to Year 2100.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </Card>
-
-            {/* 2. Oracle & Security */}
-            <Card className="p-6 border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-slate-700 font-mono">2</span>
-                    Oracle & Security
-                </h2>
-
-                <div className="space-y-8">
-                    <AddressSelector
-                        label="Adjudicator (Resolution Authority)"
-                        icon={Scale}
-                        options={ADJUDICATOR_REGISTRY}
-                        selectedMode={adjudicatorMode}
-                        setSelectedMode={setAdjudicatorMode}
-                        selectedRegistryId={selectedAdjudicatorId}
-                        setSelectedRegistryId={setSelectedAdjudicatorId}
-                        customAddress={customAdjudicator}
-                        setCustomAddress={setCustomAdjudicator}
-                    />
-
-                    <div className="w-full h-px bg-slate-800/50" />
-
-                    <AddressSelector
-                        label="Guardian (Veto Power)"
-                        icon={Shield}
-                        options={GUARDIAN_REGISTRY}
-                        selectedMode={guardianMode}
-                        setSelectedMode={setGuardianMode}
-                        selectedRegistryId={selectedGuardianId}
-                        setSelectedRegistryId={setSelectedGuardianId}
-                        customAddress={customGuardian}
-                        setCustomAddress={setCustomGuardian}
-                        userAddress={userAddress}
-                    />
-                </div>
-            </Card>
-
-            {/* 3. Liquidity */}
-            <Card className="p-6 border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-slate-700 font-mono">3</span>
-                    Liquidity & Economics
-                </h2>
-
-                <div className="space-y-6">
-                    <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
-                                <DollarSign className="w-5 h-5 text-emerald-400" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white text-sm">Creator Economics</h3>
-                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                                    You earn <span className="text-emerald-400 font-bold">5% trading fees</span> on all initial volume. Your liquidity seeds <strong>Spot-First</strong> discovery in the Combined Orderbook.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300">Initial Deposit (USDC)</label>
-                        <div className="flex gap-2 mb-2">
-                            {['100', '1000', '5000'].map(amt => (
-                                <button
-                                    key={amt}
-                                    onClick={() => setForm(p => ({ ...p, initialLiquidity: amt }))}
-                                    className={cn(
-                                        "flex-1 py-2 rounded-lg text-sm font-bold border transition-all",
-                                        form.initialLiquidity === amt
-                                            ? "bg-slate-800 text-white border-slate-600"
-                                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                                    )}
-                                >
-                                    ${amt}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                            <input
-                                type="number"
-                                value={form.initialLiquidity}
-                                onChange={e => setForm(p => ({ ...p, initialLiquidity: e.target.value }))}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-3 text-white font-mono"
-                            />
-                        </div>
-                    </div>
-
-                    <EarningsSimulator deposit={depositAmount} />
-
-                </div>
-            </Card>
-
-
-            {/* Static Action Bar - No Empty Space */}
-            <div className="p-6 border border-slate-800 bg-slate-900/50 backdrop-blur-sm rounded-xl flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Deposit</p>
-                    <p className="text-xl font-mono text-white font-bold">${form.initialLiquidity} <span className="text-sm text-slate-400">USDC</span></p>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    {allowance !== undefined && allowance < depositWei ? (
-                        <Button
-                            onClick={handleDeploy}
-                            disabled={form.deployPending}
-                            variant="secondary"
-                            size="lg"
-                            className="rounded-xl font-bold"
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Category</label>
+                <div className="grid grid-cols-2 gap-2">
+                    {MARKET_CATEGORIES.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setForm(p => ({ ...p, category: cat.id }))}
+                            className={cn(
+                                "p-3 rounded-xl font-semibold border transition-all flex items-center gap-2",
+                                form.category === cat.id
+                                    ? `bg-gradient-to-br ${cat.gradient} text-white border-transparent`
+                                    : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                            )}
                         >
-                            Approve USDC
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={handleDeploy}
-                            disabled={!form.question || !form.initialLiquidity || form.deployPending}
-                            isLoading={form.deployPending}
-                            variant="primary"
-                            size="lg"
-                            className="rounded-xl px-8 font-bold shadow-lg shadow-cyan-500/20"
-                        >
-                            <Rocket className="w-4 h-4 mr-2" />
-                            Launch Market
-                        </Button>
-                    )}
+                            <span className="text-lg">{cat.icon}</span>
+                            <span className="text-sm">{cat.name}</span>
+                            {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                        </button>
+                    ))}
                 </div>
             </div>
 
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Expiration</label>
+                <div className="grid grid-cols-4 gap-2">
+                    {[
+                        { id: '7d', label: '7D' },
+                        { id: '30d', label: '30D' },
+                        { id: 'custom', label: '📅' },
+                        { id: 'open', label: '∞' }
+                    ].map(mode => (
+                        <button
+                            key={mode.id}
+                            onClick={() => setForm(p => ({ ...p, expirationMode: mode.id }))}
+                            className={cn(
+                                "py-2 rounded-lg text-sm font-bold border transition-all",
+                                form.expirationMode === mode.id
+                                    ? "bg-violet-500/20 text-white border-violet-500/50"
+                                    : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
+                            )}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </div>
+                {form.expirationMode === 'custom' && (
+                    <input
+                        type="datetime-local"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50"
+                        value={form.customExpiration}
+                        onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
+                    />
+                )}
+                {form.expirationMode === 'open' && (
+                    <p className="text-xs text-violet-300 flex items-center gap-1">
+                        <Activity className="w-3 h-3" />
+                        Open until resolved
+                    </p>
+                )}
+            </div>
+
+            <div className="h-px bg-white/10" />
+
+            <AddressSelector
+                label="Adjudicator"
+                icon={Scale}
+                options={ADJUDICATOR_REGISTRY}
+                selectedMode={adjudicatorMode}
+                setSelectedMode={setAdjudicatorMode}
+                selectedRegistryId={selectedAdjudicatorId}
+                setSelectedRegistryId={setSelectedAdjudicatorId}
+                customAddress={customAdjudicator}
+                setCustomAddress={setCustomAdjudicator}
+            />
+
+            <AddressSelector
+                label="Guardian"
+                icon={Shield}
+                options={GUARDIAN_REGISTRY}
+                selectedMode={guardianMode}
+                setSelectedMode={setGuardianMode}
+                selectedRegistryId={selectedGuardianId}
+                setSelectedRegistryId={setSelectedGuardianId}
+                customAddress={customGuardian}
+                setCustomAddress={setCustomGuardian}
+                userAddress={userAddress}
+            />
+
+            <div className="h-px bg-white/10" />
+
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Deposit (USDC)</label>
+                <div className="grid grid-cols-3 gap-2">
+                    {['100', '1000', '5000'].map(amt => (
+                        <button
+                            key={amt}
+                            onClick={() => setForm(p => ({ ...p, initialLiquidity: amt }))}
+                            className={cn(
+                                "py-3 rounded-xl font-bold border transition-all",
+                                form.initialLiquidity === amt
+                                    ? "bg-emerald-500/20 text-white border-emerald-500/50"
+                                    : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
+                            )}
+                        >
+                            ${amt}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <input
+                        type="number"
+                        value={form.initialLiquidity}
+                        onChange={e => setForm(p => ({ ...p, initialLiquidity: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-white font-mono focus:outline-none focus:border-emerald-500/50 transition-all"
+                    />
+                </div>
+            </div>
+
+            <div className="pt-4">
+                {allowance !== undefined && allowance < depositWei ? (
+                    <Button
+                        onClick={handleDeploy}
+                        disabled={form.deployPending}
+                        variant="secondary"
+                        size="lg"
+                        className="w-full rounded-xl font-bold"
+                    >
+                        Approve USDC
+                    </Button>
+                ) : (
+                    <button
+                        onClick={handleDeploy}
+                        disabled={!isFormValid || form.deployPending}
+                        className={cn(
+                            "w-full py-4 rounded-xl text-lg font-black transition-all",
+                            "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-orange-500",
+                            "hover:shadow-[0_0_40px_-8px] hover:shadow-fuchsia-500/50",
+                            "disabled:opacity-40 disabled:cursor-not-allowed",
+                            "text-white flex items-center justify-center gap-2"
+                        )}
+                    >
+                        {form.deployPending ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Launching...
+                            </>
+                        ) : (
+                            <>
+                                <Rocket className="w-5 h-5" />
+                                Launch Market
+                            </>
+                        )}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    const ContextContent = () => (
+        <div className="space-y-6">
+            <TraderBenefitsBanner />
+
+            <button
+                onClick={() => setShowSimulator(true)}
+                className="w-full p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border border-violet-500/30 hover:border-violet-500/50 transition-all group"
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                            <Calculator className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="text-left">
+                            <p className="font-bold text-white">P&L Simulator</p>
+                            <p className="text-xs text-white/50">Explore 4 trading archetypes</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/70 transition-colors" />
+                </div>
+            </button>
+
+            <MarketJourneyTimeline />
+
+            <RiskDisclosure />
+        </div>
+    );
+
+    return (
+        <div className="max-w-6xl mx-auto px-4">
+            <LaunchpadHeader />
+
+            <div className="lg:hidden flex gap-2 my-6">
+                <button
+                    onClick={() => setMobileTab('create')}
+                    className={cn(
+                        "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                        mobileTab === 'create'
+                            ? "bg-violet-500 text-white"
+                            : "bg-white/5 text-white/50"
+                    )}
+                >
+                    <Rocket className="w-4 h-4" />
+                    Create
+                </button>
+                <button
+                    onClick={() => setMobileTab('learn')}
+                    className={cn(
+                        "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                        mobileTab === 'learn'
+                            ? "bg-emerald-500 text-white"
+                            : "bg-white/5 text-white/50"
+                    )}
+                >
+                    <BookOpen className="w-4 h-4" />
+                    Learn
+                </button>
+            </div>
+
+            <div className="lg:grid lg:grid-cols-[1fr_420px] lg:gap-8 mt-6">
+                <div className={cn(
+                    "lg:sticky lg:top-6 lg:self-start",
+                    "lg:block",
+                    mobileTab === 'create' ? "block" : "hidden"
+                )}>
+                    <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <Coins className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-white">Create Market</h2>
+                                <p className="text-xs text-white/50">Launch in 60 seconds</p>
+                            </div>
+                        </div>
+                        <FormContent />
+                    </div>
+                </div>
+
+                <div className={cn(
+                    "lg:block",
+                    mobileTab === 'learn' ? "block" : "hidden"
+                )}>
+                    <ContextContent />
+                </div>
+            </div>
+
+            <Drawer
+                isOpen={showSimulator}
+                onClose={() => setShowSimulator(false)}
+                title="P&L Simulator"
+                className="max-w-2xl"
+            >
+                <PnLSimulator />
+            </Drawer>
         </div>
     );
 };

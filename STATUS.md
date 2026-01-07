@@ -2,9 +2,12 @@
 
 ## Current Focus
 - **V10.6 DEPLOYED TO ALL CHAINS (2026-01-07)** — Dust order visibility fix complete. All 3 testnets now on V10.6.
+- **Launchpad UI Overhaul (2026-01-07)** — Two-column layout, P&L Simulator drawer, mobile tab selector.
 - **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P&L Simulator in drawer, mobile Create/Learn tab selector.
+- **2026-01-07** — **Launchpad Economics Components**: Created 6 new components (PnLSimulator, TrustSpectrum, TraderBenefitsBanner, RiskDisclosure, CreatorEconomicsPanel, MarketJourneyTimeline), P&L calculators, and enhanced registries with Brevis adjudicator types.
 - **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.
 - **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable. Deployed to Base Sepolia + Monad. Indexer updated with new addresses.
 - **2026-01-07** — **FE Order Actions UX**: Both Cancel + Claim buttons now always visible with disabled states when not applicable. Unified button positions across all order types.

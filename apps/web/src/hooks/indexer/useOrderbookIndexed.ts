@@ -31,6 +31,10 @@ interface IndexedOrder {
   filledShares: string;
   claimedShares: string;
   collateralUsed: string;
+  pendingShares: string;
+  pendingUsdc: string;
+  fillGrowthLastX128: string;
+  calculatedPendingFromGrowth: string;
 }
 
 interface OrderbookResponse {
@@ -45,11 +49,14 @@ export interface TickData {
 }
 
 function indexedToRangeOrder(o: IndexedOrder): RangeOrder {
-  // Indexer stores total shares under `liquidity` (historical naming).
-  // Derive per-tick density for client-side aggregation/visualization.
   const sharesTotal = BigInt(o.liquidity);
+  const claimedShares = BigInt(o.claimedShares);
+  const pendingShares = BigInt(o.pendingShares);
+  const totalFilled = claimedShares + pendingShares;
+  const restingShares = sharesTotal > totalFilled ? sharesTotal - totalFilled : 0n;
   const ticksInRange = BigInt(Math.max(1, o.tickUpper - o.tickLower + 1));
-  const density = sharesTotal / ticksInRange;
+  const density = restingShares / ticksInRange;
+  
   return {
     orderId: BigInt(o.orderId),
     owner: o.owner as Address,
@@ -59,8 +66,8 @@ function indexedToRangeOrder(o: IndexedOrder): RangeOrder {
     sharesTotal,
     liquidity: density,
     collateralDepositedWad: BigInt(o.collateralReserved),
-    filledShares: BigInt(o.claimedShares),
-    pendingShares: BigInt(o.filledShares) - BigInt(o.claimedShares),
+    filledShares: claimedShares,
+    pendingShares: pendingShares,
     collateralUsedWad: BigInt(o.collateralUsed),
     active: o.status === "active",
   };
