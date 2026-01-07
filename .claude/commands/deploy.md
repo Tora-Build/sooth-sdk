@@ -1,91 +1,91 @@
 ---
-description: Deploy Sooth Protocol V9.9.6 contracts to testnet
+description: Deploy Sooth Protocol V10 contracts to testnets
 ---
 
-# Deploy Workflow - V9.9.6
+# Deploy Workflow - V10
 
-Deploy Sooth Protocol V9.9.6 contracts to testnet.
+Deploy Sooth Protocol V10 core contracts to testnets using the TypeScript multi-chain deployment script.
 
 ## Prerequisites
 
-- Foundry installed (`forge`, `cast`)
-- Private key in `.env` or environment
-- RPC URL for target network
-- Sufficient native token for gas
-- USDC for test market initialization (~700 USDC)
+- Bun installed (`bun --version`)
+- Foundry installed (`forge build` to compile contracts)
+- Private key in `.env` file
+- Sufficient native token for gas on target chains
+
+## Supported Chains
+
+- **Base Sepolia** (chainId: 84532)
+- **Monad Testnet** (chainId: 10143)
+- **Arc Testnet** (chainId: 5041490)
 
 ## Environment Setup
 
 ```bash
 cd packages/contracts-core
 
-# Required environment variables in .env:
+# Required in .env:
 # PRIVATE_KEY=0x...
-# BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
-# BASESCAN_API_KEY=...  # Optional, for verification
 ```
 
-## V9.9.6 Deployment Commands
+## V10 Deployment Commands
 
-### Step 1: Dry Run (Simulation)
+### Step 1: Build Contracts
 
-Test deployment without broadcasting:
+Ensure contracts are compiled:
 
 ```bash
-forge script script/1_DeployCoreV996.s.sol \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
-  -vvv
+forge build
 ```
 
-**Expected**: Script runs successfully, shows gas estimates
+### Step 2: Deploy to All Chains
 
-### Step 2: Deploy Core Contracts
-
-Deploy V9.9.6 core infrastructure:
+Deploy to all configured chains in parallel:
 
 ```bash
-forge script script/1_DeployCoreV996.s.sol \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
-  --broadcast \
-  --verify \
-  --etherscan-api-key $BASESCAN_API_KEY \
-  -vvv
+bun run script/deploy-multichain.ts
 ```
 
-**Deploys**:
+### Step 3: Deploy to Specific Chains
+
+Deploy to selected chains only:
+
+```bash
+bun run script/deploy-multichain.ts --chains=baseSepolia,monadTestnet
+```
+
+**Deploys (V10 Singleton Architecture)**:
+- MockUSDC
 - Collateralizer
 - AMMEngine
 - TickBookVault
-- TickBookPoolManager (V9.9.6)
+- TickBookPoolManager
+- DynamicFeeHook
 - LaunchpadEngine
 
-**Output**: Contract addresses in console.
-
-### Step 3: Update Deployment Artifacts
-
-Manually update the deployment JSON for the target network:
-`packages/contracts-core/deployments/v9-{network}.json`
+**Output**: Contract addresses in console and saved to `deployments/{chainName}.json`
 
 ### Step 4: Sync to Frontend
 
 ```bash
-# From repo root
-./sync-deployments.sh
+./apps/web/scripts/sync-deployments.sh
 ```
 
 ## Post-Deployment (MANDATORY)
 
-### 1. Verify Deployment
+### 1. Verify On-Chain
 
-Check that contracts are live and linked:
+Check contracts are live:
 
 ```bash
-./script/verify-deployment.sh
+source .env
+COLLAT=$(jq -r '.contracts.Collateralizer' deployments/baseSepolia.json)
+cast call $COLLAT "usdc()" --rpc-url https://sepolia.base.org
 ```
 
-### 2. Update markets.json (If needed)
+### 2. Create Markets (If needed)
 
-If deploying a fresh test market, use the interactive CLI:
+Use the interactive CLI to create test markets:
 
 ```bash
 cd ../contracts-testing
@@ -93,28 +93,67 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 # > createmarket ALIEN 1000
 ```
 
+Or for Monad:
+```bash
+pnpm interactive:monad
+```
+
+## Chain-Specific Notes
+
+### Monad Testnet
+- Uses 10M gas limit for complex contracts
+- Min gas price: 100 gwei (script uses 105 gwei)
+- Cold access opcodes 4x more expensive
+
+### Arc Testnet
+- Min gas price: 160 gwei (script uses 200 gwei)
+- Has native USDC at `0x3600000000000000000000000000000000000000`
+
 ## Troubleshooting
 
 ### "UnauthorizedRegistrar"
 
-**Cause**: TickBookPoolManager's registrar role was not set correctly to LaunchpadEngine.
+**Cause**: TickBookPoolManager's registrar role not set to LaunchpadEngine.
 
-**Solution**: The deploy script handles this automatically, but you can verify with:
+**Solution**: The deploy script handles this automatically. Verify with:
 ```bash
 cast call $TICKBOOK "registrar()" --rpc-url $RPC
 ```
 
-### "USDC: insufficient allowance"
+### "Deployer has zero balance"
 
-**Cause**: Attempting to graduate a market or add liquidity without approving USDC.
+**Cause**: Wallet not funded on target chain.
 
-**Solution**: Approve LaunchpadEngine to spend your USDC.
+**Solution**: Get testnet tokens from faucets:
+- Base Sepolia: https://www.coinbase.com/faucets/base-sepolia-faucet
+- Monad: https://faucet.monad.xyz
+- Arc: https://faucet.circle.com
+
+### "Artifact not found"
+
+**Cause**: Contracts not compiled.
+
+**Solution**: Run `forge build` first.
+
+## File Structure
+
+```
+packages/contracts-core/
+  script/
+    deploy-multichain.ts    # Main deployment script
+    chainConfigs.ts         # Chain configurations
+  deployments/
+    baseSepolia.json        # Deployment artifact
+    monadTestnet.json       # Deployment artifact
+    arcTestnet.json         # Deployment artifact
+```
 
 ## Success Criteria
 
 Deployment is successful when:
-- ✅ All 5 core contracts deployed and verified
-- ✅ `verify-deployment.sh` passes
-- ✅ `./sync-deployments.sh` updates frontend
-- ✅ Test trade executes successfully via `usePlaceOrder` hook
+- All 7 core contracts deployed per chain
+- `deployments/{chainName}.json` created with addresses
+- `./apps/web/scripts/sync-deployments.sh` updates frontend
+- On-chain verification calls return valid data
+- Markets can be created via interactive CLI
 

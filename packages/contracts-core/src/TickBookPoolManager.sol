@@ -673,15 +673,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
 
         uint256 unfilled = order.sharesTotal > order.filledShares ? order.sharesTotal - order.filledShares : 0;
-        bool isEffectivelyFilled = order.filledShares >= order.sharesTotal || unfilled < DUST_THRESHOLD;
+        bool shouldRemoveLiquidity = unfilled < DUST_THRESHOLD;
         
-        if (isEffectivelyFilled && !order.liquidityRemoved) {
+        if (shouldRemoveLiquidity && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
             _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
-            order.active = false;
-            _removeFromUserOrders(marketKey, owner, orderId);
             uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
                 ? order.collateralDepositedWad - order.collateralUsedWad : 0;
             if (refund > 0) {
@@ -1153,16 +1151,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         newOrder.filledShares += uint128(result.totalFilled);
         newOrder.collateralUsedWad += uint128(result.newOrderCost);
 
-        // Check if new order is fully filled (including dust threshold)
+        // Check if new order is effectively filled (dust or 100%)
         uint256 newUnfilled = newOrder.sharesTotal > newOrder.filledShares ? newOrder.sharesTotal - newOrder.filledShares : 0;
-        bool newIsEffectivelyFilled = newOrder.filledShares >= newOrder.sharesTotal || newUnfilled < DUST_THRESHOLD;
+        bool shouldRemoveLiquidity = newUnfilled < DUST_THRESHOLD;
         
-        if (newIsEffectivelyFilled && !newOrder.liquidityRemoved) {
+        if (shouldRemoveLiquidity && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
             _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
-            newOrder.active = false;
             uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad 
                 ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad : 0;
             if (refund > 0) {

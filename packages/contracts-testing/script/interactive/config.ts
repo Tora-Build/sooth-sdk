@@ -64,11 +64,7 @@ export const arcTestnet: Chain = {
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
-      http: [
-        'https://rpc.quicknode.testnet.arc.network',
-        'https://rpc.drpc.testnet.arc.network',
-        'https://rpc.blockdaemon.testnet.arc.network',
-      ],
+      http: ['https://rpc.testnet.arc.network'],
     },
   },
   blockExplorers: {
@@ -106,7 +102,7 @@ export const CHAINS: Record<string, ChainConfig> = {
   },
   arcTestnet: {
     chain: arcTestnet,
-    rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.quicknode.testnet.arc.network',
+    rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.testnet.arc.network',
     deploymentFile: 'arcTestnet.json',
     confirmations: 1,
     postTxWaitMs: 2000,

@@ -12,7 +12,10 @@
     "test": "turbo run test",
     "test:contracts": "pnpm --filter contracts-testing test",
     "deploy:contracts": "pnpm --filter contracts-core deploy",
-    "benchmark": "pnpm --filter contracts-testing benchmark"
+    "benchmark": "pnpm --filter contracts-testing benchmark",
+    "interactive:base": "pnpm --filter contracts-testing interactive:base",
+    "interactive:monad": "pnpm --filter contracts-testing interactive:monad",
+    "interactive:arc": "pnpm --filter contracts-testing interactive:arc"
   },
   "devDependencies": {
     "turbo": "^2.0.0"
