@@ -43,6 +43,8 @@ export const order = onchainTable(
     createdAt: t.bigint().notNull(),
     updatedAt: t.bigint().notNull(),
     blockNumber: t.bigint().notNull(),
+    // Fill growth snapshot at order creation (for accurate pending fill calculation)
+    fillGrowthLastX128: t.bigint().notNull(),
   }),
   (table) => ({
     marketIdx: index().on(table.marketKey),
@@ -243,5 +245,24 @@ export const unifiedCrossing = onchainTable(
   (table) => ({
     marketIdx: index().on(table.marketKey),
     orderIdx: index().on(table.newOrderId),
+  })
+);
+
+/**
+ * Fill growth state per market-outcome (replicates contract's fill growth accumulator)
+ */
+export const fillGrowthState = onchainTable(
+  "fill_growth_state",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    outcome: t.integer().notNull(),
+    totalLiquidity: t.bigint().notNull(),
+    fillGrowthX128: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
   })
 );

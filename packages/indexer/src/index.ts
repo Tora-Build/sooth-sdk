@@ -7,6 +7,30 @@ const sellId = (chainId: number, id: bigint) => `${chainId}-${id.toString()}`;
 const eventId = (txHash: string, logIndex: number) => `${txHash}-${logIndex}`;
 const tickId = (chainId: number, marketKey: string, outcome: number, tick: number) =>
   `${chainId}-${marketKey}-${outcome}-${tick}`;
+const fillGrowthId = (chainId: number, marketKey: string, outcome: number) =>
+  `${chainId}-${marketKey}-${outcome}`;
+
+const Q128 = 2n ** 128n;
+
+function calculatePendingFills(
+  orderSharesTotal: bigint,
+  orderClaimedShares: bigint,
+  orderCrossingFilled: bigint,
+  orderFillGrowthLast: bigint,
+  globalFillGrowth: bigint
+): bigint {
+  if (globalFillGrowth <= orderFillGrowthLast) return 0n;
+  
+  const delta = globalFillGrowth - orderFillGrowthLast;
+  let pending = (delta * orderSharesTotal) / Q128;
+  
+  const maxFillable = orderSharesTotal - orderCrossingFilled - orderClaimedShares;
+  if (pending > maxFillable) {
+    pending = maxFillable;
+  }
+  
+  return pending > 0n ? pending : 0n;
+}
 
 /**
  * Handle MarketRegistered events
@@ -48,6 +72,10 @@ ponder.on("TickBookPoolManager:OrderPlaced", async ({ event, context }) => {
   } = event.args;
 
   const id = orderId(context.chain.id, orderIdBigInt);
+  const fgId = fillGrowthId(context.chain.id, marketKey, outcome);
+
+  const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+  const currentFillGrowthX128 = fillGrowth?.fillGrowthX128 ?? 0n;
 
   await context.db.insert(schema.order).values({
     id,
@@ -59,22 +87,38 @@ ponder.on("TickBookPoolManager:OrderPlaced", async ({ event, context }) => {
     tickLower,
     tickUpper,
     liquidity: shares,
-    collateralReserved: 0n, // Not emitted in V9.9.6
+    collateralReserved: 0n,
     crossingFilled: filledShares,
     crossingCost: filledCost,
     status: restingShares > 0n ? "active" : "filled",
     filledShares: filledShares,
     claimedShares: 0n,
-    pendingShares: filledShares, // Initially, all filled shares are pending
-    pendingUsdc: filledCost,     // USDC cost of pending fills
+    pendingShares: filledShares,
+    pendingUsdc: filledCost,
     collateralUsed: filledCost,
     createdAt: event.block.timestamp,
     updatedAt: event.block.timestamp,
     blockNumber: event.block.number,
+    fillGrowthLastX128: currentFillGrowthX128,
   });
 
-  // Update tick liquidity for each tick in the range (only if resting shares > 0)
   if (restingShares > 0n) {
+    await context.db
+      .insert(schema.fillGrowthState)
+      .values({
+        id: fgId,
+        chainId: context.chain.id,
+        marketKey,
+        outcome,
+        totalLiquidity: restingShares,
+        fillGrowthX128: 0n,
+        updatedAt: event.block.timestamp,
+      })
+      .onConflictDoUpdate((row) => ({
+        totalLiquidity: row.totalLiquidity + restingShares,
+        updatedAt: event.block.timestamp,
+      }));
+
     for (let tick = tickLower; tick <= tickUpper; tick++) {
       const tid = tickId(context.chain.id, marketKey, outcome, tick);
 
@@ -107,16 +151,32 @@ ponder.on("TickBookPoolManager:RangeOrderCancelled", async ({ event, context }) 
 
   const id = orderId(context.chain.id, orderIdBigInt);
 
-  // Get the order to update tick liquidity
   const existingOrder = await context.db.find(schema.order, { id });
 
   if (existingOrder) {
+    const unfilledShares = existingOrder.liquidity - existingOrder.crossingFilled - existingOrder.claimedShares;
+    
     await context.db.update(schema.order, { id }).set({
       status: "cancelled",
       updatedAt: event.block.timestamp,
     });
 
-    // Update tick liquidity
+    if (unfilledShares > 0n) {
+      const fgId = fillGrowthId(context.chain.id, existingOrder.marketKey, existingOrder.outcome);
+      const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+      
+      if (fillGrowth) {
+        const newTotalLiquidity = fillGrowth.totalLiquidity > unfilledShares 
+          ? fillGrowth.totalLiquidity - unfilledShares 
+          : 0n;
+        
+        await context.db.update(schema.fillGrowthState, { id: fgId }).set({
+          totalLiquidity: newTotalLiquidity,
+          updatedAt: event.block.timestamp,
+        });
+      }
+    }
+
     for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
       const tid = tickId(
         context.chain.id,
@@ -146,7 +206,6 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   const id = eventId(event.transaction.hash, event.log.logIndex);
   const oid = orderId(context.chain.id, orderIdBigInt);
 
-  // Record the claim
   await context.db.insert(schema.fillClaim).values({
     id,
     chainId: context.chain.id,
@@ -160,13 +219,11 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
     txHash: event.transaction.hash,
   });
 
-  // Update order state
   const existingOrder = await context.db.find(schema.order, { id: oid });
   if (existingOrder) {
     const newClaimedShares = existingOrder.claimedShares + filledShares;
     const newCollateralUsed = existingOrder.collateralUsed + collateralUsedWad;
     
-    // Calculate new pending amounts (subtract claimed from pending)
     const newPendingShares = existingOrder.pendingShares > filledShares 
       ? existingOrder.pendingShares - filledShares 
       : 0n;
@@ -174,8 +231,11 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
       ? existingOrder.pendingUsdc - collateralUsedWad
       : 0n;
 
-    // Check if order is now fully filled
     const isFullyFilled = newClaimedShares >= existingOrder.liquidity;
+
+    const fgId = fillGrowthId(context.chain.id, marketKey, existingOrder.outcome);
+    const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+    const currentFillGrowthX128 = fillGrowth?.fillGrowthX128 ?? 0n;
 
     await context.db.update(schema.order, { id: oid }).set({
       claimedShares: newClaimedShares,
@@ -183,11 +243,25 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
       pendingShares: newPendingShares,
       pendingUsdc: newPendingUsdc,
       status: isFullyFilled ? "filled" : existingOrder.status,
+      fillGrowthLastX128: currentFillGrowthX128,
       updatedAt: event.block.timestamp,
     });
 
-    // If fully filled, update tick liquidity
     if (isFullyFilled) {
+      if (fillGrowth) {
+        const remainingLiquidity = existingOrder.liquidity - existingOrder.crossingFilled - newClaimedShares;
+        if (remainingLiquidity > 0n) {
+          const newTotalLiquidity = fillGrowth.totalLiquidity > remainingLiquidity
+            ? fillGrowth.totalLiquidity - remainingLiquidity
+            : 0n;
+          
+          await context.db.update(schema.fillGrowthState, { id: fgId }).set({
+            totalLiquidity: newTotalLiquidity,
+            updatedAt: event.block.timestamp,
+          });
+        }
+      }
+
       for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
         const tid = tickId(
           context.chain.id,
@@ -492,4 +566,20 @@ ponder.on("TickBookPoolManager:UnifiedCrossing", async ({ event, context }) => {
     blockNumber: event.block.number,
     txHash: event.transaction.hash,
   });
+
+  if (rangeFilled > 0n) {
+    const oppositeOutcome = newOutcome === 0 ? 1 : 0;
+    const fgId = fillGrowthId(context.chain.id, marketKey, oppositeOutcome);
+
+    const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+
+    if (fillGrowth && fillGrowth.totalLiquidity > 0n) {
+      const growthDelta = (rangeFilled * Q128) / fillGrowth.totalLiquidity;
+      
+      await context.db.update(schema.fillGrowthState, { id: fgId }).set({
+        fillGrowthX128: fillGrowth.fillGrowthX128 + growthDelta,
+        updatedAt: event.block.timestamp,
+      });
+    }
+  }
 });
