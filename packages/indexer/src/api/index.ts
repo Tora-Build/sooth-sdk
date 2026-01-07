@@ -5,7 +5,8 @@ import { Hono } from "hono";
 
 const app = new Hono();
 
-// Helper to serialize BigInt values to strings for JSON
+const Q128 = 2n ** 128n;
+
 function serializeBigInts<T>(obj: T): T {
   return JSON.parse(
     JSON.stringify(obj, (_, value) =>
@@ -13,6 +14,29 @@ function serializeBigInts<T>(obj: T): T {
     )
   );
 }
+
+function calculatePendingFills(
+  orderSharesTotal: bigint,
+  orderClaimedShares: bigint,
+  orderCrossingFilled: bigint,
+  orderFillGrowthLast: bigint,
+  globalFillGrowth: bigint
+): bigint {
+  if (globalFillGrowth <= orderFillGrowthLast) return 0n;
+  
+  const delta = globalFillGrowth - orderFillGrowthLast;
+  let pending = (delta * orderSharesTotal) / Q128;
+  
+  const maxFillable = orderSharesTotal - orderCrossingFilled - orderClaimedShares;
+  if (pending > maxFillable) {
+    pending = maxFillable;
+  }
+  
+  return pending > 0n ? pending : 0n;
+}
+
+const fillGrowthId = (chainId: number, marketKey: string, outcome: number) =>
+  `${chainId}-${marketKey}-${outcome}`;
 
 /**
  * Get all active orders for a market
@@ -34,7 +58,40 @@ app.get("/orders/:chainId/:marketKey", async (c) => {
     )
     .orderBy(desc(schema.order.createdAt));
 
-  return c.json(serializeBigInts(orders));
+  const fillGrowthStates = await db
+    .select()
+    .from(schema.fillGrowthState)
+    .where(
+      and(
+        eq(schema.fillGrowthState.chainId, chainId),
+        eq(schema.fillGrowthState.marketKey, marketKey)
+      )
+    );
+
+  const fillGrowthMap = new Map<number, bigint>(
+    fillGrowthStates.map((fg) => [fg.outcome, fg.fillGrowthX128] as [number, bigint])
+  );
+
+  const enrichedOrders = orders.map((order) => {
+    const globalFillGrowth = fillGrowthMap.get(order.outcome) ?? 0n;
+    const calculatedPendingShares = calculatePendingFills(
+      order.liquidity,
+      order.claimedShares,
+      order.crossingFilled,
+      order.fillGrowthLastX128,
+      globalFillGrowth
+    );
+    
+    const totalPending = order.crossingFilled - order.claimedShares + calculatedPendingShares;
+    
+    return {
+      ...order,
+      pendingShares: totalPending,
+      calculatedPendingFromGrowth: calculatedPendingShares,
+    };
+  });
+
+  return c.json(serializeBigInts(enrichedOrders));
 });
 
 /**
@@ -59,7 +116,40 @@ app.get("/orders/:chainId/:marketKey/:owner", async (c) => {
     )
     .orderBy(desc(schema.order.createdAt));
 
-  return c.json(serializeBigInts(orders));
+  const fillGrowthStates = await db
+    .select()
+    .from(schema.fillGrowthState)
+    .where(
+      and(
+        eq(schema.fillGrowthState.chainId, chainId),
+        eq(schema.fillGrowthState.marketKey, marketKey)
+      )
+    );
+
+  const fillGrowthMap = new Map<number, bigint>(
+    fillGrowthStates.map((fg) => [fg.outcome, fg.fillGrowthX128] as [number, bigint])
+  );
+
+  const enrichedOrders = orders.map((order) => {
+    const globalFillGrowth = fillGrowthMap.get(order.outcome) ?? 0n;
+    const calculatedPendingShares = calculatePendingFills(
+      order.liquidity,
+      order.claimedShares,
+      order.crossingFilled,
+      order.fillGrowthLastX128,
+      globalFillGrowth
+    );
+    
+    const totalPending = order.crossingFilled - order.claimedShares + calculatedPendingShares;
+    
+    return {
+      ...order,
+      pendingShares: totalPending,
+      calculatedPendingFromGrowth: calculatedPendingShares,
+    };
+  });
+
+  return c.json(serializeBigInts(enrichedOrders));
 });
 
 /**
