@@ -108,12 +108,6 @@ interface LiquidityMapProps {
 }
 
 const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
-  // Debug: log incoming data
-  console.log('[LiquidityMap] tickBook:', tickBook);
-  console.log('[LiquidityMap] bids:', tickBook?.bids);
-  console.log('[LiquidityMap] asks:', tickBook?.asks);
-  console.log('[LiquidityMap] allOrders:', allOrders?.length);
-  console.log('[LiquidityMap] spotSells:', spotSells?.length);
 
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
@@ -143,24 +137,16 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
     let highestBoundary = 0;
     let totalLiq = 0n;
 
-    // PRIMARY: Use allOrders from indexer (range orders)
-    console.log('[LiquidityMap] Processing orders:', allOrders?.length, 'active:', allOrders?.filter(o => o.active).length);
     if (allOrders && allOrders.length > 0) {
       for (const order of allOrders) {
         if (!order.active) continue;
-        console.log('[LiquidityMap] Order:', order.orderId.toString(), 'outcome:', order.outcome, 'tickLower:', order.tickLower, 'tickUpper:', order.tickUpper, 'sharesTotal:', order.sharesTotal.toString());
-
-        // Convert ticks to percentages (tick 1-999 maps to 0.1%-99.9%)
         const isYesOrder = order.outcome === 1;
-
-        // For NO orders (outcome=0), the tick represents where the NO order sits on the YES scale.
-        // In YES View, we want to show this as "Sell YES" at the inverted position.
-        // Example: NO order at tick 540 (54% YES) = Sell YES at 46% (100 - 54 = 46)
+        
         let lowPercent = order.tickLower / 10;
         let highPercent = order.tickUpper / 10;
 
+        // NO orders: invert position (NO at tick 800 = bid at 20% YES)
         if (!isYesOrder) {
-          // Invert NO order positions for consistent display
           const invLow = 100 - highPercent;
           const invHigh = 100 - lowPercent;
           lowPercent = invLow;
@@ -205,15 +191,13 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         if (remaining === 0n) continue;
 
         const sellIsYes = s.outcome === 1;
-        const viewIsYes = viewOutcome === 'yes';
-        const sameOutcome = sellIsYes === viewIsYes;
 
-        // Convert spot sell ticks to THIS view's percentage scale.
-        // - Same outcome: direct (e.g. sell YES at 80-99.9 shows at 80-99.9)
-        // - Opposite outcome: inverted (e.g. sell NO at 10-20 implies buy YES at 90-80)
+        // Always calculate in YES-centric coordinates (displayBuckets handles view flip)
         let lowPercent = s.tickLower / 10;
         let highPercent = s.tickUpper / 10;
-        if (!sameOutcome) {
+        
+        // NO spot sells: invert to YES-centric position
+        if (!sellIsYes) {
           const invLow = 100 - highPercent;
           const invHigh = 100 - lowPercent;
           lowPercent = invLow;
@@ -225,12 +209,9 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         const rangeSize = Math.max(1, endBucket - startBucket + 1);
         const liqPerBucket = remaining / BigInt(rangeSize);
 
-        // Encoding for existing color logic:
-        // - bucket.side === viewOutcome => green
-        // - bucket.side !== viewOutcome => red
-        const sideForColor: 'yes' | 'no' = sameOutcome
-          ? (viewIsYes ? 'no' : 'yes')
-          : (viewIsYes ? 'yes' : 'no');
+        // YES spot sell = 'no' side (red/ask in YES view)
+        // NO spot sell = 'yes' side (green/bid in YES view, because selling NO = buying YES)
+        const sideForColor: 'yes' | 'no' = sellIsYes ? 'no' : 'yes';
 
         for (let b = startBucket; b <= endBucket; b++) {
           buckets[b].liquidity += liqPerBucket;
@@ -280,19 +261,13 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
       hasYesLiq,
       hasNoLiq,
     };
-  }, [tickBook, allOrders, spotSells, currentProb, ammProb, viewOutcome]);
+  }, [tickBook, allOrders, spotSells, currentProb, ammProb]);
 
-  // Adjust for View Outcome (flip if NO)
   const displayBuckets = useMemo(() => {
     if (viewOutcome === 'yes') return buckets;
-    // Flip buckets for NO view
     return [...buckets].reverse().map(b => ({
       ...b,
       price: 100 - b.price,
-      // Flip side logic: 
-      // YES view: 'yes' = Green (Buy YES), 'no' = Red (Buy NO)
-      // NO view: 'no' = Green (Buy NO), 'yes' = Red (Buy YES -> Sell NO)
-      // So no need to change string, just rendering color logic
     }));
   }, [buckets, viewOutcome]);
 
@@ -1072,7 +1047,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                   className="flex items-center gap-2 p-2 rounded-lg border bg-slate-900/40 border-slate-800/40"
                 >
                   <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{s.sellId.toString()}</span>
-                  <span className="shrink-0 w-10 text-[9px] font-bold text-slate-400 uppercase">{sellOutcomeLabel}</span>
+                  <span className={cn("shrink-0 w-10 text-[9px] font-bold uppercase", s.outcome === 1 ? "text-emerald-400" : "text-rose-400")}>{sellOutcomeLabel}</span>
                   <span className="shrink-0 w-24 text-[11px] font-mono font-medium text-white">
                     {lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`}
                   </span>

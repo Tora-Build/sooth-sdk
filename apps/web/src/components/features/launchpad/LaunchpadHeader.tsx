@@ -1,44 +1,112 @@
-import { HelpCircle, X, Rocket } from 'lucide-react';
+import { HelpCircle, X, Rocket, Sparkles, Zap, TrendingUp, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../../lib/utils';
-import { Link } from 'react-router-dom';
 
 export const LaunchpadHeader = () => {
     const [showHint, setShowHint] = useState(false);
 
     return (
-        <div className="space-y-4 mb-8">
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
-                        <Rocket className="w-6 h-6" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Launchpad</h1>
-                    <button
-                        onClick={() => setShowHint(!showHint)}
-                        className={cn(
-                            "p-1.5 rounded-lg transition-all",
-                            showHint
-                                ? "bg-slate-700 text-white"
-                                : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
-                        )}
-                    >
-                        {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Link to="/trade" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">
-                        Cancel
-                    </Link>
-                </div>
+        <div className="relative overflow-hidden rounded-3xl">
+            <div className="absolute inset-0 -z-10">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-fuchsia-600/20 to-orange-500/30" />
+                <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-500/40 rounded-full blur-[100px] animate-pulse" />
+                <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-fuchsia-500/30 rounded-full blur-[80px] animate-pulse [animation-delay:1s]" />
+                <div className="absolute top-1/2 right-0 w-[300px] h-[300px] bg-orange-500/25 rounded-full blur-[60px] animate-pulse [animation-delay:2s]" />
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50" />
             </div>
+            
+            <div className="relative px-8 py-14 backdrop-blur-xl border border-white/10 bg-black/20">
+                <div className="flex items-start justify-between gap-8">
+                    <div className="space-y-6 max-w-2xl">
+                        <div className="flex items-center gap-3">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-500/30 to-fuchsia-500/30 border border-violet-400/40 backdrop-blur-sm">
+                                <Sparkles className="w-4 h-4 text-violet-300 animate-pulse" />
+                                <span className="text-sm font-bold text-violet-200 uppercase tracking-wider">Create Market</span>
+                            </div>
+                            <div className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30">
+                                <span className="text-xs font-bold text-emerald-300">EARN 5% FEES</span>
+                            </div>
+                        </div>
+                        
+                        <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[1.1]">
+                            <span className="text-white drop-shadow-2xl">Launch Your</span>
+                            <br />
+                            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent animate-gradient-cycle bg-[length:200%_auto]">
+                                Prediction Market
+                            </span>
+                        </h1>
+                        
+                        <p className="text-xl text-white/60 leading-relaxed">
+                            Create a verifiable truth market in <span className="text-white font-semibold">60 seconds</span>. 
+                            Seed liquidity, set your oracle, and start earning from day one.
+                        </p>
+                        
+                        <p className="text-lg text-emerald-400 font-semibold">
+                            Traders earn LP tokens too — everyone wins!
+                        </p>
 
-            {showHint && (
-                <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-400 leading-relaxed animate-in fade-in slide-in-from-top-1">
-                    Launch a verifiable truth market in seconds. By depositing initial liquidity (USDC), you seed both the <strong>Orderbook</strong> and <strong>AMM</strong> with "Spot-First" liquidity, earning 5% fees on early volume.
+                        <div className="flex items-center gap-6 pt-2">
+                            <div className="flex items-center gap-2 text-sm text-white/50">
+                                <Zap className="w-4 h-4 text-yellow-400" />
+                                <span>Instant Deploy</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-white/50">
+                                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                <span>Auto Liquidity</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-white/50">
+                                <Shield className="w-4 h-4 text-blue-400" />
+                                <span>Trustless</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="hidden lg:block relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-500 rounded-3xl blur-2xl opacity-60 animate-pulse" />
+                        <div className="relative p-8 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 backdrop-blur-sm">
+                            <div className="relative">
+                                <Rocket className="w-20 h-20 text-white drop-shadow-2xl" />
+                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-4 bg-gradient-to-t from-orange-500/80 to-transparent blur-sm rounded-full" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            )}
+                
+                <button
+                    onClick={() => setShowHint(!showHint)}
+                    className={cn(
+                        "mt-8 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300",
+                        showHint
+                            ? "bg-white/15 text-white border border-white/30 shadow-lg shadow-white/10"
+                            : "text-white/50 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/20"
+                    )}
+                >
+                    {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
+                    {showHint ? 'Got it' : 'How does it work?'}
+                </button>
+                
+                {showHint && (
+                    <div className="mt-6 p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="grid sm:grid-cols-3 gap-6">
+                            <div className="space-y-3 group">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-violet-500/30 group-hover:scale-110 transition-transform">1</div>
+                                <h3 className="font-bold text-white">Define Question</h3>
+                                <p className="text-sm text-white/50 leading-relaxed">Create a yes/no question with clear resolution criteria.</p>
+                            </div>
+                            <div className="space-y-3 group">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 flex items-center justify-center text-white font-bold shadow-lg shadow-fuchsia-500/30 group-hover:scale-110 transition-transform">2</div>
+                                <h3 className="font-bold text-white">Set Oracle</h3>
+                                <p className="text-sm text-white/50 leading-relaxed">Choose who resolves the market and optional guardian veto.</p>
+                            </div>
+                            <div className="space-y-3 group">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg shadow-orange-500/30 group-hover:scale-110 transition-transform">3</div>
+                                <h3 className="font-bold text-white">Fund & Launch</h3>
+                                <p className="text-sm text-white/50 leading-relaxed">Deposit USDC to seed liquidity and start earning 5% fees.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
