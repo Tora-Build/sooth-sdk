@@ -6,7 +6,7 @@ export const Footer = () => {
       <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
         <div className="flex items-center gap-4">
           <img src="/sooth-logo.svg" alt="Sooth" className="w-6 h-6 opacity-50" />
-          <span className="font-mono text-slate-500">© 2025 Sooth Protocol | v9.9.6-fix9L</span>
+          <span className="font-mono text-slate-500">© 2025 Sooth Protocol | V10.6</span>
         </div>
         
         <div className="flex items-center gap-6 font-mono text-slate-500">

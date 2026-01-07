@@ -15,18 +15,26 @@ export default createConfig({
       rpc: process.env.MONAD_TESTNET_RPC_URL 
         ?? "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/",
     },
+    arcTestnet: {
+      id: 5042002,
+      rpc: process.env.ARC_TESTNET_RPC_URL ?? "https://rpc.testnet.arc.network",
+    },
   },
   contracts: {
     TickBookPoolManager: {
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0x34a3d25e23d110da28b376591ee2e478157441f5",
-          startBlock: 35_970_263,
+          address: "0x1b6c55c70ae4dafdc8cda646af83bb3554dac388",
+          startBlock: 35_975_490,
         },
         monadTestnet: {
-          address: "0x40c9032c2a4d29d7f85ae8f4b7864d22c781b4b4",
-          startBlock: 4_432_510,
+          address: "0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0",
+          startBlock: 4_457_270,
+        },
+        arcTestnet: {
+          address: "0xb59bd815986b21a799ef2845a0ab568aa6616e41",
+          startBlock: 20_376_149,
         },
       },
     },

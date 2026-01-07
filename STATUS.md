@@ -1,11 +1,12 @@
 # Project Status
 
 ## Current Focus
-- **V10.4 MERGED (2026-01-06)** — RFC-001 spot fill gas optimization merged from `spot-fill-gas-opt` branch. Awaiting deployment.
-- **V10.3.1 DEPLOYED (2026-01-06)** — MAX_TICK boundary fix deployed to Base Sepolia + Monad Testnet.
+- **V10.6 DEPLOYED (2026-01-07)** — Dust order visibility fix. Orders with <1000 wei unfilled now stay `active=true`.
 - **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable. Deployed to Base Sepolia + Monad. Indexer updated with new addresses.
+- **2026-01-07** — **FE Order Actions UX**: Both Cancel + Claim buttons now always visible with disabled states when not applicable. Unified button positions across all order types.
 - **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
 - **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
 - **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
@@ -98,29 +99,29 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.4
+### Base Sepolia (chainId: 84532) — V10.6
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x427be97e230a55039990eee66951f256511bb292` |
-| **Collateralizer** | `0xcb1c1a5ccd9a1846fffb9072cfdbf30051628319` |
-| **AMMEngine** | `0x15269aced65616ebfcd5690e6b8c702150012133` |
-| **TickBookVault** | `0xe8a0d8cccc15d5b82b555dab7f32f11579aa13b0` |
-| **LaunchpadEngine** | `0x1072d1daae1d7454ffcdfce9b684c58379a86192` |
-| **MockUSDC** | `0xfa62cb28bbcf5d5edf3322e66abdf8ecf15d9e7f` |
+| **TickBookPoolManager** | `0x1b6c55c70ae4dafdc8cda646af83bb3554dac388` |
+| **Collateralizer** | `0x1971f1135bef978393f7e736082844bb907e9545` |
+| **AMMEngine** | `0x088c0a1b703ef8380b3ca4e7c51aa1d0f89a1eaf` |
+| **TickBookVault** | `0x576020da46e4c2be45d6c722b3670e02fb9bb217` |
+| **LaunchpadEngine** | `0xb9663ede9c60d4a173b7ae777d097e86e078bca4` |
+| **MockUSDC** | `0x9f5d25d19595e9df513a3172c778174df18bd105` |
 
-**Note:** V10.4 deployment (2026-01-06). Includes RFC-001 spot fill gas optimization (ADR-075).
+**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
 
-### Monad Testnet (chainId: 10143) — V10.4
+### Monad Testnet (chainId: 10143) — V10.6
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x7e42f86b66061725c5da6c0282f4273b20a1e940` |
-| **Collateralizer** | `0xfeac27914b87ccc089ed6695262df6d9e5e7ac24` |
-| **AMMEngine** | `0x7a03737cf4c696d8514022be3346cdb8bf3f00fd` |
-| **TickBookVault** | `0x28101ee3a5764cdb08da83415e2254cb51a90a32` |
-| **LaunchpadEngine** | `0x3b52f8210492d28a3f78555b5df886151eee5315` |
-| **MockUSDC** | `0xe5b7ff9e8cdb77397c1dae023968af3020d9d31c` |
+| **TickBookPoolManager** | `0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0` |
+| **Collateralizer** | `0x06b1a993347e188a923b7e0c85f77ed7d83cced5` |
+| **AMMEngine** | `0x01ba0503fdbe582d78e49f135aed1a175c788add` |
+| **TickBookVault** | `0x557747e57a465c261a56ddbc7e7df8a331f7e093` |
+| **LaunchpadEngine** | `0xbd20f66effc9a0d908283871d546de0b6e3d160e` |
+| **MockUSDC** | `0xd9e25839396b7393fb79c620c8ee05bdbdab5789` |
 
-**Note:** V10.4 deployment (2026-01-06). Includes RFC-001 spot fill gas optimization (ADR-075).
+**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
 
 
 ---
@@ -292,4 +293,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-06*
+*Last updated: 2026-01-07*

@@ -1009,26 +1009,32 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                   {/* Spacer */}
                   <div className="flex-1" />
 
-                  {/* Actions: Cancel for open, Claim for fully filled */}
-                  <div className="shrink-0 w-14 flex items-center justify-end">
-                    {isFullyFilled || hasPendingFills ? (
-                      <button
-                        onClick={() => handleClaimFills(order.orderId)}
-                        disabled={actionInProgress === `claim-${orderId}`}
-                        className="h-5 px-2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center"
-                      >
-                        {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleCancelOrder(order.orderId)}
-                        disabled={actionInProgress === `cancel-${orderId}`}
-                        className="h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center"
-                        title="Cancel order (claims any pending fills)"
-                      >
-                        {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
-                      </button>
-                    )}
+                  <div className="shrink-0 flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => handleClaimFills(order.orderId)}
+                      disabled={actionInProgress === `claim-${orderId}` || (!isFullyFilled && !hasPendingFills)}
+                      className={cn(
+                        "h-5 px-2 rounded text-[9px] font-bold border transition-colors flex items-center justify-center",
+                        (isFullyFilled || hasPendingFills)
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                          : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
+                      )}
+                    >
+                      {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+                    </button>
+                    <button
+                      onClick={() => handleCancelOrder(order.orderId)}
+                      disabled={actionInProgress === `cancel-${orderId}` || isFullyFilled}
+                      className={cn(
+                        "h-5 px-2 rounded text-[9px] font-bold border transition-colors flex items-center justify-center",
+                        !isFullyFilled
+                          ? "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
+                          : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
+                      )}
+                      title="Cancel order and claim fills"
+                    >
+                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                    </button>
                   </div>
                 </div>
               );
@@ -2255,7 +2261,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             onCancelSpotSell={cancelSpotSell}
           />
           {ordersSource && (
-            <div className="flex justify-end -mt-2">
+            <div className="flex justify-end -mt-2 mr-2">
               <span className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium",
                 ordersSource === 'indexer'

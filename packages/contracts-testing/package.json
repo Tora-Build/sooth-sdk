@@ -16,7 +16,8 @@
     "graduate": "bun run script/markets/graduate-market.ts",
     "interactive": "bun run script/interactive/interactive-test.ts",
     "interactive:base": "bun run script/interactive/interactive-test.ts --chain=baseSepolia",
-    "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet"
+    "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet",
+    "interactive:arc": "bun run script/interactive/interactive-test.ts --chain=arcTestnet"
   },
   "dependencies": {
     "viem": "^2.21.0",
