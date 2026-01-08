@@ -134,7 +134,34 @@ uint256 usdcAmount = wadAmount / 1e12;
 | `/coordinator` | End of session, sync docs |
 | `/evm-dev` | Solidity development |
 | `/frontend-dev` | React/TypeScript + UI/UX |
+| `/deploy` | Deploy contracts to testnets |
 | `/deploy-sync` | After contract deployment |
+
+## Skills (Specialized Knowledge)
+
+| Skill | When to Use |
+|-------|-------------|
+| `/gas-optimizer` | Gas analysis, storage optimization, snapshot comparison |
+| `/security-scan` | Pre-audit security checks, Slither analysis, vulnerability review |
+| `/synpress-e2e` | Wallet-connected E2E tests, MetaMask automation |
+| `/ponder-gen` | Generate Ponder indexer handlers from ABIs |
+| `/webapp-testing` | Playwright browser automation, UI testing |
+| `/frontend-design` | UI/UX design, avoiding generic aesthetics |
+| `/repo-maintenance` | Versioning, CHANGELOG, deployment sync |
+
+## MCP Servers (External Tools)
+
+This project includes `.mcp.json` with pre-configured MCP servers:
+
+| Server | Purpose |
+|--------|---------|
+| `foundry` | Forge/Cast/Anvil integration for Solidity development |
+| `slither` | Trail of Bits static analysis for security |
+| `context7` | Up-to-date library documentation |
+| `git` | Git repository operations |
+| `filesystem` | Secure file operations |
+
+To use: Ensure MCP servers are installed (`npx`, `uvx` available).
 
 ## Key Files
 

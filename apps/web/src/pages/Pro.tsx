@@ -113,15 +113,15 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
     const numBuckets = 150;
-    const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
+    const bucketData: { price: number; yesLiq: bigint; noLiq: bigint }[] = [];
     const currentTickPercent = currentProb * 100;
 
     // Initialize empty buckets
     for (let i = 0; i < numBuckets; i++) {
-      buckets.push({
+      bucketData.push({
         price: ((i + 1) * 100) / numBuckets, // 1.25% to 100%
-        liquidity: 0n,
-        side: 'none'
+        yesLiq: 0n,
+        noLiq: 0n,
       });
     }
 
@@ -145,7 +145,6 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         let lowPercent = order.tickLower / 10;
         let highPercent = order.tickUpper / 10;
 
-        // NO orders: invert position (NO at tick 800 = bid at 20% YES)
         if (!isYesOrder) {
           const invLow = 100 - highPercent;
           const invHigh = 100 - lowPercent;
@@ -157,21 +156,21 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         const endBucket = Math.min(numBuckets - 1, Math.floor((highPercent / 100) * numBuckets));
         const rangeSize = Math.max(1, endBucket - startBucket + 1);
 
-        // Use remaining liquidity (total - claimed - pending)
         const totalFilled = order.filledShares + order.pendingShares;
         const remainingLiq = order.sharesTotal > totalFilled
           ? order.sharesTotal - totalFilled
           : 0n;
 
-        // Skip 100% filled orders - they have no remaining liquidity
         if (remainingLiq === 0n) continue;
 
         const liqPerBucket = remainingLiq / BigInt(rangeSize);
 
         for (let b = startBucket; b <= endBucket; b++) {
-          buckets[b].liquidity += liqPerBucket;
-          // NO orders in YES view represent "Sell YES" liquidity (red/ask side)
-          buckets[b].side = isYesOrder ? 'yes' : 'no';
+          if (isYesOrder) {
+            bucketData[b].yesLiq += liqPerBucket;
+          } else {
+            bucketData[b].noLiq += liqPerBucket;
+          }
         }
 
         totalLiq += remainingLiq;
@@ -180,9 +179,6 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
       }
     }
 
-    // Spot sells (asks) and their implied opposite bids.
-    // - If the spot sell outcome matches viewOutcome, it is an ASK (red) on this view.
-    // - If it is the opposite outcome, it implies a BID (green) on this view at the inverted price.
     if (spotSells && spotSells.length > 0) {
       for (const s of spotSells) {
         if (!s.active) continue;
@@ -192,11 +188,9 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
 
         const sellIsYes = s.outcome === 1;
 
-        // Always calculate in YES-centric coordinates (displayBuckets handles view flip)
         let lowPercent = s.tickLower / 10;
         let highPercent = s.tickUpper / 10;
         
-        // NO spot sells: invert to YES-centric position
         if (!sellIsYes) {
           const invLow = 100 - highPercent;
           const invHigh = 100 - lowPercent;
@@ -209,13 +203,12 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         const rangeSize = Math.max(1, endBucket - startBucket + 1);
         const liqPerBucket = remaining / BigInt(rangeSize);
 
-        // YES spot sell = 'no' side (red/ask in YES view)
-        // NO spot sell = 'yes' side (green/bid in YES view, because selling NO = buying YES)
-        const sideForColor: 'yes' | 'no' = sellIsYes ? 'no' : 'yes';
-
         for (let b = startBucket; b <= endBucket; b++) {
-          buckets[b].liquidity += liqPerBucket;
-          buckets[b].side = sideForColor;
+          if (sellIsYes) {
+            bucketData[b].noLiq += liqPerBucket;
+          } else {
+            bucketData[b].yesLiq += liqPerBucket;
+          }
         }
 
         totalLiq += remaining;
@@ -224,18 +217,23 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
       }
     }
 
-    // Fallback: If we have active liquidity but couldn't match boundaries, spread across range
     if (totalLiq === 0n && (activeLiqYes > 0n || activeLiqNo > 0n)) {
-      // Spread active liquidity across the entire range
-      const liqPerBucket = (activeLiqYes + activeLiqNo) / BigInt(numBuckets);
+      const yesPerBucket = activeLiqYes / BigInt(numBuckets);
+      const noPerBucket = activeLiqNo / BigInt(numBuckets);
       for (let b = 0; b < numBuckets; b++) {
-        buckets[b].liquidity = liqPerBucket;
-        buckets[b].side = activeLiqYes > activeLiqNo ? 'yes' : 'no';
+        bucketData[b].yesLiq = yesPerBucket;
+        bucketData[b].noLiq = noPerBucket;
       }
       totalLiq = activeLiqYes + activeLiqNo;
       lowestBoundary = 0;
       highestBoundary = 100;
     }
+
+    const buckets = bucketData.map(b => ({
+      price: b.price,
+      liquidity: b.yesLiq + b.noLiq,
+      side: (b.yesLiq > b.noLiq ? 'yes' : b.noLiq > 0n ? 'no' : 'none') as 'yes' | 'no' | 'none',
+    }));
 
     // Find max liquidity for normalization
     const rawMaxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 0n);
@@ -244,9 +242,8 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
     const minScale = parseUnits('50', 18);
     const maxLiq = rawMaxLiq > minScale ? rawMaxLiq : minScale;
 
-    // Determine available liquidity range for display
-    const hasYesLiq = activeLiqYes > 0n || buckets.some(b => b.side === 'yes');
-    const hasNoLiq = activeLiqNo > 0n || buckets.some(b => b.side === 'no');
+    const hasYesLiq = activeLiqYes > 0n || bucketData.some(b => b.yesLiq > 0n);
+    const hasNoLiq = activeLiqNo > 0n || bucketData.some(b => b.noLiq > 0n);
 
     return {
       buckets: buckets.map(b => ({
@@ -472,6 +469,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
   const userSpotSells = useMemo(() => {
     const addr = userAddress?.toLowerCase();
     if (!addr || !spotSells) return [];
+    
     return spotSells
       .filter((s) => s.active && s.owner.toLowerCase() === addr)
       .sort((a, b) => Number(b.sellId - a.sellId));
@@ -871,17 +869,17 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
         )}
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Shows vault internal positions, NOT order totals */}
       {(yesShares !== undefined || noShares !== undefined) && (
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="py-1.5 px-2 rounded-lg bg-emerald-950/10 border border-emerald-900/20">
-            <div className="text-[9px] text-emerald-500/80 uppercase font-bold">YES</div>
+            <div className="text-[9px] text-emerald-500/80 uppercase font-bold">YES Position</div>
             <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(yesShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
           <div className="py-1.5 px-2 rounded-lg bg-rose-950/10 border border-rose-900/20">
-            <div className="text-[9px] text-rose-500/80 uppercase font-bold">NO</div>
+            <div className="text-[9px] text-rose-500/80 uppercase font-bold">NO Position</div>
             <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(noShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
