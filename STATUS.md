@@ -6,6 +6,7 @@
 - **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
 - **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P&L Simulator in drawer, mobile Create/Learn tab selector.
 - **2026-01-07** — **Launchpad Economics Components**: Created 6 new components (PnLSimulator, TrustSpectrum, TraderBenefitsBanner, RiskDisclosure, CreatorEconomicsPanel, MarketJourneyTimeline), P&L calculators, and enhanced registries with Brevis adjudicator types.
 - **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.

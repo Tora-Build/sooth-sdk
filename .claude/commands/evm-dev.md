@@ -8,9 +8,9 @@ You are acting as an **EVM Protocol Developer** for Sooth Protocol — focused o
 
 ## Your Scope
 
-- `packages/contracts-evm/contracts/` — Solidity contracts
-- `packages/contracts-evm/test/` — Foundry tests
-- `packages/contracts-evm/script/` — Deployment scripts
+- `packages/contracts-core/` — Solidity contracts (audit scope)
+- `packages/contracts-testing/` — Foundry tests, CLI, benchmarks
+- `packages/contracts-core/script/` — Deployment scripts
 
 ## Preload
 
@@ -24,54 +24,73 @@ You are acting as an **EVM Protocol Developer** for Sooth Protocol — focused o
 4. **Gas Awareness**: Consider gas costs in all implementations
 5. **Security Focus**: Check for reentrancy, access control, overflow
 
-## Key Contracts
+## Key Contracts (V10 Architecture)
 
 | Contract | Purpose |
 |----------|---------|
-| `SoothMarketV4.sol` | Main market with AMM + orderbook |
-| `SoothTraderVault.sol` | Singleton vault for trader positions |
-| `SoothGovernorVault.sol` | LP vault for liquidity |
-| `SoothLMSRReal.sol` | LMSR pricing algorithm (59.18 fixed-point) |
-| `TickLMSR.sol` | Tick-based LMSR for V4 |
+| `TickBookPoolManager.sol` | Unified orderbook with spot-first crossing |
+| `TickBookVault.sol` | User fund custody (USDC + outcome tokens) |
+| `LaunchpadEngine.sol` | Market creation + graduation mechanics |
+| `AMMEngine.sol` | LMSR trading for pre-graduation markets |
+| `Collateralizer.sol` | Token split/merge/redeem operations |
+| `TruthMarket.sol` | Canonical lifecycle + settlement authority |
+| `DynamicFeeHook.sol` | Fee calculation based on market state |
 
 ## Common Workflows
 
 ### Build & Test
 
 ```bash
-cd packages/contracts-evm
+cd packages/contracts-core
 forge build
+
+cd packages/contracts-testing
 forge test
 forge test -vvv  # verbose
 forge test --match-test "testSpecificFunction"
+forge test --match-path test/v10/UnifiedCrossing.t.sol
 ```
 
 ### Deploy
 
 ```bash
-# Dry run
-forge script script/DeployV4Markets.s.sol --rpc-url $RPC_URL
+cd packages/contracts-core
 
-# Broadcast
-forge script script/DeployV4Markets.s.sol --rpc-url $RPC_URL --broadcast
+# Deploy to specific chains
+bun run script/deploy-multichain.ts --chains=baseSepolia
+bun run script/deploy-multichain.ts --chains=monadTestnet,arcTestnet
 ```
 
 ### After Contract Changes
 
 1. Update interface if signature changed
 2. Rebuild ABIs: `forge build`
-3. Sync to frontend: `./sync-deployments.sh`
+3. Sync to frontend: `./apps/web/scripts/sync-deployments.sh`
 
 ## Code Standards
 
 - Use OpenZeppelin for standard patterns
-- PRBMath for fixed-point math
 - Custom errors over require strings
 - Events for all state changes
 - NatSpec comments on public functions
+- All math in WAD (1e18), convert at USDC boundary
 
-## Current Architecture
+## V10 Unified Crossing Architecture
 
-- **V4**: Tick-based AMM with 1000 discrete price points
-- **Singleton Vaults**: One TraderVault, one GovernorVault per deployment
-- **ERC1155**: Position tokens (planned for V5)
+```
+TruthMarket (lifecycle + settlement)
+  ↑ (queried by)
+LaunchpadEngine (creator economics, graduation mechanics)
+  ↓ (delegates to)
+AMMEngine (LMSR positions for pre-graduation)
+TickBookPoolManager (unified orderbook: spot + range liquidity)
+  ↓ (manages)
+TickBookVault (USDC + outcome token custody)
+Collateralizer (split/merge/redeem for graduated markets)
+```
+
+## Related Skills
+
+- `/gas-optimizer` — Gas analysis and optimization
+- `/security-scan` — Slither analysis and vulnerability review
+- `/deploy` — Multi-chain deployment workflow

@@ -4,6 +4,15 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### LiquidityMap Color Fix (2026-01-09)
+- **Bug Fix**: Fixed bucket side overwrite bug in `LiquidityMap` component where the last-processed order determined the bucket color, causing YES buy orders to incorrectly display as "Sell YES" (red) when a wide-range NO order also covered that price bucket.
+- **Solution**: Now tracks `yesLiq` and `noLiq` separately per bucket and determines color based on which liquidity type is dominant.
+- **RPC Fallback**: Added RPC fallback for spot sells in `useSpotSellsIndexed.ts` - queries chain directly when indexer unavailable.
+- **Cleanup**: Removed debug logging from `useSpotSellsIndexed.ts` and `Pro.tsx`.
+- **Files Changed**:
+  - `apps/web/src/pages/Pro.tsx` — LiquidityMap bucket tracking refactored
+  - `apps/web/src/hooks/indexer/useSpotSellsIndexed.ts` — Added RPC fallback, removed debug logs
+
 ### Launchpad UI Overhaul (2026-01-07)
 - **Two-Column Layout**: Refactored `Launchpad.tsx` with sticky form (left) + scrollable context (right).
 - **P&L Simulator Drawer**: Moved 4-archetype P&L simulator into slide-out drawer (triggered by button).
