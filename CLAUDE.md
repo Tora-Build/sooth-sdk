@@ -6,6 +6,8 @@ Prediction market protocol with LMSR AMM and orderbook trading.
 
 @.claude/rules/knowledge.md
 @.claude/rules/lessons.md
+@.claude/rules/ui-patterns.md
+@.claude/rules/protected.md
 
 ## Commands
 
