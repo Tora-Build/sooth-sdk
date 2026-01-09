@@ -12,6 +12,7 @@
     "test": "turbo run test",
     "test:contracts": "pnpm --filter contracts-testing test",
     "deploy:contracts": "pnpm --filter contracts-core deploy",
+    "deploy:full": "./scripts/deploy-and-sync.sh",
     "benchmark": "pnpm --filter contracts-testing benchmark",
     "interactive:base": "pnpm --filter contracts-testing interactive:base",
     "interactive:monad": "pnpm --filter contracts-testing interactive:monad",

@@ -56,11 +56,33 @@ This led to fractured liquidity and suboptimal price discovery.
 
 ### Benefits
 | Aspect | V9 | V10 |
-|--------|----|----|
+|--------|----|---|
 | Liquidity Sources | Separate | Unified |
 | Token Velocity | Low | High |
 | Capital Efficiency | ~70% | ~95% |
 | Price Discovery | Good | Optimal |
+
+### V10.7: Full-Range Spot Sell Search (Critical Fix)
+
+**Issue Found** (Jan 2026): V10.0-V10.6 had a bug where spot sells at better prices were missed during crossing.
+
+**Root Cause**: The crossing logic passed a narrow "overlap range" to the spot fill function, which only searched for spot sells near the market-clearing price. Spot sells at **better prices** (lower ask prices) outside this range were never found.
+
+**Example of Bug**:
+```
+Alice: NO spot sell at 10-11% (asking low price)
+Bob:   NO buy order up to 50% (willing to pay high price)
+
+Expected: Alice's sell should cross (10% < 50%)
+Bug:      Alice's sell was missed (outside narrow overlap range)
+```
+
+**Fix (V10.7)**:
+- Spot fill now searches buyer's **full tick range**, not just the overlap
+- All spot sells within buyer's price tolerance are now found
+- Gas increased slightly (~11k) due to wider search, but correctness improved
+
+**Impact**: Orders placed between V10.0-V10.6 may have incomplete fills. On mainnet, would justify a `retryCrossing()` function. On testnet, users can cancel + re-place.
 
 ---
 

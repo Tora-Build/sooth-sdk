@@ -2233,24 +2233,6 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             noShares={vault?.noInternal}
             onCancelSpotSell={cancelSpotSell}
           />
-          {ordersSource && (
-            <div className="flex justify-end -mt-2 mr-2">
-              <span className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium",
-                ordersSource === 'indexer'
-                  ? "bg-emerald-950/50 text-emerald-500/70 border border-emerald-900/30"
-                  : "bg-amber-950/50 text-amber-500/70 border border-amber-900/30"
-              )}>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  ordersSource === 'indexer' ? "bg-emerald-500" : "bg-amber-500"
-                )} />
-                {ordersSource === 'indexer' ? 'Indexer' : 'RPC'}
-              </span>
-            </div>
-          )}
-
-
         </div>
 
         {/* RIGHT COLUMN: Vault Card + Trading Panel (40%) */}

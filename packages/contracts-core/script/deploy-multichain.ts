@@ -35,24 +35,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load .env file if present
-const envPath = path.join(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf-8');
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const eqIndex = trimmed.indexOf('=');
-      if (eqIndex > 0) {
-        const key = trimmed.slice(0, eqIndex);
-        const value = trimmed.slice(eqIndex + 1);
-        if (!process.env[key]) {
-          process.env[key] = value;
+
+const envPaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '../../.env'),
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.slice(0, eqIndex);
+          const value = trimmed.slice(eqIndex + 1);
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
         }
       }
     }
+    console.log(`📁 Loaded .env from ${envPath}`);
+    break;
   }
-  console.log('📁 Loaded .env file');
 }
+
 
 import {
   getChainConfig,
@@ -61,7 +70,7 @@ import {
   type DeploymentArtifact,
 } from './chainConfigs.js';
 
-const DEPLOYMENT_VERSION = 'V10.6';
+const DEPLOYMENT_VERSION = 'V10.7';
 
 // ============================================
 // Artifact Loading

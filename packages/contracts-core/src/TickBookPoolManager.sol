@@ -1110,8 +1110,24 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         // PHASE 1: Fill spot liquidity FIRST (recycle existing tokens)
         // Note: For spot sells, we want the SAME outcome as buyer (buyer wants YES, needs YES spot sells)
+        // V10.5: Pass buyer's FULL tick range for spot fills, not just the overlap
+        // Spot sells should be filled at ANY price the buyer is willing to accept
+        // The overlap range is only relevant for range-vs-range crossing
+        uint16 buyerYesLow;
+        uint16 buyerYesHigh;
+        if (newOrder.outcome == 1) {
+            // YES buyer: their ticks are already in YES space
+            buyerYesLow = newOrder.tickLower;
+            buyerYesHigh = newOrder.tickUpper;
+        } else {
+            // NO buyer: convert their NO ticks to YES-equivalent for consistent interface
+            // NO tick 1-500 means willing to pay 0.1%-50% for NO = accepting 50%-99.9% YES
+            buyerYesLow = MAX_TICK + 1 - newOrder.tickUpper;  // 1000 - 500 = 500
+            buyerYesHigh = MAX_TICK + 1 - newOrder.tickLower; // 1000 - 1 = 999
+        }
+        
         result.spotFilled = _fillSpotLiquidity(
-            marketKey, m, newOrder.owner, newOrder.outcome, newOrder.outcome, overlapLow, overlapHigh, newOrderSharesInOverlap
+            marketKey, m, newOrder.owner, newOrder.outcome, newOrder.outcome, buyerYesLow, buyerYesHigh, newOrderSharesInOverlap
         );
         
         if (result.spotFilled > 0) {
@@ -1288,8 +1304,26 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     ) internal returns (uint256 filled) {
         uint256 remaining = maxToFill;
         
+        // V10.4: Convert overlap range to native tick space for seller outcome
+        // overlapLow/overlapHigh are in YES-equivalent tick space from _calculateOverlap
+        // For NO spot sells (sellerOutcome == 0), we need to convert to NO-native ticks
+        // YES tick Y corresponds to NO tick (1000 - Y)
+        uint16 iterLow = overlapLow;
+        uint16 iterHigh = overlapHigh;
+        
+        if (sellerOutcome == 0) {
+            // NO spot sells: convert YES-equivalent to NO-native ticks
+            // If YES overlap is [500, 999], NO native range is [1, 500]
+            iterLow = overlapHigh <= MAX_TICK ? MAX_TICK + 1 - overlapHigh : MIN_TICK;
+            iterHigh = overlapLow >= MIN_TICK ? MAX_TICK + 1 - overlapLow : MAX_TICK;
+            // Ensure iterLow <= iterHigh after conversion
+            if (iterLow > iterHigh) {
+                (iterLow, iterHigh) = (iterHigh, iterLow);
+            }
+        }
+        
         // RFC-001: Iterate through ticks in overlap range instead of all historical IDs
-        for (uint16 t = overlapLow; t <= overlapHigh && remaining > 0; t++) {
+        for (uint16 t = iterLow; t <= iterHigh && remaining > 0; t++) {
             uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
             uint256 len = sellIds.length;
             
@@ -1300,9 +1334,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 if (!spotOrder.active) continue;
                 
                 // RFC-001: Process each order exactly once at its "canonical" tick
-                // The canonical tick is max(tickLower, overlapLow) - the first tick where
-                // this order becomes relevant to this fill operation
-                uint16 canonicalTick = spotOrder.tickLower > overlapLow ? spotOrder.tickLower : overlapLow;
+                // The canonical tick is max(tickLower, iterLow) - the first tick where
+                // this order becomes relevant to this fill operation (in native tick space)
+                uint16 canonicalTick = spotOrder.tickLower > iterLow ? spotOrder.tickLower : iterLow;
                 if (t != canonicalTick) continue;
                 
                 uint256 available = spotOrder.sharesTotal - spotOrder.sharesFilled;
