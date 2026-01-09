@@ -1,1 +1,0 @@
-../../.claude/commands/deploy-sync.md
