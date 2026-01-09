@@ -1,1 +1,1 @@
-../../.claude/commands/preflight.md
+/Users/danieltang/.claude/skills/preflight/SKILL.md
