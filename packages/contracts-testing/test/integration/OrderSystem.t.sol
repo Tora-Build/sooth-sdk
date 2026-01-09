@@ -341,7 +341,8 @@ contract UnifiedOrderSystemTest is Test {
         uint256 gasUsed = gasBefore - gasleft();
 
         emit log_named_uint("Gas used (no existing orders)", gasUsed);
-        assertLt(gasUsed, 350_000, "Gas should be reasonable");
+        // V10.5: Gas increased slightly due to full-range spot sell search
+        assertLt(gasUsed, 370_000, "Gas should be reasonable");
     }
 
     function test_PlaceOrder_GasBenchmark_With3ExistingOrders() public {

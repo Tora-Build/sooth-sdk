@@ -346,18 +346,7 @@ function printHelp(): void {
       withdraw <amount>    Withdraw USDC from vault
       reserved             Show reserved balance details
 
-    ${info('Orderbook (V10 Unified Order API):')}
-      order <side> <range> <shares>   Place order (range, limit, or market)
-                                      Range:  order yes 40-60 100
-                                      Limit:  order yes 50 100
-                                      Market: order yes 1-999 100
-      cancel <orderId>                Cancel order
-      claim <orderId>                 Claim fills
-      market buy|sell <side> <shares> Market order shortcut
-                                      Example: market buy no 50
-      orders [actor]                  List orders
-
-    ${info('State:')}
+    ${info('Orderbook (V10 Unified Order API):')}\n      order <side> <range> <shares>   Place order (range, limit, or market)\n                                      Range:  order yes 40-60 100\n                                      Limit:  order yes 50 100\n                                      Market: order yes 1-999 100\n      cancel <orderId>                Cancel order\n      claim <orderId>                 Claim fills\n      market buy|sell <side> <shares> Market order shortcut\n                                      Example: market buy no 50\n      orders [actor]                  List orders\n\n    ${info('Spot Sells:')}\n      spotsell <side> <tickRange> <shares>  Place spot sell order\n                                            Example: spotsell no 100-110 1000\n      spotsells                             List all spot sell orders\n      cancelspotsell <sellId>               Cancel a spot sell\n      claimspotsell <sellId>                Claim proceeds from spot sell\n      hybridsell <side> <amount> <tickLow> <tickHigh>  Hybrid sell\n\n    ${info('State:')}
       state                Show market state (tick, liquidity)
       book [depth]         Show orderbook
       positions            Show all actor positions
@@ -508,6 +497,30 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'getorder':
         await run(orderbookCommands.getorder(ctx, args));
+        break;
+
+      case 'spotsell':
+        await run(orderbookCommands.spotsell(ctx, args));
+        break;
+
+      case 'cancelspotsell':
+        await run(orderbookCommands.cancelspotsell(ctx, args));
+        break;
+
+      case 'buyspotsell':
+        await run(orderbookCommands.buyspotsell(ctx, args));
+        break;
+
+      case 'spotsells':
+        await run(orderbookCommands.spotsells(ctx, args));
+        break;
+
+      case 'claimspotsell':
+        await run(orderbookCommands.claimspotsell(ctx, args));
+        break;
+
+      case 'hybridsell':
+        await run(orderbookCommands.hybridsell(ctx, args));
         break;
 
       // State commands

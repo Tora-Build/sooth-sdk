@@ -1,0 +1,49 @@
+{
+  "mcpServers": {
+    "foundry": {
+      "command": "npx",
+      "args": [
+        "@pranesh.asp/foundry-mcp-server"
+      ],
+      "description": "Foundry toolchain integration (Forge, Cast, Anvil) for Solidity development",
+      "env": {
+        "RPC_URL": "http://localhost:8545"
+      }
+    },
+    "slither": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/trailofbits/slither-mcp",
+        "slither-mcp"
+      ],
+      "description": "Trail of Bits static analysis for smart contract security"
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "description": "Up-to-date library documentation for any prompt"
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "."
+      ],
+      "description": "Git repository operations"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ],
+      "description": "Secure file operations with configurable access controls"
+    }
+  }
+}

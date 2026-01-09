@@ -4,6 +4,33 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10.7: Spot Sell Full-Range Search Fix (2026-01-09)
+- **Critical Bug Fix**: Fixed spot sell crossing to search buyer's **full tick range** instead of narrow overlap range.
+- **Issue**: V10.0-V10.6 only searched for spot sells near the market-clearing price. Spot sells at **better prices** (lower ask prices) were completely missed.
+- **Example**: Alice's NO spot sell at 10-11% wasn't crossing with Bob's NO buy order willing to pay up to 50%.
+- **Root Cause**: `_unifiedCross()` passed a narrow "overlap range" to `_fillSpotLiquidity()`. Overlap calculation only considered the highest liquidity price, not the full buyer's range.
+- **Fix**: Modified `_unifiedCross()` to pass buyer's full tick range (converted to seller's native tick space) to `_fillSpotLiquidity()`. Now finds ALL spot sells within buyer's price tolerance.
+- **Gas Impact**: +11k gas (~350k → 361k) due to wider tick search. Updated gas benchmark test to reflect new reality.
+- **Tests**: Added `SpotSellTickSpace.t.sol` with 6 regression tests (all passing).
+- **Deployment** (2026-01-09):
+  - Monad Testnet: TickBookPoolManager `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208`
+  - Base Sepolia: TickBookPoolManager `0x2f3464ca4a50a522786c3e72df94f12b02eec46b`
+  - Arc Testnet: **Blocked** (gas estimation error with USDC-as-gas, staying on V10.6)
+- **Frontend**: 
+  - Added indexer sync status indicator to Footer showing current block height and sync status
+  - Updated `deployments.json` to V10.7 with new Monad + Base addresses
+  - Bumped indexer config to V10.7 contract addresses
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Full-range spot search in `_unifiedCross()`
+  - `packages/contracts-testing/test/crossing/SpotSellTickSpace.t.sol` — New test file
+  - `packages/contracts-testing/test/integration/OrderSystem.t.sol` — Updated gas benchmark
+  - `docs/V10/contracts/03-TickBookPoolManager.md` — Added V10.7 fix documentation
+  - `apps/web/src/hooks/useIndexerStatus.ts` — New hook for indexer status
+  - `apps/web/src/components/layout/Footer.tsx` — Sync indicator display
+  - `apps/web/src/config/deployments.json` — V10.7 addresses
+  - `packages/indexer/ponder.config.ts` — V10.7 contract addresses
+- **Status**: Deployed to Monad + Base Sepolia. On-chain validation pending (use interactive CLI due to createMarket script issue).
+
 ### LiquidityMap Color Fix (2026-01-09)
 - **Bug Fix**: Fixed bucket side overwrite bug in `LiquidityMap` component where the last-processed order determined the bucket color, causing YES buy orders to incorrectly display as "Sell YES" (red) when a wide-range NO order also covered that price bucket.
 - **Solution**: Now tracks `yesLiq` and `noLiq` separately per bucket and determines color based on which liquidity type is dominant.

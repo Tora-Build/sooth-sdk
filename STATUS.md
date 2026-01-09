@@ -1,17 +1,18 @@
 # Project Status
 
 ## Current Focus
-- **V10.6 DEPLOYED TO ALL CHAINS (2026-01-07)** — Dust order visibility fix complete. All 3 testnets now on V10.6.
-- **Launchpad UI Overhaul (2026-01-07)** — Two-column layout, P&L Simulator drawer, mobile tab selector.
-- **Market Orders Disabled (FE)** — Current "market" path is a full-range order + `maxCost` and can rest; hidden until sweep semantics are implemented.
+- **V10.7 DEPLOYED (2026-01-09)** — Critical spot sell crossing fix deployed to Monad + Base Sepolia. Full-range spot search now finds ALL spot sells within buyer's price tolerance.
+- **Deployment Automation** — Added comprehensive deploy-and-sync workflow with market creation automation.
+- **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-09** — **V10.7 Spot Sell Full-Range Search Fix**: Fixed critical bug where spot sells at better prices were missed during crossing. `_unifiedCross()` now passes buyer's full tick range to `_fillSpotLiquidity()` instead of narrow overlap. Added 6 regression tests (all passing). Gas +11k (acceptable). Deployed to Monad Testnet + Base Sepolia.
+- **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
+- **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
 - **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
-- **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P&L Simulator in drawer, mobile Create/Learn tab selector.
-- **2026-01-07** — **Launchpad Economics Components**: Created 6 new components (PnLSimulator, TrustSpectrum, TraderBenefitsBanner, RiskDisclosure, CreatorEconomicsPanel, MarketJourneyTimeline), P&L calculators, and enhanced registries with Brevis adjudicator types.
+- **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P\u0026L Simulator in drawer, mobile Create/Learn tab selector.
 - **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.
-- **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable. Deployed to Base Sepolia + Monad. Indexer updated with new addresses.
-- **2026-01-07** — **FE Order Actions UX**: Both Cancel + Claim buttons now always visible with disabled states when not applicable. Unified button positions across all order types.
+- **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable.
 - **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
 - **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
 - **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
@@ -31,15 +32,15 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Basescan Verification** — Contract verification on Base Sepolia.
+- **V10.7 On-Chain Validation** — Create test market + validate spot sell crossing fix works in production: `pnpm interactive:monad` / `interactive:base`.
+- **Arc Testnet V10.7** — Arc deployment blocked by gas estimation error (USDC-as-gas). Keeping V10.6 until Arc testnet stabilizes.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
-- ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
+- **V10.7 Arc Deploy Blocked** — Gas estimation fails during TickBookPoolManager deployment (USDC-as-gas complexity). Arc stays on V10.6.
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 - **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
-- ~~**Fractured Liquidity (V9.9.8)** — Spot Sells not crossed by `placeOrder()`.~~ **Resolved in V10** via unified crossing (ADR-073).
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
