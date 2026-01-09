@@ -1,0 +1,1 @@
+/Users/danieltang/.claude/skills/fullstack-development/SKILL.md
