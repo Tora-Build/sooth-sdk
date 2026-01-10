@@ -89,25 +89,27 @@ contract SellSideFeeIntegrationTest is Test {
         // Configure router
         amm.setRouter(address(launchpad));
 
-        // Deploy market
-        market = new TruthMarket(
-            "Test Sell Fee Market",
-            uint64(block.timestamp + 30 days),
-            adjudicator,
-            guardian
-        );
-        market.activate();
+        uint64 startTime = uint64(block.timestamp);
+        uint64 deadline = uint64(block.timestamp + 30 days);
 
-        // Fund traders
         usdc.mint(trader, 1_000_000 * WAD);
         usdc.mint(trader2, 1_000_000 * WAD);
 
-        // Create market via LaunchpadEngine
         vm.startPrank(deployer);
         usdc.mint(deployer, 100 * WAD);
         usdc.approve(address(launchpad), type(uint256).max);
-        launchpad.createMarket(address(market), INITIAL_LIQUIDITY, "TEST", "TST");
+        (address marketAddress, ) = launchpad.createMarket(
+            "Test Sell Fee Market",
+            startTime,
+            deadline,
+            adjudicator,
+            guardian,
+            INITIAL_LIQUIDITY,
+            "TST"
+        );
         vm.stopPrank();
+
+        market = TruthMarket(marketAddress);
 
         // Approve launchpad for traders
         vm.prank(trader);

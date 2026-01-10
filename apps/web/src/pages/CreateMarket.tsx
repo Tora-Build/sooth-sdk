@@ -24,7 +24,7 @@ const ADJUDICATORS = [
 ];
 
 export const CreateMarket = () => {
-  const { isConnected } = useAccount();
+  const { isConnected, address: userAddress } = useAccount();
   const { 
     createMarket, 
     approveUSDC, 
@@ -56,9 +56,19 @@ export const CreateMarket = () => {
   };
 
   const handleCreate = () => {
-    if (!name || !symbol) return;
-    const durationSeconds = isOpenEnd ? 0 : duration * 24 * 60 * 60;
-    createMarket(name, symbol, description, selectedTier, isOpenEnd, durationSeconds);
+    if (!name || !symbol || !userAddress) return;
+    const startTime = Math.floor(Date.now() / 1000);
+    const deadline = isOpenEnd ? 4102444800 : startTime + duration * 24 * 60 * 60;
+    const liquidityB = parseUnits(String(selectedTierData.bValue), 18);
+    createMarket(
+      name,
+      symbol,
+      BigInt(startTime),
+      BigInt(deadline),
+      liquidityB,
+      userAddress,
+      userAddress
+    );
   };
 
   // Not connected state

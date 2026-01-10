@@ -21,9 +21,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Create',
         subtitle: 'Launch your market',
         details: [
-            'Deposit USDC (b × ln(2) formula)',
-            'Receive LP tokens 1:1 with deposit',
-            'Market goes live for trading'
+            'Deposit USDC using the b × ln(2) formula',
+            'Receive LP tokens at 1:1 ratio with your deposit',
+            'Market instantly goes live and ready for trading'
         ],
         color: 'violet'
     },
@@ -33,9 +33,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Accumulate',
         subtitle: 'Fees grow your stake',
         details: [
-            '5% fee on all trades',
-            'Fees add to bBase liquidity',
-            'Trader fees convert to LP tokens (investment)'
+            'Collect 5% fee on every single trade',
+            'Fees automatically boost bBase liquidity',
+            'Traders receive LP tokens for their fee payments (aligned incentives!)'
         ],
         color: 'blue'
     },
@@ -45,10 +45,10 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Graduate',
         subtitle: 'Fee reduction unlocked',
         details: [
-            'Triggered at fees = deposit threshold',
-            'Fee drops from 5% to 1%',
-            'Split: 50% bBase / 30% LP Yield / 20% Protocol',
-            'No new LP minted for traders post-grad'
+            'Automatically triggered when fees equal your deposit threshold',
+            'Trading fees drop from 5% to just 1% (80% reduction!)',
+            'Fee split: 50% to bBase / 30% to LP Yield Pool / 20% to Protocol',
+            'Post-graduation: Traders pay lower fees but no longer receive LP tokens'
         ],
         color: 'emerald'
     },
@@ -58,9 +58,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Settle',
         subtitle: 'Outcome determined',
         details: [
-            'Adjudicator reports outcome + T*',
-            '24h veto window for Guardian',
-            'Trading pauses during settlement'
+            'Adjudicator reports the final outcome + termination time (T*)',
+            '24-hour veto window for Guardian to dispute if needed',
+            'All trading is paused during the settlement process'
         ],
         color: 'orange'
     },
@@ -70,9 +70,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Finalize',
         subtitle: 'Resolution locked',
         details: [
-            'Outcome becomes permanent',
-            'Winners can redeem tokens',
-            'LPs can redeem for pro-rata share'
+            'Outcome becomes permanently locked on-chain',
+            'Winning token holders can redeem for USDC',
+            'LP token holders can redeem for their proportional share of remaining funds'
         ],
         color: 'pink'
     },
@@ -82,9 +82,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
         title: 'Redeem',
         subtitle: 'Collect your returns',
         details: [
-            'Exchange LP tokens for USDC',
-            'Value = Floor / Total_LP × Your_LP',
-            'Settlement complete!'
+            'Exchange your LP tokens for USDC at current value',
+            'Your share = (Floor Value / Total LP Supply) × Your LP Balance',
+            'Settlement complete! Market lifecycle finished.'
         ],
         color: 'yellow'
     }

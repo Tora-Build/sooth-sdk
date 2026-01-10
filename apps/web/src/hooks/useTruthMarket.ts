@@ -38,6 +38,12 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             {
                 address: marketAddress,
                 abi: ABIS.TruthMarket,
+                functionName: "startTime",
+                chainId,
+            },
+            {
+                address: marketAddress,
+                abi: ABIS.TruthMarket,
                 functionName: "deadline",
                 chainId,
             },
@@ -98,6 +104,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             isLiveResult,
             isSettledResult,
             winningOutcomeResult,
+            startTimeResult,
             deadlineResult,
             creatorResult,
             adjudicatorResult,
@@ -141,21 +148,23 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
                 ? (questionResult.result as string)
                 : "";
 
-        // Determine market status
+        const startTimestamp = Number(startTimeResult?.result ?? 0n);
+        const deadlineTimestamp = Number(deadline);
+        const now = Math.floor(Date.now() / 1000);
+
         let status: "live" | "settled" | "expired" | "pending";
         if (isSettled) {
             status = "settled";
+        } else if (now < startTimestamp) {
+            status = "pending";
+        } else if (now >= deadlineTimestamp) {
+            status = "expired";
         } else if (isLive) {
-            const now = Math.floor(Date.now() / 1000);
-            const deadlineTimestamp = Number(deadline);
-            status = now > deadlineTimestamp ? "expired" : "live";
+            status = "live";
         } else {
             status = "pending";
         }
 
-        // Calculate time remaining (if live)
-        const now = Math.floor(Date.now() / 1000);
-        const deadlineTimestamp = Number(deadline);
         const timeRemaining = Math.max(0, deadlineTimestamp - now);
 
         return {
@@ -163,6 +172,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             isLive,
             isSettled,
             winningOutcome,
+            startTime: startTimestamp,
             deadline: deadlineTimestamp,
             creator,
             adjudicator,

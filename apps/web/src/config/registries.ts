@@ -1,8 +1,8 @@
 import { Address } from 'viem';
-import { Lock, Zap, Users, User } from 'lucide-react';
+import { Lock, Zap } from 'lucide-react';
 
-export type AdjudicatorType = 'ZK_RULE' | 'ZK_ORACLE' | 'OPTIMISTIC' | 'MULTISIG' | 'SELF';
-export type TrustModel = 'Trustless' | 'Challengeable' | 'Committee' | 'Creator';
+export type AdjudicatorType = 'ZK_RULE' | 'ZK_ORACLE' | 'OPTIMISTIC' | 'SELF';
+export type TrustModel = 'Trustless' | 'Challengeable' | 'Creator';
 
 export interface AdjudicatorOption {
     id: string;
@@ -62,40 +62,10 @@ export const ADJUDICATOR_REGISTRY: AdjudicatorOption[] = [
         details: 'Resolution posted quickly, then 24h challenge period. If disputed, falls back to ZK proof verification. Best for events that need fast resolution but may be contested.',
         badge: 'Beta'
     },
-    {
-        id: 'sooth-multisig',
-        name: 'Sooth Committee',
-        address: '0x4444444444444444444444444444444444444444' as Address,
-        type: 'MULTISIG',
-        trustModel: 'Committee',
-        trustLevel: 3,
-        icon: Users,
-        desc: 'Trusted 3-of-5 committee for off-chain data resolution.',
-        details: 'A committee of 5 trusted members. Requires 3 signatures to resolve. Best for outcomes that rely on off-chain data or subjective judgments.',
-        badge: 'Traditional'
-    },
-    {
-        id: 'self',
-        name: 'Self (Creator)',
-        address: 'SELF',
-        type: 'SELF',
-        trustModel: 'Creator',
-        trustLevel: 4,
-        icon: User,
-        desc: 'You resolve your own market. Requires reputation.',
-        details: 'Full control over resolution but requires your reputation as collateral. Traders must trust you to resolve honestly. Best for community or personal markets.',
-        badge: 'Custom'
-    }
+
 ];
 
 export const GUARDIAN_REGISTRY: GuardianOption[] = [
-    {
-        id: 'me',
-        name: 'Me (Creator)',
-        address: 'SELF',
-        desc: 'You retain full control over emergency vetoes.',
-        badge: 'Default'
-    },
     {
         id: 'dao',
         name: 'Sooth DAO',
@@ -116,7 +86,6 @@ export const getTrustColor = (trustModel: TrustModel): string => {
     switch (trustModel) {
         case 'Trustless': return 'text-emerald-400';
         case 'Challengeable': return 'text-yellow-400';
-        case 'Committee': return 'text-orange-400';
         case 'Creator': return 'text-red-400';
         default: return 'text-white/50';
     }
@@ -126,7 +95,6 @@ export const getTrustBgColor = (trustModel: TrustModel): string => {
     switch (trustModel) {
         case 'Trustless': return 'bg-emerald-500/10';
         case 'Challengeable': return 'bg-yellow-500/10';
-        case 'Committee': return 'bg-orange-500/10';
         case 'Creator': return 'bg-red-500/10';
         default: return 'bg-white/5';
     }

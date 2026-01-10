@@ -1,12 +1,10 @@
-import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract, useConfig } from "wagmi";
+import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { useMemo, useCallback, useEffect } from "react";
 import { ABIS, ERC20_ABI } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
 import { maxUint256 } from "viem";
-import { deployContract } from "wagmi/actions";
-import { TRUTH_MARKET_BYTECODE } from "../config/bytecode";
 
 /**
  * Hook to fetch LaunchpadEngine state for a market and handle market operations
@@ -19,7 +17,6 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const deployments = useDeployments();
     const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
-    const config = useConfig();
 
     const launchpadEngineAddress = deployments?.contracts
         ?.LaunchpadEngine as `0x${string}` | undefined;
@@ -156,23 +153,13 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     // WRITE FUNCTIONS
     // -------------------------------------------------------------------------
 
-    const deployTruthMarket = useCallback(async (
-        question: string,
-        deadline: number,
-        adjudicator: `0x${string}`,
-        guardian: `0x${string}`
-    ) => {
-        return await deployContract(config, {
-            abi: ABIS.TruthMarket,
-            bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
-            args: [question, BigInt(deadline), adjudicator, guardian],
-        });
-    }, [config]);
-
     const createMarket = useCallback((
-        truthMarketAddr: `0x${string}`,
+        question: string,
+        startTime: bigint,
+        deadline: bigint,
+        adjudicator: `0x${string}`,
+        guardian: `0x${string}`,
         initialLiquidity: bigint,
-        name: string,
         symbol: string
     ) => {
         if (!launchpadEngineAddress) return;
@@ -180,7 +167,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             address: launchpadEngineAddress,
             abi: ABIS.LaunchpadEngine,
             functionName: "createMarket",
-            args: [truthMarketAddr, initialLiquidity, name, symbol],
+            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity, symbol],
         });
     }, [launchpadEngineAddress, writeContract]);
 
@@ -321,7 +308,6 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         isLoading,
         error,
         refetch,
-        deployTruthMarket,
         createMarket,
         approveUSDC,
         redeemLP,
@@ -332,7 +318,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         writeError,
         allowance,
         usdcBalance,
-        deployedMarketAddress: marketAddress || txHash // Fallback to txHash if deploying
+        deployedMarketAddress: marketAddress
     };
 }
 

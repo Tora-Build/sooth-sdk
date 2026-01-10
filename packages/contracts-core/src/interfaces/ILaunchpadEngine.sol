@@ -75,18 +75,25 @@ interface ILaunchpadEngine {
 
     /**
      * @notice Create a new launchpad market
-     * @param market TruthMarket address
+     * @param question Market question
+     * @param startTime Trading start timestamp (0 = now)
+     * @param deadline Market deadline
+     * @param adjudicator Address that can settle the market
+     * @param guardian Address that can veto settlement
      * @param initialLiquidity Liquidity parameter b (WAD)
-     * @param name Market name (for TickBook tokens)
      * @param symbol Market symbol (for TickBook tokens)
+     * @return market Address of deployed TruthMarket
      * @return lpTokens Initial LP tokens minted to creator
      */
     function createMarket(
-        address market,
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
         uint256 initialLiquidity,
-        string calldata name,
         string calldata symbol
-    ) external returns (uint256 lpTokens);
+    ) external returns (address market, uint256 lpTokens);
 
     // ============================================
     // Trading

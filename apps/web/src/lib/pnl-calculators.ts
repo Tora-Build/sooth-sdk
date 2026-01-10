@@ -21,16 +21,19 @@ export const PROTOCOL_SHARE = 0.20; // 20% post-grad
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface CreatorResult {
-    deposit: number;
+    lpDeposit: number;
     lpTokens: number;
+    totalLpSupply: number;
+    ownershipPercent: number;
     graduationThreshold: number;
+    isGraduated: boolean;
     preGradFees: number;
     postGradFees: number;
     totalFees: number;
-    lpYieldEarned: number;
-    isGraduated: boolean;
-    floorValue: number;
-    lpRedemptionValue: number;
+    flywheelGrowth: number;
+    feeYield: number;
+    settlementOutcome: number;
+    lpRedemption: number;
     netPnL: number;
     roi: number;
     breakEvenVolume: number;
@@ -38,16 +41,21 @@ export interface CreatorResult {
 
 export interface GamingTraderResult {
     tradeSize: number;
+    entryPrice: number;
+    sharesReceived: number;
+    positionValue: number;
     feePaid: number;
-    lpTokensReceived: number;
-    lpOwnershipPercent: number;
-    lpValueAtEntry: number;
-    lpValueAfterVolume: number;
-    lpAppreciation: number;
-    predictionPnL: number;
+    tradePnL: number;
+    lpDeposit: number;
+    totalLpSupply: number;
+    ownershipPercent: number;
+    flywheelGrowth: number;
+    feeYield: number;
+    settlementOutcome: number;
+    lpRedemption: number;
+    lpPnL: number;
     netPnL: number;
-    recoveryPercent: number; // How much of loss recovered via LP
-    totalReturn: number;
+    roi: number;
 }
 
 export interface ArbitrageurResult {
@@ -79,26 +87,17 @@ export interface PvPTraderResult {
 //                         CREATOR CALCULATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Calculate Creator P&L based on deposit and volume
- * 
- * Simplified model:
- * - Deposit = b × ln(2) ≈ b × 0.693
- * - Graduation threshold = deposit (at multiplier = 1)
- * - Pre-grad fees go to bBase + LP to traders
- * - Post-grad fees split 50/30/20
- */
 export function calculateCreatorPnL(
-    liquidityTier: number, // The "b" value (e.g., 1000 for $1000 tier)
+    liquidityTier: number,
     totalVolume: number,
-    settlementLiabilityPercent: number = 0.5 // 0-1, how much of max liability is realized
+    positionImbalance: number = 0
 ): CreatorResult {
-    // Initial deposit calculation
-    const deposit = Math.round(liquidityTier * LN2);
-    const lpTokens = deposit; // 1:1 with deposit in WAD terms (simplified to dollars)
-    const graduationThreshold = deposit;
+    const lpDeposit = Math.round(liquidityTier * LN2);
+    const lpTokens = lpDeposit;
+    const totalLpSupply = lpDeposit * 2;
+    const ownershipPercent = 0.5;
+    const graduationThreshold = lpDeposit;
     
-    // Fee calculations
     const preGradVolume = Math.min(totalVolume, graduationThreshold / PRE_GRAD_FEE_RATE);
     const preGradFees = Math.round(preGradVolume * PRE_GRAD_FEE_RATE);
     const isGraduated = preGradFees >= graduationThreshold;
@@ -107,42 +106,31 @@ export function calculateCreatorPnL(
     const postGradFees = Math.round(postGradVolume * POST_GRAD_FEE_RATE);
     const totalFees = preGradFees + postGradFees;
     
-    // LP yield from post-grad fees (30% to LP holders)
-    const lpYieldEarned = Math.round(postGradFees * LP_YIELD_SHARE);
+    const feeYield = Math.round(postGradFees * LP_YIELD_SHARE * ownershipPercent);
+    const flywheelGrowth = Math.round(postGradFees * BBASE_SHARE * ownershipPercent);
     
-    // Total cash in system
-    const totalCash = deposit + totalFees;
+    const atRisk = lpDeposit + flywheelGrowth;
+    const settlementOutcome = Math.round(atRisk * positionImbalance * 2);
     
-    // Simplified liability: assume some percentage of max possible liability
-    // In reality, this depends on qYes vs qNo outstanding
-    const maxLiability = totalVolume * 0.3 * settlementLiabilityPercent; // Simplified estimate
-    
-    // Floor value calculation
-    const floorValue = Math.max(0, Math.round(totalCash - maxLiability));
-    
-    // Creator gets their pro-rata share (they own 100% initially, diluted by trader LP)
-    // Simplified: assume creator retains ~70% ownership after trader LP minting
-    const creatorOwnershipPercent = Math.max(0.3, 1 - (preGradFees / (deposit + preGradFees)));
-    const lpRedemptionValue = Math.round(floorValue * creatorOwnershipPercent);
-    
-    // Net P&L
-    const netPnL = lpRedemptionValue - deposit;
-    const roi = deposit > 0 ? (netPnL / deposit) * 100 : 0;
-    
-    // Break-even volume
-    const breakEvenVolume = Math.round(deposit / PRE_GRAD_FEE_RATE);
+    const lpRedemption = Math.max(0, lpDeposit + flywheelGrowth + settlementOutcome + feeYield);
+    const netPnL = lpRedemption - lpDeposit;
+    const roi = lpDeposit > 0 ? (netPnL / lpDeposit) * 100 : 0;
+    const breakEvenVolume = Math.round(lpDeposit / PRE_GRAD_FEE_RATE);
     
     return {
-        deposit,
+        lpDeposit,
         lpTokens,
+        totalLpSupply,
+        ownershipPercent,
         graduationThreshold,
+        isGraduated,
         preGradFees,
         postGradFees,
         totalFees,
-        lpYieldEarned,
-        isGraduated,
-        floorValue,
-        lpRedemptionValue,
+        flywheelGrowth,
+        feeYield,
+        settlementOutcome,
+        lpRedemption,
         netPnL,
         roi: Math.round(roi),
         breakEvenVolume
@@ -153,69 +141,57 @@ export function calculateCreatorPnL(
 //                      GAMING TRADER CALCULATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Calculate Gaming Trader P&L
- * 
- * Key insight: Fee → LP conversion provides asymmetric upside
- * - Win: +Payout + LP value
- * - Lose: -Stake + LP value (cushions loss)
- */
+export const GRADUATION_THRESHOLD = 2000;
+
 export function calculateGamingTraderPnL(
     tradeSize: number,
+    entryPrice: number,
     isPreGraduation: boolean,
     isPredictionCorrect: boolean,
     volumeAfterEntry: number,
-    currentMarketLPSupply: number = 10000 // Simplified default
+    positionImbalance: number = 0
 ): GamingTraderResult {
-    // Fee calculation
     const feeRate = isPreGraduation ? PRE_GRAD_FEE_RATE : POST_GRAD_FEE_RATE;
     const feePaid = Math.round(tradeSize * feeRate);
+    const positionValue = tradeSize - feePaid;
+    const sharesReceived = entryPrice > 0 ? Math.round(positionValue / entryPrice) : 0;
     
-    // LP tokens only minted during pre-graduation
-    const lpTokensReceived = isPreGraduation ? feePaid : 0;
+    const tradePnL = isPredictionCorrect ? (sharesReceived - positionValue) : -positionValue;
     
-    // LP ownership percent (simplified)
-    const lpOwnershipPercent = currentMarketLPSupply > 0 
-        ? (lpTokensReceived / (currentMarketLPSupply + lpTokensReceived)) * 100 
-        : 0;
+    const lpDeposit = isPreGraduation ? feePaid : 0;
+    const totalLpSupply = Math.round(GRADUATION_THRESHOLD / LN2);
+    const ownershipPercent = totalLpSupply > 0 ? lpDeposit / totalLpSupply : 0;
     
-    // LP value at entry
-    const lpValueAtEntry = lpTokensReceived;
+    const postGradFees = Math.round(volumeAfterEntry * POST_GRAD_FEE_RATE);
+    const flywheelGrowth = Math.round(postGradFees * BBASE_SHARE * ownershipPercent);
+    const feeYield = Math.round(postGradFees * LP_YIELD_SHARE * ownershipPercent);
     
-    // LP appreciation based on volume after entry
-    // Simplified model: LP value grows ~linearly with volume due to fee accumulation
-    // Assume ~5% of volume becomes LP value growth
-    const lpGrowthFromVolume = volumeAfterEntry * 0.05;
-    const lpAppreciationMultiplier = 1 + (lpGrowthFromVolume / Math.max(1, currentMarketLPSupply));
-    const lpValueAfterVolume = Math.round(lpTokensReceived * Math.min(lpAppreciationMultiplier, 10)); // Cap at 10x
-    const lpAppreciation = lpValueAfterVolume - lpValueAtEntry;
+    const atRisk = lpDeposit + flywheelGrowth;
+    const settlementOutcome = Math.round(atRisk * positionImbalance * 2);
     
-    // Prediction P&L (simplified: win = +tradeSize, lose = -tradeSize)
-    const predictionPnL = isPredictionCorrect ? tradeSize : -tradeSize;
+    const lpRedemption = Math.max(0, lpDeposit + flywheelGrowth + settlementOutcome + feeYield);
+    const lpPnL = lpRedemption - lpDeposit;
     
-    // Net P&L
-    const netPnL = predictionPnL + lpValueAfterVolume;
-    
-    // Recovery percent (only relevant when prediction is wrong)
-    const recoveryPercent = !isPredictionCorrect && tradeSize > 0
-        ? Math.round((lpValueAfterVolume / tradeSize) * 100)
-        : 0;
-    
-    // Total return percent
-    const totalReturn = tradeSize > 0 ? Math.round((netPnL / tradeSize) * 100) : 0;
+    const netPnL = tradePnL + (isPreGraduation ? lpRedemption : 0);
+    const roi = tradeSize > 0 ? (netPnL / tradeSize) * 100 : 0;
     
     return {
         tradeSize,
+        entryPrice,
+        sharesReceived,
+        positionValue,
         feePaid,
-        lpTokensReceived,
-        lpOwnershipPercent: Math.round(lpOwnershipPercent * 100) / 100,
-        lpValueAtEntry,
-        lpValueAfterVolume,
-        lpAppreciation,
-        predictionPnL,
+        tradePnL,
+        lpDeposit,
+        totalLpSupply,
+        ownershipPercent,
+        flywheelGrowth,
+        feeYield,
+        settlementOutcome,
+        lpRedemption,
+        lpPnL,
         netPnL,
-        recoveryPercent,
-        totalReturn
+        roi: Math.round(roi)
     };
 }
 
@@ -332,17 +308,17 @@ export function calculatePvPTraderPnL(
 //                           HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Format currency for display
- */
 export function formatCurrency(value: number, showSign: boolean = false): string {
     const absValue = Math.abs(value);
     const formatted = absValue >= 1000 
         ? `$${(absValue / 1000).toFixed(1)}k`
         : `$${absValue.toLocaleString()}`;
     
-    if (showSign && value !== 0) {
-        return value > 0 ? `+${formatted}` : `-${formatted.replace('$', '')}`;
+    if (value < 0) {
+        return `(${formatted})`;
+    }
+    if (showSign && value > 0) {
+        return `+${formatted}`;
     }
     return formatted;
 }

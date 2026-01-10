@@ -14,11 +14,9 @@ contract InitializeAMMDirect is Script {
     address constant USDC = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
     address constant LAUNCHPAD = 0x4Ec2FD4c6a8584976c1e032624574E9ecba28D11;
 
-    address constant ALIEN_MARKET = 0xfc43d6Be9B988a0b06DCb6F14b6741D353ADE5e1;
-    address constant BTC_MARKET = 0x45FdB4e8b8E38cD9b8B587B4334af71986c2Af78;
-
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
 
         console.log("========================================");
         console.log("  INITIALIZE AMM VIA LAUNCHPAD");
@@ -29,19 +27,37 @@ contract InitializeAMMDirect is Script {
         LaunchpadEngine launchpad = LaunchpadEngine(LAUNCHPAD);
         IERC20(USDC).approve(address(launchpad), type(uint256).max);
 
-        // Re-call createMarket - it should now succeed since markets are registered
-        uint256 liquidity = 500 * 1e18; // 500 WAD
+        uint256 liquidity = 500 * 1e18;
+        uint64 startTime = uint64(block.timestamp);
 
-        try launchpad.createMarket(ALIEN_MARKET, liquidity, "UN Confirms Alien Life", "ALIEN") returns (uint256 lpTokens) {
-            console.log("[1/2] ALIEN AMM initialized, LP:", lpTokens);
+        try launchpad.createMarket(
+            "UN Confirms Alien Life",
+            startTime,
+            uint64(block.timestamp + 365 days),
+            deployer,
+            deployer,
+            liquidity,
+            "ALIEN"
+        ) returns (address market, uint256 lpTokens) {
+            console.log("[1/2] ALIEN created:", market);
+            console.log("      LP:", lpTokens);
         } catch Error(string memory reason) {
             console.log("[1/2] ALIEN failed:", reason);
         } catch {
             console.log("[1/2] ALIEN failed");
         }
 
-        try launchpad.createMarket(BTC_MARKET, liquidity, "BTC TWAP >= $100k", "BTC100K") returns (uint256 lpTokens) {
-            console.log("[2/2] BTC100K AMM initialized, LP:", lpTokens);
+        try launchpad.createMarket(
+            "BTC TWAP >= $100k",
+            startTime,
+            uint64(block.timestamp + 180 days),
+            deployer,
+            deployer,
+            liquidity,
+            "BTC100K"
+        ) returns (address market, uint256 lpTokens) {
+            console.log("[2/2] BTC100K created:", market);
+            console.log("      LP:", lpTokens);
         } catch Error(string memory reason) {
             console.log("[2/2] BTC100K failed:", reason);
         } catch {

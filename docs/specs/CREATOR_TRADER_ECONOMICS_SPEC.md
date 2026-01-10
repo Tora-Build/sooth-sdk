@@ -1,8 +1,8 @@
 # Creator & Trader Economics Specification
 
-**Version**: 1.0.0  
+**Version**: 1.0.1  
 **Status**: Draft  
-**Last Updated**: 2026-01-07
+**Last Updated**: 2026-01-10
 
 ---
 
@@ -903,8 +903,25 @@ LP FLOOR FORMULA:
 - [LaunchpadEngine Documentation](../V10/contracts/06-LaunchpadEngine.md)
 - [LMSR Pricing Model](../V10/contracts/04-AMMEngine.md)
 
+### 11.5 UI Implementation
+
+The P&L Simulator on the Launchpad page (`/create`) implements these economics interactively:
+
+| UI Component | Location | Economics Implemented |
+|--------------|----------|----------------------|
+| **Creator Panel** | P&L Simulator tab 1 | Section 3 - Creator deposit, LP ownership, fee yields |
+| **Gaming Trader Panel** | P&L Simulator tab 2 | Section 4 - Trade P&L, LP conversion, entry timing |
+| **Arbitrageur Panel** | P&L Simulator tab 3 | Section 5 - Spread capture, min viable spread |
+| **PvP Trader Panel** | P&L Simulator tab 4 | Section 6 - Expected value, win/lose scenarios |
+
+**Key Files**:
+- `apps/web/src/components/features/launchpad/PnLSimulator.tsx` - UI panels
+- `apps/web/src/lib/pnl-calculators.ts` - Economic calculation functions
+- `apps/web/e2e/pnl-simulator.spec.ts` - E2E tests
+
 ---
 
 **Document Status**: Draft  
-**Next Review**: After UI implementation  
+**Next Review**: After audit feedback  
+**UI Implementation**: Complete (P&L Simulator on /create page)  
 **Owner**: Sooth Protocol Team

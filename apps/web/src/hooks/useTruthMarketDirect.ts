@@ -17,6 +17,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         isLive,
         isSettled,
         winningOutcome,
+        startTime,
         deadline,
         creator,
         adjudicator,
@@ -28,6 +29,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isLive" }),
         readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isSettled" }),
         readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "winningOutcome" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "startTime" }),
         readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "deadline" }),
         readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "creator" }),
         readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "adjudicator" }),
@@ -38,12 +40,13 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
       ]);
 
       const now = Math.floor(Date.now() / 1000);
+      const startTimestamp = Number(startTime);
       const deadlineTimestamp = Number(deadline);
-      let status: "live" | "settled" | "expired" | "pending" | "vetoed";
-      // State enum: 0=Pending, 1=Live, 2=Expired, 3=Settled, 4=Vetoed, 5=Finalized
-      if (state === 4) status = "vetoed";
-      else if (isSettled) status = "settled";
-      else if (isLive) status = now > deadlineTimestamp ? "expired" : "live";
+      let status: "live" | "settled" | "expired" | "pending";
+      if (isSettled || state === 3) status = "settled";
+      else if (now < startTimestamp) status = "pending";
+      else if (now >= deadlineTimestamp) status = "expired";
+      else if (isLive) status = "live";
       else status = "pending";
 
       return {
@@ -51,13 +54,14 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         isLive,
         isSettled,
         winningOutcome,
+        startTime: startTimestamp,
         deadline: deadlineTimestamp,
         creator,
         adjudicator,
         guardian,
         question,
-        tStar: tStar ? Number(tStar) : undefined, // Settlement timestamp
-        state, // Market state enum
+        tStar: tStar ? Number(tStar) : undefined,
+        state,
         status,
         timeRemaining: Math.max(0, deadlineTimestamp - now),
         isExpired: status === "expired",

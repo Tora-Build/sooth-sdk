@@ -12,7 +12,7 @@ interface ITruthMarket {
     // Events
     // ============================================
 
-    event MarketCreated(address indexed market, string question, uint64 deadline);
+    event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline);
     event MarketSettled(address indexed market, uint8 outcome, uint64 tStar);
     event MarketFinalized(address indexed market);
     event MarketVetoed(address indexed market, uint8 previousOutcome, uint64 previousTStar);
@@ -72,6 +72,12 @@ interface ITruthMarket {
      * @return Market question string
      */
     function question() external view returns (string memory);
+
+    /**
+     * @notice Get market start time
+     * @return Unix timestamp when trading can begin
+     */
+    function startTime() external view returns (uint64);
 
     /**
      * @notice Get market deadline

@@ -4,6 +4,7 @@ import {
   createWalletClient,
   createPublicClient,
   http,
+  decodeEventLog,
   parseAbi,
   parseEther,
 } from 'viem';
@@ -63,9 +64,10 @@ const VAULT_ABI = parseAbi([
 ]);
 
 const LAUNCHPAD_ABI = parseAbi([
-  'function createMarket(string calldata question, uint256 initialLiquidityWad) external returns (address truthMarket)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, string symbol) external returns (address market, uint256 lpTokens)',
   'function getMarketKey(address truthMarket) external view returns (bytes32)',
   'function graduate(bytes32 marketKey) external',
+  'event MarketCreated(address indexed market, address indexed creator, uint256 initialLiquidity, uint256 deposit, uint256 lpTokens)',
 ]);
 
 interface ChainConfig {
@@ -163,16 +165,35 @@ async function createAlienMarket(chainKey: string) {
 
   console.log(`5️⃣  Creating market: "${MARKET_QUESTION}"`);
   console.log(`   Initial liquidity: ${INITIAL_LIQUIDITY} WAD`);
+  const startTime = BigInt(Math.floor(Date.now() / 1000));
+  const deadline = startTime + BigInt(365 * 24 * 60 * 60);
+
   const createMarketHash = await walletClient.writeContract({
     address: config.contracts.launchpad,
     abi: LAUNCHPAD_ABI,
     functionName: 'createMarket',
-    args: [MARKET_QUESTION, INITIAL_LIQUIDITY],
+    args: [MARKET_QUESTION, startTime, deadline, account.address, account.address, INITIAL_LIQUIDITY, 'ALIEN'],
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: createMarketHash });
   console.log(`   ✅ Market created - tx: ${createMarketHash}`);
 
-  const truthMarketAddress = receipt.logs[0]?.address;
+  let truthMarketAddress: `0x${string}` | undefined;
+  for (const log of receipt.logs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: LAUNCHPAD_ABI,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName === 'MarketCreated') {
+        truthMarketAddress = decoded.args.market as `0x${string}`;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+
   if (!truthMarketAddress) {
     throw new Error('Failed to extract TruthMarket address from logs');
   }

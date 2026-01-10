@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * Fix Base Sepolia Market - Activate uninitiated TruthMarket
+ * Fix Base Sepolia Market - Inspect TruthMarket lifecycle
  *
- * Issue: Market was created in LaunchpadEngine but TruthMarket.activate() was never called
- * Fix: Call activate() from the creator address
+ * Issue: Historical markets required manual activation
+ * Update: Markets now start live and use startTime gating
  */
 
 import {
@@ -62,13 +62,6 @@ const TRUTH_MARKET = '0x08a8ae8a9603acd5c7842343be172df681945d7d' as Address;
 const TRUTH_MARKET_ABI = [
   {
     inputs: [],
-    name: 'activate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
     name: 'state',
     outputs: [{ type: 'uint8' }],
     stateMutability: 'view',
@@ -78,6 +71,20 @@ const TRUTH_MARKET_ABI = [
     inputs: [],
     name: 'isLive',
     outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'startTime',
+    outputs: [{ type: 'uint64' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'deadline',
+    outputs: [{ type: 'uint64' }],
     stateMutability: 'view',
     type: 'function',
   },
@@ -119,7 +126,7 @@ async function main() {
   // Check current state
   console.log('1️⃣  Checking current state...');
 
-  const [question, creator, state, isLive] = await Promise.all([
+  const [question, creator, state, isLive, startTime, deadline] = await Promise.all([
     publicClient.readContract({
       address: TRUTH_MARKET,
       abi: TRUTH_MARKET_ABI,
@@ -140,19 +147,33 @@ async function main() {
       abi: TRUTH_MARKET_ABI,
       functionName: 'isLive',
     }),
+    publicClient.readContract({
+      address: TRUTH_MARKET,
+      abi: TRUTH_MARKET_ABI,
+      functionName: 'startTime',
+    }),
+    publicClient.readContract({
+      address: TRUTH_MARKET,
+      abi: TRUTH_MARKET_ABI,
+      functionName: 'deadline',
+    }),
   ]);
 
-  const stateNames = ['CREATED', 'LIVE', 'SETTLING', 'SETTLED'];
+  const stateNames = ['LIVE', 'SETTLING', 'SETTLED', 'FINALIZED'];
 
   console.log(`   Question:  ${question}`);
   console.log(`   Creator:   ${creator}`);
   console.log(`   State:     ${stateNames[state]} (${state})`);
+  console.log(`   Start:     ${new Date(Number(startTime) * 1000).toISOString()}`);
+  console.log(`   Deadline:  ${new Date(Number(deadline) * 1000).toISOString()}`);
   console.log(`   isLive:    ${isLive}\n`);
 
   if (isLive) {
-    console.log('✅ Market is already live! No action needed.');
+    console.log('✅ Market is live.');
     return;
   }
+
+  console.log('⚠️  Market is not live. If startTime is in the future, wait until it begins.');
 
   if (creator.toLowerCase() !== account.address.toLowerCase()) {
     console.error(`❌ Error: Only creator can activate the market.`);

@@ -1,5 +1,32 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-076: Launchpad Create Flow Simplification
+- **Date**: 2026-01-10
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Launchpad creation required deploying `TruthMarket` externally, then calling `LaunchpadEngine.createMarket`, then activating the market.
+  - This split flow caused partial setup states and UI/CLI complexity.
+  - We need to support scheduled starts while enforcing a minimum deposit.
+- **Decision**:
+  1. **Single-Step Create**: `LaunchpadEngine.createMarket` now deploys `TruthMarket` internally and returns `(market, lpTokens)`.
+  2. **Start-Time Scheduling**: `TruthMarket` constructor includes `startTime`, and markets are LIVE when `startTime <= now < deadline`.
+  3. **Remove Activation**: `TruthMarket.activate()` removed; no CREATED state.
+  4. **Minimum Deposit**: Enforce `$10` minimum creator deposit in Launchpad flows.
+- **Rationale**:
+  - **Atomic setup**: Avoid partial markets and simplify UX (approve → create).
+  - **Future scheduling**: Start-time parameter supports planned launches without separate activation.
+  - **Consistency**: Single source of truth for market lifecycle; fewer steps in CLI/FE.
+- **Consequences**:
+  - **Breaking change**: `createMarket` signature and `TruthMarket` constructor/ABI updated.
+  - **Frontend/CLI**: Launchpad and Create flows decode `MarketCreated` directly from `TruthMarket`.
+  - **Tests**: Debug launchpad creation test updated; fuzz threshold relaxed for stress test.
+- **Files Changed**:
+  - `packages/contracts-core/src/LaunchpadEngine.sol`
+  - `packages/contracts-core/src/TruthMarket.sol`
+  - `apps/web/src/pages/Launchpad.tsx`
+  - `apps/web/src/pages/Create.tsx`
+  - `packages/contracts-testing/script/interactive/commands/market.ts`
+
 ## ADR-075: Tick-Indexed Spot Fills for O(overlap) Gas Complexity (V10.4)
 - **Date**: 2026-01-06
 - **Status**: Accepted (Implementation in `spot-fill-gas-opt` branch)
