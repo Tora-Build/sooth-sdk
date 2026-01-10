@@ -5,7 +5,7 @@ import { parseUnits, Address, decodeEventLog } from 'viem';
 import {
     Rocket, Scale, Shield, DollarSign,
     Activity, Check, Coins, BookOpen,
-    Loader2
+    Loader2, ExternalLink
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,8 @@ import { LaunchpadHeader } from '../components/features/launchpad/LaunchpadHeade
 import { AddressSelector } from '../components/common/AddressSelector';
 import { PnLSimulator } from '../components/features/launchpad/PnLSimulator';
 import { RiskDisclosure } from '../components/features/launchpad/RiskDisclosure';
+import { PolymarketExplorer, PolymarketSelectData } from '../components/features/launchpad/PolymarketExplorer';
+import { Drawer } from '../components/ui/Drawer';
 
 const MARKET_CATEGORIES = [
     { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-orange-500 to-amber-500' },
@@ -54,6 +56,47 @@ export const Launchpad = () => {
     const [customGuardian, setCustomGuardian] = useState<string>('');
 
     const [mobileTab, setMobileTab] = useState<'create' | 'learn'>('create');
+    const [showPolymarket, setShowPolymarket] = useState(false);
+
+    // Handler for importing market data from Polymarket Explorer
+    const handlePolymarketSelect = (data: PolymarketSelectData) => {
+        // Smart expiration mode derivation
+        let expirationMode = 'open';
+        let customExpiration = '';
+
+        if (data.daysUntilExpiration !== null) {
+            if (data.daysUntilExpiration >= 6 && data.daysUntilExpiration <= 8) {
+                expirationMode = '7d';
+            } else if (data.daysUntilExpiration >= 28 && data.daysUntilExpiration <= 32) {
+                expirationMode = '30d';
+            } else if (data.expiration) {
+                expirationMode = 'custom';
+                customExpiration = data.expiration;
+            }
+        }
+
+        // Smart liquidity suggestion: 0.1% of Polymarket liquidity, clamped $100-$5000
+        let suggestedLiquidity = form.initialLiquidity;
+        if (data.liquidity > 0) {
+            const suggested = Math.round(data.liquidity * 0.001);
+            const clamped = Math.max(100, Math.min(5000, suggested));
+            suggestedLiquidity = clamped.toString();
+        }
+
+        setQuestion(data.question);
+        setForm(p => ({
+            ...p,
+            category: data.category,
+            expirationMode,
+            customExpiration,
+            initialLiquidity: suggestedLiquidity
+        }));
+        setShowPolymarket(false);
+
+        // Show context info
+        const volumeStr = data.volume24h >= 1000 ? `$${(data.volume24h / 1000).toFixed(0)}K` : `$${data.volume24h.toFixed(0)}`;
+        toast.success(`Imported from Polymarket (${volumeStr} 24h vol, ${data.yesPrice.toFixed(0)}% YES)`);
+    };
 
 
 
@@ -286,7 +329,17 @@ export const Launchpad = () => {
 
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Question</label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Question</label>
+                                    <button
+                                        onClick={() => setShowPolymarket(true)}
+                                        type="button"
+                                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Browse Polymarket
+                                    </button>
+                                </div>
                                 <input
                                     type="text"
                                     value={question}
@@ -401,7 +454,7 @@ export const Launchpad = () => {
                                     onChange={e => setForm(p => ({ ...p, initialLiquidity: e.target.value }))}
                                     className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
                                 />
-                                
+
                                 {depositAmount > 0 && (
                                     <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
                                         <div className="flex items-center justify-between text-sm">
@@ -487,11 +540,23 @@ export const Launchpad = () => {
                 )}>
                     <div className="space-y-6">
                         <PnLSimulator />
-                        
+
                         <RiskDisclosure collapsed />
                     </div>
                 </div>
             </div>
+
+            <Drawer
+                isOpen={showPolymarket}
+                onClose={() => setShowPolymarket(false)}
+                title="Browse Polymarket"
+                className="max-w-3xl"
+            >
+                <PolymarketExplorer
+                    onSelectMarket={handlePolymarketSelect}
+                    compact
+                />
+            </Drawer>
         </div>
     );
 };
