@@ -180,8 +180,9 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     const spinner2 = new Spinner('[2/2] Creating market in LaunchpadEngine...');
     spinner2.start();
 
-    const startTime = BigInt(Math.floor(Date.now() / 1000));
-    const deadline = startTime + BigInt(template.deadlineDays * 24 * 60 * 60);
+    // Pass startTime=0 to let contract use block.timestamp (avoids clock drift issues)
+    const startTime = 0n;
+    const deadline = BigInt(Math.floor(Date.now() / 1000)) + BigInt(template.deadlineDays * 24 * 60 * 60);
 
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
