@@ -403,12 +403,15 @@ export const Launchpad = () => {
                                     ))}
                                 </div>
                                 {form.expirationMode === 'custom' && (
-                                    <input
-                                        type="datetime-local"
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50"
-                                        value={form.customExpiration}
-                                        onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
-                                    />
+                                    <div className="space-y-1">
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50"
+                                            value={form.customExpiration}
+                                            onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
+                                        />
+                                        <p className="text-[10px] text-white/40">⏰ All times are in UTC</p>
+                                    </div>
                                 )}
                                 {form.expirationMode === 'open' && (
                                     <p className="text-xs text-violet-300 flex items-center gap-1">
