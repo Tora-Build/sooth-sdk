@@ -193,8 +193,12 @@ async function fetchEventsByCategory(
         .map(tag => TAG_ID_TO_CATEGORY[tag.id])
         .filter((c): c is CategoryKey => c !== undefined);
 
-      // Use first match as primary, or the fetch category as fallback
-      const primaryCategory = matchedCategories[0] || categoryKey;
+      // Priority order for Sooth categories: crypto > sports > cultures > others
+      // Find the best primary category (prefer non-"others" mappings)
+      const PRIORITY_ORDER: CategoryKey[] = ['crypto', 'sports', 'popCulture'];
+      const primaryCategory = PRIORITY_ORDER.find(cat => matchedCategories.includes(cat))
+        || matchedCategories[0]
+        || categoryKey;
       const primaryCategoryConfig = CATEGORIES[primaryCategory];
 
       return {
