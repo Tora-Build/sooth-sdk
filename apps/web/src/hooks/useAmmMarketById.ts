@@ -50,7 +50,7 @@ function useEVMMarket(marketId: string) {
       // Removed walletChainId === selectedChainId to match PortfolioSummary behavior.
       // Fix: Don't fetch for demo markets (which have dummy addresses) even if mode is real
       enabled: mode === 'real' && !!marketAddress && (marketConfig as any)?.mode !== 'demo',
-      refetchInterval: 5000,
+      refetchInterval: 10000,
     }
   });
 
