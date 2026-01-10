@@ -30,9 +30,9 @@ const roleConfigs: Record<Role, RoleConfig> = {
     icon: Crown,
     label: 'Creator',
     description: 'You can initialize and manage this market\'s liquidity.',
-    bgColor: 'bg-purple-500/10',
-    borderColor: 'border-purple-500/30',
-    textColor: 'text-purple-400',
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30',
+    textColor: 'text-cyan-400',
     badgeColor: 'default',
   },
   adjudicator: {

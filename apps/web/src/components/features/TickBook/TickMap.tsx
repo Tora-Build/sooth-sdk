@@ -116,7 +116,7 @@ export const TickMap: React.FC<TickMapProps> = ({
 
   return (
     <div className="relative group" ref={containerRef}>
-      <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 to-cyan-500/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
       <canvas
         ref={canvasRef}
         width={400}

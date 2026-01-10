@@ -169,7 +169,7 @@ export const ChainSelector: React.FC = () => {
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
                       isSelected
-                        ? "bg-indigo-500/10 text-indigo-400 cursor-default"
+                        ? "bg-cyan-500/10 text-cyan-400 cursor-default"
                         : "text-slate-200 hover:bg-slate-900/60"
                     )}
                     role="option"

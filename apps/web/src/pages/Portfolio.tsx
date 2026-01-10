@@ -64,7 +64,7 @@ const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueU
   if (isLoading || (yesShares === 0n && noShares === 0n)) return null;
 
   return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
         <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
         <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
@@ -177,7 +177,7 @@ const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
   if (yesBalance === 0n && noBalance === 0n) return null;
 
   return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
         <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name}</div>
         <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
@@ -229,7 +229,7 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   if (isLoading || (yesInternal === 0n && noInternal === 0n)) return null;
 
   return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
         <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Position</div>
         <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
@@ -267,10 +267,10 @@ const ProMarginRow = ({ market, userAddress }: {
   return (
     <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
       <div className="flex items-center gap-3">
-        <Lock className="w-4 h-4 text-amber-400" />
+        <Lock className="w-4 h-4 text-slate-400" />
         <div>
           <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-          <div className="text-[10px] font-mono text-amber-500/80">RESERVED MARGIN</div>
+          <div className="text-[10px] font-mono text-slate-500/80">RESERVED MARGIN</div>
         </div>
       </div>
       <div className="text-right">
@@ -480,7 +480,7 @@ export const Portfolio = () => {
                   <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Wallet className="w-2.5 h-2.5" /> USDC
                   </div>
-                  <div className="font-mono text-amber-400 font-bold text-sm">
+                  <div className="font-mono text-slate-400 font-bold text-sm">
                     ${parseFloat(walletUsdcFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
@@ -491,8 +491,8 @@ export const Portfolio = () => {
           {/* TickBook Vault (Isolated Margin) */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                <Database className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+                <Database className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
                 <Tooltip
@@ -505,12 +505,12 @@ export const Portfolio = () => {
               </div>
             </div>
 
-            <Card className="bg-gradient-to-br from-indigo-950/40 to-slate-950 border-indigo-500/20 p-6 min-h-[240px] flex flex-col justify-between">
+            <Card className="bg-gradient-to-br from-cyan-950/40 to-slate-950 border-cyan-500/20 p-6 min-h-[240px] flex flex-col justify-between">
               <div className="mb-4">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-xs text-indigo-300 font-bold flex items-center gap-2 uppercase tracking-tighter">
+                  <div className="text-xs text-cyan-300 font-bold flex items-center gap-2 uppercase tracking-tighter">
                     <Database className="w-3 h-3" /> Total Vault Value
-                    {isLoadingProVault && <div className="animate-spin w-2 h-2 border-2 border-indigo-500 border-t-transparent rounded-full" />}
+                    {isLoadingProVault && <div className="animate-spin w-2 h-2 border-2 border-cyan-500 border-t-transparent rounded-full" />}
                   </div>
                 </div>
                 <div className="text-4xl font-mono font-bold text-white tracking-tight">
@@ -539,7 +539,7 @@ export const Portfolio = () => {
                   <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Database className="w-2.5 h-2.5" /> Unused USDC
                   </div>
-                  <div className="font-mono text-amber-400 font-bold text-sm">
+                  <div className="font-mono text-slate-400 font-bold text-sm">
                     ${parseFloat(proAvailableFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
@@ -648,10 +648,10 @@ export const Portfolio = () => {
             </Card>
 
             {/* Pending Exits */}
-            <Card className="p-0 border-amber-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-amber-950/10 border-b border-amber-500/10 flex justify-between items-center">
+            <Card className="p-0 border-slate-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-slate-950/10 border-b border-slate-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
+                  <Clock className="w-4 h-4 text-slate-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Pending Exits</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
@@ -665,7 +665,7 @@ export const Portfolio = () => {
                   (queue || []).map((item, idx) => {
                     const isUnlocked = item.isUnlocked;
                     return (
-                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 hover:border-amber-500/30 transition-all group">
+                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 hover:border-slate-500/30 transition-all group">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-mono font-bold text-white tracking-tight">
@@ -686,7 +686,7 @@ export const Portfolio = () => {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/20 text-amber-400 border border-amber-500/20'}`}>
+                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
                             {isUnlocked ? 'Liquid' : 'Locked'}
                           </span>
                           {!isUnlocked && (
@@ -710,17 +710,17 @@ export const Portfolio = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-3 h-3 text-indigo-500" />
+                <Activity className="w-3 h-3 text-cyan-500" />
                 <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
 
             {/* Pro Vault Owned Shares */}
-            <Card className="p-0 border-indigo-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-indigo-950/20 border-b border-indigo-500/10 flex justify-between items-center">
+            <Card className="p-0 border-cyan-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-cyan-950/20 border-b border-cyan-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-indigo-400" />
+                  <Database className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Owned Shares</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
@@ -745,10 +745,10 @@ export const Portfolio = () => {
             </Card>
 
             {/* Active Margin */}
-            <Card className="p-0 border-indigo-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-indigo-950/20 border-b border-indigo-500/10 flex justify-between items-center">
+            <Card className="p-0 border-cyan-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-cyan-950/20 border-b border-cyan-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-indigo-400" />
+                  <Lock className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Active Margin</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
@@ -773,8 +773,8 @@ export const Portfolio = () => {
             {/* Dashboard Legend / Status */}
             <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-cyan-400" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
@@ -790,7 +790,7 @@ export const Portfolio = () => {
                   <span className="text-[9px] text-slate-500 uppercase font-bold">{v8Markets.length} Active Markets</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <div className="w-2 h-2 rounded-full bg-cyan-500" />
                   <span className="text-[9px] text-slate-500 uppercase font-bold">Pro Hardened</span>
                 </div>
               </div>

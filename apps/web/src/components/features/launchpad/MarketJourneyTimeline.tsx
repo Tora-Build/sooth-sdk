@@ -92,14 +92,14 @@ const TIMELINE_STEPS: TimelineStep[] = [
 
 const getColorClasses = (color: string) => {
     const colors: Record<string, { bg: string; border: string; text: string; glow: string }> = {
-        violet: { bg: 'bg-violet-500', border: 'border-violet-500/30', text: 'text-violet-400', glow: 'shadow-violet-500/30' },
+        cyan: { bg: 'bg-cyan-500', border: 'border-cyan-500/30', text: 'text-cyan-400', glow: 'shadow-cyan-500/30' },
         blue: { bg: 'bg-blue-500', border: 'border-blue-500/30', text: 'text-blue-400', glow: 'shadow-blue-500/30' },
         emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500/30', text: 'text-emerald-400', glow: 'shadow-emerald-500/30' },
         orange: { bg: 'bg-orange-500', border: 'border-orange-500/30', text: 'text-orange-400', glow: 'shadow-orange-500/30' },
         pink: { bg: 'bg-pink-500', border: 'border-pink-500/30', text: 'text-pink-400', glow: 'shadow-pink-500/30' },
         yellow: { bg: 'bg-yellow-500', border: 'border-yellow-500/30', text: 'text-yellow-400', glow: 'shadow-yellow-500/30' }
     };
-    return colors[color] || colors.violet;
+    return colors[color] || colors.cyan;
 };
 
 interface MarketJourneyTimelineProps {
@@ -117,7 +117,7 @@ export const MarketJourneyTimeline = ({ defaultExpanded = false }: MarketJourney
                 className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
             >
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
                         <Rocket className="w-4 h-4 text-white" />
                     </div>
                     <div className="text-left">

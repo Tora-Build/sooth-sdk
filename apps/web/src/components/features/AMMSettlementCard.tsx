@@ -115,8 +115,8 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
                 </>
               ) : (
                 <>
-                  <AlertCircle className="w-4 h-4 text-amber-400" />
-                  <span className="font-bold text-amber-400">INVALID</span>
+                  <AlertCircle className="w-4 h-4 text-slate-400" />
+                  <span className="font-bold text-slate-400">INVALID</span>
                 </>
               )}
             </div>

@@ -36,8 +36,8 @@ const ARCHETYPES: ArchetypeConfig[] = [
         name: 'Creator',
         icon: Palette,
         story: 'Carol creates markets and earns from volume',
-        gradient: 'from-violet-500 to-fuchsia-500',
-        shadowColor: 'shadow-violet-500/30'
+        gradient: 'from-cyan-500 to-cyan-600',
+        shadowColor: 'shadow-cyan-500/30'
     },
     {
         id: 'gaming',
@@ -180,8 +180,8 @@ const CreatorPanel = () => {
 
     return (
         <div className="space-y-6">
-            <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
-                <p className="text-sm text-violet-200">
+            <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                <p className="text-sm text-cyan-200">
                     <span className="font-bold">Carol's Strategy:</span> Create a market, seed liquidity, 
                     and earn from trading volume. No trading required!
                 </p>
@@ -250,7 +250,7 @@ const CreatorPanel = () => {
                     ]}
                 />
 
-                <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30">
+                <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-500/20 to-cyan-500/20 border border-cyan-500/30">
                     <div className="flex justify-between items-center">
                         <div>
                             <p className="text-xs text-white/50 uppercase font-bold">Net P&L</p>
@@ -268,7 +268,7 @@ const CreatorPanel = () => {
                 </div>
 
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
-                    <Sparkles className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
+                    <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                     <span>
                         <span className="font-bold text-white">LMSR Property:</span> Max win = Max loss = Deposit + Flywheel. 
                         Fee Yield is always yours.
@@ -292,7 +292,7 @@ const EntryTimingToggle = ({
             className={cn(
                 "py-2.5 px-3 rounded-lg text-sm font-bold transition-all",
                 !isPreGrad 
-                    ? "bg-violet-500/20 text-violet-300 shadow-sm"
+                    ? "bg-cyan-500/20 text-cyan-300 shadow-sm"
                     : "text-white/40 hover:text-white/60"
             )}
         >
@@ -692,7 +692,7 @@ const PvPTraderPanel = () => {
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
                         >
-                            Win 🚀
+                            Win
                         </button>
                         <button
                             onClick={() => setOutcome('lose')}
@@ -703,7 +703,7 @@ const PvPTraderPanel = () => {
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
                         >
-                            Lose 💀
+                            Lose
                         </button>
                         <button
                             onClick={() => setOutcome('expected')}

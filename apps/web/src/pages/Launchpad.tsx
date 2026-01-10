@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useConfig, useReadContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { parseUnits, Address, decodeEventLog } from 'viem';
@@ -22,10 +22,10 @@ import { PolymarketExplorer, PolymarketSelectData } from '../components/features
 import { Drawer } from '../components/ui/Drawer';
 
 const MARKET_CATEGORIES = [
-    { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-orange-500 to-amber-500' },
+    { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-cyan-500 to-slate-500' },
     { id: 'sports', name: 'Sports', icon: '⚽', gradient: 'from-emerald-500 to-teal-500' },
     { id: 'cultures', name: 'Cultures', icon: '🎭', gradient: 'from-pink-500 to-rose-500' },
-    { id: 'others', name: 'Others', icon: '✨', gradient: 'from-violet-500 to-fuchsia-500' }
+    { id: 'others', name: 'Others', icon: '⚡', gradient: 'from-cyan-500 to-emerald-500' }
 ];
 
 
@@ -288,8 +288,35 @@ export const Launchpad = () => {
     const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator && customGuardian;
     const canProceed = isFormValid && !form.deployPending;
 
+    const particles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+        id: i,
+        left: `${5 + (i * 8)}%`,
+        delay: `${i * 0.7}s`,
+        duration: `${8 + (i % 3) * 2}s`,
+        size: `${2 + (i % 3)}px`,
+    })), []);
+
     return (
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="relative max-w-6xl mx-auto px-4">
+            <div className="launchpad-bg">
+                <div className="launchpad-grid" />
+                <div className="launchpad-orb launchpad-orb-1" />
+                <div className="launchpad-orb launchpad-orb-2" />
+                <div className="launchpad-orb launchpad-orb-3" />
+                {particles.map((p) => (
+                    <div
+                        key={p.id}
+                        className="launchpad-particle"
+                        style={{
+                            left: p.left,
+                            width: p.size,
+                            height: p.size,
+                            animationDelay: p.delay,
+                            animationDuration: p.duration,
+                        }}
+                    />
+                ))}
+            </div>
             <LaunchpadHeader />
 
             <div className="lg:hidden flex gap-2 my-6">
@@ -298,7 +325,7 @@ export const Launchpad = () => {
                     className={cn(
                         "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
                         mobileTab === 'create'
-                            ? "bg-violet-500 text-white"
+                            ? "bg-cyan-500 text-white"
                             : "bg-white/5 text-white/50"
                     )}
                 >
@@ -326,7 +353,7 @@ export const Launchpad = () => {
                 )}>
                     <div className="p-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
                                 <Coins className="w-5 h-5 text-white" />
                             </div>
                             <div>
@@ -353,7 +380,7 @@ export const Launchpad = () => {
                                     value={question}
                                     onChange={e => setQuestion(e.target.value)}
                                     placeholder="Will Bitcoin exceed $100k by 2026?"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all placeholder:text-white/20"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-white/20"
                                 />
                             </div>
 
@@ -394,7 +421,7 @@ export const Launchpad = () => {
                                             className={cn(
                                                 "py-2 rounded-lg text-sm font-bold border transition-all",
                                                 form.expirationMode === mode.id
-                                                    ? "bg-violet-500/20 text-white border-violet-500/50"
+                                                    ? "bg-cyan-500/20 text-white border-cyan-500/50"
                                                     : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
                                             )}
                                         >
@@ -406,15 +433,15 @@ export const Launchpad = () => {
                                     <div className="space-y-1">
                                         <input
                                             type="datetime-local"
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50"
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50"
                                             value={form.customExpiration}
                                             onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
                                         />
-                                        <p className="text-[10px] text-white/40">⏰ All times are in UTC</p>
+                                        <p className="text-[10px] text-white/40">All times are in UTC</p>
                                     </div>
                                 )}
                                 {form.expirationMode === 'open' && (
-                                    <p className="text-xs text-violet-300 flex items-center gap-1">
+                                    <p className="text-xs text-cyan-300 flex items-center gap-1">
                                         <Activity className="w-3 h-3" />
                                         Open until resolved
                                     </p>
@@ -476,7 +503,7 @@ export const Launchpad = () => {
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
                                             <span className="text-white/50">Graduation Fee</span>
-                                            <span className="text-violet-400 font-mono font-bold">
+                                            <span className="text-cyan-400 font-mono font-bold">
                                                 ${depositAmount.toLocaleString()}
                                             </span>
                                         </div>
@@ -521,7 +548,7 @@ export const Launchpad = () => {
                                         disabled={!canProceed}
                                         className={cn(
                                             "w-full py-4 rounded-xl text-lg font-black transition-all",
-                                            "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-orange-500",
+                                            "bg-gradient-to-r from-cyan-500 via-cyan-600 to-emerald-500",
                                             "hover:shadow-[0_0_40px_-8px] hover:shadow-fuchsia-500/50",
                                             "disabled:opacity-40 disabled:cursor-not-allowed",
                                             "text-white flex items-center justify-center gap-2"

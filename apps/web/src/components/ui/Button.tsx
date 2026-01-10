@@ -16,8 +16,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ghost: 'btn btn-ghost',
       danger: 'btn btn-danger',
       success: 'btn bg-emerald-500/15 text-emerald-200 border border-emerald-500/25 hover:bg-emerald-500/20 hover:border-emerald-400/30 shadow-glow-emerald',
-      info: 'btn bg-indigo-500/15 text-indigo-200 border border-indigo-500/25 hover:bg-indigo-500/20 hover:border-indigo-400/30 shadow-glow-indigo',
-      glow: 'btn bg-gradient-to-r from-indigo-500/80 to-violet-500/80 text-white border border-white/10 hover:border-white/20 shadow-glow-violet',
+      info: 'btn bg-cyan-500/15 text-cyan-200 border border-cyan-500/25 hover:bg-cyan-500/20 hover:border-cyan-400/30 shadow-glow-cyan',
+      glow: 'btn bg-gradient-to-r from-cyan-500/80 to-emerald-500/80 text-white border border-white/10 hover:border-white/20 shadow-glow-cyan',
       cyan: 'btn bg-cyan-500/15 text-cyan-200 border border-cyan-500/25 hover:bg-cyan-500/20 hover:border-cyan-400/30 shadow-glow-cyan',
       destructive: 'btn btn-danger',
     };

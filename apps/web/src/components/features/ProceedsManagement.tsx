@@ -45,7 +45,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
         <div className="space-y-6">
             <Card variant="premium" className="relative overflow-hidden">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                    <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
                         <Wallet className="w-5 h-5" />
                     </div>
                     <div>
@@ -68,15 +68,15 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
                     </div>
 
                     {/* Locked */}
-                    <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                        <div className="flex items-center gap-2 mb-2 text-amber-400">
+                    <div className="p-4 rounded-xl bg-slate-500/5 border border-slate-500/10">
+                        <div className="flex items-center gap-2 mb-2 text-slate-400">
                             <Lock className="w-4 h-4" />
                             <span className="text-xs font-semibold uppercase tracking-wider">Locked</span>
                         </div>
                         <div className="text-2xl font-bold text-white">
                             {isLoading ? '...' : `$${lockedFormatted}`}
                         </div>
-                        <p className="text-[10px] text-amber-500/60 mt-1">Under 24h withdrawal lock</p>
+                        <p className="text-[10px] text-slate-500/60 mt-1">Under 24h withdrawal lock</p>
                     </div>
 
                     {/* Withdrawable */}
@@ -94,7 +94,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
 
                 {/* Claim Action Area */}
                 {hasClaimable ? (
-                    <div className="mt-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-full bg-emerald-500/20 text-emerald-400">
                                 <Unlock className="w-5 h-5" />

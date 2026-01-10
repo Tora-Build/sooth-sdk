@@ -30,12 +30,12 @@ export const LaunchpadLockedProceeds: React.FC<{
     }, [isClaimConfirmed, refetch]);
 
     return (
-        <Card className="border-amber-500/20 bg-amber-500/5">
+        <Card className="border-slate-500/20 bg-slate-500/5">
             <div className="flex items-start justify-between">
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                        <Clock className="text-amber-400" size={16} />
-                        <h3 className="text-sm font-medium text-amber-400">Locked Proceeds (V6)</h3>
+                        <Clock className="text-slate-400" size={16} />
+                        <h3 className="text-sm font-medium text-slate-400">Locked Proceeds (V6)</h3>
                     </div>
                     
                     <div className="space-y-1">
@@ -60,7 +60,7 @@ export const LaunchpadLockedProceeds: React.FC<{
                 <Button
                     onClick={claimUnlocked}
                     disabled={isClaimPending}
-                    className="bg-amber-600 hover:bg-amber-500 text-slate-900"
+                    className="bg-slate-600 hover:bg-slate-500 text-white"
                 >
                     {isClaimPending ? 'Claiming...' : 'Claim Unlocked'}
                 </Button>

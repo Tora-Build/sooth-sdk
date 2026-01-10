@@ -570,7 +570,7 @@ export const SimpleTradingPanel = ({
   if (isSettled) {
     return (
       <div className="p-4 text-center">
-        <div className="text-amber-400 mb-2">⚖️ Market Settled</div>
+        <div className="text-slate-400 mb-2">⚖️ Market Settled</div>
         <p className="text-sm text-slate-500">Trading is closed for this market.</p>
       </div>
     );
@@ -663,13 +663,13 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && (isWrongSelectedChain || isWrongWalletChain) && (
-          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
                 Trading unavailable: this market isn't initialized on the <strong>selected network</strong>.
               </div>
-              <div className="text-amber-200/70">
+              <div className="text-slate-200/70">
                 Selected: <strong>{selectedChain?.name ?? `Chain ${chainId}`}</strong>
                 {expectedChain ? (
                   <>
@@ -681,7 +681,7 @@ export const SimpleTradingPanel = ({
                 {isWrongSelectedChain && expectedChainId ? (
                   <Button
                     onClick={() => setSelectedChain(expectedChainId)}
-                    className="h-7 px-2 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                    className="h-7 px-2 text-[10px] bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/30"
                   >
                     View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
                   </Button>
@@ -701,13 +701,13 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && !isWrongSelectedChain && !isWrongWalletChain && (
-          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
                 Trading unavailable: {!isMarketCreated ? 'market not found' : 'AMM not yet initialized'}.
               </div>
-              <div className="text-amber-200/70">
+              <div className="text-slate-200/70">
                 The market may still be pending initialization or does not exist at this address.
               </div>
             </div>
@@ -779,7 +779,7 @@ export const SimpleTradingPanel = ({
             className={cn(
               "flex-1 py-2 rounded-md font-bold text-xs uppercase transition-all",
               tradeMode === 'sell'
-                ? "bg-amber-600/30 text-amber-400 ring-1 ring-amber-500/50"
+                ? "bg-slate-600/30 text-slate-400 ring-1 ring-slate-500/50"
                 : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -794,7 +794,7 @@ export const SimpleTradingPanel = ({
             {isConnected && (
               <button
                 onClick={handleMax}
-                className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
               >
                 MAX
               </button>
@@ -813,7 +813,7 @@ export const SimpleTradingPanel = ({
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
               aria-invalid={amountError ? 'true' : 'false'}
-              className="w-full px-14 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold text-center focus:border-amber-500 focus:outline-none transition-colors"
+              className="w-full px-14 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold text-center focus:border-cyan-500 focus:outline-none transition-colors"
               placeholder="10"
               min="0"
             />
@@ -873,7 +873,7 @@ export const SimpleTradingPanel = ({
                     maxSellWad <= 0n
                       ? 'bg-slate-900/30 text-slate-600 cursor-not-allowed'
                       : amount === target
-                        ? 'bg-amber-500/20 text-amber-400'
+                        ? 'bg-slate-500/20 text-slate-400'
                         : 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800'
                   )}
                 >
@@ -933,7 +933,7 @@ export const SimpleTradingPanel = ({
                 <span className={cn(
                   "font-mono",
                   Math.abs(quote.priceImpact) > 5 ? 'text-rose-400 font-bold' :
-                    Math.abs(quote.priceImpact) > 2 ? 'text-amber-400 font-bold' : 'text-slate-400'
+                    Math.abs(quote.priceImpact) > 2 ? 'text-slate-400 font-bold' : 'text-slate-400'
                 )}>
                   {quote.priceImpact > 0 ? '+' : ''}{quote.priceImpact.toFixed(2)}%
                 </span>
@@ -946,7 +946,7 @@ export const SimpleTradingPanel = ({
                   <span><strong>High Impact!</strong> Consider trading in smaller sizes.</span>
                 </div>
               ) : Math.abs(quote.priceImpact) > 2 ? (
-                <div className="p-2 rounded-lg bg-amber-950/30 border border-amber-900/30 text-[10px] text-amber-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-slate-950/30 border border-slate-900/30 text-[10px] text-slate-400 flex items-start gap-2">
                   <AlertCircle size={12} className="shrink-0 mt-0.5" />
                   <span>Significant price impact. Check execution price.</span>
                 </div>
@@ -1021,7 +1021,7 @@ export const SimpleTradingPanel = ({
 
         {/* Spendable Proceeds Notice */}
         {tradeMode === 'sell' && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-indigo-950/30 border border-indigo-900/30 text-indigo-400 text-xs">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-950/30 border border-cyan-900/30 text-cyan-400 text-xs">
             <Info size={14} className="shrink-0" />
             <span>Proceeds are <strong>instantly spendable</strong> but locked for withdrawal for 24h.</span>
           </div>
@@ -1031,7 +1031,7 @@ export const SimpleTradingPanel = ({
         {!isConnected ? (
           <Button
             onClick={handleConnect}
-            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white shadow-lg shadow-amber-600/25"
+            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg shadow-cyan-600/25"
           >
             <Wallet size={18} className="mr-2" />
             Connect Wallet
@@ -1040,7 +1040,7 @@ export const SimpleTradingPanel = ({
           <Button
             onClick={handleApprove}
             disabled={isPending || !canTrade || isPhantomConnector}
-            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white shadow-lg shadow-amber-600/25 disabled:opacity-50"
+            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg shadow-cyan-600/25 disabled:opacity-50"
           >
             {isPending ? (
               <Loader2 size={18} className="mr-2 animate-spin" />
@@ -1056,7 +1056,7 @@ export const SimpleTradingPanel = ({
               "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
               tradeMode === 'buy' && selectedOutcome === 1 && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
               tradeMode === 'buy' && selectedOutcome === 0 && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
-              tradeMode === 'sell' && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
+              tradeMode === 'sell' && "bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 shadow-lg shadow-slate-600/25",
               isButtonDisabled && "opacity-50 cursor-not-allowed"
             )}
           >

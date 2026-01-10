@@ -3,14 +3,14 @@ import { Card } from '../../ui/Card';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
-type CardVariant = 'indigo' | 'emerald' | 'default';
+type CardVariant = 'cyan' | 'emerald' | 'default';
 
 const variantStyles: Record<CardVariant, { card: string; header: string; title: string; button: string }> = {
-    indigo: {
-        card: 'border-indigo-500/20 bg-indigo-950/30',
-        header: 'bg-indigo-900/40',
-        title: 'text-indigo-300',
-        button: 'border-indigo-500/10 hover:bg-indigo-900/30',
+    cyan: {
+        card: 'border-cyan-500/20 bg-cyan-950/30',
+        header: 'bg-cyan-900/40',
+        title: 'text-cyan-300',
+        button: 'border-cyan-500/10 hover:bg-cyan-900/30',
     },
     emerald: {
         card: 'border-emerald-500/20 bg-emerald-950/30',

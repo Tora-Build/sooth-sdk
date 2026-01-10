@@ -103,9 +103,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   blue: 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30',
   emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30',
   orange: 'bg-orange-500/20 text-orange-300 border-orange-500/30 hover:bg-orange-500/30',
-  violet: 'bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/30',
+  cyan: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30',
   pink: 'bg-pink-500/20 text-pink-300 border-pink-500/30 hover:bg-pink-500/30',
-  amber: 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30',
+  slate: 'bg-slate-500/20 text-slate-300 border-slate-500/30 hover:bg-slate-500/30',
 };
 
 // ============================================================================
@@ -451,13 +451,13 @@ function MarketCard({
             className={cn(
               "flex items-center gap-1 px-1.5 py-0.5 rounded border",
               marketsCount > 1
-                ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
+                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
                 : "bg-slate-700/30 text-slate-400 border-slate-600/30"
             )}
             title={`${marketsCount} market${marketsCount !== 1 ? 's' : ''} in this event`}
           >
             <span className="font-bold">{marketsCount}</span>
-            <span className={marketsCount > 1 ? "text-violet-400" : "text-slate-500"}>mkt{marketsCount !== 1 ? 's' : ''}</span>
+            <span className={marketsCount > 1 ? "text-cyan-400" : "text-slate-500"}>mkt{marketsCount !== 1 ? 's' : ''}</span>
           </div>
         )}
 
@@ -474,7 +474,7 @@ function MarketCard({
                 e.stopPropagation();
                 onUse(market);
               }}
-              className="px-2 py-1 rounded-md bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-all flex items-center gap-1"
+              className="px-2 py-1 rounded-md bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/30 transition-all flex items-center gap-1"
             >
               <Rocket className="w-2.5 h-2.5" />
               Use
@@ -724,7 +724,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
     const ratio = volume24h / liquidity;
     if (ratio > 0.5) return { label: 'Very High', color: 'text-emerald-400' };
     if (ratio > 0.2) return { label: 'High', color: 'text-cyan-400' };
-    if (ratio > 0.05) return { label: 'Moderate', color: 'text-amber-400' };
+    if (ratio > 0.05) return { label: 'Moderate', color: 'text-slate-400' };
     return { label: 'Low', color: 'text-slate-400' };
   };
 
@@ -847,7 +847,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
             <div className={cn(
               "rounded-lg border overflow-hidden",
               numMarkets > 1
-                ? "bg-violet-500/10 border-violet-500/20"
+                ? "bg-cyan-500/10 border-cyan-500/20"
                 : "bg-slate-800/30 border-slate-700/30"
             )}>
               <button
@@ -857,23 +857,23 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
                 <div className="flex items-center gap-2">
                   <div className={cn(
                     "w-6 h-6 rounded-full flex items-center justify-center",
-                    numMarkets > 1 ? "bg-violet-500/20" : "bg-slate-700/50"
+                    numMarkets > 1 ? "bg-cyan-500/20" : "bg-slate-700/50"
                   )}>
                     <span className={cn(
                       "text-xs font-bold",
-                      numMarkets > 1 ? "text-violet-300" : "text-slate-400"
+                      numMarkets > 1 ? "text-cyan-300" : "text-slate-400"
                     )}>{numMarkets}</span>
                   </div>
                   <span className={cn(
                     "text-xs",
-                    numMarkets > 1 ? "text-violet-300" : "text-slate-400"
+                    numMarkets > 1 ? "text-cyan-300" : "text-slate-400"
                   )}>
                     {numMarkets === 1 ? 'Market' : `${numMarkets} markets`}
                   </span>
                 </div>
                 {marketsExpanded
-                  ? <ChevronUp className={cn("w-4 h-4", numMarkets > 1 ? "text-violet-400" : "text-slate-400")} />
-                  : <ChevronDown className={cn("w-4 h-4", numMarkets > 1 ? "text-violet-400" : "text-slate-400")} />
+                  ? <ChevronUp className={cn("w-4 h-4", numMarkets > 1 ? "text-cyan-400" : "text-slate-400")} />
+                  : <ChevronDown className={cn("w-4 h-4", numMarkets > 1 ? "text-cyan-400" : "text-slate-400")} />
                 }
               </button>
 
@@ -881,7 +881,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
               {marketsExpanded && selectedMarket.rawData.markets && (
                 <div className={cn(
                   "border-t p-2 space-y-2",
-                  numMarkets > 1 ? "border-violet-500/20" : "border-slate-700/30"
+                  numMarkets > 1 ? "border-cyan-500/20" : "border-slate-700/30"
                 )}>
                   {selectedMarket.rawData.markets.map((mkt, idx) => {
                     const prices = parseJsonArray(mkt.outcomePrices as unknown as string);

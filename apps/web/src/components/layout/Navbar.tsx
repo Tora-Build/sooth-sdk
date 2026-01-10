@@ -97,7 +97,7 @@ export const Navbar = () => {
                     <span className="text-white font-bold">{content.gov}</span>
                   </DropdownLink>
                   <DropdownLink to="/learn" active={isActive('/learn')} onClick={() => setMoreOpen(false)}>
-                    <BookOpen className="w-4 h-4 text-amber-400" />
+                    <BookOpen className="w-4 h-4 text-slate-400" />
                     <span className="text-white font-bold">{content.learn}</span>
                   </DropdownLink>
                   <DropdownLink to="/faucet" active={isActive('/faucet')} onClick={() => setMoreOpen(false)}>

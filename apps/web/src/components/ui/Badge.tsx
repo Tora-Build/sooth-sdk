@@ -10,11 +10,11 @@ export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
     const variants = {
       default: 'bg-slate-800/60 text-slate-200 border border-slate-700/40',
       success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-      warning: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+      warning: 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
       danger: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
       outline: 'border border-slate-700 text-slate-400',
       live: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
-      indigo: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+      indigo: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20',
       secondary: 'bg-slate-700/60 text-slate-300 border border-slate-600/40',
       destructive: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
     };
@@ -24,7 +24,7 @@ export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
         ref={ref}
         className={cn(
           'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-tight transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
           variants[variant],
           className
         )}

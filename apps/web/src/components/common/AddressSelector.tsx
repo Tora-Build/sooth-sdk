@@ -69,7 +69,7 @@ export const AddressSelector = ({
                         className={cn(
                             "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
                             selectedMode === 'custom'
-                                ? "bg-amber-500/20 text-amber-400 shadow-sm"
+                                ? "bg-cyan-500/20 text-cyan-400 shadow-sm"
                                 : "text-white/40 hover:text-white/60"
                         )}
                     >
@@ -280,7 +280,7 @@ export const AddressSelector = ({
                             value={customAddress === userAddress ? '' : customAddress}
                             onChange={(e) => setCustomAddress(e.target.value)}
                             placeholder="0x..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all placeholder:text-white/20 font-mono text-sm"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-white/20 font-mono text-sm"
                         />
                     </div>
                 </div>

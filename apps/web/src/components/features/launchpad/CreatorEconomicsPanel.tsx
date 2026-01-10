@@ -25,9 +25,9 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
 
     return (
         <div className="space-y-6">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-orange-500/10 border border-violet-500/20">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-cyan-500/10 border border-cyan-500/20">
                 <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-400 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/30 shrink-0">
                         <Coins className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -43,9 +43,9 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
             <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                     <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                            <Coins className="w-4 h-4 text-violet-400" />
-                        </div>
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                        <Coins className="w-4 h-4 text-cyan-400" />
+                    </div>
                         <span className="text-xs text-white/50 uppercase font-bold">Your Deposit</span>
                     </div>
                     <p className="text-2xl font-mono font-black text-white">
@@ -89,7 +89,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                     step="1000"
                     value={volume}
                     onChange={(e) => setVolume(Number(e.target.value))}
-                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
                 <div className="flex justify-between text-[10px] text-white/30 font-mono">
                     <span>$1k</span>
@@ -116,7 +116,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                             "h-full rounded-full transition-all duration-500",
                             result.isGraduated
                                 ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                                : "bg-gradient-to-r from-violet-500 to-fuchsia-500"
+                                : "bg-gradient-to-r from-cyan-500 to-cyan-600"
                         )}
                         style={{ width: `${progressPercent}%` }}
                     />
@@ -161,8 +161,8 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                         <span className="font-bold text-white text-sm">Post-Graduation Fee Split</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                        <div className="flex-1 p-2 rounded-lg bg-violet-500/20 text-center">
-                            <p className="text-violet-300 font-bold">50%</p>
+                        <div className="flex-1 p-2 rounded-lg bg-cyan-500/20 text-center">
+                            <p className="text-cyan-300 font-bold">50%</p>
                             <p className="text-[10px] text-white/50">bBase</p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-white/30 shrink-0" />

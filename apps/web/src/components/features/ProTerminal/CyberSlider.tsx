@@ -63,7 +63,7 @@ export const CyberSlider: React.FC<CyberSliderProps> = ({
                 <div
                     className={cn(
                         "absolute h-full transition-all duration-75",
-                        isSingle ? "bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" : "bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                        isSingle ? "bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" : "bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
                     )}
                     style={{
                         left: `${lowerPercent}%`,
@@ -77,7 +77,7 @@ export const CyberSlider: React.FC<CyberSliderProps> = ({
             <div
                 className={cn(
                     "absolute w-4 h-4 -ml-2 bg-slate-100 rounded-full border-2 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform z-20 shadow-lg",
-                    isSingle ? "border-cyan-500" : "border-indigo-500"
+                    isSingle ? "border-cyan-500" : "border-cyan-500"
                 )}
                 style={{ left: `${lowerPercent}%` }}
                 onMouseDown={handleMouseDown('lower')}
@@ -90,7 +90,7 @@ export const CyberSlider: React.FC<CyberSliderProps> = ({
             {/* Upper Thumb (only for ranged) */}
             {!isSingle && (
                 <div
-                    className="absolute w-4 h-4 -ml-2 bg-slate-100 rounded-full border-2 border-indigo-500 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform z-20 shadow-lg"
+                    className="absolute w-4 h-4 -ml-2 bg-slate-100 rounded-full border-2 border-cyan-500 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform z-20 shadow-lg"
                     style={{ left: `${upperPercent}%` }}
                     onMouseDown={handleMouseDown('upper')}
                 >

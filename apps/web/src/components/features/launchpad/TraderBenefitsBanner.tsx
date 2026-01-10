@@ -66,8 +66,8 @@ export const TraderBenefitsBanner = () => {
 
                                 <div className="space-y-2 text-sm">
                                     <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                                            <span className="text-xs text-violet-300">1</span>
+                                        <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-xs text-cyan-300">1</span>
                                         </div>
                                         <p className="text-white/70">
                                             Alice trades <span className="text-white font-bold">$200</span> on YES during pre-graduation
@@ -75,8 +75,8 @@ export const TraderBenefitsBanner = () => {
                                     </div>
 
                                     <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                                            <span className="text-xs text-violet-300">2</span>
+                                        <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-xs text-cyan-300">2</span>
                                         </div>
                                         <p className="text-white/70">
                                             Pays <span className="text-white font-bold">$10 fee</span> (5%) → Receives <span className="text-emerald-400 font-bold">$10 LP tokens</span>
@@ -84,8 +84,8 @@ export const TraderBenefitsBanner = () => {
                                     </div>
 
                                     <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                                            <span className="text-xs text-violet-300">3</span>
+                                        <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-xs text-cyan-300">3</span>
                                         </div>
                                         <p className="text-white/70">
                                             Market generates <span className="text-white font-bold">$50k volume</span> → LP tokens now worth <span className="text-emerald-400 font-bold">$70</span>

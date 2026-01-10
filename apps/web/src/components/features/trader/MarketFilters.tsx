@@ -24,7 +24,7 @@ export const MarketFilters: React.FC<MarketFiltersProps> = ({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as SortOption)}
-          className="appearance-none bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+          className="appearance-none bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer"
         >
           <option value="name">Name</option>
           <option value="id">ID</option>
@@ -46,7 +46,7 @@ export const MarketFilters: React.FC<MarketFiltersProps> = ({
         <select
           value={filterBy}
           onChange={(e) => onFilterChange(e.target.value as FilterOption)}
-          className="appearance-none bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+          className="appearance-none bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer"
         >
           <option value="all">All Markets</option>
           <option value="trading">Trading</option>

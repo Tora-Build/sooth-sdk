@@ -150,7 +150,7 @@ export const PositionActionsModal: React.FC<{
                     {mode === 'merge' ? (
                         <ArrowUpRight size={16} className="text-emerald-400" />
                     ) : (
-                        <ArrowDownLeft size={16} className="text-indigo-400" />
+                        <ArrowDownLeft size={16} className="text-cyan-400" />
                     )}
                     <span>{mode === 'merge' ? 'Merge Shares' : 'Split USDC'}</span>
                 </div>
@@ -162,7 +162,7 @@ export const PositionActionsModal: React.FC<{
                         <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider ml-1">Target Market</label>
                         <div className="relative">
                             <select 
-                                className="w-full h-10 bg-slate-900 border border-slate-800 rounded-lg px-3 text-xs text-white appearance-none focus:border-indigo-500/50 outline-none pr-10"
+                                className="w-full h-10 bg-slate-900 border border-slate-800 rounded-lg px-3 text-xs text-white appearance-none focus:border-cyan-500/50 outline-none pr-10"
                                 value={selectedMarketAddr || ''}
                                 onChange={(e) => setSelectedMarketAddr(e.target.value as `0x${string}`)}
                             >
@@ -180,12 +180,12 @@ export const PositionActionsModal: React.FC<{
                     "p-3 rounded-lg border backdrop-blur-md",
                     mode === 'merge' 
                         ? "bg-emerald-500/5 border-emerald-500/10" 
-                        : "bg-indigo-500/5 border-indigo-500/10"
+                        : "bg-cyan-500/5 border-cyan-500/10"
                 )}>
                     <div className="flex justify-between items-center mb-2">
                         <div className={cn(
                             "text-[10px] uppercase tracking-widest font-bold flex items-center gap-1.5",
-                            mode === 'merge' ? "text-emerald-400/60" : "text-indigo-400/60"
+                            mode === 'merge' ? "text-emerald-400/60" : "text-cyan-400/60"
                         )}>
                             {mode === 'merge' ? <GitMerge size={10} /> : <Scissors size={10} />}
                             {mode === 'merge' ? 'Collapsible Position' : 'Leveraged Exposure'}
@@ -198,7 +198,7 @@ export const PositionActionsModal: React.FC<{
                         {mode === 'merge' ? (
                             <>Converts <span className="text-emerald-400 font-bold">1 YES + 1 NO</span> from your Trading Account into <span className="text-white font-bold">$1.00 USDC</span> (credited to Trading Account).</>
                         ) : (
-                            <>Converts <span className="text-white font-bold">$1.00 USDC</span> from your Trading Account into <span className="text-indigo-400 font-bold">1 YES + 1 NO</span> shares (deposited to Trading Account).</>
+                            <>Converts <span className="text-white font-bold">$1.00 USDC</span> from your Trading Account into <span className="text-cyan-400 font-bold">1 YES + 1 NO</span> shares (deposited to Trading Account).</>
                         )}
                     </p>
                 </div>
@@ -218,7 +218,7 @@ export const PositionActionsModal: React.FC<{
                             step="1"
                             className={cn(
                                 "pr-16 font-mono",
-                                mode === 'merge' ? "focus:border-emerald-500/50" : "focus:border-indigo-500/50"
+                                mode === 'merge' ? "focus:border-emerald-500/50" : "focus:border-cyan-500/50"
                             )}
                             disabled={!activeMarket}
                         />
@@ -226,7 +226,7 @@ export const PositionActionsModal: React.FC<{
                             onClick={() => setAmount(Math.floor(available).toString())}
                             className={cn(
                                 "absolute right-2 top-2 px-2 py-1 bg-slate-800 text-[10px] rounded hover:bg-slate-700 font-bold transition-colors disabled:opacity-50",
-                                mode === 'merge' ? "text-emerald-400" : "text-indigo-400"
+                                mode === 'merge' ? "text-emerald-400" : "text-cyan-400"
                             )}
                             disabled={!activeMarket}
                         >
@@ -239,7 +239,7 @@ export const PositionActionsModal: React.FC<{
                         </span>
                         <span className={cn(
                             "text-[10px] font-mono font-bold",
-                            mode === 'merge' ? "text-emerald-400" : "text-indigo-400"
+                            mode === 'merge' ? "text-emerald-400" : "text-cyan-400"
                         )}>
                             {mode === 'merge' ? `${Math.floor(available)} SETS` : `$${Math.floor(available).toLocaleString()}`}
                         </span>
@@ -254,7 +254,7 @@ export const PositionActionsModal: React.FC<{
                         "w-full font-black py-2 uppercase tracking-widest text-sm",
                         mode === 'merge' 
                             ? "bg-slate-800 hover:bg-slate-700 border-slate-700" 
-                            : "bg-indigo-600 hover:bg-indigo-500 border-none text-white"
+                            : "bg-cyan-600 hover:bg-cyan-500 border-none text-white"
                     )}
                 >
                     {mode === 'merge' ? 'Confirm Merge' : 'Confirm Split'}
