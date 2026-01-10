@@ -55,7 +55,7 @@ export const Faucet = () => {
     const tid = toast.loading('Requesting 100,000 mUSDC...');
 
     try {
-      const tokenDecimals = Number(decimals || 6);
+      const tokenDecimals = Number(decimals || 18);
       const amount = parseUnits('100000', tokenDecimals);
 
       const hash = await writeContractAsync({
