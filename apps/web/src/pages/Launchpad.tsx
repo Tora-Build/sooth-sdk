@@ -49,8 +49,8 @@ export const Launchpad = () => {
     const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-zk-rule');
     const [customAdjudicator, setCustomAdjudicator] = useState<string>('');
 
-    const [guardianMode, setGuardianMode] = useState<'registry' | 'custom'>('custom');
-    const [selectedGuardianId, setSelectedGuardianId] = useState('dao');
+    const [guardianMode, setGuardianMode] = useState<'registry' | 'custom'>('registry');
+    const [selectedGuardianId, setSelectedGuardianId] = useState('none');
     const [customGuardian, setCustomGuardian] = useState<string>('');
 
     const [mobileTab, setMobileTab] = useState<'create' | 'learn'>('create');
