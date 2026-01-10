@@ -61,10 +61,10 @@ export const ActiveOrdersCard: React.FC = () => {
     return (
         <PortfolioCard
             title="Limit Orders"
-            icon={<Clock size={16} className="text-indigo-400" />}
-            variant="indigo"
+            icon={<Clock size={16} className="text-cyan-400" />}
+            variant="default"
             badge={
-                <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-widest">
+                <span className="text-[9px] font-bold text-cyan-400/60 uppercase tracking-widest">
                     {activeOrders.length} open
                 </span>
             }

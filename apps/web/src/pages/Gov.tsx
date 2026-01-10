@@ -61,7 +61,7 @@ const CountdownTimer: React.FC<{ deadline: number }> = ({ deadline }) => {
   });
 
   return (
-    <span className={isUrgent ? 'countdown-urgent' : 'text-amber-400'}>
+    <span className={isUrgent ? 'countdown-urgent' : 'text-slate-400'}>
       {timeLeft}
     </span>
   );
@@ -102,7 +102,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
   }
 
   return (
-    <Card className="border-amber-500/30 bg-amber-500/5">
+    <Card className="border-slate-500/30 bg-slate-500/5">
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -117,7 +117,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-400">Settled Outcome:</span>
             <span className={`font-bold ${winningOutcome === 1 ? 'text-emerald-400' :
-                winningOutcome === 2 ? 'text-rose-400' : 'text-amber-400'
+                winningOutcome === 2 ? 'text-rose-400' : 'text-slate-400'
               }`}>
               {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
             </span>
@@ -133,7 +133,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
         {/* Veto Window Progress */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="flex items-center gap-2 text-amber-400">
+            <span className="flex items-center gap-2 text-slate-400">
               <Clock className="w-4 h-4" />
               Veto Window
             </span>
@@ -141,7 +141,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
           </div>
           <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all"
+              className="h-full bg-gradient-to-r from-slate-600 to-slate-400 transition-all"
               style={{ width: `${vetoProgress}%` }}
             />
           </div>
@@ -397,7 +397,7 @@ export const Gov = () => {
 
             {/* Info note */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-sm text-slate-400">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Only showing settled markets. Rows with no data indicate markets that are still live or pending.</span>
             </div>
 
@@ -440,7 +440,7 @@ export const Gov = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Protocol Settings</h2>
-              <Badge variant="outline" className="text-amber-400 border-amber-500/30">
+              <Badge variant="outline" className="text-slate-400 border-slate-500/30">
                 Owner Only
               </Badge>
             </div>
@@ -513,7 +513,7 @@ export const Gov = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm text-purple-400 mb-2">
+                    <label className="block text-sm text-cyan-400 mb-2">
                       LP Yield
                     </label>
                     <div className="relative">

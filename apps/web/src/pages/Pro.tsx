@@ -310,7 +310,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
             />
             {/* TickBook Price Indicator - Yellow/Amber solid bar */}
             <div
-              className="absolute top-0 bottom-0 w-[1.5px] bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+              className="absolute top-0 bottom-0 w-[1.5px] bg-cyan-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(34,211,238,0.4)]"
               style={{ left: `calc(${displayProb * 100}% - 0.75px)` }}
             />
           </>
@@ -970,7 +970,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                         className={cn(
                           "h-full rounded-full transition-all",
                           fillPercent >= 100 ? "bg-emerald-500" :
-                            fillPercent > 0 ? "bg-amber-500" :
+                            fillPercent > 0 ? "bg-slate-500" :
                               "bg-slate-600"
                         )}
                         style={{ width: `${Math.min(fillPercent, 100)}%` }}
@@ -1208,7 +1208,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
       {/* Horizontal Market Scroll */}
       {isLoadingMarkets ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+          <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
           <span className="ml-2 text-slate-400">Discovering markets...</span>
         </div>
       ) : filteredMarkets.length === 0 ? (
@@ -1324,7 +1324,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
       className={cn(
         "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-w-[200px]",
         isSelected
-          ? "bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10"
+          ? "bg-slate-500/10 border-slate-500/50 shadow-lg shadow-slate-500/10"
           : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
       )}
     >
@@ -1332,7 +1332,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
       <div className={cn(
         "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
         isSelected
-          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
+          ? "bg-gradient-to-br from-cyan-500 to-cyan-600 text-white"
           : "bg-slate-800 text-slate-400"
       )}>
         {market.symbol.slice(0, 2)}
@@ -1342,7 +1342,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
       <div className="text-left min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
-          <BookOpen className="w-3 h-3 text-amber-400 flex-shrink-0" />
+          <BookOpen className="w-3 h-3 text-slate-400 flex-shrink-0" />
         </div>
         <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
@@ -1382,7 +1382,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
       className={cn(
         "w-full p-5 rounded-2xl border text-left transition-all",
         isGraduated
-          ? "bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer"
+          ? "bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 hover:border-slate-500/50 hover:shadow-lg hover:shadow-slate-500/5 cursor-pointer"
           : "bg-slate-900/30 border-slate-800/30 cursor-not-allowed opacity-60"
       )}
     >
@@ -1391,7 +1391,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
           <div className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
             isGraduated
-              ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
+              ? "bg-gradient-to-br from-cyan-500 to-cyan-600 text-white"
               : "bg-slate-800 text-slate-500"
           )}>
             {market.symbol.slice(0, 2)}
@@ -1413,7 +1413,7 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
             Graduated
           </span>
         ) : (
-          <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-slate-500/20 text-slate-400 text-[10px] font-medium">
             Pre-Graduation
           </span>
         )}
@@ -1448,7 +1448,7 @@ const EmptyState = ({ search }: { search?: string }) => (
         : 'Pro trading is available for graduated markets. Check the AMM for early-stage markets.'
       }
     </p>
-    <Link to="/v8" className="text-amber-400 hover:text-amber-300 text-sm font-medium">
+    <Link to="/v8" className="text-slate-400 hover:text-slate-300 text-sm font-medium">
       Browse AMM Markets →
     </Link>
   </div>
@@ -1736,7 +1736,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Vault approved!</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -1783,7 +1783,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Deposited ${depositAmt}</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -1822,7 +1822,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Withdrew ${withdrawAmt}</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -2017,8 +2017,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   if (!launchpad?.isGraduated && !isReady && !isLoadingLaunchpad) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
-          <Zap className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-slate-800/20 to-transparent border border-slate-700/30 text-center">
+          <Zap className="w-16 h-16 text-slate-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Pro Trading Locked</h2>
           <p className="text-slate-400 mb-6">This market hasn't graduated yet. Trade on the AMM first.</p>
 
@@ -2033,7 +2033,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           )}
 
-          <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-amber-600 hover:bg-amber-500 text-white">
+          <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-slate-600 hover:bg-slate-500 text-white">
             Go to AMM Trading
           </Button>
         </div>
@@ -2053,7 +2053,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-sm font-bold">
               {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
             </div>
             <div>
@@ -2065,10 +2065,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             {/* Pro Price */}
             <div className={cn(
               "text-center p-2 rounded-lg",
-              isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
+              isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
             )}>
-              <div className={cn("text-[9px] uppercase", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
-              <div className={cn("text-base font-mono font-bold", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
+              <div className={cn("text-[9px] uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro Price</div>
+              <div className={cn("text-base font-mono font-bold", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
                 {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
                 {hasArb && <span className="ml-1">⚡</span>}
               </div>
@@ -2083,10 +2083,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             {/* Diff */}
             <div className={cn(
               "text-center p-2 rounded-lg",
-              hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
+              hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
             )}>
-              <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
-              <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
+              <div className={cn("text-[9px] uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
+              <div className={cn("text-base font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
                 {arbSpread.toFixed(1)}¢
               </div>
             </div>
@@ -2103,7 +2103,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <div className="flex items-center justify-between">
             {/* Market Info */}
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-lg font-bold text-white">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white">
                 {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
               </div>
               <div>
@@ -2120,10 +2120,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Pro Price */}
               <div className={cn(
                 "text-center px-3 py-1 rounded-lg",
-                isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : ""
+                isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : ""
               )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
-                <div className={cn("text-lg font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
+                <div className={cn("text-[10px] uppercase tracking-wider font-medium", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro Price</div>
+                <div className={cn("text-lg font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
                   {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
                   {hasArb && <Zap className="w-4 h-4" />}
                 </div>
@@ -2138,10 +2138,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Diff */}
               <div className={cn(
                 "text-center px-3 py-1 rounded-lg",
-                hasArb ? "bg-amber-500/10 border border-amber-500/30" : ""
+                hasArb ? "bg-slate-500/10 border border-slate-500/30" : ""
               )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
-                <div className={cn("text-lg font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
+                <div className={cn("text-[10px] uppercase tracking-wider font-medium", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
+                <div className={cn("text-lg font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
                   {arbSpread.toFixed(1)}¢
                 </div>
               </div>
@@ -2242,12 +2242,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-amber-500" />
+                <Wallet className="w-4 h-4 text-slate-500" />
                 <span className="text-sm font-bold text-white">Vault Balance</span>
               </div>
               <button
                 onClick={() => setShowVaultPanel(!showVaultPanel)}
-                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                className="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1"
               >
                 {showVaultPanel ? 'Hide' : 'Manage'} <ChevronDown className={cn("w-3 h-3 transition-transform", showVaultPanel && "rotate-180")} />
               </button>
@@ -2260,7 +2260,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-[9px] text-slate-500 uppercase">In Orders</div>
-                <div className="font-mono text-sm text-amber-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
+                <div className="font-mono text-sm text-slate-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-[9px] text-slate-500 uppercase">Available</div>
@@ -2278,19 +2278,19 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     onChange={(e) => setVaultInput(e.target.value)}
                     className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
                       ? 'border-rose-500 focus:border-rose-500'
-                      : 'border-slate-700 focus:border-amber-500'
+                      : 'border-slate-700 focus:border-slate-500'
                       }`}
                   />
                   <button
                     type="button"
                     onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 hover:text-amber-400"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 hover:text-slate-400"
                   >
                     MAX
                   </button>
                 </div>
                 {needsApproval ? (
-                  <Button onClick={handleApprove} disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3">
+                  <Button onClick={handleApprove} disabled={isSubmitting} className="bg-slate-600 hover:bg-slate-500 text-white text-xs px-3">
                     {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
                   </Button>
                 ) : (
@@ -2362,7 +2362,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     className={cn(
                       "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
                       !isBuying
-                        ? "bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
+                        ? "bg-slate-500/10 text-slate-400 border-slate-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
                         : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                     )}
                   >
@@ -2519,9 +2519,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <div className="text-center text-[10px] font-mono">
                       {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
-                        : <span className={cn("text-slate-500", !isBuying && spotRangeExceedsLimit && "text-amber-500")}>
-                          <span className={cn("font-bold", (!isBuying && spotRangeExceedsLimit) ? "text-amber-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
-                          {(!isBuying && spotRangeExceedsLimit) ? <span> ticks <span className="text-amber-400">(short only)</span></span> : ' ticks'}
+                        : <span className={cn("text-slate-500", !isBuying && spotRangeExceedsLimit && "text-slate-500")}>
+                          <span className={cn("font-bold", (!isBuying && spotRangeExceedsLimit) ? "text-slate-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
+                          {(!isBuying && spotRangeExceedsLimit) ? <span> ticks <span className="text-slate-400">(short only)</span></span> : ' ticks'}
                         </span>
                       }
                     </div>
@@ -2546,7 +2546,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-amber-500 focus:outline-none"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-slate-500 focus:outline-none"
                 />
                 {/* Quick amount buttons - USDC for market+floor, shares otherwise */}
                 <div className="flex gap-2 mt-2">
@@ -2569,7 +2569,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <span className="text-slate-500">
                       {priceMode === 'single' ? 'Price' : 'Price Range'}
                     </span>
-                    <span className="font-mono text-amber-400">
+                    <span className="font-mono text-slate-400">
                       {priceMode === 'single'
                         ? `${priceLowNum.toFixed(1)}¢`
                         : `${priceLowNum.toFixed(1)}¢ – ${priceHighNum.toFixed(1)}¢`}
@@ -2631,7 +2631,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 if (spotRangeExceedsLimit) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-950/30 border border-amber-900/30 text-amber-400 text-xs">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-400 text-xs">
                       <span>📉 Short Sell: Range too wide for spot ({numTicks} ticks &gt; 50). Buying {neededFmt} {isYes ? 'NO' : 'YES'} instead.</span>
                     </div>
                   );
@@ -2649,7 +2649,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   const spotFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   const shortFmt = parseFloat(formatUnits(needed - shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-950/30 border border-amber-900/30 text-amber-400 text-xs">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-400 text-xs">
                       <span>🔀 Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
                     </div>
                   );
@@ -2672,7 +2672,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
                   action === 'buy_yes' && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
                   action === 'buy_no' && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
-                  (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
+                  (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 shadow-lg shadow-slate-600/25",
                   (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
                 )}
               >

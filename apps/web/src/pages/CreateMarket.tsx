@@ -217,7 +217,7 @@ export const CreateMarket = () => {
         {/* Duration */}
         <div className="space-y-4">
           <h2 className="font-bold text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-400" />
+            <Clock className="w-5 h-5 text-slate-400" />
             Market Duration
           </h2>
 
@@ -269,7 +269,7 @@ export const CreateMarket = () => {
         {/* Adjudicator Selection */}
         <div className="space-y-4">
           <h2 className="font-bold text-white flex items-center gap-2">
-            <Shield className="w-5 h-5 text-purple-400" />
+            <Shield className="w-5 h-5 text-cyan-400" />
             Resolution Method
           </h2>
           <p className="text-sm text-slate-400">
@@ -284,7 +284,7 @@ export const CreateMarket = () => {
                 disabled={adj.disabled}
                 className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
                   adjudicator === adj.id
-                    ? 'border-purple-500 bg-purple-500/10'
+                    ? 'border-cyan-500 bg-cyan-500/10'
                     : adj.disabled
                     ? 'border-slate-800 bg-slate-900/50 opacity-50 cursor-not-allowed'
                     : 'border-slate-700 hover:border-slate-600'
@@ -301,7 +301,7 @@ export const CreateMarket = () => {
                   <div className="text-sm text-slate-400">{adj.description}</div>
                 </div>
                 {adjudicator === adj.id && (
-                  <Check className="w-5 h-5 text-purple-400" />
+                  <Check className="w-5 h-5 text-cyan-400" />
                 )}
               </button>
             ))}
@@ -322,16 +322,16 @@ export const CreateMarket = () => {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-400">Allowance</span>
-            <span className={`font-mono ${isApproved ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <span className={`font-mono ${isApproved ? 'text-emerald-400' : 'text-slate-400'}`}>
               {isApproved ? '✓ Approved' : 'Not approved'}
             </span>
           </div>
         </div>
 
         {/* Warning */}
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3" role="alert">
-          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-          <div className="text-sm text-amber-200">
+        <div className="p-4 bg-slate-500/10 border border-slate-500/30 rounded-lg flex items-start gap-3" role="alert">
+          <AlertTriangle className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+          <div className="text-sm text-slate-300">
             <strong>Important:</strong> Your deposit of ${requiredDeposit.toLocaleString()} USDC will be locked until the market graduates or expires. 
             If the market fails to graduate, you can claim a full refund.
           </div>
@@ -349,7 +349,7 @@ export const CreateMarket = () => {
           <Button
             onClick={handleApprove}
             disabled={isApprovePending || !hasBalance}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold"
+            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-bold"
           >
             {isApprovePending ? (
               <span className="flex items-center justify-center gap-2">

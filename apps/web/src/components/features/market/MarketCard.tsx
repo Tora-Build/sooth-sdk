@@ -86,20 +86,20 @@ export const MarketCard = ({
               <div className="h-4 w-12 bg-slate-700/30 rounded" />
             )}
             {isSettled ? (
-              <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/50">
+              <Badge className="text-[10px] bg-slate-500/20 text-slate-400 border-slate-500/50">
                 ⚖️ Settled
               </Badge>
             ) : isGraduated ? (
               <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
-                🎓 Graduated
+                ✓ Graduated
               </Badge>
             ) : isExpired ? (
               <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/50">
-                ⏰ Expired
+                Expired
               </Badge>
             ) : (
               <Badge className="text-[10px] bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
-                🔥 Bonding
+                ⚡ Bonding
               </Badge>
             )}
 
@@ -130,7 +130,7 @@ export const MarketCard = ({
             </div>
           ) : isGraduated ? (
             <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center">
-              <span className="text-lg">🎓</span>
+              <span className="text-lg">✓</span>
             </div>
           ) : null}
         </div>
@@ -159,7 +159,7 @@ export const MarketCard = ({
               <span className="font-mono">${(Number(pureFloor || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Locked Proceeds: User funds in 24h cooling period">
-              <Lock className="w-3 h-3 text-amber-400" />
+              <Lock className="w-3 h-3 text-slate-400" />
               <span className="font-mono">${(Number(totalLockedProceeds || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
           </div>
@@ -177,7 +177,7 @@ export const MarketCard = ({
         {isSettled ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 text-[10px] text-slate-500">
-              <Shield className="w-3 h-3 text-amber-400" />
+              <Shield className="w-3 h-3 text-slate-400" />
               <span>Winner: <span className={winningOutcome === 0 ? "text-emerald-400" : "text-rose-400"}>{winningOutcome === 0 ? 'YES' : 'NO'}</span></span>
             </div>
             {tStar && (

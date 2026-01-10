@@ -129,7 +129,7 @@ const MarketInfoCard = ({
         <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-[10px] text-slate-300 space-y-2">
           <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
           <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
-          <p>• 📈 <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
+          <p>• ↗ <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
           <p>• 📦 <strong>TVL Formula</strong>: Reconciles AMM cash with users' locked proceeds (24h cooling) to show the total contract-level USDC holdings.</p>
           <p>• ⚓ <strong>Liquidity Anchor</strong>: The fundamental LMSR relationship where LP supply is mathematically anchored to the depth parameter (b).</p>
         </div>
@@ -188,30 +188,30 @@ const MarketInfoCard = ({
           </div>
 
           {/* 3. Valuation (Unit Price) */}
-          <div className="p-2.5 rounded border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
-            <div className="text-[8px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
-              <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
+          <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+            <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1">↗ Valuation (ExRate)</span>
+              <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-cyan-400/70">({formatCurrency(tvl)})</span>
               <span className="text-slate-600">/</span>
               <span className="text-slate-400" title="LP Supply">({lpSupply.toLocaleString(undefined, { maximumFractionDigits: 1 })})</span>
               <span className="text-slate-600">=</span>
-              <span className="text-purple-400 font-bold ml-auto text-sm">{floorExRate.toFixed(3)}x</span>
+              <span className="text-cyan-400 font-bold ml-auto text-sm">{floorExRate.toFixed(3)}x</span>
             </div>
           </div>
 
           {/* 4. TVL Reconciliation (Physical) */}
-          <div className="p-2.5 rounded border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
-            <div className="text-[8px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+          <div className="p-2.5 rounded border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
+            <div className="text-[8px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1">📦 TVL Formula</span>
-              <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
+              <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-slate-400">({formatCurrency(ammCash)})</span>
               <span className="text-slate-600">+</span>
-              <span className="text-amber-500/70" title="Locked Proceeds">({formatCurrency(lockedTotal)})</span>
+              <span className="text-slate-500/70" title="Locked Proceeds">({formatCurrency(lockedTotal)})</span>
               <span className="text-slate-600">=</span>
               <span className="text-white font-bold ml-auto text-sm">{formatCurrency(ammCash + lockedTotal)}</span>
             </div>
@@ -237,21 +237,21 @@ const MarketInfoCard = ({
       {/* Key Metrics - Integrated Grid */}
       <div className="grid grid-cols-1 gap-2 mb-3">
         {/* ExRate Range */}
-        <div className="p-3 rounded-lg bg-purple-500/5 text-center border border-purple-500/20 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="p-3 rounded-lg bg-cyan-500/5 text-center border border-cyan-500/20 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
-            <div className="text-[9px] text-purple-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
+            <div className="text-[9px] text-cyan-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
               <Zap size={10} /> LP ExRate Range <Zap size={10} />
             </div>
             <div className="flex items-center justify-center gap-4">
               <div className="flex flex-col items-center">
                 <span className="text-[8px] text-slate-500 uppercase font-bold">Floor</span>
-                <span className="font-mono font-bold text-purple-400 text-lg">{floorExRate.toFixed(3)}x</span>
+                <span className="font-mono font-bold text-cyan-400 text-lg">{floorExRate.toFixed(3)}x</span>
               </div>
-              <div className="h-8 w-px bg-purple-500/20" />
+              <div className="h-8 w-px bg-cyan-500/20" />
               <div className="flex flex-col items-center">
                 <span className="text-[8px] text-slate-500 uppercase font-bold">Ceiling</span>
-                <span className="font-mono font-bold text-purple-300 text-lg">{ceilingExRate.toFixed(3)}x</span>
+                <span className="font-mono font-bold text-cyan-300 text-lg">{ceilingExRate.toFixed(3)}x</span>
               </div>
             </div>
           </div>
@@ -438,7 +438,7 @@ const BondingProgressCard = ({
             disabled={isGraduatePending}
             className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-black font-bold shadow-lg shadow-cyan-500/25"
           >
-            {isGraduatePending ? 'Graduating...' : '🎓 Graduate Market'}
+            {isGraduatePending ? 'Graduating...' : 'Graduate Market'}
           </Button>
         )}
       </div>
@@ -461,7 +461,7 @@ const AddressRow = ({ label, address, isCreator, chainId }: { label: string; add
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{label}</span>
         {isCreator && (
-          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1">
+          <Badge className="text-[9px] bg-slate-500/20 text-slate-400 border-slate-500/50 py-0 px-1">
             Creator
           </Badge>
         )}
@@ -664,20 +664,20 @@ export const MarketDetail = () => {
               {displayName}
             </h1>
             {isSettled ? (
-              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/50">
+              <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/50">
                 ⚖️ Settled
               </Badge>
             ) : isGraduated ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
-                🎓 Graduated
+                ✓ Graduated
               </Badge>
             ) : isExpired ? (
               <Badge className="bg-red-500/20 text-red-400 border-red-500/50">
-                ⏰ Expired
+                Expired
               </Badge>
             ) : (
               <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
-                🔥 Bonding
+                ⚡ Bonding
               </Badge>
             )}
           </div>
@@ -746,9 +746,9 @@ export const MarketDetail = () => {
 
           {/* Settlement Status Card */}
           {adjudicator && (
-            <Card className="p-6 border-amber-500/20 bg-amber-500/5">
+            <Card className="p-6 border-slate-500/20 bg-slate-500/5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                <div className="p-2 rounded-lg bg-slate-500/20 text-slate-400">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
@@ -792,9 +792,9 @@ export const MarketDetail = () => {
 
           {/* Inventory Management (Post-Graduation Only) */}
           {isGraduated && address && (
-            <Card className="p-4 border-indigo-500/20 bg-indigo-950/10">
+            <Card className="p-4 border-cyan-500/20 bg-cyan-950/10">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[10px] text-indigo-400 font-black uppercase tracking-widest flex items-center gap-2">
+                <div className="text-[10px] text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
                   <GitMerge size={12} /> Inventory Management
                 </div>
                 <div className="text-[9px] text-slate-500 font-medium">
@@ -834,7 +834,7 @@ export const MarketDetail = () => {
                   variant="primary"
                   onClick={() => setModalMode('split')}
                   disabled={usdcAvailable <= 0}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white disabled:opacity-50"
+                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white disabled:opacity-50"
                 >
                   <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Split
                 </Button>
@@ -847,10 +847,10 @@ export const MarketDetail = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-purple-400" />
+                  <BookOpen className="w-5 h-5 text-cyan-400" />
                   Orderbook Trading
                 </h3>
-                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
+                <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
                   Limit Orders
                 </Badge>
               </div>

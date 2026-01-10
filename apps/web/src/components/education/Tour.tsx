@@ -209,9 +209,9 @@ export const Tour: React.FC<TourProps> = ({
                 className={cn(
                   'w-1.5 h-1.5 rounded-full transition-all',
                   i === currentStep
-                    ? 'w-4 bg-indigo-500'
+                    ? 'w-4 bg-cyan-500'
                     : i < currentStep
-                    ? 'bg-indigo-500/50'
+                    ? 'bg-cyan-500/50'
                     : 'bg-slate-600'
                 )}
               />

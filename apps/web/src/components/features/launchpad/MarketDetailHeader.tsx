@@ -38,10 +38,10 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
 
     // Status determination
     const getStatus = () => {
-        if (isGraduated) return { label: 'Graduated', variant: 'success' as const, emoji: '🎓' };
-        if (isExpired) return { label: 'Expired', variant: 'danger' as const, emoji: '⏰' };
+        if (isGraduated) return { label: 'Graduated', variant: 'success' as const, emoji: '✓' };
+        if (isExpired) return { label: 'Expired', variant: 'danger' as const, emoji: '' };
         if (!isLive) return { label: 'Settled', variant: 'outline' as const, emoji: '✓' };
-        return { label: 'Bonding', variant: 'live' as const, emoji: '🔥' };
+        return { label: 'Bonding', variant: 'live' as const, emoji: '⚡' };
     };
 
     const status = getStatus();

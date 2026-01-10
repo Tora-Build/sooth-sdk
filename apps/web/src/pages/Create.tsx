@@ -66,10 +66,10 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
     statusColor = 'bg-slate-500';
   } else if (!isLive) {
     status = 'settling';
-    statusColor = 'bg-amber-500';
+    statusColor = 'bg-slate-500';
   } else if (isGraduated) {
     status = 'graduated';
-    statusColor = 'bg-indigo-500';
+    statusColor = 'bg-cyan-500';
   }
 
   if (isLoading) {
@@ -93,7 +93,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-white">{market.symbol}</h3>
               {isCreator && (
-                <Badge variant="outline" className="text-purple-400 border-purple-400/30">
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30">
                   Creator
                 </Badge>
               )}
@@ -137,7 +137,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
             </div>
             <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all"
+                className="h-full bg-gradient-to-r from-slate-500 to-emerald-500 transition-all"
                 style={{ width: `${isGraduated ? 100 : Math.min(100, graduationProgress)}%` }}
               />
             </div>
@@ -475,7 +475,7 @@ export const Create = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md text-center p-8">
-          <Coins className="w-12 h-12 mx-auto text-purple-400 mb-4" />
+          <Coins className="w-12 h-12 mx-auto text-cyan-400 mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">{content.connectWallet.title}</h2>
           <p className="text-slate-400 mb-6">
             {content.connectWallet.description}
@@ -496,13 +496,13 @@ export const Create = () => {
         </div>
 
         {/* Role Indicator */}
-        <Card className="mb-6 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
+        <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/20">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-purple-400" />
+                <Coins className="w-5 h-5 text-cyan-400" />
                 <span className="text-white font-medium">{content.roles.creator}</span>
-                <Badge variant="outline" className="text-purple-400">
+                <Badge variant="outline" className="text-cyan-400">
                   {roleCount.creator} markets
                 </Badge>
               </div>
@@ -528,7 +528,7 @@ export const Create = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-indigo-500 text-white'
+                  ? 'border-cyan-500 text-white'
                   : 'border-transparent text-slate-400 hover:text-slate-300'
                 }`}
             >
@@ -619,7 +619,7 @@ export const Create = () => {
                         step === wizardStep ? 'current' : 'pending'
                       }`} />
                     {step < 4 && (
-                      <div className={`w-16 h-0.5 ${step < wizardStep ? 'bg-indigo-500' : 'bg-slate-700'
+                      <div className={`w-16 h-0.5 ${step < wizardStep ? 'bg-cyan-500' : 'bg-slate-700'
                         }`} />
                     )}
                   </div>
@@ -681,11 +681,11 @@ export const Create = () => {
                         key={b}
                         onClick={() => setWizardData(prev => ({ ...prev, liquidity: b }))}
                         className={`p-4 rounded-xl border-2 text-center transition-all ${isSelected
-                            ? 'border-indigo-500 bg-indigo-500/20'
+                            ? 'border-cyan-500 bg-cyan-500/20'
                             : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
                           }`}
                       >
-                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-indigo-400' : 'text-slate-500'
+                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-cyan-400' : 'text-slate-500'
                           }`} />
                         <p className={`font-bold text-lg ${isSelected ? 'text-white' : 'text-slate-400'
                           }`}>
@@ -717,7 +717,7 @@ export const Create = () => {
                         placeholder="Enter deposit"
                         min="10"
                         max="700000"
-                        className="w-full pl-7 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full pl-7 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
                       />
                     </div>
                     <span className="text-slate-500 text-sm whitespace-nowrap">
@@ -726,9 +726,9 @@ export const Create = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 inline mr-2" />
-                  <span className="text-amber-200">
+                <div className="mt-4 p-3 rounded-lg bg-slate-500/10 border border-slate-500/20 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-slate-400 inline mr-2" />
+                  <span className="text-slate-300">
                     Deposit = Max loss: <strong>${Math.floor(parseInt(wizardData.liquidity || '0') * 0.693).toLocaleString()}</strong>
                     <span className="text-slate-400 ml-2">• Liquidity depth (b): ${parseInt(wizardData.liquidity || '0').toLocaleString()}</span>
                   </span>
@@ -810,7 +810,7 @@ export const Create = () => {
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm text-indigo-200">
+                <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-sm text-cyan-200">
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   {content.wizard.review.transactionDesc}
                 </div>

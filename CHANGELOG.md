@@ -4,6 +4,25 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### UI Color System Refactor (2026-01-11)
+- **Design System**: Restrained dApp UI to 4 semantic color values inspired by w3.cash minimalism:
+  - **Cyan** (`cyan-*`) — Accent, interactive elements, highlights
+  - **Emerald** (`emerald-*`) — Success states, YES outcomes
+  - **Rose** (`rose-*`) — Danger states, NO outcomes  
+  - **Slate** (`slate-*`) — Muted, neutral, warnings, locked states
+- **Scope**: Refactored 168 occurrences of amber/indigo/purple/violet to 0 across 65 files
+- **Files Changed**: All pages, UI components, feature components, portfolio components, launchpad components
+- **Verification**: Build passes with no errors
+
+### Launchpad Background Animation (2026-01-11)
+- **New Animation**: Added subtle animated background to Launchpad page
+- **Elements**: 
+  - Floating particles (12 cyan dots rising upward)
+  - Cyan grid overlay with breathing pulse effect
+  - 3 glowing orbs (cyan/emerald) with slow pulse animation
+- **Performance**: Pure CSS animations with `will-change` for GPU acceleration, `useMemo` for stable particle config
+- **CSS Added**: `@keyframes float-up`, `pulse-glow`, `grid-pulse` and `.launchpad-*` classes in `index.css`
+
 ### Launchpad UI Polish (2026-01-10)
 - **Deposit Slider**: Replaced $100/$1000/$5000 buttons with smooth slider controlling deposit amount.
 - **Info Box**: Shows calculated Liquidity (b), Graduation Fee (= deposit at multiplier=1), and Graduation Vol (= fees/0.05).

@@ -321,7 +321,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                 {quote && quote.priceImpact > 0 && (
                     <div className="flex justify-between">
                         <span className="text-slate-500">Price Impact</span>
-                        <span className={`font-mono ${quote.priceImpact > 5 ? 'text-rose-400 font-bold' : quote.priceImpact > 2 ? 'text-amber-400' : 'text-slate-400'}`}>
+                        <span className={`font-mono ${quote.priceImpact > 5 ? 'text-rose-400 font-bold' : quote.priceImpact > 2 ? 'text-slate-400' : 'text-slate-400'}`}>
                             {quote.priceImpact.toFixed(2)}%
                         </span>
                     </div>
@@ -394,7 +394,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Price Impact Warning */}
             {quote && quote.priceImpact > 5 && (
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-400 flex items-start gap-2">
                     <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                     <span>High price impact: {quote.priceImpact.toFixed(2)}%. This trade moves the market price significantly.</span>
                 </div>
@@ -402,7 +402,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Trade Button */}
             {tradeMode === 'sell' && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[10px] text-amber-400/80">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-500/5 border border-slate-500/10 text-[10px] text-slate-400/80">
                     <Clock size={12} />
                     <span>Proceeds will be locked for 24h before they can be withdrawn.</span>
                 </div>
@@ -411,7 +411,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
             {!isConnected ? (
                 <Button
                     onClick={handleConnect}
-                    className="w-full py-2 text-sm bg-indigo-600 hover:bg-indigo-500"
+                    className="w-full py-2 text-sm bg-cyan-600 hover:bg-cyan-500"
                 >
                     <Wallet size={16} className="mr-2" />
                     Connect Wallet

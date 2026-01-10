@@ -98,7 +98,7 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
         <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-[10px] text-slate-300 space-y-2">
           <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all USDC inflows (Seed + Fees) and trade performance (Swap P&L) into AMM Gross Cash.</p>
           <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming worst-case outcome for the House.</p>
-          <p>• 📈 <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token = Equity / Supply.</p>
+          <p>• ↗ <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token = Equity / Supply.</p>
           <p>• 📦 <strong>TVL Formula</strong>: Total contract-level USDC = AMM cash + users' locked proceeds (24h cooling).</p>
           <p>• ⚓ <strong>Liquidity Anchor</strong>: LMSR relationship where LP supply is mathematically anchored to depth parameter (b).</p>
         </div>
@@ -160,10 +160,10 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
           </div>
 
           {/* 3. Valuation */}
-          <div className="p-2.5 rounded border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
-            <div className="text-[8px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
-              <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
+          <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+            <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1">↗ Valuation (ExRate)</span>
+              <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-cyan-400/70">({fmtUsd(stats.floor)})</span>
@@ -172,20 +172,20 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
                 ({fmtNum(stats.supply)})
               </span>
               <span className="text-slate-600">=</span>
-              <span className="text-purple-400 font-bold ml-auto text-sm">{stats.floorRate.toFixed(3)}x</span>
+              <span className="text-cyan-400 font-bold ml-auto text-sm">{stats.floorRate.toFixed(3)}x</span>
             </div>
           </div>
 
           {/* 4. TVL */}
-          <div className="p-2.5 rounded border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
-            <div className="text-[8px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+          <div className="p-2.5 rounded border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
+            <div className="text-[8px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1">📦 TVL Formula</span>
-              <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
+              <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
               <span className="text-slate-600">+</span>
-              <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
+              <span className="text-slate-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
               <span className="text-slate-600">=</span>
               <span className="text-white font-bold ml-auto text-sm">{fmtUsd(stats.tvl)}</span>
             </div>

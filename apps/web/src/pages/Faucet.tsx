@@ -134,13 +134,13 @@ export const Faucet = () => {
         </Card>
 
         {/* Native ETH Info */}
-        <Card className="p-6 border-purple-500/20 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group">
+        <Card className="p-6 border-cyan-500/20 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Wallet size={80} className="text-purple-400" />
+            <Wallet size={80} className="text-cyan-400" />
           </div>
 
           <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Wallet className="text-purple-400 w-5 h-5" />
+            <Wallet className="text-cyan-400 w-5 h-5" />
             Native ETH
           </h3>
 
@@ -151,23 +151,23 @@ export const Faucet = () => {
           <div className="space-y-3">
             {isMegaETH ? (
               <>
-                <div className="flex items-start gap-3 p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-lg text-xs text-slate-300">
-                  <Info className="text-indigo-400 w-4 h-4 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-xs text-slate-300">
+                  <Info className="text-cyan-400 w-4 h-4 shrink-0 mt-0.5" />
                   <p>Frontier Net is a restricted phase. Please reach out to the MegaETH team or use the official bridge if you have access.</p>
                 </div>
                 <a 
                   href="https://docs.megaeth.com/frontier" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-slate-950/50 border border-slate-800 rounded-lg hover:border-purple-500/50 transition-colors group/link"
+                  className="flex items-center justify-between p-4 bg-slate-950/50 border border-slate-800 rounded-lg hover:border-cyan-500/50 transition-colors group/link"
                 >
                   <span className="text-sm font-medium text-white">MegaETH Frontier Docs</span>
-                  <ExternalLink size={14} className="text-slate-500 group-hover/link:text-purple-400" />
+                  <ExternalLink size={14} className="text-slate-500 group-hover/link:text-cyan-400" />
                 </a>
               </>
             ) : (
-              <div className="flex items-start gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg text-xs text-slate-300">
-                <Info className="text-amber-400 w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 bg-slate-500/5 border border-slate-500/20 rounded-lg text-xs text-slate-300">
+                <Info className="text-slate-400 w-4 h-4 shrink-0 mt-0.5" />
                 <p>Please use the official faucet for this testnet to obtain ETH for gas.</p>
               </div>
             )}

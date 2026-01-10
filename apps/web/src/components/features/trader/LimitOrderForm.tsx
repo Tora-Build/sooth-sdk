@@ -266,11 +266,11 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     } else if (isHybridSell) {
       // Partial coverage
       badgeText = `⚠️ Hybrid Sell: ${sharesToSpotSell.toFixed(0)} shares from orderbook + ${sharesToShortSell.toFixed(0)} short sold (requires ${((1 - priceNum) * sharesToShortSell).toFixed(2)} USDC collateral).`;
-      badgeColor = "text-amber-400 bg-amber-500/10";
+      badgeColor = "text-slate-400 bg-slate-500/10";
     } else if (sharesToShortSell > 0) {
       // Full short sell
       badgeText = `⚠️ Short Sell: Requires ${totalCost.toFixed(2)} USDC collateral (${((1 - priceNum) * 100).toFixed(0)}% of ${amountNum} shares).`;
-      badgeColor = "text-amber-400 bg-amber-500/10";
+      badgeColor = "text-slate-400 bg-slate-500/10";
     }
   }
 
@@ -311,7 +311,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div>
           <div className="text-xs text-slate-500">{t('trading.marketPrice')}</div>
           <div className="text-lg font-bold text-white font-mono">
-            {(currentMarketPrice ?? 0.5).toFixed(4)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
+            {(currentMarketPrice ?? 0.5).toFixed(4)} <span className="text-sm text-cyan-400">{t('common.usdc')}</span>
           </div>
         </div>
         <div className="text-right">
@@ -403,7 +403,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             type="number"
             value={price}
             onChange={(e) => handlePriceChange(e.target.value)}
-            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-indigo-500"
+            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-cyan-500"
             min="0.01" max="0.99" step="0.01"
           />
           <button
@@ -443,7 +443,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
                 setAmount(val);
               }
             }}
-            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-indigo-500"
+            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-cyan-500"
             min="1" step="1"
           />
           <button
@@ -465,7 +465,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             title={orderType === 'buy' ? "Max affordable with USDC" : "Max shares you own"}
           >
             <span>Max:</span>
-            <span className={cn("font-mono font-bold", orderType === 'buy' ? "text-indigo-400" : "text-emerald-400")}>
+            <span className={cn("font-mono font-bold", orderType === 'buy' ? "text-cyan-400" : "text-emerald-400")}>
               {orderType === 'buy' ? buyMax.toLocaleString(undefined, { maximumFractionDigits: 0 }) : userTokenShares.toFixed(2)}
             </span>
           </div>

@@ -185,7 +185,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         {creatorYieldShare > 0 && (
                             <>
                                 <span className="text-slate-600">•</span>
-                                <span className="text-amber-500">+{fmtUsd(creatorYieldShare)} yield</span>
+                                <span className="text-slate-500">+{fmtUsd(creatorYieldShare)} yield</span>
                             </>
                         )}
                     </div>
@@ -218,7 +218,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             {userYieldShare > 0 && (
                                 <>
                                     <span className="text-slate-600">•</span>
-                                    <span className="text-amber-500">+{fmtUsd(userYieldShare)} yield</span>
+                                    <span className="text-slate-500">+{fmtUsd(userYieldShare)} yield</span>
                                 </>
                             )}
                         </div>
@@ -230,10 +230,10 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
             )}
 
             {/* LP Yield Pool */}
-            <div className="bg-gradient-to-r from-amber-950/30 to-slate-900/30 rounded-lg p-4 border border-amber-900/30">
+            <div className="bg-gradient-to-r from-slate-950/30 to-slate-900/30 rounded-lg p-4 border border-slate-800/30">
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">LP Yield Pool</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">LP Yield Pool</span>
                         {!isGraduated && (
                             <span className="text-[9px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">
                                 Accrues post-grad
@@ -242,7 +242,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                     </div>
                     <span className={cn(
                         "text-lg font-bold font-mono",
-                        lpYieldPoolNum > 0 ? "text-amber-400" : "text-slate-600"
+                        lpYieldPoolNum > 0 ? "text-slate-400" : "text-slate-600"
                     )}>
                         {fmtUsd(lpYieldPoolNum)}
                     </span>
@@ -250,9 +250,9 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
 
                 {/* User's yield share */}
                 {(hasUserLp || isCreator) && lpYieldPoolNum > 0 && (
-                    <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-900/20">
+                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800/20">
                         <span className="text-slate-400">Your share ({(isCreator ? creatorSharePct : userSharePct).toFixed(1)}%)</span>
-                        <span className="text-amber-400 font-mono font-bold">
+                        <span className="text-slate-400 font-mono font-bold">
                             {fmtUsd(isCreator ? creatorYieldShare : userYieldShare)}
                         </span>
                     </div>

@@ -139,10 +139,10 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                 </div>
 
                 {/* 3. Valuation */}
-                <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
-                    <div className="text-[9px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
-                        <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
+                <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+                    <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">↗ Valuation (ExRate)</span>
+                        <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -151,21 +151,21 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                             <span className="text-slate-400" title="LP Supply">{fmtNum(stats.supply)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-purple-400 font-mono ml-auto">{stats.floorRate.toFixed(3)}x</div>
+                        <div className="text-lg font-bold text-cyan-400 font-mono ml-auto">{stats.floorRate.toFixed(3)}x</div>
                     </div>
                 </div>
 
                 {/* 4. TVL */}
-                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
-                    <div className="text-[9px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                <div className="p-3 rounded-lg border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
+                    <div className="text-[9px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">📦 TVL Formula</span>
-                        <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
+                        <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
                             <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
                             <span className="text-slate-600">+</span>
-                            <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
+                            <span className="text-slate-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
                         <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.tvl)}</div>

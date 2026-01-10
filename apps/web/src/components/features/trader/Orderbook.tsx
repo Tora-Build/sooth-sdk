@@ -29,9 +29,9 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
   if (!isSupported) {
     return (
-      <Card className="p-4 border-amber-500/20 bg-amber-500/5">
-        <h3 className="font-heading font-semibold text-sm text-amber-500 mb-2">Orderbook Not Available</h3>
-        <p className="text-xs text-amber-200/70">
+      <Card className="p-4 border-slate-500/20 bg-slate-500/5">
+        <h3 className="font-heading font-semibold text-sm text-slate-500 mb-2">Orderbook Not Available</h3>
+        <p className="text-xs text-slate-200/70">
           This market contract is outdated and does not support the orderbook feature. Please redeploy the markets to use this feature.
         </p>
       </Card>
@@ -118,7 +118,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               key={order.id}
               className={cn(
                 "grid grid-cols-2 text-xs px-2 py-1.5 rounded transition-colors cursor-default",
-                order.maker.toLowerCase() === address?.toLowerCase() ? "bg-indigo-500/10 border border-indigo-500/30" : "hover:bg-slate-800/50"
+                order.maker.toLowerCase() === address?.toLowerCase() ? "bg-cyan-500/10 border border-cyan-500/30" : "hover:bg-slate-800/50"
               )}
             >
               <span className={cn("font-mono font-medium", colorClass)}>
@@ -213,7 +213,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               className={cn(
                 "px-2 py-0.5 text-[10px] font-semibold rounded transition-all",
                 viewMode === 'book'
-                  ? "bg-indigo-500/20 text-indigo-400"
+? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
               )}
             >
@@ -224,13 +224,13 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               className={cn(
                 "px-2 py-0.5 text-[10px] font-semibold rounded transition-all flex items-center gap-1",
                 viewMode === 'my-orders'
-                  ? "bg-indigo-500/20 text-indigo-400"
+                   ? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
               )}
             >
               My Orders
               {myOrders.length > 0 && (
-                <span className="bg-indigo-500 text-white text-[8px] px-1 rounded-full">
+                <span className="bg-cyan-500 text-white text-[8px] px-1 rounded-full">
                   {myOrders.length}
                 </span>
               )}

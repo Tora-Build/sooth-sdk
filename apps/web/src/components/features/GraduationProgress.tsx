@@ -90,7 +90,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                 <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
                     {/* Background gradient */}
                     <div
-                        className="absolute inset-y-0 left-0 transition-all duration-700 ease-out bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500"
+                        className="absolute inset-y-0 left-0 transition-all duration-700 ease-out bg-gradient-to-r from-cyan-600 via-cyan-500 to-emerald-500"
                         style={{ width: `${progressPercent}%` }}
                     />
 

@@ -96,7 +96,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({
             {/* Spread Indicator */}
             <div className="py-1.5 bg-slate-900 border-y border-slate-800 flex items-center justify-between px-4 font-mono text-xs">
                 <span className="text-slate-500">Spread</span>
-                <span className="text-amber-400 font-bold">{asks.length && bids.length ? ((asks[0].index - bids[0].index) / 10).toFixed(1) : '0.0'}%</span>
+                <span className="text-slate-400 font-bold">{asks.length && bids.length ? ((asks[0].index - bids[0].index) / 10).toFixed(1) : '0.0'}%</span>
                 <span className="text-slate-500">Mid: {((currentTick / 1000) * 100).toFixed(1)}%</span>
             </div>
 

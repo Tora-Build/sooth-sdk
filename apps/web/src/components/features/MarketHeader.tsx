@@ -82,7 +82,7 @@ export const MarketHeader = ({
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
               isProPage
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
           >
@@ -129,7 +129,7 @@ export const MarketHeader = ({
                 category === cat.id
                   ? isAmmPage
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                    : "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                    : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
                   : "text-slate-400 hover:text-white hover:bg-slate-800"
               )}
             >

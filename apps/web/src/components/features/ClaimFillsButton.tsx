@@ -153,7 +153,7 @@ export const ClaimFillsButton = ({
       toast.success(
         <div className="flex items-center gap-2">
           <span>{orderIds.length} fill(s) claimed!</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -183,7 +183,7 @@ export const ClaimFillsButton = ({
           isDisabled
             ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
             : variant === 'partial'
-              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+              ? 'bg-slate-500/10 text-slate-400 border-slate-500/20 hover:bg-slate-500/20'
               : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20',
           className
         )}

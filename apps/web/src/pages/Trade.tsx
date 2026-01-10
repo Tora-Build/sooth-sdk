@@ -341,7 +341,7 @@ export const Trade = () => {
             <div className="text-center">
               <Link
                 to="/about"
-                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
               >
                 {content.education}
               </Link>

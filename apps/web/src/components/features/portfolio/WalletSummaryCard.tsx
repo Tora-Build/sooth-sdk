@@ -89,11 +89,11 @@ export const WalletSummaryCard: React.FC = () => {
           </div>
 
           {/* Pending Unlocks */}
-          <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10 backdrop-blur-md">
-            <div className="text-[9px] text-amber-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+          <div className="p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 backdrop-blur-md">
+            <div className="text-[9px] text-slate-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
               <Clock size={9} /> Pending Unlocks
             </div>
-            <div className="text-base font-mono font-bold text-amber-400 leading-none">
+            <div className="text-base font-mono font-bold text-slate-400 leading-none">
               {lockedFormatted}
             </div>
           </div>

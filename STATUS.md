@@ -6,6 +6,8 @@
 - **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-11** — **UI Color System Refactor**: Restrained dApp to 4 semantic colors (cyan=accent, emerald=success, rose=danger, slate=muted). Removed all amber/indigo/purple/violet (168→0 occurrences). Inspired by w3.cash minimalism.
+- **2026-01-11** — **Launchpad Background Animation**: Added subtle animated background with floating particles, cyan grid overlay, and glowing orbs to enhance "launch" theme.
 - **2026-01-10** — **Launchpad UI Polish**: Deposit slider with Liquidity(b)/Graduation Fee/Graduation Vol info box. Guardian defaults to Registry mode with Sooth DAO selected. Chain-aware explorer URLs (Monad/Arc markets link to correct explorers).
 - **2026-01-10** — **Launchpad Create Simplified**: `createMarket` now deploys `TruthMarket` directly with `startTime`, minimum $10 deposit enforced, and UI/CLI flows updated to approve → create.
 - **2026-01-10** — **Arc Testnet V10.7 Deployed**: Successfully deployed V10.7 to Arc Testnet. Previous blocker (gas estimation error) resolved. All 3 testnets now on V10.7 with spot sell full-range crossing fix.

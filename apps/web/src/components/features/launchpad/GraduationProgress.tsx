@@ -75,7 +75,7 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                     <div
                         className={`absolute inset-y-0 left-0 transition-all duration-700 ease-out ${isGraduated
                                 ? 'bg-gradient-to-r from-emerald-600 to-emerald-400'
-                                : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500'
+                                : 'bg-gradient-to-r from-cyan-600 via-cyan-500 to-emerald-500'
                             }`}
                         style={{ width: `${progressPercent}%` }}
                     />

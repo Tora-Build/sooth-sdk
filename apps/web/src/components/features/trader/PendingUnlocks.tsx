@@ -55,7 +55,7 @@ const LockEntryItem: React.FC<{ entry: LockEntry, decimals: number }> = ({ entry
       <div className="text-right">
         <div className={cn(
           "text-[10px] font-bold",
-          entry.isClaimable ? "text-emerald-400" : "text-amber-400/80"
+          entry.isClaimable ? "text-emerald-400" : "text-slate-400/80"
         )}>
           {entry.isClaimable ? 'Ready' : formatTime(entry.timeRemaining)}
         </div>
@@ -115,8 +115,8 @@ export const PendingUnlocks: React.FC = () => {
             <LockEntryItem key={idx} entry={entry} decimals={decimals} />
         ))}
         {mode === 'demo' && entries.length > 0 && (
-            <div className="p-2 rounded bg-amber-500/5 border border-amber-500/10 text-center">
-                <p className="text-[9px] text-amber-400/60 font-mono italic">
+            <div className="p-2 rounded bg-slate-500/5 border border-slate-500/10 text-center">
+                <p className="text-[9px] text-slate-400/60 font-mono italic">
                     💡 Demo Mode: Proceeds from AMM sells unlock after 24h
                 </p>
             </div>

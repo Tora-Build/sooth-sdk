@@ -108,7 +108,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono text-slate-300 truncate font-medium">{address.slice(0, 6)}...{address.slice(-4)}</span>
-            {isCreatorRow && <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1.5 h-4">Creator</Badge>}
+            {isCreatorRow && <Badge className="text-[8px] bg-cyan-500/20 text-cyan-400 border-cyan-500/50 py-0 px-1.5 h-4">Creator</Badge>}
             {isYou && <Badge className="text-[8px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50 py-0 px-1.5 h-4">You</Badge>}
           </div>
           <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
