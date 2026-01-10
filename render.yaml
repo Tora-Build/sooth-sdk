@@ -7,7 +7,7 @@ services:
     runtime: node
     plan: starter
     region: singapore
-    repo: https://github.com/danieltang/sooth-alpha
+    repo: https://github.com/Tora-Build/sooth-dapp-ascii
     branch: V10.1
     # Root directory is blank to respect monorepo lockfile
     rootDir: ""
@@ -35,7 +35,7 @@ services:
     runtime: node
     plan: starter
     region: singapore
-    repo: https://github.com/danieltang/sooth-alpha
+    repo: https://github.com/Tora-Build/sooth-dapp-ascii
     branch: V10.1
     rootDir: ""
     buildCommand: pnpm install && pnpm --filter ./apps/web build
