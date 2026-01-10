@@ -174,7 +174,6 @@ export const Launchpad = () => {
         const toastId = toast.loading('Creating market...');
 
         try {
-            const startTime = Math.floor(Date.now() / 1000);
             const deadline = getDeadline();
 
             const createHash = await writeContractAsync({
@@ -183,7 +182,7 @@ export const Launchpad = () => {
                 functionName: 'createMarket',
                 args: [
                     question,
-                    BigInt(startTime),
+                    0n,
                     BigInt(deadline),
                     customAdjudicator as Address,
                     customGuardian as Address,
