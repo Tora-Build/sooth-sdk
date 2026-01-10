@@ -268,7 +268,8 @@ function formatDate(dateStr: string): string {
   if (diffDays === 1) return 'Tomorrow';
   if (diffDays <= 7) return `${diffDays}d`;
   if (diffDays <= 30) return `${Math.ceil(diffDays / 7)}w`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Show month/day in UTC
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 // ============================================================================
@@ -924,7 +925,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {selectedMarket.endDate && (
             <div className="p-2 rounded-lg bg-slate-800/30 border border-slate-700/30">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Resolves</span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Resolves (UTC)</span>
                 <span className="text-xs text-white font-mono">
                   {new Date(selectedMarket.endDate).toLocaleDateString('en-US', {
                     weekday: 'short',
@@ -933,6 +934,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
                     year: 'numeric',
                     hour: 'numeric',
                     minute: '2-digit',
+                    timeZone: 'UTC',
                   })}
                 </span>
               </div>
