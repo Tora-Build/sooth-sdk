@@ -57,14 +57,6 @@ export const Faucet = () => {
     try {
       const tokenDecimals = Number(decimals ?? 18);
       const amount = parseUnits('100000', tokenDecimals);
-      
-      console.log('[Faucet] Debug:', {
-        decimals,
-        tokenDecimals,
-        amount: amount.toString(),
-        mockUSDC: deployments.MockUSDC,
-        address,
-      });
 
       const hash = await writeContractAsync({
         address: deployments.MockUSDC as `0x${string}`,
