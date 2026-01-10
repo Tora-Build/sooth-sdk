@@ -49,15 +49,17 @@ git push origin V10
 Render Blueprints do not commit access keys. You must add these manually in the Dashboard **after** the services are created (or during the setup prompt if available):
 
 #### For Indexer (`sooth-indexer`):
-*   `BASE_SEPOLIA_RPC_URL`: *[Your Alchemy/Infura URL]*
-*   `MONAD_TESTNET_RPC_URL`: *[Your Monad RPC URL]*
+*   `DATABASE_SCHEMA`: `public` (required for Ponder with PostgreSQL)
+*   `BASE_SEPOLIA_RPC_URL`: *[Your Alchemy/Infura URL or `https://sepolia.base.org`]*
+*   `MONAD_TESTNET_RPC_URL`: *[Your Monad RPC URL or `https://testnet-rpc.monad.xyz`]*
+*   `ARC_TESTNET_RPC_URL`: *[Your Arc RPC URL or `https://rpc.arc.dev/testnet`]*
 
 #### For Frontend (`sooth-alpha-web`):
-Copy **all** variables starting with `VITE_` from your local `.env`:
-*   `VITE_WALLET_CONNECT_PROJECT_ID`
-*   `VITE_RPC_URL`
-*   `VITE_CHAIN_ID`
-*   ...and others.
+*   `VITE_WALLETCONNECT_PROJECT_ID`: *[From cloud.walletconnect.com]*
+*   `VITE_INDEXER_URL`: `https://sooth-indexer.onrender.com` *(your indexer URL)*
+
+Optional (defaults work for most cases):
+*   `VITE_USE_INDEXER`: Defaults to `true`. Set to `false` to disable indexer.
 
 ## 3. API Proxy Server
 
