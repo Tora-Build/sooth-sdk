@@ -24,8 +24,8 @@ import { Drawer } from '../components/ui/Drawer';
 const MARKET_CATEGORIES = [
     { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-orange-500 to-amber-500' },
     { id: 'sports', name: 'Sports', icon: '⚽', gradient: 'from-emerald-500 to-teal-500' },
-    { id: 'politics', name: 'Politics', icon: '⚖️', gradient: 'from-blue-500 to-indigo-500' },
-    { id: 'custom', name: 'Custom', icon: '✨', gradient: 'from-violet-500 to-fuchsia-500' }
+    { id: 'cultures', name: 'Cultures', icon: '🎭', gradient: 'from-pink-500 to-rose-500' },
+    { id: 'others', name: 'Others', icon: '✨', gradient: 'from-violet-500 to-fuchsia-500' }
 ];
 
 

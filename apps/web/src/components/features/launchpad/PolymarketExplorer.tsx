@@ -89,14 +89,14 @@ const CATEGORIES = {
 
 type CategoryKey = keyof typeof CATEGORIES;
 
-// Map Polymarket categories to Sooth categories
+// Map Polymarket categories to Sooth categories (crypto, sports, cultures, others)
 const CATEGORY_TO_SOOTH: Record<CategoryKey, string> = {
-  politics: 'politics',
-  sports: 'sports',
-  crypto: 'crypto',
-  world: 'custom',
-  popCulture: 'custom',
-  economy: 'custom',
+  politics: 'others',      // Politics → Others
+  sports: 'sports',        // Sports → Sports
+  crypto: 'crypto',        // Crypto → Crypto
+  world: 'others',         // World → Others
+  popCulture: 'cultures',  // Pop Culture → Cultures
+  economy: 'others',       // Economy → Others
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
