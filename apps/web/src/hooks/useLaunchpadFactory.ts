@@ -72,7 +72,7 @@ export function useLaunchpadFactory() {
         args: [user || '0x0000000000000000000000000000000000000000', launchpadEngineAddress || '0x0000000000000000000000000000000000000000'],
         query: {
             enabled: !!user && !!launchpadEngineAddress && !!usdcAddress,
-            refetchInterval: 2000
+            refetchInterval: 30000
         }
     });
 

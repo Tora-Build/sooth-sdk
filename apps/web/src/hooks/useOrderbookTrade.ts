@@ -48,7 +48,7 @@ export function useOrderbookTrade(marketId: string) {
     ],
     query: {
       enabled: !!address && !!marketContractAddress && !!traderVaultAddress,
-      refetchInterval: 3000,
+      refetchInterval: 30000,
     },
   });
 
