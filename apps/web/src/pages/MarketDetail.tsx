@@ -9,7 +9,8 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { OrderbookForm } from '../components/features/trader/OrderbookForm';
 import { formatUnits } from 'viem';
-import { useAccount, useReadContracts } from 'wagmi';
+import { useAccount, useReadContracts, useChainId } from 'wagmi';
+import { getAddressExplorerUrl } from '../lib/chains';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
 import { LaunchpadLockedProceeds } from '../components/features/trader/LaunchpadLockedProceeds';
@@ -45,6 +46,7 @@ const MarketInfoCard = ({
   pureCeilingProp,
   isUnderwater,
   decimals,
+  chainId,
 }: {
   priceYes: number;
   priceNo: number;
@@ -69,6 +71,7 @@ const MarketInfoCard = ({
   pureCeilingProp?: bigint;
   isUnderwater?: boolean;
   decimals?: number;
+  chainId: number;
 }) => {
   const [showHelp, setShowHelp] = useState(false);
   const t = uiContent.lp;
@@ -316,16 +319,16 @@ const MarketInfoCard = ({
       <div className="pt-2 border-t border-slate-800">
         <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
-          <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+          <a href={getAddressExplorerUrl(chainId, address)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
             Market <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
           </a>
           {creator && (
-            <a href={`https://sepolia.basescan.org/address/${creator}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+            <a href={getAddressExplorerUrl(chainId, creator)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
               Creator <span className="font-mono">{creator.slice(0,6)}...{creator.slice(-4)}</span>
             </a>
           )}
           {outcomeToken && (
-            <a href={`https://sepolia.basescan.org/address/${outcomeToken}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+            <a href={getAddressExplorerUrl(chainId, outcomeToken)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
               Token <span className="font-mono">{outcomeToken.slice(0,6)}...{outcomeToken.slice(-4)}</span>
             </a>
           )}
@@ -444,7 +447,7 @@ const BondingProgressCard = ({
 };
 
 // Helper component for address display with copy functionality
-const AddressRow = ({ label, address, isCreator }: { label: string; address: string; isCreator?: boolean }) => {
+const AddressRow = ({ label, address, isCreator, chainId }: { label: string; address: string; isCreator?: boolean; chainId: number }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -465,7 +468,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
       </div>
       <div className="flex items-center gap-2">
         <a
-          href={`https://sepolia.basescan.org/address/${address}`}
+          href={getAddressExplorerUrl(chainId, address)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors"
@@ -483,7 +486,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
           )}
         </button>
         <a
-          href={`https://sepolia.basescan.org/address/${address}`}
+          href={getAddressExplorerUrl(chainId, address)}
           target="_blank"
           rel="noopener noreferrer"
           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-700"
@@ -498,6 +501,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
+  const chainId = useChainId();
   const { refetch: refetchVault, availableBalance, decimals, vaultAddress: traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
   const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
   
@@ -679,7 +683,7 @@ export const MarketDetail = () => {
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-500">
             <a
-              href={`https://sepolia.basescan.org/address/${address}`}
+              href={getAddressExplorerUrl(chainId, address || '')}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-cyan-400 transition-colors font-mono"
@@ -737,6 +741,7 @@ export const MarketDetail = () => {
             pureCeilingProp={pureCeiling}
             isUnderwater={isUnderwater}
             decimals={marketDecimals || decimals}
+            chainId={chainId}
           />
 
           {/* Settlement Status Card */}

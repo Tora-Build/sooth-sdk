@@ -291,6 +291,7 @@ export const Trade = () => {
               isGraduated={launchpad?.isGraduated || false}
               isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
               isLive={truth?.isLive ?? false}
+              chainId={chainId}
             />
 
                             {/* Trading Panel - wrapped in Card for consistent styling */}

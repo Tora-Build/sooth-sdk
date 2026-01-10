@@ -277,6 +277,19 @@ export function isSolanaChain(chain: AllowedChain): boolean {
 // Default chain (Base Sepolia)
 export const DEFAULT_CHAIN_ID = 84532;
 
+export function getExplorerUrl(chainId: number): string {
+  const chain = getChainById(chainId);
+  return chain?.explorerUrl || 'https://sepolia.basescan.org';
+}
+
+export function getAddressExplorerUrl(chainId: number, address: string): string {
+  return `${getExplorerUrl(chainId)}/address/${address}`;
+}
+
+export function getTxExplorerUrl(chainId: number, txHash: string): string {
+  return `${getExplorerUrl(chainId)}/tx/${txHash}`;
+}
+
 /**
  * Get recommended refetch interval for a chain
  * Different chains have different rate limits and block times

@@ -5,6 +5,7 @@ import React from 'react';
 import { ExternalLink, Clock, Shield, User, FileText, Calendar } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Card } from '../../ui/Card';
+import { getAddressExplorerUrl } from '../../../lib/chains';
 
 interface MarketDetailHeaderProps {
     name: string;
@@ -17,6 +18,7 @@ interface MarketDetailHeaderProps {
     isGraduated: boolean;
     isExpired: boolean;
     isLive: boolean;
+    chainId: number;
 }
 
 export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
@@ -30,6 +32,7 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
     isGraduated,
     isExpired,
     isLive,
+    chainId,
 }) => {
     const truncate = (addr: string | undefined) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '...';
 
@@ -71,10 +74,10 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
                 {/* Token badge */}
                 {symbol && (
                     <a
-                        href={`https://sepolia.basescan.org/address/${address}`}
+                        href={getAddressExplorerUrl(chainId, address)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="View market on BaseScan"
+                        title="View market on explorer"
                         className="flex-shrink-0"
                     >
                         <Badge variant="outline" className="font-mono text-xs px-2.5 py-1 hover:border-slate-500 transition-colors cursor-pointer">
@@ -134,11 +137,11 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500">
                 {/* Market Address */}
                 <a
-                    href={`https://sepolia.basescan.org/address/${address}`}
+                    href={getAddressExplorerUrl(chainId, address)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
-                    title="View market on BaseScan"
+                    title="View market on explorer"
                 >
                     <FileText size={12} />
                     <span className="text-slate-600">Market:</span>
@@ -148,11 +151,11 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
 
                 {/* Creator */}
                 <a
-                    href={`https://sepolia.basescan.org/address/${creator}`}
+                    href={getAddressExplorerUrl(chainId, creator)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
-                    title="View creator on BaseScan"
+                    title="View creator on explorer"
                 >
                     <User size={12} />
                     <span className="text-slate-600">Creator:</span>
@@ -163,11 +166,11 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
                 {/* Adjudicator */}
                 {adjudicator && (
                     <a
-                        href={`https://sepolia.basescan.org/address/${adjudicator}`}
+                        href={getAddressExplorerUrl(chainId, adjudicator)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
-                        title="View adjudicator on BaseScan"
+                        title="View adjudicator on explorer"
                     >
                         <Shield size={12} />
                         <span className="text-slate-600">Adjudicator:</span>
