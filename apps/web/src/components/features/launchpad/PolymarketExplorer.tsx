@@ -356,6 +356,15 @@ function MarketCard({
   const category = CATEGORIES[market.category];
   const marketsCount = market.rawData.markets?.length || 0;
 
+  // Find additional matching categories from the 6 defined ones
+  const CATEGORY_TAG_IDS = Object.fromEntries(
+    Object.entries(CATEGORIES).map(([k, v]) => [v.id, k as CategoryKey])
+  );
+  const additionalCategories = (market.rawData.tags || [])
+    .filter(tag => CATEGORY_TAG_IDS[tag.id] && CATEGORY_TAG_IDS[tag.id] !== market.category)
+    .map(tag => CATEGORY_TAG_IDS[tag.id])
+    .slice(0, 2); // Max 2 additional
+
   return (
     <div
       className={cn(
@@ -368,14 +377,30 @@ function MarketCard({
       onClick={() => onSelect(market)}
     >
       <div className="flex items-start gap-2 mb-2">
-        <span
-          className={cn(
-            'px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0',
-            CATEGORY_COLORS[category.color]
-          )}
-        >
-          {category.label}
-        </span>
+        <div className="flex flex-wrap gap-1 shrink-0">
+          <span
+            className={cn(
+              'px-1.5 py-0.5 rounded text-[9px] font-bold border',
+              CATEGORY_COLORS[category.color]
+            )}
+          >
+            {category.label}
+          </span>
+          {additionalCategories.map((catKey) => {
+            const cat = CATEGORIES[catKey];
+            return (
+              <span
+                key={catKey}
+                className={cn(
+                  'px-1.5 py-0.5 rounded text-[9px] font-medium border opacity-70',
+                  CATEGORY_COLORS[cat.color]
+                )}
+              >
+                {cat.label}
+              </span>
+            );
+          })}
+        </div>
         <h3 className="text-xs font-medium text-white line-clamp-2 flex-1">
           {market.question}
         </h3>
@@ -990,7 +1015,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {searchTerm && ` matching "${searchTerm}"`}
         </div>
 
-        <div className="space-y-2 overflow-y-auto max-h-[70vh]">
+        <div className="space-y-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="w-5 h-5 text-slate-500 animate-spin" />
