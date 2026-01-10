@@ -115,7 +115,7 @@ export const Faucet = () => {
             <div className="flex justify-between items-center text-sm mb-1">
               <span className="text-slate-500">Your Balance</span>
               <span className="text-white font-mono font-bold">
-                {balance !== undefined ? `${Number(formatUnits(balance as bigint, Number(decimals || 6))).toLocaleString()} mUSDC` : '0 mUSDC'}
+                {balance !== undefined ? `${Number(formatUnits(balance as bigint, Number(decimals || 18))).toLocaleString()} mUSDC` : '0 mUSDC'}
               </span>
             </div>
             <div className="text-[10px] text-slate-600 font-mono truncate">
