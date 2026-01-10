@@ -9,6 +9,7 @@
     "build": "npm run validate-config && vite build",
     "preview": "npm run validate-config && vite preview",
     "export": "npm run build && bash scripts/export-static.sh",
+    "serve": "node server.js",
     "test:e2e:cache": "synpress",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -17,6 +18,8 @@
     "test:e2e:onchain": "playwright test --project=onchain"
   },
   "dependencies": {
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.3",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "@tanstack/react-query": "^5.51.11",
