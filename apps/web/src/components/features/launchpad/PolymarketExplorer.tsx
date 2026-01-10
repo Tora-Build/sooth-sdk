@@ -79,12 +79,12 @@ export interface NormalizedMarket {
 // ============================================================================
 
 const CATEGORIES = {
-  politics: { id: '2', label: 'Politics', color: 'blue' },
-  sports: { id: '1', label: 'Sports', color: 'emerald' },
   crypto: { id: '21', label: 'Crypto', color: 'orange' },
-  world: { id: '101970', label: 'World', color: 'violet' },
-  popCulture: { id: '596', label: 'Pop Culture', color: 'pink' },
-  economy: { id: '100328', label: 'Economy', color: 'amber' },
+  sports: { id: '1', label: 'Sports', color: 'emerald' },
+  popCulture: { id: '596', label: 'Cultures', color: 'pink' },
+  politics: { id: '2', label: 'Politics', color: 'slate' },
+  world: { id: '101970', label: 'World', color: 'slate' },
+  economy: { id: '100328', label: 'Economy', color: 'slate' },
 } as const;
 
 type CategoryKey = keyof typeof CATEGORIES;
@@ -649,9 +649,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
     setSelectedCategories((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
-        if (next.size > 1) {
-          next.delete(key);
-        }
+        next.delete(key);
       } else {
         next.add(key);
       }
