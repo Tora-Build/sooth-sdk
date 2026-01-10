@@ -21,11 +21,12 @@ The deployment is defined in `render.yaml` at the project root. It orchestrates 
     *   **Critical Env Vars:** `BASE_SEPOLIA_RPC_URL`, `MONAD_TESTNET_RPC_URL` (Manual Entry)
 
 3.  **Frontend Service (`sooth-alpha-web`)**
-    *   **Type:** Web Service (Node.js) serving static files
+    *   **Type:** Web Service (Node.js) with Express server
     *   **Root Directory:** *BLANK*
     *   **Build:** `pnpm install && pnpm --filter ./apps/web build`
-    *   **Start:** `npx serve -s apps/web/dist`
+    *   **Start:** `node apps/web/server.js`
     *   **Critical Env Vars:** `VITE_` variables (Manual Entry)
+    *   **API Proxies:** `/api/polymarket` → Gamma API, `/api/kalshi` → Kalshi API
 
 ## 2. Setup Instructions
 
@@ -58,7 +59,18 @@ Copy **all** variables starting with `VITE_` from your local `.env`:
 *   `VITE_CHAIN_ID`
 *   ...and others.
 
-## 3. Troubleshooting
+## 3. API Proxy Server
+
+The frontend uses an Express server (`apps/web/server.js`) instead of a static file server. This enables API proxying in production:
+
+| Route | Target | Purpose |
+|-------|--------|---------|
+| `/api/polymarket/*` | `gamma-api.polymarket.com` | Polymarket market data |
+| `/api/kalshi/*` | `api.elections.kalshi.com` | Kalshi market data |
+
+The same routes are configured in `vite.config.ts` for development.
+
+## 4. Troubleshooting
 
 ### "Command not found: pnpm"
 *   **Fix:** Ensure the `package.json` "engines" field specifies a compatible Node version or use the `NODE_VERSION` env var (set to 20 in blueprint). Render installs pnpm automatically for Node environments.
@@ -71,7 +83,7 @@ Copy **all** variables starting with `VITE_` from your local `.env`:
 *   **Cause:** Indexer starting before Database is ready.
 *   **Fix:** The blueprint handles dependency ordering, but on first run, the DB might take a moment. Restart the Indexer service if it fails initially.
 
-## 4. Manual Deployments (Without Blueprint)
+## 5. Manual Deployments (Without Blueprint)
 If you choose *not* to use the Blueprint, configure services individually:
 
 *   **Indexer**:
