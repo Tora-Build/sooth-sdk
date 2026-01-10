@@ -31,7 +31,7 @@ export function useClaimUnlocked(
         error: confirmError,
     } = useWaitForTransactionReceipt({
         hash,
-        pollingInterval: 10000,
+        pollingInterval: 5000,
     });
 
     const claim = (maxClaims: number = 50) => {
