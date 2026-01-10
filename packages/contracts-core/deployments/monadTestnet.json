@@ -5,13 +5,13 @@
   "timestamp": "2026-01-10T14:37:05.102Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x88b46a523e49e123a19d011e0475a7544632e915",
-    "Collateralizer": "0x4750058ed98fbbfae885a9262fd71a2510d9a7f6",
-    "AMMEngine": "0xe1c00c93f0f0a14dee91ef17d24c1b25f87bc247",
-    "TickBookVault": "0xd6f7343f14d06b2080372c7ef4ac25562f816904",
-    "TickBookPoolManager": "0xa4e8ba71791b014732beed5e92165c9c24db0cff",
-    "TickBook": "0xa4e8ba71791b014732beed5e92165c9c24db0cff",
-    "LaunchpadEngine": "0xa0872ad41caa4adf36f271a253c9410a02f7f31d"
+    "MockUSDC": "0xd9e25839396b7393fb79c620c8ee05bdbdab5789",
+    "Collateralizer": "0x06b1a993347e188a923b7e0c85f77ed7d83cced5",
+    "AMMEngine": "0x01ba0503fdbe582d78e49f135aed1a175c788add",
+    "TickBookVault": "0x557747e57a465c261a56ddbc7e7df8a331f7e093",
+    "TickBookPoolManager": "0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0",
+    "TickBook": "0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0",
+    "LaunchpadEngine": "0xbd20f66effc9a0d908283871d546de0b6e3d160e"
   },
   "markets": []
 }
