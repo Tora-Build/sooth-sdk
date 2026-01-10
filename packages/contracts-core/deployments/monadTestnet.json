@@ -1,7 +1,7 @@
 {
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "version": "V10.7",
+  "version": "V10.8",
   "timestamp": "2026-01-10T14:13:54.750Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {

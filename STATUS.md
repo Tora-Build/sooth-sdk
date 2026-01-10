@@ -1,7 +1,7 @@
 # Project Status
 
 ## Current Focus
-- **V10.7 DEPLOYED TO ALL TESTNETS (2026-01-10)** — Critical spot sell crossing fix deployed to all 3 testnets: Monad, Base Sepolia, and Arc Testnet. Full-range spot search now finds ALL spot sells within buyer's price tolerance.
+- **V10.8 DEPLOYED TO ALL TESTNETS (2026-01-10)** — Atomic market creation with startTime scheduling. LaunchpadEngine now deploys TruthMarket internally, $10 min deposit enforced.
 - **On-Chain Validation Pending** — Create test markets + validate spot sell crossing fix works in production.
 - **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
 
@@ -34,7 +34,7 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **V10.7 On-Chain Validation** — Create test market + validate spot sell crossing fix works in production: `pnpm interactive:monad` / `interactive:base` / `interactive:arc`.
+- **V10.8 On-Chain Validation** — Test atomic market creation flow via CLI: `pnpm interactive:monad` / `interactive:base` / `interactive:arc`.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
@@ -104,7 +104,7 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.6
+### Base Sepolia (chainId: 84532) — V10.8
 | Contract | Address |
 |----------|---------|
 | **TickBookPoolManager** | `0x1b6c55c70ae4dafdc8cda646af83bb3554dac388` |
@@ -116,7 +116,7 @@
 
 **Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
 
-### Arc Testnet (chainId: 5042002) — V10.7
+### Arc Testnet (chainId: 5042002) — V10.8
 | Contract | Address |
 |----------|---------|
 | **TickBookPoolManager** | `0x90d250665e49504325a0d370e566be8dc4801cce` |
@@ -128,7 +128,7 @@
 
 **Note:** V10.7 deployment (2026-01-09). Spot sell full-range search fix. Arc uses USDC as native gas token.
 
-### Monad Testnet (chainId: 10143) — V10.6
+### Monad Testnet (chainId: 10143) — V10.8
 | Contract | Address |
 |----------|---------|
 | **TickBookPoolManager** | `0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0` |

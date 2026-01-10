@@ -23,7 +23,7 @@ import { MarketConfig, MarketsConfigJson } from '../types';
 
 const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 
-const CURRENT_VERSION_PREFIX = 'v10.7'; // Current canonical version
+const CURRENT_VERSION_PREFIX = 'v10.8'; // Current canonical version
 
 // --- Components ---
 
@@ -778,11 +778,11 @@ export const Portfolio = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V10.7 Unified Crossing</p>
+                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sooth V10.7 uses a unified crossing architecture with spot-first price discovery. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`). The TickBook orderbook provides deep liquidity with range orders and spot sells crossing at best available prices.
+                Sooth V10.8 uses atomic market creation with spot-first price discovery. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) in a single transaction. The TickBook orderbook provides deep liquidity with range orders and spot sells crossing at best available prices.
               </p>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">

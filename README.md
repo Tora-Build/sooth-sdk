@@ -2,12 +2,12 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V10.7 (Spot Sell Full-Range Search Fix)  
+**Current Version**: V10.8 (Atomic Market Creation)  
 **Status**: Alpha (breaking changes allowed)
 
 ## Active Deployments
 
-### Base Sepolia (chainId: 84532) - V10.7
+### Base Sepolia (chainId: 84532) - V10.8
 | Contract | Address |
 |----------|---------|
 | TickBookPoolManager | `0x2f3464ca4a50a522786c3e72df94f12b02eec46b` |
@@ -16,7 +16,7 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 | Collateralizer | `0x2fc82e6a2b285141366f07635285453221934942` |
 | MockUSDC | `0x937a3fae6a2b1702546e141f695d6f29df72c5cc` |
 
-### Monad Testnet (chainId: 10143) - V10.7
+### Monad Testnet (chainId: 10143) - V10.8
 | Contract | Address |
 |----------|---------|
 | TickBookPoolManager | `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208` |
