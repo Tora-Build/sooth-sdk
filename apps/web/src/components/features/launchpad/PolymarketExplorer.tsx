@@ -221,9 +221,17 @@ async function fetchEventsByCategory(
 // ============================================================================
 
 function formatVolume(value: number): string {
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
+  if (value >= 1e6) {
+    // For millions: show 1 decimal if < 10M, otherwise whole number
+    const millions = value / 1e6;
+    return millions >= 10 ? `$${Math.round(millions)}M` : `$${millions.toFixed(1)}M`;
+  }
+  if (value >= 1e3) {
+    // For thousands: show 1 decimal if < 100K, otherwise whole
+    const thousands = value / 1e3;
+    return thousands >= 100 ? `$${Math.round(thousands)}K` : `$${thousands.toFixed(1)}K`;
+  }
+  return `$${Math.round(value)}`;
 }
 
 function formatDate(dateStr: string): string {
