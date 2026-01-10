@@ -4,6 +4,12 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Launchpad UI Polish (2026-01-10)
+- **Deposit Slider**: Replaced $100/$1000/$5000 buttons with smooth slider controlling deposit amount.
+- **Info Box**: Shows calculated Liquidity (b), Graduation Fee (= deposit at multiplier=1), and Graduation Vol (= fees/0.05).
+- **Guardian Defaults**: Guardian selector now defaults to Registry mode with Sooth DAO selected. Custom mode properly clears registry addresses.
+- **Chain-Aware Explorer URLs**: Market detail pages now link to correct block explorer based on chain (Base Sepolia → basescan, Monad → monadvision, Arc → arcscan).
+
 ### Launchpad Create Flow Simplification (2026-01-10)
 - **Breaking Change**: `LaunchpadEngine.createMarket` now deploys `TruthMarket` internally and returns `(market, lpTokens)`.
 - **Breaking Change**: Removed `TruthMarket.activate()`; markets start live based on `startTime`.
