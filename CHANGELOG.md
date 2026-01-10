@@ -12,13 +12,13 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **Fix**: Modified `_unifiedCross()` to pass buyer's full tick range (converted to seller's native tick space) to `_fillSpotLiquidity()`. Now finds ALL spot sells within buyer's price tolerance.
 - **Gas Impact**: +11k gas (~350k → 361k) due to wider tick search. Updated gas benchmark test to reflect new reality.
 - **Tests**: Added `SpotSellTickSpace.t.sol` with 6 regression tests (all passing).
-- **Deployment** (2026-01-09):
-  - Monad Testnet: TickBookPoolManager `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208`
-  - Base Sepolia: TickBookPoolManager `0x2f3464ca4a50a522786c3e72df94f12b02eec46b`
-  - Arc Testnet: **Blocked** (gas estimation error with USDC-as-gas, staying on V10.6)
+- **Deployment**:
+  - Monad Testnet (2026-01-09): TickBookPoolManager `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208`
+  - Base Sepolia (2026-01-09): TickBookPoolManager `0x2f3464ca4a50a522786c3e72df94f12b02eec46b`
+  - Arc Testnet (2026-01-09): TickBookPoolManager `0x90d250665e49504325a0d370e566be8dc4801cce` ✅
 - **Frontend**: 
   - Added indexer sync status indicator to Footer showing current block height and sync status
-  - Updated `deployments.json` to V10.7 with new Monad + Base addresses
+  - Updated `deployments.json` to V10.7 with all 3 chain addresses
   - Bumped indexer config to V10.7 contract addresses
 - **Files Changed**:
   - `packages/contracts-core/src/TickBookPoolManager.sol` — Full-range spot search in `_unifiedCross()`
@@ -27,9 +27,9 @@ All notable changes to Sooth Protocol will be documented in this file.
   - `docs/V10/contracts/03-TickBookPoolManager.md` — Added V10.7 fix documentation
   - `apps/web/src/hooks/useIndexerStatus.ts` — New hook for indexer status
   - `apps/web/src/components/layout/Footer.tsx` — Sync indicator display
-  - `apps/web/src/config/deployments.json` — V10.7 addresses
+  - `apps/web/src/config/deployments.json` — V10.7 addresses (all 3 chains)
   - `packages/indexer/ponder.config.ts` — V10.7 contract addresses
-- **Status**: Deployed to Monad + Base Sepolia. On-chain validation pending (use interactive CLI due to createMarket script issue).
+- **Status**: ✅ V10.7 deployed to ALL testnets. On-chain validation pending (use interactive CLI).
 
 ### LiquidityMap Color Fix (2026-01-09)
 - **Bug Fix**: Fixed bucket side overwrite bug in `LiquidityMap` component where the last-processed order determined the bucket color, causing YES buy orders to incorrectly display as "Sell YES" (red) when a wide-range NO order also covered that price bucket.

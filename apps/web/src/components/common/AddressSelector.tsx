@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { Address } from 'viem';
 import { cn } from '../../lib/utils';
-import { 
-    AdjudicatorOption, 
-    GuardianOption, 
-    getTrustColor, 
-    getTrustBgColor 
+import {
+    AdjudicatorOption,
+    GuardianOption,
+    getTrustColor,
+    getTrustBgColor
 } from '../../config/registries';
 
 interface AddressSelectorProps {
@@ -41,7 +41,7 @@ export const AddressSelector = ({
     showTrustSpectrum = false
 }: AddressSelectorProps) => {
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    
+
     const selectedOption = options.find(o => o.id === selectedRegistryId);
     const isAdjudicator = options.length > 0 && isAdjudicatorOption(options[0]);
 
@@ -57,8 +57,8 @@ export const AddressSelector = ({
                         onClick={() => setSelectedMode('registry')}
                         className={cn(
                             "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
-                            selectedMode === 'registry' 
-                                ? "bg-cyan-500/20 text-cyan-400 shadow-sm" 
+                            selectedMode === 'registry'
+                                ? "bg-cyan-500/20 text-cyan-400 shadow-sm"
                                 : "text-white/40 hover:text-white/60"
                         )}
                     >
@@ -68,8 +68,8 @@ export const AddressSelector = ({
                         onClick={() => setSelectedMode('custom')}
                         className={cn(
                             "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
-                            selectedMode === 'custom' 
-                                ? "bg-amber-500/20 text-amber-400 shadow-sm" 
+                            selectedMode === 'custom'
+                                ? "bg-amber-500/20 text-amber-400 shadow-sm"
                                 : "text-white/40 hover:text-white/60"
                         )}
                     >
@@ -121,18 +121,18 @@ export const AddressSelector = ({
                                 >
                                     <div className={cn(
                                         "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                                        isSelected 
-                                            ? "bg-cyan-500/20" 
-                                            : isAdj 
-                                                ? getTrustBgColor(opt.trustModel) 
+                                        isSelected
+                                            ? "bg-cyan-500/20"
+                                            : isAdj
+                                                ? getTrustBgColor(opt.trustModel)
                                                 : "bg-white/10"
                                     )}>
                                         <OptIcon className={cn(
                                             "w-5 h-5",
-                                            isSelected 
-                                                ? "text-cyan-400" 
-                                                : isAdj 
-                                                    ? getTrustColor(opt.trustModel) 
+                                            isSelected
+                                                ? "text-cyan-400"
+                                                : isAdj
+                                                    ? getTrustColor(opt.trustModel)
                                                     : "text-white/50"
                                         )} />
                                     </div>
@@ -148,7 +148,7 @@ export const AddressSelector = ({
                                             {opt.badge && (
                                                 <span className={cn(
                                                     "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase",
-                                                    isSelected 
+                                                    isSelected
                                                         ? "bg-cyan-500/20 text-cyan-300"
                                                         : "bg-white/10 text-white/40"
                                                 )}>
@@ -175,19 +175,28 @@ export const AddressSelector = ({
                                             <CheckCircle className="w-5 h-5 text-cyan-400" />
                                         )}
                                         {isAdj && (
-                                            <button
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setExpandedId(isExpanded ? null : opt.id);
                                                 }}
-                                                className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        setExpandedId(isExpanded ? null : opt.id);
+                                                    }
+                                                }}
+                                                className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                                             >
                                                 {isExpanded ? (
                                                     <ChevronUp className="w-4 h-4 text-white/40" />
                                                 ) : (
                                                     <ChevronDown className="w-4 h-4 text-white/40" />
                                                 )}
-                                            </button>
+                                            </div>
                                         )}
                                     </div>
                                 </button>
@@ -217,7 +226,7 @@ export const AddressSelector = ({
                         <div>
                             <p className="text-sm font-bold text-amber-400">Advanced Mode</p>
                             <p className="text-xs text-amber-200/70 mt-1 leading-relaxed">
-                                Using a custom address bypasses safety checks. Ensure the address 
+                                Using a custom address bypasses safety checks. Ensure the address
                                 is a valid contract that implements the required interface.
                             </p>
                         </div>
