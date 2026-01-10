@@ -139,7 +139,7 @@ function parseJsonArray(value: string | string[] | undefined): string[] {
 
 async function fetchEventsByCategory(
   categoryKey: CategoryKey,
-  limit = 20
+  limit = 50
 ): Promise<NormalizedMarket[]> {
   const category = CATEGORIES[categoryKey];
   // Fetch events (not markets) - events have correct slugs for URLs
@@ -517,7 +517,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
     try {
       const categoryKeys = Object.keys(CATEGORIES) as CategoryKey[];
       const results = await Promise.all(
-        categoryKeys.map((key) => fetchEventsByCategory(key, 20))
+        categoryKeys.map((key) => fetchEventsByCategory(key, 50))
       );
 
       // Flatten and dedupe by ID
@@ -990,7 +990,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {searchTerm && ` matching "${searchTerm}"`}
         </div>
 
-        <div className="space-y-2 overflow-y-auto max-h-[50vh]">
+        <div className="space-y-2 overflow-y-auto max-h-[70vh]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="w-5 h-5 text-slate-500 animate-spin" />
