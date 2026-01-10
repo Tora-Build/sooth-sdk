@@ -57,13 +57,13 @@ export const CreateMarket = () => {
 
   const handleCreate = () => {
     if (!name || !symbol || !userAddress) return;
-    const startTime = Math.floor(Date.now() / 1000);
-    const deadline = isOpenEnd ? 4102444800 : startTime + duration * 24 * 60 * 60;
+    const now = Math.floor(Date.now() / 1000);
+    const deadline = isOpenEnd ? 4102444800 : now + duration * 24 * 60 * 60;
     const liquidityB = parseUnits(String(selectedTierData.bValue), 18);
     createMarket(
       name,
       symbol,
-      BigInt(startTime),
+      0n,
       BigInt(deadline),
       liquidityB,
       userAddress,

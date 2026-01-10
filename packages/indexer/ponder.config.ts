@@ -20,8 +20,8 @@ export default createConfig({
     arcTestnet: {
       id: 5042002,
       rpc: process.env.ARC_TESTNET_RPC_URL ?? "https://rpc.testnet.arc.network",
-      pollingInterval: 500,
-      ethGetLogsBlockRange: 2_000,
+      pollingInterval: 2_000,
+      ethGetLogsBlockRange: 100,
     },
   },
   contracts: {

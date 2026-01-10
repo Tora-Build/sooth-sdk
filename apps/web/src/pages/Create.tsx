@@ -344,7 +344,6 @@ export const Create = () => {
       toast('Creating market...');
 
       const deadline = Math.floor(new Date(wizardData.deadline).getTime() / 1000);
-      const startTime = Math.floor(Date.now() / 1000);
       const adjudicatorAddr = (wizardData.adjudicator || userAddress!) as `0x${string}`;
       const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
       const symbol = wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -354,7 +353,7 @@ export const Create = () => {
         address: launchpadEngineAddress,
         abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
-        args: [wizardData.question, BigInt(startTime), BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, symbol],
+        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, symbol],
       });
 
     } catch (err: any) {
