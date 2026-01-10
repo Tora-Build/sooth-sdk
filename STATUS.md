@@ -6,6 +6,7 @@
 - **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-10** — **Launchpad Create Simplified**: `createMarket` now deploys `TruthMarket` directly with `startTime`, minimum $10 deposit enforced, and UI/CLI flows updated to approve → create.
 - **2026-01-10** — **Arc Testnet V10.7 Deployed**: Successfully deployed V10.7 to Arc Testnet. Previous blocker (gas estimation error) resolved. All 3 testnets now on V10.7 with spot sell full-range crossing fix.
 - **2026-01-09** — **V10.7 Spot Sell Full-Range Search Fix**: Fixed critical bug where spot sells at better prices were missed during crossing. `_unifiedCross()` now passes buyer's full tick range to `_fillSpotLiquidity()` instead of narrow overlap. Added 6 regression tests (all passing). Gas +11k (acceptable). Deployed to Monad Testnet + Base Sepolia.
 - **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.

@@ -1,10 +1,6 @@
-import { HelpCircle, X, Rocket, Sparkles, Zap, TrendingUp, Shield } from 'lucide-react';
-import { useState } from 'react';
-import { cn } from '../../../lib/utils';
+import { Rocket, Sparkles, Zap, TrendingUp, Shield } from 'lucide-react';
 
 export const LaunchpadHeader = () => {
-    const [showHint, setShowHint] = useState(false);
-
     return (
         <div className="relative overflow-hidden rounded-3xl">
             <div className="absolute inset-0 -z-10">
@@ -37,8 +33,8 @@ export const LaunchpadHeader = () => {
                         </h1>
                         
                         <p className="text-xl text-white/60 leading-relaxed">
-                            Create a verifiable truth market in <span className="text-white font-semibold">60 seconds</span>. 
-                            Seed liquidity, set your oracle, and start earning from day one.
+                            Deploy a verifiable truth market in <span className="text-white font-semibold">under 60 seconds</span>. 
+                            Seed initial liquidity, select your oracle,  and <span className="text-emerald-400 font-semibold">earn 5% fees on every trade</span>.
                         </p>
                         
                         <p className="text-lg text-emerald-400 font-semibold">
@@ -71,41 +67,6 @@ export const LaunchpadHeader = () => {
                         </div>
                     </div>
                 </div>
-                
-                <button
-                    onClick={() => setShowHint(!showHint)}
-                    className={cn(
-                        "mt-8 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300",
-                        showHint
-                            ? "bg-white/15 text-white border border-white/30 shadow-lg shadow-white/10"
-                            : "text-white/50 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/20"
-                    )}
-                >
-                    {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
-                    {showHint ? 'Got it' : 'How does it work?'}
-                </button>
-                
-                {showHint && (
-                    <div className="mt-6 p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-500">
-                        <div className="grid sm:grid-cols-3 gap-6">
-                            <div className="space-y-3 group">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-violet-500/30 group-hover:scale-110 transition-transform">1</div>
-                                <h3 className="font-bold text-white">Define Question</h3>
-                                <p className="text-sm text-white/50 leading-relaxed">Create a yes/no question with clear resolution criteria.</p>
-                            </div>
-                            <div className="space-y-3 group">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 flex items-center justify-center text-white font-bold shadow-lg shadow-fuchsia-500/30 group-hover:scale-110 transition-transform">2</div>
-                                <h3 className="font-bold text-white">Set Oracle</h3>
-                                <p className="text-sm text-white/50 leading-relaxed">Choose who resolves the market and optional guardian veto.</p>
-                            </div>
-                            <div className="space-y-3 group">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg shadow-orange-500/30 group-hover:scale-110 transition-transform">3</div>
-                                <h3 className="font-bold text-white">Fund & Launch</h3>
-                                <p className="text-sm text-white/50 leading-relaxed">Deposit USDC to seed liquidity and start earning 5% fees.</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

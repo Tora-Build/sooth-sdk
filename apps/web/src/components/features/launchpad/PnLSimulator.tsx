@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    Palette, Gamepad2, ArrowLeftRight, Swords,
+    Palette, Gamepad2, ArrowLeftRight, Swords, Coins,
     TrendingUp, DollarSign, Percent, Clock, Target,
     Zap, AlertTriangle, HelpCircle, Sparkles
 } from 'lucide-react';
@@ -25,7 +25,6 @@ interface ArchetypeConfig {
     id: Archetype;
     name: string;
     icon: typeof Palette;
-    emoji: string;
     story: string;
     gradient: string;
     shadowColor: string;
@@ -36,7 +35,6 @@ const ARCHETYPES: ArchetypeConfig[] = [
         id: 'creator',
         name: 'Creator',
         icon: Palette,
-        emoji: '🎨',
         story: 'Carol creates markets and earns from volume',
         gradient: 'from-violet-500 to-fuchsia-500',
         shadowColor: 'shadow-violet-500/30'
@@ -45,7 +43,6 @@ const ARCHETYPES: ArchetypeConfig[] = [
         id: 'gaming',
         name: 'Gaming Trader',
         icon: Gamepad2,
-        emoji: '🎮',
         story: 'Alice trades early and earns LP tokens',
         gradient: 'from-emerald-500 to-teal-500',
         shadowColor: 'shadow-emerald-500/30'
@@ -54,7 +51,6 @@ const ARCHETYPES: ArchetypeConfig[] = [
         id: 'arb',
         name: 'Arbitrageur',
         icon: ArrowLeftRight,
-        emoji: '🔄',
         story: 'Bob captures spreads between venues',
         gradient: 'from-blue-500 to-cyan-500',
         shadowColor: 'shadow-blue-500/30'
@@ -63,7 +59,6 @@ const ARCHETYPES: ArchetypeConfig[] = [
         id: 'pvp',
         name: 'PvP Trader',
         icon: Swords,
-        emoji: '⚔️',
         story: 'Dave bets on conviction, winner takes all',
         gradient: 'from-orange-500 to-red-500',
         shadowColor: 'shadow-orange-500/30'
@@ -79,14 +74,23 @@ interface SliderProps {
     step?: number;
     format?: (v: number) => string;
     icon?: typeof DollarSign;
+    hint?: string;
 }
 
-const Slider = ({ label, value, onChange, min, max, step = 1, format, icon: Icon }: SliderProps) => (
+const Slider = ({ label, value, onChange, min, max, step = 1, format, icon: Icon, hint }: SliderProps) => (
     <div className="space-y-2">
         <div className="flex justify-between items-center">
             <span className="text-sm text-white/60 flex items-center gap-2">
                 {Icon && <Icon className="w-4 h-4" />}
                 {label}
+                {hint && (
+                    <span className="group relative">
+                        <HelpCircle className="w-3.5 h-3.5 text-white/30 hover:text-white/50 cursor-help" />
+                        <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-black/90 border border-white/20 rounded-lg text-xs text-white/80 w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            {hint}
+                        </span>
+                    </span>
+                )}
             </span>
             <span className="text-sm font-mono font-bold text-white">
                 {format ? format(value) : value}
@@ -128,14 +132,50 @@ const ResultCard = ({ label, value, subtext, positive }: {
     </div>
 );
 
+interface EquationTerm {
+    value: string;
+    label: string;
+}
+
+const Equation = ({ 
+    result, 
+    resultLabel,
+    terms, 
+    useArrow = false
+}: { 
+    result: string;
+    resultLabel: string;
+    terms: EquationTerm[];
+    useArrow?: boolean;
+}) => (
+    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="text-center">
+                <p className="text-xl font-mono font-black text-white">{result}</p>
+                <p className="text-[10px] text-white/40 uppercase font-bold">{resultLabel}</p>
+            </div>
+            <span className="text-white/30 text-lg font-mono">{useArrow ? '←' : '='}</span>
+            {terms.map((term, i) => (
+                <div key={i} className="flex items-center gap-2">
+                    {i > 0 && <span className="text-white/30 text-lg font-mono">+</span>}
+                    <div className="text-center">
+                        <p className="text-lg font-mono font-bold text-white/80">{term.value}</p>
+                        <p className="text-[10px] text-white/40 uppercase">{term.label}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 const CreatorPanel = () => {
     const [liquidityTier, setLiquidityTier] = useState(1000);
     const [volume, setVolume] = useState(100000);
-    const [liability, setLiability] = useState(0.5);
+    const [imbalance, setImbalance] = useState(0);
 
     const result = useMemo(() => 
-        calculateCreatorPnL(liquidityTier, volume, liability),
-        [liquidityTier, volume, liability]
+        calculateCreatorPnL(liquidityTier, volume, imbalance),
+        [liquidityTier, volume, imbalance]
     );
 
     return (
@@ -151,7 +191,7 @@ const CreatorPanel = () => {
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Influence Factors</h4>
                 
                 <Slider
-                    label="Liquidity Tier (b)"
+                    label="Liquidity (b)"
                     value={liquidityTier}
                     onChange={setLiquidityTier}
                     min={100}
@@ -162,72 +202,66 @@ const CreatorPanel = () => {
                 />
 
                 <Slider
-                    label="Expected Trading Volume"
+                    label="Trading Volume"
                     value={volume}
                     onChange={setVolume}
                     min={1000}
-                    max={500000}
+                    max={1000000}
                     step={1000}
-                    format={(v) => `$${(v/1000).toFixed(0)}k`}
+                    format={(v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}k`}
                     icon={TrendingUp}
                 />
 
                 <Slider
-                    label="Settlement Liability"
-                    value={liability}
-                    onChange={setLiability}
-                    min={0}
-                    max={1}
+                    label="Settlement Luck"
+                    value={imbalance}
+                    onChange={setImbalance}
+                    min={-0.5}
+                    max={0.5}
                     step={0.1}
-                    format={(v) => `${(v * 100).toFixed(0)}%`}
+                    format={(v) => `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`}
                     icon={Target}
+                    hint="How the market resolves for LP. Negative = unlucky (lose). Positive = lucky (gain)."
                 />
             </div>
 
             <div className="space-y-3">
-                <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Carol's P&L</h4>
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <ResultCard 
-                        label="Deposit Required" 
-                        value={formatCurrency(result.deposit)}
-                        subtext={`b × ln(2)`}
-                    />
-                    <ResultCard 
-                        label="LP Tokens" 
-                        value={result.lpTokens.toLocaleString()}
-                        subtext="1:1 with deposit"
-                    />
-                    <ResultCard 
-                        label="Total Fees" 
-                        value={formatCurrency(result.totalFees)}
-                        subtext={result.isGraduated ? "Graduated!" : `${formatPercent((result.preGradFees / result.graduationThreshold) * 100)} to grad`}
-                    />
-                    <ResultCard 
-                        label="LP Redemption" 
-                        value={formatCurrency(result.lpRedemptionValue)}
-                        subtext="Pro-rata share"
-                    />
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-white/60">Your LP Ownership</span>
+                        <span className="font-mono font-bold text-white">
+                            {result.lpTokens} / {result.totalLpSupply} = {(result.ownershipPercent * 100).toFixed(0)}%
+                        </span>
+                    </div>
                 </div>
+
+                <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                    LP Equation <span className="text-white/30 font-mono normal-case">[{(result.ownershipPercent * 100).toFixed(0)}%]</span>
+                </h4>
+                
+                <Equation
+                    result={formatCurrency(result.lpRedemption)}
+                    resultLabel="LP Redemption"
+                    terms={[
+                        { value: formatCurrency(result.lpDeposit), label: "Deposit" },
+                        { value: formatCurrency(result.flywheelGrowth), label: "Flywheel" },
+                        { value: formatCurrency(result.settlementOutcome), label: "Settlement" },
+                        { value: formatCurrency(result.feeYield), label: "Fee Yield" }
+                    ]}
+                />
 
                 <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30">
                     <div className="flex justify-between items-center">
                         <div>
                             <p className="text-xs text-white/50 uppercase font-bold">Net P&L</p>
-                            <p className={cn(
-                                "text-2xl font-mono font-black",
-                                result.netPnL >= 0 ? "text-emerald-400" : "text-red-400"
-                            )}>
-                                {result.netPnL >= 0 ? '+' : ''}{formatCurrency(result.netPnL)}
+                            <p className="text-2xl font-mono font-black text-white">
+                                {formatCurrency(result.netPnL)}
                             </p>
                         </div>
                         <div className="text-right">
                             <p className="text-xs text-white/50 uppercase font-bold">ROI</p>
-                            <p className={cn(
-                                "text-2xl font-mono font-black",
-                                result.roi >= 0 ? "text-emerald-400" : "text-red-400"
-                            )}>
-                                {result.roi >= 0 ? '+' : ''}{result.roi}%
+                            <p className="text-2xl font-mono font-black text-white">
+                                {result.roi < 0 ? `(${Math.abs(result.roi)}%)` : `${result.roi}%`}
                             </p>
                         </div>
                     </div>
@@ -236,8 +270,8 @@ const CreatorPanel = () => {
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
                     <Sparkles className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold text-white">Key Insight:</span> Carol profits from VOLUME, 
-                        not predictions. Break-even at {formatCurrency(result.breakEvenVolume)} volume.
+                        <span className="font-bold text-white">LMSR Property:</span> Max win = Max loss = Deposit + Flywheel. 
+                        Fee Yield is always yours.
                     </span>
                 </div>
             </div>
@@ -245,15 +279,52 @@ const CreatorPanel = () => {
     );
 };
 
+const EntryTimingToggle = ({ 
+    isPreGrad, 
+    onChange 
+}: { 
+    isPreGrad: boolean; 
+    onChange: (v: boolean) => void;
+}) => (
+    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+        <button
+            onClick={() => onChange(false)}
+            className={cn(
+                "py-2.5 px-3 rounded-lg text-sm font-bold transition-all",
+                !isPreGrad 
+                    ? "bg-violet-500/20 text-violet-300 shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+            )}
+        >
+            <span className="block">Post-Grad</span>
+            <span className="block text-[10px] font-normal opacity-70">1% fee</span>
+        </button>
+        <button
+            onClick={() => onChange(true)}
+            className={cn(
+                "py-2.5 px-3 rounded-lg text-sm font-bold transition-all",
+                isPreGrad 
+                    ? "bg-emerald-500/20 text-emerald-300 shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+            )}
+        >
+            <span className="block">Pre-Grad</span>
+            <span className="block text-[10px] font-normal opacity-70">5% fee → LP</span>
+        </button>
+    </div>
+);
+
 const GamingTraderPanel = () => {
     const [tradeSize, setTradeSize] = useState(200);
+    const [entryPrice, setEntryPrice] = useState(0.5);
     const [isPreGrad, setIsPreGrad] = useState(true);
-    const [isCorrect, setIsCorrect] = useState(false);
+    const [isCorrect, setIsCorrect] = useState(true);
     const [volumeAfter, setVolumeAfter] = useState(50000);
+    const [imbalance, setImbalance] = useState(0);
 
     const result = useMemo(() =>
-        calculateGamingTraderPnL(tradeSize, isPreGrad, isCorrect, volumeAfter),
-        [tradeSize, isPreGrad, isCorrect, volumeAfter]
+        calculateGamingTraderPnL(tradeSize, entryPrice, isPreGrad, isCorrect, volumeAfter, imbalance),
+        [tradeSize, entryPrice, isPreGrad, isCorrect, volumeAfter, imbalance]
     );
 
     return (
@@ -279,38 +350,16 @@ const GamingTraderPanel = () => {
                     icon={DollarSign}
                 />
 
-                <div className="space-y-2">
-                    <span className="text-sm text-white/60 flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        Entry Timing
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={() => setIsPreGrad(true)}
-                            className={cn(
-                                "p-3 rounded-xl text-sm font-bold border transition-all",
-                                isPreGrad 
-                                    ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
-                                    : "bg-white/5 border-white/10 text-white/50"
-                            )}
-                        >
-                            Pre-Grad (5% fee)
-                            <span className="block text-[10px] font-normal mt-1">More LP tokens!</span>
-                        </button>
-                        <button
-                            onClick={() => setIsPreGrad(false)}
-                            className={cn(
-                                "p-3 rounded-xl text-sm font-bold border transition-all",
-                                !isPreGrad 
-                                    ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
-                                    : "bg-white/5 border-white/10 text-white/50"
-                            )}
-                        >
-                            Post-Grad (1% fee)
-                            <span className="block text-[10px] font-normal mt-1">Lower fees</span>
-                        </button>
-                    </div>
-                </div>
+                <Slider
+                    label="Entry Price (Your Side)"
+                    value={entryPrice}
+                    onChange={setEntryPrice}
+                    min={0.05}
+                    max={0.95}
+                    step={0.05}
+                    format={(v) => `${(v * 100).toFixed(0)}%`}
+                    icon={Target}
+                />
 
                 <div className="space-y-2">
                     <span className="text-sm text-white/60 flex items-center gap-2">
@@ -327,7 +376,7 @@ const GamingTraderPanel = () => {
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
                         >
-                            ✓ Correct
+                            Correct
                         </button>
                         <button
                             onClick={() => setIsCorrect(false)}
@@ -338,78 +387,117 @@ const GamingTraderPanel = () => {
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
                         >
-                            ✗ Wrong
+                            Wrong
                         </button>
                     </div>
                 </div>
 
-                <Slider
-                    label="Volume After Entry"
-                    value={volumeAfter}
-                    onChange={setVolumeAfter}
-                    min={1000}
-                    max={200000}
-                    step={1000}
-                    format={(v) => `$${(v/1000).toFixed(0)}k`}
-                    icon={TrendingUp}
-                />
-            </div>
-
-            <div className="space-y-3">
-                <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Alice's P&L</h4>
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <ResultCard 
-                        label="Fee Paid" 
-                        value={formatCurrency(result.feePaid)}
-                        subtext={isPreGrad ? "5% rate" : "1% rate"}
-                    />
-                    <ResultCard 
-                        label="LP Tokens" 
-                        value={result.lpTokensReceived > 0 ? formatCurrency(result.lpTokensReceived) : "None"}
-                        subtext={isPreGrad ? "Fee → LP investment" : "No LP after grad"}
-                    />
-                    <ResultCard 
-                        label="Prediction P&L" 
-                        value={`${result.predictionPnL >= 0 ? '+' : ''}${formatCurrency(result.predictionPnL)}`}
-                        positive={result.predictionPnL >= 0}
-                    />
-                    <ResultCard 
-                        label="LP Value" 
-                        value={formatCurrency(result.lpValueAfterVolume)}
-                        subtext={result.lpAppreciation > 0 ? `+${formatCurrency(result.lpAppreciation)} growth` : "No LP"}
-                        positive={result.lpValueAfterVolume > 0}
+                <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Trade Equation</h4>
+                    <Equation
+                        result={formatCurrency(result.tradePnL)}
+                        resultLabel="Trade P&L"
+                        terms={[
+                            { value: `${result.sharesReceived}`, label: isCorrect ? "Payout" : "Payout ($0)" },
+                            { value: formatCurrency(-result.positionValue), label: "Cost" }
+                        ]}
                     />
                 </div>
+
+                <EntryTimingToggle isPreGrad={isPreGrad} onChange={setIsPreGrad} />
+
+                {isPreGrad && (
+                    <>
+                        <Slider
+                            label="Volume After Entry"
+                            value={volumeAfter}
+                            onChange={setVolumeAfter}
+                            min={1000}
+                            max={1000000}
+                            step={1000}
+                            format={(v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}k`}
+                            icon={TrendingUp}
+                        />
+
+                        <Slider
+                            label="Settlement Luck"
+                            value={imbalance}
+                            onChange={setImbalance}
+                            min={-0.5}
+                            max={0.5}
+                            step={0.1}
+                            format={(v) => `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`}
+                            icon={Target}
+                            hint="How market resolves for LP. Negative = unlucky. Positive = lucky."
+                        />
+                    </>
+                )}
+            </div>
+
+            <div className="space-y-4">
+                {isPreGrad && (
+                    <>
+                        <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-white/60">Your LP Ownership</span>
+                                <span className="font-mono font-bold text-white">
+                                    ${result.lpDeposit} / ${result.totalLpSupply} = {(result.ownershipPercent * 100).toFixed(2)}%
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <div className="flex items-baseline gap-2">
+                                <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                                    LP Equation <span className="text-white/30 font-mono normal-case">[{(result.ownershipPercent * 100).toFixed(2)}%]</span>
+                                </h4>
+                                <span className="text-[10px] text-white/25 italic">*$2k graduation</span>
+                            </div>
+                            <Equation
+                                result={formatCurrency(result.lpRedemption)}
+                                resultLabel="LP Redemption"
+                                terms={[
+                                    { value: formatCurrency(result.lpDeposit), label: "Deposit" },
+                                    { value: formatCurrency(result.flywheelGrowth), label: "Flywheel" },
+                                    { value: formatCurrency(result.settlementOutcome), label: "Settlement" },
+                                    { value: formatCurrency(result.feeYield), label: "Fee Yield" }
+                                ]}
+                            />
+                        </div>
+                    </>
+                )}
 
                 <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
                     <div className="flex justify-between items-center">
                         <div>
                             <p className="text-xs text-white/50 uppercase font-bold">Net P&L</p>
-                            <p className={cn(
-                                "text-2xl font-mono font-black",
-                                result.netPnL >= 0 ? "text-emerald-400" : "text-red-400"
-                            )}>
-                                {result.netPnL >= 0 ? '+' : ''}{formatCurrency(result.netPnL)}
+                            <p className="text-2xl font-mono font-black text-white">
+                                {formatCurrency(result.netPnL)}
                             </p>
                         </div>
-                        {!isCorrect && result.recoveryPercent > 0 && (
-                            <div className="text-right">
-                                <p className="text-xs text-white/50 uppercase font-bold">Loss Recovery</p>
-                                <p className="text-2xl font-mono font-black text-yellow-400">
-                                    {result.recoveryPercent}%
-                                </p>
-                            </div>
-                        )}
+                        <div className="text-right">
+                            <p className="text-xs text-white/50 uppercase font-bold">ROI</p>
+                            <p className="text-2xl font-mono font-black text-white">
+                                {result.roi < 0 ? `(${Math.abs(result.roi)}%)` : `${result.roi}%`}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
                     <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold text-white">Key Insight:</span> {isCorrect 
-                            ? "Alice wins her prediction AND her LP investment appreciates!" 
-                            : `Alice lost her prediction but recovered ${result.recoveryPercent}% via LP appreciation.`}
+                        {isPreGrad ? (
+                            <span>
+                                <span className="font-bold text-white">Pre-Grad Bonus:</span> {isCorrect 
+                                    ? "Trade profit + LP redemption = double upside!" 
+                                    : `Trade loss cushioned by LP redemption of ${formatCurrency(result.lpRedemption)}.`}
+                            </span>
+                        ) : (
+                            <span>
+                                <span className="font-bold text-white">Post-Grad:</span> Lower 1% fees but no LP tokens. Pure trading P&L.
+                            </span>
+                        )}
                     </span>
                 </div>
             </div>
@@ -718,7 +806,7 @@ export const PnLSimulator = () => {
 
     return (
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 backdrop-blur-2xl">
-            <div className="p-6 border-b border-white/10">
+            <div className="p-6 pb-0">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className={cn(
@@ -730,7 +818,7 @@ export const PnLSimulator = () => {
                         </div>
                         <div>
                             <h3 className="text-lg font-black text-white flex items-center gap-2">
-                                {activeArchetype.emoji} {activeArchetype.name}
+                                {activeArchetype.name}
                             </h3>
                             <p className="text-xs text-white/50">{activeArchetype.story}</p>
                         </div>
@@ -753,8 +841,7 @@ export const PnLSimulator = () => {
                                     : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
                             )}
                         >
-                            <span className="mr-2">{arch.emoji}</span>
-                            {arch.name}
+{arch.name}
                         </button>
                     ))}
                 </div>

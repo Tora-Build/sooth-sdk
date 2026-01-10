@@ -220,24 +220,69 @@ export const AddressSelector = ({
                     })}
                 </div>
             ) : (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                        <div>
-                            <p className="text-sm font-bold text-amber-400">Advanced Mode</p>
-                            <p className="text-xs text-amber-200/70 mt-1 leading-relaxed">
-                                Using a custom address bypasses safety checks. Ensure the address
-                                is a valid contract that implements the required interface.
-                            </p>
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <button
+                        onClick={() => {
+                            if (userAddress) {
+                                setCustomAddress(userAddress);
+                            }
+                        }}
+                        className={cn(
+                            "w-full p-4 rounded-xl border transition-all flex items-start gap-3 text-left",
+                            customAddress === userAddress
+                                ? "bg-cyan-500/10 border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+                                : "bg-white/5 border-white/10 hover:bg-white/[0.07] hover:border-white/20"
+                        )}
+                    >
+                        <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                            customAddress === userAddress ? "bg-cyan-500/20" : "bg-white/10"
+                        )}>
+                            <Icon className={cn(
+                                "w-5 h-5",
+                                customAddress === userAddress ? "text-cyan-400" : "text-white/50"
+                            )} />
                         </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <span className={cn(
+                                    "font-bold text-sm",
+                                    customAddress === userAddress ? "text-white" : "text-white/80"
+                                )}>
+                                    Self (Creator)
+                                </span>
+                                <span className={cn(
+                                    "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase",
+                                    customAddress === userAddress
+                                        ? "bg-cyan-500/20 text-cyan-300"
+                                        : "bg-white/10 text-white/40"
+                                )}>
+                                    Default
+                                </span>
+                            </div>
+                            {userAddress && (
+                                <p className="text-xs text-white/50 font-mono mt-1 truncate">
+                                    {userAddress}
+                                </p>
+                            )}
+                        </div>
+                        {customAddress === userAddress && (
+                            <CheckCircle className="w-5 h-5 text-cyan-400 shrink-0" />
+                        )}
+                    </button>
+
+                    <div className="space-y-3">
+                        <label className="text-xs font-bold text-white/60 uppercase tracking-wider">
+                            Or Custom Address
+                        </label>
+                        <input
+                            type="text"
+                            value={customAddress === userAddress ? '' : customAddress}
+                            onChange={(e) => setCustomAddress(e.target.value)}
+                            placeholder="0x..."
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all placeholder:text-white/20 font-mono text-sm"
+                        />
                     </div>
-                    <input
-                        type="text"
-                        value={customAddress}
-                        onChange={(e) => setCustomAddress(e.target.value)}
-                        placeholder={`0x... (${label} Address)`}
-                        className="w-full bg-white/5 border-2 border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-amber-500/50 focus:bg-white/10 font-mono transition-all placeholder:text-white/20"
-                    />
                 </div>
             )}
         </div>

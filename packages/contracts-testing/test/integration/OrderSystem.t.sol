@@ -51,17 +51,16 @@ contract UnifiedOrderSystemTest is Test {
         // Deploy market
         market = new TruthMarket(
             "Test Market",
+            uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
-            deployer,  // adjudicator
-            deployer   // guardian
+            deployer,
+            deployer,
+            deployer
         );
 
-        // Create outcome tokens
         yesToken = new OutcomeToken("Yes Token", "YES", deployer, address(market), 1);
         noToken = new OutcomeToken("No Token", "NO", deployer, address(market), 0);
 
-        // Activate market
-        market.activate();
 
         // Register market
         marketKey = poolManager.registerMarket(

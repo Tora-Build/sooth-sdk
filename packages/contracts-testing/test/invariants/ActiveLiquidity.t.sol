@@ -59,13 +59,14 @@ contract ActiveLiquidityUnderflowTest is Test {
         // Deploy market
         market = new TruthMarket(
             "Underflow Test Market",
+            uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
+            deployer,
             deployer,
             deployer
         );
         yesToken = new OutcomeToken("Yes", "YES", deployer, address(market), 1);
         noToken = new OutcomeToken("No", "NO", deployer, address(market), 0);
-        market.activate();
 
         // Register market using legacy signature
         marketKey = poolManager.registerMarket(

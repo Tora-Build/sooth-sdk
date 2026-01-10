@@ -4,16 +4,15 @@
  * Unified dashboard for market creators and adjudicators to manage market lifecycle.
  * Features: My Markets, Pending Settlements, Create New Market wizard
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   PlusCircle, Coins, Scale, GraduationCap, Clock,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
   ExternalLink, ChevronRight, Calendar, DollarSign, Loader2
 } from 'lucide-react';
-import { useAccount, useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract, useConfig } from 'wagmi';
-import { maxUint256 } from 'viem';
-import { deployContract } from 'wagmi/actions';
+import { useAccount, useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { maxUint256, decodeEventLog } from 'viem';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -24,7 +23,6 @@ import { GraduationProgress } from '../components/features/launchpad/GraduationP
 import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
 import { ABIS, ERC20_ABI } from '../config/abis';
-import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
 import marketsConfigRaw from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { MarketConfig, MarketsConfigJson } from '../types';
@@ -270,7 +268,6 @@ const WizardStep: React.FC<WizardStepProps> = ({ step, currentStep, title, child
 export const Create = () => {
   const { address: userAddress, isConnected } = useAccount();
   const chainId = useChainId();
-  const config = useConfig();
   const navigate = useNavigate();
   const deployments = useDeployments();
 
@@ -303,22 +300,27 @@ export const Create = () => {
   });
 
   // Approve USDC
-  const { writeContract: writeApprove, data: approveTxHash, isPending: isApprovePending } = useWriteContract();
+  const { writeContract: writeApprove, data: approveTxHash } = useWriteContract();
   const { isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({ hash: approveTxHash });
 
   // Create market
-  const { writeContract: writeCreate, data: createTxHash, isPending: isCreatePending } = useWriteContract();
-  const { isSuccess: isCreateConfirmed } = useWaitForTransactionReceipt({ hash: createTxHash });
+  const { writeContract: writeCreate, data: createTxHash } = useWriteContract();
+  const { isSuccess: isCreateConfirmed, data: createReceipt } = useWaitForTransactionReceipt({ hash: createTxHash });
 
   // Calculate deposit based on liquidity (b)
-  const depositAmount = Math.floor(parseInt(wizardData.liquidity) * 0.693);
+  const depositAmount = Math.floor((parseInt(wizardData.liquidity, 10) || 0) * 0.693);
   const depositAmountWei = BigInt(depositAmount) * 10n ** 18n;
   const isApproved = typeof allowance === 'bigint' && allowance >= depositAmountWei;
+  const isDepositValid = depositAmount >= 10;
 
   // Handle deploy market
   const handleDeployMarket = useCallback(async () => {
     if (!wizardData.question || !wizardData.deadline || !launchpadEngineAddress) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+    if (!isDepositValid) {
+      toast.error('Minimum deposit is $10 USDC');
       return;
     }
 
@@ -338,35 +340,22 @@ export const Create = () => {
         return; // Will continue after approval confirmed
       }
 
-      // Step 2: Deploy TruthMarket
-      setDeploymentStep('deploying');
-      toast('Deploying TruthMarket contract...');
+      setDeploymentStep('creating');
+      toast('Creating market...');
 
       const deadline = Math.floor(new Date(wizardData.deadline).getTime() / 1000);
+      const startTime = Math.floor(Date.now() / 1000);
       const adjudicatorAddr = (wizardData.adjudicator || userAddress!) as `0x${string}`;
       const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
-
-      const truthMarketAddr = await deployContract(config, {
-        abi: ABIS.TruthMarket,
-        bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
-        args: [wizardData.question, BigInt(deadline), adjudicatorAddr, guardianAddr],
-      });
-
-      toast.success(`TruthMarket deployed: ${truthMarketAddr.slice(0, 10)}...`);
-
-      // Step 3: Create in LaunchpadEngine
-      setDeploymentStep('creating');
-      toast('Initializing in LaunchpadEngine...');
+      const symbol = wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '');
 
       const liquidityWei = BigInt(wizardData.liquidity) * 10n ** 18n;
       writeCreate({
         address: launchpadEngineAddress,
         abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
-        args: [truthMarketAddr, liquidityWei, wizardData.question.slice(0, 50), wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '')],
+        args: [wizardData.question, BigInt(startTime), BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, symbol],
       });
-
-      setDeployedMarketAddress(truthMarketAddr);
 
     } catch (err: any) {
       console.error('Deployment failed:', err);
@@ -374,7 +363,7 @@ export const Create = () => {
       setDeploymentStep('error');
       setIsDeploying(false);
     }
-  }, [wizardData, launchpadEngineAddress, usdcAddress, userAddress, isApproved, config, writeApprove, writeCreate]);
+  }, [wizardData, launchpadEngineAddress, usdcAddress, userAddress, isApproved, isDepositValid, writeApprove, writeCreate]);
 
   // Continue deployment after approval
   const handleContinueAfterApproval = useCallback(async () => {
@@ -383,12 +372,37 @@ export const Create = () => {
     handleDeployMarket();
   }, [refetchAllowance, handleDeployMarket]);
 
-  // Handle successful create
-  if (isCreateConfirmed && deployedMarketAddress && deploymentStep === 'creating') {
-    setDeploymentStep('done');
-    setIsDeploying(false);
-    toast.success('Market created successfully!');
-  }
+  useEffect(() => {
+    if (!createReceipt || deploymentStep !== 'creating') return;
+
+    let marketAddress: `0x${string}` | null = null;
+    for (const log of createReceipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: ABIS.TruthMarket,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (decoded.eventName === 'MarketCreated' && decoded.args) {
+          marketAddress = (decoded.args as unknown as { market: `0x${string}` }).market;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (marketAddress) {
+      setDeployedMarketAddress(marketAddress);
+      setDeploymentStep('done');
+      setIsDeploying(false);
+      toast.success('Market created successfully!');
+    } else if (isCreateConfirmed) {
+      setDeploymentStep('error');
+      setIsDeploying(false);
+      toast.error('MarketCreated event not found');
+    }
+  }, [createReceipt, deploymentStep, isCreateConfirmed]);
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
@@ -702,7 +716,7 @@ export const Create = () => {
                           setWizardData(prev => ({ ...prev, liquidity: String(b || 100) }));
                         }}
                         placeholder="Enter deposit"
-                        min="7"
+                        min="10"
                         max="700000"
                         className="w-full pl-7 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
                       />
@@ -803,11 +817,12 @@ export const Create = () => {
                 </div>
 
                 {/* Validation warnings */}
-                {(!wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress) && (
+                {(!wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress || !isDepositValid) && (
                   <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300">
                     <AlertTriangle className="w-4 h-4 inline mr-2" />
                     {!wizardData.question && <span className="block">• Question is required</span>}
                     {!wizardData.deadline && <span className="block">• Deadline is required</span>}
+                    {!isDepositValid && <span className="block">• Minimum deposit is $10</span>}
                     {!launchpadEngineAddress && <span className="block">• LaunchpadEngine not deployed on this chain</span>}
                     {!usdcAddress && <span className="block">• USDC not configured for this chain</span>}
                   </div>
@@ -852,24 +867,23 @@ export const Create = () => {
                   <Button
                     variant="primary"
                     onClick={handleDeployMarket}
-                    disabled={isDeploying || !wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress}
+                    disabled={isDeploying || !wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress || !isDepositValid}
                   >
                     {isDeploying ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         {deploymentStep === 'approve' ? 'Approving USDC...' :
-                          deploymentStep === 'deploying' ? 'Deploying TruthMarket...' :
-                            deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
+                          deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
                       </>
                     ) : !isApproved ? (
                       <>
                         <DollarSign className="w-4 h-4 mr-2" />
-                        Approve & Deploy (${depositAmount} USDC)
+                        Approve USDC (${depositAmount} USDC)
                       </>
                     ) : (
                       <>
                         <PlusCircle className="w-4 h-4 mr-2" />
-                        Deploy Market (${depositAmount} USDC)
+                        Create Market (${depositAmount} USDC)
                       </>
                     )}
                   </Button>

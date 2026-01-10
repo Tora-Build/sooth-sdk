@@ -22,7 +22,7 @@ export const TraderBenefitsBanner = () => {
                                 <span className="text-emerald-400">— Traders Earn Too!</span>
                             </h3>
                             <p className="text-sm text-white/60 mt-1">
-                                Pay fees, get ownership. Your 5% fee becomes LP tokens.
+                                When you trade, your 5% fee converts into LP tokens — an investment that grows with market volume.
                             </p>
                         </div>
 
@@ -40,12 +40,12 @@ export const TraderBenefitsBanner = () => {
 
                             <div className="flex items-center gap-2 text-white/50">
                                 <TrendingUp className="w-4 h-4 text-emerald-400" />
-                                <span>LP appreciates with volume</span>
+                                <span>LP value grows with trading volume</span>
                             </div>
 
                             <div className="flex items-center gap-2 text-white/50">
                                 <Shield className="w-4 h-4 text-yellow-400" />
-                                <span>Cushions losses</span>
+                                <span>Loss protection cushion</span>
                             </div>
                         </div>
 

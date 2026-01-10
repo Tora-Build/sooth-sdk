@@ -23,26 +23,18 @@ import {
   isTransientError,
   isContractError,
 } from '../utils';
-import { keccak256, encodeAbiParameters, parseAbiParameters, parseAbi, encodeDeployData } from 'viem';
+import { decodeEventLog, parseAbi } from 'viem';
 
-// TruthMarket bytecode from compiled artifacts
-const TRUTH_MARKET_BYTECODE = '0x60806040523461038b57610ef2803803806100198161038f565b92833981019060808183031261038b5780516001600160401b03811161038b57810182601f8201121561038b578051906001600160401b0382116102a85761006a601f8301601f191660200161038f565b938285526020838301011161038b57815f9260208093018387015e8401015260208101516001600160401b038116919082900361038b576100b960606100b2604084016103b4565b92016103b4565b42831115610346576001600160a01b03821615610301576001600160a01b03169182156102bc5783516001600160401b0381116102a857600154600181811c9116801561029e575b602082101461028a57601f8111610227575b50602094601f82116001146101c4579481929394955f926101b9575b50508160011b915f199060031b1c1916176001555b600280546001600160e01b03191690911733604090811b600160401b600160e01b039081169290921790925560038054600160401b600160e01b03191693831b90911692909217909155600480546001600160a01b031916929092179091555f805460ff1916905551610b2990816103c98239f35b015190505f8061012f565b601f1982169560015f52805f20915f5b88811061020f575083600195969798106101f7575b505050811b01600155610144565b01515f1960f88460031b161c191690555f80806101e9565b919260206001819286850151815501940192016101d4565b60015f527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6601f830160051c81019160208410610280575b601f0160051c01905b8181106102755750610113565b5f8155600101610268565b909150819061025f565b634e487b7160e01b5f52602260045260245ffd5b90607f1690610101565b634e487b7160e01b5f52604160045260245ffd5b60405162461bcd60e51b815260206004820152601a60248201527f54727574684d61726b65743a207a65726f20677561726469616e0000000000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a207a65726f2061646a7564696361746f720000006044820152606490fd5b60405162461bcd60e51b815260206004820152601d60248201527f54727574684d61726b65743a20646561646c696e6520696e20706173740000006044820152606490fd5b5f80fd5b6040519190601f01601f191682016001600160401b038111838210176102a857604052565b51906001600160a01b038216820361038b5756fe6080806040526004361015610012575f80fd5b5f3560e01c90816302d05d3f14610984575080630f15f4c01461084057806329dcb0cf146108185780633270bb5b146107d65780633fad9ae01461069d578063452a9320146106755780634bb278f3146105a257806353c2ed8e1461057857806359217ba3146105505780638d4e40831461052457806396f25d42146104c55780639b34ae03146104a2578063aed4119114610477578063b43e2afd14610252578063b8f7a6651461020a578063c19d93fb146101e25763ef9b78c6146100d7575f80fd5b346101de575f3660031901126101de576004546001600160a01b0316330361019d5760ff5f5416600581101561018957600361011391146109ba565b60028054600380545f805460ff19168517905560ff60e01b1983169093556001600160401b03198316905560405130927fd928781d9dc29331b3bb4199b6c4b9e4ae738cd00bf919b6ad1c85b321a68ff3928291610184916001600160401b03919091169060e01c60ff1683610ad6565b0390a2005b634e487b7160e01b5f52602160045260245ffd5b60405162461bcd60e51b81526020600482015260196024820152782a393aba3426b0b935b2ba1d103737ba1033bab0b93234b0b760391b6044820152606490fd5b5f80fd5b346101de575f3660031901126101de5760ff5f54166040516005821015610189576020918152f35b346101de575f3660031901126101de5760ff5f54166005811015610189576001148061023e575b6020906040519015158152f35b506002546001600160401b03164210610231565b346101de5760403660031901126101de5761026b6109aa565b6024356001600160401b038116908181036101de57600354604081901c6001600160a01b031633036104335760ff5f541660058110156101895760018114908115610428575b50156103eb576102c7600260ff86161115610a01565b82610338575b6002805460ff60e01b191660e086901b60ff60e01b161790556001600160401b03191690911760039081555f805460ff1916909117905560405130927f1d70fe3b705dff19e2f3638f5308ff5245252369594c794c78dccb6b01dec503928291610184919083610ad6565b904283116103a7576002546001600160401b0316831161035857906102cd565b60405162461bcd60e51b815260206004820152602160248201527f54727574684d61726b65743a20745374617220616674657220646561646c696e6044820152606560f81b6064820152608490fd5b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20745374617220696e2066757475726560201b6044820152606490fd5b60405162461bcd60e51b815260206004820152601560248201527454727574684d61726b65743a206e6f74206c69766560581b6044820152606490fd5b6002915014856102b1565b60405162461bcd60e51b815260206004820152601c60248201527b2a393aba3426b0b935b2ba1d103737ba1030b2353ab234b1b0ba37b960211b6044820152606490fd5b346101de5760203660031901126101de57602061049a6104956109aa565b610a4c565b604051908152f35b346101de575f3660031901126101de57602060ff60025460e01c16604051908152f35b346101de575f3660031901126101de5760ff5f541660058110156101895780600160209214908161050e575b8115610503575b506040519015158152f35b6002915014826104f8565b6002546001600160401b031642101591506104f1565b346101de575f3660031901126101de5760ff5f5416600581101561018957602090600460405191148152f35b346101de575f3660031901126101de576003546040516001600160401b039091168152602090f35b346101de575f3660031901126101de576003546040805191901c6001600160a01b03168152602090f35b346101de575f3660031901126101de576003543360409190911c6001600160a01b0316148015610661575b1561061e5760ff5f541660058110156101895760036105ec91146109ba565b600460ff195f5416175f55307fea680de9d32012ab006cb4c36859d95875bc1fda742aabcc8810fe82e4309e6d5f80a2005b60405162461bcd60e51b815260206004820152601b60248201527a151c9d5d1a13585c9ad95d0e881b9bdd08185d5d1a1bdc9a5e9959602a1b6044820152606490fd5b506004546001600160a01b031633146105cd565b346101de575f3660031901126101de576004546040516001600160a01b039091168152602090f35b346101de575f3660031901126101de576040515f600154908160011c600183169283156107cc575b6020821084146107b857818552602085019390811561079f5750600114610749575b50829003601f01601f19168201916001600160401b03831181841017610735576040918391828452602083525180918160208501528484015e5f828201840152601f01601f19168101030190f35b634e487b7160e01b5f52604160045260245ffd5b60015f9081529091507fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf65b828210610789575060209150830101836106e7565b6001816020925483858901015201910190610774565b60ff1916845250151560051b83016020019050836106e7565b634e487b7160e01b5f52602260045260245ffd5b90607f16906106c5565b346101de575f3660031901126101de5760ff5f54166005811015610189578060036020921490811561080d57506040519015158152f35b6004915014826104f8565b346101de575f3660031901126101de576002546040516001600160401b039091168152602090f35b346101de575f3660031901126101de57600254604081901c6001600160a01b031633036109445760ff5f5416600581101561018957610904576001600160401b03164210156108c257600160ff195f5416175f556040514281527f58a8b7fba1050fb318f768a3c190f08d007439609907800ff8d7b97763556ab760203092a2005b60405162461bcd60e51b815260206004820152601a60248201527954727574684d61726b65743a207061737420646561646c696e6560301b6044820152606490fd5b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd0818dc99585d195960421b6044820152606490fd5b60405162461bcd60e51b81526020600482015260186024820152772a393aba3426b0b935b2ba1d103737ba1031b932b0ba37b960411b6044820152606490fd5b346101de575f3660031901126101de5760025460401c6001600160a01b03168152602090f35b6004359060ff821682036101de57565b156109c157565b60405162461bcd60e51b8152602060048201526018602482015277151c9d5d1a13585c9ad95d0e881b9bdd081cd95d1d1b195960421b6044820152606490fd5b15610a0857565b60405162461bcd60e51b815260206004820152601c60248201527b54727574684d61726b65743a20696e76616c6964206f7574636f6d6560201b6044820152606490fd5b60ff5f541690600582101561018957610a7382600360ff9414908115610acb575b506109ba565b16610a816001821115610a01565b60025460e01c60ff1680610aa45750610aa057670de0b6b3a764000090565b5f90565b600103610abe57600103610aa057670de0b6b3a764000090565b506706f05b59d3b2000090565b60049150145f610a6d565b60ff90911681526001600160401b0390911660208201526040019056fea26469706673582212208ef23350280c46934ac1988a2ea83d3e23435cdbf3bbfe24a6a5522c8542646f64736f6c634300081e0033';
-
-const TruthMarketAbiForDeploy = parseAbi([
-  'constructor(string question, uint64 deadline, address adjudicator, address guardian)',
-]);
-
-// Extended ABIs for market operations
 const TruthMarketAbi = parseAbi([
   'function question() view returns (string)',
+  'function startTime() view returns (uint64)',
   'function deadline() view returns (uint64)',
   'function creator() view returns (address)',
   'function adjudicator() view returns (address)',
   'function isLive() view returns (bool)',
   'function isSettled() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
-  'function activate() external',
-  'constructor(string question, uint64 deadline, address adjudicator, address guardian)',
+  'event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline)',
 ]);
 
 const CollateralizerAbi = parseAbi([
@@ -51,12 +43,12 @@ const CollateralizerAbi = parseAbi([
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
-  'function createMarket(address market, uint256 initialLiquidity, string name, string symbol) external returns (uint256 lpTokens)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, string symbol) external returns (address market, uint256 lpTokens)',
   'function markets(address) view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt, string name, string symbol)',
   'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
   'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
   'function preGradFeeBps() view returns (uint16)',
-  'function postGradFeeBps() view returns (uint16)',
+  'function postGradFeeBps() view returns (uint16)'
 ]);
 
 const AMMEngineAbi = parseAbi([
@@ -116,9 +108,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     createmarket btc100k 1000   Create BTC100K market with 1000 USDC
 
   ${dim('This will:')}
-    1. Deploy TruthMarket contract
-    2. Activate it
-    3. Initialize in LaunchpadEngine
+    1. Approve USDC
+    2. Create market via LaunchpadEngine
 `);
     return { success: true };
   }
@@ -173,52 +164,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       console.log(success('  Minted USDC'));
     }
 
-    // Step 2: Deploy TruthMarket
-    const spinner1 = new Spinner('[1/4] Deploying TruthMarket...');
+    const spinner1 = new Spinner('[1/2] Approving USDC...');
     spinner1.start();
-
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + template.deadlineDays * 24 * 60 * 60);
-
-    // Encode constructor args
-    const deployData = encodeDeployData({
-      abi: TruthMarketAbiForDeploy,
-      bytecode: TRUTH_MARKET_BYTECODE,
-      args: [template.question, deadline, address, address], // adjudicator & guardian = deployer
-    });
-
-    // Send deployment transaction
-    const deployHash = await walletClient.sendTransaction({
-      data: deployData,
-      gas: 1500000n, // TruthMarket deployment needs ~900k gas
-    });
-
-    const deployReceipt = await actorManager.waitForTransactionReceipt(deployHash);
-    const truthMarketAddr = deployReceipt.contractAddress as `0x${string}`;
-
-    if (!truthMarketAddr) {
-      spinner1.fail('Failed to deploy TruthMarket');
-      return { success: false, message: 'Contract deployment failed - no address returned' };
-    }
-
-    spinner1.succeed(`TruthMarket deployed: ${shortAddress(truthMarketAddr)}`);
-
-    // Step 3: Activate TruthMarket
-    const spinner2 = new Spinner('[2/4] Activating TruthMarket...');
-    spinner2.start();
-
-    const activateHash = await walletClient.writeContract({
-      address: truthMarketAddr,
-      abi: TruthMarketAbi,
-      functionName: 'activate',
-      args: [],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(activateHash);
-    spinner2.succeed('TruthMarket activated');
-
-    // Step 4: Approve USDC for LaunchpadEngine
-    const spinner3 = new Spinner('[3/4] Approving USDC...');
-    spinner3.start();
 
     const approveHash = await walletClient.writeContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
@@ -228,40 +175,65 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(approveHash);
-    spinner3.succeed('USDC approved');
+    spinner1.succeed('USDC approved');
 
-    // Step 5: Initialize in LaunchpadEngine
-    const spinner4 = new Spinner('[4/4] Creating market in LaunchpadEngine...');
-    spinner4.start();
+    const spinner2 = new Spinner('[2/2] Creating market in LaunchpadEngine...');
+    spinner2.start();
+
+    const startTime = BigInt(Math.floor(Date.now() / 1000));
+    const deadline = startTime + BigInt(template.deadlineDays * 24 * 60 * 60);
 
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [truthMarketAddr, liquidityWad, template.name, template.symbol],
-      gas: 2000000n,
+      args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
+      gas: 2500000n,
     });
 
     const createReceipt = await actorManager.waitForTransactionReceipt(createHash);
-    spinner4.succeed(`Market initialized in LaunchpadEngine ${dim(`(gas: ${createReceipt.gasUsed})`)}`);
+    let marketAddress: `0x${string}` | undefined;
+
+    for (const log of createReceipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: TruthMarketAbi,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (decoded.eventName === 'MarketCreated') {
+          marketAddress = decoded.args.market as `0x${string}`;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!marketAddress) {
+      spinner2.fail('MarketCreated event not found');
+      return { success: false, message: 'MarketCreated event not found' };
+    }
+
+    spinner2.succeed(`Market created ${dim(`(gas: ${createReceipt.gasUsed})`)}`);
 
     console.log('');
     console.log('  ' + '═'.repeat(50));
     console.log(`  ${success('MARKET CREATED SUCCESSFULLY!')}`);
     console.log('');
-    console.log(`  TruthMarket: ${truthMarketAddr}`);
+    console.log(`  TruthMarket: ${marketAddress}`);
     console.log(`  Name:        ${template.name}`);
     console.log(`  Symbol:      ${template.symbol}`);
     console.log('');
     console.log(`  ${info('Next steps:')}`);
-    console.log(`    setmarket ${truthMarketAddr}`);
+    console.log(`    setmarket ${marketAddress}`);
     console.log(`    marketstatus`);
     console.log('');
 
     return {
       success: true,
       txHash: createHash,
-      data: { marketAddress: truthMarketAddr }
+      data: { marketAddress }
     };
   } catch (err) {
     return { success: false, message: `Market creation failed: ${(err as Error).message}` };
@@ -532,8 +504,9 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
   console.log('  ' + '─'.repeat(40));
 
   try {
-    const [question, deadline, creator, adjudicator, isLive, isSettled] = await Promise.all([
+    const [question, startTime, deadline, creator, adjudicator, isLive, isSettled] = await Promise.all([
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'question' }),
+      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'startTime' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'deadline' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'creator' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'adjudicator' }),
@@ -541,12 +514,14 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isSettled' }),
     ]);
 
+    const startDate = new Date(Number(startTime) * 1000);
     const deadlineDate = new Date(Number(deadline) * 1000);
     const isActive = isLive && !isSettled;
 
     console.log(`  Question:   ${(question as string).slice(0, 50)}${(question as string).length > 50 ? '...' : ''}`);
     console.log(`  Creator:    ${shortAddress(creator as string)}`);
     console.log(`  Adjudicator: ${shortAddress(adjudicator as string)}`);
+    console.log(`  Starts:     ${startDate.toISOString().slice(0, 10)}`);
     console.log(`  Deadline:   ${deadlineDate.toISOString().slice(0, 10)}`);
     console.log(`  Status:     ${isActive ? success('LIVE') : isSettled ? dim('SETTLED') : warn('INACTIVE')}`);
 

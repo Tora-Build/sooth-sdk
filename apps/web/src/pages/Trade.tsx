@@ -290,10 +290,10 @@ export const Trade = () => {
               deadline={truth?.deadline}
               isGraduated={launchpad?.isGraduated || false}
               isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
-              isLive={!truth?.isSettled}
+              isLive={truth?.isLive ?? false}
             />
 
-            {/* Trading Panel - wrapped in Card for consistent styling */}
+                            {/* Trading Panel - wrapped in Card for consistent styling */}
             <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
               <SimpleTradingPanel
                 address={selectedMarket.contractAddress as `0x${string}`}

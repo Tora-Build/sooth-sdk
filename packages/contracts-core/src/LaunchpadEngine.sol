@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ILaunchpadEngine} from "./interfaces/ILaunchpadEngine.sol";
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {TruthMarket} from "./TruthMarket.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITickBook} from "./interfaces/ITickBook.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -29,6 +30,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     uint256 private constant LN2_WAD = 693147180559945309; // ln(2) in WAD
     uint256 private constant LN2_INV_WAD = 1442695040888963407; // 1/ln(2) in WAD
     uint256 private constant BPS_DENOMINATOR = 10000;
+    uint256 private constant MIN_DEPOSIT_WAD = 10e18;
 
     // ============================================
     // Immutables
@@ -234,34 +236,39 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
      * @inheritdoc ILaunchpadEngine
      */
     function createMarket(
-        address market,
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
         uint256 initialLiquidity,
-        string calldata name,
         string calldata symbol
-    ) external override nonReentrant returns (uint256 lpTokens) {
-        require(ITruthMarket(market).creator() == msg.sender, "LaunchpadEngine: not creator");
-        require(markets[market].creator == address(0), "LaunchpadEngine: already exists");
+    ) external override nonReentrant returns (address market, uint256 lpTokens) {
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
-        // Calculate required deposit: b × ln(2)
+        uint64 normalizedStartTime = startTime == 0 ? uint64(block.timestamp) : startTime;
+        require(normalizedStartTime >= block.timestamp, "LaunchpadEngine: start in past");
+        require(normalizedStartTime < deadline, "LaunchpadEngine: start after deadline");
+
         uint256 depositWad = (initialLiquidity * LN2_WAD) / WAD;
+        require(depositWad >= MIN_DEPOSIT_WAD, "LaunchpadEngine: deposit too small");
         uint256 deposit = _wadToUsdcCeil(depositWad);
 
-        // Transfer deposit from creator
         usdc.safeTransferFrom(msg.sender, address(this), deposit);
 
-        // Initialize AMM with liquidity
-        try ammEngine.initializeMarket(market, initialLiquidity) {
-            // Success
-        } catch {
-            // Already initialized or other error - we proceed to ensure LaunchpadEngine state is set
-            // In the singleton V9 architecture, we allow adopting existing AMM state if it exists.
-        }
+        market = address(new TruthMarket(
+            question,
+            normalizedStartTime,
+            deadline,
+            adjudicator,
+            guardian,
+            msg.sender
+        ));
 
-        // Mint initial LP tokens to creator (1:1 with deposit in WAD)
+        ammEngine.initializeMarket(market, initialLiquidity);
+
         lpTokens = depositWad;
 
-        // Store market state
         markets[market] = MarketState({
             creator: msg.sender,
             bBase: initialLiquidity,
@@ -273,13 +280,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             isGraduated: false,
             createdAt: uint64(block.timestamp),
             graduatedAt: 0,
-            name: name,
+            name: _truncateQuestion(question, 50),
             symbol: symbol
         });
 
         lpBalances[market][msg.sender] = lpTokens;
 
-        // Track market for enumeration
         allMarkets.push(market);
 
         emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
@@ -666,5 +672,15 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         } else {
             return wadAmount * (10 ** (usdcDecimals - 18));
         }
+    }
+
+    function _truncateQuestion(string memory question, uint256 maxLen) internal pure returns (string memory) {
+        bytes memory questionBytes = bytes(question);
+        if (questionBytes.length <= maxLen) return question;
+        bytes memory result = new bytes(maxLen);
+        for (uint256 i = 0; i < maxLen; i++) {
+            result[i] = questionBytes[i];
+        }
+        return string(result);
     }
 }

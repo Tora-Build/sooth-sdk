@@ -16,13 +16,13 @@
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0x937a3fae6a2b1702546e141f695d6f29df72c5cc",
-        "Collateralizer": "0x2fc82e6a2b285141366f07635285453221934942",
-        "AMMEngine": "0x1389c86d8329925f26c542282cf60bcde7309ec1",
-        "TickBookVault": "0x31a1a04ddc44957f5f0645d02f6a050e20bca6c0",
-        "TickBookPoolManager": "0x2f3464ca4a50a522786c3e72df94f12b02eec46b",
-        "TickBook": "0x2f3464ca4a50a522786c3e72df94f12b02eec46b",
-        "LaunchpadEngine": "0x5cec4acf4abfe1dea585bda8532b7f2fcdc52412"
+        "MockUSDC": "0xac2534532cdd00a1c417d9009a53c4c1d86a8d27",
+        "Collateralizer": "0xc7ba1477e8d5f55da6f084aae61da51deb561d5d",
+        "AMMEngine": "0x9e227184c6ca26fe4906c79d4a65bc5a6ac6a4c7",
+        "TickBookVault": "0x9c709b22d0e8bda9d75cb44b06c0e79fb7b1faf4",
+        "TickBookPoolManager": "0x3a91eae7b928f6d676c5361949eb6054505d0ad6",
+        "TickBook": "0x3a91eae7b928f6d676c5361949eb6054505d0ad6",
+        "LaunchpadEngine": "0xccb8bb5dc347d369506fd91404ca0d6e74126d0d"
       }
     },
     "monadTestnet": {

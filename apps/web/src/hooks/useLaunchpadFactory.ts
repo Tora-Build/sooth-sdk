@@ -1,14 +1,13 @@
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { LAUNCHPAD_FACTORY_ABI, ERC20_ABI } from '../config/abis';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { ABIS, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
-import { parseUnits, decodeEventLog, maxUint256 } from 'viem';
+import { decodeEventLog, maxUint256 } from 'viem';
 import { useMemo, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 
 export function useLaunchpadFactory() {
-    const { config } = useDeployments();
-    // @ts-ignore - config type inference is tricky here, but we know structure
-    const factoryAddress = config?.contracts?.LaunchpadFactory as `0x${string}` | undefined;
+    const { contracts } = useDeployments();
+    const launchpadEngineAddress = contracts?.LaunchpadEngine as `0x${string}` | undefined;
 
     // Writes
     const { writeContract, data: txHash, isPending: isWritePending, error: writeError } = useWriteContract();
@@ -23,12 +22,12 @@ export function useLaunchpadFactory() {
             for (const log of receipt.logs) {
                 try {
                     const decoded = decodeEventLog({
-                        abi: LAUNCHPAD_FACTORY_ABI,
+                        abi: ABIS.TruthMarket,
                         data: log.data,
                         topics: log.topics,
                     });
-                    if (decoded.eventName === 'MarketCreated') {
-                        return decoded.args.market;
+                    if (decoded.eventName === 'MarketCreated' && decoded.args) {
+                        return (decoded.args as unknown as { market: `0x${string}` }).market;
                     }
                 } catch (e) {
                     continue; // Not our event
@@ -40,28 +39,28 @@ export function useLaunchpadFactory() {
     }, [receipt]);
 
     const createMarket = (
-        name: string,
+        question: string,
         symbol: string,
-        description: string,
-        tierIndex: number,
-        isOpenEnd: boolean,
-        durationSeconds: number,
-        marketAdjudicator: `0x${string}` = '0x0000000000000000000000000000000000000000'
+        startTime: bigint,
+        deadline: bigint,
+        initialLiquidity: bigint,
+        adjudicator: `0x${string}`,
+        guardian: `0x${string}`
     ) => {
-        if (!factoryAddress) throw new Error("Factory not configured");
+        if (!launchpadEngineAddress) throw new Error("LaunchpadEngine not configured");
 
         writeContract({
-            address: factoryAddress,
-            abi: LAUNCHPAD_FACTORY_ABI,
+            address: launchpadEngineAddress,
+            abi: ABIS.LaunchpadEngine,
             functionName: 'createMarket',
-            args: [name, symbol, description, tierIndex, isOpenEnd, durationSeconds, marketAdjudicator],
+            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity, symbol],
         });
     };
 
     const { address: user } = useAccount();
 
     // 1. Get USDC Address from Config (Single Source of Truth)
-    const usdcAddress = config?.contracts?.MockUSDC as `0x${string}` | undefined;
+    const usdcAddress = contracts?.MockUSDC as `0x${string}` | undefined;
 
 
 
@@ -70,9 +69,9 @@ export function useLaunchpadFactory() {
         address: usdcAddress,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: [user || '0x0000000000000000000000000000000000000000', factoryAddress || '0x0000000000000000000000000000000000000000'],
+        args: [user || '0x0000000000000000000000000000000000000000', launchpadEngineAddress || '0x0000000000000000000000000000000000000000'],
         query: {
-            enabled: !!user && !!factoryAddress && !!usdcAddress,
+            enabled: !!user && !!launchpadEngineAddress && !!usdcAddress,
             refetchInterval: 2000
         }
     });
@@ -100,32 +99,21 @@ export function useLaunchpadFactory() {
     }, [isApproveConfirmed, refetchAllowance]);
 
     const approveUSDC = () => {
-        if (!usdcAddress || !factoryAddress) {
-            console.error("Missing address:", { usdcAddress, factoryAddress });
+        if (!usdcAddress || !launchpadEngineAddress) {
+            console.error("Missing address:", { usdcAddress, launchpadEngineAddress });
             return;
         }
         writeApprove({
             address: usdcAddress,
             abi: ERC20_ABI,
             functionName: 'approve',
-            args: [factoryAddress, maxUint256]
+            args: [launchpadEngineAddress, maxUint256]
         });
     }
 
     const isApprovePending = isApproveWritePending || isApproveConfirming;
 
-    // Reads
-    const { data: tierData } = useReadContracts({
-        contracts: [0, 1, 2, 3].map(i => ({
-            address: factoryAddress,
-            abi: LAUNCHPAD_FACTORY_ABI,
-            functionName: 'tierDeposits',
-            args: [BigInt(i)]
-        })),
-        query: { enabled: !!factoryAddress }
-    });
 
-    const tierDeposits = tierData?.map(r => r.result as bigint) || [];
 
     return {
         createMarket,
@@ -134,7 +122,6 @@ export function useLaunchpadFactory() {
         isConfirmed,
         receipt,
         writeError,
-        tierDeposits,
         deployedMarketAddress,
         allowance: allowance as bigint | undefined,
         usdcBalance: usdcBalance as bigint | undefined,

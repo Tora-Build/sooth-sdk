@@ -4,6 +4,15 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Launchpad Create Flow Simplification (2026-01-10)
+- **Breaking Change**: `LaunchpadEngine.createMarket` now deploys `TruthMarket` internally and returns `(market, lpTokens)`.
+- **Breaking Change**: Removed `TruthMarket.activate()`; markets start live based on `startTime`.
+- **New**: `startTime` added to `TruthMarket` constructor, events, and frontend status logic.
+- **Policy**: Enforced minimum $10 USDC creator deposit in Launchpad flows.
+- **Frontend**: Launch/Create flows now use approve → create, and decode `MarketCreated` from `TruthMarket`.
+- **CLI**: Interactive `createmarket` command updated to decode `MarketCreated` and drop activation.
+- **ABI**: Updated `TruthMarket.json` and `LaunchpadEngine.json` to match new signatures.
+
 ### V10.7: Spot Sell Full-Range Search Fix (2026-01-09)
 - **Critical Bug Fix**: Fixed spot sell crossing to search buyer's **full tick range** instead of narrow overlap range.
 - **Issue**: V10.0-V10.6 only searched for spot sells near the market-clearing price. Spot sells at **better prices** (lower ask prices) were completely missed.

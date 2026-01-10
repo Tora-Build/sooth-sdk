@@ -39,11 +39,17 @@ contract UnifiedCrossingV10Test is Test {
         poolManager = new TickBookPoolManager(address(vault));
         vault.setTickBook(address(poolManager));
 
-        market = new TruthMarket("Test Market", uint64(block.timestamp + 30 days), address(this), address(this));
+        market = new TruthMarket(
+            "Test Market",
+            uint64(block.timestamp),
+            uint64(block.timestamp + 30 days),
+            address(this),
+            address(this),
+            address(this)
+        );
         yesToken = new OutcomeToken("Yes Token", "YES", address(this), address(market), 1);
         noToken = new OutcomeToken("No Token", "NO", address(this), address(market), 0);
 
-        market.activate();
 
         marketKey = poolManager.registerMarket(
             address(market),

@@ -14,10 +14,14 @@ export default createConfig({
       id: 10143,
       rpc: process.env.MONAD_TESTNET_RPC_URL 
         ?? "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/",
+      pollingInterval: 500,
+      ethGetLogsBlockRange: 1_000,
     },
     arcTestnet: {
       id: 5042002,
       rpc: process.env.ARC_TESTNET_RPC_URL ?? "https://rpc.testnet.arc.network",
+      pollingInterval: 500,
+      ethGetLogsBlockRange: 2_000,
     },
   },
   contracts: {
