@@ -21,6 +21,7 @@ interface TradingHeaderProps {
     isGraduated: boolean;
     isExpired: boolean;
     isLive: boolean;
+    chainId: number;
     // Trading-specific props
     viewOutcome: 'yes' | 'no';
     onOutcomeChange: (outcome: 'yes' | 'no') => void;
@@ -37,6 +38,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
     isGraduated,
     isExpired,
     isLive,
+    chainId,
     viewOutcome,
     onOutcomeChange,
 }) => {
@@ -54,6 +56,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
                 isGraduated={isGraduated}
                 isExpired={isExpired}
                 isLive={isLive}
+                chainId={chainId}
             />
 
             {/* YES/NO Outcome Tabs */}
