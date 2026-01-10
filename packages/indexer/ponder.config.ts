@@ -2,6 +2,20 @@ import { createConfig } from "ponder";
 
 import { TickBookPoolManagerAbi } from "./src/abis/TickBookPoolManager";
 
+// Arc RPC: check both env var names, prefer non-rate-limited endpoints
+const arcRpcEnv = process.env.ARC_TESTNET_RPC_URL 
+  ?? process.env.PONDER_RPC_URL_ARC_TESTNET 
+  ?? "";
+const arcRpcCandidates = arcRpcEnv
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+// Prefer drpc/blockdaemon over rate-limited rpc.testnet.arc.network
+const arcRpc =
+  arcRpcCandidates.find((url) => url.includes("drpc") || url.includes("blockdaemon")) ??
+  arcRpcCandidates.find((url) => !url.includes("quicknode")) ??
+  "https://rpc.drpc.testnet.arc.network";
+
 export default createConfig({
   chains: {
     baseSepolia: {
@@ -19,7 +33,7 @@ export default createConfig({
     },
     arcTestnet: {
       id: 5042002,
-      rpc: process.env.ARC_TESTNET_RPC_URL ?? "https://rpc.testnet.arc.network",
+      rpc: arcRpc,
       pollingInterval: 2_000,
       ethGetLogsBlockRange: 100,
     },

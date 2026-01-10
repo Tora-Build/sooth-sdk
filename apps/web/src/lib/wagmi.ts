@@ -81,10 +81,9 @@ export const wagmiAdapter = new WagmiAdapter({
     // Note: Arc requires minFeePerGas >= 160 Gwei
     [arcTestnet.id]: fallback(
       [
-        http('https://rpc.testnet.arc.network', arcHttpOptions),
-        http('https://rpc.quicknode.testnet.arc.network', arcHttpOptions),
         http('https://rpc.drpc.testnet.arc.network', arcHttpOptions),
         http('https://rpc.blockdaemon.testnet.arc.network', arcHttpOptions),
+        http('https://rpc.quicknode.testnet.arc.network', arcHttpOptions),
       ],
       {
         rank: true,
