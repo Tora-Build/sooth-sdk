@@ -63,21 +63,26 @@ export const Launchpad = () => {
         // Smart expiration mode derivation
         let expirationMode = 'open';
         let customExpiration = '';
+        let expirationLabel = 'Open-ended';
 
         if (data.daysUntilExpiration !== null) {
             if (data.daysUntilExpiration >= 6 && data.daysUntilExpiration <= 8) {
                 expirationMode = '7d';
+                expirationLabel = '7 days';
             } else if (data.daysUntilExpiration >= 28 && data.daysUntilExpiration <= 32) {
                 expirationMode = '30d';
+                expirationLabel = '30 days';
             } else if (data.expiration) {
                 expirationMode = 'custom';
                 customExpiration = data.expiration;
+                expirationLabel = `${data.daysUntilExpiration}d`;
             }
         }
 
         // Smart liquidity suggestion: 0.1% of Polymarket liquidity, clamped $100-$5000
+        // If liquidity is 0 or very small, keep the default
         let suggestedLiquidity = form.initialLiquidity;
-        if (data.liquidity > 0) {
+        if (data.liquidity >= 1000) {
             const suggested = Math.round(data.liquidity * 0.001);
             const clamped = Math.max(100, Math.min(5000, suggested));
             suggestedLiquidity = clamped.toString();
@@ -93,9 +98,12 @@ export const Launchpad = () => {
         }));
         setShowPolymarket(false);
 
-        // Show context info
-        const volumeStr = data.volume24h >= 1000 ? `$${(data.volume24h / 1000).toFixed(0)}K` : `$${data.volume24h.toFixed(0)}`;
-        toast.success(`Imported from Polymarket (${volumeStr} 24h vol, ${data.yesPrice.toFixed(0)}% YES)`);
+        // Show detailed import toast
+        const categoryLabel = MARKET_CATEGORIES.find(c => c.id === data.category)?.name || data.category;
+        toast.success(
+            `Imported: ${categoryLabel} • ${expirationLabel} • $${suggestedLiquidity} deposit`,
+            { duration: 4000 }
+        );
     };
 
 
