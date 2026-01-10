@@ -41,7 +41,7 @@ export const Launchpad = () => {
         category: 'crypto',
         expirationMode: '7d',
         customExpiration: '',
-        initialLiquidity: '1000',
+        initialLiquidity: '693',
         deployPending: false,
     });
 
@@ -388,56 +388,40 @@ export const Launchpad = () => {
                             <div className="h-px bg-white/10" />
 
                             <div className="space-y-3">
-                                <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Deposit (USDC)</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['100', '1000', '5000'].map(amt => (
-                                        <button
-                                            key={amt}
-                                            onClick={() => setForm(p => ({ ...p, initialLiquidity: amt }))}
-                                            className={cn(
-                                                "py-3 rounded-xl font-bold border transition-all",
-                                                form.initialLiquidity === amt
-                                                    ? "bg-emerald-500/20 text-white border-emerald-500/50"
-                                                    : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
-                                            )}
-                                        >
-                                            ${amt}
-                                        </button>
-                                    ))}
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Deposit (USDC)</label>
+                                    <span className="text-white font-mono font-bold">${depositAmount.toLocaleString()}</span>
                                 </div>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                                    <input
-                                        type="number"
-                                        value={form.initialLiquidity}
-                                        onChange={e => setForm(p => ({ ...p, initialLiquidity: e.target.value }))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-white font-mono focus:outline-none focus:border-emerald-500/50 transition-all"
-                                    />
-                                </div>
+                                <input
+                                    type="range"
+                                    min="10"
+                                    max="10000"
+                                    step="10"
+                                    value={form.initialLiquidity || '693'}
+                                    onChange={e => setForm(p => ({ ...p, initialLiquidity: e.target.value }))}
+                                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg"
+                                />
                                 
                                 {depositAmount > 0 && (
                                     <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-white/50">Liquidity Parameter (b)</span>
+                                            <span className="text-white/50">Liquidity (b)</span>
                                             <span className="text-white font-mono font-bold">
-                                                {(depositAmount * 1.442695).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                {Math.round(depositAmount * 1.442695).toLocaleString()}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-white/50">LP Tokens Received</span>
-                                            <span className="text-emerald-400 font-mono font-bold">
-                                                {depositAmount.toLocaleString()} LP
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-white/50">Graduation Threshold</span>
+                                            <span className="text-white/50">Graduation Fee</span>
                                             <span className="text-violet-400 font-mono font-bold">
-                                                ${depositAmount.toLocaleString()} volume
+                                                ${depositAmount.toLocaleString()}
                                             </span>
                                         </div>
-                                        <p className="text-[10px] text-white/30 pt-1 border-t border-white/5">
-                                            deposit = b × ln(2) · Higher b = tighter spreads, more capital efficient
-                                        </p>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-white/50">Graduation Vol</span>
+                                            <span className="text-emerald-400 font-mono font-bold">
+                                                ${(depositAmount * 20).toLocaleString()}
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
