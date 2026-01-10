@@ -22,6 +22,7 @@ import { Pro } from './pages/Pro';
 import { Portfolio } from './pages/Portfolio';
 import { Gov } from './pages/Gov';
 import { Learn } from './pages/Learn';
+import { ExploreExternalMarkets } from './pages/ExploreExternalMarkets';
 
 import './index.css';
 
@@ -81,6 +82,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/gov" element={<Gov />} />
               <Route path="/faucet" element={<Faucet />} />
+              <Route path="/explore-markets" element={<ExploreExternalMarkets />} />
             </Route>
           </Routes>
         </BrowserRouter>

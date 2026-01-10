@@ -12,3 +12,5 @@ export { CreatorEconomicsPanel } from './CreatorEconomicsPanel';
 export { EarningsSimulator } from './EarningsSimulator';
 export { LiquidationRefund } from './LiquidationRefund';
 export { LPRedemption } from './LPRedemption';
+export { PolymarketExplorer } from './PolymarketExplorer';
+export type { PolymarketSelectData } from './PolymarketExplorer';
