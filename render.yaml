@@ -8,7 +8,7 @@ services:
     plan: starter
     region: singapore
     repo: https://github.com/Tora-Build/sooth-alpha
-    branch: V10.1
+    branch: render
     # Root directory is blank to respect monorepo lockfile
     rootDir: ""
     # Pnpm filter to install root deps & codegen
@@ -36,7 +36,7 @@ services:
     plan: starter
     region: singapore
     repo: https://github.com/Tora-Build/sooth-alpha
-    branch: V10.1
+    branch: render
     rootDir: ""
     buildCommand: pnpm install && pnpm --filter ./apps/web build
     startCommand: node apps/web/server.js
