@@ -33,8 +33,8 @@ export default createConfig({
           startBlock: 21_500_000,
         },
         monadTestnet: {
-          address: "0xff3dbc1ce3d6c26263cfd2c47b980b4d247eae9a",
-          startBlock: 5_284_995,
+          address: "0xa4e8ba71791b014732beed5e92165c9c24db0cff",
+          startBlock: 5_288_466,
         },
         arcTestnet: {
           address: "0x90d250665e49504325a0d370e566be8dc4801cce",
