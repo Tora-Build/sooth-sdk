@@ -1,11 +1,12 @@
 # Project Status
 
 ## Current Focus
-- **V10.7 DEPLOYED (2026-01-09)** — Critical spot sell crossing fix deployed to Monad + Base Sepolia. Full-range spot search now finds ALL spot sells within buyer's price tolerance.
-- **Deployment Automation** — Added comprehensive deploy-and-sync workflow with market creation automation.
+- **V10.7 DEPLOYED TO ALL TESTNETS (2026-01-10)** — Critical spot sell crossing fix deployed to all 3 testnets: Monad, Base Sepolia, and Arc Testnet. Full-range spot search now finds ALL spot sells within buyer's price tolerance.
+- **On-Chain Validation Pending** — Create test markets + validate spot sell crossing fix works in production.
 - **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-10** — **Arc Testnet V10.7 Deployed**: Successfully deployed V10.7 to Arc Testnet. Previous blocker (gas estimation error) resolved. All 3 testnets now on V10.7 with spot sell full-range crossing fix.
 - **2026-01-09** — **V10.7 Spot Sell Full-Range Search Fix**: Fixed critical bug where spot sells at better prices were missed during crossing. `_unifiedCross()` now passes buyer's full tick range to `_fillSpotLiquidity()` instead of narrow overlap. Added 6 regression tests (all passing). Gas +11k (acceptable). Deployed to Monad Testnet + Base Sepolia.
 - **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
 - **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
@@ -32,13 +33,11 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **V10.7 On-Chain Validation** — Create test market + validate spot sell crossing fix works in production: `pnpm interactive:monad` / `interactive:base`.
-- **Arc Testnet V10.7** — Arc deployment blocked by gas estimation error (USDC-as-gas). Keeping V10.6 until Arc testnet stabilizes.
+- **V10.7 On-Chain Validation** — Create test market + validate spot sell crossing fix works in production: `pnpm interactive:monad` / `interactive:base` / `interactive:arc`.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
-- **V10.7 Arc Deploy Blocked** — Gas estimation fails during TickBookPoolManager deployment (USDC-as-gas complexity). Arc stays on V10.6.
-- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
+- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 - **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
 
@@ -116,17 +115,17 @@
 
 **Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
 
-### Arc Testnet (chainId: 5042002) — V10.6
+### Arc Testnet (chainId: 5042002) — V10.7
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68` |
-| **Collateralizer** | `0x1D9A2B863c650e04DDdF5893FfbD2f31F87e8C6f` |
-| **AMMEngine** | `0xAC8F9866FCB0406856443df4C3D1F065357077dd` |
-| **TickBookVault** | `0x536D85d924848776995429C9769b5DA12478819b` |
-| **LaunchpadEngine** | `0x63215FA8716417FC805A705a7d7608abF8260598` |
-| **MockUSDC** | `0xec165cDc464cD689732a550776a19c960386329c` |
+| **TickBookPoolManager** | `0x90d250665e49504325a0d370e566be8dc4801cce` |
+| **Collateralizer** | `0x1309bba78d2097bd005d32293dfa45fe2d479f0e` |
+| **AMMEngine** | `0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7` |
+| **TickBookVault** | `0xb3b3c5a14bd6f8a7559b84efbfaef8d12b520e62` |
+| **LaunchpadEngine** | `0x92794d7674d82fc3643b7c029dbfedfa9bb47e60` |
+| **MockUSDC** | `0x43ef3cabea2219af4e2450e5b5cc212abb1b7ce2` |
 
-**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix. Arc uses USDC as native gas token.
+**Note:** V10.7 deployment (2026-01-09). Spot sell full-range search fix. Arc uses USDC as native gas token.
 
 ### Monad Testnet (chainId: 10143) — V10.6
 | Contract | Address |
