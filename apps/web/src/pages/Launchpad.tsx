@@ -58,12 +58,6 @@ export const Launchpad = () => {
 
 
     useEffect(() => {
-        if (userAddress && guardianMode === 'custom' && !customGuardian) {
-            setCustomGuardian(userAddress);
-        }
-    }, [userAddress, guardianMode, customGuardian]);
-
-    useEffect(() => {
         if (adjudicatorMode === 'registry') {
             const selected = ADJUDICATOR_REGISTRY.find(a => a.id === selectedAdjudicatorId);
             if (selected) {
@@ -83,8 +77,13 @@ export const Launchpad = () => {
             if (selected && selected.address !== 'SELF') {
                 setCustomGuardian(selected.address as string);
             }
+        } else if (guardianMode === 'custom' && userAddress) {
+            const isRegistryAddress = GUARDIAN_REGISTRY.some(g => g.address === customGuardian);
+            if (!customGuardian || isRegistryAddress) {
+                setCustomGuardian(userAddress);
+            }
         }
-    }, [guardianMode, selectedGuardianId]);
+    }, [guardianMode, selectedGuardianId, userAddress, customGuardian]);
 
     const launchpadEngineAddress = deployments?.contracts['LaunchpadEngine'] as Address;
     const usdcAddress = deployments?.contracts['MockUSDC'] as Address;
