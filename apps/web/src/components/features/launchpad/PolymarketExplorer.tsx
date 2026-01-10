@@ -64,8 +64,11 @@ export interface NormalizedMarket {
   endDateTs: number;
   status: 'active' | 'closed' | 'pending';
   url: string;
+  /** Primary category (first matched) for backwards compatibility */
   category: CategoryKey;
   categoryLabel: string;
+  /** All matched categories from the 6 defined ones */
+  categories: CategoryKey[];
   /** Resolution rules/criteria from Polymarket */
   description: string | null;
   rawData: PolymarketEvent;
@@ -179,6 +182,21 @@ async function fetchEventsByCategory(
       // Direct URL using event slug - this works!
       const eventUrl = `https://polymarket.com/event/${slug}`;
 
+      // Build tag ID to category key map
+      const TAG_ID_TO_CATEGORY: Record<string, CategoryKey> = {};
+      (Object.entries(CATEGORIES) as [CategoryKey, { id: string }][]).forEach(([k, v]) => {
+        TAG_ID_TO_CATEGORY[v.id] = k;
+      });
+
+      // Derive all matching categories from event tags
+      const matchedCategories = tags
+        .map(tag => TAG_ID_TO_CATEGORY[tag.id])
+        .filter((c): c is CategoryKey => c !== undefined);
+
+      // Use first match as primary, or the fetch category as fallback
+      const primaryCategory = matchedCategories[0] || categoryKey;
+      const primaryCategoryConfig = CATEGORIES[primaryCategory];
+
       return {
         id: e.id as string,
         question: e.title as string,
@@ -191,8 +209,9 @@ async function fetchEventsByCategory(
         endDateTs,
         status: e.closed ? 'closed' : e.active ? 'active' : 'pending',
         url: eventUrl,
-        category: categoryKey,
-        categoryLabel: category.label,
+        category: primaryCategory,
+        categoryLabel: primaryCategoryConfig.label,
+        categories: matchedCategories.length > 0 ? matchedCategories : [categoryKey],
         description,
         rawData: {
           id: e.id as string,
@@ -356,13 +375,9 @@ function MarketCard({
   const category = CATEGORIES[market.category];
   const marketsCount = market.rawData.markets?.length || 0;
 
-  // Find additional matching categories from the 6 defined ones
-  const CATEGORY_TAG_IDS = Object.fromEntries(
-    Object.entries(CATEGORIES).map(([k, v]) => [v.id, k as CategoryKey])
-  );
-  const additionalCategories = (market.rawData.tags || [])
-    .filter(tag => CATEGORY_TAG_IDS[tag.id] && CATEGORY_TAG_IDS[tag.id] !== market.category)
-    .map(tag => CATEGORY_TAG_IDS[tag.id])
+  // Additional categories beyond the primary
+  const additionalCategories = market.categories
+    .filter(cat => cat !== market.category)
     .slice(0, 2); // Max 2 additional
 
   return (
@@ -565,11 +580,11 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
     fetchAllMarkets();
   }, [fetchAllMarkets]);
 
-  // Category counts
+  // Category counts - count events that have each category in their categories array
   const categoryCounts = useMemo(() => {
     const counts: Record<CategoryKey, number> = {} as Record<CategoryKey, number>;
     (Object.keys(CATEGORIES) as CategoryKey[]).forEach((key) => {
-      counts[key] = allMarkets.filter((m) => m.category === key).length;
+      counts[key] = allMarkets.filter((m) => m.categories.includes(key)).length;
     });
     return counts;
   }, [allMarkets]);
@@ -578,8 +593,10 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
   const displayedMarkets = useMemo(() => {
     let markets = allMarkets;
 
-    // Filter by category
-    markets = markets.filter((m) => selectedCategories.has(m.category));
+    // Filter by category - show events that have ANY selected category
+    markets = markets.filter((m) =>
+      m.categories.some(cat => selectedCategories.has(cat))
+    );
 
     // Filter by search
     if (searchTerm) {
