@@ -67,13 +67,19 @@ export const ADJUDICATOR_REGISTRY: AdjudicatorOption[] = [
 
 export const GUARDIAN_REGISTRY: GuardianOption[] = [
     {
+        id: 'dao',
+        name: 'Sooth DAO',
+        address: '0x5555555555555555555555555555555555555555' as Address,
+        desc: 'Managed by the protocol community governance.',
+        badge: 'Recommended'
+    },
+    {
         id: 'none',
         name: 'No Guardian',
         address: '0x0000000000000000000000000000000000000000' as Address,
         desc: 'No veto power. Adjudicator decision is final.',
-        badge: 'Default'
+        badge: 'Risky'
     }
-    // TODO: Add Sooth DAO multisig once deployed
 ];
 
 export const getTrustColor = (trustModel: TrustModel): string => {
