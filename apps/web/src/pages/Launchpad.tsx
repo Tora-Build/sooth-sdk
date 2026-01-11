@@ -517,11 +517,24 @@ export const Launchpad = () => {
                                 )}
                             </div>
 
-                            <div className="pt-4">
-                                {needsApproval ? (
+                            <div className="pt-4 space-y-3">
+                                {/* Single button - shows validation state, approval, or launch */}
+                                {!isFormValid ? (
+                                    <button
+                                        disabled
+                                        className={cn(
+                                            "w-full py-4 rounded-xl text-lg font-black transition-all",
+                                            "bg-slate-800/60 border border-slate-700/50",
+                                            "text-slate-500 cursor-not-allowed",
+                                            "flex items-center justify-center gap-2"
+                                        )}
+                                    >
+                                        Complete Form to Continue
+                                    </button>
+                                ) : needsApproval ? (
                                     <button
                                         onClick={handleApproveUsdc}
-                                        disabled={!canProceed}
+                                        disabled={form.deployPending}
                                         className={cn(
                                             "w-full py-4 rounded-xl text-lg font-black transition-all",
                                             "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500",
@@ -545,7 +558,7 @@ export const Launchpad = () => {
                                 ) : (
                                     <button
                                         onClick={handleCreateMarket}
-                                        disabled={!canProceed}
+                                        disabled={form.deployPending}
                                         className={cn(
                                             "w-full py-4 rounded-xl text-lg font-black transition-all",
                                             "bg-gradient-to-r from-cyan-500 via-cyan-600 to-emerald-500",
@@ -567,6 +580,17 @@ export const Launchpad = () => {
                                         )}
                                     </button>
                                 )}
+
+                                {/* Faucet link */}
+                                <div className="text-center">
+                                    <a
+                                        href="/faucet"
+                                        className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
+                                    >
+                                        <DollarSign className="w-3 h-3" />
+                                        Need test USDC? Get from faucet →
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -4,7 +4,7 @@
  * Uses useAMMQuoteDirect for accurate LMSR cost/fee calculations
  */
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries } from '../../hooks';
@@ -1040,11 +1040,13 @@ export const SimpleTradingPanel = ({
           <Button
             onClick={handleApprove}
             disabled={isPending || !canTrade || isPhantomConnector}
-            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg shadow-cyan-600/25 disabled:opacity-50"
+            className="w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:shadow-[0_0_40px_-8px] hover:shadow-emerald-500/50 text-white disabled:opacity-50"
           >
             {isPending ? (
               <Loader2 size={18} className="mr-2 animate-spin" />
-            ) : null}
+            ) : (
+              <Rocket size={18} className="mr-2" />
+            )}
             {isPhantomConnector ? 'Switch Wallet' : 'Approve USDC'}
           </Button>
         ) : (
@@ -1062,6 +1064,19 @@ export const SimpleTradingPanel = ({
           >
             {getButtonContent()}
           </Button>
+        )}
+
+        {/* Faucet link */}
+        {isConnected && (
+          <div className="text-center">
+            <a
+              href="/faucet"
+              className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
+            >
+              <span className="text-[10px]">$</span>
+              Need test USDC? Get from faucet →
+            </a>
+          </div>
         )}
       </div>
     </div>

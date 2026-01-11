@@ -138,8 +138,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             const success = await swap(selectedOutcome, sharesInput, maxCostUsdc);
             if (success) {
-            setAmount('10');
-            onTradeSuccess?.();
+                setAmount('10');
+                onTradeSuccess?.();
             }
         } catch (err) {
             console.error('Trade failed:', err);
@@ -460,6 +460,19 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         `${tradeMode === 'buy' ? 'Buy' : 'Sell'} ${selectedOutcome === 0 ? 'YES' : 'NO'}`
                     )}
                 </Button>
+            )}
+
+            {/* Faucet link - show when connected */}
+            {isConnected && (
+                <div className="text-center">
+                    <a
+                        href="/faucet"
+                        className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
+                    >
+                        <span className="text-[10px]">$</span>
+                        Need test USDC? Get from faucet →
+                    </a>
+                </div>
             )}
         </div>
     );
