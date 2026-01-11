@@ -127,13 +127,14 @@ export const allowedChains: AllowedChain[] = [
   },
   */
   // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
+  // Note: QuickNode/Foundation RPCs unreachable as of 2026-01
   {
     id: 10143,
     type: 'evm',
     name: 'Monad Testnet',
     displayName: 'Monad',
     shortName: 'Monad',
-    rpcUrl: 'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
+    rpcUrl: 'https://rpc.ankr.com/monad_testnet',
     explorerUrl: 'https://testnet.monadvision.com',
     icon: '🟣',
     nativeCurrency: {
@@ -199,6 +200,7 @@ export const megaethTestnet = defineChain({
 
 // Define Monad Testnet using viem
 // RPCs: https://docs.monad.xyz/developer-essentials/testnets
+// Note: QuickNode and Foundation RPCs are currently unreachable (2026-01)
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
@@ -206,10 +208,7 @@ export const monadTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/',
-        'https://testnet-rpc.monad.xyz',
-        'https://rpc.ankr.com/monad_testnet',
-        'https://rpc-testnet.monadinfra.com',
+        'https://rpc.ankr.com/monad_testnet',  // Only reliable endpoint
       ]
     },
   },

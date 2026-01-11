@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAccount, useWriteContract, usePublicClient, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useReadContract, useReadContracts, useChainId } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { TRADER_VAULT_V4_ABI, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
@@ -9,8 +9,10 @@ import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
 import { getChainById } from '../lib/chains';
 import { useMarketStore } from '../store/useMarketStore';
+import { getPollingInterval } from '../lib/polling';
 
 export function useOrderbookTrade(marketId: string) {
+  const chainId = useChainId();
   const { address } = useAccount();
 
   // Detect if marketId is an address (0x...) or a config ID
@@ -48,7 +50,7 @@ export function useOrderbookTrade(marketId: string) {
     ],
     query: {
       enabled: !!address && !!marketContractAddress && !!traderVaultAddress,
-      refetchInterval: 10000,
+      refetchInterval: getPollingInterval(chainId, 'fast'),
     },
   });
 

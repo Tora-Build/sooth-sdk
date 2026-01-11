@@ -1,8 +1,9 @@
-import { useAccount, useReadContracts } from 'wagmi';
+import { useAccount, useReadContracts, useChainId } from 'wagmi';
 import { useMemo } from 'react';
 import { formatUnits } from 'viem';
 import { LAUNCHPAD_MARKET_ABI } from '../config/abis';
 import { useLaunchpadMarkets } from './useLaunchpadMarkets';
+import { getPollingInterval } from '../lib/polling';
 
 export interface LPPosition {
     marketAddress: `0x${string}`;
@@ -22,6 +23,7 @@ export interface LPPosition {
 }
 
 export function useLPPositions() {
+    const chainId = useChainId();
     const { address: userAddress } = useAccount();
     const { markets, isLoading: marketsLoading } = useLaunchpadMarkets();
 
@@ -51,7 +53,7 @@ export function useLPPositions() {
         contracts: lpContracts,
         query: {
             enabled: lpContracts.length > 0,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         }
     });

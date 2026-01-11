@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
 import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 import { useAllOrdersDirect, RangeOrder } from "../useAllOrdersDirect";
+import { addJitter } from "../../lib/polling";
 
 type Address = `0x${string}`;
 
@@ -86,7 +87,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
     enabled: USE_INDEXER && !!chainId,
     queryFn: () => checkChainReady(chainId),
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: addJitter(30_000),
   });
 
   const isChainReady = chainReadyQuery.data === true;
@@ -115,7 +116,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
       };
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
     retry: false,
   });
 
@@ -131,7 +132,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
       return data.map(indexedToRangeOrder);
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
     retry: false,
   });
 

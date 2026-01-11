@@ -4,6 +4,7 @@ import { TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/
 import { useDeployments } from './useDeployments';
 import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 import { formatUnits } from 'viem';
+import { getPollingInterval } from '../lib/polling';
 import toast from 'react-hot-toast';
 
 export interface UseLockedFundsResult {
@@ -116,7 +117,7 @@ export function useLockedFunds(): UseLockedFundsResult {
         ],
         query: { 
             enabled: !!address && lockContracts.length > 0 && !!contracts?.MockUSDC,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         }
     });

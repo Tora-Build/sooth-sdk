@@ -5,6 +5,7 @@ import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
 import { maxUint256 } from "viem";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch LaunchpadEngine state for a market and handle market operations
@@ -83,7 +84,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -101,7 +102,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId && !!userAddress,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -140,7 +141,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const dataLpBalance = readLpBalance.data;
     const isLoading = readMarket.isLoading;
     const error = readMarket.error || readParams.error;
-    
+
     const refetch = useCallback(async () => {
         await Promise.all([readMarket.refetch(), readParams.refetch(), readLpBalance.refetch(), refetchAllowance()]);
     }, [readMarket, readParams, readLpBalance, refetchAllowance]);
@@ -229,16 +230,18 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
 
         // markets(market) -> (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
         const marketState = marketsMappingResult.result as readonly [
-            `0x${string}`,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            boolean,
-            bigint,
-            bigint
+            `0x${string}`, // creator
+            bigint,        // bBase
+            bigint,        // bCurrent
+            bigint,        // creatorDeposit
+            bigint,        // feesAccrued
+            bigint,        // totalLPSupply
+            bigint,        // lpYieldPool
+            boolean,       // isGraduated
+            bigint,        // createdAt (uint64)
+            bigint,        // graduatedAt (uint64)
+            string,        // name
+            string         // symbol
         ];
         const [
             _c, _bB, _bC,
@@ -248,7 +251,9 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             lpYieldPool,
             _iG,
             _cA,
-            _gA
+            _gA,
+            name,
+            symbol
         ] = marketState;
 
         // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
@@ -281,6 +286,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         return {
             address: marketAddress,
             creator,
+            name,
+            symbol,
             initialBBase: bBase,
             currentBBase: bCurrent,
             feesAccrued: feesAccrued ?? feesAccruedFromMarket,

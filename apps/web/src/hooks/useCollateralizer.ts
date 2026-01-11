@@ -4,6 +4,7 @@ import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch Collateralizer state for a market
@@ -33,7 +34,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -51,7 +52,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!chainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -69,7 +70,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!chainId && !!userAddress,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
