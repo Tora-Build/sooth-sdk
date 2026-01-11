@@ -10,29 +10,32 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 ### Base Sepolia (chainId: 84532) - V10.8
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0x2f3464ca4a50a522786c3e72df94f12b02eec46b` |
-| TickBookVault | `0x31a1a04ddc44957f5f0645d02f6a050e20bca6c0` |
-| LaunchpadEngine | `0x5cec4acf4abfe1dea585bda8532b7f2fcdc52412` |
-| Collateralizer | `0x2fc82e6a2b285141366f07635285453221934942` |
-| MockUSDC | `0x937a3fae6a2b1702546e141f695d6f29df72c5cc` |
+| TickBookPoolManager | `0x9f4c719823935cbbb9db3f8e78556d8684c9b877` |
+| TickBookVault | `0x307425430128a2948bbd33d6f4bc558cc1a58929` |
+| LaunchpadEngine | `0x35292381f577692d29078fd66c22aa99aae9a8d6` |
+| Collateralizer | `0x87a7042bdeae36309a97d79203dc41d876a76853` |
+| AMMEngine | `0x224f012eacbb7425d336bf0bd5546feb74bbb16e` |
+| MockUSDC | `0xf9ac031408f4638c147764377ba8a5ab34584515` |
 
 ### Monad Testnet (chainId: 10143) - V10.8
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208` |
-| TickBookVault | `0x95d9d278448f758397ce338cc250e9e6ab110268` |
-| LaunchpadEngine | `0x341173887aad5f63dda5da509f3210f008caea85` |
-| Collateralizer | `0xa1a9abaf228b91d85d35da744af4b585a4bf9a84` |
-| MockUSDC | `0x1efd2b42ec8178ce667149acce75083f113e27fa` |
+| TickBookPoolManager | `0x19424e5482ad7b79654706fa60f4e5153d54e3c3` |
+| TickBookVault | `0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c` |
+| LaunchpadEngine | `0x6e295996fd9902b6ebf2c44068da9a07b81cd527` |
+| Collateralizer | `0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980` |
+| AMMEngine | `0xed9aaecb4577319dc258bfd902f504972e530f67` |
+| MockUSDC | `0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724` |
 
-### Arc Testnet (chainId: 5042002) - V10.6
+### Arc Testnet (chainId: 5042002) - V10.8
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68` |
-| TickBookVault | `0x536D85d924848776995429C9769b5DA12478819b` |
-| LaunchpadEngine | `0x63215FA8716417FC805A705a7d7608abF8260598` |
-| Collateralizer | `0x1D9A2B863c650e04DDdF5893FfbD2f31F87e8C6f` |
-| MockUSDC | `0xec165cDc464cD689732a550776a19c960386329c` |
+| TickBookPoolManager | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
+| TickBookVault | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
+| LaunchpadEngine | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
+| Collateralizer | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
+| AMMEngine | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
+| MockUSDC | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
 
 ## Structure
 

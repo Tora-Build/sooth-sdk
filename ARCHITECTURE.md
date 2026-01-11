@@ -1,25 +1,24 @@
 # Sooth Protocol Architecture
 
-**Version:** 9.9.4  
+**Version:** 10.8  
 **Status:** Alpha (Testnet Deployments)  
-**Last Updated:** 2025-12-31
+**Last Updated:** 2026-01-11
 
 ---
 
-## V9.9.4 Changes (Audit Remediation)
+## V10 Changes (Unified Crossing)
 
-V9.9.4 is a **lean release** following security and efficiency audits:
+V10 introduces **Unified Crossing**, merging Spot Sells and Range Orders into a single liquidity layer:
 
 | Change | Impact |
 |--------|--------|
-| Hook system removed | -200 lines, simpler fees via `takerFeeBps`/`makerFeeBps` |
-| Flash accounting removed | -50 lines, no EIP-1153 dependency |
-| `batchPlaceOrders` removed | -50 lines, unused |
-| `applyRetroSettlement` removed | T* not implemented |
-| TOB-1 fix | Pro-rata attribution uses `oppLiqInOverlap` |
-| TOB-2 fix | Fees capped at `MAX_FEE_BPS = 1000` (10%) |
+| Unified `placeOrder` | Replaces separate range and market order functions |
+| Spot Priority | Takers automatically get best price (Spot > Range) |
+| Dual-Collateral Vault | Native support for both USDC and outcome tokens in TickBook |
+| Atomic Creation | Markets are created and initialized in a single transaction |
+| Package Split | Split into `contracts-core` (audit) and `contracts-testing` (QA) |
 
-**Contract**: `TickBookPoolManagerV994.sol` (884 lines vs 1301 original)
+**Contract**: `TickBookPoolManager.sol` (V10 Unified Crossing)
 
 ---
 
@@ -37,7 +36,7 @@ The protocol uses a **Launchpad model** for market creation, where creators prov
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SOOTH PROTOCOL V9.9                               │
+│                           SOOTH PROTOCOL V10.8                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
@@ -51,44 +50,38 @@ The protocol uses a **Launchpad model** for market creation, where creators prov
 │           └──────────────────┬────────────────────────                      │
 │                              │                                              │
 │   ┌──────────────────────────▼──────────────────────────────────────────┐   │
-│   │                    SMART CONTRACTS (packages/contracts-evm)          │   │
+│   │                    SMART CONTRACTS (packages/contracts-core)        │   │
 │   │                                                                      │   │
 │   │   ┌─────────────────┐         ┌─────────────────────────────────┐   │   │
 │   │   │ LaunchpadEngine │─────────│ Creator Economics Layer         │   │   │
-│   │   │  (Router)       │         │ • Market creation/registration  │   │   │
-│   │   └────────┬────────┘         │ • Fee collection & distribution │   │   │
-│   │            │                  │ • Graduation mechanics          │   │   │
+│   │   │  (Router)       │         │ • Atomic market creation        │   │   │
+│   │   └────────┬────────┘         │ • Fee collection & graduation   │   │   │
 │   │            │                  │ • LP token management           │   │   │
 │   │   ┌────────▼────────┐         └─────────────────────────────────┘   │   │
 │   │   │   AMMEngine     │         ┌─────────────────────────────────┐   │   │
 │   │   │  (LMSR AMM)     │         │ Pure Trading Logic              │   │   │
-│   │   └────────┬────────┘         │ • LMSR cost calculation         │   │   │
-│   │            │                  │ • Position tracking (dual-bal.) │   │   │
+│   │   └────────┬────────┘         │ • Dual-balance position model   │   │   │
 │   │            │                  │ • 24h sell lock mechanism       │   │   │
 │   │   ┌────────▼────────┐         └─────────────────────────────────┘   │   │
 │   │   │  TruthMarket    │         ┌─────────────────────────────────┐   │   │
 │   │   │  (Lifecycle)    │         │ Settlement Authority            │   │   │
 │   │   └─────────────────┘         │ • Market states (LIVE→SETTLED)  │   │   │
 │   │                               │ • Adjudicator-based resolution  │   │   │
-│   │   ┌─────────────────┐         │ • tStar (retroactive truth)     │   │   │
-│   │   │TickBookPoolMgr  │         └─────────────────────────────────┘   │   │
-│   │   │  V994 (Lean)    │         ┌─────────────────────────────────┐   │   │
-│   │   └────────┬────────┘         │ V9.9.4 Orderbook Singleton      │   │   │
-│   │            │                  │ • Range order placement (O(1))  │   │   │
-│   │   ┌────────▼────────┐         │ • Market order execution        │   │   │
-│   │   │  TickBookVault  │         │ • Cross matching (sweep fills)  │   │   │
-│   │   │  (USDC Custody) │         │ • Simple fees (no hooks)        │   │   │
-│   │   └─────────────────┘         └─────────────────────────────────┘   │   │
+│   │   ┌─────────────────┐         └─────────────────────────────────┘   │   │
+│   │   │TickBookPoolMgr  │         ┌─────────────────────────────────┐   │   │
+│   │   │  (V10 Unified)  │         │ V10 Unified Orderbook           │   │   │
+│   │   └────────┬────────┘         │ • Unified placeOrder API        │   │   │
+│   │            │                  │ • Spot + Range crossing         │   │   │
+│   │   ┌────────▼────────┐         │ • O(overlap) spot search        │   │   │
+│   │   │  TickBookVault  │         └─────────────────────────────────┘   │   │
+│   │   │ (Fund Custody)  │                                               │   │
+│   │   └─────────────────┘                                               │   │
 │   │                                                                      │   │
 │   │   ┌─────────────────┐         ┌─────────────────────────────────┐   │   │
 │   │   │  Collateralizer │         │ Token Operations                │   │   │
 │   │   │                 │─────────│ • Split: USDC → YES + NO        │   │   │
 │   │   └─────────────────┘         │ • Merge: YES + NO → USDC        │   │   │
-│   │                               │ • Redeem: Winner token → USDC   │   │   │
-│   │   ┌─────────────────┐         └─────────────────────────────────┘   │   │
-│   │   │  OutcomeToken   │                                               │   │
-│   │   │   (ERC20)       │                                               │   │
-│   │   └─────────────────┘                                               │   │
+│   │                               └─────────────────────────────────┘   │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -101,54 +94,28 @@ The protocol uses a **Launchpad model** for market creation, where creators prov
 ```
 sooth-alpha/
 ├── apps/
-│   └── web/                          # Frontend dApp
+│   └── web/                          # Frontend dApp (Vite + React)
 │       ├── src/
 │       │   ├── components/           # React components
-│       │   │   ├── features/         # Domain components (launchpad, etc.)
-│       │   │   ├── layout/           # App layout (Navbar, Footer)
-│       │   │   └── ui/               # Generic UI components
-│       │   ├── config/               # Configuration files
-│       │   │   ├── abis/             # Contract ABIs
-│       │   │   ├── abis.ts           # ABI exports
-│       │   │   ├── deployments.json  # Contract addresses per chain
-│       │   │   └── markets.json      # Market configurations
-│       │   ├── hooks/                # React hooks (47 total, flat structure)
+│       │   ├── config/               # ABIs + deployments.json
+│       │   ├── hooks/                # React hooks (flat structure)
 │       │   ├── lib/                  # Utilities (wagmi, math, formatting)
 │       │   ├── pages/                # Route pages
-│       │   │   ├── Trade.tsx         # AMM trading terminal
-│       │   │   ├── Pro.tsx           # TickBook professional terminal
-│       │   │   ├── Portfolio.tsx     # User positions & LP
-│       │   │   ├── Create.tsx        # Launchpad market creation
-│       │   │   └── Gov.tsx           # Governance & settlement
 │       │   └── store/                # Zustand state management
 │       └── docs/                     # Frontend specifications
 │
 ├── packages/
-│   └── contracts-evm/                # Solidity smart contracts
-│       ├── contracts/
-│       │   ├── LaunchpadEngine.sol   # Creator economics router
-│       │   ├── AMMEngine.sol         # LMSR trading logic
-│       │   ├── TruthMarket.sol       # Lifecycle & settlement
-│       │   ├── TickBookPoolManagerV994.sol # V9.9.4 Lean orderbook
-│       │   ├── TickBookPoolManager.sol     # Legacy (V9.9.3, backup)
-│       │   ├── TickBookVault.sol     # Orderbook USDC custody
-│       │   ├── Collateralizer.sol    # Token split/merge/redeem
-│       │   ├── OutcomeToken.sol      # ERC20 YES/NO tokens
-│       │   ├── interfaces/           # Contract interfaces
-│       │   │   └── _archived/        # Removed interfaces (ITickBookHooks)
-│       │   ├── libraries/            # Math libraries (LMSR, Tick, Bitmap)
-│       │   │   └── _archived/        # Removed libraries (TransientDelta)
-│       │   └── hooks/                # Hook contracts (deprecated in V9.9.4)
-│       ├── script/                   # Deployment scripts (Foundry)
-│       ├── test/                     # Test suites (92+ tests)
-│       └── docs/                     # Contract documentation
+│   ├── contracts-core/               # Core Solidity contracts (Audit Scope)
+│   │   ├── src/                      # TickBookPoolManager, LaunchpadEngine, etc.
+│   │   ├── script/                   # Multi-chain deployment scripts
+│   │   ├── deployments/              # Canonical addresses (baseSepolia.json, etc.)
+│   │   └── abi/                      # Generated ABIs
+│   ├── contracts-testing/            # QA & Testing package
+│   │   ├── test/                     # V10 Forge test suites
+│   │   └── script/                   # Interactive CLI & benchmarks
+│   └── indexer/                      # Ponder indexer for orderbook data
 │
 ├── .agent/                           # Agent workflows & knowledge
-│   ├── GUIDE.md                      # Workflow quick reference
-│   ├── KNOWLEDGE.md                  # Domain knowledge base
-│   ├── LESSONS_LEARNED.md            # Persistent agent memory
-│   └── workflows/                    # Role-based workflow files
-│
 ├── package.json                      # Workspace root
 ├── pnpm-workspace.yaml               # pnpm workspace config
 ├── turbo.json                        # Turborepo build pipeline
@@ -166,9 +133,9 @@ sooth-alpha/
 
 ```solidity
 // Key Functions
-createMarket(truthMarket, yesToken, noToken, bBase)  // Register new market
+createMarket(...)                   // Atomic market creation (deploys TruthMarket)
 tradePositions(market, outcome, deltaShares, maxCost) // Execute trades
-redeemLP(market)                                       // LP redemption
+redeemLP(market)                    // LP redemption
 
 // State
 marketInfos[market] → {creator, bBase, feesAccrued, lpSupply, isGraduated}
@@ -210,46 +177,34 @@ _lockedBalance[user]    // 24h locked proceeds
 
 ```solidity
 // Key Functions
-activate()                              // Creator activates market
 finalizeResolution(outcome, tStar)      // Adjudicator settles
 vetoResolution()                        // Guardian emergency veto
 
 // States
-CREATED → LIVE → SETTLING → SETTLED → FINALIZED
+LIVE → SETTLED → FINALIZED
 
 // State
 isLive(), isSettled()          // Query functions (pull-based)
-winningOutcome()               // 0=YES, 1=NO, 2=INVALID
+winningOutcome()               // 0=NO, 1=YES, 2=INVALID
 tStar                          // Retroactive truth timestamp
+startTime                       // Scheduled market start
 ```
 
-### 4. TickBookPoolManagerV994 (V9.9.4 Lean Singleton)
-**Purpose:** Concentrated liquidity orderbook for professional trading
+### 4. TickBookPoolManager (V10 Unified Orderbook)
+**Purpose:** Professional trading venue with unified Spot and Range liquidity.
 
 ```solidity
 // Key Functions
-placeRangeOrder(marketKey, outcome, tickLower, tickUpper, shares)
+placeOrder(marketKey, outcome, tickLower, tickUpper, shares, maxCost)
 cancelOrder(marketKey, orderId)
-executeMarketOrder(marketKey, outcome, shares, maxCost)  // Market order
-claimFills(marketKey, orderId)                           // Claim crossed fills
-getPendingFills(marketKey, orderId) → (pendingShares, pendingCollateral)
+claimFills(marketKey, orderId)
 
-// V9.9.4 Architecture
+// V10 Architecture
 - Singleton pattern (one contract per chain)
-- Uniswap V3-style range positions (boundary storage)
-- Pro-rata fill attribution via growth accumulators
-- Simple fee storage: takerFeeBps, makerFeeBps (no hooks)
-- MAX_FEE_BPS = 1000 (10% cap)
-
-// Admin Functions
-setFees(takerFee, makerFee)  // Owner only, capped at 10%
+- Unified crossing: spot sells first, then range orders
+- Tick-indexed spot fills for O(overlap) traversal
+- Auto-claim support for pending fills
 ```
-
-**V9.9.4 Changes (Audit Remediation):**
-- ✅ TOB-1 fix: Pro-rata uses `oppLiqInOverlap` denominator
-- ✅ TOB-2 fix: Fees capped at 10%
-- ✅ Removed: Hook system, flash accounting, batchPlaceOrders
-- 📉 Code reduction: 1301 → 884 lines (32%)
 
 **Matching Mechanics:**
 - SELL orders sweep LOW→HIGH (worst to best ask)
@@ -513,27 +468,36 @@ Post-Graduation Fees (1%):
 
 ---
 
-## Multi-Chain Deployments
+## Multi-Chain Deployments (V10.8)
 
-### Base Sepolia (Chain 84532) - V9.9.0
+### Base Sepolia (Chain 84532)
 ```
-MockUSDC           = 0xee08d25a466e54c97417dcc721baee82b145ab99
-LaunchpadEngine    = 0xbe602ee838c1ecb959c1582fab8e65fc4ccb809a
-AMMEngine          = 0xbfe2ece93b9a0afe2574923d63999aea83a320f4
-Collateralizer     = 0xed402829b2582211374d17a00082aceecd47e420
-TickBookPoolManager= 0x8cdaddec24919ab31bdb64b97a3d1e58c921a272
-TickBookVault      = 0xfe72a031afafc33281a62ad8a765665ccd69042b
-DynamicFeeHook     = 0xdbf40370e87a043ad267d46475722389738bf1f9
+MockUSDC           = 0xf9ac031408f4638c147764377ba8a5ab34584515
+LaunchpadEngine    = 0x35292381f577692d29078fd66c22aa99aae9a8d6
+AMMEngine          = 0x224f012eacbb7425d336bf0bd5546feb74bbb16e
+Collateralizer     = 0x87a7042bdeae36309a97d79203dc41d876a76853
+TickBookPoolManager= 0x9f4c719823935cbbb9db3f8e78556d8684c9b877
+TickBookVault      = 0x307425430128a2948bbd33d6f4bc558cc1a58929
 ```
 
-### Monad Testnet (Chain 10143) - V9.6.0
+### Arc Testnet (Chain 5042002)
 ```
-MockUSDC           = 0x7192f46fa78e7d1b5bb6ba687d15d0b6a0802da3
-LaunchpadEngine    = 0xfc439a4bd763900cc544154e74258721f4a2bbbb
-AMMEngine          = 0xc83a0fad313d9174ebdb6201c5d115e5773e4d80
-Collateralizer     = 0xc620770047e6710d2539bc6aa46de9be458207a7
-TickBookPoolManager= 0xd209a3db4bb3a65da69001313e75f3309888e52f
-TickBookVault      = 0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7
+MockUSDC           = 0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2
+LaunchpadEngine    = 0xa610975cc06de01456a36bd27390d12d5e4b6629
+AMMEngine          = 0xc6a1a4540af68cb20aea0e68a202c0f221f599b4
+Collateralizer     = 0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa
+TickBookPoolManager= 0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e
+TickBookVault      = 0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7
+```
+
+### Monad Testnet (Chain 10143)
+```
+MockUSDC           = 0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724
+LaunchpadEngine    = 0x6e295996fd9902b6ebf2c44068da9a07b81cd527
+AMMEngine          = 0xed9aaecb4577319dc258bfd902f504972e530f67
+Collateralizer     = 0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980
+TickBookPoolManager= 0x19424e5482ad7b79654706fa60f4e5153d54e3c3
+TickBookVault      = 0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c
 ```
 
 ---
@@ -542,8 +506,8 @@ TickBookVault      = 0x7996195bf20d84b51e28ba8f44f6fc85a4cf59b7
 
 ### Tech Stack
 - **Framework:** React 18 + Vite
-- **Web3:** Wagmi v2 + Reown AppKit
-- **State:** Zustand + TanStack Query
+- **Web3:** Wagmi v2 + Viem
+- **State:** Zustand + React Query
 - **Styling:** Tailwind CSS
 
 ### Page Structure
@@ -580,7 +544,6 @@ hooks/
 | `LaunchpadEngine.tradePositions()` | none | Anyone |
 | `LaunchpadEngine.setPreGradFeeBps()` | onlyOwner | Protocol owner |
 | `AMMEngine.tradePositionsFor()` | onlyRouter | LaunchpadEngine |
-| `TruthMarket.activate()` | onlyCreator | Market creator |
 | `TruthMarket.finalizeResolution()` | onlyAdjudicator | Adjudicator contract |
 | `TickBookPoolManager.registerMarket()` | onlyRegistrar | LaunchpadEngine |
 
@@ -589,25 +552,14 @@ hooks/
 ## Testing & QA
 
 ### Test Coverage
-- **106 tests** across unit, integration, fuzz, and invariant suites
-- Key test files:
-  - `TickBookPoolManager.t.sol` - 27 core orderbook tests
-  - `TickBookVaultSettlement.t.sol` - 13 settlement tests
-  - `V9Fuzz.t.sol` - 10 fuzz tests (tick bounds, slippage)
-  - `V9Invariants.t.sol` - 4 actor-based invariants
+- V10 unit, integration, fuzz, and invariant suites live in `packages/contracts-testing/test/`.
+- Core audit-scope sources live in `packages/contracts-core/src/`.
 
 ### Running Tests
 ```bash
-cd packages/contracts-evm
-forge test                    # All tests
-forge test --match-test V99   # V9.9 crossing tests
-forge test -vvv               # Verbose output
+cd packages/contracts-core && forge build
+cd packages/contracts-testing && forge test
 ```
-
-### Security Audits (V9.9.4)
-- **Trail of Bits Style Audit**: `audit/TRAIL_OF_BITS_AUDIT_V9.9.3.md`
-- **Efficiency Review**: `audit/OG_EFFICIENCY_REVIEW_V9.9.3.md`
-- **Audit Response**: `audit/AUDIT_RESPONSE_V9.9.4.md`
 
 ---
 
@@ -659,12 +611,11 @@ pnpm build
 ### Development
 ```bash
 # Frontend
-pnpm --filter web dev
+pnpm dev:web
 
 # Contracts
-cd packages/contracts-evm
-forge build
-forge test
+cd packages/contracts-core && forge build
+cd packages/contracts-testing && forge test
 ```
 
 ---
@@ -675,4 +626,3 @@ forge test
 - [DECISIONS.md](./DECISIONS.md) - Architecture decisions
 - [STATUS.md](./STATUS.md) - Current project state
 - [.agent/KNOWLEDGE.md](./.agent/KNOWLEDGE.md) - Domain knowledge
-- [packages/contracts-evm/docs/](./packages/contracts-evm/docs/) - Contract docs
