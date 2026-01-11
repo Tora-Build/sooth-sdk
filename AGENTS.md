@@ -167,8 +167,8 @@ To use: Ensure MCP servers are installed (`npx`, `uvx` available).
 
 | File | Purpose |
 |------|---------|
-| `.agent/LESSONS_LEARNED.md` | Past mistakes - READ FIRST |
-| `.agent/KNOWLEDGE.md` | Protocol formulas & facts |
+| `.claude/rules/lessons.md` | Past mistakes - READ FIRST |
+| `.claude/rules/knowledge.md` | Protocol formulas & facts |
 | `STATUS.md` | Current project state |
 | `apps/web/src/config/deployments.json` | Contract addresses |
 
