@@ -5,6 +5,7 @@ import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 import { useMemo } from 'react';
+import { getPollingInterval } from '../lib/polling';
 
 export interface ActivePosition {
     id: string;
@@ -130,7 +131,8 @@ export const useActivePositions = () => {
         contracts: marketContracts as any,
         query: { 
             enabled: mode === 'real' && !!address && uniqueMarkets.length > 0, 
-            refetchInterval: 30000, staleTime: 10000 
+            refetchInterval: getPollingInterval(chainId, 'slow'),
+            staleTime: 10000 
         }
     });
 

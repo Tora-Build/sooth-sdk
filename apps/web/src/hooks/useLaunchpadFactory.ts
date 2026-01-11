@@ -1,11 +1,13 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { ABIS, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { decodeEventLog, maxUint256 } from 'viem';
 import { useMemo, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { getPollingInterval } from '../lib/polling';
 
 export function useLaunchpadFactory() {
+    const chainId = useChainId();
     const { contracts } = useDeployments();
     const launchpadEngineAddress = contracts?.LaunchpadEngine as `0x${string}` | undefined;
 
@@ -72,7 +74,7 @@ export function useLaunchpadFactory() {
         args: [user || '0x0000000000000000000000000000000000000000', launchpadEngineAddress || '0x0000000000000000000000000000000000000000'],
         query: {
             enabled: !!user && !!launchpadEngineAddress && !!usdcAddress,
-            refetchInterval: 10000
+            refetchInterval: getPollingInterval(chainId, 'fast')
         }
     });
 

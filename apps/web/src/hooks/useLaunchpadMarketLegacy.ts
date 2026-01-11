@@ -1,12 +1,14 @@
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { LAUNCHPAD_MARKET_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI, ERC20_ABI } from '../config/abis';
 import { useAccount } from 'wagmi';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useChainStore } from '../store/useChainStore';
 import { getDeployments } from './useDeployments';
 import { formatUnits } from 'viem';
+import { getPollingInterval } from '../lib/polling';
 
 export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
+    const chainId = useChainId();
     const { address: userAddress } = useAccount();
     const { selectedChainId } = useChainStore();
     const deployments = getDeployments(Number(selectedChainId));
@@ -68,7 +70,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         contracts: marketContracts as any,
         query: {
             enabled: !!marketAddress,
-            refetchInterval: 5000 
+            refetchInterval: getPollingInterval(chainId, 'fast')
         }
     });
 

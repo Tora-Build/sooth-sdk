@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useAccount, useWriteContract, useReadContracts, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useReadContracts, usePublicClient, useChainId } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { ABIS, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useActivityStore } from '../store/useActivityStore';
 import { useChainStore } from '../store/useChainStore';
+import { getPollingInterval } from '../lib/polling';
 import toast from 'react-hot-toast';
 
 /**
@@ -13,6 +14,7 @@ import toast from 'react-hot-toast';
  * V9 Architecture: TickBookVault (USDC/Shares) + TickBookPoolManager (Orders)
  */
 export function useTraderVault() {
+  const chainId = useChainId();
   const { address } = useAccount();
   const { mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
@@ -38,7 +40,7 @@ export function useTraderVault() {
     ],
     query: {
       enabled: !!address && !!vaultAddress,
-      refetchInterval: 10000,
+      refetchInterval: getPollingInterval(chainId, 'fast'),
     }
   });
 

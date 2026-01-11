@@ -3,6 +3,7 @@ import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
+import { getPollingInterval, getStaleTime } from "../lib/polling";
 
 /**
  * Hook to read TickBook state for the Pro page (V9 Singleton Architecture)
@@ -27,8 +28,8 @@ export function useTickBookDirect(
     queryKey: ["v9", "tickBookDirect", chainId, poolManagerAddress, marketAddress, yesTokenInput, noTokenInput],
     enabled: !!marketAddress && !!chainId && !!poolManagerAddress && !!collateralizerAddress,
     chainId,
-    staleTime: options?.staleTime ?? 10_000, // Default 10s for TickBook data
-    refetchInterval: options?.refetchInterval ?? 20_000, // Default 20s
+    staleTime: options?.staleTime ?? getStaleTime(chainId),
+    refetchInterval: options?.refetchInterval ?? getPollingInterval(chainId, 'normal'),
     read: async (client) => {
       try {
         console.log(`[useTickBookDirect] Initializing for ${marketAddress}`);

@@ -2,6 +2,8 @@ import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
+import { DEFAULT_CHAIN_ID } from "../lib/chains";
+import { getPollingInterval } from "../lib/polling";
 
 type Address = `0x${string}`;
 
@@ -25,22 +27,28 @@ export interface OnChainMarket {
  */
 export function useOnChainMarkets() {
   const { selectedChainId } = useChainStore();
-  const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
+  const parsedChainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
+  const chainId = Number.isFinite(parsedChainId) ? parsedChainId : DEFAULT_CHAIN_ID;
   const deployments = useDeployments();
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as Address | undefined;
 
   const query = useDirectRead({
-    queryKey: ["v9", "onChainMarkets", chainId, launchpadEngineAddress],
-    enabled: !!chainId && !!launchpadEngineAddress,
+    queryKey: ["v10", "onChainMarkets", chainId, launchpadEngineAddress],
+    enabled: !!chainId && !!launchpadEngineAddress && !isNaN(chainId),
     chainId,
-    refetchInterval: 30_000, // 30 seconds - markets don't change often
+    refetchInterval: getPollingInterval(chainId, 'slow'),
     staleTime: 15_000,
     read: async (client) => {
+      if (!launchpadEngineAddress) return [];
+
       // Get all market addresses
       const marketAddresses = await readContractSafe<readonly Address[]>(client, {
-        address: launchpadEngineAddress!,
+        address: launchpadEngineAddress,
         abi: ABIS.LaunchpadEngine,
         functionName: "getMarkets",
+      }).catch(err => {
+        console.error("Failed to fetch market addresses:", err);
+        return [] as readonly Address[];
       });
 
       if (!marketAddresses || marketAddresses.length === 0) {
@@ -53,7 +61,7 @@ export function useOnChainMarkets() {
 
       for (let i = 0; i < marketAddresses.length; i += CHUNK_SIZE) {
         const chunk = marketAddresses.slice(i, i + CHUNK_SIZE);
-        
+
         const chunkResults = await Promise.all(
           chunk.map(async (marketAddress) => {
             try {
@@ -78,6 +86,8 @@ export function useOnChainMarkets() {
                 functionName: "markets",
                 args: [marketAddress],
               });
+
+              if (!marketsMapping) return null;
 
               const [
                 creator,
@@ -110,10 +120,10 @@ export function useOnChainMarkets() {
             }
           })
         );
-        
+
         // Add valid results from this chunk
         marketDetails.push(...chunkResults.filter((m): m is OnChainMarket => m !== null));
-        
+
         // Small delay between chunks to be nice to the RPC
         if (i + CHUNK_SIZE < marketAddresses.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -146,7 +156,7 @@ export function useOnChainMarketCount() {
     queryKey: ["v9", "onChainMarketCount", chainId, launchpadEngineAddress],
     enabled: !!chainId && !!launchpadEngineAddress,
     chainId,
-    refetchInterval: 30_000,
+    refetchInterval: getPollingInterval(chainId, 'slow'),
     staleTime: 15_000,
     read: async (client) => {
       const count = await readContractSafe<bigint>(client, {

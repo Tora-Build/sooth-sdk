@@ -4,6 +4,7 @@ import { usePublicClient, useAccount } from "wagmi";
 import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 import { useDeployments } from "../useDeployments";
 import { ABIS } from "../../config/abis";
+import { addJitter } from "../../lib/polling";
 
 type Address = `0x${string}`;
 
@@ -45,7 +46,7 @@ export function useSpotSellsIndexed(marketKey: `0x${string}` | undefined) {
     enabled: USE_INDEXER && !!chainId,
     queryFn: () => checkChainReady(chainId),
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: addJitter(30_000),
   });
 
   const isChainReady = chainReadyQuery.data === true;
@@ -71,7 +72,7 @@ export function useSpotSellsIndexed(marketKey: `0x${string}` | undefined) {
       }));
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
     retry: false,
   });
 
@@ -120,7 +121,7 @@ export function useSpotSellsIndexed(marketKey: `0x${string}` | undefined) {
       return spotSells;
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
   });
 
   const useIndexer = USE_INDEXER && isChainReady && (indexerQuery.data?.length ?? 0) > 0;

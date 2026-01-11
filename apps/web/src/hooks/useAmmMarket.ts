@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch AMMEngine state for a market
@@ -32,7 +33,7 @@ export function useAmmMarket(marketAddress: `0x${string}` | undefined) {
         ] as const,
         query: {
             enabled: !!marketAddress && !!ammEngineAddress && !!chainId,
-            refetchInterval: 20000,
+            refetchInterval: getPollingInterval(chainId, 'normal'),
             staleTime: 10000,
         },
     });

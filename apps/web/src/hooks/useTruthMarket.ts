@@ -2,6 +2,7 @@ import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
 import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch TruthMarket lifecycle state
@@ -68,7 +69,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         ] as const,
         query: {
             enabled: !!marketAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -84,7 +85,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });

@@ -1,16 +1,15 @@
 # Project Status
 
 ## Current Focus
-- **V10.8 DEPLOYED TO ALL TESTNETS (2026-01-10)** — Atomic market creation with startTime scheduling. LaunchpadEngine now deploys TruthMarket internally, $10 min deposit enforced.
-- **On-Chain Validation Pending** — Create test markets + validate spot sell crossing fix works in production.
-- **Indexer Sync Status** — Frontend now shows live indexer block height and sync status in Footer.
+- **V10.8 FULL-STACK SYNC COMPLETE (2026-01-11)** — Arc and Monad testnets redeployed to V10.8. Frontend, Indexer, and CLI fully synchronized.
+- **RPC Infrastructure Fixes** — Fixed unreachable Monad and Arc RPC endpoints. Updated frontend (wagmi) and CLI configs.
+- **Market Discovery Verified** — Frontend and CLI now correctly discover markets via LaunchpadEngine.getMarkets().
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-11** — **UI Color System Refactor**: Restrained dApp to 4 semantic colors (cyan=accent, emerald=success, rose=danger, slate=muted). Removed all amber/indigo/purple/violet (168→0 occurrences). Inspired by w3.cash minimalism.
-- **2026-01-11** — **Launchpad Background Animation**: Added subtle animated background with floating particles, cyan grid overlay, and glowing orbs to enhance "launch" theme.
-- **2026-01-10** — **Launchpad UI Polish**: Deposit slider with Liquidity(b)/Graduation Fee/Graduation Vol info box. Guardian defaults to Registry mode with Sooth DAO selected. Chain-aware explorer URLs (Monad/Arc markets link to correct explorers).
-- **2026-01-10** — **Launchpad Create Simplified**: `createMarket` now deploys `TruthMarket` directly with `startTime`, minimum $10 deposit enforced, and UI/CLI flows updated to approve → create.
-- **2026-01-10** — **Arc Testnet V10.7 Deployed**: Successfully deployed V10.7 to Arc Testnet. Previous blocker (gas estimation error) resolved. All 3 testnets now on V10.7 with spot sell full-range crossing fix.
+- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad (switched to Ankr as QuickNode/Foundation unreachable) and Arc (switched to drpc endpoint) RPCs in frontend wagmi config, chains.ts, and CLI config.ts.
+- **2026-01-11** — **Frontend ABI Fix**: Rewrote `abis.ts` getAbi() helper to handle both raw array and Foundry artifact formats. Fixed discovery breaking on V10.8 JSON files.
+- **2026-01-11** — **Market Discovery Refactor**: Refactored `useLaunchpadMarkets` to use `useOnChainMarkets` (LaunchpadEngine-based). Removed deprecated LaunchpadFactory logic.
+- **2026-01-11** — **V10.8 Full-Stack Sync**: Redeployed Arc/Monad to V10.8. Synced `deployments.json`, refreshed FE ABIs, and updated `useLaunchpadMarket` hook to extract market metadata from contract.
 - **2026-01-09** — **V10.7 Spot Sell Full-Range Search Fix**: Fixed critical bug where spot sells at better prices were missed during crossing. `_unifiedCross()` now passes buyer's full tick range to `_fillSpotLiquidity()` instead of narrow overlap. Added 6 regression tests (all passing). Gas +11k (acceptable). Deployed to Monad Testnet + Base Sepolia.
 - **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
 - **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
@@ -37,7 +36,8 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **V10.8 On-Chain Validation** — Test atomic market creation flow via CLI: `pnpm interactive:monad` / `interactive:base` / `interactive:arc`.
+- **Update .env RPC URLs** — User's `.env` file contains stale Arc RPC URL (`rpc.testnet.arc.network`). Should update to `rpc.drpc.testnet.arc.network`.
+- **Monad Market Creation** — V10.8 Monad Testnet has 0 markets. Create test market via CLI when RPC is stable.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
@@ -110,38 +110,38 @@
 ### Base Sepolia (chainId: 84532) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x1b6c55c70ae4dafdc8cda646af83bb3554dac388` |
-| **Collateralizer** | `0x1971f1135bef978393f7e736082844bb907e9545` |
-| **AMMEngine** | `0x088c0a1b703ef8380b3ca4e7c51aa1d0f89a1eaf` |
-| **TickBookVault** | `0x576020da46e4c2be45d6c722b3670e02fb9bb217` |
-| **LaunchpadEngine** | `0xb9663ede9c60d4a173b7ae777d097e86e078bca4` |
-| **MockUSDC** | `0x9f5d25d19595e9df513a3172c778174df18bd105` |
+| **TickBookPoolManager** | `0x9f4c719823935cbbb9db3f8e78556d8684c9b877` |
+| **Collateralizer** | `0x87a7042bdeae36309a97d79203dc41d876a76853` |
+| **AMMEngine** | `0x224f012eacbb7425d336bf0bd5546feb74bbb16e` |
+| **TickBookVault** | `0x307425430128a2948bbd33d6f4bc558cc1a58929` |
+| **LaunchpadEngine** | `0x35292381f577692d29078fd66c22aa99aae9a8d6` |
+| **MockUSDC** | `0xf9ac031408f4638c147764377ba8a5ab34584515` |
 
-**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
+**Note:** V10.8 deployment (2026-01-10). Atomic market creation and $10 min deposit.
 
 ### Arc Testnet (chainId: 5042002) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x90d250665e49504325a0d370e566be8dc4801cce` |
-| **Collateralizer** | `0x1309bba78d2097bd005d32293dfa45fe2d479f0e` |
-| **AMMEngine** | `0xfbbf90f4f36c18b2baae752bafb44c3cb98239a7` |
-| **TickBookVault** | `0xb3b3c5a14bd6f8a7559b84efbfaef8d12b520e62` |
-| **LaunchpadEngine** | `0x92794d7674d82fc3643b7c029dbfedfa9bb47e60` |
-| **MockUSDC** | `0x43ef3cabea2219af4e2450e5b5cc212abb1b7ce2` |
+| **TickBookPoolManager** | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
+| **Collateralizer** | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
+| **AMMEngine** | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
+| **TickBookVault** | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
+| **LaunchpadEngine** | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
+| **MockUSDC** | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
 
-**Note:** V10.7 deployment (2026-01-09). Spot sell full-range search fix. Arc uses USDC as native gas token.
+**Note:** V10.8 deployment (2026-01-11). Atomic market creation and $10 min deposit. Arc uses USDC as native gas token.
 
 ### Monad Testnet (chainId: 10143) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0` |
-| **Collateralizer** | `0x06b1a993347e188a923b7e0c85f77ed7d83cced5` |
-| **AMMEngine** | `0x01ba0503fdbe582d78e49f135aed1a175c788add` |
-| **TickBookVault** | `0x557747e57a465c261a56ddbc7e7df8a331f7e093` |
-| **LaunchpadEngine** | `0xbd20f66effc9a0d908283871d546de0b6e3d160e` |
-| **MockUSDC** | `0xd9e25839396b7393fb79c620c8ee05bdbdab5789` |
+| **TickBookPoolManager** | `0x19424e5482ad7b79654706fa60f4e5153d54e3c3` |
+| **Collateralizer** | `0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980` |
+| **AMMEngine** | `0xed9aaecb4577319dc258bfd902f504972e530f67` |
+| **TickBookVault** | `0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c` |
+| **LaunchpadEngine** | `0x6e295996fd9902b6ebf2c44068da9a07b81cd527` |
+| **MockUSDC** | `0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724` |
 
-**Note:** V10.6 deployment (2026-01-07). Dust order visibility fix.
+**Note:** V10.8 deployment (2026-01-11). Fresh redeployment with 18-decimal MockUSDC.
 
 
 ---
@@ -313,4 +313,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-11*

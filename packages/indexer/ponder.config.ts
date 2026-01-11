@@ -3,8 +3,8 @@ import { createConfig } from "ponder";
 import { TickBookPoolManagerAbi } from "./src/abis/TickBookPoolManager";
 
 // Arc RPC: check both env var names, prefer non-rate-limited endpoints
-const arcRpcEnv = process.env.ARC_TESTNET_RPC_URL 
-  ?? process.env.PONDER_RPC_URL_ARC_TESTNET 
+const arcRpcEnv = process.env.ARC_TESTNET_RPC_URL
+  ?? process.env.PONDER_RPC_URL_ARC_TESTNET
   ?? "";
 const arcRpcCandidates = arcRpcEnv
   .split(",")
@@ -20,13 +20,13 @@ export default createConfig({
   chains: {
     baseSepolia: {
       id: 84532,
-      rpc: process.env.BASE_SEPOLIA_RPC_URL 
-        ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA 
+      rpc: process.env.BASE_SEPOLIA_RPC_URL
+        ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA
         ?? "https://sepolia.base.org",
     },
     monadTestnet: {
       id: 10143,
-      rpc: process.env.MONAD_TESTNET_RPC_URL 
+      rpc: process.env.MONAD_TESTNET_RPC_URL
         ?? "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/",
       pollingInterval: 500,
       ethGetLogsBlockRange: 1_000,
@@ -51,8 +51,8 @@ export default createConfig({
           startBlock: 5_332_196,
         },
         arcTestnet: {
-          address: "0x90d250665e49504325a0d370e566be8dc4801cce",
-          startBlock: 20_500_000,
+          address: "0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e",
+          startBlock: 21_044_000,
         },
       },
     },

@@ -4,6 +4,7 @@ import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch creator's LP position and earnings for a market
@@ -49,7 +50,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });

@@ -4,6 +4,32 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### RPC Infrastructure & Market Discovery Fixes (2026-01-11)
+- **Bug Fix (Frontend ABI)**: Rewrote `abis.ts` `getAbi()` helper to handle both raw ABI arrays (V10.8 format) and Foundry artifact objects (legacy format). Fixed frontend market discovery breaking on new JSON files.
+- **Bug Fix (Monad RPC)**: Monad Testnet QuickNode and Foundation RPCs became unreachable. Switched to Ankr (`https://rpc.ankr.com/monad_testnet`) as primary endpoint in `chains.ts` and `wagmi.ts`.
+- **Bug Fix (Arc RPC)**: Arc Testnet `rpc.testnet.arc.network` became unreachable. Switched to `rpc.drpc.testnet.arc.network` in frontend and CLI configs.
+- **Refactor**: `useLaunchpadMarkets` hook now wraps `useOnChainMarkets` instead of using deprecated `LaunchpadFactory` pattern. Removed legacy factory-based discovery code.
+- **Files Changed**:
+  - `apps/web/src/config/abis.ts` — Fixed ABI extraction logic
+  - `apps/web/src/lib/chains.ts` — Updated Monad RPC to Ankr
+  - `apps/web/src/lib/wagmi.ts` — Updated Monad transport to single Ankr endpoint
+  - `apps/web/src/hooks/useLaunchpadMarkets.ts` — Refactored to use useOnChainMarkets
+  - `apps/web/src/hooks/useOnChainMarkets.ts` — Added error handling and v10 query keys
+  - `packages/contracts-testing/script/interactive/config.ts` — Updated Arc RPC to drpc
+
+### V10.8 Deployment & Full-Stack Sync (2026-01-11)
+- **Deployment**: Core protocol V10.8 deployed to **Arc Testnet** and **Monad Testnet**.
+  - **Arc Testnet**: TickBookPoolManager `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e`.
+  - **Monad Testnet**: TickBookPoolManager `0x19424e5482ad7b79654706fa60f4e5153d54e3c3`.
+- **Frontend Sync**:
+  - Updated `deployments.json` for all 3 testnets (Base Sepolia, Arc, Monad).
+  - Regenerated contract ABIs in `apps/web/src/config/abis/` from root `out/` artifacts.
+  - Updated `useLaunchpadMarket.ts` to handle V10.8's 12-field `markets` mapping, extracting `name` and `symbol` directly from the contract.
+- **Indexer Sync**:
+  - Pointed `ponder.config.ts` to V10.8 Arc address.
+  - Adjusted `startBlock` for Arc (`21,044,000`) to match deployment timestamp for faster indexing.
+- **CLI Sync**: Verified interactive CLI `createmarket` and `status` commands against V10.8 contract signatures.
+
 ### UI Color System Refactor (2026-01-11)
 - **Design System**: Restrained dApp UI to 4 semantic color values inspired by w3.cash minimalism:
   - **Cyan** (`cyan-*`) — Accent, interactive elements, highlights

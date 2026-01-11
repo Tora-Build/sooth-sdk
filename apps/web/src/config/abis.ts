@@ -13,27 +13,28 @@ import TickBookVaultPoolManagerABI from "./abis/TickBookVaultPoolManager.json";
 import DynamicFeeHookABI from "./abis/DynamicFeeHook.json";
 import ITickBookHooksABI from "./abis/ITickBookHooks.json";
 
+// Helper to extract ABI whether it's a raw array or a Foundry artifact object
+function getAbi(json: any): Abi {
+  if (Array.isArray(json)) return json as unknown as Abi;
+  if (json && typeof json === 'object' && Array.isArray(json.abi)) return json.abi as Abi;
+  return [] as unknown as Abi;
+}
+
 // Contract ABIs - unified export
 export const ABIS = {
-  LaunchpadEngine: (LaunchpadEngineABI as any).abi as Abi,
-  Collateralizer: (CollateralizerABI as any).abi as Abi,
-  AMMEngine: (AMMEngineABI as any).abi as Abi,
-  TickBook: (TickBookABI as any).abi as Abi,
-  TickBookVault: (TickBookVaultABI as any).abi as Abi,
-  TruthMarket: (TruthMarketABI as any).abi as Abi,
-  OutcomeToken: (OutcomeTokenABI as any).abi as Abi,
+  LaunchpadEngine: getAbi(LaunchpadEngineABI),
+  Collateralizer: getAbi(CollateralizerABI),
+  AMMEngine: getAbi(AMMEngineABI),
+  TickBook: getAbi(TickBookABI),
+  TickBookVault: getAbi(TickBookVaultABI),
+  TruthMarket: getAbi(TruthMarketABI),
+  OutcomeToken: getAbi(OutcomeTokenABI),
   // TickBook singleton (pool manager architecture)
-  TickBookPoolManager: (TickBookPoolManagerABI as any).abi as Abi,
-  TickBookVaultPoolManager: (TickBookVaultPoolManagerABI as any).abi as Abi,
-  DynamicFeeHook: (DynamicFeeHookABI as any).abi as Abi,
-  ITickBookHooks: (ITickBookHooksABI as any).abi as Abi,
+  TickBookPoolManager: getAbi(TickBookPoolManagerABI),
+  TickBookVaultPoolManager: getAbi(TickBookVaultPoolManagerABI),
+  DynamicFeeHook: getAbi(DynamicFeeHookABI),
+  ITickBookHooks: getAbi(ITickBookHooksABI),
 };
-
-
-
-// Legacy V9/V996 removed in favor of canonical V10
-
-
 
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
