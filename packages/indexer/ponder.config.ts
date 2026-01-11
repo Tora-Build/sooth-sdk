@@ -17,6 +17,8 @@ const arcRpc =
   "https://rpc.drpc.testnet.arc.network";
 
 export default createConfig({
+  // Note: Use DATABASE_SCHEMA env var on Render to set schema (e.g., sooth_v10_8)
+  // to avoid migration conflicts when contract addresses change
   chains: {
     baseSepolia: {
       id: 84532,
