@@ -823,9 +823,6 @@ export const PnLSimulator = () => {
                             <p className="text-xs text-white/50">{activeArchetype.story}</p>
                         </div>
                     </div>
-                    <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                        <HelpCircle className="w-5 h-5 text-white/50" />
-                    </button>
                 </div>
 
                 {/* Desktop: Tab navigation */}
