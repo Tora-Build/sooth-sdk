@@ -1,0 +1,17 @@
+{
+  "chainId": 10143,
+  "chainName": "monadTestnet",
+  "version": "V10.8",
+  "timestamp": "2026-01-12T05:39:36.841Z",
+  "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+  "contracts": {
+    "MockUSDC": "0x374af5c5d64245a7c779c8d92f9e3c1058fb1315",
+    "Collateralizer": "0x75a373de062a25178366e8fecb588547bfdfb589",
+    "AMMEngine": "0xaa314e2370587f80b25b217ae97358e8be46d143",
+    "TickBookVault": "0x656c7092038334a66928644df2bec755f85c32c8",
+    "TickBookPoolManager": "0xd4090b703e171bca15dce1cce2da4c8e14ff44c1",
+    "TickBook": "0xd4090b703e171bca15dce1cce2da4c8e14ff44c1",
+    "LaunchpadEngine": "0xa93305a91705b095ddeb3c82f7988b1acdf1f012"
+  },
+  "markets": []
+}

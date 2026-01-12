@@ -41,6 +41,26 @@ interface IAMMEngine {
         uint256 remaining
     );
 
+    event LockedBalanceReduced(
+        address indexed user,
+        uint256 amount,
+        uint256 newLockedBalance
+    );
+
+    event BalanceCredited(
+        address indexed user,
+        uint256 amount,
+        uint256 newAvailableBalance,
+        uint256 newLockedBalance
+    );
+
+    event LockEntryRemoved(
+        address indexed user,
+        address indexed market,
+        uint256 amount,
+        uint64 unlockTime
+    );
+
     event WalletPull(
         address indexed user,
         uint256 amount

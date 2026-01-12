@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title TickBookVault
@@ -143,6 +144,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
         require(_availableUsdcWad[user] >= amountWad, "TickBookVault: insufficient available");
         _availableUsdcWad[user] -= amountWad;
         _marketCollateralWad[market] += amountWad;
+        emit UsdcSpentFromAvailable(user, market, amountWad);
     }
 
     function spendReservedToMarket(address user, address market, uint256 amountWad) external onlyTickBook {
@@ -150,6 +152,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
         require(_reservedUsdcWad[user] >= amountWad, "TickBookVault: insufficient reserved");
         _reservedUsdcWad[user] -= amountWad;
         _marketCollateralWad[market] += amountWad;
+        emit UsdcSpentToMarket(user, market, amountWad);
     }
 
     function creditOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external onlyTickBook {
@@ -328,20 +331,15 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     }
 
     // ============================================
-    // Decimal Helpers (WAD ↔ token decimals)
+    // Decimal Helpers (WAD / token decimals)
     // ============================================
 
     function _usdcToWad(uint256 assetAmount) internal view returns (uint256) {
-        if (usdcDecimals == 18) return assetAmount;
-        if (usdcDecimals < 18) return assetAmount * (10 ** (18 - usdcDecimals));
-        return assetAmount / (10 ** (usdcDecimals - 18));
+        return DecimalMath.toWad(assetAmount, usdcDecimals);
     }
 
     function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
-        // Floor conversion for transfers FROM the contract.
-        if (usdcDecimals == 18) return wadAmount;
-        if (usdcDecimals < 18) return wadAmount / (10 ** (18 - usdcDecimals));
-        return wadAmount * (10 ** (usdcDecimals - 18));
+        return DecimalMath.fromWad(wadAmount, usdcDecimals);
     }
 }
 

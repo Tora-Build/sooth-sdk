@@ -9,6 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {LMSRMath} from "./libraries/LMSRMath.sol";
+import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title AMMEngine
@@ -208,6 +209,9 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
                 if (_lockedBalance[user] > 0) {
                     uint256 lockedReduction = (actualCost * _lockedBalance[user]) / _availableBalance[user];
                     _lockedBalance[user] -= lockedReduction;
+                    if (lockedReduction > 0) {
+                        emit LockedBalanceReduced(user, lockedReduction, _lockedBalance[user]);
+                    }
                 }
                 _availableBalance[user] -= actualCost;
                 emit BalanceUsed(user, actualCost, _availableBalance[user]);
@@ -215,10 +219,12 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
                 uint256 fromBalance = _availableBalance[user];
                 uint256 fromWallet = actualCost - fromBalance;
 
-                // When using full available balance, clear locked as well
-                // (locked is a subset of available, so if available goes to 0, locked must too)
+                uint256 lockedBefore = _lockedBalance[user];
                 _lockedBalance[user] = 0;
                 _availableBalance[user] = 0;
+                if (lockedBefore > 0) {
+                    emit LockedBalanceReduced(user, lockedBefore, 0);
+                }
                 usdc.safeTransferFrom(payer, address(this), _wadToUsdcCeil(fromWallet));
 
                 if (fromBalance > 0) {
@@ -266,6 +272,8 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
                 expiry: uint64(block.timestamp + LOCK_DURATION),
                 market: market
             }));
+
+            emit BalanceCredited(user, proceedsToUser, _availableBalance[user], _lockedBalance[user]);
 
             // Update user position
             if (outcome == 1) {
@@ -390,13 +398,13 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         while (i < queue.length && processed < maxClaims) {
             if (block.timestamp >= queue[i].expiry) {
                 totalUnlocked += queue[i].amount;
-                
-                // Remove entry (swap with last, pop)
+
+                emit LockEntryRemoved(msg.sender, queue[i].market, queue[i].amount, queue[i].expiry);
+
                 queue[i] = queue[queue.length - 1];
                 queue.pop();
-                
+
                 processed++;
-                // Don't increment i (we just swapped in a new entry)
             } else {
                 i++;
             }
@@ -470,8 +478,11 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
             if (_lockedBalance[user] > 0) {
                 uint256 lockedReduction = (spent * _lockedBalance[user]) / available;
                 _lockedBalance[user] -= lockedReduction;
+                if (lockedReduction > 0) {
+                    emit LockedBalanceReduced(user, lockedReduction, _lockedBalance[user]);
+                }
             }
-            
+
             emit BalanceUsed(user, spent, _availableBalance[user]);
         }
     }
@@ -617,26 +628,10 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
     // ============================================
 
     function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
-        // Floor conversion for transfers FROM the contract.
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            return wadAmount / (10 ** (18 - usdcDecimals));
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWad(wadAmount, usdcDecimals);
     }
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
-        // Ceil conversion for transfers TO the contract.
-        if (wadAmount == 0) return 0;
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            uint256 factor = 10 ** (18 - usdcDecimals);
-            return (wadAmount + factor - 1) / factor;
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
     }
 }

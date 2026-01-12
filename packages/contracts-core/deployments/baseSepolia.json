@@ -1,0 +1,17 @@
+{
+  "chainId": 84532,
+  "chainName": "baseSepolia",
+  "version": "V10.8",
+  "timestamp": "2026-01-12T05:40:07.883Z",
+  "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+  "contracts": {
+    "MockUSDC": "0xe35ff7794ca0f3ec55937e3806560684fdcdb74d",
+    "Collateralizer": "0xd7a7d7829776456527198cfd0da1e6c4dae70817",
+    "AMMEngine": "0x67118b2ff01bbadce643c87d86f7228bb2f846b8",
+    "TickBookVault": "0xad72ba21563237ebdfbe310c052f87acb7cab0f2",
+    "TickBookPoolManager": "0x9d17f81207fc377bbd8a73b27ad38eeb23be4388",
+    "TickBook": "0x9d17f81207fc377bbd8a73b27ad38eeb23be4388",
+    "LaunchpadEngine": "0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d"
+  },
+  "markets": []
+}

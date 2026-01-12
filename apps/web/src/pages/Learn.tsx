@@ -628,7 +628,7 @@ export const Learn = () => {
                     </div>
                     <div className="grid sm:grid-cols-3 gap-6">
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-white">V8.1</p>
+                        <p className="text-2xl font-bold text-white">V10.8</p>
                         <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Architecture</p>
                       </div>
                       <div className="text-center">

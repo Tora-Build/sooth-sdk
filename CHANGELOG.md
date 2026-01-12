@@ -4,6 +4,235 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10.8 Event Coverage + Portfolio Indexer (2026-01-12)
+- **Contracts**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, TickBookPoolManager for complete indexer visibility.
+- **Refactor**: Integrated PR #39 DecimalMath library and centralized WAD/token conversions.
+- **Indexer**: Added portfolio schema tables + endpoints; updated ABIs for new events.
+- **Frontend**: Added portfolio indexer hooks with RPC fallback; updated deployments for Base Sepolia + Monad.
+- **Deployments**: Base Sepolia + Monad redeployed; Arc deploy pending (gas estimation failure).
+- **Ops**: Updated Arc deploy RPC to `https://rpc.drpc.testnet.arc.network`.
+
+### RPC Infrastructure & Market Discovery Fixes (2026-01-11)
+- **Bug Fix (Frontend ABI)**: Rewrote `abis.ts` `getAbi()` helper to handle both raw ABI arrays (V10.8 format) and Foundry artifact objects (legacy format). Fixed frontend market discovery breaking on new JSON files.
+- **Bug Fix (Monad RPC)**: Monad Testnet QuickNode and Foundation RPCs became unreachable. Switched to Ankr (`https://rpc.ankr.com/monad_testnet`) as primary endpoint in `chains.ts` and `wagmi.ts`.
+- **Bug Fix (Arc RPC)**: Arc Testnet `rpc.testnet.arc.network` became unreachable. Switched to `rpc.drpc.testnet.arc.network` in frontend and CLI configs.
+- **Refactor**: `useLaunchpadMarkets` hook now wraps `useOnChainMarkets` instead of using deprecated `LaunchpadFactory` pattern. Removed legacy factory-based discovery code.
+- **Files Changed**:
+  - `apps/web/src/config/abis.ts` — Fixed ABI extraction logic
+  - `apps/web/src/lib/chains.ts` — Updated Monad RPC to Ankr
+  - `apps/web/src/lib/wagmi.ts` — Updated Monad transport to single Ankr endpoint
+  - `apps/web/src/hooks/useLaunchpadMarkets.ts` — Refactored to use useOnChainMarkets
+  - `apps/web/src/hooks/useOnChainMarkets.ts` — Added error handling and v10 query keys
+  - `packages/contracts-testing/script/interactive/config.ts` — Updated Arc RPC to drpc
+
+### V10.8 Deployment & Full-Stack Sync (2026-01-11)
+- **Deployment**: Core protocol V10.8 deployed to **Arc Testnet** and **Monad Testnet**.
+  - **Arc Testnet**: TickBookPoolManager `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e`.
+  - **Monad Testnet**: TickBookPoolManager `0x19424e5482ad7b79654706fa60f4e5153d54e3c3`.
+- **Frontend Sync**:
+  - Updated `deployments.json` for all 3 testnets (Base Sepolia, Arc, Monad).
+  - Regenerated contract ABIs in `apps/web/src/config/abis/` from root `out/` artifacts.
+  - Updated `useLaunchpadMarket.ts` to handle V10.8's 12-field `markets` mapping, extracting `name` and `symbol` directly from the contract.
+- **Indexer Sync**:
+  - Pointed `ponder.config.ts` to V10.8 Arc address.
+  - Adjusted `startBlock` for Arc (`21,044,000`) to match deployment timestamp for faster indexing.
+- **CLI Sync**: Verified interactive CLI `createmarket` and `status` commands against V10.8 contract signatures.
+
+### UI Color System Refactor (2026-01-11)
+- **Design System**: Restrained dApp UI to 4 semantic color values inspired by w3.cash minimalism:
+  - **Cyan** (`cyan-*`) — Accent, interactive elements, highlights
+  - **Emerald** (`emerald-*`) — Success states, YES outcomes
+  - **Rose** (`rose-*`) — Danger states, NO outcomes  
+  - **Slate** (`slate-*`) — Muted, neutral, warnings, locked states
+- **Scope**: Refactored 168 occurrences of amber/indigo/purple/violet to 0 across 65 files
+- **Files Changed**: All pages, UI components, feature components, portfolio components, launchpad components
+- **Verification**: Build passes with no errors
+
+### Launchpad Background Animation (2026-01-11)
+- **New Animation**: Added subtle animated background to Launchpad page
+- **Elements**: 
+  - Floating particles (12 cyan dots rising upward)
+  - Cyan grid overlay with breathing pulse effect
+  - 3 glowing orbs (cyan/emerald) with slow pulse animation
+- **Performance**: Pure CSS animations with `will-change` for GPU acceleration, `useMemo` for stable particle config
+- **CSS Added**: `@keyframes float-up`, `pulse-glow`, `grid-pulse` and `.launchpad-*` classes in `index.css`
+
+### Launchpad UI Polish (2026-01-10)
+- **Deposit Slider**: Replaced $100/$1000/$5000 buttons with smooth slider controlling deposit amount.
+- **Info Box**: Shows calculated Liquidity (b), Graduation Fee (= deposit at multiplier=1), and Graduation Vol (= fees/0.05).
+- **Guardian Defaults**: Guardian selector now defaults to Registry mode with Sooth DAO selected. Custom mode properly clears registry addresses.
+- **Chain-Aware Explorer URLs**: Market detail pages now link to correct block explorer based on chain (Base Sepolia → basescan, Monad → monadvision, Arc → arcscan).
+
+### Launchpad Create Flow Simplification (2026-01-10)
+- **Breaking Change**: `LaunchpadEngine.createMarket` now deploys `TruthMarket` internally and returns `(market, lpTokens)`.
+- **Breaking Change**: Removed `TruthMarket.activate()`; markets start live based on `startTime`.
+- **New**: `startTime` added to `TruthMarket` constructor, events, and frontend status logic.
+- **Policy**: Enforced minimum $10 USDC creator deposit in Launchpad flows.
+- **Frontend**: Launch/Create flows now use approve → create, and decode `MarketCreated` from `TruthMarket`.
+- **CLI**: Interactive `createmarket` command updated to decode `MarketCreated` and drop activation.
+- **ABI**: Updated `TruthMarket.json` and `LaunchpadEngine.json` to match new signatures.
+
+### V10.7: Spot Sell Full-Range Search Fix (2026-01-09)
+- **Critical Bug Fix**: Fixed spot sell crossing to search buyer's **full tick range** instead of narrow overlap range.
+- **Issue**: V10.0-V10.6 only searched for spot sells near the market-clearing price. Spot sells at **better prices** (lower ask prices) were completely missed.
+- **Example**: Alice's NO spot sell at 10-11% wasn't crossing with Bob's NO buy order willing to pay up to 50%.
+- **Root Cause**: `_unifiedCross()` passed a narrow "overlap range" to `_fillSpotLiquidity()`. Overlap calculation only considered the highest liquidity price, not the full buyer's range.
+- **Fix**: Modified `_unifiedCross()` to pass buyer's full tick range (converted to seller's native tick space) to `_fillSpotLiquidity()`. Now finds ALL spot sells within buyer's price tolerance.
+- **Gas Impact**: +11k gas (~350k → 361k) due to wider tick search. Updated gas benchmark test to reflect new reality.
+- **Tests**: Added `SpotSellTickSpace.t.sol` with 6 regression tests (all passing).
+- **Deployment**:
+  - Monad Testnet (2026-01-09): TickBookPoolManager `0x4e9731f61c4e40e80e997a87a12c8a1dc50ec208`
+  - Base Sepolia (2026-01-09): TickBookPoolManager `0x2f3464ca4a50a522786c3e72df94f12b02eec46b`
+  - Arc Testnet (2026-01-09): TickBookPoolManager `0x90d250665e49504325a0d370e566be8dc4801cce` ✅
+- **Frontend**: 
+  - Added indexer sync status indicator to Footer showing current block height and sync status
+  - Updated `deployments.json` to V10.7 with all 3 chain addresses
+  - Bumped indexer config to V10.7 contract addresses
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Full-range spot search in `_unifiedCross()`
+  - `packages/contracts-testing/test/crossing/SpotSellTickSpace.t.sol` — New test file
+  - `packages/contracts-testing/test/integration/OrderSystem.t.sol` — Updated gas benchmark
+  - `docs/V10/contracts/03-TickBookPoolManager.md` — Added V10.7 fix documentation
+  - `apps/web/src/hooks/useIndexerStatus.ts` — New hook for indexer status
+  - `apps/web/src/components/layout/Footer.tsx` — Sync indicator display
+  - `apps/web/src/config/deployments.json` — V10.7 addresses (all 3 chains)
+  - `packages/indexer/ponder.config.ts` — V10.7 contract addresses
+- **Status**: ✅ V10.7 deployed to ALL testnets. On-chain validation pending (use interactive CLI).
+
+### LiquidityMap Color Fix (2026-01-09)
+- **Bug Fix**: Fixed bucket side overwrite bug in `LiquidityMap` component where the last-processed order determined the bucket color, causing YES buy orders to incorrectly display as "Sell YES" (red) when a wide-range NO order also covered that price bucket.
+- **Solution**: Now tracks `yesLiq` and `noLiq` separately per bucket and determines color based on which liquidity type is dominant.
+- **RPC Fallback**: Added RPC fallback for spot sells in `useSpotSellsIndexed.ts` - queries chain directly when indexer unavailable.
+- **Cleanup**: Removed debug logging from `useSpotSellsIndexed.ts` and `Pro.tsx`.
+- **Files Changed**:
+  - `apps/web/src/pages/Pro.tsx` — LiquidityMap bucket tracking refactored
+  - `apps/web/src/hooks/indexer/useSpotSellsIndexed.ts` — Added RPC fallback, removed debug logs
+
+### Launchpad UI Overhaul (2026-01-07)
+- **Two-Column Layout**: Refactored `Launchpad.tsx` with sticky form (left) + scrollable context (right).
+- **P&L Simulator Drawer**: Moved 4-archetype P&L simulator into slide-out drawer (triggered by button).
+- **Mobile Tab Selector**: Create/Learn toggle for mobile users (switches between form and context).
+- **New Components**:
+  - `PnLSimulator.tsx` — Interactive 4-archetype P&L calculator (Creator, Gaming Trader, Arbitrageur, PvP Trader)
+  - `TrustSpectrum.tsx` — Visual trust model selector (Trustless → Trust Required)
+  - `TraderBenefitsBanner.tsx` — Fee→LP investment explanation
+  - `RiskDisclosure.tsx` — Always-visible risk matrix
+  - `CreatorEconomicsPanel.tsx` — Deposit/LP/graduation economics
+  - `MarketJourneyTimeline.tsx` — Market lifecycle visualization
+- **P&L Calculators**: `apps/web/src/lib/pnl-calculators.ts` with functions for all 4 archetypes.
+- **Enhanced Registries**: `registries.ts` now includes Brevis adjudicator types with trust levels.
+- **Enhanced AddressSelector**: Trust badges and expandable "How it works" details.
+- **Fee Terminology Fix**: Changed "bonus" to "investment" for pre-graduation LP tokens.
+- **Removed**: Mobile swipe (conflicted with sliders), redundant CreatorEconomicsPanel from context.
+
+### V10.6 Deployed (2026-01-07)
+- **Contract Fix**: Dust orders (<1000 wei unfilled) now stay `active=true` instead of being marked inactive. Order remains visible and claimable; only liquidity is removed from orderbook.
+- **Deployment**: Fresh V10.6 contracts deployed to all 3 testnets:
+  - Base Sepolia: TickBookPoolManager `0x1b6c55c70ae4dafdc8cda646af83bb3554dac388`
+  - Monad Testnet: TickBookPoolManager `0xc0768a0be30662cd15e7ff4bd79ae8a110681ae0`
+  - Arc Testnet: TickBookPoolManager `0xCb209Aa0E77A68378626e3f1d5136A0A5aa18B68`
+- **Frontend**: Version strings updated to V10.6 across Footer, Landing page, and config files.
+- **Indexer**: Updated `ponder.config.ts` with V10.6 contract addresses and start blocks.
+- **UX**: Order action buttons (Claim/Cancel) now always visible with disabled states when not applicable, providing consistent button positions across all order types.
+
+### V10.3.1 Deployed (2026-01-06)
+- **Deployment**: Fresh V10.3.1 contracts deployed to Base Sepolia and Monad Testnet with MAX_TICK boundary fix.
+- **Frontend**: Updated `deployments.json` with V10.3.1 addresses. CLI dynamically loads from contracts-core.
+- **README**: Updated to reflect V10 architecture and current deployments.
+
+### Pro Terminal + Tick 999 Boundary Fix (2026-01-06)
+- **Frontend**: Temporarily disabled Pro "Market" order UI (full-range + `maxCost` is not a true sweep and can leave resting shares).
+- **Contracts**: Fixed MAX_TICK (999) boundary visibility by special-casing range orders that end at tick 999 so overlap discovery can still see top-of-book liquidity.
+
+### CLI & Monad Config Fixes (2026-01-06)
+- **Monad Gas Config**: Explicitly set `gas_limit = 2000000` in `contracts-testing/foundry.toml` [profile.monad] to prevent OutOfGas.
+- **CLI Fixes**:
+  - Reduced `simulate` gas limit from 5M to 2M in `market.ts` to match network config.
+  - Fixed `simulate` command `Address "0" is invalid` crash (incorrect destructuring of `truthMarket`).
+  - Updated `2_CreateMarket.s.sol` to support configurable `USDC` address via env var.
+
+### V10 Critical Fix (2026-01-05)
+- **Bug Fix**: `_hasSpotLiquidity` used exclusive search `findNextUp(tick)`, causing `placeOrder` to skip spot liquidity at the exact start tick. Fixed to uses inclusive search `findNextUp(tick - 1)`.
+- **Test Recovery**: Restored and migrated variable V9 test suite (79 tests) to V10 structure in `packages/contracts-testing/test/`.
+- **Verification**: `test_Unified_PlaceOrderCrossesSpotSell` now passes.
+
+### Repo Hygiene (2026-01-05)
+- **Breaking Change**: Renamed deployment files to remove version prefixes (`v9-baseSepolia.json` -> `baseSepolia.json`, etc.).
+- **Breaking Change**: Removed legacy ABI exports (`V8_ABIS`, `V9_ABIS`, `V10_ABIS`) from `apps/web/src/config/abis.ts`. Unified all usage to `ABIS`.
+- **Cleanup**: Renamed `ActivityListenerV8` to `ActivityListener`.
+- **Docs**: Enforced "No Versioned Filenames" policy in `STATUS.md` and `LESSONS_LEARNED.md`.
+
+### V9.9.8-fix: Pro-rata Fill Accumulator Bug (2026-01-05)
+- **CRITICAL: Fill Growth Denominator Fix**:
+  - **Bug**: `_tryCross()` used `oppLiqInOverlap` as denominator for fill growth calculation
+  - **Impact**: When overlap liquidity was small, fill growth became inflated (e.g., 10 shares crossed → 100% fill growth for all orders)
+  - **Symptom**: Orders showed 99% filled when only small crossings occurred
+  - **Fix**: Changed to use `oppTotalLiq` (total liquidity for that outcome) as denominator
+  - **Files**: `TickBookPoolManager.sol`, `TickBookPoolManagerV10.sol`
+  - **Status**: Requires redeployment
+
+### Frontend Fixes (2026-01-05)
+- **Hybrid Sell Fixed**: Now correctly splits spot sell (owned shares) + short sell (remainder)
+  - Before: Tried to spot sell full amount even with partial shares → "insufficient YES" error
+  - After: Spot sells only `userHolding`, short sells `amount - userHolding`
+- **calculateMaxCost Fixed**: Now uses correct bounds per outcome type
+  - YES orders: collateral = `pHigh * shares`
+  - NO orders: collateral = `(1 - pLow) * shares`
+  - Increased default slippage from 1% to 5%
+- **RPC Fix**: Removed failing `base-sepolia-rpc.publicnode.com` from wagmi fallback
+
+### CLI Enhancements (2026-01-05)
+- **New Commands**:
+  - `claimspotsell <sellId>` — Claim USDC proceeds from filled spot sells
+  - `hybridsell <outcome> <tickRange> <totalShares>` — Auto-split spot + short sell
+- **Simulate Updates**:
+  - Added spot sell (10%) and hybrid sell (5%) to order type distribution
+  - Refactored to use unified `executeOrder()` helper for all order types
+  - Fixed `getMarketInfo` and `getInternalOutcomes` function names
+- **Batch Claim**: Increased `MAX_BATCH_SIZE` from 20 to 50
+
+## [10.0.0] - 2026-01-05
+
+### V10 Deployed to Base Sepolia & Monad Testnet
+- **Deployment Complete**: `TickBookPoolManagerV10` live on both testnets
+  - Base Sepolia: `0x36abe6344a3756868f6ac26d81f1c7a40d68b0ba`
+  - Monad Testnet: `0x0d9cb90f5bb982ed6a96a412a423317580d032ad`
+- **Frontend Updated**: All hooks migrated from `V996_ABIS` to `V10_ABIS`
+- **CLI Updated**: Interactive CLI config updated with V10 ABI schema
+- **Files Changed**:
+  - `apps/web/src/config/deployments.json` → V10 addresses
+  - `apps/web/src/config/abis.ts` → Added `V10_ABIS` export
+  - `apps/web/src/config/abis/TickBookPoolManagerV10.json` → New ABI
+  - 8 frontend hooks updated to use `V10_ABIS`
+  - `packages/contracts-testing/script/interactive/config.ts` → V10 ABI
+
+### V10 Unified Crossing Architecture (2026-01-05)
+- **New Contract**: `TickBookPoolManagerV10.sol` — Unified crossing for dual-collateral orderbook
+- **Unified TickLiquidity Struct**:
+  - `rangeLiquidityNet` — Range order net liquidity (for crossing)
+  - `rangeLiquidityGross` — Range order gross liquidity (for bitmap cleanup)
+  - `spotLiquidity` — Spot sell liquidity at this tick (NEW)
+- **Separate Spot Bitmaps**: `_spotBitmaps` for efficient spot liquidity traversal
+- **`_crossUnified()` Function**:
+  - Fills spot liquidity FIRST (recycle existing tokens)
+  - Then fills range liquidity (mint synthetic tokens)
+  - Branches settlement by source type
+- **New Events**:
+  - `UnifiedCrossing` — Emits spot/range breakdown for each crossing
+- **Tests**: `UnifiedCrossingV10.t.sol` (7 passing, 2 TODO for full auto-crossing)
+- **ADR-073**: Documents the V10 unified crossing design
+- **Files Added**:
+  - `packages/contracts-core/src/TickBookPoolManagerV10.sol`
+  - `packages/contracts-testing/test/v10/UnifiedCrossingV10.t.sol`
+
+### V10 Version Consistency Audit (2026-01-05)
+- **Removed**: Legacy `TickBookPoolManagerV996.sol` (historical V9).
+- **Removed**: `packages/contracts-testing/test/v9` directory (legacy tests).
+- **Renamed**: `UnifiedOrderSystem.t.sol` → `UnifiedOrderSystemV9.t.sol` (explicit regression test).
+- **Fixed**: `interactive-test.ts` now uses `keyV10` instead of `keyV996`.
+- **Fixed**: `Pro.tsx` fully migrated to `V10_ABIS` (removed lingering V996 ABI imports).
+
+
 ### V9.9.8 Critical Bug Fixes (2026-01-05)
 - **CRITICAL: cancelSpotSell Double-Credit Fix**:
   - **Bug**: User could claim proceeds twice by calling `cancelSpotSell()` then `claimSpotSellProceeds()` (proceeds not zeroed in cancel)

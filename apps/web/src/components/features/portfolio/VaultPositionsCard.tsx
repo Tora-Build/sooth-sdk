@@ -17,7 +17,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
     const [isRedeeming, setIsRedeeming] = useState(false);
     const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}` | undefined;
-    
+
     const hasYes = (pos.liquidYes + pos.lockedYes + pos.walletYes) > 0.001;
     const hasNo = (pos.liquidNo + pos.lockedNo + pos.walletNo) > 0.001;
     const priceYes = pos.priceYes || 0.5;
@@ -52,11 +52,11 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
     return (
         <div className="p-3 rounded-lg bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/40 transition-all group space-y-2 relative overflow-hidden">
             {pos.isSettled && (
-                <div className="absolute top-0 right-0 p-1 bg-amber-500/10 border-b border-l border-amber-500/20 rounded-bl-lg">
-                    <Trophy size={8} className="text-amber-400" />
+                <div className="absolute top-0 right-0 p-1 bg-slate-500/10 border-b border-l border-slate-500/20 rounded-bl-lg">
+                    <Trophy size={8} className="text-slate-400" />
                 </div>
             )}
-            
+
             <div className="flex justify-between items-start gap-2">
                 <h4 className="font-bold text-[11px] text-white leading-tight truncate flex-1 pr-4" title={pos.question}>
                     {pos.question}
@@ -74,8 +74,8 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                             <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes + pos.walletYes) * priceYes)}</div>
                             <div className="flex gap-0.5 opacity-40">
                                 {pos.walletYes > 0 && <Wallet size={7} className="text-emerald-400" />}
-                                {pos.lockedYes > 0 && <Lock size={7} className="text-amber-400" />}
-                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
+                                {pos.lockedYes > 0 && <Lock size={7} className="text-slate-400" />}
+                                {pos.liquidYes > 0 && <ArrowRightLeft size={7} className="text-cyan-400" />}
                             </div>
                         </div>
                     </div>
@@ -90,8 +90,8 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                             <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo + pos.walletNo) * priceNo)}</div>
                             <div className="flex gap-0.5 opacity-40">
                                 {pos.walletNo > 0 && <Wallet size={7} className="text-rose-400" />}
-                                {pos.lockedNo > 0 && <Lock size={7} className="text-amber-400" />}
-                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-indigo-400" />}
+                                {pos.lockedNo > 0 && <Lock size={7} className="text-slate-400" />}
+                                {pos.liquidNo > 0 && <ArrowRightLeft size={7} className="text-cyan-400" />}
                             </div>
                         </div>
                     </div>
@@ -104,7 +104,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                         onClick={handleRedeem}
                         disabled={isRedeeming}
                         variant="glow"
-                        className="col-span-2 w-full py-2 text-[10px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-400 transition-all flex items-center justify-center gap-1.5"
+                        className="col-span-2 w-full py-2 text-[10px] font-black uppercase tracking-widest border border-cyan-500/30 text-cyan-400 transition-all flex items-center justify-center gap-1.5"
                     >
                         {isRedeeming ? <Loader2 size={10} className="animate-spin" /> : <Trophy size={10} />}
                         REDEEM WINNINGS
@@ -124,7 +124,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                             size="sm"
                             variant="primary"
                             onClick={() => setModalMode('split')}
-                            className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white"
+                            className="group py-2 text-[10px] font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
                         >
                             <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> SPLIT
                         </Button>
@@ -149,10 +149,10 @@ export const VaultPositionsCard: React.FC = () => {
     return (
         <PortfolioCard
             title="Trading Positions"
-            icon={<ShieldCheck size={16} className="text-indigo-400" />}
-            variant="indigo"
+            icon={<ShieldCheck size={16} className="text-cyan-400" />}
+            variant="cyan"
             badge={
-                <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-widest">
+                <span className="text-[9px] font-bold text-cyan-400/60 uppercase tracking-widest">
                     {vaultPositions.length} margin positions
                 </span>
             }

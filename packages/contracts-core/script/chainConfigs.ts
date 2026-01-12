@@ -55,21 +55,15 @@ export const monadTestnet = defineChain({
   testnet: true,
 });
 
-// Arc Testnet RPCs: https://docs.arc.network/arc/references/connect-to-arc#arc-testnet
-// Circle-backed chain with native USDC support
-// IMPORTANT: Arc requires minFeePerGas >= 160 Gwei
+// Arc Testnet: Circle-backed chain with native USDC as gas token
+// Sub-second finality (~350ms), 3000+ TPS
 export const arcTestnet = defineChain({
-  id: 5041490,
+  id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
-      http: [
-        'https://rpc.testnet.arc.network',
-        'https://rpc.quicknode.testnet.arc.network',
-        'https://rpc.drpc.testnet.arc.network',
-        'https://rpc.blockdaemon.testnet.arc.network',
-      ]
+      http: ['https://rpc.drpc.testnet.arc.network'],
     },
   },
   blockExplorers: {
@@ -194,6 +188,7 @@ export function getChainById(chainId: number): ChainConfig | undefined {
 export interface DeploymentArtifact {
   chainId: number;
   chainName: string;
+  version: string;
   timestamp: string;
   deployer: string;
   contracts: {
