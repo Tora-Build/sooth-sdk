@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield, Landmark, Scale, TrendingUp, Package, Anchor } from 'lucide-react';
 import { useState } from 'react';
 import { useLaunchpadMarket } from '../hooks/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/useLaunchpadMarkets';
@@ -127,11 +127,11 @@ const MarketInfoCard = ({
       {/* Education Panel (toggleable) */}
       {showHelp && (
         <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-2">
-          <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
-          <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
-          <p>• ↗ <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
-          <p>• 📦 <strong>TVL Formula</strong>: Reconciles AMM cash with users' locked proceeds (24h cooling) to show the total contract-level USDC holdings.</p>
-          <p>• ⚓ <strong>Liquidity Anchor</strong>: The fundamental LMSR relationship where LP supply is mathematically anchored to the depth parameter (b).</p>
+          <p className="flex items-center gap-1">• <Landmark size={12} /> <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
+          <p className="flex items-center gap-1">• <Scale size={12} /> <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
+          <p className="flex items-center gap-1">• <TrendingUp size={12} /> <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
+          <p className="flex items-center gap-1">• <Package size={12} /> <strong>TVL Formula</strong>: Reconciles AMM cash with users' locked proceeds (24h cooling) to show the total contract-level USDC holdings.</p>
+          <p className="flex items-center gap-1">• <Anchor size={12} /> <strong>Liquidity Anchor</strong>: The fundamental LMSR relationship where LP supply is mathematically anchored to the depth parameter (b).</p>
         </div>
       )}
 
@@ -158,7 +158,7 @@ const MarketInfoCard = ({
           {/* 1. Cash Basis (Primary Input) */}
           <div className="p-2.5 rounded border border-slate-700/30 bg-slate-900/40 group hover:border-slate-600/50 transition-colors">
             <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
+              <span className="flex items-center gap-1"><Landmark size={12} /> Cash Basis Formula</span>
               <span className="text-slate-500 font-mono italic">Seed + Fees + P&L = Gross</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -175,7 +175,7 @@ const MarketInfoCard = ({
           {/* 2. Equity Floor (Net Value) */}
           <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
             <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
+              <span className="flex items-center gap-1"><Scale size={12} /> Equity Floor Formula</span>
               <span className="text-cyan-600/60 font-mono italic">Gross - Liability = Floor</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -190,7 +190,7 @@ const MarketInfoCard = ({
           {/* 3. Valuation (Unit Price) */}
           <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
             <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">↗ Valuation (ExRate)</span>
+              <span className="flex items-center gap-1"><TrendingUp size={12} /> Valuation (ExRate)</span>
               <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -205,7 +205,7 @@ const MarketInfoCard = ({
           {/* 4. TVL Reconciliation (Physical) */}
           <div className="p-2.5 rounded border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
             <div className="text-[8px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">📦 TVL Formula</span>
+              <span className="flex items-center gap-1"><Package size={12} /> TVL Formula</span>
               <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -220,7 +220,7 @@ const MarketInfoCard = ({
           {/* 5. Liquidity Anchor (Mathematical) */}
           <div className="p-2.5 rounded border border-slate-700/30 bg-slate-900/40 group hover:border-slate-600/50 transition-colors">
             <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>
+              <span className="flex items-center gap-1"><Anchor size={12} /> Liquidity Anchor Formula</span>
               <span className="text-slate-500 font-mono italic">b * ln(2) ≈ Supply</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -664,8 +664,8 @@ export const MarketDetail = () => {
               {displayName}
             </h1>
             {isSettled ? (
-              <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/50">
-                ⚖️ Settled
+              <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/50 flex items-center gap-1">
+                <Scale size={12} /> Settled
               </Badge>
             ) : isGraduated ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
@@ -676,8 +676,8 @@ export const MarketDetail = () => {
                 Expired
               </Badge>
             ) : (
-              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
-                ⚡ Bonding
+              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50 flex items-center gap-1">
+                <Zap size={12} /> Bonding
               </Badge>
             )}
           </div>

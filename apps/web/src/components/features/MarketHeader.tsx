@@ -7,7 +7,7 @@
  * - Category filters
  */
 import { useState } from 'react';
-import { Search, Zap, BookOpen, HelpCircle, X } from 'lucide-react';
+import { Search, TrendingUp, BarChart3, HelpCircle, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 
@@ -75,8 +75,8 @@ export const MarketHeader = ({
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
           >
-            <Zap className="w-4 h-4" />
-            AMM
+            <TrendingUp className="w-4 h-4" />
+            Trade
           </Link>
           <Link
             to="/pro"
@@ -87,7 +87,7 @@ export const MarketHeader = ({
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             )}
           >
-            <BookOpen className="w-4 h-4" />
+            <BarChart3 className="w-4 h-4" />
             Pro
           </Link>
         </div>

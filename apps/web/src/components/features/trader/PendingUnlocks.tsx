@@ -98,7 +98,7 @@ export const PendingUnlocks: React.FC = () => {
     >
         <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 mb-2">
             <p className="text-xs text-emerald-400/60 font-mono leading-tight">
-                Funds from AMM sells are held for 24h to ensure settlement finality.
+                Funds from sells are held for 24h to ensure settlement finality.
             </p>
         </div>
         {hasClaimable && (
@@ -117,7 +117,7 @@ export const PendingUnlocks: React.FC = () => {
         {mode === 'demo' && entries.length > 0 && (
             <div className="p-2 rounded bg-slate-500/5 border border-slate-500/10 text-center">
                 <p className="text-xs text-slate-400/60 font-mono italic">
-                    💡 Demo Mode: Proceeds from AMM sells unlock after 24h
+                    💡 Demo Mode: Proceeds from sells unlock after 24h
                 </p>
             </div>
         )}

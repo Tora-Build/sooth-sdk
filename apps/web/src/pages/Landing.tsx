@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight, Shield, Clock, TrendingUp, Gauge, PenTool, Gamepad2, RefreshCcw, Swords } from 'lucide-react';
+import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords } from 'lucide-react';
 
 export const Landing = () => {
   return (
@@ -43,7 +43,7 @@ message SettlementProof {
               to="/create"
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"
             >
-              <Zap className="w-4 h-4" />
+              <Rocket className="w-4 h-4" />
               Launch App
             </Link>
           </div>
@@ -99,12 +99,12 @@ message SettlementProof {
               to="/create"
               className="group shimmer-swipe flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-black font-bold text-xl rounded-xl transition-all hover:shadow-2xl hover:shadow-cyan-500/30"
             >
-              <Zap className="w-6 h-6" />
+              <Rocket className="w-6 h-6" />
               Launch App
               <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              to="/about"
+              to="/learn"
               className="px-10 py-5 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-bold text-xl rounded-xl transition-all backdrop-blur-sm"
             >
               Learn
@@ -123,9 +123,9 @@ message SettlementProof {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { role: "Creator", icon: <PenTool className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "cyan" },
+              { role: "Creator", icon: <Palette className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "cyan" },
               { role: "Gaming Trader", icon: <Gamepad2 className="w-5 h-5" />, path: "/trade", desc: "Predict events and earn protocol stakeholder rewards", color: "emerald" },
-              { role: "Arbitrageur", icon: <RefreshCcw className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
+              { role: "Arbitrageur", icon: <ArrowLeftRight className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
               { role: "PvP Trader", icon: <Swords className="w-5 h-5" />, path: "/pro", desc: "Pure conviction trading on the 10,000-tick CLOB", color: "indigo" }
             ].map((actor) => (
               <Link
@@ -159,7 +159,7 @@ message SettlementProof {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <FeatureCard
-              icon={<TrendingUp className="w-5 h-5" />}
+              icon={<Rocket className="w-5 h-5" />}
               title="Launchpad"
               description="Permissionless creation with creator economics and aligned incentives."
               color="cyan"
@@ -171,7 +171,7 @@ message SettlementProof {
               color="indigo"
             />
             <FeatureCard
-              icon={<Gauge className="w-5 h-5" />}
+              icon={<BarChart3 className="w-5 h-5" />}
               title="TickBook"
               description="On-chain CLOB with 10,000-tick depth and constant-time discovery."
               color="cyan"

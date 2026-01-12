@@ -5,7 +5,7 @@ import { parseUnits, formatUnits, Address, decodeEventLog } from 'viem';
 import {
     Rocket, Scale, Shield, DollarSign,
     Activity, Check, Coins, BookOpen,
-    Loader2, ExternalLink
+    Loader2, ExternalLink, Bitcoin, Trophy, Theater, Zap
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -22,10 +22,10 @@ import { PolymarketExplorer, PolymarketSelectData } from '../components/features
 import { Drawer } from '../components/ui/Drawer';
 
 const MARKET_CATEGORIES = [
-    { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-cyan-500 to-slate-500' },
-    { id: 'sports', name: 'Sports', icon: '⚽', gradient: 'from-emerald-500 to-teal-500' },
-    { id: 'cultures', name: 'Cultures', icon: '🎭', gradient: 'from-pink-500 to-rose-500' },
-    { id: 'others', name: 'Others', icon: '⚡', gradient: 'from-cyan-500 to-emerald-500' }
+    { id: 'crypto', name: 'Crypto', icon: Bitcoin, gradient: 'from-cyan-500 to-slate-500' },
+    { id: 'sports', name: 'Sports', icon: Trophy, gradient: 'from-emerald-500 to-teal-500' },
+    { id: 'cultures', name: 'Cultures', icon: Theater, gradient: 'from-pink-500 to-rose-500' },
+    { id: 'others', name: 'Others', icon: Zap, gradient: 'from-cyan-500 to-emerald-500' }
 ];
 
 
@@ -40,7 +40,7 @@ export const Launchpad = () => {
 
     const [question, setQuestion] = useState('');
     const [form, setForm] = useState({
-        category: 'crypto',
+        category: 'others',
         expirationMode: '7d',
         customExpiration: '',
         initialLiquidity: '693',
@@ -399,7 +399,9 @@ export const Launchpad = () => {
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Category</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {MARKET_CATEGORIES.map(cat => (
+                                    {MARKET_CATEGORIES.map(cat => {
+                                        const IconComponent = cat.icon;
+                                        return (
                                         <button
                                             key={cat.id}
                                             onClick={() => setForm(p => ({ ...p, category: cat.id }))}
@@ -410,11 +412,12 @@ export const Launchpad = () => {
                                                     : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
                                             )}
                                         >
-                                            <span className="text-lg">{cat.icon}</span>
+                                            <IconComponent className="w-5 h-5" />
                                             <span className="text-sm">{cat.name}</span>
                                             {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
                                         </button>
-                                    ))}
+                                    );
+                                    })}
                                 </div>
                             </div>
 

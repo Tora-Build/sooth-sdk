@@ -8,7 +8,7 @@
  */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2, BarChart3, Check } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -84,7 +84,10 @@ const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect })
       <div className="text-left min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
-          {isGraduated && <Zap className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+          {isGraduated 
+            ? <BarChart3 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+            : <Zap className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+          }
         </div>
         <div className="text-xs text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
@@ -136,7 +139,7 @@ export const Trade = () => {
         id: staticMarket?.id || m.address,
         name: staticMarket?.name || localMeta?.name || m.name || 'Unknown Market',
         symbol: staticMarket?.symbol || m.symbol || '???',
-        category: (staticMarket as any)?.category || localMeta?.category || 'other',
+        category: (staticMarket as any)?.category || localMeta?.category || 'others',
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
         isGraduated: m.isGraduated,
@@ -224,8 +227,8 @@ export const Trade = () => {
     <div className="space-y-6">
       {/* Unified Header */}
       <MarketHeader
-        title="AMM"
-        hint="Automated Market Maker for casual traders. Buy or sell YES/NO tokens instantly with always-available liquidity. During the bonding phase, every trade earns you LP tokens as rewards. Perfect for expressing quick opinions or hedging your positions without worrying about order matching."
+        title="Trading on LMSR AMM"
+        hint="LMSR (Logarithmic Market Scoring Rule) provides instant liquidity at any size. During bonding phase, every trade earns LP tokens. After graduation, LP holders earn from trading fees. Simple interface for quick predictions - no order matching needed."
         search={search}
         onSearchChange={setSearch}
         category={category}
