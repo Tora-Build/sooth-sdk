@@ -1,30 +1,50 @@
 # Project Status
 
 ## Current Focus
-- **V9.9.8 Ready** — Critical bug fixes applied to V9.9.7 spot sell, needs redeployment.
-- **Pro Page Order Management Fixed** — Order actions simplified (Cancel/Claim), fill tracking uses RPC-only.
-- **No Markets Yet** — Fresh deployment needs markets created via CLI or Launchpad.
+- **V10.8 Redeploy + Event Instrumentation (2026-01-12)** — Base Sepolia + Monad redeployed with expanded event coverage for indexer correctness.
+- **Portfolio Indexer Integration** — New indexer schema/endpoints + frontend hooks with RPC fallback.
+- **Arc Deployment Pending** — Arc Testnet deploy failed at gas estimation; will retry after RPC update.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks. Arc deploy failed at gas estimate.
+- **2026-01-12** — **Event Coverage Expansion**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, and TickBookPoolManager to support comprehensive indexing.
+- **2026-01-12** — **Portfolio Indexer Integration**: Added indexer schema + API endpoints; frontend hooks now prefer indexer with RPC fallback.
+- **2026-01-12** — **PR #39 Integration**: Adopted DecimalMath refactor across contracts-core.
+- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad and Arc RPC endpoints across frontend and CLI configs.
+- **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
+- **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
+- **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
+- **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P\u0026L Simulator in drawer, mobile Create/Learn tab selector.
+- **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.
+- **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable.
+- **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
+- **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
+- **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
+- **2026-01-05** — **Frontend Fixes**: Fixed hybrid sell (now splits spot + short correctly), fixed `calculateMaxCost` for range orders (uses correct bounds per outcome), removed failing publicnode RPC.
+- **2026-01-05** — **CLI Enhancements**: Added `claimspotsell`, `hybridsell` commands. Added spot/hybrid sell to simulate. Increased batch claim limit to 50.
+- **2026-01-05** — **Repo Hygiene**: Librarian cleanup executed. Enforced canonical filenames (`TickBookPoolManager.json`, `baseSepolia.json`). Removed versioned ABI keys, unified around `ABIS`.
+- **2026-01-05** — **V10 Audit & Cleanup**: Removed historical `TickBookPoolManagerV996.sol` and legacy V9 tests. Renamed CLI variables (`keyV996` → `keyV10`) for consistency.
+- **2026-01-05** — V10 Unified Crossing: Created `TickBookPoolManagerV10.sol` with dual-collateral architecture. Spot fills first, then range. See ADR-073.
 - **2026-01-05** — V9.9.8 Bug Fixes: Fixed `cancelSpotSell` double-credit vulnerability (proceeds zeroed before credit), indexer tick liquidity on cancel, MarketRegistered ABI mismatch.
 - **2026-01-05** — V9.9.7 Spot Sell: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` to contract. Frontend Pro.tsx updated to use spot sell for users with existing shares.
 - **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract.
-- **2026-01-04** — Indexer Frontend Integration: Fixed conditional RPC fallback, added indexed orders for LiquidityMap, filtered inactive orders from API.
-- **2026-01-04** — RPC Optimization: Added HTTP batching to Base Sepolia transport, fixed 429 rate limiting.
-- **2026-01-04** — V9.9.6-fix9l Recovery: Restored correct TickBookPoolManager with unified `placeOrder()` API + `getAllMarketOrders()`. Redeployed to Base Sepolia.
+
+- **2026-01-06** — **Monad Testnet Stable**: Fixed `simulate` CLI crash, configured 2M gas limit, and successfully created test markets ("UN Confirms Alien Life").
+- **2026-01-06** — **Frontend V10 Integrated**: Updated addresses and ABIs for V10.3.0 deployment.
+- **2026-01-06** — **Graduate Command Verified**: Validated fee accumulation and graduation logic on V10.
+- **2026-01-06** — **Pro Market Order Disabled**: Removed Market toggle / floor UI from Pro terminal pending contract-level market sweep semantics.
+- **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Redeploy V9.9.8** — Critical `cancelSpotSell` double-credit fix needs deployment to Base Sepolia and Monad Testnet.
-- **Create Test Markets** — Fresh deployment needs markets created via CLI or Launchpad.
-- **Basescan Verification** — Contract verification on Base Sepolia.
-- **Test Suite Cleanup** — V9 tests reference removed `ILockCallback` interface (hook system removed in V9.9.4).
-- **Arc Testnet RPC** — Deployment failed due to RPC chain ID issue.
+- **Arc Testnet Redeploy** — Deployment failed at gas estimation on `rpc.testnet.arc.network`. RPC updated in script; retry needed.
+- **Update .env RPC URLs** — User's `.env` file contains stale Arc RPC URL (`rpc.testnet.arc.network`). Should update to `rpc.drpc.testnet.arc.network`.
+- **Indexing Reset** — Reset indexer DB and reindex once Arc redeploy succeeds.
+- **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
-- ~~**429 Rate Limiting** — Pro page flooding RPC with parallel metadata requests (Fixed via batching + conditional indexer fallback).~~
-- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 10143).
+- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
-- **⚠️ Fractured Liquidity (V9.9.8)** — Spot Sells are NOT crossed by standard `placeOrder()`. Buyers must explicitly call `buyFromSpotSell()`. Frontend routing required. See ADR-072. **Fix planned: V10 unified crossing.**
+- **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -67,7 +87,7 @@
 - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
 - `apps/web/src/hooks/usePlaceOrder.ts`
 - `apps/web/src/hooks/useOnChainMarkets.ts`
-- `apps/web/src/config/abis/TickBookPoolManagerV996.json`
+- `apps/web/src/config/abis/TickBookPoolManager.json`
 
 ---
 
@@ -88,29 +108,41 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V9.9.7
+### Base Sepolia (chainId: 84532) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x32c228f558eca71a1aab8663162b4b4bf87bdd1a` |
-| **Collateralizer** | `0x34542cddbfb9294e753f99e2417633f9c4c8a54d` |
-| **AMMEngine** | `0xd4311bb4febe5cbaf9d6fe75ce00c448e972f681` |
-| **TickBookVault** | `0xb4e467e35767f8efc3bff5117e1631b81beb204d` |
-| **LaunchpadEngine** | `0x0539fddb35529d6d8e81355e7fb278bf273595b5` |
-| **MockUSDC** | `0xd4832b4738e0b9ac4dc7b4e1f032a903e3051cbc` |
+| **TickBookPoolManager** | `0x9d17f81207fc377bbd8a73b27ad38eeb23be4388` |
+| **Collateralizer** | `0xd7a7d7829776456527198cfd0da1e6c4dae70817` |
+| **AMMEngine** | `0x67118b2ff01bbadce643c87d86f7228bb2f846b8` |
+| **TickBookVault** | `0xad72ba21563237ebdfbe310c052f87acb7cab0f2` |
+| **LaunchpadEngine** | `0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d` |
+| **MockUSDC** | `0xe35ff7794ca0f3ec55937e3806560684fdcdb74d` |
 
-**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell (`placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell`), `batchCancelOrders`, unified `placeOrder()` API.
+**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
 
-### Monad Testnet (chainId: 10143) — V9.9.7
+### Arc Testnet (chainId: 5042002) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xc80c8b4c56a62614d9408b805b40580dd9420361` |
-| **Collateralizer** | `0xd7c843926622c59a3c85d35d6628caa369262778` |
-| **AMMEngine** | `0xb3c313e3973761cd5a7862db494492ecba38871e` |
-| **TickBookVault** | `0xea8438f6871a733e35de08b15015b404d6c8b234` |
-| **LaunchpadEngine** | `0x07073c1fe986b3321f811f450b9f19703b08feec` |
-| **MockUSDC** | `0x6427a20feb8289e325916bd60f5efd191ce3e7a1` |
+| **TickBookPoolManager** | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
+| **Collateralizer** | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
+| **AMMEngine** | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
+| **TickBookVault** | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
+| **LaunchpadEngine** | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
+| **MockUSDC** | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
 
-**Note:** V9.9.7 deployment (2026-01-05). Includes spot sell + batchCancelOrders.
+**Note:** V10.8 deployment (2026-01-11). Atomic market creation and $10 min deposit. Arc uses USDC as native gas token.
+
+### Monad Testnet (chainId: 10143) — V10.8
+| Contract | Address |
+|----------|---------|
+| **TickBookPoolManager** | `0xd4090b703e171bca15dce1cce2da4c8e14ff44c1` |
+| **Collateralizer** | `0x75a373de062a25178366e8fecb588547bfdfb589` |
+| **AMMEngine** | `0xaa314e2370587f80b25b217ae97358e8be46d143` |
+| **TickBookVault** | `0x656c7092038334a66928644df2bec755f85c32c8` |
+| **LaunchpadEngine** | `0xa93305a91705b095ddeb3c82f7988b1acdf1f012` |
+| **MockUSDC** | `0x374af5c5d64245a7c779c8d92f9e3c1058fb1315` |
+
+**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
 
 
 ---
@@ -122,7 +154,7 @@
 packages/contracts-core/
 ├── src/                 # Core contracts (audit scope)
 ├── script/              # 1_DeployCore, deploy-multichain, verify
-├── deployments/         # v9-baseSepolia.json, v9-monadTestnet.json
+├── deployments/         # baseSepolia.json, monadTestnet.json
 ├── abi/                 # Generated ABIs
 └── lib/                 # Dependencies
 ```
@@ -130,7 +162,7 @@ packages/contracts-core/
 ### contracts-testing (Partner + QA)
 ```
 packages/contracts-testing/
-├── test/                # All V9 tests (138 passing)
+├── test/                # V10 tests only (legacy V9 removed)
 ├── script/
 │   ├── markets/         # Market creation & init scripts
 │   ├── deploy/          # Version-specific deploy scripts
@@ -157,7 +189,12 @@ pnpm benchmark  # → contracts-testing
 
 ---
 
-## Recent Improvements (2026-01-01)
+## Recent Improvements (2026-01-06)
+
+### V10 Unified Crossing (ADR-073)
+- **Unified Liquidity**: `placeOrder` now natively crosses both Spot Sells and Range Orders.
+- **Spot Priority**: Takers automatically get the best price (Spot > Range).
+- **Verified**: Regression tests (`UnifiedCrossing.t.sol`) confirm correct priority and settlement.
 
 ### Interactive CLI (contracts-testing)
 New REPL for on-chain testing without external scripts:
@@ -207,7 +244,7 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 2. SELL trades are half the size of BUY trades
 3. With LMSR at ~50% price, cost ≈ 0.5 × shares
 
-**Fix**: Changed formula from `volumeNeeded * 4 / (3 * numTrades)` to `volumeNeeded * 8 / (3 * numTrades)` to account for:
+**Fix**: Changed formula from `volumeNeeded * 8 / (3 * numTrades)` to account for:
 - BUY cost ≈ shares × 0.5
 - SELL cost ≈ (shares/2) × 0.5
 
@@ -244,20 +281,16 @@ Added on-chain market enumeration to replace static `markets.json` config.
 ## Pending Work
 
 ### Critical (Blocking)
-- [ ] **Redeploy V9.9.6-fix2** — User orders cleanup fix needs deployment to both testnets
-- [ ] **Create test markets** — Fresh deployment needs new markets
+- [x] **Create test markets** — V10.3.0 markets created on Monad & Base Sepolia.
+- [x] **Frontend Integration** — Connected V10 contracts to web app.
 
 ### High Priority
-- [x] ~~**Pro Page Orderbook**~~ — Now shows all orders via `useAllOrdersDirect` hook
-- [ ] **Test graduate command** — Verify trade size calculation works (currently ~70% progress on 4 trades)
+- [x] **Verify Graduate Command** — Validated on V10 markets.
+- [ ] **Contract Verification** — Verify V10 contracts on Basescan
 
 ### Medium Priority
-- [x] ~~**CLI Deposit Bug**~~ — Fixed MockUSDC decimal conversion in simulate command
-- [x] ~~**Autoclaim Integration**~~ — Now built into `placeOrder()` via `_autoClaimUserOrders()`
-- [x] ~~**BPS Bug Fixes**~~ — Fixed in markets list and graduate command
-- [x] ~~**Collateralizer Error**~~ — Pre-graduation markets now handled gracefully
-- [ ] **Contract Verification** — Verify on Basescan
 - [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
+- [ ] **Documentation** — Update developer guides for V10 changes
 
 ### Interactive CLI Next Steps
 - [ ] **Tune graduate trade sizes** — Current formula gets ~70% progress; may need more iterations
@@ -266,46 +299,19 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 ### Known Issues
 - Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
-- Both testnets have empty markets array (fresh deployment)
 
 ---
 
 ## Critical Bug Fix (2026-01-01)
 
-### V9.9.6 Active Liquidity Underflow
+### V9.9.6 Active Liquidity Underflow (RESOLVED in V10)
 
 **Symptom**: First several trades succeed, then one fails with "arithmetic underflow or overflow", and ALL subsequent trades fail.
 
-**Root Cause**: In `_fill()` function, lines 613, 664, 667 had unsafe type casts:
-```solidity
-// BEFORE (buggy)
-activeLiq = uint128(int128(activeLiq) + delta);
-```
+**Root Cause**: In `_fill()` function, unsafe type casts when `|delta| > activeLiq`.
 
-When crossing tick boundaries, `delta` (from `liquidityNet`) could be negative. If `|delta| > activeLiq`, the result becomes negative, and casting to `uint128` causes panic.
+**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0.
 
-**Fix**: Added `_safeAddLiquidity()` helper that clamps to 0:
-```solidity
-function _safeAddLiquidity(uint128 liq, int128 delta) internal pure returns (uint128) {
-    if (delta >= 0) {
-        return liq + uint128(delta);
-    } else {
-        uint128 absDelta = uint128(-delta);
-        return liq >= absDelta ? liq - absDelta : 0;
-    }
-}
-```
+**Status**: **RESOLVED**. Included in V10.3.0.
 
-**Files Changed**:
-- `packages/contracts-core/src/TickBookPoolManagerV996.sol`:
-  - Added `_safeSubLiquidity()` helper (lines 695-703)
-  - Fixed `_updateActiveLiquidity()` (lines 755, 761)
-  - Fixed `_tryCross()` (lines 851, 853, 859, 861)
-  - Original `_safeAddLiquidity()` fix for `_fill()` (lines 613, 664, 667)
-
-**Regression Tests Added**:
-- `packages/contracts-testing/test/v9/ActiveLiquidityUnderflow.t.sol` (8 tests)
-
-**Action Required**: Redeploy TickBookPoolManager to both testnets.
-
-*Last updated: 2026-01-02*
+*Last updated: 2026-01-12*

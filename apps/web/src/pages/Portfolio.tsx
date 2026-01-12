@@ -1,29 +1,20 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useReadContracts } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
-import { Link } from 'react-router-dom';
 import {
-  PlusCircle, Wallet, ShieldCheck, TrendingUp, TrendingDown, Clock,
-  ArrowUpRight, ArrowDownRight, Database, Zap, Lock,
-  ChevronRight, BadgeInfo, AlertTriangle, ShieldAlert,
-  HelpCircle, Info, Activity, History, ArrowRight,
-  ExternalLink, User, CheckCircle
+  Wallet, ShieldCheck, TrendingUp, Clock,
+  Database, Zap, Lock,
+  Activity, CheckCircle
 } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
-import { useAvailableBalance, useLockQueue, useTokenBalances } from '../hooks';
-import { useDirectRead, readContractSafe, useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
-import { useMarketStatsMath } from '../hooks/useMarketStatsMath';
+import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets } from '../hooks';
+import { useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
+import { usePortfolioIndexed, useMarketsIndexed } from '../hooks/indexer';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { ERC20_ABI, V8_ABIS } from '../config/abis';
-import marketsConfigRaw from '../config/markets.json';
-import { MarketConfig, MarketsConfigJson } from '../types';
-
-const marketsConfig = marketsConfigRaw as MarketsConfigJson;
-
-const CURRENT_VERSION_PREFIX = 'v9.0'; // Current canonical version
+import { ERC20_ABI, ABIS } from '../config/abis';
+import type { OnChainMarket } from '../hooks/useOnChainMarkets';
 
 // --- Components ---
 
@@ -33,17 +24,12 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-/**
- * AMMPositionRow - Displays internal shares from AMMEngine
- */
-const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueUpdate }: {
-  market: MarketConfig,
-  userAddress: `0x${string}`,
-  ammEngineAddress: `0x${string}`,
+const AMMPositionRow = ({ market, price, onValueUpdate }: {
+  market: OnChainMarket,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
-  const { data: position, isLoading } = useAMMPositionDirect(market.contractAddress as `0x${string}`);
+  const { data: position, isLoading } = useAMMPositionDirect(market.address as `0x${string}`);
 
   const yesShares = position?.yesShares ?? 0n;
   const noShares = position?.noShares ?? 0n;
@@ -55,16 +41,16 @@ const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueU
 
   useEffect(() => {
     if (!isLoading && onValueUpdate && (yesShares > 0n || noShares > 0n)) {
-      onValueUpdate(market.contractAddress, valueUsd);
+      onValueUpdate(market.address, valueUsd);
     } else if (!isLoading && onValueUpdate) {
-      onValueUpdate(market.contractAddress, 0);
+      onValueUpdate(market.address, 0);
     }
-  }, [isLoading, valueUsd, market.contractAddress, onValueUpdate, yesShares, noShares]);
+  }, [isLoading, valueUsd, market.address, onValueUpdate, yesShares, noShares]);
 
   if (isLoading || (yesShares === 0n && noShares === 0n)) return null;
 
   return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
         <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
         <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
@@ -87,12 +73,8 @@ const AMMPositionRow = ({ market, userAddress, ammEngineAddress, price, onValueU
   );
 };
 
-/**
- * LPPositionRow - Displays LP balance and its USDC value
- */
-const LPPositionRow = ({ market, userAddress, lpBalance, lpSupply, floorValue, decimals, onValueUpdate }: {
-  market: MarketConfig,
-  userAddress: `0x${string}`,
+const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onValueUpdate }: {
+  market: OnChainMarket,
   lpBalance?: bigint,
   lpSupply?: bigint,
   floorValue?: bigint,
@@ -109,9 +91,9 @@ const LPPositionRow = ({ market, userAddress, lpBalance, lpSupply, floorValue, d
 
   useEffect(() => {
     if (onValueUpdate) {
-      onValueUpdate(market.contractAddress, valueUsd);
+      onValueUpdate(market.address, valueUsd);
     }
-  }, [valueUsd, market.contractAddress, onValueUpdate]);
+  }, [valueUsd, market.address, onValueUpdate]);
 
   if (!lpBalance || lpBalance === 0n) return null;
 
@@ -132,84 +114,18 @@ const LPPositionRow = ({ market, userAddress, lpBalance, lpSupply, floorValue, d
   );
 };
 
-/**
- * OutcomeTokenRow - Displays ERC20 tokens in wallet
- */
-const OutcomeTokenRow = ({ market, userAddress, price, onValueUpdate }: {
-  market: MarketConfig,
-  userAddress: `0x${string}`,
-  price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
-}) => {
-  const { data: balances } = useReadContracts({
-    contracts: [
-      {
-        address: market.yesToken as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
-        functionName: 'balanceOf',
-        args: [userAddress],
-      },
-      {
-        address: market.noToken as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
-        functionName: 'balanceOf',
-        args: [userAddress],
-      }
-    ],
-    query: { enabled: !!market.yesToken && !!market.noToken && !!userAddress }
-  });
 
-  const yesBalance = balances?.[0]?.result as bigint ?? 0n;
-  const noBalance = balances?.[1]?.result as bigint ?? 0n;
-
-  // Use price for YES, (1-price) for NO
-  const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
-  const noPriceNum = 1 - yesPriceNum;
-
-  const valueUsd = (Number(yesBalance) / 1e18 * yesPriceNum) + (Number(noBalance) / 1e18 * noPriceNum);
-
-  useEffect(() => {
-    if (onValueUpdate) {
-      onValueUpdate(market.contractAddress, valueUsd);
-    }
-  }, [valueUsd, market.contractAddress, onValueUpdate]);
-
-  if (yesBalance === 0n && noBalance === 0n) return null;
-
-  return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
-      <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name}</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
-      </div>
-      <div className="flex gap-2">
-        {yesBalance > 0n && (
-          <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesBalance, 18)).toFixed(1)}</span>
-          </div>
-        )}
-        {noBalance > 0n && (
-          <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noBalance, 18)).toFixed(1)}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 /**
  * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
 const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
-  market: MarketConfig,
+  market: OnChainMarket,
   userAddress: `0x${string}`,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
-  const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.contractAddress as `0x${string}`);
+  const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
 
   const yesInternal = vault?.yesInternal ?? 0n;
   const noInternal = vault?.noInternal ?? 0n;
@@ -222,14 +138,14 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
 
   useEffect(() => {
     if (!isLoading && onValueUpdate && (yesInternal > 0n || noInternal > 0n)) {
-      onValueUpdate(market.contractAddress, valueUsd);
+      onValueUpdate(market.address, valueUsd);
     }
-  }, [isLoading, valueUsd, market.contractAddress, onValueUpdate, yesInternal, noInternal]);
+  }, [isLoading, valueUsd, market.address, onValueUpdate, yesInternal, noInternal]);
 
   if (isLoading || (yesInternal === 0n && noInternal === 0n)) return null;
 
   return (
-    <div className="bg-slate-900/40 rounded-lg p-3 border border-indigo-500/10 hover:border-indigo-500/30 transition-colors mb-2">
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
         <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Position</div>
         <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
@@ -252,74 +168,118 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   );
 };
 
-/**
- * ProMarginRow - Displays margin reserved for a specific market
- */
-const ProMarginRow = ({ market, userAddress }: {
-  market: MarketConfig,
-  userAddress: `0x${string}`
+const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
+  market: OnChainMarket,
+  userAddress: `0x${string}`,
+  price?: bigint,
+  onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
-  const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.contractAddress as `0x${string}`);
-  const reserved = vault?.reservedUsdcWad ?? 0n;
+  const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
+  const yesLocked = vault?.yesLocked ?? 0n;
+  const noLocked = vault?.noLocked ?? 0n;
 
-  if (isLoading || reserved === 0n) return null;
+  const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
+  const noPriceNum = 1 - yesPriceNum;
+  const valueUsd = (Number(yesLocked) / 1e18 * yesPriceNum) + (Number(noLocked) / 1e18 * noPriceNum);
+
+  useEffect(() => {
+    if (!isLoading && onValueUpdate) {
+      onValueUpdate(market.address, valueUsd);
+    }
+  }, [isLoading, valueUsd, market.address, onValueUpdate]);
+
+  if (isLoading || (yesLocked === 0n && noLocked === 0n)) return null;
 
   return (
-    <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
-      <div className="flex items-center gap-3">
-        <Lock className="w-4 h-4 text-amber-400" />
-        <div>
-          <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-          <div className="text-[10px] font-mono text-amber-500/80">RESERVED MARGIN</div>
-        </div>
+    <div className="bg-slate-900/40 rounded-lg p-3 border border-amber-500/10 hover:border-amber-500/30 transition-colors mb-2">
+      <div className="flex justify-between items-start mb-2">
+        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name}</div>
+        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
-      <div className="text-right">
-        <div className="text-sm font-mono font-bold text-white">${parseFloat(formatUnits(reserved, 18)).toFixed(2)}</div>
+      <div className="text-[9px] text-amber-500/70 mb-2 uppercase tracking-wider">Locked for Spot Sell</div>
+      <div className="flex gap-2">
+        {yesLocked > 0n && (
+          <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
+            <span className="text-[10px] font-mono text-emerald-500">YES</span>
+            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesLocked, 18)).toFixed(1)}</span>
+          </div>
+        )}
+        {noLocked > 0n && (
+          <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
+            <span className="text-[10px] font-mono text-rose-500">NO</span>
+            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noLocked, 18)).toFixed(1)}</span>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export const Portfolio = () => {
-  const { selectedChainId } = useChainStore();
-  const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
+  useChainStore();
   const deployments = useDeployments();
   const ammEngineAddress = deployments?.contracts?.AMMEngine as `0x${string}`;
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
   const { address: userAddress } = useAccount();
 
-  // 1. Core Account Balances (from Engine)
-  const { available, locked, availableFormatted, lockedFormatted, withdrawableFormatted, isLoading: isLoadingBalance } = useAvailableBalance(ammEngineAddress);
+  // Indexer hooks (primary data source when available)
+  const indexedPortfolio = usePortfolioIndexed(userAddress);
+  const indexedMarkets = useMarketsIndexed();
+  const useIndexer = indexedPortfolio.isIndexerReady && indexedMarkets.isIndexerReady;
 
-  // 2. Lock Queue (Pending Unlocks)
-  const { entries: queue, totalLocked: queueTotal, isLoading: isLoadingQueue } = useLockQueue(ammEngineAddress);
+  // 1. Core Account Balances (from Engine) - RPC fallback
+  useAvailableBalance(ammEngineAddress);
+
+  // 2. Lock Queue (Pending Unlocks) - RPC fallback
+  const rpcLockQueue = useLockQueue(ammEngineAddress);
+  const queue = useIndexer
+    ? indexedPortfolio.lockEntries.map(e => ({
+        amount: BigInt(e.amountWad),
+        expiryDate: new Date(Number(e.unlockTime) * 1000),
+        isUnlocked: Date.now() >= Number(e.unlockTime) * 1000,
+        timeUntilUnlock: Math.max(0, Number(e.unlockTime) * 1000 - Date.now()),
+      }))
+    : rpcLockQueue.entries;
+  const queueTotal = useIndexer
+    ? indexedPortfolio.lockEntries.reduce((acc, e) => acc + BigInt(e.amountWad), 0n)
+    : rpcLockQueue.totalLocked;
   const queueTotalFormatted = formatUnits(queueTotal, 18);
 
-  // 3. Pro Account Balances (from TickBookVault)
-  const { vault: proVault, isLoading: isLoadingProVault } = useTickBookVaultDirect(userAddress, undefined);
-  const proAvailableWad = proVault?.availableUsdcWad ?? 0n;
-  const proReservedWad = proVault?.reservedUsdcWad ?? 0n;
+  // 3. Pro Account Balances (from TickBookVault) - always RPC (indexer can't track accurately)
+  const rpcVault = useTickBookVaultDirect(userAddress, undefined);
+  const proAvailableWad = rpcVault.vault?.availableUsdcWad ?? 0n;
+  const proReservedWad = rpcVault.vault?.reservedUsdcWad ?? 0n;
   const proAvailableFormatted = formatUnits(proAvailableWad, 18);
   const proReservedFormatted = formatUnits(proReservedWad, 18);
+  const isLoadingProVault = rpcVault.isLoading;
 
-  // 4. Markets Data for Aggregation - STRICT VERSION FILTERING
-  const v8Markets = useMemo(() => {
-    return marketsConfig.markets.filter(m =>
-      m.chainId === chainId &&
-      m.version?.startsWith('v')
-    );
-  }, [chainId]);
+  // 4. Markets Data for Aggregation - prefer indexer
+  const rpcMarkets = useOnChainMarkets();
+  const onChainMarkets: OnChainMarket[] = useMemo(() => {
+    if (useIndexer && indexedMarkets.markets.length > 0) {
+      return indexedMarkets.markets.map(m => ({
+        address: m.address as `0x${string}`,
+        name: `Market ${m.address.slice(0, 8)}`,
+        symbol: m.address.slice(0, 6).toUpperCase(),
+        creator: m.creator as `0x${string}`,
+        isGraduated: m.isGraduated,
+        createdAt: BigInt(m.createdAt),
+        bBase: BigInt(m.initialLiquidity),
+        bCurrent: BigInt(m.initialLiquidity),
+      }));
+    }
+    return rpcMarkets.markets;
+  }, [useIndexer, indexedMarkets.markets, rpcMarkets.markets]);
 
-  // Value Tracking States
   const [lpValues, setLpValues] = useState<Record<string, number>>({});
   const [ammValues, setAmmValues] = useState<Record<string, number>>({});
-  const [tokenValues, setTokenValues] = useState<Record<string, number>>({});
   const [vaultSharesValues, setVaultSharesValues] = useState<Record<string, number>>({});
+  const [lockedSharesValues, setLockedSharesValues] = useState<Record<string, number>>({});
 
   const totalLpVal = useMemo(() => Object.values(lpValues).reduce((a, b) => a + b, 0), [lpValues]);
   const totalAmmVal = useMemo(() => Object.values(ammValues).reduce((a, b) => a + b, 0), [ammValues]);
-  const totalTokenVal = useMemo(() => Object.values(tokenValues).reduce((a, b) => a + b, 0), [tokenValues]);
   const totalVaultSharesVal = useMemo(() => Object.values(vaultSharesValues).reduce((a, b) => a + b, 0), [vaultSharesValues]);
+  const totalLockedSharesVal = useMemo(() => Object.values(lockedSharesValues).reduce((a, b) => a + b, 0), [lockedSharesValues]);
 
   const handleLpValueUpdate = useCallback((addr: string, val: number) => {
     setLpValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
@@ -327,16 +287,18 @@ export const Portfolio = () => {
   const handleAmmValueUpdate = useCallback((addr: string, val: number) => {
     setAmmValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
   }, []);
-  const handleTokenValueUpdate = useCallback((addr: string, val: number) => {
-    setTokenValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
-  }, []);
   const handleVaultSharesUpdate = useCallback((addr: string, val: number) => {
     setVaultSharesValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
   }, []);
+  const handleLockedSharesUpdate = useCallback((addr: string, val: number) => {
+    setLockedSharesValues(prev => prev[addr] === val ? prev : { ...prev, [addr]: val });
+  }, []);
+
+  const totalActiveCollateral = parseFloat(proReservedFormatted) + totalLockedSharesVal;
 
   // 4. Wallet Balance & Decimals
   const usdcAddress = deployments?.contracts?.MockUSDC as `0x${string}`;
-  const { balances, isLoading: isLoadingWallet } = useTokenBalances(usdcAddress ? [usdcAddress] : []);
+  const { balances } = useTokenBalances(usdcAddress ? [usdcAddress] : []);
   const walletUsdc = balances[0] ?? 0n;
 
   const { data: usdcDecimals } = useReadContract({
@@ -349,13 +311,13 @@ export const Portfolio = () => {
 
   // Batch Read: Market Prices, Internal Shares, LP Balances
   const { data: batchData, isLoading: isLoadingBatch } = useReadContracts({
-    contracts: v8Markets.flatMap(m => [
-      { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getMarketState', args: [m.contractAddress] },
-      { address: ammEngineAddress, abi: V8_ABIS.AMMEngine, functionName: 'getPosition', args: [m.contractAddress, userAddress] },
-      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.contractAddress, userAddress] },
-      { address: launchpadEngineAddress, abi: V8_ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.contractAddress] }
+    contracts: onChainMarkets.flatMap(m => [
+      { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getMarketState', args: [m.address] },
+      { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getPosition', args: [m.address, userAddress] },
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.address, userAddress] },
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.address] }
     ]),
-    query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && v8Markets.length > 0 }
+    query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && onChainMarkets.length > 0 }
   });
 
   // Aggregate values
@@ -365,7 +327,7 @@ export const Portfolio = () => {
     let ammValue = 0;
     let hasAnyLpBalance = false;
 
-    for (let i = 0; i < v8Markets.length; i++) {
+    for (let i = 0; i < onChainMarkets.length; i++) {
       const baseIdx = i * 4;
       const priceResult = batchData[baseIdx]?.result as readonly [bigint, bigint, bigint];
       const sharesResult = batchData[baseIdx + 1]?.result as readonly [bigint, bigint];
@@ -400,17 +362,17 @@ export const Portfolio = () => {
       }
     }
     return { lpValue, ammValue, hasAnyLpBalance };
-  }, [batchData, v8Markets, decimals]);
+  }, [batchData, onChainMarkets, decimals]);
 
   const walletUsdcFormatted = formatUnits(walletUsdc, decimals);
 
   // Account Aggregates
-  const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalTokenVal + totalAmmVal + parseFloat(queueTotalFormatted);
+  const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalAmmVal + parseFloat(queueTotalFormatted);
   const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal;
 
   // Helper to extract specific market price from batch
   const getMarketPrice = (marketAddr: string) => {
-    const idx = v8Markets.findIndex(m => m.contractAddress === marketAddr);
+    const idx = onChainMarkets.findIndex(m => m.address === marketAddr);
     if (idx === -1 || !batchData) return undefined;
     return (batchData[idx * 4]?.result as any)?.[2];
   };
@@ -465,7 +427,7 @@ export const Portfolio = () => {
                     <ShieldCheck className="w-2.5 h-2.5" /> Owned Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
-                    ${(totalTokenVal + totalAmmVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${totalAmmVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
@@ -480,7 +442,7 @@ export const Portfolio = () => {
                   <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Wallet className="w-2.5 h-2.5" /> USDC
                   </div>
-                  <div className="font-mono text-amber-400 font-bold text-sm">
+                  <div className="font-mono text-slate-400 font-bold text-sm">
                     ${parseFloat(walletUsdcFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
@@ -491,8 +453,8 @@ export const Portfolio = () => {
           {/* TickBook Vault (Isolated Margin) */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                <Database className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+                <Database className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
                 <Tooltip
@@ -505,12 +467,12 @@ export const Portfolio = () => {
               </div>
             </div>
 
-            <Card className="bg-gradient-to-br from-indigo-950/40 to-slate-950 border-indigo-500/20 p-6 min-h-[240px] flex flex-col justify-between">
+            <Card className="bg-gradient-to-br from-cyan-950/40 to-slate-950 border-cyan-500/20 p-6 min-h-[240px] flex flex-col justify-between">
               <div className="mb-4">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-xs text-indigo-300 font-bold flex items-center gap-2 uppercase tracking-tighter">
+                  <div className="text-xs text-cyan-300 font-bold flex items-center gap-2 uppercase tracking-tighter">
                     <Database className="w-3 h-3" /> Total Vault Value
-                    {isLoadingProVault && <div className="animate-spin w-2 h-2 border-2 border-indigo-500 border-t-transparent rounded-full" />}
+                    {isLoadingProVault && <div className="animate-spin w-2 h-2 border-2 border-cyan-500 border-t-transparent rounded-full" />}
                   </div>
                 </div>
                 <div className="text-4xl font-mono font-bold text-white tracking-tight">
@@ -539,7 +501,7 @@ export const Portfolio = () => {
                   <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Database className="w-2.5 h-2.5" /> Unused USDC
                   </div>
-                  <div className="font-mono text-amber-400 font-bold text-sm">
+                  <div className="font-mono text-slate-400 font-bold text-sm">
                     ${parseFloat(proAvailableFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
@@ -573,14 +535,13 @@ export const Portfolio = () => {
                 </div>
               </div>
               <div className="p-4">
-                {v8Markets.length > 0 ? (
-                  v8Markets.map((market, i) => {
+                {onChainMarkets.length > 0 ? (
+                  onChainMarkets.map((market, i) => {
                     const baseIdx = i * 4;
                     return (
                       <LPPositionRow
-                        key={market.contractAddress}
+                        key={market.address}
                         market={market}
-                        userAddress={userAddress!}
                         lpBalance={batchData?.[baseIdx + 2]?.result as bigint}
                         lpSupply={(batchData?.[baseIdx + 3]?.result as any)?.[3]}
                         floorValue={(batchData?.[baseIdx + 3]?.result as any)?.[5]}
@@ -592,7 +553,7 @@ export const Portfolio = () => {
                 ) : (
                   <EmptyState message="No liquidity positions found" />
                 )}
-                {aggregates.lpValue === 0 && !aggregates.hasAnyLpBalance && !isLoadingBatch && v8Markets.length > 0 && (
+                {aggregates.lpValue === 0 && !aggregates.hasAnyLpBalance && !isLoadingBatch && onChainMarkets.length > 0 && (
                   <div className="mt-[-8px]">
                     <EmptyState message="No active liquidity" />
                   </div>
@@ -608,30 +569,17 @@ export const Portfolio = () => {
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Owned Shares</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
-                  ${(totalTokenVal + totalAmmVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${totalAmmVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <div className="p-4">
-                {v8Markets.length > 0 ? (
+                {onChainMarkets.length > 0 ? (
                   <>
-                    {/* Wallet Rows */}
-                    {v8Markets.map(market => (
-                      <OutcomeTokenRow
-                        key={`wallet-${market.contractAddress}`}
-                        market={market}
-                        userAddress={userAddress!}
-                        price={getMarketPrice(market.contractAddress)}
-                        onValueUpdate={handleTokenValueUpdate}
-                      />
-                    ))}
-                    {/* AMM Engine Rows */}
-                    {v8Markets.map(market => (
+                    {onChainMarkets.map(market => (
                       <AMMPositionRow
-                        key={`amm-${market.contractAddress}`}
+                        key={`amm-${market.address}`}
                         market={market}
-                        userAddress={userAddress!}
-                        ammEngineAddress={ammEngineAddress}
-                        price={getMarketPrice(market.contractAddress)}
+                        price={getMarketPrice(market.address)}
                         onValueUpdate={handleAmmValueUpdate}
                       />
                     ))}
@@ -639,7 +587,7 @@ export const Portfolio = () => {
                 ) : (
                   <EmptyState message="No markets tracked" />
                 )}
-                {totalTokenVal + totalAmmVal === 0 && !isLoadingBatch && (
+                {totalAmmVal === 0 && !isLoadingBatch && (
                   <div className="mt-[-8px]">
                     <EmptyState message="No owned shares found" />
                   </div>
@@ -648,10 +596,10 @@ export const Portfolio = () => {
             </Card>
 
             {/* Pending Exits */}
-            <Card className="p-0 border-amber-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-amber-950/10 border-b border-amber-500/10 flex justify-between items-center">
+            <Card className="p-0 border-slate-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-slate-950/10 border-b border-slate-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
+                  <Clock className="w-4 h-4 text-slate-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Pending Exits</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
@@ -665,7 +613,7 @@ export const Portfolio = () => {
                   (queue || []).map((item, idx) => {
                     const isUnlocked = item.isUnlocked;
                     return (
-                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 hover:border-amber-500/30 transition-all group">
+                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 hover:border-slate-500/30 transition-all group">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-mono font-bold text-white tracking-tight">
@@ -686,7 +634,7 @@ export const Portfolio = () => {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/20 text-amber-400 border border-amber-500/20'}`}>
+                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
                             {isUnlocked ? 'Liquid' : 'Locked'}
                           </span>
                           {!isUnlocked && (
@@ -710,17 +658,17 @@ export const Portfolio = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-3 h-3 text-indigo-500" />
+                <Activity className="w-3 h-3 text-cyan-500" />
                 <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
 
             {/* Pro Vault Owned Shares */}
-            <Card className="p-0 border-indigo-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-indigo-950/20 border-b border-indigo-500/10 flex justify-between items-center">
+            <Card className="p-0 border-cyan-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-cyan-950/20 border-b border-cyan-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-indigo-400" />
+                  <Database className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Owned Shares</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
@@ -728,44 +676,64 @@ export const Portfolio = () => {
                 </div>
               </div>
               <div className="p-4">
-                {totalVaultSharesVal === 0 ? (
-                  <EmptyState message="No vault shares found" />
+                {onChainMarkets.length > 0 ? (
+                  <>
+                    {onChainMarkets.map(market => (
+                      <TickBookInternalRow
+                        key={market.address}
+                        market={market}
+                        userAddress={userAddress!}
+                        price={getMarketPrice(market.address)}
+                        onValueUpdate={handleVaultSharesUpdate}
+                      />
+                    ))}
+                    {totalVaultSharesVal === 0 && !isLoadingBatch && (
+                      <EmptyState message="No vault shares found" />
+                    )}
+                  </>
                 ) : (
-                  v8Markets.map(market => (
-                    <TickBookInternalRow
-                      key={market.contractAddress}
-                      market={market}
-                      userAddress={userAddress!}
-                      price={getMarketPrice(market.contractAddress)}
-                      onValueUpdate={handleVaultSharesUpdate}
-                    />
-                  ))
+                  <EmptyState message="No markets tracked" />
                 )}
               </div>
             </Card>
 
-            {/* Active Margin */}
-            <Card className="p-0 border-indigo-500/20 bg-slate-950/30 overflow-hidden">
-              <div className="px-4 py-3 bg-indigo-950/20 border-b border-indigo-500/10 flex justify-between items-center">
+            {/* Active Collateral (Reserved USDC + Locked Shares) */}
+            <Card className="p-0 border-cyan-500/20 bg-slate-950/30 overflow-hidden">
+              <div className="px-4 py-3 bg-cyan-950/20 border-b border-cyan-500/10 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">Active Margin</h3>
+                  <Lock className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">Active Collateral</h3>
                 </div>
                 <div className="text-white font-mono font-bold text-sm">
-                  ${parseFloat(proReservedFormatted).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${totalActiveCollateral.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <div className="p-4 bg-slate-900/20">
-                {proReservedWad === 0n ? (
-                  <EmptyState message="No active margin reserved" />
-                ) : (
-                  v8Markets.map(market => (
-                    <ProMarginRow
-                      key={market.contractAddress}
-                      market={market}
-                      userAddress={userAddress!}
-                    />
-                  ))
+                {proReservedWad > 0n && (
+                  <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-3">
+                    <div className="flex items-center gap-3">
+                      <Database className="w-4 h-4 text-slate-400" />
+                      <div>
+                        <div className="text-xs font-bold text-white uppercase tracking-wider">Reserved USDC</div>
+                        <div className="text-[10px] font-mono text-slate-500/80">For Range Buy Orders</div>
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-white">
+                      ${parseFloat(proReservedFormatted).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                )}
+                {onChainMarkets.map(market => (
+                  <LockedSharesRow
+                    key={market.address}
+                    market={market}
+                    userAddress={userAddress!}
+                    price={getMarketPrice(market.address)}
+                    onValueUpdate={handleLockedSharesUpdate}
+                  />
+                ))}
+                {proReservedWad === 0n && totalLockedSharesVal === 0 && (
+                  <EmptyState message="No active collateral" />
                 )}
               </div>
             </Card>
@@ -773,24 +741,24 @@ export const Portfolio = () => {
             {/* Dashboard Legend / Status */}
             <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-cyan-400" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V9.0 Unified (Shared AMM)</p>
+                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sooth V9 uses a singleton Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) for new market creation and fee management. Core liquidity and balances are maintained in the shared AMM Engine (`{ammEngineAddress?.slice(0, 6)}...`), preserving your existing V8 positions and lock history.
+                Sooth V10.8 uses atomic market creation with spot-first price discovery. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) in a single transaction. The TickBook orderbook provides deep liquidity with range orders and spot sells crossing at best available prices.
               </p>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[9px] text-slate-500 uppercase font-bold">{v8Markets.length} Active Markets</span>
+                  <span className="text-[9px] text-slate-500 uppercase font-bold">{onChainMarkets.length} Active Markets</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <div className="w-2 h-2 rounded-full bg-cyan-500" />
                   <span className="text-[9px] text-slate-500 uppercase font-bold">Pro Hardened</span>
                 </div>
               </div>

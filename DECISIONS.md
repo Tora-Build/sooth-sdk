@@ -1,8 +1,108 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-077: Event Instrumentation for Indexer Completeness
+- **Date**: 2026-01-12
+- **Status**: Accepted
+- **Context**:
+  - The indexer could not accurately reconstruct balances and liquidity changes due to missing events.
+  - Portfolio required reliable USDC balance transitions, LP balance changes, and lock lifecycle visibility.
+- **Decision**:
+  1. Add explicit spend events for TickBookVault (reserved + available).
+  2. Emit lock lifecycle and balance adjustment events in AMMEngine.
+  3. Emit LP balance, fee accrual, and graduation progress events in LaunchpadEngine.
+  4. Emit internal cleanup and liquidity change events in TickBookPoolManager.
+- **Consequences**:
+  - Requires full redeploy (Vault + PoolManager + AMM + Launchpad) due to new event signatures.
+  - Indexer ABIs and handlers must update and reindex from new start blocks.
+
+## ADR-076: Launchpad Create Flow Simplification
+- **Date**: 2026-01-10
+- **Status**: Accepted (Implemented)
+- **Context**:
+  - Launchpad creation required deploying `TruthMarket` externally, then calling `LaunchpadEngine.createMarket`, then activating the market.
+  - This split flow caused partial setup states and UI/CLI complexity.
+  - We need to support scheduled starts while enforcing a minimum deposit.
+- **Decision**:
+  1. **Single-Step Create**: `LaunchpadEngine.createMarket` now deploys `TruthMarket` internally and returns `(market, lpTokens)`.
+  2. **Start-Time Scheduling**: `TruthMarket` constructor includes `startTime`, and markets are LIVE when `startTime <= now < deadline`.
+  3. **Remove Activation**: `TruthMarket.activate()` removed; no CREATED state.
+  4. **Minimum Deposit**: Enforce `$10` minimum creator deposit in Launchpad flows.
+- **Rationale**:
+  - **Atomic setup**: Avoid partial markets and simplify UX (approve → create).
+  - **Future scheduling**: Start-time parameter supports planned launches without separate activation.
+  - **Consistency**: Single source of truth for market lifecycle; fewer steps in CLI/FE.
+- **Consequences**:
+  - **Breaking change**: `createMarket` signature and `TruthMarket` constructor/ABI updated.
+  - **Frontend/CLI**: Launchpad and Create flows decode `MarketCreated` directly from `TruthMarket`.
+  - **Tests**: Debug launchpad creation test updated; fuzz threshold relaxed for stress test.
+- **Files Changed**:
+  - `packages/contracts-core/src/LaunchpadEngine.sol`
+  - `packages/contracts-core/src/TruthMarket.sol`
+  - `apps/web/src/pages/Launchpad.tsx`
+  - `apps/web/src/pages/Create.tsx`
+  - `packages/contracts-testing/script/interactive/commands/market.ts`
+
+## ADR-075: Tick-Indexed Spot Fills for O(overlap) Gas Complexity (V10.4)
+- **Date**: 2026-01-06
+- **Status**: Accepted (Implementation in `spot-fill-gas-opt` branch)
+- **RFC**: RFC-001 (packages/contracts-core/docs/RFC-001-SpotFillGasOptimization.md)
+- **Context**:
+  - V10's `_fillSpotLiquidity` had O(N) complexity where N = all historical spot sell orders.
+  - Even inactive orders cost ~2,100 gas (cold SLOAD) to check the `active` flag.
+  - With 500 orders, gas costs grew from ~380k to ~680k+ (with spikes to 1.3M for crossing).
+  - Root cause: `for (uint256 sellId = 1; sellId <= maxSpotId; ...)` never decrements.
+- **Decision**:
+  1. **Tick-Indexed Storage**: Add `_spotSellIdsAtTick[marketKey][outcome][tick][]` mapping.
+  2. **Range Cap**: Enforce `MAX_SPOT_RANGE = 50` ticks for spot sell orders.
+  3. **Canonical Tick Deduplication**: Process each order once at `max(tickLower, overlapLow)`.
+  4. **Eager Cleanup**: Remove from tick arrays on cancel/complete via swap-and-pop.
+- **Implementation**:
+  ```solidity
+  // New storage
+  mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint256[]))) private _spotSellIdsAtTick;
+  
+  // Range validation in placeSpotSell
+  if (tickUpper - tickLower + 1 > MAX_SPOT_RANGE) revert SpotRangeTooWide();
+  
+  // Fill loop: iterate by tick, not by ID
+  for (uint16 t = overlapLow; t <= overlapHigh && remaining > 0; t++) {
+      uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
+      for (uint256 i = 0; i < sellIds.length && remaining > 0; i++) {
+          // Canonical tick check prevents double-fills
+          uint16 canonicalTick = spotOrder.tickLower > overlapLow ? spotOrder.tickLower : overlapLow;
+          if (t != canonicalTick) continue;
+          // ... fill logic
+      }
+  }
+  ```
+- **Gas Impact**:
+  | Operation | Before | After | Change |
+  |-----------|--------|-------|--------|
+  | Cross with 50 historical spots | ~210k | ~20k | **-90%** |
+  | Cross with 200 historical spots | ~420k | ~20k | **-95%** |
+  | Place 50-tick spot sell | ~350k | ~600k | +70% (bounded) |
+- **Rationale**:
+  - **Crosser Priority**: Makers (placers) pay more so takers (crossers) get predictable gas.
+  - **Bounded Overhead**: 50-tick cap limits placement overhead to ~250k gas maximum.
+  - **Simplicity**: Array indexing is simpler than accumulator-based pro-rata.
+- **Alternatives Considered**:
+  - **Option B (Linked List)**: Still O(active), doesn't leverage tick locality.
+  - **Option C (Growth Accumulator)**: Complex Q128 math, changes settlement semantics.
+  - **Option D (Boundary Indexing)**: O(1) placement, but complex active-set management in fill loop. Deferred to V10.5 if wider ranges needed.
+- **Consequences**:
+  - **Breaking Change**: Requires V10.4 deployment.
+  - **UX Impact**: Wide spot sells (>50 ticks) now revert with `SpotRangeTooWide()`.
+  - **SDK/Frontend**: Should document "narrow range preferred" constraint.
+- **Files Changed**:
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Tick-indexed storage + fill rewrite
+  - `packages/contracts-testing/test/crossing/UnifiedCrossing.t.sol` — Range cap test
+- **Test Coverage**: 10/10 crossing tests pass, including new `test_SpotSellRangeCapped()`.
+
+---
+
 ## ADR-073: V10 Unified Crossing with Dual-Collateral Architecture
 - **Date**: 2026-01-05
-- **Status**: Proposed (V10 Scope)
+- **Status**: Accepted (Implemented)
 - **Context**:
   - V9.9.7/V9.9.8 has fractured liquidity: Range Orders (USDC-backed) and Spot Sells (token-backed) use separate storage and crossing logic.
   - Standard `placeOrder()` only crosses against Range Orders, ignoring potentially cheaper Spot Sell liquidity.
@@ -66,7 +166,7 @@
   - Cons: Fragmented for direct on-chain callers, extra gas for multi-call
   - Decision: Router is V9.9.8 mitigation; V10 should have native unified crossing.
 - **Files Affected (V10)**:
-  - `packages/contracts-core/src/TickBookPoolManagerV10.sol` — New contract version
+  - `packages/contracts-core/src/TickBookPoolManager.sol` — Updated to V10 Logic (Unified Crossing)
   - `packages/contracts-core/src/libraries/TickBitmap.sol` — Combined bitmap logic
   - `packages/contracts-core/src/interfaces/ITickBookPoolManager.sol` — Updated interface
 - **Dependencies**:
@@ -74,42 +174,25 @@
   - Requires fresh audit before mainnet deployment
 - **Timeline**: V10 development cycle (post-V9.9.x stabilization)
 
-## ADR-073: V10 Unified Crossing with Dual-Collateral Architecture
-- **Date**: 2026-01-05
-- **Status**: Proposed (V10 Scope)
+
+## ADR-074: MAX_TICK (999) Range Boundary Visibility for Overlap Discovery
+- **Date**: 2026-01-06
+- **Status**: Accepted (Implemented in code; requires redeploy)
 - **Context**:
-  - V9.9.8 has fractured liquidity: Range Orders (USDC-backed) and Spot Sells (token-backed) use separate storage and crossing logic.
-  - Standard `placeOrder()` only crosses against Range Orders, ignoring Spot Sell liquidity.
-  - ADR-072 documents this as a known limitation with frontend routing as mitigation.
+  - TickBook represents tradable ticks as `1..999` (0.1¢..99.9¢).
+  - Range order boundaries are tracked via a bitmap to discover available liquidity.
+  - For an order ending at `tickUpper = 999`, the natural upper boundary would be `tickUpper + 1 = 1000`, which is outside the tradable tick space and not representable in the existing bitmap.
+  - This can cause overlap discovery to miss liquidity that extends to the top tick, leading to under-crossing and confusing “full range” behavior.
 - **Decision**:
-  1. **Unified TickLiquidity**: Each tick stores both range and spot liquidity.
-  2. **Combined bitmap**: OR of range + spot ticks for efficient traversal.
-  3. **Single `_crossUnified()`**: Replaces `_tryCross()`, consumes both sources per tick.
-  4. **Fill priority**: Spot first (recycle tokens), then range (mint synthetic).
-  5. **Settlement branching**: Spot → `transferLockedOutcome`, Range → growth accumulators.
-- **Architecture**:
-  ```
-  TickLiquidity {
-    rangeLiquidityNet: int128
-    rangeLiquidityGross: uint128
-    spotLiquidity: uint128  ← NEW
-  }
-  
-  _crossUnified():
-    1. Traverse combined bitmap
-    2. At each tick: fill spot first, then range
-    3. Branch settlement by source type
-  ```
-- **Rationale**:
-  - Single canonical orderbook for all integrators.
-  - Better capital efficiency — natural sellers compete with market makers.
-  - Unified price discovery reflects true market depth.
+  1. Keep tradable ticks as `1..999`.
+  2. Special-case `tickUpper == MAX_TICK` boundary bookkeeping:
+     - Do not attempt to set a bitmap bit at `1000`.
+     - Instead, record a sentinel boundary at `MAX_TICK` so bitmap-based discovery can still "see" liquidity reaching the top.
 - **Consequences**:
-  - Major refactor of tick structures, bitmap logic, crossing algorithm.
-  - Fresh audit required before mainnet.
-  - No migration from V9.9.x; fresh V10 deployment.
-- **Timeline**: V10 development cycle (post-V9.9.x stabilization)
-- **Dependencies**: ADR-072 (documents the gap this addresses)
+  - Requires redeploying `TickBookPoolManager` for on-chain behavior to change.
+  - Market orders in the frontend are temporarily disabled until sweep semantics are clarified.
+
+
 
 ## ADR-072: Fractured Liquidity — Spot Sell Isolation (V9.9.8 Known Limitation)
 - **Date**: 2026-01-05

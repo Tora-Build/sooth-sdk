@@ -50,7 +50,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white">Spendable Proceeds</h3>
-                        <p className="text-sm text-slate-400">V8.1 Modular Liquidity System</p>
+                        <p className="text-sm text-slate-400">V10.8 Modular Liquidity System</p>
                     </div>
                 </div>
 
