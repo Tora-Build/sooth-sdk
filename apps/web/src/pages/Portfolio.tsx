@@ -368,7 +368,7 @@ export const Portfolio = () => {
 
   // Account Aggregates
   const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalAmmVal + parseFloat(queueTotalFormatted);
-  const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal;
+  const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal + totalLockedSharesVal;
 
   // Helper to extract specific market price from batch
   const getMarketPrice = (marketAddr: string) => {
@@ -491,10 +491,10 @@ export const Portfolio = () => {
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
                   <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
-                    <Lock className="w-2.5 h-2.5" /> Active Margin
+                    <Lock className="w-2.5 h-2.5" /> Active Collateral
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
-                    ${parseFloat(proReservedFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${totalActiveCollateral.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
