@@ -1,4 +1,4 @@
-import { Rocket, Sparkles, Zap, TrendingUp, Shield } from 'lucide-react';
+import { Rocket, TrendingUp, Shield } from 'lucide-react';
 
 export const LaunchpadHeader = () => {
     return (
@@ -14,16 +14,6 @@ export const LaunchpadHeader = () => {
             <div className="relative px-8 py-14 backdrop-blur-xl border border-white/10 bg-black/20 rounded-3xl">
                 <div className="flex items-start justify-between gap-8">
                     <div className="space-y-6 max-w-2xl">
-                        <div className="flex items-center gap-3">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/30 to-cyan-500/30 border border-cyan-400/40 backdrop-blur-sm">
-                                <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
-                                <span className="text-sm font-bold text-cyan-200 uppercase tracking-wider">Create Market</span>
-                            </div>
-                            <div className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30">
-                                <span className="text-xs font-bold text-emerald-300">EARN 5% FEES</span>
-                            </div>
-                        </div>
-
                         <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[1.1]">
                             <span className="text-white drop-shadow-2xl">Launch Your</span>
                             <br />
@@ -43,7 +33,7 @@ export const LaunchpadHeader = () => {
 
                         <div className="flex items-center gap-6 pt-2">
                             <div className="flex items-center gap-2 text-sm text-white/50">
-                                <Zap className="w-4 h-4 text-yellow-400" />
+                                <Rocket className="w-4 h-4 text-cyan-400" />
                                 <span>Instant Deploy</span>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-white/50">
