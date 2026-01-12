@@ -25,7 +25,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
             'Receive LP tokens at 1:1 ratio with your deposit',
             'Market instantly goes live and ready for trading'
         ],
-        color: 'violet'
+        color: 'cyan'
     },
     {
         id: 'accumulate',
@@ -122,7 +122,7 @@ export const MarketJourneyTimeline = ({ defaultExpanded = false }: MarketJourney
                     </div>
                     <div className="text-left">
                         <h4 className="font-bold text-white text-sm">Market Journey</h4>
-                        <p className="text-[10px] text-white/50">Create → Graduate → Settle → Redeem</p>
+                        <p className="text-xs text-white/50">Create → Graduate → Settle → Redeem</p>
                     </div>
                 </div>
                 {expanded ? (
@@ -170,7 +170,7 @@ export const MarketJourneyTimeline = ({ defaultExpanded = false }: MarketJourney
                             return (
                                 <div key={step.id} className="text-center w-10 sm:w-auto">
                                     <p className={cn(
-                                        "text-[10px] font-bold hidden sm:block",
+                                        "text-xs font-bold hidden sm:block",
                                         activeStep === step.id ? colors.text : "text-white/40"
                                     )}>
                                         {step.title}

@@ -633,7 +633,7 @@ export const SimpleTradingPanel = ({
       <div className="p-5 space-y-4">
         {/* Initialization Warning */}
         {isInitStateLoading && (
-          <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[10px] text-slate-400 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-xs text-slate-400 flex items-start gap-2">
             <Loader2 size={12} className="shrink-0 mt-0.5 animate-spin" />
             <span>Checking market initialization…</span>
           </div>
@@ -641,7 +641,7 @@ export const SimpleTradingPanel = ({
 
         {/* Phantom Guard */}
         {isConnected && isPhantomConnector && (
-          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
@@ -653,7 +653,7 @@ export const SimpleTradingPanel = ({
               <div className="pt-1">
                 <Button
                   onClick={handleConnect}
-                  className="h-7 px-2 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
+                  className="h-7 px-2 text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
                 >
                   Switch Wallet
                 </Button>
@@ -663,7 +663,7 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && (isWrongSelectedChain || isWrongWalletChain) && (
-          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-xs text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
@@ -681,7 +681,7 @@ export const SimpleTradingPanel = ({
                 {isWrongSelectedChain && expectedChainId ? (
                   <Button
                     onClick={() => setSelectedChain(expectedChainId)}
-                    className="h-7 px-2 text-[10px] bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/30"
+                    className="h-7 px-2 text-xs bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/30"
                   >
                     View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
                   </Button>
@@ -690,7 +690,7 @@ export const SimpleTradingPanel = ({
                   <Button
                     onClick={() => switchChain?.({ chainId: expectedChainId })}
                     disabled={isSwitchingChain}
-                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                    className="h-7 px-2 text-xs bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
                   >
                     {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
                   </Button>
@@ -701,7 +701,7 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && !isWrongSelectedChain && !isWrongWalletChain && (
-          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-xs text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
@@ -717,7 +717,7 @@ export const SimpleTradingPanel = ({
         {/* Current Price Display - clean separate row */}
         <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
           <div className="flex items-center justify-between py-2 px-3">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Price</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Current Price</div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -746,8 +746,8 @@ export const SimpleTradingPanel = ({
           </div>
           {/* Issued Shares - compact row */}
           <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-800/50 bg-slate-900/30">
-            <div className="text-[9px] text-slate-600 uppercase tracking-wider">Pool Shares</div>
-            <div className="flex items-center gap-4 text-[10px] font-mono">
+            <div className="text-xs text-slate-600 uppercase tracking-wider">Pool Shares</div>
+            <div className="flex items-center gap-4 text-xs font-mono">
               <span className="text-emerald-500">
                 {isLoadingAmm ? '—' : `${(Number(amm?.qYes ?? 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })} YES`}
               </span>
@@ -790,11 +790,11 @@ export const SimpleTradingPanel = ({
         {/* Amount Input - Pro style */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Shares</label>
+            <label className="text-xs text-slate-500 uppercase tracking-wider">Shares</label>
             {isConnected && (
               <button
                 onClick={handleMax}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
+                className="text-xs text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
               >
                 MAX
               </button>
@@ -825,12 +825,12 @@ export const SimpleTradingPanel = ({
             </button>
           </div>
           {amountError && (
-            <div className="mt-1 text-[10px] text-rose-300">
+            <div className="mt-1 text-xs text-rose-300">
               {amountError}
             </div>
           )}
           {tradeMode === 'sell' && (
-            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+            <div className="mt-2 flex justify-between text-xs text-slate-500">
               <span>Position</span>
               <span className="font-mono text-slate-300 flex items-center gap-1">
                 {isLoadingPosition ? (
@@ -847,7 +847,7 @@ export const SimpleTradingPanel = ({
             </div>
           )}
           {tradeMode === 'buy' && (
-            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+            <div className="mt-2 flex justify-between text-xs text-slate-500">
               <span>Buying power</span>
               <span className="font-mono text-slate-300">
                 ${(Number(buyingPowerWad) / 1e18).toFixed(2)}
@@ -941,12 +941,12 @@ export const SimpleTradingPanel = ({
 
               {/* Impact Warnings */}
               {Math.abs(quote.priceImpact) > 5 ? (
-                <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-[10px] text-rose-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-xs text-rose-400 flex items-start gap-2">
                   <AlertCircle size={12} className="shrink-0 mt-0.5" />
                   <span><strong>High Impact!</strong> Consider trading in smaller sizes.</span>
                 </div>
               ) : Math.abs(quote.priceImpact) > 2 ? (
-                <div className="p-2 rounded-lg bg-slate-950/30 border border-slate-900/30 text-[10px] text-slate-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-slate-950/30 border border-slate-900/30 text-xs text-slate-400 flex items-start gap-2">
                   <AlertCircle size={12} className="shrink-0 mt-0.5" />
                   <span>Significant price impact. Check execution price.</span>
                 </div>
@@ -956,7 +956,7 @@ export const SimpleTradingPanel = ({
 
           {/* Spendable Proceeds Indicator */}
           {tradeMode === 'buy' && isQuoteValid && spendableProceeds > 0n && quote.cost > 0n && (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-[10px] text-emerald-400">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-xs text-emerald-400">
               <Unlock size={12} className="shrink-0" />
               <span>
                 Using up to <strong>${(Number(spendableProceeds) / 1e18).toFixed(2)}</strong> from spendable proceeds.
@@ -1076,7 +1076,7 @@ export const SimpleTradingPanel = ({
               href="/faucet"
               className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
             >
-              <span className="text-[10px]">$</span>
+              <span className="text-xs">$</span>
               Need test USDC? Get from faucet →
             </a>
           </div>

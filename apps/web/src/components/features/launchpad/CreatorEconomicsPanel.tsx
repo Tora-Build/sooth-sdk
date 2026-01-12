@@ -51,7 +51,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                     <p className="text-2xl font-mono font-black text-white">
                         ${deposit.toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-white/40 mt-1">
+                    <p className="text-xs text-white/40 mt-1">
                         b × ln(2) formula
                     </p>
                 </div>
@@ -66,7 +66,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                     <p className="text-2xl font-mono font-black text-emerald-400">
                         {deposit.toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-white/40 mt-1">
+                    <p className="text-xs text-white/40 mt-1">
                         1:1 with deposit
                     </p>
                 </div>
@@ -91,7 +91,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                     onChange={(e) => setVolume(Number(e.target.value))}
                     className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
-                <div className="flex justify-between text-[10px] text-white/30 font-mono">
+                <div className="flex justify-between text-xs text-white/30 font-mono">
                     <span>$1k</span>
                     <span>$500k</span>
                 </div>
@@ -121,7 +121,7 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
-                <div className="flex justify-between text-[10px] text-white/40">
+                <div className="flex justify-between text-xs text-white/40">
                     <span>{formatCurrency(result.preGradFees)} fees</span>
                     <span>{formatCurrency(result.graduationThreshold)} threshold</span>
                 </div>
@@ -129,28 +129,28 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
 
             <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                    <p className="text-[10px] text-white/40 uppercase font-bold">Break-Even</p>
+                    <p className="text-xs text-white/40 uppercase font-bold">Break-Even</p>
                     <p className="text-lg font-mono font-bold text-white mt-1">
                         {formatCurrency(result.breakEvenVolume)}
                     </p>
-                    <p className="text-[10px] text-white/30">volume</p>
+                    <p className="text-xs text-white/30">volume</p>
                 </div>
                 <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                    <p className="text-[10px] text-white/40 uppercase font-bold">Total Fees</p>
+                    <p className="text-xs text-white/40 uppercase font-bold">Total Fees</p>
                     <p className="text-lg font-mono font-bold text-emerald-400 mt-1">
                         {formatCurrency(result.totalFees)}
                     </p>
-                    <p className="text-[10px] text-white/30">earned</p>
+                    <p className="text-xs text-white/30">earned</p>
                 </div>
                 <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                    <p className="text-[10px] text-white/40 uppercase font-bold">Est. ROI</p>
+                    <p className="text-xs text-white/40 uppercase font-bold">Est. ROI</p>
                     <p className={cn(
                         "text-lg font-mono font-bold mt-1",
                         result.roi >= 0 ? "text-emerald-400" : "text-red-400"
                     )}>
                         {result.roi >= 0 ? '+' : ''}{result.roi}%
                     </p>
-                    <p className="text-[10px] text-white/30">return</p>
+                    <p className="text-xs text-white/30">return</p>
                 </div>
             </div>
 
@@ -163,17 +163,17 @@ export const CreatorEconomicsPanel = ({ deposit }: CreatorEconomicsPanelProps) =
                     <div className="flex items-center gap-2 text-sm">
                         <div className="flex-1 p-2 rounded-lg bg-cyan-500/20 text-center">
                             <p className="text-cyan-300 font-bold">50%</p>
-                            <p className="text-[10px] text-white/50">bBase</p>
+                            <p className="text-xs text-white/50">bBase</p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-white/30 shrink-0" />
                         <div className="flex-1 p-2 rounded-lg bg-emerald-500/20 text-center">
                             <p className="text-emerald-300 font-bold">30%</p>
-                            <p className="text-[10px] text-white/50">LP Yield</p>
+                            <p className="text-xs text-white/50">LP Yield</p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-white/30 shrink-0" />
                         <div className="flex-1 p-2 rounded-lg bg-blue-500/20 text-center">
                             <p className="text-blue-300 font-bold">20%</p>
-                            <p className="text-[10px] text-white/50">Protocol</p>
+                            <p className="text-xs text-white/50">Protocol</p>
                         </div>
                     </div>
                 </div>

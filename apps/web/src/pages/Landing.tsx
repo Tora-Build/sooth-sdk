@@ -3,12 +3,12 @@ import { Zap, ArrowRight, Shield, Clock, TrendingUp, Gauge, PenTool, Gamepad2, R
 
 export const Landing = () => {
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#020617]">
+    <div className="min-h-dvh flex flex-col relative overflow-hidden bg-[#020617]">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid opacity-[0.15]" />
 
       {/* Blueprint Snippets */}
-      <div className="absolute top-20 left-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block">
+      <div className="absolute top-20 left-10 opacity-5 font-mono text-xs text-cyan-400 pointer-events-none select-none hidden lg:block">
         <pre>{`// tickbook_matching.sol
 function match_orders(uint256 orderId) external {
     uint16 tick = bitmap.find_best_tick();
@@ -16,7 +16,7 @@ function match_orders(uint256 orderId) external {
     _execute_fill(tick, orderId);
 }`}</pre>
       </div>
-      <div className="absolute bottom-20 right-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block text-right">
+      <div className="absolute bottom-20 right-10 opacity-5 font-mono text-xs text-cyan-400 pointer-events-none select-none hidden lg:block text-right">
         <pre>{`// zk_finality.proto
 message SettlementProof {
     bytes32 merkle_root = 1;
@@ -55,11 +55,11 @@ message SettlementProof {
         <div className="max-w-4xl mx-auto text-center relative">
           {/* HUD Elements */}
           <div className="absolute -top-12 left-0 right-0 flex justify-between items-center px-4 opacity-20 pointer-events-none select-none">
-            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+            <div className="flex gap-4 font-mono text-xs text-slate-500">
               <span>TRUTH_ENGINE: [RUNNING]</span>
               <span>NETWORK: [BASE_SEPOLIA]</span>
             </div>
-            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+            <div className="flex gap-4 font-mono text-xs text-slate-500">
               <span>LATENCY: 40MS</span>
               <span>SYNC_V10.8: OK</span>
             </div>
@@ -69,7 +69,7 @@ message SettlementProof {
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
             <Badge color="cyan">v10.8 Modular</Badge>
             <Badge color="indigo">Base Sepolia</Badge>
-            <Badge color="purple">Monad Testnet</Badge>
+            <Badge color="cyan">Monad Testnet</Badge>
             <Badge color="emerald">Arc Testnet</Badge>
           </div>
 
@@ -123,7 +123,7 @@ message SettlementProof {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { role: "Creator", icon: <PenTool className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "purple" },
+              { role: "Creator", icon: <PenTool className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "cyan" },
               { role: "Gaming Trader", icon: <Gamepad2 className="w-5 h-5" />, path: "/trade", desc: "Predict events and earn protocol stakeholder rewards", color: "emerald" },
               { role: "Arbitrageur", icon: <RefreshCcw className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
               { role: "PvP Trader", icon: <Swords className="w-5 h-5" />, path: "/pro", desc: "Pure conviction trading on the 10,000-tick CLOB", color: "indigo" }
@@ -162,7 +162,7 @@ message SettlementProof {
               icon={<TrendingUp className="w-5 h-5" />}
               title="Launchpad"
               description="Permissionless creation with creator economics and aligned incentives."
-              color="purple"
+              color="cyan"
             />
             <FeatureCard
               icon={<Shield className="w-5 h-5" />}
@@ -205,18 +205,17 @@ message SettlementProof {
   );
 };
 
-const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' | 'purple' }) => {
+const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' }) => {
   const colors = {
     cyan: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
     amber: 'bg-slate-500/5 border-slate-500/10 text-slate-500/70',
     emerald: 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500/70',
     indigo: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
-    purple: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
   };
 
   return (
     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-sm border backdrop-blur-sm transition-all duration-300 hover:border-current/30 hover:text-white/90 ${colors[color]}`}>
-      <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em]">{children}</span>
+      <span className="text-xs font-mono font-bold uppercase tracking-[0.2em]">{children}</span>
     </div>
   );
 };
@@ -230,17 +229,15 @@ const FeatureCard = ({
   icon: React.ReactNode;
   title: string;
   description: string;
-  color: 'cyan' | 'purple' | 'indigo';
+  color: 'cyan' | 'indigo';
 }) => {
   const colors = {
     cyan: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
-    purple: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
     indigo: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
   };
 
   const iconColors = {
     cyan: 'text-cyan-500/50 group-hover:text-cyan-400',
-    purple: 'text-cyan-500/50 group-hover:text-cyan-400',
     indigo: 'text-cyan-500/50 group-hover:text-cyan-400',
   };
 

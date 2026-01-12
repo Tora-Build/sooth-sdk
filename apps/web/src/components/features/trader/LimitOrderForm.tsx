@@ -320,7 +320,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             {currentHandicap?.toFixed(4) || '—'} <span className="text-sm text-emerald-600/70">{t('common.usdc')}</span>
           </div>
         </div>
-        <div className="col-span-2 flex justify-between pt-2 border-t border-slate-800/50 text-[10px] text-slate-500 font-mono">
+        <div className="col-span-2 flex justify-between pt-2 border-t border-slate-800/50 text-xs text-slate-500 font-mono">
           <span>LQ: ${ammLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           <span>Depth: {orderbookDepth} offers</span>
         </div>
@@ -363,7 +363,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
               : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50'
           )}
         >
-          <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.yes')}</div>
+          <div className="text-xs text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.yes')}</div>
           <div className="text-sm font-medium text-white tabular-nums">
             {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
           </div>
@@ -377,7 +377,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
               : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50'
           )}
         >
-          <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.no')}</div>
+          <div className="text-xs text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.no')}</div>
           <div className="text-sm font-medium text-white tabular-nums">
             {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
           </div>
@@ -392,7 +392,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         </div>
         <div className="relative h-12">
           <button
-            onMouseDown={startPriceDec} onMouseUp={stopPriceDec} onMouseLeave={stopPriceDec}
+            onMouseDown={startPriceDec} onMouseUp={stopPriceDec} onMouseLeave={stopPriceDec} aria-label="Decrease price"
             onTouchStart={startPriceDec} onTouchEnd={stopPriceDec}
             className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
@@ -407,7 +407,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             min="0.01" max="0.99" step="0.01"
           />
           <button
-            onMouseDown={startPriceInc} onMouseUp={stopPriceInc} onMouseLeave={stopPriceInc}
+            onMouseDown={startPriceInc} onMouseUp={stopPriceInc} onMouseLeave={stopPriceInc} aria-label="Increase price"
             onTouchStart={startPriceInc} onTouchEnd={stopPriceInc}
             className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
@@ -426,7 +426,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="text-xs text-slate-500 mb-1">{t('trading.shares')}</div>
         <div className="relative h-12">
           <button
-            onMouseDown={startDecrement} onMouseUp={stopDecrement} onMouseLeave={stopDecrement}
+            onMouseDown={startDecrement} onMouseUp={stopDecrement} onMouseLeave={stopDecrement} aria-label="Decrease quantity"
             onTouchStart={startDecrement} onTouchEnd={stopDecrement}
             className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
@@ -447,7 +447,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             min="1" step="1"
           />
           <button
-            onMouseDown={startIncrement} onMouseUp={stopIncrement} onMouseLeave={stopIncrement}
+            onMouseDown={startIncrement} onMouseUp={stopIncrement} onMouseLeave={stopIncrement} aria-label="Increase quantity"
             onTouchStart={startIncrement} onTouchEnd={stopIncrement}
             className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
@@ -460,7 +460,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="flex flex-col items-end mt-1.5 gap-0.5">
           {/* Context-aware Max Display */}
           <div
-            className="text-[10px] text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
+            className="text-xs text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
             onClick={() => setAmount(orderType === 'buy' ? Math.floor(buyMax).toString() : userTokenShares.toString())}
             title={orderType === 'buy' ? "Max affordable with USDC" : "Max shares you own"}
           >
@@ -503,7 +503,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       </Button>
 
       {/* Footer */}
-      <div className="text-center text-[10px] text-slate-600">
+      <div className="text-center text-xs text-slate-600">
         {badgeText}
       </div>
     </div>

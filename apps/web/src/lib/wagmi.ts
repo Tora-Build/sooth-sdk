@@ -67,18 +67,7 @@ export const wagmiAdapter = new WagmiAdapter({
     [monadTestnet.id]: http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),
     // Arc Testnet: Fallback with multiple RPC providers
     // Note: Arc requires minFeePerGas >= 160 Gwei
-    [arcTestnet.id]: fallback(
-      [
-        http('https://rpc.drpc.testnet.arc.network', arcHttpOptions),
-        http('https://rpc.blockdaemon.testnet.arc.network', arcHttpOptions),
-        http('https://rpc.quicknode.testnet.arc.network', arcHttpOptions),
-      ],
-      {
-        rank: true,
-        retryCount: 3,
-        retryDelay: 500,
-      }
-    ),
+    [arcTestnet.id]: http('https://rpc.testnet.arc.network', arcHttpOptions),
   },
 });
 

@@ -11,7 +11,7 @@ export const LaunchpadHeader = () => {
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50" />
             </div>
 
-            <div className="relative px-8 py-14 backdrop-blur-xl border border-white/10 bg-black/20">
+            <div className="relative px-8 py-14 backdrop-blur-xl border border-white/10 bg-black/20 rounded-3xl">
                 <div className="flex items-start justify-between gap-8">
                     <div className="space-y-6 max-w-2xl">
                         <div className="flex items-center gap-3">

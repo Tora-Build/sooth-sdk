@@ -26,7 +26,7 @@ export const AppLayout = () => {
   }, [isConnected, walletChainId, selectedChainId, setSelectedChain]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-slate-300 font-mono selection:bg-cyan-500/30">
+    <div className="min-h-dvh flex flex-col pb-safe bg-background text-slate-300 font-mono selection:bg-cyan-500/30">
       <Navbar />
       <ActivityListener />
 

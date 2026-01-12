@@ -31,7 +31,7 @@ export const TrendingLeaderboard = ({ markets }: TrendingLeaderboardProps) => {
           <Flame className="w-4 h-4 text-fuchsia-400" />
           Trending Now
         </h2>
-        <Badge className="text-[9px] bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/50 animate-pulse">
+        <Badge className="text-xs bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/50 animate-pulse">
           LIVE
         </Badge>
       </div>

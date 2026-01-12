@@ -39,7 +39,7 @@ const PillarCard: React.FC<{
     <h3 className="font-bold text-white mb-2">{title}</h3>
     <p className="text-sm text-slate-400 mb-4">{description}</p>
     <div className="pt-3 border-t border-slate-700/50">
-      <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold mb-1">Innovation</p>
+      <p className="text-xs uppercase tracking-wider text-cyan-400 font-bold mb-1">Innovation</p>
       <p className="text-xs text-slate-300">{innovation}</p>
     </div>
   </Card>
@@ -266,7 +266,7 @@ export const Learn = () => {
   const step = STEPS[currentStep];
 
   return (
-    <div className="min-h-screen pb-12">
+    <div className="min-h-dvh pb-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
@@ -307,7 +307,7 @@ export const Learn = () => {
                 >
                   {i < currentStep ? <CheckCircle className="w-6 h-6" /> : i + 1}
                 </button>
-                <span className={`text-[10px] uppercase tracking-widest mt-3 font-bold ${i === currentStep ? 'text-cyan-400' : 'text-slate-500'
+                <span className={`text-xs uppercase tracking-widest mt-3 font-bold ${i === currentStep ? 'text-cyan-400' : 'text-slate-500'
                   }`}>
                   {s.id}
                 </span>
@@ -417,7 +417,7 @@ export const Learn = () => {
                         {content.creator.example.text.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} className="text-white">{part}</strong> : part)}
                       </p>
                       <div className="p-3 rounded-lg bg-slate-900/60 text-center">
-                        <span className="text-slate-500 text-[10px] uppercase block mb-1">{content.creator.example.pnlLabel}</span>
+                        <span className="text-slate-500 text-xs uppercase block mb-1">{content.creator.example.pnlLabel}</span>
                         <span className="text-2xl font-bold text-emerald-400">{content.creator.example.pnlValue}</span>
                       </div>
                     </div>
@@ -428,9 +428,9 @@ export const Learn = () => {
                     <div className="grid grid-cols-4 gap-2">
                       {content.creator.tiers.map((t, i) => (
                         <div key={i} className="text-center p-3 rounded-xl border border-slate-800 bg-slate-900/40">
-                          <p className="text-[10px] text-slate-500 mb-1">{t.tier}</p>
+                          <p className="text-xs text-slate-500 mb-1">{t.tier}</p>
                           <p className="text-sm font-bold text-white">{t.b}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">Deposit: {t.dep}</p>
+                          <p className="text-xs text-slate-400 mt-1">Deposit: {t.dep}</p>
                         </div>
                       ))}
                     </div>
@@ -546,7 +546,7 @@ export const Learn = () => {
                       <p className="text-xs text-slate-400 leading-relaxed mb-4">
                         {content.pro.arb.description}
                       </p>
-                      <div className="p-4 rounded-lg bg-slate-900 font-mono text-[10px] text-slate-300">
+                      <div className="p-4 rounded-lg bg-slate-900 font-mono text-xs text-slate-300">
                         AMM Price: 62% <br />
                         TickBook Ask: 58% <br />
                         <span className="text-emerald-400">→ Arb: +4¢ per share</span>
@@ -565,7 +565,7 @@ export const Learn = () => {
 
                   <div className="p-5 rounded-xl border border-slate-800 bg-cyan-500/5">
                     <h4 className="text-sm font-bold text-cyan-400 mb-4 uppercase tracking-widest">{content.pro.evolutionTitle}</h4>
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 px-4">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-4">
                       {content.pro.evolutionStages.map((s, i) => (
                         <React.Fragment key={i}>
                           <span className={i === 0 ? "text-cyan-300" : ""}>{s}</span>
@@ -578,7 +578,7 @@ export const Learn = () => {
                       <div className="bg-cyan-500/60" />
                       <div className="bg-cyan-500" />
                     </div>
-                    <div className="grid grid-cols-3 gap-4 mt-4 text-[10px] text-slate-400 text-center">
+                    <div className="grid grid-cols-3 gap-4 mt-4 text-xs text-slate-400 text-center">
                       {content.pro.evolutionStates.map((s, i) => (
                         <div key={i} className={i === 2 ? "text-white" : ""}>{s}</div>
                       ))}
@@ -621,15 +621,15 @@ export const Learn = () => {
                     <div className="grid sm:grid-cols-3 gap-6">
                       <div className="text-center">
                         <p className="text-2xl font-bold text-white">V10.8</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Architecture</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Architecture</p>
                       </div>
                       <div className="text-center">
                         <p className="text-2xl font-bold text-white">0%</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Platform Fees</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Platform Fees</p>
                       </div>
                       <div className="text-center">
                         <p className="text-2xl font-bold text-white">∞</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Open-End Markets</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Open-End Markets</p>
                       </div>
                     </div>
                   </div>
@@ -687,13 +687,13 @@ export const Learn = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase">{content.context.mechanismsTitle}</h4>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase">{content.context.mechanismsTitle}</h4>
                   {content.context.mechanisms.map((m, i) => (
                     <div key={i} className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1" />
                       <div>
                         <span className="text-[11px] font-bold text-white block">{m.label}</span>
-                        <span className="text-[10px] text-slate-500">{m.desc}</span>
+                        <span className="text-xs text-slate-500">{m.desc}</span>
                       </div>
                     </div>
                   ))}
@@ -711,7 +711,7 @@ export const Learn = () => {
         </div>
 
         {/* Footer info */}
-        <p className="text-center text-[10px] text-slate-500 mt-8 uppercase tracking-[0.2em]">
+        <p className="text-center text-xs text-slate-500 mt-8 uppercase tracking-[0.2em]">
           Sooth Protocol Tutorial • Step {currentStep + 1} of {STEPS.length}
         </p>
       </div>

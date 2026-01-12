@@ -95,26 +95,26 @@ export const TraderBenefitsBanner = () => {
 
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                                        <p className="text-[10px] text-red-300 uppercase font-bold">If Alice is WRONG</p>
+                                        <p className="text-xs text-red-300 uppercase font-bold">If Alice is WRONG</p>
                                         <div className="mt-2 space-y-1 text-sm">
                                             <p className="text-white/50">Prediction: <span className="text-red-400">-$200</span></p>
                                             <p className="text-white/50">LP Value: <span className="text-emerald-400">+$70</span></p>
                                             <p className="text-white font-bold border-t border-white/10 pt-1 mt-1">
                                                 Net: <span className="text-yellow-400">-$130</span>
                                             </p>
-                                            <p className="text-[10px] text-yellow-400">35% loss recovered!</p>
+                                            <p className="text-xs text-yellow-400">35% loss recovered!</p>
                                         </div>
                                     </div>
 
                                     <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                        <p className="text-[10px] text-emerald-300 uppercase font-bold">If Alice is RIGHT</p>
+                                        <p className="text-xs text-emerald-300 uppercase font-bold">If Alice is RIGHT</p>
                                         <div className="mt-2 space-y-1 text-sm">
                                             <p className="text-white/50">Prediction: <span className="text-emerald-400">+$200</span></p>
                                             <p className="text-white/50">LP Value: <span className="text-emerald-400">+$70</span></p>
                                             <p className="text-white font-bold border-t border-white/10 pt-1 mt-1">
                                                 Net: <span className="text-emerald-400">+$270</span>
                                             </p>
-                                            <p className="text-[10px] text-emerald-400">LP investment pays off!</p>
+                                            <p className="text-xs text-emerald-400">LP investment pays off!</p>
                                         </div>
                                     </div>
                                 </div>

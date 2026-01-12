@@ -300,12 +300,12 @@ export const Launchpad = () => {
     const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator && customGuardian;
     const canProceed = isFormValid && !form.deployPending;
 
-    const particles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+    const particles = useMemo(() => Array.from({ length: 25 }, (_, i) => ({
         id: i,
-        left: `${5 + (i * 8)}%`,
-        delay: `${i * 0.7}s`,
-        duration: `${8 + (i % 3) * 2}s`,
-        size: `${2 + (i % 3)}px`,
+        left: `${3 + (i * 3.8) % 94}%`,
+        delay: `${(i * 0.5) % 8}s`,
+        duration: `${6 + (i % 5) * 2}s`,
+        size: `${4 + (i % 4) * 3}px`,
     })), []);
 
     return (
@@ -381,7 +381,7 @@ export const Launchpad = () => {
                                     <button
                                         onClick={() => setShowPolymarket(true)}
                                         type="button"
-                                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+                                        className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
                                     >
                                         <ExternalLink className="w-3 h-3" />
                                         Browse Polymarket
@@ -449,7 +449,7 @@ export const Launchpad = () => {
                                             value={form.customExpiration}
                                             onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
                                         />
-                                        <p className="text-[10px] text-white/40">All times are in UTC</p>
+                                        <p className="text-xs text-white/40">All times are in UTC</p>
                                     </div>
                                 )}
                                 {form.expirationMode === 'open' && (

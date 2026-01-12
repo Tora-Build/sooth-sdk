@@ -293,7 +293,7 @@ function CategoryBadge({
     <button
       onClick={onClick}
       className={cn(
-        'px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1',
+        'px-2 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1',
         selected
           ? CATEGORY_COLORS[category.color]
           : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700/50'
@@ -353,7 +353,7 @@ function SortDropdown({
               >
                 {option.label}
                 {option.field === sortField && (
-                  <span className="text-[10px]">{sortDir === 'desc' ? '↓' : '↑'}</span>
+                  <span className="text-xs">{sortDir === 'desc' ? '↓' : '↑'}</span>
                 )}
               </button>
             ))}
@@ -400,7 +400,7 @@ function MarketCard({
         <div className="flex flex-wrap gap-1 shrink-0">
           <span
             className={cn(
-              'px-1.5 py-0.5 rounded text-[9px] font-bold border',
+              'px-1.5 py-0.5 rounded text-xs font-bold border',
               CATEGORY_COLORS[category.color]
             )}
           >
@@ -412,7 +412,7 @@ function MarketCard({
               <span
                 key={catKey}
                 className={cn(
-                  'px-1.5 py-0.5 rounded text-[9px] font-medium border opacity-70',
+                  'px-1.5 py-0.5 rounded text-xs font-medium border opacity-70',
                   CATEGORY_COLORS[cat.color]
                 )}
               >
@@ -426,7 +426,7 @@ function MarketCard({
         </h3>
       </div>
 
-      <div className="flex items-center gap-3 text-[10px] flex-wrap">
+      <div className="flex items-center gap-3 text-xs flex-wrap">
         <div className="text-slate-400" title="24h Volume">
           <span className="text-slate-500">24h:</span>
           <span className="font-mono ml-0.5">{formatVolume(market.volume24h)}</span>
@@ -761,7 +761,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
             {/* Time Badge */}
             {timeRemaining && (
               <div className={cn(
-                'absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm',
+                'absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-bold backdrop-blur-sm',
                 timeRemaining.urgent
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                   : 'bg-slate-800/80 text-slate-300 border border-slate-700/50'
@@ -783,13 +783,13 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
               {tags.slice(0, 5).map((tag) => (
                 <span
                   key={tag.id}
-                  className="px-1.5 py-0.5 rounded text-[9px] bg-slate-800/50 text-slate-400 border border-slate-700/50"
+                  className="px-1.5 py-0.5 rounded text-xs bg-slate-800/50 text-slate-400 border border-slate-700/50"
                 >
                   {tag.label}
                 </span>
               ))}
               {tags.length > 5 && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] text-slate-500">
+                <span className="px-1.5 py-0.5 rounded text-xs text-slate-500">
                   +{tags.length - 5} more
                 </span>
               )}
@@ -815,15 +815,15 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {/* Stats Grid - 3 columns */}
           <div className="grid grid-cols-3 gap-2">
             <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-center">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wide mb-0.5">24h Vol</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">24h Vol</div>
               <div className="text-xs text-white font-mono font-bold">{formatVolume(selectedMarket.volume24h)}</div>
             </div>
             <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-center">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wide mb-0.5">Total Vol</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">Total Vol</div>
               <div className="text-xs text-white font-mono font-bold">{formatVolume(selectedMarket.volume)}</div>
             </div>
             <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-center">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wide mb-0.5">Liquidity</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">Liquidity</div>
               <div className="text-xs text-white font-mono font-bold">{formatVolume(selectedMarket.liquidity)}</div>
             </div>
           </div>
@@ -831,11 +831,11 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {/* Activity & Category Row */}
           <div className="grid grid-cols-2 gap-2">
             <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wide mb-0.5">Activity</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">Activity</div>
               <div className={cn('text-xs font-bold', activity.color)}>{activity.label}</div>
             </div>
             <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wide mb-0.5">Category</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">Category</div>
               <div className="text-xs text-white font-medium">{selectedMarket.categoryLabel}</div>
             </div>
           </div>
@@ -892,7 +892,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
                         key={mkt.id || idx}
                         className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/30"
                       >
-                        <div className="text-[10px] text-slate-300 mb-1.5 line-clamp-2">
+                        <div className="text-xs text-slate-300 mb-1.5 line-clamp-2">
                           {mkt.question}
                         </div>
                         <div className="flex items-center gap-2">
@@ -903,11 +903,11 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
                               style={{ width: `${yesPrice}%` }}
                             />
                           </div>
-                          <span className="text-[10px] font-mono font-bold text-emerald-400 w-10 text-right">
+                          <span className="text-xs font-mono font-bold text-emerald-400 w-10 text-right">
                             {yesPrice.toFixed(0)}%
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-400">
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
                           <span title="Total Volume"><span className="text-slate-500">Vol:</span> {formatVolume(vol)}</span>
                           <span title="Liquidity"><span className="text-slate-500">Liq:</span> {formatVolume(liq)}</span>
                         </div>
@@ -923,7 +923,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {selectedMarket.endDate && (
             <div className="p-2 rounded-lg bg-slate-800/30 border border-slate-700/30">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wide">Resolves (UTC)</span>
+                <span className="text-xs text-slate-500 uppercase tracking-wide">Resolves (UTC)</span>
                 <span className="text-xs text-white font-mono">
                   {new Date(selectedMarket.endDate).toLocaleDateString('en-US', {
                     weekday: 'short',
@@ -942,7 +942,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           {/* Resolution Rules */}
           {selectedMarket.description && (
             <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/50">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <div className="text-xs text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                 <FileText className="w-3 h-3" />
                 Resolution Rules
               </div>
@@ -1006,7 +1006,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           <button
             onClick={selectAllCategories}
             className={cn(
-              'px-2 py-1 rounded-lg text-[10px] font-medium border transition-all',
+              'px-2 py-1 rounded-lg text-xs font-medium border transition-all',
               selectedCategories.size === Object.keys(CATEGORIES).length
                 ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
                 : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700/50'
@@ -1114,7 +1114,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
             <button
               onClick={selectAllCategories}
               className={cn(
-                'px-2 py-1 rounded-lg text-[10px] font-medium border transition-all',
+                'px-2 py-1 rounded-lg text-xs font-medium border transition-all',
                 selectedCategories.size === Object.keys(CATEGORIES).length
                   ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
                   : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700/50'
@@ -1169,7 +1169,7 @@ export const PolymarketExplorer = ({ onSelectMarket, compact = false }: Polymark
           </div>
 
           {/* Footer */}
-          <div className="pt-4 text-[10px] text-slate-500">
+          <div className="pt-4 text-xs text-slate-500">
             Data Source: Polymarket Gamma API — Top 20 events per category by 24h volume
           </div>
         </div>

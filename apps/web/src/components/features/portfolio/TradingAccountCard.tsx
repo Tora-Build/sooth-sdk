@@ -105,7 +105,7 @@ export const TradingAccountCard: React.FC = () => {
         {/* Header: Overview */}
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <div className="text-[10px] text-cyan-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
+            <div className="text-xs text-cyan-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
               Trading Account
               <button
                 onClick={handleRefresh}
@@ -115,7 +115,7 @@ export const TradingAccountCard: React.FC = () => {
                 <RefreshCw size={10} />
               </button>
             </div>
-            <div className="text-[9px] text-slate-500 font-medium flex items-center gap-1" title="Wallet USDC Balance">
+            <div className="text-xs text-slate-500 font-medium flex items-center gap-1" title="Wallet USDC Balance">
               <Wallet size={9} className="text-slate-600" />
               {formatCurrency(walletAvailable)}
             </div>
@@ -129,7 +129,7 @@ export const TradingAccountCard: React.FC = () => {
 
             {/* Action Buttons Grid */}
             <div className="flex flex-col gap-2">
-              <div className="text-[9px] text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
+              <div className="text-xs text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
                 Unified Collateral • Professional Execution
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -137,7 +137,7 @@ export const TradingAccountCard: React.FC = () => {
                   size="sm"
                   variant="secondary"
                   onClick={() => setIsWithdrawOpen(true)}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
+                  className="group py-2 text-xs font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
                 >
                   <ArrowUpRight size={12} className="mr-1 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Withdraw
                 </Button>
@@ -146,7 +146,7 @@ export const TradingAccountCard: React.FC = () => {
                   size="sm"
                   variant="primary"
                   onClick={() => setIsDepositOpen(true)}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
+                  className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
                 >
                   <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Deposit
                 </Button>
@@ -160,7 +160,7 @@ export const TradingAccountCard: React.FC = () => {
 
           {/* Liquid Cash */}
           <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 backdrop-blur-md">
-            <div className="text-[9px] text-emerald-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+            <div className="text-xs text-emerald-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
               <Coins size={9} /> Liquid
             </div>
             <div className="text-base font-mono font-bold text-emerald-400 leading-none">
@@ -173,7 +173,7 @@ export const TradingAccountCard: React.FC = () => {
             className="p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 backdrop-blur-md"
             title="On-chain reserved collateral for open orders or short positions. May differ from visible orders if orders were placed in a previous session."
           >
-            <div className="text-[9px] text-slate-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+            <div className="text-xs text-slate-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
               <Lock size={9} /> Reserved
             </div>
             <div className="text-base font-mono font-bold text-slate-400 leading-none">
@@ -183,7 +183,7 @@ export const TradingAccountCard: React.FC = () => {
 
           {/* Position Value */}
           <div className="p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-md flex justify-between items-center">
-            <div className="text-[9px] text-cyan-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
+            <div className="text-xs text-cyan-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
               <TrendingUp size={9} /> Vault Positions
             </div>
             <div className="text-base font-mono font-bold text-cyan-400 leading-none">

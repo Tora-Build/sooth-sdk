@@ -151,7 +151,7 @@ export const allowedChains: AllowedChain[] = [
     name: 'Arc Testnet',
     displayName: 'Arc',
     shortName: 'Arc',
-    rpcUrl: 'https://rpc.drpc.testnet.arc.network',
+    rpcUrl: 'https://rpc.testnet.arc.network',
     explorerUrl: 'https://testnet.arcscan.app',
     icon: '🔶',
     nativeCurrency: {
@@ -235,9 +235,7 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://rpc.drpc.testnet.arc.network',
-        'https://rpc.blockdaemon.testnet.arc.network',
-        'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.testnet.arc.network',
       ]
     },
   },

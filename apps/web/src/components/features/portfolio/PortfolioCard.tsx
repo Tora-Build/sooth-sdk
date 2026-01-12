@@ -77,14 +77,14 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
             <div className={cn("mx-1.5 mt-1.5 px-2.5 py-1.5 rounded-lg flex items-center justify-between", styles.header)}>
                 <div className="flex items-center gap-1.5">
                     {icon}
-                    <h3 className={cn("font-black text-[10px] uppercase tracking-widest", styles.title)}>{title}</h3>
+                    <h3 className={cn("font-black text-xs uppercase tracking-widest", styles.title)}>{title}</h3>
                 </div>
                 {badge && <div>{badge}</div>}
             </div>
 
             <div className="p-2 flex-1">
                 {isLoading ? (
-                    <div className="py-4 text-center text-slate-500 animate-pulse font-mono text-[10px]">// loading...</div>
+                    <div className="py-4 text-center text-slate-500 animate-pulse font-mono text-xs">// loading...</div>
                 ) : itemCount === 0 ? (
                     emptyState
                 ) : (
@@ -97,7 +97,7 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
             {hasMore && !isLoading && itemCount > 0 && (
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={cn("w-full py-1 border-t text-[9px] font-black text-slate-500 hover:text-slate-300 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest", styles.button)}
+                    className={cn("w-full py-1 border-t text-xs font-black text-slate-500 hover:text-slate-300 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest", styles.button)}
                 >
                     {isExpanded ? (
                         <>Collapse <ChevronUp size={9} /></>

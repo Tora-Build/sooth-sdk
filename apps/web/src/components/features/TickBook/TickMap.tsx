@@ -127,7 +127,7 @@ export const TickMap: React.FC<TickMapProps> = ({
       />
       
       {/* Legend */}
-      <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+      <div className="mt-4 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_5px_#10b981]" />
           <span>Bids</span>

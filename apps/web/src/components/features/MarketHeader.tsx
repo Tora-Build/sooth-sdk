@@ -57,6 +57,7 @@ export const MarketHeader = ({
                   ? "bg-slate-700 text-white"
                   : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
               )}
+              aria-label={showHint ? "Close help" : "Show help"}
             >
               {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
             </button>

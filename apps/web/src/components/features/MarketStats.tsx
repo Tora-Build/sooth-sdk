@@ -94,7 +94,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     <BarChart3 className="w-5 h-5 text-cyan-500" />
                     <h2 className="text-lg font-heading font-bold text-white">Market Stats</h2>
                 </div>
-                <div className="text-[10px] uppercase font-bold text-cyan-500/50 bg-cyan-950/30 px-2 py-1 rounded">
+                <div className="text-xs uppercase font-bold text-cyan-500/50 bg-cyan-950/30 px-2 py-1 rounded">
                     Pure AMM Accounting
                 </div>
             </div>
@@ -102,7 +102,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
             <div className="space-y-4">
                 {/* 1. Cash Basis */}
                 <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                    <div className="text-xs text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
                         <span className="text-slate-500 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
                     </div>
@@ -123,7 +123,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
 
                 {/* 2. Equity Floor */}
                 <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
-                    <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                    <div className="text-xs text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
                         <span className="text-cyan-600/60 font-mono italic">Cash - Liability = Floor</span>
                     </div>
@@ -140,7 +140,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
 
                 {/* 3. Valuation */}
                 <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
-                    <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                    <div className="text-xs text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">↗ Valuation (ExRate)</span>
                         <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
                     </div>
@@ -157,7 +157,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
 
                 {/* 4. TVL */}
                 <div className="p-3 rounded-lg border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
-                    <div className="text-[9px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                    <div className="text-xs text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">📦 TVL Formula</span>
                         <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
                     </div>
@@ -174,7 +174,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
 
                 {/* 5. Liquidity Anchor */}
                 <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                    <div className="text-xs text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>
                         <span className="text-slate-500 font-mono italic">b × ln(2) ≈ Supply</span>
                     </div>

@@ -82,7 +82,7 @@ export const CyberSlider: React.FC<CyberSliderProps> = ({
                 style={{ left: `${lowerPercent}%` }}
                 onMouseDown={handleMouseDown('lower')}
             >
-                <div className={cn("absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono font-bold px-1.5 rounded bg-slate-800 border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity", isDragging && "opacity-100")}>
+                <div className={cn("absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-mono font-bold px-1.5 rounded bg-slate-800 border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity", isDragging && "opacity-100")}>
                     {value[0]}%
                 </div>
             </div>
@@ -94,7 +94,7 @@ export const CyberSlider: React.FC<CyberSliderProps> = ({
                     style={{ left: `${upperPercent}%` }}
                     onMouseDown={handleMouseDown('upper')}
                 >
-                    <div className={cn("absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono font-bold px-1.5 rounded bg-slate-800 border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity", isDragging && "opacity-100")}>
+                    <div className={cn("absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-mono font-bold px-1.5 rounded bg-slate-800 border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity", isDragging && "opacity-100")}>
                         {value[1]}%
                     </div>
                 </div>

@@ -180,7 +180,7 @@ export const Tour: React.FC<TourProps> = ({
       {/* Tooltip */}
       <div
         ref={tooltipRef}
-        className="fixed z-[1001] w-80 animate-fade-in"
+        className="fixed z-tour w-80 animate-fade-in"
         style={getTooltipPosition()}
         onClick={e => e.stopPropagation()}
       >
@@ -191,6 +191,7 @@ export const Tour: React.FC<TourProps> = ({
             <button
               onClick={handleSkip}
               className="text-slate-400 hover:text-white transition-colors"
+              aria-label="Close tour"
             >
               <X className="w-4 h-4" />
             </button>

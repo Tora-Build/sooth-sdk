@@ -15,7 +15,7 @@ export const EarningsSimulator = ({ deposit }: { deposit: number }) => {
                     <Activity className="w-4 h-4 text-emerald-400" />
                     Earnings Simulator
                 </h4>
-                <div className="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                <div className="text-xs text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
                     Based on 5% Fee
                 </div>
             </div>
@@ -35,7 +35,7 @@ export const EarningsSimulator = ({ deposit }: { deposit: number }) => {
                         onChange={(e) => setVolume(parseInt(e.target.value))}
                         className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                     />
-                    <div className="flex justify-between text-[10px] text-slate-600 mt-1 font-mono">
+                    <div className="flex justify-between text-xs text-slate-600 mt-1 font-mono">
                         <span>$1k</span>
                         <span>$1M</span>
                     </div>
@@ -43,13 +43,13 @@ export const EarningsSimulator = ({ deposit }: { deposit: number }) => {
 
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-700/50">
                     <div>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Your Deposit</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Your Deposit</p>
                         <p className="text-lg font-mono text-white">${deposit.toLocaleString()}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Est. Fees Earned</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Est. Fees Earned</p>
                         <p className="text-lg font-mono text-emerald-400 font-bold">+${estimatedEarnings.toLocaleString()}</p>
-                        <p className="text-[10px] text-emerald-500/70 font-mono">({roi.toFixed(1)}% ROI)</p>
+                        <p className="text-xs text-emerald-500/70 font-mono">({roi.toFixed(1)}% ROI)</p>
                     </div>
                 </div>
             </div>

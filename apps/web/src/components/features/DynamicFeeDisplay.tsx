@@ -70,7 +70,7 @@ export const DynamicFeeDisplay = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Zap size={12} className="text-cyan-400" />
-          <span className="text-[9px] text-slate-500 font-bold uppercase">
+          <span className="text-xs text-slate-500 font-bold uppercase">
             Dynamic Fee
           </span>
           <Tooltip
@@ -93,7 +93,7 @@ export const DynamicFeeDisplay = ({
       </div>
 
       {/* Breakdown */}
-      <div className="space-y-1 text-[10px]">
+      <div className="space-y-1 text-xs">
         <div className="flex justify-between">
           <span className="text-slate-600">Base Fee</span>
           <span className="font-mono text-slate-400">{fee.breakdown.base}</span>

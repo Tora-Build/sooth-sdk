@@ -65,7 +65,7 @@ export const TickLadder: React.FC<TickLadderProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-950 border border-slate-800 rounded-lg overflow-hidden shadow-2xl">
       {/* Header */}
-      <div className="grid grid-cols-3 bg-slate-900/80 border-b border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest py-2 px-3 text-center">
+      <div className="grid grid-cols-3 bg-slate-900/80 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase tracking-widest py-2 px-3 text-center">
         <span>YES Depth</span>
         <span>Price (Tick)</span>
         <span>NO Depth</span>
@@ -107,7 +107,7 @@ export const TickLadder: React.FC<TickLadderProps> = ({
               )}>
                 {tick.price.toFixed(4)}
               </span>
-              <span className="text-[9px] text-slate-600 font-mono">#{tick.index}</span>
+              <span className="text-xs text-slate-600 font-mono">#{tick.index}</span>
             </div>
 
             {/* NO Side (Asks) */}
@@ -128,7 +128,7 @@ export const TickLadder: React.FC<TickLadderProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="bg-slate-900/50 border-t border-slate-800 p-2 text-[9px] text-slate-500 flex justify-between items-center">
+      <div className="bg-slate-900/50 border-t border-slate-800 p-2 text-xs text-slate-500 flex justify-between items-center">
         <span>BITMAP: ACTIVE</span>
         <div className="flex gap-2">
           <span className="text-emerald-500/50">● BUY</span>

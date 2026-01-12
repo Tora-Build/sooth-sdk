@@ -187,7 +187,7 @@ export const Navbar = () => {
             <span>{content.pro}</span>
           </MobileNavLink>
 
-          <div className="px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 border-t border-slate-800/50 pt-4">More</div>
+          <div className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest mt-2 border-t border-slate-800/50 pt-4">More</div>
 
           <MobileNavLink
             to="/gov"

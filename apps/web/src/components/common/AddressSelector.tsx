@@ -147,7 +147,7 @@ export const AddressSelector = ({
                                             </span>
                                             {opt.badge && (
                                                 <span className={cn(
-                                                    "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase",
+                                                    "text-xs px-2 py-0.5 rounded-full font-bold uppercase",
                                                     isSelected
                                                         ? "bg-cyan-500/20 text-cyan-300"
                                                         : "bg-white/10 text-white/40"
@@ -157,7 +157,7 @@ export const AddressSelector = ({
                                             )}
                                             {isAdj && (
                                                 <span className={cn(
-                                                    "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                                                    "text-xs px-2 py-0.5 rounded-full font-bold",
                                                     getTrustBgColor(opt.trustModel),
                                                     getTrustColor(opt.trustModel)
                                                 )}>
@@ -252,7 +252,7 @@ export const AddressSelector = ({
                                     Self (Creator)
                                 </span>
                                 <span className={cn(
-                                    "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase",
+                                    "text-xs px-2 py-0.5 rounded-full font-bold uppercase",
                                     customAddress === userAddress
                                         ? "bg-cyan-500/20 text-cyan-300"
                                         : "bg-white/10 text-white/40"

@@ -31,7 +31,7 @@ export const LPPositionsCard: React.FC = () => {
             emptyState={
                 <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
                     <Sparkles size={24} className="text-slate-600 mb-1" />
-                    <p className="text-[10px] font-mono">{uiContent.common.noPositions}</p>
+                    <p className="text-xs font-mono">{uiContent.common.noPositions}</p>
                 </div>
             }
         >
@@ -60,25 +60,25 @@ export const LPPositionsCard: React.FC = () => {
                     <div className="grid grid-cols-4 gap-1.5 border-t border-slate-700/20 pt-1.5">
                             <div>
                             <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">LP</div>
-                            <div className="font-mono text-[9px] text-white leading-none">
+                            <div className="font-mono text-xs text-white leading-none">
                                 {parseFloat(position.lpBalanceFormatted).toFixed(2)}
                                 </div>
                             </div>
                             <div>
                             <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">{t.floor}</div>
-                            <div className="font-mono text-[9px] text-emerald-400 font-bold leading-none">
+                            <div className="font-mono text-xs text-emerald-400 font-bold leading-none">
                                     {formatCurrency(parseFloat(position.floorValueFormatted))}
                             </div>
                                 </div>
                             <div>
                             <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">{t.ceiling}</div>
-                            <div className="font-mono text-[9px] text-slate-400 leading-none">
+                            <div className="font-mono text-xs text-slate-400 leading-none">
                                     {formatCurrency(parseFloat(position.ceilingValueFormatted))}
                             </div>
                                 </div>
                         <div className="text-right">
                             <div className="text-[7px] text-slate-500 uppercase font-black tracking-widest">Own</div>
-                            <div className="font-mono text-[9px] text-white font-bold leading-none">
+                            <div className="font-mono text-xs text-white font-bold leading-none">
                                 {position.sharePercent.toFixed(1)}%
                                 </div>
                             </div>

@@ -24,6 +24,7 @@ import { MarketDetailHeader } from '../components/features/launchpad/MarketDetai
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import {
   useLaunchpadMarketDirect,
+  useTruthMarketDirect,
   useCollateralizerDirect,
   useTickBookDirect,
   useTickBookQuoteDirect,
@@ -69,9 +70,9 @@ const MARKET_ORDER_ENABLED = false;
 const CATEGORIES = [
   { id: 'all', label: 'All' },
   { id: 'crypto', label: 'Crypto' },
-  { id: 'politics', label: 'Politics' },
-  { id: 'science', label: 'Science' },
   { id: 'sports', label: 'Sports' },
+  { id: 'cultures', label: 'Cultures' },
+  { id: 'others', label: 'Others' },
 ];
 
 // ============================================================================
@@ -277,7 +278,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
   return (
     <div className="relative">
       {/* Price scale */}
-      <div className="flex justify-between text-[9px] text-slate-600 font-mono mb-1 px-1">
+      <div className="flex justify-between text-xs text-slate-600 font-mono mb-1 px-1">
         <span>0%</span>
         <span>25%</span>
         <span>50%</span>
@@ -359,7 +360,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
                   {hasLiquidity && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
                       <div className="bg-slate-900 border-2 border-slate-700/50 rounded-xl px-3 py-2 text-center shadow-2xl backdrop-blur-md">
-                        <div className="font-mono font-bold text-white text-[10px] mb-1">{bucket.price.toFixed(1)}%</div>
+                        <div className="font-mono font-bold text-white text-xs mb-1">{bucket.price.toFixed(1)}%</div>
                         <div className={cn("text-[11px] font-bold whitespace-nowrap", isGreen ? "text-emerald-400" : "text-rose-400")}>
                           {isGreen ? 'Buy' : 'Sell'} {(() => {
                             const val = Number(formatUnits(bucket.liquidity, 18));
@@ -412,19 +413,19 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/50">
         <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-[9px] text-slate-500 uppercase">Range Low</div>
+          <div className="text-xs text-slate-500 uppercase">Range Low</div>
           <div className="text-sm font-mono font-bold text-slate-300">
             {lowestBoundary === 100 && !hasRealData ? '—' : `${lowestBoundary.toFixed(1)}%`}
           </div>
         </div>
         <div className="text-center p-2 rounded-lg bg-slate-900/30">
-          <div className="text-[9px] text-slate-500 uppercase">Range High</div>
+          <div className="text-xs text-slate-500 uppercase">Range High</div>
           <div className="text-sm font-mono font-bold text-slate-300">
             {highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}%`}
           </div>
         </div>
         <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-[9px] text-slate-500 uppercase">Total Liq</div>
+          <div className="text-xs text-slate-500 uppercase">Total Liq</div>
           <div className="text-sm font-mono font-bold text-white">
             {parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
           </div>
@@ -769,7 +770,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
             onClick={handleBatchCancel}
             disabled={group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'}
             className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all border',
+              'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
               group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'
                 ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
                 : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
@@ -800,7 +801,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
       </div>
 
       {/* Filter & Sort Row */}
-      <div className="flex items-center gap-2 mb-3 text-[10px]">
+      <div className="flex items-center gap-2 mb-3 text-xs">
         {/* Group toggle (left of filters) */}
         <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
           <button
@@ -857,7 +858,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as OrderSort)}
-                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-[10px] focus:ring-0"
+                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
               >
                 <option value="newest">Order ID</option>
                 <option value="created">Created</option>
@@ -873,13 +874,13 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
       {(yesShares !== undefined || noShares !== undefined) && (
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="py-1.5 px-2 rounded-lg bg-emerald-950/10 border border-emerald-900/20">
-            <div className="text-[9px] text-emerald-500/80 uppercase font-bold">YES Position</div>
+            <div className="text-xs text-emerald-500/80 uppercase font-bold">YES Position</div>
             <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(yesShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
           <div className="py-1.5 px-2 rounded-lg bg-rose-950/10 border border-rose-900/20">
-            <div className="text-[9px] text-rose-500/80 uppercase font-bold">NO Position</div>
+            <div className="text-xs text-rose-500/80 uppercase font-bold">NO Position</div>
             <div className="text-sm font-mono font-bold text-white">
               {parseFloat(formatUnits(noShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
@@ -895,17 +896,17 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
             <p className="text-xs text-slate-600">Place a limit order to get started</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {/* Header Row */}
-            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
-              <span className="shrink-0 w-10">ID</span>
-              <span className="shrink-0 w-8">Side</span>
-              <span className="shrink-0 w-20">Price</span>
-              <span className="shrink-0 w-14">Size</span>
-              <span className="shrink-0 w-16">Fill</span>
-              <div className="flex-1" />
-              <span className="shrink-0 w-14 text-right">Action</span>
-            </div>
+          <div className="overflow-x-auto -mx-4 px-4">
+            <div className="space-y-1 min-w-[480px]">
+              <div className="flex items-center gap-2 px-2 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
+                <span className="shrink-0 w-10">ID</span>
+                <span className="shrink-0 w-10">Side</span>
+                <span className="shrink-0 w-24">Price</span>
+                <span className="shrink-0 w-12">Size</span>
+                <span className="shrink-0 w-16">Fill</span>
+                <div className="flex-1" />
+                <span className="shrink-0 text-right">Action</span>
+              </div>
             {sortedOrders.map((order) => {
               const fillPercent = getFillPercent(order);
               const isYesOrder = order.outcome === 1;
@@ -944,22 +945,18 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                     isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
                   )}
                 >
-                  {/* Order ID */}
-                  <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{orderId}</span>
+                  <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{orderId}</span>
 
-                  {/* Side Badge */}
                   <span className={cn(
-                    "shrink-0 w-8 py-0.5 rounded text-[8px] font-bold text-center uppercase",
+                    "shrink-0 w-10 py-0.5 rounded text-xs font-bold text-center uppercase",
                     isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
                   )}>
                     {isBuy ? 'Buy' : 'Sell'}
                   </span>
 
-                  {/* Price */}
-                  <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
+                  <span className="shrink-0 w-24 text-xs font-mono font-medium text-white">{displayPrice}</span>
 
-                  {/* Size */}
-                  <span className="shrink-0 w-14 text-[10px] font-mono text-slate-400">
+                  <span className="shrink-0 w-12 text-xs font-mono text-slate-400">
                     {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
 
@@ -976,7 +973,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                         style={{ width: `${Math.min(fillPercent, 100)}%` }}
                       />
                     </div>
-                    <span className="text-[9px] font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
+                    <span className="text-xs font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
                   </div>
 
                   {/* Spacer */}
@@ -987,7 +984,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                       onClick={() => handleClaimFills(order.orderId)}
                       disabled={actionInProgress === `claim-${orderId}` || (!isFullyFilled && !hasPendingFills)}
                       className={cn(
-                        "h-5 px-2 rounded text-[9px] font-bold border transition-colors flex items-center justify-center",
+                        "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
                         (isFullyFilled || hasPendingFills)
                           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
                           : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
@@ -999,7 +996,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                       onClick={() => handleCancelOrder(order.orderId)}
                       disabled={actionInProgress === `cancel-${orderId}` || isFullyFilled}
                       className={cn(
-                        "h-5 px-2 rounded text-[9px] font-bold border transition-colors flex items-center justify-center",
+                        "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
                         !isFullyFilled
                           ? "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
                           : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
@@ -1012,6 +1009,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                 </div>
               );
             })}
+            </div>
           </div>
         )
       ) : (
@@ -1022,16 +1020,17 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
             <p className="text-xs text-slate-600">Sell shares you already own to post an ask</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
-              <span className="shrink-0 w-10">ID</span>
-              <span className="shrink-0 w-10">Token</span>
-              <span className="shrink-0 w-24">Price</span>
-              <span className="shrink-0 w-20">Size</span>
-              <div className="flex-1" />
-              <span className="shrink-0 w-14 text-right">Action</span>
-            </div>
-            {userSpotSells.map((s) => {
+          <div className="overflow-x-auto -mx-4 px-4">
+            <div className="space-y-1 min-w-[400px]">
+              <div className="flex items-center gap-2 px-2 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
+                <span className="shrink-0 w-10">ID</span>
+                <span className="shrink-0 w-10">Token</span>
+                <span className="shrink-0 w-24">Price</span>
+                <span className="shrink-0 w-16">Size</span>
+                <div className="flex-1" />
+                <span className="shrink-0 text-right">Action</span>
+              </div>
+              {userSpotSells.map((s) => {
               const lower = s.tickLower / 10;
               const upper = s.tickUpper / 10;
               const remaining = s.sharesTotal > s.sharesFilled ? s.sharesTotal - s.sharesFilled : 0n;
@@ -1044,16 +1043,16 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                   key={s.sellId.toString()}
                   className="flex items-center gap-2 p-2 rounded-lg border bg-slate-900/40 border-slate-800/40"
                 >
-                  <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{s.sellId.toString()}</span>
-                  <span className={cn("shrink-0 w-10 text-[9px] font-bold uppercase", s.outcome === 1 ? "text-emerald-400" : "text-rose-400")}>{sellOutcomeLabel}</span>
+                  <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{s.sellId.toString()}</span>
+                  <span className={cn("shrink-0 w-10 text-xs font-bold uppercase", s.outcome === 1 ? "text-emerald-400" : "text-rose-400")}>{sellOutcomeLabel}</span>
                   <span className="shrink-0 w-24 text-[11px] font-mono font-medium text-white">
                     {lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`}
                   </span>
-                  <span className="shrink-0 w-20 text-[10px] font-mono text-slate-400">
+                  <span className="shrink-0 w-16 text-xs font-mono text-slate-400">
                     {parseFloat(formatUnits(remaining, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
                   <div className="flex-1" />
-                  <div className="shrink-0 w-14 flex items-center justify-end">
+                  <div className="shrink-0 flex items-center justify-end">
                     <button
                       onClick={async () => {
                         if (!onCancelSpotSell) return;
@@ -1067,7 +1066,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                       }}
                       disabled={!onCancelSpotSell || isCancelling}
                       className={cn(
-                        "h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center",
+                        "h-5 px-2 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center",
                         (!onCancelSpotSell || isCancelling) && "opacity-60 cursor-not-allowed hover:bg-rose-500/20"
                       )}
                       title="Cancel spot sell"
@@ -1078,6 +1077,7 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                 </div>
               );
             })}
+            </div>
           </div>
         )
       )}
@@ -1128,19 +1128,23 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     const graduatedOnChain = onChainMarkets.filter(m => m.isGraduated);
 
     return graduatedOnChain.map(m => {
-      // Try to find UI metadata from static config
       const staticMarket = staticMarkets.find(
         s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
       );
 
+      let localMeta: { category?: string; name?: string } | null = null;
+      try {
+        const stored = localStorage.getItem(`market_meta_${m.address.toLowerCase()}`);
+        if (stored) localMeta = JSON.parse(stored);
+      } catch { /* ignore */ }
+
       return {
         contractAddress: m.address,
-        name: staticMarket?.name || m.name || 'Unknown Market',
+        name: staticMarket?.name || localMeta?.name || m.name || 'Unknown Market',
         symbol: staticMarket?.symbol || m.symbol || '???',
-        category: (staticMarket as any)?.category || 'other',
+        category: (staticMarket as any)?.category || localMeta?.category || 'other',
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
-        // On-chain data
         isGraduated: m.isGraduated,
         creator: m.creator,
         createdAt: m.createdAt,
@@ -1359,7 +1363,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
           <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
           <BookOpen className="w-3 h-3 text-slate-400 flex-shrink-0" />
         </div>
-        <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
+        <div className="text-xs text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
 
       {/* Pro Price */}
@@ -1419,16 +1423,16 @@ const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
 
         {/* Status Badge */}
         {isLoading ? (
-          <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-[10px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-xs font-medium">
             Loading...
           </span>
         ) : isGraduated ? (
-          <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-medium flex items-center gap-1">
+          <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
             Graduated
           </span>
         ) : (
-          <span className="px-2 py-1 rounded-full bg-slate-500/20 text-slate-400 text-[10px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-slate-500/20 text-slate-400 text-xs font-medium">
             Pre-Graduation
           </span>
         )}
@@ -1544,6 +1548,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const invalidateV8Queries = useInvalidateQueries();
 
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
+  const { market: truth } = useTruthMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
@@ -2060,115 +2065,115 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     <div className="space-y-6">
       {/* Back button + Market Info (hidden when embedded) */}
       {!embedded && (
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/pro')}
-            className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-400" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-sm font-bold">
-              {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
+        <div className="space-y-3">
+          {/* Top row: Back button + Market Info */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/pro')}
+              className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-400" />
+            </button>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-white">{staticMetadata?.symbol || launchpad?.symbol || 'Select Market'}</div>
+                <div className="text-xs text-slate-500 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold text-white">{staticMetadata?.symbol || launchpad?.symbol || 'Select Market'}</div>
-              <div className="text-xs text-slate-500">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 50)}</div>
-            </div>
+            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
+              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+            </button>
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          {/* Prices */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
             {/* Pro Price */}
             <div className={cn(
-              "text-center p-2 rounded-lg",
+              "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
               isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
             )}>
-              <div className={cn("text-[9px] uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro Price</div>
-              <div className={cn("text-base font-mono font-bold", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
+              <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
+              <div className={cn("text-sm font-mono font-bold", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
                 {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
                 {hasArb && <span className="ml-1">⚡</span>}
               </div>
             </div>
             {/* AMM Price */}
-            <div className="text-center p-2 rounded-lg bg-slate-950">
-              <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
-              <div className="text-base font-mono font-bold text-slate-400">
+            <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
+              <div className="text-xs text-slate-500 uppercase">AMM</div>
+              <div className="text-sm font-mono font-bold text-slate-400">
                 {ammPriceCents.toFixed(1)}¢
               </div>
             </div>
             {/* Diff */}
             <div className={cn(
-              "text-center p-2 rounded-lg",
+              "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
               hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
             )}>
-              <div className={cn("text-[9px] uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
-              <div className={cn("text-base font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
+              <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
+              <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
                 {arbSpread.toFixed(1)}¢
               </div>
             </div>
-            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-            </button>
           </div>
         </div>
       )}
 
-      {/* Embedded Mode: Market Summary Card with prices (like Trade page's MarketDetailHeader) */}
+      {/* Embedded Mode: Market Summary Card */}
       {embedded && (
         <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-          <div className="flex items-center justify-between">
+          <div className="space-y-3">
             {/* Market Info */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white flex-shrink-0">
                 {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
-                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-[9px]">GRADUATED</Badge>
+                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-xs">GRADUATED</Badge>
                 </div>
-                <div className="text-sm text-slate-400">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 60)}</div>
+                <div className="text-sm text-slate-400 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
               </div>
             </div>
 
-            {/* Price Comparison */}
-            <div className="flex items-center gap-4">
-              {/* Pro Price */}
+            {/* Prices */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
               <div className={cn(
-                "text-center px-3 py-1 rounded-lg",
-                isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : ""
+                "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
+                isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
               )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro Price</div>
-                <div className={cn("text-lg font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
+                <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
+                <div className={cn("text-sm font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
                   {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
                   {hasArb && <Zap className="w-4 h-4" />}
                 </div>
               </div>
-              {/* AMM Price */}
-              <div className="text-center px-3 py-1">
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">AMM Price</div>
-                <div className="text-lg font-mono font-bold text-slate-400">
+              <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
+                <div className="text-xs text-slate-500 uppercase">AMM</div>
+                <div className="text-sm font-mono font-bold text-slate-400">
                   {ammPriceCents.toFixed(1)}¢
                 </div>
               </div>
-              {/* Diff */}
               <div className={cn(
-                "text-center px-3 py-1 rounded-lg",
-                hasArb ? "bg-slate-500/10 border border-slate-500/30" : ""
+                "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
+                hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
               )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
-                <div className={cn("text-lg font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
+                <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
+                <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
                   {arbSpread.toFixed(1)}¢
                 </div>
               </div>
-              {/* Refresh */}
-              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
+              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
                 <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
               </button>
             </div>
           </div>
 
-          {/* Market Key Info (collapsible for pro users) */}
-          <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center gap-4 text-[10px] text-slate-500">
+          {/* Market Key Info */}
+          <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
             <button
               onClick={() => {
                 if (tickBook?.marketKey) {
@@ -2213,7 +2218,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
-              <div className="flex items-center gap-3 text-[10px]">
+              <div className="flex items-center gap-3 text-xs">
                 <span className="text-emerald-400">◀ {isYes ? 'YES' : 'NO'} Bids</span>
                 <span className="text-white font-bold">{isProPriceValid ? `${(isYes ? proPriceCents : 100 - proPriceCents).toFixed(1)}¢` : 'N/A'}</span>
                 <span className="text-rose-400">{isYes ? 'NO' : 'YES'} Asks ▶</span>
@@ -2270,15 +2275,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">Wallet</div>
+                <div className="text-xs text-slate-500 uppercase">Wallet</div>
                 <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">In Orders</div>
+                <div className="text-xs text-slate-500 uppercase">In Orders</div>
                 <div className="font-mono text-sm text-slate-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">Available</div>
+                <div className="text-xs text-slate-500 uppercase">Available</div>
                 <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</div>
               </div>
             </div>
@@ -2299,7 +2304,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     type="button"
                     onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 hover:text-slate-400"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-400"
                   >
                     MAX
                   </button>
@@ -2362,7 +2367,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
                     className={cn(
-                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       isBuying
                         ? isYes
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2375,7 +2380,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
                     className={cn(
-                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       !isBuying
                         ? "bg-slate-500/10 text-slate-400 border-slate-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
                         : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
@@ -2390,7 +2395,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setOrderType('limit')}
                     className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       orderType === 'limit'
                         ? isYes
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2407,8 +2412,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {orderType === 'limit' && (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center mb-1">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Price</div>
-                    <div className="text-[9px] text-slate-600 font-mono">0.1¢ — 99.9¢</div>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-bold">Price</div>
+                    <div className="text-xs text-slate-600 font-mono">0.1¢ — 99.9¢</div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-4">
@@ -2469,7 +2474,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                         }
                       }}
                       className={cn(
-                        "h-[48px] px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
+                        "h-[48px] px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
                         priceMode === 'range'
                           ? isYes
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2531,7 +2536,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       )}
                     </div>
 
-                    <div className="text-center text-[10px] font-mono">
+                    <div className="text-center text-xs font-mono">
                       {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
                         : <span className={cn("text-slate-500", !isBuying && spotRangeExceedsLimit && "text-slate-500")}>
@@ -2549,10 +2554,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Amount Input */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider">
                     {orderType === 'market' && useFloorPrice ? 'Amount (USDC)' : 'Amount (Shares)'}
                   </label>
-                  <span className="text-[10px] text-slate-600 font-mono">
+                  <span className="text-xs text-slate-600 font-mono">
                     Max: {parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}
                   </span>
                 </div>
