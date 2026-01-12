@@ -16,6 +16,8 @@ interface ITickBookVault {
     event UsdcWithdrawn(address indexed user, uint256 usdcAmountWad, uint256 usdcAmountAsset);
     event UsdcReserved(address indexed user, uint256 amountWad);
     event UsdcReleased(address indexed user, uint256 amountWad);
+    event UsdcSpentToMarket(address indexed user, address indexed market, uint256 amountWad);
+    event UsdcSpentFromAvailable(address indexed user, address indexed market, uint256 amountWad);
     event UsdcCredited(address indexed user, uint256 amountWad);
     event OutcomeCredited(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);
     event OutcomeLocked(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);

@@ -16,25 +16,25 @@
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0xf9ac031408f4638c147764377ba8a5ab34584515",
-        "Collateralizer": "0x87a7042bdeae36309a97d79203dc41d876a76853",
-        "AMMEngine": "0x224f012eacbb7425d336bf0bd5546feb74bbb16e",
-        "TickBookVault": "0x307425430128a2948bbd33d6f4bc558cc1a58929",
-        "TickBookPoolManager": "0x9f4c719823935cbbb9db3f8e78556d8684c9b877",
-        "TickBook": "0x9f4c719823935cbbb9db3f8e78556d8684c9b877",
-        "LaunchpadEngine": "0x35292381f577692d29078fd66c22aa99aae9a8d6"
+        "MockUSDC": "0xe35ff7794ca0f3ec55937e3806560684fdcdb74d",
+        "Collateralizer": "0xd7a7d7829776456527198cfd0da1e6c4dae70817",
+        "AMMEngine": "0x67118b2ff01bbadce643c87d86f7228bb2f846b8",
+        "TickBookVault": "0xad72ba21563237ebdfbe310c052f87acb7cab0f2",
+        "TickBookPoolManager": "0x9d17f81207fc377bbd8a73b27ad38eeb23be4388",
+        "TickBook": "0x9d17f81207fc377bbd8a73b27ad38eeb23be4388",
+        "LaunchpadEngine": "0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d"
       }
     },
     "monadTestnet": {
       "chainId": 10143,
       "contracts": {
-        "MockUSDC": "0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724",
-        "Collateralizer": "0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980",
-        "AMMEngine": "0xed9aaecb4577319dc258bfd902f504972e530f67",
-        "TickBookVault": "0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c",
-        "TickBookPoolManager": "0x19424e5482ad7b79654706fa60f4e5153d54e3c3",
-        "TickBook": "0x19424e5482ad7b79654706fa60f4e5153d54e3c3",
-        "LaunchpadEngine": "0x6e295996fd9902b6ebf2c44068da9a07b81cd527"
+        "MockUSDC": "0x374af5c5d64245a7c779c8d92f9e3c1058fb1315",
+        "Collateralizer": "0x75a373de062a25178366e8fecb588547bfdfb589",
+        "AMMEngine": "0xaa314e2370587f80b25b217ae97358e8be46d143",
+        "TickBookVault": "0x656c7092038334a66928644df2bec755f85c32c8",
+        "TickBookPoolManager": "0xd4090b703e171bca15dce1cce2da4c8e14ff44c1",
+        "TickBook": "0xd4090b703e171bca15dce1cce2da4c8e14ff44c1",
+        "LaunchpadEngine": "0xa93305a91705b095ddeb3c82f7988b1acdf1f012"
       }
     }
   }

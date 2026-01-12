@@ -344,4 +344,184 @@ app.get("/spotsell-fills/:chainId/:sellId", async (c) => {
   return c.json(serializeBigInts(fills));
 });
 
+app.get("/launchpad-markets/:chainId", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+
+  const markets = await db
+    .select()
+    .from(schema.launchpadMarket)
+    .where(eq(schema.launchpadMarket.chainId, chainId))
+    .orderBy(desc(schema.launchpadMarket.createdAt));
+
+  return c.json(serializeBigInts(markets));
+});
+
+app.get("/portfolio/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const [vaultBalance, vaultPositions, ammPositions, lpBalances, lockEntries] = await Promise.all([
+    db
+      .select()
+      .from(schema.vaultBalance)
+      .where(
+        and(
+          eq(schema.vaultBalance.chainId, chainId),
+          eq(schema.vaultBalance.user, user)
+        )
+      )
+      .limit(1),
+    db
+      .select()
+      .from(schema.vaultPosition)
+      .where(
+        and(
+          eq(schema.vaultPosition.chainId, chainId),
+          eq(schema.vaultPosition.user, user)
+        )
+      ),
+    db
+      .select()
+      .from(schema.ammPosition)
+      .where(
+        and(
+          eq(schema.ammPosition.chainId, chainId),
+          eq(schema.ammPosition.user, user)
+        )
+      ),
+    db
+      .select()
+      .from(schema.lpBalance)
+      .where(
+        and(
+          eq(schema.lpBalance.chainId, chainId),
+          eq(schema.lpBalance.user, user)
+        )
+      ),
+    db
+      .select()
+      .from(schema.lockEntry)
+      .where(
+        and(
+          eq(schema.lockEntry.chainId, chainId),
+          eq(schema.lockEntry.user, user),
+          eq(schema.lockEntry.claimed, false)
+        )
+      )
+      .orderBy(schema.lockEntry.unlockTime),
+  ]);
+
+  return c.json(
+    serializeBigInts({
+      vaultBalance: vaultBalance[0] ?? null,
+      vaultPositions: vaultPositions.filter(
+        (p) => p.yesSharesWad > 0n || p.noSharesWad > 0n
+      ),
+      ammPositions: ammPositions.filter(
+        (p) => p.yesShares > 0n || p.noShares > 0n
+      ),
+      lpBalances: lpBalances.filter((p) => p.balance > 0n),
+      lockEntries,
+    })
+  );
+});
+
+app.get("/vault-balance/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const result = await db
+    .select()
+    .from(schema.vaultBalance)
+    .where(
+      and(
+        eq(schema.vaultBalance.chainId, chainId),
+        eq(schema.vaultBalance.user, user)
+      )
+    )
+    .limit(1);
+
+  return c.json(
+    serializeBigInts(
+      result[0] ?? { availableUsdcWad: "0", reservedUsdcWad: "0" }
+    )
+  );
+});
+
+app.get("/vault-positions/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const positions = await db
+    .select()
+    .from(schema.vaultPosition)
+    .where(
+      and(
+        eq(schema.vaultPosition.chainId, chainId),
+        eq(schema.vaultPosition.user, user)
+      )
+    );
+
+  return c.json(
+    serializeBigInts(
+      positions.filter((p) => p.yesSharesWad > 0n || p.noSharesWad > 0n)
+    )
+  );
+});
+
+app.get("/amm-positions/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const positions = await db
+    .select()
+    .from(schema.ammPosition)
+    .where(
+      and(
+        eq(schema.ammPosition.chainId, chainId),
+        eq(schema.ammPosition.user, user)
+      )
+    );
+
+  return c.json(
+    serializeBigInts(positions.filter((p) => p.yesShares > 0n || p.noShares > 0n))
+  );
+});
+
+app.get("/lp-balances/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const balances = await db
+    .select()
+    .from(schema.lpBalance)
+    .where(
+      and(
+        eq(schema.lpBalance.chainId, chainId),
+        eq(schema.lpBalance.user, user)
+      )
+    );
+
+  return c.json(serializeBigInts(balances.filter((b) => b.balance > 0n)));
+});
+
+app.get("/lock-entries/:chainId/:user", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const user = c.req.param("user").toLowerCase() as `0x${string}`;
+
+  const entries = await db
+    .select()
+    .from(schema.lockEntry)
+    .where(
+      and(
+        eq(schema.lockEntry.chainId, chainId),
+        eq(schema.lockEntry.user, user),
+        eq(schema.lockEntry.claimed, false)
+      )
+    )
+    .orderBy(schema.lockEntry.unlockTime);
+
+  return c.json(serializeBigInts(entries));
+});
+
 export default app;

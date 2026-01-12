@@ -1,5 +1,20 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-077: Event Instrumentation for Indexer Completeness
+- **Date**: 2026-01-12
+- **Status**: Accepted
+- **Context**:
+  - The indexer could not accurately reconstruct balances and liquidity changes due to missing events.
+  - Portfolio required reliable USDC balance transitions, LP balance changes, and lock lifecycle visibility.
+- **Decision**:
+  1. Add explicit spend events for TickBookVault (reserved + available).
+  2. Emit lock lifecycle and balance adjustment events in AMMEngine.
+  3. Emit LP balance, fee accrual, and graduation progress events in LaunchpadEngine.
+  4. Emit internal cleanup and liquidity change events in TickBookPoolManager.
+- **Consequences**:
+  - Requires full redeploy (Vault + PoolManager + AMM + Launchpad) due to new event signatures.
+  - Indexer ABIs and handlers must update and reindex from new start blocks.
+
 ## ADR-076: Launchpad Create Flow Simplification
 - **Date**: 2026-01-10
 - **Status**: Accepted (Implemented)

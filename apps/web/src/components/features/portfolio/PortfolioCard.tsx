@@ -3,7 +3,7 @@ import { Card } from '../../ui/Card';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
-type CardVariant = 'cyan' | 'emerald' | 'default';
+type CardVariant = 'cyan' | 'emerald' | 'indigo' | 'default';
 
 const variantStyles: Record<CardVariant, { card: string; header: string; title: string; button: string }> = {
     cyan: {
@@ -17,6 +17,12 @@ const variantStyles: Record<CardVariant, { card: string; header: string; title: 
         header: 'bg-emerald-900/40',
         title: 'text-emerald-300',
         button: 'border-emerald-500/10 hover:bg-emerald-900/30',
+    },
+    indigo: {
+        card: 'border-indigo-500/20 bg-indigo-950/30',
+        header: 'bg-indigo-900/40',
+        title: 'text-indigo-300',
+        button: 'border-indigo-500/10 hover:bg-indigo-900/30',
     },
     default: {
         card: 'border-slate-800 bg-slate-900/40',
@@ -55,10 +61,10 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const styles = variantStyles[variant];
-    
+
     const childArray = useMemo(() => React.Children.toArray(children), [children]);
     const hasMore = foldable && itemCount > maxVisibleItems && childArray.length > 1;
-    
+
     const visibleChildren = useMemo(() => {
         if (!foldable || isExpanded || childArray.length <= 1) {
             return children;

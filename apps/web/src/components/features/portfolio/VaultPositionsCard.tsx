@@ -17,7 +17,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
     const [isRedeeming, setIsRedeeming] = useState(false);
     const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}` | undefined;
-    
+
     const hasYes = (pos.liquidYes + pos.lockedYes + pos.walletYes) > 0.001;
     const hasNo = (pos.liquidNo + pos.lockedNo + pos.walletNo) > 0.001;
     const priceYes = pos.priceYes || 0.5;
@@ -56,7 +56,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                     <Trophy size={8} className="text-slate-400" />
                 </div>
             )}
-            
+
             <div className="flex justify-between items-start gap-2">
                 <h4 className="font-bold text-[11px] text-white leading-tight truncate flex-1 pr-4" title={pos.question}>
                     {pos.question}
@@ -150,7 +150,7 @@ export const VaultPositionsCard: React.FC = () => {
         <PortfolioCard
             title="Trading Positions"
             icon={<ShieldCheck size={16} className="text-cyan-400" />}
-            variant="indigo"
+            variant="cyan"
             badge={
                 <span className="text-[9px] font-bold text-cyan-400/60 uppercase tracking-widest">
                     {vaultPositions.length} margin positions

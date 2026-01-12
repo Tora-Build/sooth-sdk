@@ -1,16 +1,16 @@
 # Project Status
 
 ## Current Focus
-- **V10.8 FULL-STACK SYNC COMPLETE (2026-01-11)** — Arc and Monad testnets redeployed to V10.8. Frontend, Indexer, and CLI fully synchronized.
-- **RPC Infrastructure Fixes** — Fixed unreachable Monad and Arc RPC endpoints. Updated frontend (wagmi) and CLI configs.
-- **Market Discovery Verified** — Frontend and CLI now correctly discover markets via LaunchpadEngine.getMarkets().
+- **V10.8 Redeploy + Event Instrumentation (2026-01-12)** — Base Sepolia + Monad redeployed with expanded event coverage for indexer correctness.
+- **Portfolio Indexer Integration** — New indexer schema/endpoints + frontend hooks with RPC fallback.
+- **Arc Deployment Pending** — Arc Testnet deploy failed at gas estimation; will retry after RPC update.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad (switched to Ankr as QuickNode/Foundation unreachable) and Arc (switched to drpc endpoint) RPCs in frontend wagmi config, chains.ts, and CLI config.ts.
-- **2026-01-11** — **Frontend ABI Fix**: Rewrote `abis.ts` getAbi() helper to handle both raw array and Foundry artifact formats. Fixed discovery breaking on V10.8 JSON files.
-- **2026-01-11** — **Market Discovery Refactor**: Refactored `useLaunchpadMarkets` to use `useOnChainMarkets` (LaunchpadEngine-based). Removed deprecated LaunchpadFactory logic.
-- **2026-01-11** — **V10.8 Full-Stack Sync**: Redeployed Arc/Monad to V10.8. Synced `deployments.json`, refreshed FE ABIs, and updated `useLaunchpadMarket` hook to extract market metadata from contract.
-- **2026-01-09** — **V10.7 Spot Sell Full-Range Search Fix**: Fixed critical bug where spot sells at better prices were missed during crossing. `_unifiedCross()` now passes buyer's full tick range to `_fillSpotLiquidity()` instead of narrow overlap. Added 6 regression tests (all passing). Gas +11k (acceptable). Deployed to Monad Testnet + Base Sepolia.
+- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks. Arc deploy failed at gas estimate.
+- **2026-01-12** — **Event Coverage Expansion**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, and TickBookPoolManager to support comprehensive indexing.
+- **2026-01-12** — **Portfolio Indexer Integration**: Added indexer schema + API endpoints; frontend hooks now prefer indexer with RPC fallback.
+- **2026-01-12** — **PR #39 Integration**: Adopted DecimalMath refactor across contracts-core.
+- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad and Arc RPC endpoints across frontend and CLI configs.
 - **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
 - **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
 - **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
@@ -36,8 +36,9 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
+- **Arc Testnet Redeploy** — Deployment failed at gas estimation on `rpc.testnet.arc.network`. RPC updated in script; retry needed.
 - **Update .env RPC URLs** — User's `.env` file contains stale Arc RPC URL (`rpc.testnet.arc.network`). Should update to `rpc.drpc.testnet.arc.network`.
-- **Monad Market Creation** — V10.8 Monad Testnet has 0 markets. Create test market via CLI when RPC is stable.
+- **Indexing Reset** — Reset indexer DB and reindex once Arc redeploy succeeds.
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Known Issues
@@ -110,14 +111,14 @@
 ### Base Sepolia (chainId: 84532) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x9f4c719823935cbbb9db3f8e78556d8684c9b877` |
-| **Collateralizer** | `0x87a7042bdeae36309a97d79203dc41d876a76853` |
-| **AMMEngine** | `0x224f012eacbb7425d336bf0bd5546feb74bbb16e` |
-| **TickBookVault** | `0x307425430128a2948bbd33d6f4bc558cc1a58929` |
-| **LaunchpadEngine** | `0x35292381f577692d29078fd66c22aa99aae9a8d6` |
-| **MockUSDC** | `0xf9ac031408f4638c147764377ba8a5ab34584515` |
+| **TickBookPoolManager** | `0x9d17f81207fc377bbd8a73b27ad38eeb23be4388` |
+| **Collateralizer** | `0xd7a7d7829776456527198cfd0da1e6c4dae70817` |
+| **AMMEngine** | `0x67118b2ff01bbadce643c87d86f7228bb2f846b8` |
+| **TickBookVault** | `0xad72ba21563237ebdfbe310c052f87acb7cab0f2` |
+| **LaunchpadEngine** | `0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d` |
+| **MockUSDC** | `0xe35ff7794ca0f3ec55937e3806560684fdcdb74d` |
 
-**Note:** V10.8 deployment (2026-01-10). Atomic market creation and $10 min deposit.
+**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
 
 ### Arc Testnet (chainId: 5042002) — V10.8
 | Contract | Address |
@@ -134,14 +135,14 @@
 ### Monad Testnet (chainId: 10143) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x19424e5482ad7b79654706fa60f4e5153d54e3c3` |
-| **Collateralizer** | `0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980` |
-| **AMMEngine** | `0xed9aaecb4577319dc258bfd902f504972e530f67` |
-| **TickBookVault** | `0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c` |
-| **LaunchpadEngine** | `0x6e295996fd9902b6ebf2c44068da9a07b81cd527` |
-| **MockUSDC** | `0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724` |
+| **TickBookPoolManager** | `0xd4090b703e171bca15dce1cce2da4c8e14ff44c1` |
+| **Collateralizer** | `0x75a373de062a25178366e8fecb588547bfdfb589` |
+| **AMMEngine** | `0xaa314e2370587f80b25b217ae97358e8be46d143` |
+| **TickBookVault** | `0x656c7092038334a66928644df2bec755f85c32c8` |
+| **LaunchpadEngine** | `0xa93305a91705b095ddeb3c82f7988b1acdf1f012` |
+| **MockUSDC** | `0x374af5c5d64245a7c779c8d92f9e3c1058fb1315` |
 
-**Note:** V10.8 deployment (2026-01-11). Fresh redeployment with 18-decimal MockUSDC.
+**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
 
 
 ---
@@ -313,4 +314,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-11*
+*Last updated: 2026-01-12*

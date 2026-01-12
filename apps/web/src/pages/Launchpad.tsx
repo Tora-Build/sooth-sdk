@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useConfig, useReadContract, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
-import { parseUnits, Address, decodeEventLog } from 'viem';
+import { parseUnits, formatUnits, Address, decodeEventLog } from 'viem';
 import {
     Rocket, Scale, Shield, DollarSign,
     Activity, Check, Coins, BookOpen,
@@ -158,6 +158,18 @@ export const Launchpad = () => {
         query: { enabled: !!userAddress && !!launchpadEngineAddress }
     });
     const allowance = allowanceData as bigint | undefined;
+
+    const { data: usdcBalanceData } = useReadContract({
+        address: usdcAddress,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress as Address],
+        query: { enabled: !!usdcAddress && !!userAddress }
+    });
+    const usdcBalance = usdcBalanceData as bigint | undefined;
+    const formattedBalance = usdcBalance && usdcDecimals 
+        ? parseFloat(formatUnits(usdcBalance, usdcDecimals as number)) 
+        : 0;
 
     const getDeadline = () => {
         if (form.expirationMode === 'open') return 4102444800;
@@ -481,7 +493,19 @@ export const Launchpad = () => {
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Deposit (USDC)</label>
-                                    <span className="text-white font-mono font-bold">${depositAmount.toLocaleString()}</span>
+                                    <div className="text-right">
+                                        <span className="text-white font-mono font-bold block">${depositAmount.toLocaleString()}</span>
+                                        {userAddress && (
+                                            <span className={cn(
+                                                "text-xs font-mono transition-colors",
+                                                (usdcBalance !== undefined && depositWei > usdcBalance) 
+                                                    ? "text-red-400 font-bold" 
+                                                    : "text-white/40"
+                                            )}>
+                                                Balance: ${formattedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <input
                                     type="range"
@@ -582,7 +606,10 @@ export const Launchpad = () => {
                                 )}
 
                                 {/* Faucet link */}
-                                <div className="text-center">
+                                <div className="flex items-center justify-between px-1">
+                                    <span className="text-xs text-slate-500 font-mono">
+                                        Wallet USDC: ${formattedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
                                     <a
                                         href="/faucet"
                                         className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
