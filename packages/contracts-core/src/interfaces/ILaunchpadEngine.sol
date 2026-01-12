@@ -64,6 +64,39 @@ interface ILaunchpadEngine {
         uint256 lpTokens
     );
 
+    event LPBalanceUpdated(
+        address indexed market,
+        address indexed user,
+        int256 delta,
+        uint256 newBalance,
+        uint256 totalSupply
+    );
+
+    event LPYieldPoolUpdated(
+        address indexed market,
+        uint256 amountUsdc,
+        uint256 newTotal
+    );
+
+    event FeesAccrued(
+        address indexed market,
+        uint256 amountUsdc,
+        uint256 totalAccrued
+    );
+
+    event BaseLiquidityIncreased(
+        address indexed market,
+        uint256 amountWad,
+        uint256 newBBase,
+        uint256 newBCurrent
+    );
+
+    event GraduationProgressUpdated(
+        address indexed market,
+        uint256 feesAccruedWad,
+        uint256 thresholdWad
+    );
+
     event PreGradFeeUpdated(uint16 feeBps);
     event PostGradFeeUpdated(uint16 feeBps);
     event FeeDistributionUpdated(uint16 bBaseBps, uint16 lpYieldBps, uint16 protocolBps);

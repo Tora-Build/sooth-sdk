@@ -464,7 +464,10 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Faucet link - show when connected */}
             {isConnected && (
-                <div className="text-center">
+                <div className="flex items-center justify-between px-1">
+                    <span className="text-xs text-slate-500 font-mono">
+                        Wallet USDC: {formatCurrency(parseFloat(formatUnits(usdcBalance || 0n, decimals || 18)))}
+                    </span>
                     <a
                         href="/faucet"
                         className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"

@@ -61,13 +61,13 @@ message SettlementProof {
             </div>
             <div className="flex gap-4 font-mono text-[10px] text-slate-500">
               <span>LATENCY: 40MS</span>
-              <span>SYNC_V8.1: OK</span>
+              <span>SYNC_V10.8: OK</span>
             </div>
           </div>
 
           {/* Badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
-            <Badge color="cyan">v8.1 Modular</Badge>
+            <Badge color="cyan">v10.8 Modular</Badge>
             <Badge color="indigo">Base Sepolia</Badge>
             <Badge color="purple">Monad Testnet</Badge>
             <Badge color="emerald">Arc Testnet</Badge>
@@ -191,7 +191,7 @@ message SettlementProof {
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
           <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            © 2025 Sooth Protocol | V10.6
+            © 2025 Sooth Protocol | V10.8
           </div>
           <div className="flex items-center gap-8">
             <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>

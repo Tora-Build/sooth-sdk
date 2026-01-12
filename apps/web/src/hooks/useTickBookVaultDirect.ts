@@ -5,11 +5,6 @@ import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
 
-/**
- * Hook to read TickBookVault balances for the Pro page
- * @param userAddress User wallet address
- * @param marketAddress TruthMarket address for internal outcomes
- */
 export function useTickBookVaultDirect(userAddress: Address | undefined, marketAddress: Address | undefined) {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
@@ -38,15 +33,34 @@ export function useTickBookVaultDirect(userAddress: Address | undefined, marketA
 
       let yesInternal = 0n;
       let noInternal = 0n;
+      let yesLocked = 0n;
+      let noLocked = 0n;
+
       if (marketAddress) {
-        const outcomes = await readContractSafe<readonly [bigint, bigint]>(client, {
-          address: vaultAddress!,
-          abi: ABIS.TickBookVault,
-          functionName: "getInternalOutcomes",
-          args: [marketAddress!, userAddress!],
-        });
+        const [outcomes, yesLockedResult, noLockedResult] = await Promise.all([
+          readContractSafe<readonly [bigint, bigint]>(client, {
+            address: vaultAddress!,
+            abi: ABIS.TickBookVault,
+            functionName: "getInternalOutcomes",
+            args: [marketAddress!, userAddress!],
+          }),
+          readContractSafe<bigint>(client, {
+            address: vaultAddress!,
+            abi: ABIS.TickBookVault,
+            functionName: "getLockedOutcome",
+            args: [marketAddress!, userAddress!, 1],
+          }),
+          readContractSafe<bigint>(client, {
+            address: vaultAddress!,
+            abi: ABIS.TickBookVault,
+            functionName: "getLockedOutcome",
+            args: [marketAddress!, userAddress!, 0],
+          }),
+        ]);
         yesInternal = outcomes[0];
         noInternal = outcomes[1];
+        yesLocked = yesLockedResult;
+        noLocked = noLockedResult;
       }
 
       return {
@@ -54,6 +68,8 @@ export function useTickBookVaultDirect(userAddress: Address | undefined, marketA
         reservedUsdcWad: reservedWad,
         yesInternal,
         noInternal,
+        yesLocked,
+        noLocked,
       };
     },
   });

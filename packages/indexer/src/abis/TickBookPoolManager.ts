@@ -119,6 +119,63 @@ export const TickBookPoolManagerAbi = [
       { name: "proceeds", type: "uint256", indexed: false },
     ],
   },
+  {
+    type: "event",
+    name: "UserOrderRemoved",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "user", type: "address", indexed: true },
+      { name: "orderId", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "UserSpotSellRemoved",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "user", type: "address", indexed: true },
+      { name: "sellId", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "SpotSellIdRemovedAtTick",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "outcome", type: "uint8", indexed: false },
+      { name: "tick", type: "uint16", indexed: false },
+      { name: "sellId", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "TotalLiquidityReduced",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "outcome", type: "uint8", indexed: false },
+      { name: "previousTotal", type: "uint256", indexed: false },
+      { name: "newTotal", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "ActiveLiquidityUpdated",
+    inputs: [
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "outcome", type: "uint8", indexed: false },
+      { name: "previousActive", type: "uint128", indexed: false },
+      { name: "newActive", type: "uint128", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PendingRefundsCleared",
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
   // V10: Unified Crossing Event (spot-first + range)
   {
     type: "event",

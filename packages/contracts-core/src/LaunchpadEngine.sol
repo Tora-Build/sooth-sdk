@@ -12,6 +12,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title LaunchpadEngine
@@ -286,6 +287,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
         lpBalances[market][msg.sender] = lpTokens;
 
+        emit LPBalanceUpdated(market, msg.sender, int256(lpTokens), lpBalances[market][msg.sender], lpTokens);
+
         allMarkets.push(market);
 
         emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
@@ -405,36 +408,30 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             lpBalances[market][trader] += lpTokens;
             state.totalLPSupply += lpTokens;
 
-            // Update fees accrued
-            state.feesAccrued += feeUsdc;
+            emit LPBalanceUpdated(market, trader, int256(lpTokens), lpBalances[market][trader], state.totalLPSupply);
 
-            // Check graduation (short-circuit if already graduated)
-            // Threshold = bBase × ln(2) × multiplier
-            // - bBase × ln(2) = creator deposit = LP break-even point
-            // - multiplier = 1 means graduate at break-even, 2 means at 2× break-even, etc.
+            state.feesAccrued += feeUsdc;
+            emit FeesAccrued(market, feeUsdc, state.feesAccrued);
+
             if (!state.isGraduated) {
                 uint256 graduationThreshold = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
                 uint256 feesInWad = _usdcToWad(state.feesAccrued);
+
+                emit GraduationProgressUpdated(market, feesInWad, graduationThreshold);
 
                 if (feesInWad >= graduationThreshold) {
                     state.isGraduated = true;
                     state.graduatedAt = uint64(block.timestamp);
 
-                    // ATOMIC GRADUATION: Register in Collateralizer and TickBook
                     (address yes, address no) = collateralizer.isMarketRegistered(market)
                         ? collateralizer.getOutcomeTokens(market)
                         : collateralizer.registerMarket(market, state.name, state.symbol);
 
-                    // Get current AMM probability to initialize TickBook at the same price
                     (,, uint256 ammProbability) = ammEngine.getMarketState(market);
 
-                    // TickBook is keyed by (market, yesToken, noToken, hook). If already registered, ignore.
                     try tickBook.registerMarket(market, yes, no, ammProbability, defaultHook) returns (bytes32) {
-                        // ok
                     } catch (bytes memory reason) {
-                        // DuplicateMarket() custom error selector = bytes4(keccak256("DuplicateMarket()"))
                         bytes4 duplicateMarketSelector = 0xedd7c146;
-                        // Only ignore if it's the DuplicateMarket custom error
                         if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
                             revert("LaunchpadEngine: tickbook register failed");
                         }
@@ -462,7 +459,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
                 ammEngine.increaseLiquidity(market, toBBase);
             }
             state.lpYieldPool += toLPYield;
+            if (toLPYield > 0) {
+                emit LPYieldPoolUpdated(market, toLPYield, state.lpYieldPool);
+            }
+
             state.feesAccrued += feeUsdc;
+            emit FeesAccrued(market, feeUsdc, state.feesAccrued);
 
             if (toProtocol > 0) {
                 usdc.safeTransfer(protocolTreasury, toProtocol);
@@ -492,9 +494,10 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         // Pro-rata share
         usdcAmount = (floorValue * lpAmount) / state.totalLPSupply;
 
-        // Burn LP tokens
         lpBalances[market][msg.sender] -= lpAmount;
         state.totalLPSupply -= lpAmount;
+
+        emit LPBalanceUpdated(market, msg.sender, -int256(lpAmount), lpBalances[market][msg.sender], state.totalLPSupply);
 
         // Transfer USDC
         usdc.safeTransfer(msg.sender, usdcAmount);
@@ -544,15 +547,15 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         // Transfer USDC from creator
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
-        // Increase liquidity
         uint256 amountInWad = _usdcToWad(amount);
         state.bCurrent += amountInWad;
-        state.bBase += amountInWad; // Also increase base for graduation calc
+        state.bBase += amountInWad;
 
-        // Mint LP tokens to creator
         lpBalances[market][msg.sender] += amountInWad;
         state.totalLPSupply += amountInWad;
 
+        emit BaseLiquidityIncreased(market, amountInWad, state.bBase, state.bCurrent);
+        emit LPBalanceUpdated(market, msg.sender, int256(amountInWad), lpBalances[market][msg.sender], state.totalLPSupply);
         emit LiquidityIncreased(market, msg.sender, amount, amountInWad);
     }
 
@@ -643,35 +646,15 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     // ============================================
 
     function _usdcToWad(uint256 usdcAmount) internal view returns (uint256) {
-        if (usdcDecimals == 18) {
-            return usdcAmount;
-        } else if (usdcDecimals < 18) {
-            return usdcAmount * (10 ** (18 - usdcDecimals));
-        } else {
-            return usdcAmount / (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.toWad(usdcAmount, usdcDecimals);
     }
 
     function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            return wadAmount / (10 ** (18 - usdcDecimals));
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWad(wadAmount, usdcDecimals);
     }
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
-        if (wadAmount == 0) return 0;
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            uint256 factor = 10 ** (18 - usdcDecimals);
-            return (wadAmount + factor - 1) / factor;
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
     }
 
     function _truncateQuestion(string memory question, uint256 maxLen) internal pure returns (string memory) {

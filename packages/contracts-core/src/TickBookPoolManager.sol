@@ -293,6 +293,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 proceeds
     );
 
+    event UserOrderRemoved(bytes32 indexed marketKey, address indexed user, uint256 orderId);
+    event UserSpotSellRemoved(bytes32 indexed marketKey, address indexed user, uint256 sellId);
+    event SpotSellIdRemovedAtTick(bytes32 indexed marketKey, uint8 outcome, uint16 tick, uint256 sellId);
+    event TotalLiquidityReduced(bytes32 indexed marketKey, uint8 outcome, uint256 previousTotal, uint256 newTotal);
+    event ActiveLiquidityUpdated(bytes32 indexed marketKey, uint8 outcome, uint128 previousActive, uint128 newActive);
+    event PendingRefundsCleared(address indexed user, bytes32 indexed marketKey, uint256 amount);
+
     // ============================================
     // Modifiers
     // ============================================
@@ -450,6 +457,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (pooled > 0) {
             _pendingRefunds[msg.sender][marketKey] = 0;
             vault.refundMarketToAvailable(m.truthMarket, msg.sender, pooled);
+            emit PendingRefundsCleared(msg.sender, marketKey, pooled);
         }
 
         orderId = ++_nextOrderId;
@@ -916,30 +924,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     }
 
     function _removeFromUserSpotSells(bytes32 marketKey, address user, uint256 sellId) internal {
-        uint256[] storage sellIds = _userSpotSells[marketKey][user];
-        uint256 len = sellIds.length;
-        for (uint256 i = 0; i < len; ) {
-            if (sellIds[i] == sellId) {
-                sellIds[i] = sellIds[len - 1];
-                sellIds.pop();
-                return;
-            }
-            unchecked { ++i; }
-        }
+        _removeFromArray(_userSpotSells[marketKey][user], sellId);
+        emit UserSpotSellRemoved(marketKey, user, sellId);
     }
 
-    /// @dev RFC-001: Remove sellId from tick-indexed array (swap-and-pop)
     function _removeFromSpotSellIdsAtTick(bytes32 marketKey, uint8 outcome, uint16 tick, uint256 sellId) internal {
-        uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][outcome][tick];
-        uint256 len = sellIds.length;
-        for (uint256 i = 0; i < len; ) {
-            if (sellIds[i] == sellId) {
-                sellIds[i] = sellIds[len - 1];
-                sellIds.pop();
-                return;
-            }
-            unchecked { ++i; }
-        }
+        _removeFromArray(_spotSellIdsAtTick[marketKey][outcome][tick], sellId);
+        emit SpotSellIdRemovedAtTick(marketKey, outcome, tick, sellId);
     }
 
     /// @dev RFC-001: Remove sellId from all ticks in its range
@@ -953,17 +944,22 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Internal Helpers
     // ============================================
 
-    function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
-        uint256[] storage orderIds = _userOrders[marketKey][user];
-        uint256 len = orderIds.length;
+    /// @dev Generic swap-and-pop removal from uint256 array (O(n) search, O(1) removal)
+    function _removeFromArray(uint256[] storage arr, uint256 value) internal {
+        uint256 len = arr.length;
         for (uint256 i = 0; i < len; ) {
-            if (orderIds[i] == orderId) {
-                orderIds[i] = orderIds[len - 1];
-                orderIds.pop();
+            if (arr[i] == value) {
+                arr[i] = arr[len - 1];
+                arr.pop();
                 return;
             }
             unchecked { ++i; }
         }
+    }
+
+    function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
+        _removeFromArray(_userOrders[marketKey][user], orderId);
+        emit UserOrderRemoved(marketKey, user, orderId);
     }
 
     function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
@@ -985,7 +981,29 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     function _safeSubTotalLiquidity(bytes32 marketKey, uint8 outcome, uint256 delta) internal {
         uint256 current = _totalLiquidity[marketKey][outcome];
-        _totalLiquidity[marketKey][outcome] = current >= delta ? current - delta : 0;
+        uint256 newTotal = current >= delta ? current - delta : 0;
+        _totalLiquidity[marketKey][outcome] = newTotal;
+        emit TotalLiquidityReduced(marketKey, outcome, current, newTotal);
+    }
+
+    /// @dev Safely subtract from active liquidity for a given outcome
+    function _safeSubActiveLiquidity(bytes32 marketKey, MarketState storage state, uint8 outcome, uint128 delta) internal {
+        if (outcome == 0) {
+            uint128 previous = state.activeLiquidityNo;
+            uint128 nextValue = _safeSubLiquidity(previous, delta);
+            state.activeLiquidityNo = nextValue;
+            emit ActiveLiquidityUpdated(marketKey, outcome, previous, nextValue);
+        } else {
+            uint128 previous = state.activeLiquidityYes;
+            uint128 nextValue = _safeSubLiquidity(previous, delta);
+            state.activeLiquidityYes = nextValue;
+            emit ActiveLiquidityUpdated(marketKey, outcome, previous, nextValue);
+        }
+    }
+
+    /// @dev Get active liquidity for a given outcome
+    function _getActiveLiquidity(MarketState storage state, uint8 outcome) internal view returns (uint128) {
+        return outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
     }
 
     function _updateTickBoundaries(
@@ -1046,18 +1064,20 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     ) internal {
         MarketState storage state = _state[marketKey];
         if (state.currentTick >= tickLower && state.currentTick <= tickUpper) {
-            if (outcome == 0) {
-                if (isAdd) {
-                    state.activeLiquidityNo += liquidityDelta;
+            if (isAdd) {
+                if (outcome == 0) {
+                    uint128 previous = state.activeLiquidityNo;
+                    uint128 nextValue = previous + liquidityDelta;
+                    state.activeLiquidityNo = nextValue;
+                    emit ActiveLiquidityUpdated(marketKey, outcome, previous, nextValue);
                 } else {
-                    state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, liquidityDelta);
+                    uint128 previous = state.activeLiquidityYes;
+                    uint128 nextValue = previous + liquidityDelta;
+                    state.activeLiquidityYes = nextValue;
+                    emit ActiveLiquidityUpdated(marketKey, outcome, previous, nextValue);
                 }
             } else {
-                if (isAdd) {
-                    state.activeLiquidityYes += liquidityDelta;
-                } else {
-                    state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, liquidityDelta);
-                }
+                _safeSubActiveLiquidity(marketKey, state, outcome, liquidityDelta);
             }
         }
     }
@@ -1184,22 +1204,14 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
 
         // Update active liquidity for opposite side
-        uint128 oppActiveLiq = opposite == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
+        uint128 oppActiveLiq = _getActiveLiquidity(state, opposite);
         uint128 activeFilled = result.rangeFilled < uint256(oppActiveLiq) ? uint128(result.rangeFilled) : oppActiveLiq;
-        if (opposite == 0) {
-            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, activeFilled);
-        } else {
-            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, activeFilled);
-        }
+        _safeSubActiveLiquidity(marketKey, state, opposite, activeFilled);
 
         // Update active liquidity for new order side
-        uint128 newActiveLiq = newOrder.outcome == 0 ? state.activeLiquidityNo : state.activeLiquidityYes;
+        uint128 newActiveLiq = _getActiveLiquidity(state, newOrder.outcome);
         uint128 newFilled = result.totalFilled < uint256(newActiveLiq) ? uint128(result.totalFilled) : newActiveLiq;
-        if (newOrder.outcome == 0) {
-            state.activeLiquidityNo = _safeSubLiquidity(state.activeLiquidityNo, newFilled);
-        } else {
-            state.activeLiquidityYes = _safeSubLiquidity(state.activeLiquidityYes, newFilled);
-        }
+        _safeSubActiveLiquidity(marketKey, state, newOrder.outcome, newFilled);
 
         // Update cross tick
         result.crossTick = newOrder.outcome == 1 ? overlapHigh : overlapLow;

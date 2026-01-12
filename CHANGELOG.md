@@ -4,6 +4,14 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10.8 Event Coverage + Portfolio Indexer (2026-01-12)
+- **Contracts**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, TickBookPoolManager for complete indexer visibility.
+- **Refactor**: Integrated PR #39 DecimalMath library and centralized WAD/token conversions.
+- **Indexer**: Added portfolio schema tables + endpoints; updated ABIs for new events.
+- **Frontend**: Added portfolio indexer hooks with RPC fallback; updated deployments for Base Sepolia + Monad.
+- **Deployments**: Base Sepolia + Monad redeployed; Arc deploy pending (gas estimation failure).
+- **Ops**: Updated Arc deploy RPC to `https://rpc.drpc.testnet.arc.network`.
+
 ### RPC Infrastructure & Market Discovery Fixes (2026-01-11)
 - **Bug Fix (Frontend ABI)**: Rewrote `abis.ts` `getAbi()` helper to handle both raw ABI arrays (V10.8 format) and Foundry artifact objects (legacy format). Fixed frontend market discovery breaking on new JSON files.
 - **Bug Fix (Monad RPC)**: Monad Testnet QuickNode and Foundation RPCs became unreachable. Switched to Ankr (`https://rpc.ankr.com/monad_testnet`) as primary endpoint in `chains.ts` and `wagmi.ts`.

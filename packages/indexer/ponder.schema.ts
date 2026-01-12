@@ -1,8 +1,108 @@
 import { onchainTable, index } from "ponder";
 
-/**
- * Markets registered in the TickBookPoolManager
- */
+export const launchpadMarket = onchainTable(
+  "launchpad_market",
+  (t) => ({
+    address: t.hex().primaryKey(),
+    chainId: t.integer().notNull(),
+    creator: t.hex().notNull(),
+    initialLiquidity: t.bigint().notNull(),
+    deposit: t.bigint().notNull(),
+    totalLPSupply: t.bigint().notNull(),
+    isGraduated: t.boolean().notNull(),
+    createdAt: t.bigint().notNull(),
+    graduatedAt: t.bigint(),
+    blockNumber: t.bigint().notNull(),
+  }),
+  (table) => ({
+    creatorIdx: index().on(table.creator),
+    chainIdx: index().on(table.chainId),
+  })
+);
+
+export const vaultBalance = onchainTable(
+  "vault_balance",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    user: t.hex().notNull(),
+    availableUsdcWad: t.bigint().notNull(),
+    reservedUsdcWad: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    userIdx: index().on(table.user),
+    chainIdx: index().on(table.chainId),
+  })
+);
+
+export const vaultPosition = onchainTable(
+  "vault_position",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    user: t.hex().notNull(),
+    yesSharesWad: t.bigint().notNull(),
+    noSharesWad: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    userIdx: index().on(table.user),
+    marketIdx: index().on(table.market),
+  })
+);
+
+export const ammPosition = onchainTable(
+  "amm_position",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    user: t.hex().notNull(),
+    yesShares: t.bigint().notNull(),
+    noShares: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    userIdx: index().on(table.user),
+    marketIdx: index().on(table.market),
+  })
+);
+
+export const lpBalance = onchainTable(
+  "lp_balance",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    user: t.hex().notNull(),
+    balance: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    userIdx: index().on(table.user),
+    marketIdx: index().on(table.market),
+  })
+);
+
+export const lockEntry = onchainTable(
+  "lock_entry",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    user: t.hex().notNull(),
+    market: t.hex().notNull(),
+    amountWad: t.bigint().notNull(),
+    unlockTime: t.bigint().notNull(),
+    claimed: t.boolean().notNull(),
+    createdAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    userIdx: index().on(table.user),
+  })
+);
+
 export const market = onchainTable("market", (t) => ({
   marketKey: t.hex().primaryKey(),
   chainId: t.integer().notNull(),

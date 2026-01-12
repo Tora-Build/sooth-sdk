@@ -1068,7 +1068,10 @@ export const SimpleTradingPanel = ({
 
         {/* Faucet link */}
         {isConnected && (
-          <div className="text-center">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-slate-500 font-mono">
+              Wallet USDC: ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
+            </span>
             <a
               href="/faucet"
               className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"

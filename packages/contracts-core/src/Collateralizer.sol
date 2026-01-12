@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {OutcomeToken} from "./OutcomeToken.sol";
+import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title Collateralizer
@@ -301,30 +302,14 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
     }
 
     // ============================================
-    // Decimal-Aware WAD ↔ USDC Helpers
+    // Decimal-Aware WAD / USDC Helpers
     // ============================================
 
     function _wadToUsdc(uint256 wadAmount) internal view returns (uint256) {
-        // Floor conversion for transfers FROM the contract.
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            return wadAmount / (10 ** (18 - usdcDecimals));
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWad(wadAmount, usdcDecimals);
     }
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
-        // Ceil conversion for transfers TO the contract.
-        if (wadAmount == 0) return 0;
-        if (usdcDecimals == 18) {
-            return wadAmount;
-        } else if (usdcDecimals < 18) {
-            uint256 factor = 10 ** (18 - usdcDecimals);
-            return (wadAmount + factor - 1) / factor;
-        } else {
-            return wadAmount * (10 ** (usdcDecimals - 18));
-        }
+        return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
     }
 }
