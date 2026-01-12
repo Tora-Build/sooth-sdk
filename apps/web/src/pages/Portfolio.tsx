@@ -392,7 +392,7 @@ export const Portfolio = () => {
               </div>
               <div>
                 <Tooltip
-                  content="Your personal self-custody account. Includes USDC held directly in your wallet, Liquidity Provider (LP) shares in AMM pools, and outcome tokens (Owned Shares) acquired via bonding curves or AMM swaps. You have full control over these assets."
+                  content="Self-custody assets you control directly: wallet USDC, LP shares from AMM pools, and outcome tokens from trading."
                   position="right"
                   showIcon={true}
                 >
@@ -458,7 +458,7 @@ export const Portfolio = () => {
               </div>
               <div>
                 <Tooltip
-                  content="The protocol-managed execution vault for professional trading. Includes USDC reserved as margin for active limit orders, unused USDC available for new trades, and outcome tokens settled within the TickBook V2 engine. This vault isolates and executes orders efficiently."
+                  content="Protocol-managed vault for orderbook trading: available USDC, collateral backing active orders, and settled outcome tokens."
                   position="right"
                   showIcon={true}
                 >

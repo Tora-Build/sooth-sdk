@@ -379,7 +379,7 @@
 
   /* Education Tooltip */
   .edu-tooltip {
-    @apply rounded-xl px-4 py-3 w-72;
+    @apply rounded-xl px-4 py-3 w-80 max-w-sm;
     background: rgba(2, 6, 23, 0.92);
     border: 1px solid rgba(99, 102, 241, 0.28);
     box-shadow: 0 14px 40px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.08);

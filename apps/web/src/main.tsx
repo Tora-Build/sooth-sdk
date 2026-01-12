@@ -79,6 +79,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/pro" element={<Pro />} />
               <Route path="/pro/:marketId" element={<Pro />} />
               <Route path="/create" element={<Launchpad />} />
+              <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/gov" element={<Gov />} />
               <Route path="/faucet" element={<Faucet />} />
