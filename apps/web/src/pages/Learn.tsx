@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom';
 import {
   BookOpen, ChevronRight, ChevronLeft, CheckCircle,
   TrendingUp, TrendingDown, DollarSign, Clock, Lock,
-  Zap, GraduationCap, Rocket, Scale, BarChart3,
-  Users, Target, RefreshCw, Sword, Info
+  GraduationCap, Rocket, Shield, BarChart3,
+  Users, Palette, Gamepad2, ArrowLeftRight, Swords, Info, RefreshCw
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -54,9 +54,9 @@ const ActorCard: React.FC<{
 }> = ({ icon: Icon, title, motivation, colorClass, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full text-left p-4 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all hover:-translate-y-1 focus-ring group`}
+    className={`w-full h-full text-left p-4 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all hover:-translate-y-1 focus-ring group flex flex-col items-start`}
   >
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 transition-colors ${colorClass}`}>
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors shrink-0 ${colorClass}`}>
       <Icon className="w-5 h-5" />
     </div>
     <h3 className="font-bold text-white group-hover:text-cyan-400 transition-colors">{title}</h3>
@@ -342,8 +342,8 @@ export const Learn = () => {
                       innovation={content.pillars.launchpad.innovation}
                     />
                     <PillarCard
-                      icon={Scale}
-                      title={content.pillars.zkRules.title}
+icon={Shield}
+              title={content.pillars.zkRules.title}
                       description={content.pillars.zkRules.description}
                       innovation={content.pillars.zkRules.innovation}
                     />
@@ -357,7 +357,7 @@ export const Learn = () => {
 
                   <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-800">
                     <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                      <Sword className="w-4 h-4 text-cyan-400" />
+                      <Swords className="w-4 h-4 text-cyan-400" />
                       {content.advantage.title}
                     </h4>
                     <div className="overflow-x-auto">
@@ -508,7 +508,7 @@ export const Learn = () => {
                     <div className="grid md:grid-cols-2 gap-0 border border-slate-700/50 rounded-xl overflow-hidden">
                       <div className="p-6 border-b md:border-b-0 md:border-r border-slate-700/50">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🐢</div>
+                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center"><TrendingUp className="w-4 h-4 text-slate-400" /></div>
                           <h5 className="font-bold text-white">{content.pro.amm.title}</h5>
                         </div>
                         <ul className="space-y-3 text-xs text-slate-400">
@@ -522,7 +522,7 @@ export const Learn = () => {
                       </div>
                       <div className="p-6 bg-cyan-500/5">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">⚡</div>
+                          <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center"><BarChart3 className="w-4 h-4 text-cyan-400" /></div>
                           <h5 className="font-bold text-white text-cyan-400">{content.pro.tickBook.title}</h5>
                         </div>
                         <ul className="space-y-3 text-xs text-slate-400">
@@ -540,7 +540,7 @@ export const Learn = () => {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
                       <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <RefreshCw className="w-4 h-4 text-cyan-400" />
+                        <ArrowLeftRight className="w-4 h-4 text-cyan-400" />
                         {content.pro.arb.title}
                       </h4>
                       <p className="text-xs text-slate-400 leading-relaxed mb-4">
@@ -554,7 +554,7 @@ export const Learn = () => {
                     </div>
                     <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
                       <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <Sword className="w-4 h-4 text-rose-400" />
+                        <Swords className="w-4 h-4 text-rose-400" />
                         {content.pro.pvp.title}
                       </h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
@@ -600,44 +600,23 @@ export const Learn = () => {
                     </p>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-4xl auto-rows-fr">
                     {content.ready.actors.map((actor, i) => (
                       <ActorCard
                         key={i}
-                        icon={[Rocket, Target, RefreshCw, Sword][i]}
+                        icon={[Palette, Gamepad2, ArrowLeftRight, Swords][i]}
                         title={actor.title}
                         motivation={actor.motivation}
-                        colorClass={["bg-cyan-500/10 text-cyan-400", "bg-emerald-500/10 text-emerald-400", "bg-cyan-500/10 text-cyan-400", "bg-rose-500/10 text-rose-400"][i]}
+                        colorClass={["bg-cyan-500/10 text-cyan-400", "bg-emerald-500/10 text-emerald-400", "bg-blue-500/10 text-blue-400", "bg-rose-500/10 text-rose-400"][i]}
                         onClick={() => window.location.href = ['/create', '/trade', '/pro', '/pro'][i]}
                       />
                     ))}
-                  </div>
-
-                  <div className="pt-8 border-t border-slate-800 w-full max-w-2xl">
-                    <div className="flex items-center gap-3 justify-center mb-6">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Protocol is live on Base Sepolia</span>
-                    </div>
-                    <div className="grid sm:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">V10.8</p>
-                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Architecture</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">0%</p>
-                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Platform Fees</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">∞</p>
-                        <p className="text-xs text-slate-500 uppercase font-bold mt-1">Open-End Markets</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
 
               {/* Navigation */}
-              <div className="mt-auto pt-8 flex justify-between border-t border-slate-800">
+              <div className="mt-auto pt-8 flex justify-between">
                 <Button
                   variant="secondary"
                   size="lg"
@@ -662,8 +641,8 @@ export const Learn = () => {
                 ) : (
                   <Link to="/trade">
                     <Button variant="primary" size="lg" className="rounded-xl px-8 bg-emerald-600 hover:bg-emerald-500">
+                      <Rocket className="w-4 h-4 mr-2" />
                       Launch App
-                      <Zap className="w-4 h-4 ml-2" />
                     </Button>
                   </Link>
                 )}

@@ -8,7 +8,6 @@ export { ClaimFillsButton } from './ClaimFillsButton';
 export { VaultBalanceCard } from './VaultBalanceCard';
 export { AMMPositionCard } from './AMMPositionCard';
 export { AMMStatsCard } from './AMMStatsCard';
-export { AMMFormulasCard } from './AMMFormulasCard';
 export { AMMSettlementCard } from './AMMSettlementCard';
 export { DynamicFeeDisplay } from './DynamicFeeDisplay';
 export { SettlementPanel } from './SettlementPanel';

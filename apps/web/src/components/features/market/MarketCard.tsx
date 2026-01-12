@@ -1,7 +1,7 @@
 // MarketCard.tsx - Full AMM trading experience inline (V5 Launchpad style)
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, TrendingUp, Zap, ArrowRight, BookOpen, Shield, Lock } from 'lucide-react';
+import { Clock, TrendingUp, Zap, ArrowRight, BookOpen, Shield, Lock, Scale } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { useLaunchpadMarket } from '../../../hooks/useLaunchpadMarket';
@@ -86,8 +86,8 @@ export const MarketCard = ({
               <div className="h-4 w-12 bg-slate-700/30 rounded" />
             )}
             {isSettled ? (
-              <Badge className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/50">
-                ⚖️ Settled
+              <Badge className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/50 flex items-center gap-1">
+                <Scale className="w-3 h-3" /> Settled
               </Badge>
             ) : isGraduated ? (
               <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
@@ -98,8 +98,8 @@ export const MarketCard = ({
                 Expired
               </Badge>
             ) : (
-              <Badge className="text-xs bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
-                ⚡ Bonding
+              <Badge className="text-xs bg-cyan-500/20 text-cyan-400 border-cyan-500/50 flex items-center gap-1">
+                <Zap className="w-3 h-3" /> Bonding
               </Badge>
             )}
 

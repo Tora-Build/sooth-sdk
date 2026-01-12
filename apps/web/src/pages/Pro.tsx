@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check, Package, ArrowLeftRight, TrendingDown, BarChart3
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -1142,7 +1142,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         contractAddress: m.address,
         name: staticMarket?.name || localMeta?.name || m.name || 'Unknown Market',
         symbol: staticMarket?.symbol || m.symbol || '???',
-        category: (staticMarket as any)?.category || localMeta?.category || 'other',
+        category: (staticMarket as any)?.category || localMeta?.category || 'others',
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
         isGraduated: m.isGraduated,
@@ -1214,8 +1214,8 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   return (
     <div className="space-y-6">
       <MarketHeader
-        title="Pro"
-        hint="Pro trading uses a continuous range orderbook (TickBookV2) with Uniswap V3-style liquidity. Place limit orders at any price from 0.1% to 99.9% with 0.1% tick precision. Range orders let you provide liquidity across a price range and earn from taker fills. Markets must graduate from AMM before Pro trading unlocks."
+        title="Pro Trading on TickBook"
+        hint="TickBook is an on-chain orderbook with 10,000 price ticks (0.01% to 99.99%). Place limit orders or provide concentrated liquidity across price ranges. Makers earn from taker fills with no fees. Available only for graduated markets."
         search={search}
         onSearchChange={setSearch}
         category={category}
@@ -1361,7 +1361,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
       <div className="text-left min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
-          <BookOpen className="w-3 h-3 text-slate-400 flex-shrink-0" />
+          <BarChart3 className="w-3 h-3 text-cyan-400 flex-shrink-0" />
         </div>
         <div className="text-xs text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
@@ -2097,7 +2097,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
               <div className={cn("text-sm font-mono font-bold", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
                 {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                {hasArb && <span className="ml-1">⚡</span>}
+                {hasArb && <Zap className="w-3 h-3 ml-1 inline-block text-cyan-400" />}
               </div>
             </div>
             {/* AMM Price */}
@@ -2662,7 +2662,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   const sharesFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-emerald-400 text-xs">
-                      <span>📦 Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
+                      <Package className="w-3.5 h-3.5 shrink-0" />
+                      <span>Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
                     </div>
                   );
                 } else if (hasPartial) {
@@ -2670,14 +2671,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   const shortFmt = parseFloat(formatUnits(needed - shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-400 text-xs">
-                      <span>🔀 Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
+                      <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+                      <span>Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
                     </div>
                   );
                 } else if (hasNone) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-950/30 border border-blue-900/30 text-blue-400 text-xs">
-                      <span>📉 Short Sell: Buying {neededFmt} {isYes ? 'NO' : 'YES'} (equivalent to selling {isYes ? 'YES' : 'NO'})</span>
+                      <TrendingDown className="w-3.5 h-3.5 shrink-0" />
+                      <span>Short Sell: Buying {neededFmt} {isYes ? 'NO' : 'YES'} (equivalent to selling {isYes ? 'YES' : 'NO'})</span>
                     </div>
                   );
                 }

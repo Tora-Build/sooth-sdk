@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
 import uiContent from '../../config/ui-content.json';
-import { Wallet, TrendingUp, Menu, Droplets, Zap, PlusCircle, Shield, BookOpen, Briefcase, ChevronDown, Globe } from 'lucide-react';
+import { Wallet, TrendingUp, Menu, Droplets, BarChart3, Rocket, Shield, BookOpen, Briefcase, ChevronDown, Globe } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const { navbar: content } = uiContent;
@@ -60,7 +60,7 @@ export const Navbar = () => {
             </NavLink>
 
             <NavLink to="/create" active={isActive('/create')}>
-              <PlusCircle className="w-4 h-4" />
+              <Rocket className="w-4 h-4" />
               {content.launchpad}
             </NavLink>
 
@@ -70,7 +70,7 @@ export const Navbar = () => {
             </NavLink>
 
             <NavLink to="/pro" active={isActive('/pro') || location.pathname.startsWith('/pro/')}>
-              <Zap className="w-4 h-4" />
+              <BarChart3 className="w-4 h-4" />
               {content.pro}
             </NavLink>
 
@@ -97,7 +97,7 @@ export const Navbar = () => {
                     <span className="text-white font-bold">{content.gov}</span>
                   </DropdownLink>
                   <DropdownLink to="/learn" active={isActive('/learn')} onClick={() => setMoreOpen(false)}>
-                    <BookOpen className="w-4 h-4 text-slate-400" />
+                    <BookOpen className="w-4 h-4 text-purple-400" />
                     <span className="text-white font-bold">{content.learn}</span>
                   </DropdownLink>
                   <DropdownLink to="/faucet" active={isActive('/faucet')} onClick={() => setMoreOpen(false)}>
@@ -165,7 +165,7 @@ export const Navbar = () => {
             active={isActive('/create')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <PlusCircle className="w-5 h-5" />
+            <Rocket className="w-5 h-5" />
             <span>{content.launchpad}</span>
           </MobileNavLink>
 
@@ -183,7 +183,7 @@ export const Navbar = () => {
             active={isActive('/pro') || location.pathname.startsWith('/pro/')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <Zap className="w-5 h-5" />
+            <BarChart3 className="w-5 h-5" />
             <span>{content.pro}</span>
           </MobileNavLink>
 

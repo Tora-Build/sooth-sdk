@@ -4,7 +4,7 @@
  * Uses useAMMQuoteDirect for accurate LMSR cost/fee calculations
  */
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket, Scale } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
 import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries } from '../../hooks';
@@ -570,7 +570,9 @@ export const SimpleTradingPanel = ({
   if (isSettled) {
     return (
       <div className="p-4 text-center">
-        <div className="text-slate-400 mb-2">⚖️ Market Settled</div>
+        <div className="text-slate-400 mb-2 flex items-center justify-center gap-2">
+          <Scale className="w-4 h-4" /> Market Settled
+        </div>
         <p className="text-sm text-slate-500">Trading is closed for this market.</p>
       </div>
     );
@@ -705,7 +707,7 @@ export const SimpleTradingPanel = ({
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
-                Trading unavailable: {!isMarketCreated ? 'market not found' : 'AMM not yet initialized'}.
+                Trading unavailable: {!isMarketCreated ? 'market not found' : 'market not yet initialized'}.
               </div>
               <div className="text-slate-200/70">
                 The market may still be pending initialization or does not exist at this address.
@@ -987,29 +989,11 @@ export const SimpleTradingPanel = ({
         {isConnected && sharesNum > 0 && !quote.isLoading && quote.error && (
           <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-xs text-rose-400 flex items-center gap-2">
             <AlertCircle size={14} className="shrink-0" />
-            <span>Quote failed for this size. Try a smaller amount.</span>
+            <span>{quote.error.message || 'Quote failed for this size. Try a smaller amount.'}</span>
           </div>
         )}
 
-        {/* Balance Summary */}
-        {isConnected && (
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Wallet USDC</span>
-              <span className="font-mono text-slate-200">
-                ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
-              </span>
-            </div>
-            {spendableProceeds > 0n && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Spendable Proceeds</span>
-                <span className="font-mono text-emerald-400">
-                  ${(Number(spendableProceeds) / 1e18).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Balance Warning */}
         {isConnected && tradeMode === 'buy' && !hasEnoughBuyingPower && sharesNum > 0 && (

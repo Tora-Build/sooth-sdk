@@ -1,4 +1,46 @@
 {
+  "roles": [
+    {
+      "id": "creator",
+      "name": "Creator",
+      "icon": "Palette",
+      "path": "/create",
+      "description": "Monetize market-making expertise and community insight",
+      "story": "Carol creates markets and earns from volume",
+      "gradient": "from-cyan-500 to-cyan-600",
+      "color": "cyan"
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming Trader",
+      "icon": "Gamepad2",
+      "path": "/trade",
+      "description": "Predict events and earn protocol stakeholder rewards",
+      "story": "Alice trades early and earns LP tokens",
+      "gradient": "from-emerald-500 to-teal-500",
+      "color": "emerald"
+    },
+    {
+      "id": "arb",
+      "name": "Arbitrageur",
+      "icon": "ArrowLeftRight",
+      "path": "/pro",
+      "description": "Capture spreads and maintain cross-venue efficiency",
+      "story": "Bob captures spreads between venues",
+      "gradient": "from-blue-500 to-cyan-500",
+      "color": "blue"
+    },
+    {
+      "id": "pvp",
+      "name": "PvP Trader",
+      "icon": "Swords",
+      "path": "/pro",
+      "description": "Pure conviction trading on the 10,000-tick CLOB",
+      "story": "Dave bets on conviction, winner takes all",
+      "gradient": "from-orange-500 to-red-500",
+      "color": "orange"
+    }
+  ],
   "learn": {
     "header": {
       "title": "Learn Sooth Protocol",
@@ -13,19 +55,19 @@
       },
       {
         "id": "creator",
-        "title": "The Creator 🎨",
+        "title": "The Creator",
         "badge": "Pillar I · Launchpad",
         "description": "Market creation is an **economic game**. Creators deposit capital and become the first LP, permanently aligning their interests with the market's success."
       },
       {
         "id": "gaming",
-        "title": "The Gaming Trader 🎮",
+        "title": "The Gaming Trader",
         "badge": "Pillar I · Stakeholder Rewards",
         "description": "Early traders receive **LP tokens** for every trade, converting from customers into protocol stakeholders."
       },
       {
         "id": "pro",
-        "title": "The Arbitrageur 🔄 & PvP Trader ⚔️",
+        "title": "The Arbitrageur & PvP Trader",
         "badge": "Pillar III · TickBook",
         "description": "Sooth operates **dual trading venues** to serve different trader archetypes. Sophisticated traders use the TickBook for CEX-grade execution."
       },
@@ -137,7 +179,7 @@
       "mechanismTitle": "Fee → LP Mechanism",
       "mechanismSteps": [
         "Trader pays 5% fee on trade",
-        "Fee adds to liquidity depth (bBase)",
+        "Fee adds to liquidity depth (b)",
         "LP tokens minted TO THE TRADER"
       ],
       "pricingTitle": "Pricing Dynamics (LMSR)",
@@ -216,19 +258,19 @@
       "subtitle": "Sooth's ecosystem is a cooperative network. Which actor role will you play today?",
       "actors": [
         {
-          "title": "Creator 🎨",
+          "title": "Creator",
           "motivation": "Monetize insight, earn LP"
         },
         {
-          "title": "Gaming Trader 🎮",
+          "title": "Gaming Trader",
           "motivation": "Predict & earn rewards"
         },
         {
-          "title": "Arbitrageur 🔄",
+          "title": "Arbitrageur",
           "motivation": "Profit from inefficiencies"
         },
         {
-          "title": "PvP Trader ⚔️",
+          "title": "PvP Trader",
           "motivation": "Pure conviction trading"
         }
       ]
@@ -253,7 +295,7 @@
           "desc": "Retroactive settlement timestamp"
         },
         {
-          "label": "bBase",
+          "label": "b",
           "desc": "Liquidity depth parameter"
         },
         {
@@ -284,7 +326,7 @@
         },
         {
           "name": "Graduation Threshold",
-          "formula": "bBase × Multiplier (2x)",
+          "formula": "b × Multiplier (2x)",
           "desc": "Markets graduate to the TickBook once cumulative trading fees reach 200% of the initial creator deposit."
         },
         {
@@ -298,8 +340,8 @@
   "pro": {
     "restricted": {
       "title": "TickBook Restricted",
-      "description": "Hyper-orderbook venues are only available for graduated markets. This market is still in its bonding phase on the AMM.",
-      "switchButton": "Switch to AMM Interface"
+      "description": "Hyper-orderbook venues are only available for graduated markets. This market is still in its bonding phase.",
+      "switchButton": "Switch to Trade"
     },
     "utility": {
       "network": "Network",
@@ -356,7 +398,7 @@
   },
   "trade": {
     "header": {
-      "title": "AMM",
+      "title": "Trading on LMSR AMM",
       "subtitle": "For Gaming Traders: buy/sell YES or NO with always‑available liquidity. During Bonding, each trade earns LP rewards."
     },
     "selector": {
@@ -439,7 +481,7 @@
   },
   "navbar": {
     "launchpad": "Launchpad",
-    "amm": "AMM",
+    "amm": "Trade",
     "pro": "Pro",
     "gov": "Gov",
     "learn": "Learn",

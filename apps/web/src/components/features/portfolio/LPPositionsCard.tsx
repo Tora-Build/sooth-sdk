@@ -22,7 +22,7 @@ export const LPPositionsCard: React.FC = () => {
                         {isLoading && positions.length === 0 ? '--' : formatCurrency(totalValueNum)}
                     </div>
                     <div className="text-[7px] text-slate-500 font-black uppercase tracking-tighter leading-none mt-0.5">
-                        AMM Rewards
+                        Trading Rewards
                     </div>
                 </div>
             }
