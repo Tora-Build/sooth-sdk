@@ -86,19 +86,19 @@ export const MarketCard = ({
               <div className="h-4 w-12 bg-slate-700/30 rounded" />
             )}
             {isSettled ? (
-              <Badge className="text-[10px] bg-slate-500/20 text-slate-400 border-slate-500/50">
+              <Badge className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/50">
                 ⚖️ Settled
               </Badge>
             ) : isGraduated ? (
-              <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
+              <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
                 ✓ Graduated
               </Badge>
             ) : isExpired ? (
-              <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/50">
+              <Badge className="text-xs bg-red-500/20 text-red-400 border-red-500/50">
                 Expired
               </Badge>
             ) : (
-              <Badge className="text-[10px] bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
+              <Badge className="text-xs bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
                 ⚡ Bonding
               </Badge>
             )}
@@ -123,7 +123,7 @@ export const MarketCard = ({
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-cyan-400 tabular-nums">
+                <span className="text-xs font-bold text-cyan-400 tabular-nums">
                   {graduationProgress.toFixed(0)}%
                 </span>
               </div>
@@ -150,15 +150,15 @@ export const MarketCard = ({
       <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-slate-800/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Liquidity Depth: LMSR parameter controlling price impact">
+            <div className="flex items-center gap-1 text-xs text-slate-400" title="Liquidity Depth: LMSR parameter controlling price impact">
               <Zap className="w-3 h-3 text-cyan-400" />
               <span className="font-mono">${(Number(effectiveB || 0n) / (10 ** 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Floor Equity: Guaranteed minimum LP value (worst-case)">
+            <div className="flex items-center gap-1 text-xs text-slate-400" title="Floor Equity: Guaranteed minimum LP value (worst-case)">
               <Shield className="w-3 h-3 text-emerald-400" />
               <span className="font-mono">${(Number(pureFloor || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Locked Proceeds: User funds in 24h cooling period">
+            <div className="flex items-center gap-1 text-xs text-slate-400" title="Locked Proceeds: User funds in 24h cooling period">
               <Lock className="w-3 h-3 text-slate-400" />
               <span className="font-mono">${(Number(totalLockedProceeds || 0n) / (10 ** (decimals || 18))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
             </div>
@@ -167,7 +167,7 @@ export const MarketCard = ({
           {!disableNavigation && (
             <Link
               to={`/trade/${address}`}
-              className="text-[10px] font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
+              className="text-xs font-bold text-cyan-400 hover:text-white flex items-center gap-1 transition-colors pl-2"
             >
               Details <ArrowRight size={10} />
             </Link>
@@ -176,18 +176,18 @@ export const MarketCard = ({
         
         {isSettled ? (
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-[10px] text-slate-500">
+            <div className="flex items-center gap-1 text-xs text-slate-500">
               <Shield className="w-3 h-3 text-slate-400" />
               <span>Winner: <span className={winningOutcome === 0 ? "text-emerald-400" : "text-rose-400"}>{winningOutcome === 0 ? 'YES' : 'NO'}</span></span>
             </div>
             {tStar && (
-              <div className="text-[9px] text-slate-500 font-mono">
+              <div className="text-xs text-slate-500 font-mono">
                 T*: {new Date(tStar * 1000).toLocaleDateString()}
               </div>
             )}
           </div>
         ) : deadline && !isGraduated && (
-          <div className="flex items-center gap-1 text-[10px] text-slate-500">
+          <div className="flex items-center gap-1 text-xs text-slate-500">
             <Clock className="w-3 h-3" />
             <span>Deadline: {new Date(Number(deadline) * 1000).toLocaleDateString()}</span>
           </div>

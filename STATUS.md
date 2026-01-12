@@ -1,12 +1,16 @@
 # Project Status
 
 ## Current Focus
-- **V10.8 Redeploy + Event Instrumentation (2026-01-12)** — Base Sepolia + Monad redeployed with expanded event coverage for indexer correctness.
-- **Portfolio Indexer Integration** — New indexer schema/endpoints + frontend hooks with RPC fallback.
-- **Arc Deployment Pending** — Arc Testnet deploy failed at gas estimation; will retry after RPC update.
+- **V10.8 All Testnets Deployed (2026-01-12)** — Base Sepolia, Monad, and Arc Testnet all running V10.8 with expanded event coverage.
+- **Mobile UI Polish (2026-01-12)** — Fixed Pro page header vertical text bug and orders list overflow on mobile viewports.
+- **UI Rules Consolidation** — Global UI skill created, frontend-dev simplified to creative philosophy.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks. Arc deploy failed at gas estimate.
+- **2026-01-12** — **Mobile UI Polish**: Fixed Pro page header vertical text bug (market question displayed one char per line on mobile). Fixed orders list Cancel button cutoff with horizontal scroll wrapper (`min-w-[480px]`). Applied same fix to Spot Sells section.
+- **2026-01-12** — **UI Rules Consolidation**: Created global `~/.claude/skills/ui-rules/SKILL.md` with technical constraints (z-index scale, min text size, safe-area insets). Simplified `frontend-dev.md` to creative philosophy only. Added deep ocean bubble animation to Launchpad, aria-labels to icon buttons, text-balance/text-pretty to headings/paragraphs.
+- **2026-01-12** — **Arc V10.8 Deployment + Full Sync**: Deployed V10.8 to Arc Testnet using stable RPC (`rpc.testnet.arc.network`). Synced addresses to indexer (`ponder.config.ts`), CLI (`config.ts`), README, and frontend. All 3 testnets now on V10.8.
+- **2026-01-12** — **Trade/Pro Category & Title Fixes**: Fixed category filter switching bug (stale market display), aligned categories with Launchpad (`crypto, sports, cultures, others`), fixed truncated market titles by using `TruthMarket.question` instead of `LaunchpadEngine.markets.name` (contract truncates to 50 chars).
+- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks.
 - **2026-01-12** — **Event Coverage Expansion**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, and TickBookPoolManager to support comprehensive indexing.
 - **2026-01-12** — **Portfolio Indexer Integration**: Added indexer schema + API endpoints; frontend hooks now prefer indexer with RPC fallback.
 - **2026-01-12** — **PR #39 Integration**: Adopted DecimalMath refactor across contracts-core.
@@ -36,10 +40,10 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Arc Testnet Redeploy** — Deployment failed at gas estimation on `rpc.testnet.arc.network`. RPC updated in script; retry needed.
-- **Update .env RPC URLs** — User's `.env` file contains stale Arc RPC URL (`rpc.testnet.arc.network`). Should update to `rpc.drpc.testnet.arc.network`.
-- **Indexing Reset** — Reset indexer DB and reindex once Arc redeploy succeeds.
+- **Indexing Reset** — Reset indexer DB and reindex with new Arc addresses (start block 21,290,000).
+- **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
+- **Contract Verification** — Verify V10.8 contracts on Basescan/Monadexplorer/Arcscan.
 
 ## Known Issues
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
@@ -123,14 +127,14 @@
 ### Arc Testnet (chainId: 5042002) — V10.8
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
-| **Collateralizer** | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
-| **AMMEngine** | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
-| **TickBookVault** | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
-| **LaunchpadEngine** | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
-| **MockUSDC** | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
+| **TickBookPoolManager** | `0x3520983370eef2d1e417154bbeddf57f0dd5823f` |
+| **Collateralizer** | `0xe9a9b730062f76f35133ad662f36d2f0db97764e` |
+| **AMMEngine** | `0xc3c92b8eb4185657be969848ba14e481752d8d01` |
+| **TickBookVault** | `0x751f57c504cb7311f52ccc4953e3658d2322c274` |
+| **LaunchpadEngine** | `0x137ad07970322fb72c1e4d7758976b2237e3fe36` |
+| **MockUSDC** | `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e` |
 
-**Note:** V10.8 deployment (2026-01-11). Atomic market creation and $10 min deposit. Arc uses USDC as native gas token.
+**Note:** V10.8 redeploy (2026-01-12). Switched to `rpc.testnet.arc.network` (drpc endpoint unstable).
 
 ### Monad Testnet (chainId: 10143) — V10.8
 | Contract | Address |
@@ -314,4 +318,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-12*
+*Last updated: 2026-01-12 (Mobile UI polish + UI rules consolidation)*

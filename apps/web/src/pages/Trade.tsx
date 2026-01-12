@@ -37,9 +37,9 @@ const { trade: content } = uiContent;
 const CATEGORIES = [
   { id: 'all', label: 'All' },
   { id: 'crypto', label: 'Crypto' },
-  { id: 'politics', label: 'Politics' },
-  { id: 'science', label: 'Science' },
   { id: 'sports', label: 'Sports' },
+  { id: 'cultures', label: 'Cultures' },
+  { id: 'others', label: 'Others' },
 ];
 
 // Market chip for horizontal scroll
@@ -86,7 +86,7 @@ const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect })
           <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
           {isGraduated && <Zap className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
         </div>
-        <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
+        <div className="text-xs text-slate-500 truncate">{market.name.slice(0, 25)}</div>
       </div>
 
       {/* Probability */}
@@ -117,20 +117,26 @@ export const Trade = () => {
   // V9.9.6: On-chain market discovery (shows ALL markets, not just graduated)
   const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
 
-  // Merge on-chain markets with static config for UI metadata
+  // Merge on-chain markets with static config and localStorage metadata
   const allMarkets = useMemo(() => {
     return onChainMarkets.map(m => {
-      // Try to find UI metadata from static config
       const staticMarket = staticMarkets.find(
         s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
       );
 
+      // Check localStorage for metadata saved during Launchpad creation
+      let localMeta: { category?: string; name?: string } | null = null;
+      try {
+        const stored = localStorage.getItem(`market_meta_${m.address.toLowerCase()}`);
+        if (stored) localMeta = JSON.parse(stored);
+      } catch { /* ignore parse errors */ }
+
       return {
         contractAddress: m.address,
         id: staticMarket?.id || m.address,
-        name: staticMarket?.name || m.name || 'Unknown Market',
+        name: staticMarket?.name || localMeta?.name || m.name || 'Unknown Market',
         symbol: staticMarket?.symbol || m.symbol || '???',
-        category: (staticMarket as any)?.category || 'other',
+        category: (staticMarket as any)?.category || localMeta?.category || 'other',
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
         isGraduated: m.isGraduated,
@@ -178,27 +184,20 @@ export const Trade = () => {
     }
   }, [marketId, filteredMarkets, selectedMarketAddress]);
 
-  // Find selected market
+  // Reset selection when current market is not in filtered list (e.g., category change)
+  useEffect(() => {
+    if (selectedMarketAddress && filteredMarkets.length > 0 && 
+        !filteredMarkets.some(m => m.contractAddress.toLowerCase() === selectedMarketAddress.toLowerCase())) {
+      setSelectedMarketAddress(null);
+    }
+  }, [filteredMarkets, selectedMarketAddress]);
+
   const selectedMarket = useMemo(() => {
+    if (filteredMarkets.length === 0) return null;
+    
     if (selectedMarketAddress) {
       const found = filteredMarkets.find(m => m.contractAddress.toLowerCase() === selectedMarketAddress.toLowerCase());
       if (found) return found;
-
-      // Fallback: If valid address but not in list (e.g. new market), return skeleton
-      if (selectedMarketAddress.startsWith('0x')) {
-        return {
-          contractAddress: selectedMarketAddress,
-          id: selectedMarketAddress,
-          name: 'Loading Market...',
-          symbol: '...',
-          category: 'other',
-          description: 'Fetching market data...',
-          imageUrl: null,
-          isGraduated: false,
-          creator: '0x0000000000000000000000000000000000000000',
-          createdAt: Math.floor(Date.now() / 1000),
-        };
-      }
     }
     return filteredMarkets[0];
   }, [selectedMarketAddress, filteredMarkets]);
@@ -288,7 +287,7 @@ export const Trade = () => {
           <div className="lg:col-span-6 space-y-4">
             {/* Premium Market Header */}
             <MarketDetailHeader
-              name={selectedMarket.name}
+              name={truth?.question || selectedMarket.name}
               description={selectedMarket.description}
               symbol={selectedMarket.symbol}
               address={selectedMarket.contractAddress}

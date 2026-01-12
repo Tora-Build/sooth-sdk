@@ -282,7 +282,7 @@ export const Gov = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Card className="max-w-md text-center p-8">
           <Shield className="w-12 h-12 mx-auto text-rose-400 mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Connect Wallet</h2>
@@ -296,7 +296,7 @@ export const Gov = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-6">

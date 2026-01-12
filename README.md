@@ -30,12 +30,12 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 ### Arc Testnet (chainId: 5042002) - V10.8
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
-| TickBookVault | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
-| LaunchpadEngine | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
-| Collateralizer | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
-| AMMEngine | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
-| MockUSDC | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
+| TickBookPoolManager | `0x3520983370eef2d1e417154bbeddf57f0dd5823f` |
+| TickBookVault | `0x751f57c504cb7311f52ccc4953e3658d2322c274` |
+| LaunchpadEngine | `0x137ad07970322fb72c1e4d7758976b2237e3fe36` |
+| Collateralizer | `0xe9a9b730062f76f35133ad662f36d2f0db97764e` |
+| AMMEngine | `0xc3c92b8eb4185657be969848ba14e481752d8d01` |
+| MockUSDC | `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e` |
 
 ## Structure
 

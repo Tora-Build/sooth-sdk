@@ -6,6 +6,15 @@ export default {
   ],
   theme: {
     extend: {
+      zIndex: {
+        "dropdown": "50",
+        "sticky": "60",
+        "overlay": "70",
+        "modal": "80",
+        "popover": "90",
+        "toast": "100",
+        "tour": "110",
+      },
       fontFamily: {
         sans: ['JetBrains Mono', 'monospace'],
         mono: ['JetBrains Mono', 'monospace'],

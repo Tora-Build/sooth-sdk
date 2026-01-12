@@ -126,7 +126,7 @@ const MarketInfoCard = ({
 
       {/* Education Panel (toggleable) */}
       {showHelp && (
-        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-[10px] text-slate-300 space-y-2">
+        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-2">
           <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
           <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
           <p>• ↗ <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
@@ -148,7 +148,7 @@ const MarketInfoCard = ({
 
       {/* Formula-Style Accounting (Pure LP Ledger) */}
       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-800/50 mb-3">
-        <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
+        <div className="text-xs text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
           <span>AMM Isolated Ledger</span>
           <Badge className="text-[7px] bg-cyan-500/10 text-cyan-400 border-cyan-500/30 uppercase">Pure AMM Accounting</Badge>
       </div>
@@ -240,7 +240,7 @@ const MarketInfoCard = ({
         <div className="p-3 rounded-lg bg-cyan-500/5 text-center border border-cyan-500/20 relative overflow-hidden group">
           <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
-            <div className="text-[9px] text-cyan-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
+            <div className="text-xs text-cyan-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
               <Zap size={10} /> LP ExRate Range <Zap size={10} />
             </div>
             <div className="flex items-center justify-center gap-4">
@@ -265,10 +265,10 @@ const MarketInfoCard = ({
             <ArrowUpRight size={24} className="text-emerald-500" />
           </div>
           <div className="relative z-10">
-            <div className="text-[9px] text-emerald-500/70 font-black uppercase tracking-widest mb-1">YES Outcome</div>
+            <div className="text-xs text-emerald-500/70 font-black uppercase tracking-widest mb-1">YES Outcome</div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-emerald-400">{(priceYes * 100).toFixed(1)}%</span>
-              <span className="text-[10px] text-emerald-500/50 font-mono">
+              <span className="text-xs text-emerald-500/50 font-mono">
                 {parseFloat(formatUnits(qYes || 0n, WAD_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
               </span>
         </div>
@@ -279,9 +279,9 @@ const MarketInfoCard = ({
             <ArrowDownLeft size={24} className="text-rose-500" />
         </div>
           <div className="relative z-10 text-right">
-            <div className="text-[9px] text-rose-500/70 font-black uppercase tracking-widest mb-1">NO Outcome</div>
+            <div className="text-xs text-rose-500/70 font-black uppercase tracking-widest mb-1">NO Outcome</div>
             <div className="flex items-baseline gap-2 justify-end">
-              <span className="text-[10px] text-rose-500/50 font-mono">
+              <span className="text-xs text-rose-500/50 font-mono">
                 {parseFloat(formatUnits(qNo || 0n, WAD_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
               </span>
               <span className="text-xl font-bold text-rose-400">{(priceNo * 100).toFixed(1)}%</span>
@@ -298,7 +298,7 @@ const MarketInfoCard = ({
 
       {/* Settlement Simulation */}
       <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-800/50 mb-3">
-        <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-3 font-bold">LP Payout Simulation</div>
+        <div className="text-xs text-slate-500 uppercase tracking-widest mb-3 font-bold">LP Payout Simulation</div>
         <div className="grid grid-cols-3 gap-2">
           <div className="flex flex-col">
             <span className="text-[8px] text-emerald-500/60 uppercase font-bold mb-1">If YES Wins</span>
@@ -317,8 +317,8 @@ const MarketInfoCard = ({
 
       {/* Contract Addresses */}
       <div className="pt-2 border-t border-slate-800">
-        <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+        <div className="text-xs text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           <a href={getAddressExplorerUrl(chainId, address)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
             Market <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
           </a>
@@ -461,7 +461,7 @@ const AddressRow = ({ label, address, isCreator, chainId }: { label: string; add
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{label}</span>
         {isCreator && (
-          <Badge className="text-[9px] bg-slate-500/20 text-slate-400 border-slate-500/50 py-0 px-1">
+          <Badge className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/50 py-0 px-1">
             Creator
           </Badge>
         )}
@@ -794,10 +794,10 @@ export const MarketDetail = () => {
           {isGraduated && address && (
             <Card className="p-4 border-cyan-500/20 bg-cyan-950/10">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[10px] text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
+                <div className="text-xs text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
                   <GitMerge size={12} /> Inventory Management
                 </div>
-                <div className="text-[9px] text-slate-500 font-medium">
+                <div className="text-xs text-slate-500 font-medium">
                   Direct mint/burn sets for this market
                 </div>
               </div>
@@ -824,7 +824,7 @@ export const MarketDetail = () => {
                   variant="secondary"
                   onClick={() => setModalMode('merge')}
                   disabled={mergeableAmount <= 0}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
+                  className="group py-2 text-xs font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
                 >
                   <GitMerge size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Merge {mergeableAmount > 0 ? `(${mergeableAmount.toFixed(0)})` : ''}
                 </Button>
@@ -834,7 +834,7 @@ export const MarketDetail = () => {
                   variant="primary"
                   onClick={() => setModalMode('split')}
                   disabled={usdcAvailable <= 0}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white disabled:opacity-50"
+                  className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white disabled:opacity-50"
                 >
                   <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Split
                 </Button>
@@ -862,7 +862,7 @@ export const MarketDetail = () => {
 
         {/* Right: LP Position + Trading Panel */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-4 will-change-transform">
+          <div className="sticky top-24 space-y-4 ">
             {/* LP Leaderboard Card */}
             <LPLeaderboardCard
               marketAddress={address as `0x${string}`}

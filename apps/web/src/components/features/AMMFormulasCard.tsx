@@ -95,7 +95,7 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
 
       {/* Education Panel */}
       {showHelp && (
-        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-[10px] text-slate-300 space-y-2">
+        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-2">
           <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all USDC inflows (Seed + Fees) and trade performance (Swap P&L) into AMM Gross Cash.</p>
           <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming worst-case outcome for the House.</p>
           <p>• ↗ <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token = Equity / Supply.</p>
@@ -117,7 +117,7 @@ export const AMMFormulasCard = ({ address }: AMMFormulasCardProps) => {
 
       {/* Formula Grid */}
       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-800/50">
-        <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
+        <div className="text-xs text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
           <span>AMM Isolated Ledger</span>
           <Badge className="text-[7px] bg-cyan-500/10 text-cyan-400 border-cyan-500/30 uppercase">
             Pure AMM Accounting

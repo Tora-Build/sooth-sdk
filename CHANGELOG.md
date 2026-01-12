@@ -4,6 +4,50 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Mobile UI Polish (2026-01-12)
+- **Bug Fix (Pro Header Vertical Text)**: Market question was displaying vertically (one character per line) on mobile viewports due to flex layout squeezing the market info container to near-zero width.
+  - **Fix**: Split header into two rows (market info + prices) with vertical stacking (`space-y-3`). Added `overflow-x-auto` for price row.
+  - Applied to both embedded and non-embedded Pro page modes.
+- **Bug Fix (Orders List Overflow)**: Cancel button was cut off on mobile because table columns exceeded viewport width.
+  - **Fix**: Wrapped orders list in `overflow-x-auto` container with `min-w-[480px]` minimum width.
+  - Same fix applied to Spot Sells section (`min-w-[400px]`).
+- **Files Changed**: `apps/web/src/pages/Pro.tsx`
+
+### UI Rules Consolidation & Frontend Polish (2026-01-12)
+- **Global UI Skill**: Created `~/.claude/skills/ui-rules/SKILL.md` with technical UI constraints extracted from frontend-dev workflow.
+- **Z-Index Scale**: Added semantic z-index tokens to tailwind config: `dropdown (40)`, `sticky (50)`, `overlay (60)`, `modal (70)`, `popover (80)`, `toast (90)`, `tour (100)`.
+- **Safe Area Insets**: Added utility classes `pb-safe`, `pt-safe`, `px-safe`, `py-safe`, `p-safe`, `mb-safe` for notched device support.
+- **Typography**: Added `text-balance` to headings (`h1-h6`) and `text-pretty` to paragraphs in base CSS layer.
+- **Accessibility**: Added 7 aria-labels to icon-only buttons across Tour, LPHolders, MarketHeader, LimitOrderForm components.
+- **Launchpad Animation**: Replaced float-up particles with deep ocean bubble animation (bubble-rise keyframes with wobble motion, gradient bubbles with highlight reflections).
+- **Cleanup**: Removed all `text-[9px]`/`text-[10px]` occurrences (minimum is now `text-xs`), removed purple/violet color references, replaced arbitrary z-indices with scale tokens, replaced `min-h-screen` with `min-h-dvh`.
+- **Files Changed**: 60+ files across `apps/web/src/`
+
+### Arc V10.8 Deployment + Infrastructure Sync (2026-01-12)
+- **Deployment**: V10.8 deployed to Arc Testnet using stable RPC endpoint (`rpc.testnet.arc.network`). DRPC endpoint was returning 404 errors.
+- **Contract Addresses**:
+  - TickBookPoolManager: `0x3520983370eef2d1e417154bbeddf57f0dd5823f`
+  - TickBookVault: `0x751f57c504cb7311f52ccc4953e3658d2322c274`
+  - LaunchpadEngine: `0x137ad07970322fb72c1e4d7758976b2237e3fe36`
+  - AMMEngine: `0xc3c92b8eb4185657be969848ba14e481752d8d01`
+  - Collateralizer: `0xe9a9b730062f76f35133ad662f36d2f0db97764e`
+  - MockUSDC: `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e`
+- **Infrastructure Sync**:
+  - Updated `packages/indexer/ponder.config.ts` — Arc addresses + start block 21,290,000 + RPC preference
+  - Updated `packages/contracts-testing/script/interactive/config.ts` — Arc RPC to stable endpoint
+  - Updated `README.md` — Arc contract addresses table
+  - Frontend `deployments.json` already updated in earlier session
+- **Status**: All 3 testnets now on V10.8 (Base Sepolia, Monad, Arc)
+
+### Trade/Pro Page Category & Title Fixes (2026-01-12)
+- **Bug Fix (Category Switching)**: Trade page now resets selected market when switching to a category where the current market doesn't exist. Previously showed stale "Loading Market..." skeleton.
+- **Bug Fix (Category Alignment)**: Trade and Pro page categories now match Launchpad: `crypto, sports, cultures, others` (was `crypto, politics, science, sports`).
+- **Bug Fix (localStorage Metadata)**: Trade and Pro pages now read market metadata (category, name) from localStorage where Launchpad saves it during market creation.
+- **Bug Fix (Truncated Titles)**: Market titles now display full question from `TruthMarket.question` instead of truncated name from `LaunchpadEngine.markets.name` (contract truncates to 50 chars via `_truncateQuestion`).
+- **Files Changed**:
+  - `apps/web/src/pages/Trade.tsx` — Category reset effect, localStorage reading, full title from TruthMarket
+  - `apps/web/src/pages/Pro.tsx` — Added `useTruthMarketDirect`, localStorage reading, aligned categories, full title display
+
 ### V10.8 Event Coverage + Portfolio Indexer (2026-01-12)
 - **Contracts**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, TickBookPoolManager for complete indexer visibility.
 - **Refactor**: Integrated PR #39 DecimalMath library and centralized WAD/token conversions.

@@ -142,13 +142,14 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         onMouseLeave={() => setShowHint(false)}
                         onClick={() => setShowHint(!showHint)}
                         className="p-1 rounded-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
+                        aria-label="Show hint"
                     >
                         <HelpCircle className="w-3.5 h-3.5" />
                     </button>
 
                     {showHint && (
                         <div className="absolute right-0 top-full mt-2 z-50 w-72 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
-                            <p className="text-[10px] text-slate-300 leading-relaxed">
+                            <p className="text-xs text-slate-300 leading-relaxed">
                                 {isGraduated ? GRADUATED_HINT : BONDING_HINT}
                             </p>
                         </div>
@@ -157,7 +158,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
             </div>
 
             {/* Header Row */}
-            <div className="flex justify-between text-[10px] uppercase font-bold text-slate-500 tracking-wider px-2">
+            <div className="flex justify-between text-xs uppercase font-bold text-slate-500 tracking-wider px-2">
                 <div>LP Holder / Share</div>
                 <div>Floor / Ceiling</div>
             </div>
@@ -169,8 +170,8 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         <span className="font-mono text-white text-sm">
                             {launchpad.creator.slice(0, 6)}...{launchpad.creator.slice(-4)}
                         </span>
-                        <Badge variant="warning" className="text-[10px] h-5 py-0">Creator</Badge>
-                        {isCreator && <Badge variant="success" className="text-[10px] h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>}
+                        <Badge variant="warning" className="text-xs h-5 py-0">Creator</Badge>
+                        {isCreator && <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>}
                     </div>
                     <div className="text-right">
                         <div className="font-mono text-emerald-400 font-bold">{fmtUsd(creatorFloorVal)}</div>
@@ -203,7 +204,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             <span className="font-mono text-white text-sm">
                                 {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Unknown'}
                             </span>
-                            <Badge variant="success" className="text-[10px] h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>
+                            <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>
                         </div>
                         <div className="text-right">
                             <div className="font-mono text-emerald-400 font-bold">{fmtUsd(userFloorVal)}</div>
@@ -235,7 +236,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">LP Yield Pool</span>
                         {!isGraduated && (
-                            <span className="text-[9px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">
                                 Accrues post-grad
                             </span>
                         )}
@@ -259,7 +260,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                 )}
 
                 {lpYieldPoolNum === 0 && (
-                    <div className="text-[10px] text-slate-500 italic">
+                    <div className="text-xs text-slate-500 italic">
                         {isGraduated
                             ? 'No yield accrued yet — yield accumulates from post-graduation trading fees.'
                             : 'Yield pool is empty during bonding. LP yield accrues only after graduation.'}
@@ -272,13 +273,13 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     {/* Floor */}
                     <div>
-                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
+                        <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
                         <div className="text-2xl font-bold text-emerald-400 tracking-tight">{fmtUsd(marketFloorVal)}</div>
                         <div className="text-sm font-mono text-slate-400">{stats.floorRate.toFixed(3)}x</div>
                     </div>
                     {/* Ceiling */}
                     <div className="text-right">
-                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
+                        <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
                         <div className="text-2xl font-bold text-white tracking-tight">{fmtUsd(marketCeilingVal)}</div>
                         <div className="text-sm font-mono text-slate-400">{stats.ceilingRate.toFixed(3)}x</div>
                     </div>

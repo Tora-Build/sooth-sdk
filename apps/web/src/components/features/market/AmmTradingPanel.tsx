@@ -201,12 +201,12 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50'
                         }`}
                 >
-                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{c.yes}</div>
+                    <div className="text-xs text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{c.yes}</div>
                     <div className="text-sm font-medium text-white tabular-nums flex items-center justify-center gap-1">
                         {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
                         {quote && amountNum > 0 && Math.abs(quote.inputAmount) === amountNum && (
                             <>
-                                <span className="text-slate-500 text-[10px]">→</span>
+                                <span className="text-slate-500 text-xs">→</span>
                                 <span className="text-emerald-400">{(quote.newPriceYes * 100).toFixed(1)}%</span>
                             </>
                         )}
@@ -219,12 +219,12 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50'
                         }`}
                 >
-                    <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{c.no}</div>
+                    <div className="text-xs text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{c.no}</div>
                     <div className="text-sm font-medium text-white tabular-nums flex items-center justify-center gap-1">
                         {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
                         {quote && amountNum > 0 && Math.abs(quote.inputAmount) === amountNum && (
                             <>
-                                <span className="text-slate-500 text-[10px]">→</span>
+                                <span className="text-slate-500 text-xs">→</span>
                                 <span className="text-rose-400">{(quote.newPriceNo * 100).toFixed(1)}%</span>
                             </>
                         )}
@@ -288,7 +288,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     </button>
                 </div>
                 {exceedsHoldings && (
-                    <p className="text-[10px] text-rose-400 mt-1">
+                    <p className="text-xs text-rose-400 mt-1">
                         Exceeds holdings ({maxSellAmount.toFixed(2)} available)
                     </p>
                 )}
@@ -300,7 +300,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                     <button
                         key={val}
                         onClick={() => setAmount(String(val))}
-                        className={`py-1 text-[10px] font-mono rounded transition-all ${amount === String(val)
+                        className={`py-1 text-xs font-mono rounded transition-all ${amount === String(val)
                             ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
                             : 'bg-slate-800/50 text-slate-500 border border-slate-800 hover:border-slate-700'
                             }`}
@@ -344,8 +344,8 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                 </div>
                 {quote && quote.nextFloor > 0 && (
                     <div className="flex justify-between pt-1 opacity-60">
-                        <span className="text-[10px] text-slate-500">Projected LP Floor</span>
-                        <span className="text-[10px] font-mono text-emerald-400/80">
+                        <span className="text-xs text-slate-500">Projected LP Floor</span>
+                        <span className="text-xs font-mono text-emerald-400/80">
                             ${quote.nextFloor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </div>
@@ -354,7 +354,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Underwater Warning */}
             {isUnderwater && (
-                <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 flex items-start gap-2">
                     <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                     <span>Pool is underwater. LP Floor is currently $0.00.</span>
                 </div>
@@ -365,7 +365,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                 <div className="relative">
                     <button
                         onClick={() => setShowSlippageSelector(!showSlippageSelector)}
-                        className="text-[10px] text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                        className="text-xs text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition-colors"
                     >
                         <Info size={10} />
                         Slippage: <span className="text-slate-300">{(slippageBps / 100).toFixed(1)}%</span>
@@ -379,7 +379,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                                         setSlippageBps(bps);
                                         setShowSlippageSelector(false);
                                     }}
-                                    className={`py-1 text-[10px] font-mono rounded ${slippageBps === bps
+                                    className={`py-1 text-xs font-mono rounded ${slippageBps === bps
                                         ? 'bg-cyan-500 text-black font-bold'
                                         : 'text-slate-300 hover:bg-slate-800'
                                         }`}
@@ -394,7 +394,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Price Impact Warning */}
             {quote && quote.priceImpact > 5 && (
-                <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-xs text-slate-400 flex items-start gap-2">
                     <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                     <span>High price impact: {quote.priceImpact.toFixed(2)}%. This trade moves the market price significantly.</span>
                 </div>
@@ -402,7 +402,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
 
             {/* Trade Button */}
             {tradeMode === 'sell' && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-500/5 border border-slate-500/10 text-[10px] text-slate-400/80">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-500/5 border border-slate-500/10 text-xs text-slate-400/80">
                     <Clock size={12} />
                     <span>Proceeds will be locked for 24h before they can be withdrawn.</span>
                 </div>
@@ -472,7 +472,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                         href="/faucet"
                         className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
                     >
-                        <span className="text-[10px]">$</span>
+                        <span className="text-xs">$</span>
                         Need test USDC? Get from faucet →
                     </a>
                 </div>

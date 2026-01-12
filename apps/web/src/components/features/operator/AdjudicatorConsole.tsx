@@ -133,7 +133,7 @@ export function AdjudicatorConsole() {
                       <Input 
                         type="text" 
                         placeholder={Math.floor(Date.now() / 1000).toString()}
-                        className="w-32 h-8 bg-slate-900 font-mono text-[10px]"
+                        className="w-32 h-8 bg-slate-900 font-mono text-xs"
                         value={tStars[market.address] || ''}
                         onChange={(e) => setTStars(prev => ({ ...prev, [market.address]: e.target.value }))}
                       />

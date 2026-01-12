@@ -80,7 +80,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({
             />
 
             {/* Column Headers */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider border-b border-slate-800">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-mono text-slate-500 uppercase tracking-wider border-b border-slate-800">
                 <span className="col-span-4 pl-1">Prob %</span>
                 <span className="col-span-4 text-right">Size (Shares)</span>
                 <span className="col-span-4 text-right pr-1">Total</span>

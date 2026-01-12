@@ -19,7 +19,7 @@ import type { OnChainMarket } from '../hooks/useOnChainMarkets';
 // --- Components ---
 
 const EmptyState = ({ message }: { message: string }) => (
-  <div className="p-10 text-center text-slate-600 font-mono text-[10px] opacity-40 uppercase tracking-[0.2em] leading-relaxed">
+  <div className="p-10 text-center text-slate-600 font-mono text-xs opacity-40 uppercase tracking-[0.2em] leading-relaxed">
     {message}
   </div>
 );
@@ -52,20 +52,20 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
         {yesShares > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesShares, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesShares, 18)).toFixed(1)}</span>
           </div>
         )}
         {noShares > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noShares, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noShares, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
@@ -103,12 +103,12 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onVa
         <TrendingUp className="w-4 h-4 text-cyan-400" />
         <div>
           <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-          <div className="text-[10px] font-mono text-cyan-500/80">LIQUIDITY POOL</div>
+          <div className="text-xs font-mono text-cyan-500/80">LIQUIDITY POOL</div>
         </div>
       </div>
       <div className="text-right">
         <div className="text-sm font-mono font-bold text-white">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
-        <div className="text-[10px] text-slate-500 font-mono">${valueUsd.toFixed(2)}</div>
+        <div className="text-xs text-slate-500 font-mono">${valueUsd.toFixed(2)}</div>
       </div>
     </div>
   );
@@ -147,20 +147,20 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Position</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name} Position</div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
         {yesInternal > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesInternal, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesInternal, 18)).toFixed(1)}</span>
           </div>
         )}
         {noInternal > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noInternal, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noInternal, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
@@ -193,21 +193,21 @@ const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-amber-500/10 hover:border-amber-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name}</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
-      <div className="text-[9px] text-amber-500/70 mb-2 uppercase tracking-wider">Locked for Spot Sell</div>
+      <div className="text-xs text-amber-500/70 mb-2 uppercase tracking-wider">Locked for Spot Sell</div>
       <div className="flex gap-2">
         {yesLocked > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesLocked, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesLocked, 18)).toFixed(1)}</span>
           </div>
         )}
         {noLocked > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noLocked, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noLocked, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
@@ -378,7 +378,7 @@ export const Portfolio = () => {
   };
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-dvh pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Account Summaries */}
@@ -415,7 +415,7 @@ export const Portfolio = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <TrendingUp className="w-2.5 h-2.5" /> LP Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -423,7 +423,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <ShieldCheck className="w-2.5 h-2.5" /> Owned Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -431,7 +431,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Clock className="w-2.5 h-2.5" /> Pending Exits
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -439,7 +439,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Wallet className="w-2.5 h-2.5" /> USDC
                   </div>
                   <div className="font-mono text-slate-400 font-bold text-sm">
@@ -482,7 +482,7 @@ export const Portfolio = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Activity className="w-2.5 h-2.5" /> Owned Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -490,7 +490,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Lock className="w-2.5 h-2.5" /> Active Collateral
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -498,7 +498,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Database className="w-2.5 h-2.5" /> Unused USDC
                   </div>
                   <div className="font-mono text-slate-400 font-bold text-sm">
@@ -518,7 +518,7 @@ export const Portfolio = () => {
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
                 <Zap className="w-3 h-3 text-emerald-500" />
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">AMM & Bonding Curve Details</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">AMM & Bonding Curve Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
@@ -619,9 +619,9 @@ export const Portfolio = () => {
                             <span className="text-sm font-mono font-bold text-white tracking-tight">
                               {parseFloat(formatUnits(item.amount, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">USDC</span>
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">USDC</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight">
+                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight">
                             {isUnlocked ? (
                               <span className="text-emerald-500 flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" /> Ready to Claim
@@ -634,7 +634,7 @@ export const Portfolio = () => {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
                             {isUnlocked ? 'Liquid' : 'Locked'}
                           </span>
                           {!isUnlocked && (
@@ -659,7 +659,7 @@ export const Portfolio = () => {
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
                 <Activity className="w-3 h-3 text-cyan-500" />
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
@@ -715,7 +715,7 @@ export const Portfolio = () => {
                       <Database className="w-4 h-4 text-slate-400" />
                       <div>
                         <div className="text-xs font-bold text-white uppercase tracking-wider">Reserved USDC</div>
-                        <div className="text-[10px] font-mono text-slate-500/80">For Range Buy Orders</div>
+                        <div className="text-xs font-mono text-slate-500/80">For Range Buy Orders</div>
                       </div>
                     </div>
                     <div className="text-sm font-mono font-bold text-white">
@@ -746,7 +746,7 @@ export const Portfolio = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
+                  <p className="text-xs text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
@@ -755,11 +755,11 @@ export const Portfolio = () => {
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[9px] text-slate-500 uppercase font-bold">{onChainMarkets.length} Active Markets</span>
+                  <span className="text-xs text-slate-500 uppercase font-bold">{onChainMarkets.length} Active Markets</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-cyan-500" />
-                  <span className="text-[9px] text-slate-500 uppercase font-bold">Pro Hardened</span>
+                  <span className="text-xs text-slate-500 uppercase font-bold">Pro Hardened</span>
                 </div>
               </div>
             </div>

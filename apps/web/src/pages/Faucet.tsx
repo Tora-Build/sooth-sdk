@@ -118,7 +118,7 @@ export const Faucet = () => {
                 {balance !== undefined ? `${Number(formatUnits(balance as bigint, Number(decimals || 18))).toLocaleString()} mUSDC` : '0 mUSDC'}
               </span>
             </div>
-            <div className="text-[10px] text-slate-600 font-mono truncate">
+            <div className="text-xs text-slate-600 font-mono truncate">
               {deployments.MockUSDC || 'Not deployed'}
             </div>
           </div>

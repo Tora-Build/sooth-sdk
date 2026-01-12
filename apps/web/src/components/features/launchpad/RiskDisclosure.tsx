@@ -77,7 +77,7 @@ export const RiskDisclosure = ({ className, collapsed = false }: RiskDisclosureP
                     </div>
                     <div className="text-left">
                         <h3 className="text-sm font-bold text-white">Risk Disclosure</h3>
-                        <p className="text-[10px] text-white/50">Understand before you launch</p>
+                        <p className="text-xs text-white/50">Understand before you launch</p>
                     </div>
                 </div>
                 <ChevronDown className={cn(
@@ -110,13 +110,13 @@ export const RiskDisclosure = ({ className, collapsed = false }: RiskDisclosureP
                                 
                                 <div className="flex flex-col items-end gap-1 shrink-0">
                                     <span className={cn(
-                                        "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase",
+                                        "text-xs px-2 py-0.5 rounded-full font-bold uppercase",
                                         getLikelihoodColor(risk.likelihood)
                                     )}>
                                         {risk.likelihood}
                                     </span>
                                     <span className={cn(
-                                        "text-[10px] font-bold uppercase",
+                                        "text-xs font-bold uppercase",
                                         getImpactColor(risk.impact)
                                     )}>
                                         {risk.impact} impact
@@ -126,7 +126,7 @@ export const RiskDisclosure = ({ className, collapsed = false }: RiskDisclosureP
 
                             <div className="flex items-start gap-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
                                 <Shield className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
-                                <p className="text-[10px] text-emerald-300">
+                                <p className="text-xs text-emerald-300">
                                     <span className="font-bold">Mitigation:</span> {risk.mitigation}
                                 </p>
                             </div>

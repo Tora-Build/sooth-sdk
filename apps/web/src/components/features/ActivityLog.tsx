@@ -81,7 +81,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('all')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'all' ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -90,7 +90,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('trade')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'trade' ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -99,7 +99,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('liquidity')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'liquidity' ? "bg-slate-500/20 text-slate-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -108,7 +108,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('settle')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'settle' ? "bg-cyan-500/20 text-cyan-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -117,7 +117,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('system')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'system' ? "bg-cyan-500/20 text-cyan-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -148,10 +148,10 @@ export const ActivityLog: React.FC = () => {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] text-slate-500 font-mono truncate mr-2">
+                      <span className="text-xs text-slate-500 font-mono truncate mr-2">
                         {item.market}
                       </span>
-                      <span className="text-[10px] text-slate-600 tabular-nums whitespace-nowrap">
+                      <span className="text-xs text-slate-600 tabular-nums whitespace-nowrap">
                         {formatDistanceToNow(item.timestamp, { addSuffix: true })}
                       </span>
                     </div>
@@ -166,11 +166,11 @@ export const ActivityLog: React.FC = () => {
                           href={`${explorerUrl}/tx/${item.hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                          className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
                         >
                           View Transaction <ExternalLink size={8} />
                         </a>
-                        <span className="text-[9px] text-slate-700 font-mono">
+                        <span className="text-xs text-slate-700 font-mono">
                           {item.hash.slice(0, 10)}...
                         </span>
                       </div>
@@ -185,7 +185,7 @@ export const ActivityLog: React.FC = () => {
 
       {/* Footer */}
       <div className="p-3 bg-slate-950/30 border-t border-slate-800/50 text-center">
-        <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">
+        <p className="text-xs text-slate-600 font-medium uppercase tracking-widest">
           End of Log
         </p>
       </div>

@@ -104,7 +104,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         {label}
       </h4>
       <div className="space-y-1">
-        <div className="grid grid-cols-2 text-[10px] text-slate-500 px-2 mb-1">
+        <div className="grid grid-cols-2 text-xs text-slate-500 px-2 mb-1">
           <span>Price</span>
           <span className="text-right">Amount</span>
         </div>
@@ -136,7 +136,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
   const MyOrdersList = () => (
     <div className="space-y-2">
-      <div className="grid grid-cols-4 text-[10px] text-slate-500 px-2 mb-1">
+      <div className="grid grid-cols-4 text-xs text-slate-500 px-2 mb-1">
         <span>Side</span>
         <span>Price</span>
         <span className="text-right">Amount</span>
@@ -153,7 +153,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             className="grid grid-cols-4 items-center text-xs px-2 py-2 rounded bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
           >
             <span className={cn(
-              "font-bold text-[10px]",
+              "font-bold text-xs",
               order.typeLabel === 'BUY' ? "text-emerald-400" : "text-rose-400"
             )}>
               {order.typeLabel} {order.outcomeLabel}
@@ -211,7 +211,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             <button
               onClick={() => setViewMode('book')}
               className={cn(
-                "px-2 py-0.5 text-[10px] font-semibold rounded transition-all",
+                "px-2 py-0.5 text-xs font-semibold rounded transition-all",
                 viewMode === 'book'
 ? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
@@ -222,7 +222,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             <button
               onClick={() => setViewMode('my-orders')}
               className={cn(
-                "px-2 py-0.5 text-[10px] font-semibold rounded transition-all flex items-center gap-1",
+                "px-2 py-0.5 text-xs font-semibold rounded transition-all flex items-center gap-1",
                 viewMode === 'my-orders'
                    ? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
@@ -255,7 +255,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               <button
                 onClick={() => setSelectedOutcome(0)}
                 className={cn(
-                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  "px-3 py-1 text-xs font-semibold rounded transition-all",
                   selectedOutcome === 0
                     ? "bg-emerald-500/20 text-emerald-400"
                     : "text-slate-500 hover:text-slate-300"
@@ -266,7 +266,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               <button
                 onClick={() => setSelectedOutcome(1)}
                 className={cn(
-                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  "px-3 py-1 text-xs font-semibold rounded transition-all",
                   selectedOutcome === 1
                     ? "bg-rose-500/20 text-rose-400"
                     : "text-slate-500 hover:text-slate-300"

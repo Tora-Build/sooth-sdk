@@ -105,7 +105,7 @@ const Slider = ({ label, value, onChange, min, max, step = 1, format, icon: Icon
             onChange={(e) => onChange(Number(e.target.value))}
             className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
         />
-        <div className="flex justify-between text-[10px] text-white/30 font-mono">
+        <div className="flex justify-between text-xs text-white/30 font-mono">
             <span>{format ? format(min) : min}</span>
             <span>{format ? format(max) : max}</span>
         </div>
@@ -119,7 +119,7 @@ const ResultCard = ({ label, value, subtext, positive }: {
     positive?: boolean;
 }) => (
     <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-        <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider">{label}</p>
+        <p className="text-xs text-white/40 uppercase font-bold tracking-wider">{label}</p>
         <p className={cn(
             "text-lg font-mono font-bold mt-1",
             positive === true && "text-emerald-400",
@@ -128,7 +128,7 @@ const ResultCard = ({ label, value, subtext, positive }: {
         )}>
             {value}
         </p>
-        {subtext && <p className="text-[10px] text-white/40 mt-0.5">{subtext}</p>}
+        {subtext && <p className="text-xs text-white/40 mt-0.5">{subtext}</p>}
     </div>
 );
 
@@ -152,7 +152,7 @@ const Equation = ({
         <div className="flex items-center justify-center gap-2 flex-wrap">
             <div className="text-center">
                 <p className="text-xl font-mono font-black text-white">{result}</p>
-                <p className="text-[10px] text-white/40 uppercase font-bold">{resultLabel}</p>
+                <p className="text-xs text-white/40 uppercase font-bold">{resultLabel}</p>
             </div>
             <span className="text-white/30 text-lg font-mono">{useArrow ? '←' : '='}</span>
             {terms.map((term, i) => (
@@ -160,7 +160,7 @@ const Equation = ({
                     {i > 0 && <span className="text-white/30 text-lg font-mono">+</span>}
                     <div className="text-center">
                         <p className="text-lg font-mono font-bold text-white/80">{term.value}</p>
-                        <p className="text-[10px] text-white/40 uppercase">{term.label}</p>
+                        <p className="text-xs text-white/40 uppercase">{term.label}</p>
                     </div>
                 </div>
             ))}
@@ -297,7 +297,7 @@ const EntryTimingToggle = ({
             )}
         >
             <span className="block">Post-Grad</span>
-            <span className="block text-[10px] font-normal opacity-70">1% fee</span>
+            <span className="block text-xs font-normal opacity-70">1% fee</span>
         </button>
         <button
             onClick={() => onChange(true)}
@@ -309,7 +309,7 @@ const EntryTimingToggle = ({
             )}
         >
             <span className="block">Pre-Grad</span>
-            <span className="block text-[10px] font-normal opacity-70">5% fee → LP</span>
+            <span className="block text-xs font-normal opacity-70">5% fee → LP</span>
         </button>
     </div>
 );
@@ -451,7 +451,7 @@ const GamingTraderPanel = () => {
                                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">
                                     LP Equation <span className="text-white/30 font-mono normal-case">[{(result.ownershipPercent * 100).toFixed(2)}%]</span>
                                 </h4>
-                                <span className="text-[10px] text-white/25 italic">*$2k graduation</span>
+                                <span className="text-xs text-white/25 italic">*$2k graduation</span>
                             </div>
                             <Equation
                                 result={formatCurrency(result.lpRedemption)}

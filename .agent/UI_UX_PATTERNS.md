@@ -1,1 +1,0 @@
-../.claude/rules/ui-patterns.md

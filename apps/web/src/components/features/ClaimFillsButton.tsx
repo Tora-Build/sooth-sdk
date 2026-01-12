@@ -179,7 +179,7 @@ export const ClaimFillsButton = ({
         onClick={handleClaim}
         disabled={isDisabled}
         className={cn(
-          'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all border',
+          'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
           isDisabled
             ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
             : variant === 'partial'

@@ -102,7 +102,7 @@ export const TrustSpectrum = ({ selected, onSelect, compact = false }: TrustSpec
                     />
                 </div>
                 
-                <div className="flex justify-between text-[10px] text-white/40">
+                <div className="flex justify-between text-xs text-white/40">
                     <span>Trustless</span>
                     <span>Trust Required</span>
                 </div>
@@ -144,7 +144,7 @@ export const TrustSpectrum = ({ selected, onSelect, compact = false }: TrustSpec
                 </div>
             </div>
 
-            <div className="flex justify-between text-[10px] text-white/40 px-1">
+            <div className="flex justify-between text-xs text-white/40 px-1">
                 <span>TRUSTLESS</span>
                 <span>TRUST REQUIRED</span>
             </div>
@@ -188,7 +188,7 @@ export const TrustSpectrum = ({ selected, onSelect, compact = false }: TrustSpec
                                             {level.name}
                                         </span>
                                         <span className={cn(
-                                            "text-[10px] px-2 py-0.5 rounded-full",
+                                            "text-xs px-2 py-0.5 rounded-full",
                                             isSelected 
                                                 ? `${level.trustColor} bg-white/10` 
                                                 : "text-white/40 bg-white/5"

@@ -5,7 +5,7 @@ import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
 import { TickBookVaultAbi } from "./src/abis/TickBookVault";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
 
-// Arc RPC: check both env var names, prefer non-rate-limited endpoints
+// Arc RPC: check both env var names, use stable RPC endpoint
 const arcRpcEnv = process.env.ARC_TESTNET_RPC_URL
   ?? process.env.PONDER_RPC_URL_ARC_TESTNET
   ?? "";
@@ -13,11 +13,11 @@ const arcRpcCandidates = arcRpcEnv
   .split(",")
   .map((url) => url.trim())
   .filter(Boolean);
-// Prefer drpc/blockdaemon over rate-limited rpc.testnet.arc.network
+// Use stable rpc.testnet.arc.network (drpc has 404 issues)
 const arcRpc =
-  arcRpcCandidates.find((url) => url.includes("drpc") || url.includes("blockdaemon")) ??
-  arcRpcCandidates.find((url) => !url.includes("quicknode")) ??
-  "https://rpc.drpc.testnet.arc.network";
+  arcRpcCandidates.find((url) => url.includes("rpc.testnet.arc.network")) ??
+  arcRpcCandidates[0] ??
+  "https://rpc.testnet.arc.network";
 
 export default createConfig({
   // Note: Use DATABASE_SCHEMA env var on Render to set schema (e.g., sooth_v10_8)
@@ -56,8 +56,8 @@ export default createConfig({
           startBlock: 5_639_248,
         },
         arcTestnet: {
-          address: "0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e",
-          startBlock: 21_044_000,
+          address: "0x3520983370eef2d1e417154bbeddf57f0dd5823f",
+          startBlock: 21_290_000,
         },
       },
     },
@@ -73,8 +73,8 @@ export default createConfig({
           startBlock: 5_639_255,
         },
         arcTestnet: {
-          address: "0xa610975cc06de01456a36bd27390d12d5e4b6629",
-          startBlock: 21_044_000,
+          address: "0x137ad07970322fb72c1e4d7758976b2237e3fe36",
+          startBlock: 21_290_000,
         },
       },
     },
@@ -90,8 +90,8 @@ export default createConfig({
           startBlock: 5_639_244,
         },
         arcTestnet: {
-          address: "0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7",
-          startBlock: 21_044_000,
+          address: "0x751f57c504cb7311f52ccc4953e3658d2322c274",
+          startBlock: 21_290_000,
         },
       },
     },
@@ -107,8 +107,8 @@ export default createConfig({
           startBlock: 5_639_241,
         },
         arcTestnet: {
-          address: "0xc6a1a4540af68cb20aea0e68a202c0f221f599b4",
-          startBlock: 21_044_000,
+          address: "0xc3c92b8eb4185657be969848ba14e481752d8d01",
+          startBlock: 21_290_000,
         },
       },
     },

@@ -64,7 +64,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
                         <div className="text-2xl font-bold text-white">
                             {isLoading ? '...' : `$${availableFormatted}`}
                         </div>
-                        <p className="text-[10px] text-emerald-500/60 mt-1">Available for immediate trading</p>
+                        <p className="text-xs text-emerald-500/60 mt-1">Available for immediate trading</p>
                     </div>
 
                     {/* Locked */}
@@ -76,7 +76,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
                         <div className="text-2xl font-bold text-white">
                             {isLoading ? '...' : `$${lockedFormatted}`}
                         </div>
-                        <p className="text-[10px] text-slate-500/60 mt-1">Under 24h withdrawal lock</p>
+                        <p className="text-xs text-slate-500/60 mt-1">Under 24h withdrawal lock</p>
                     </div>
 
                     {/* Withdrawable */}
@@ -88,7 +88,7 @@ export const ProceedsManagement: React.FC<ProceedsManagementProps> = ({ ammEngin
                         <div className="text-2xl font-bold text-slate-300">
                             {isLoading ? '...' : `$${withdrawableFormatted}`}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Ready to pull to your wallet</p>
+                        <p className="text-xs text-slate-500 mt-1">Ready to pull to your wallet</p>
                     </div>
                 </div>
 

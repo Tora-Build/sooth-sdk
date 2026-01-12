@@ -113,13 +113,13 @@ export const ChainSelector: React.FC = () => {
         aria-label="Select network"
       >
         <span className="tabular-nums">{displayChain.displayName}</span>
-        {isSwitching && <span className="ml-1 text-[10px] text-slate-500">Switching…</span>}
+        {isSwitching && <span className="ml-1 text-xs text-slate-500">Switching…</span>}
         <ChevronDown size={14} className={cn("transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Wrong Network Warning */}
       {isWrongNetwork && walletChain && (
-        <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-rose-950/90 border border-rose-500/30 rounded-lg shadow-xl z-[70] backdrop-blur-sm">
+        <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-rose-950/90 border border-rose-500/30 rounded-lg shadow-xl z-overlay backdrop-blur-sm">
           <div className="flex items-start gap-2 mb-2">
             <AlertCircle size={16} className="text-rose-400 mt-0.5 flex-shrink-0" />
             <div className="text-xs text-rose-200">
@@ -145,12 +145,12 @@ export const ChainSelector: React.FC = () => {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-[55]"
+            className="fixed inset-0 z-sticky"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Menu */}
-          <div className="absolute top-full right-0 mt-2 w-60 bg-slate-950/80 border border-slate-800/70 rounded-2xl shadow-2xl z-[70] overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-full right-0 mt-2 w-60 bg-slate-950/80 border border-slate-800/70 rounded-2xl shadow-2xl z-overlay overflow-hidden backdrop-blur-xl">
             <div className="p-2 border-b border-slate-800/70">
               <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold px-2">
                 Network
