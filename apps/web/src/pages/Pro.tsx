@@ -8,7 +8,7 @@
  * - Shows only graduated markets
  * - Click to open trading terminal for selected market
  */
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
@@ -1093,9 +1093,15 @@ export const Pro = () => {
   const navigate = useNavigate();
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
+  const previousChainId = useRef<number | null>(null);
 
-  // If marketId is provided, show the trading terminal
-  // Otherwise, show the market list
+  useEffect(() => {
+    if (previousChainId.current !== null && previousChainId.current !== chainId && marketId) {
+      navigate('/pro');
+    }
+    previousChainId.current = chainId;
+  }, [chainId, marketId, navigate]);
+
   if (marketId) {
     return <ProTradingTerminal marketId={marketId} />;
   }
@@ -1168,10 +1174,19 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
 
   const totalMarketCount = filteredMarkets.length;
 
-  // Auto-select first market
+  useEffect(() => {
+    setSelectedMarketId(null);
+  }, [chainId]);
+
   React.useEffect(() => {
     if (!selectedMarketId && filteredMarkets.length > 0) {
       setSelectedMarketId(filteredMarkets[0].contractAddress);
+    }
+  }, [filteredMarkets, selectedMarketId]);
+
+  React.useEffect(() => {
+    if (selectedMarketId && !filteredMarkets.some(m => m.contractAddress === selectedMarketId)) {
+      setSelectedMarketId(null);
     }
   }, [filteredMarkets, selectedMarketId]);
 

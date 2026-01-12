@@ -162,6 +162,13 @@ export const Trade = () => {
     }));
   }, [allMarkets]);
 
+  useEffect(() => {
+    setSelectedMarketAddress(null);
+    if (marketId) {
+      navigate('/trade');
+    }
+  }, [chainId, marketId, navigate]);
+
   // Handle URL-based market selection or auto-select first market
   useEffect(() => {
     if (marketId) {
