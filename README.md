@@ -2,40 +2,40 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V10.8 (Atomic Market Creation)  
+**Current Version**: V10.8.1 (Atomic Market Creation)  
 **Status**: Alpha (breaking changes allowed)
 
 ## Active Deployments
 
-### Base Sepolia (chainId: 84532) - V10.8
+### Base Sepolia (chainId: 84532) - V10.8.1
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0x9f4c719823935cbbb9db3f8e78556d8684c9b877` |
-| TickBookVault | `0x307425430128a2948bbd33d6f4bc558cc1a58929` |
-| LaunchpadEngine | `0x35292381f577692d29078fd66c22aa99aae9a8d6` |
-| Collateralizer | `0x87a7042bdeae36309a97d79203dc41d876a76853` |
-| AMMEngine | `0x224f012eacbb7425d336bf0bd5546feb74bbb16e` |
-| MockUSDC | `0xf9ac031408f4638c147764377ba8a5ab34584515` |
+| TickBookPoolManager | `0xabfac62af3e6fb92765bea241653c3f454169dd8` |
+| TickBookVault | `0x4bf295e9d022986f02501a421bda3d7d3f73cc3f` |
+| LaunchpadEngine | `0xa3c20cda4877a1c76728f9cea2224189af2507c4` |
+| Collateralizer | `0x2c637e7c996758780e0d4ed781734a31c60c428d` |
+| AMMEngine | `0x28b866bc672c7bd79067e5d826f2956c2cb3afb9` |
+| MockUSDC | `0xd988365b9b329d8c91548eb3695b65c3cbf1cb9c` |
 
-### Monad Testnet (chainId: 10143) - V10.8
+### Monad Testnet (chainId: 10143) - V10.8.1
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0x19424e5482ad7b79654706fa60f4e5153d54e3c3` |
-| TickBookVault | `0x8e417a8e71bc1a2adea4291fc0d0cd04e445cc1c` |
-| LaunchpadEngine | `0x6e295996fd9902b6ebf2c44068da9a07b81cd527` |
-| Collateralizer | `0xb6bf9fc30884699a37c1138d6c1a0b5dd8f70980` |
-| AMMEngine | `0xed9aaecb4577319dc258bfd902f504972e530f67` |
-| MockUSDC | `0xa87fc95697bd72b2a4aebf2897fbfdb4e37df724` |
+| TickBookPoolManager | `0xe837986c70a38de67835059e5adb8b33ba145053` |
+| TickBookVault | `0xbb5e3d1eb8c7b9930dc265adbbc21d8e927e3c79` |
+| LaunchpadEngine | `0xa948000dfc95f4055c60bc235bf8d87b34e4bc8e` |
+| Collateralizer | `0x02f25f2cd2a3b476804070110ea587e796e123b4` |
+| AMMEngine | `0x9bfaf374d560dafca5ebb522de58ca97491a3035` |
+| MockUSDC | `0x20283a043d7cc60729f7c3d58785c7397735562e` |
 
-### Arc Testnet (chainId: 5042002) - V10.8
+### Arc Testnet (chainId: 5042002) - V10.8.1
 | Contract | Address |
 |----------|---------|
-| TickBookPoolManager | `0x3520983370eef2d1e417154bbeddf57f0dd5823f` |
-| TickBookVault | `0x751f57c504cb7311f52ccc4953e3658d2322c274` |
-| LaunchpadEngine | `0x137ad07970322fb72c1e4d7758976b2237e3fe36` |
-| Collateralizer | `0xe9a9b730062f76f35133ad662f36d2f0db97764e` |
-| AMMEngine | `0xc3c92b8eb4185657be969848ba14e481752d8d01` |
-| MockUSDC | `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e` |
+| TickBookPoolManager | `0x12a7537f1ccf4fc650402cc573da14d184965566` |
+| TickBookVault | `0x766347b587bb3c03d2d88d72e9a81c228006a548` |
+| LaunchpadEngine | `0x3c2f09ba129d9ac0ea7234aa1e796a0376177d8d` |
+| Collateralizer | `0xd3c564a6a67997f312e5afa34d0cc2e28c560f6a` |
+| AMMEngine | `0x2d94583e48576cd031164c28b9705791aff97034` |
+| MockUSDC | `0x1678256a75940938fd9ef78852c48e025f48a3ab` |
 
 ## Structure
 

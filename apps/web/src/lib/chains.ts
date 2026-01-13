@@ -235,7 +235,10 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
+        'https://rpc.blockdaemon.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
         'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
       ]
     },
   },

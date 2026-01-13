@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useChainStore } from "../../store/useChainStore";
 import { usePublicClient } from "wagmi";
-import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
-import { useDeployments } from "../useDeployments";
-import { useUserOrdersDirect, RangeOrder } from "../useUserOrdersDirect";
+
 import { ABIS } from "../../config/abis";
 import { addJitter } from "../../lib/polling";
+import { useChainStore } from "../../store/useChainStore";
+import { useDeployments } from "../useDeployments";
+import { RangeOrder, useUserOrdersDirect } from "../useUserOrdersDirect";
+import { checkChainReady, fetchFromIndexer, USE_INDEXER } from "./config";
 
 type Address = `0x${string}`;
 
@@ -26,13 +27,21 @@ interface IndexedOrder {
   collateralUsed: string;
 }
 
+type UseOrdersIndexedResult = {
+  orders: RangeOrder[];
+  isLoading: boolean;
+  error: unknown;
+  refetch: () => Promise<unknown>;
+  source: "indexer" | "rpc";
+};
+
 /**
  * Hybrid approach: indexer for order list (no block limit), RPC for pending fills (accumulator accuracy)
  */
 export function useOrdersIndexed(
   marketKey: `0x${string}` | undefined,
   userAddress: Address | undefined
-) {
+): UseOrdersIndexedResult {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
@@ -53,14 +62,10 @@ export function useOrdersIndexed(
     queryKey: ["indexer", "userOrders", chainId, marketKey, userAddress],
     enabled: USE_INDEXER && isChainReady && !!marketKey && !!userAddress && !!chainId,
     queryFn: async () => {
-      const allOrders = await fetchFromIndexer<IndexedOrder[]>(
-        `/orders/${chainId}/${marketKey}`
+      const userOrders = await fetchFromIndexer<IndexedOrder[]>(
+        `/orders/${chainId}/${marketKey}/${userAddress}?status=all`
       );
-      if (!allOrders) return [];
-      
-      return allOrders.filter(
-        o => o.owner.toLowerCase() === userAddress!.toLowerCase() && o.status === "active"
-      );
+      return userOrders ?? [];
     },
     staleTime: 5_000,
     refetchInterval: addJitter(10_000),
@@ -71,10 +76,10 @@ export function useOrdersIndexed(
     queryKey: ["rpc", "orderDetails", chainId, marketKey, indexerQuery.data?.map(o => o.orderId).join(",")],
     enabled: !!indexerQuery.data?.length && !!publicClient && !!tickBookManagerAddress && !!marketKey,
     queryFn: async () => {
-      const orderIds = indexerQuery.data!.map(o => BigInt(o.orderId));
-      if (!orderIds.length) return [];
+      const orderIds = (indexerQuery.data ?? []).map((order) => BigInt(order.orderId));
+      if (orderIds.length === 0) return [];
 
-      const contracts = orderIds.flatMap(orderId => [
+      const contracts = orderIds.flatMap((orderId) => [
         {
           address: tickBookManagerAddress!,
           abi: ABIS.TickBookPoolManager,
@@ -100,18 +105,16 @@ export function useOrdersIndexed(
         const fillsResult = results[i * 2 + 1];
 
         if (orderResult.status === "success" && orderResult.result) {
-          const order = orderResult.result as any;
-          if (!order.active) continue;
-
-          const pendingFills = fillsResult.status === "success"
+          const order = orderResult.result as Omit<RangeOrder, "orderId" | "pendingShares" | "pendingUsdc" | "createdAt">;
+          const [pendingShares, pendingUsdc] = fillsResult.status === "success"
             ? (fillsResult.result as [bigint, bigint])
             : [0n, 0n];
 
           orders.push({
             orderId: orderIds[i],
             ...order,
-            pendingShares: pendingFills[0],
-            pendingUsdc: pendingFills[1],
+            pendingShares,
+            pendingUsdc,
           });
         }
       }
@@ -130,7 +133,7 @@ export function useOrdersIndexed(
     useIndexer ? undefined : userAddress
   );
 
-  const finalOrders = useIndexer ? ordersFromIndexer : rpcQuery.orders.filter(o => o.active);
+  const finalOrders = useIndexer ? ordersFromIndexer : rpcQuery.orders;
 
   return {
     orders: finalOrders,
@@ -138,8 +141,8 @@ export function useOrdersIndexed(
       ? (indexerQuery.isLoading || rpcOrdersQuery.isLoading)
       : rpcQuery.isLoading,
     error: useIndexer ? indexerQuery.error : rpcQuery.error,
-    refetch: useIndexer 
-      ? () => { indexerQuery.refetch(); rpcOrdersQuery.refetch(); }
+    refetch: useIndexer
+      ? () => Promise.all([indexerQuery.refetch(), rpcOrdersQuery.refetch()])
       : rpcQuery.refetch,
     source: useIndexer ? "indexer" as const : "rpc" as const,
   };

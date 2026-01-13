@@ -150,9 +150,43 @@ export const ClaimFillsButton = ({
         }
       }
 
+      // Step 2: Check and claim any pending refunds (unused collateral)
+      let refundsClaimed = false;
+      if (publicClient && address) {
+        try {
+          const pendingRefunds = await publicClient.readContract({
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'getPendingRefunds',
+            args: [address, marketKey],
+          }) as bigint;
+
+          if (pendingRefunds > 0n) {
+            console.log('[BatchClaim] Claiming pending refunds:', pendingRefunds.toString());
+            toast.loading('Claiming refunds...', { id: toastId });
+
+            const refundHash = await writeContractAsync({
+              address: poolManagerAddress,
+              abi: ABIS.TickBookPoolManager,
+              functionName: 'claimPooledRefunds',
+              args: [marketKey],
+            });
+
+            const refundReceipt = await publicClient.waitForTransactionReceipt({ hash: refundHash, timeout: 60_000 });
+            if (refundReceipt.status === 'reverted') {
+              console.warn('[BatchClaim] Refund claim reverted');
+            } else {
+              refundsClaimed = true;
+            }
+          }
+        } catch (refundError) {
+          console.warn('[BatchClaim] Refund claim failed (non-blocking):', refundError);
+        }
+      }
+
       toast.success(
         <div className="flex items-center gap-2">
-          <span>{orderIds.length} fill(s) claimed!</span>
+          <span>{orderIds.length} fill(s) claimed!{refundsClaimed ? ' + refunds' : ''}</span>
           <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>

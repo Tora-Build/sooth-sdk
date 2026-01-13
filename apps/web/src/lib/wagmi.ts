@@ -54,6 +54,21 @@ const arcHttpOptions = {
   timeout: 30_000,
 };
 
+const arcRpcCandidates = (import.meta.env.VITE_ARC_TESTNET_RPC_URL ?? '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
+const arcRpcUrls =
+  arcRpcCandidates.length > 0
+    ? arcRpcCandidates
+    : [
+        'https://rpc.blockdaemon.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
+      ];
+
 // Create Wagmi Adapter with custom RPC
 export const wagmiAdapter = new WagmiAdapter({
   networks,
@@ -65,9 +80,7 @@ export const wagmiAdapter = new WagmiAdapter({
     // Monad: Ankr is the only reliably working endpoint as of 2026-01
     // QuickNode and Foundation RPCs are currently unreachable
     [monadTestnet.id]: http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),
-    // Arc Testnet: Fallback with multiple RPC providers
-    // Note: Arc requires minFeePerGas >= 160 Gwei
-    [arcTestnet.id]: http('https://rpc.testnet.arc.network', arcHttpOptions),
+    [arcTestnet.id]: fallback(arcRpcUrls.map((url) => http(url, arcHttpOptions))),
   },
 });
 

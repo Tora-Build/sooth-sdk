@@ -1,8 +1,9 @@
-import { useChainStore } from "../store/useChainStore";
-import { useDeployments } from "./useDeployments";
-import { ABIS } from "../config/abis";
-import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { parseAbiItem } from "viem";
+
+import { ABIS } from "../config/abis";
+import { useChainStore } from "../store/useChainStore";
+import { readContractSafe, useDirectRead } from "./useDirectRead";
+import { useDeployments } from "./useDeployments";
 
 type Address = `0x${string}`;
 
@@ -23,6 +24,13 @@ export interface RangeOrder {
   createdAt?: number;         // Unix timestamp (seconds) from indexer
 }
 
+type UseUserOrdersDirectResult = {
+  orders: RangeOrder[];
+  isLoading: boolean;
+  error: unknown;
+  refetch: () => Promise<unknown>;
+};
+
 // RangeOrderPlaced event signature
 const RANGE_ORDER_PLACED_EVENT = parseAbiItem(
   "event RangeOrderPlaced(address indexed owner, bytes32 indexed marketKey, uint256 indexed orderId, uint8 outcome, uint16 tickLower, uint16 tickUpper, uint256 liquidity, uint256 collateralReserved, uint256 crossingFilled, uint256 crossingCost)"
@@ -37,7 +45,7 @@ const RANGE_ORDER_PLACED_EVENT = parseAbiItem(
 export function useUserOrdersDirect(
   marketKey: `0x${string}` | undefined,
   userAddress: Address | undefined
-) {
+): UseUserOrdersDirectResult {
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
   const deployments = useDeployments();
@@ -125,20 +133,17 @@ export function useUserOrdersDirect(
             const fillsResult = results[j * 2 + 1];
 
             if (orderResult.status === 'success' && orderResult.result) {
-              const order = orderResult.result as any;
+              const order = orderResult.result as Omit<RangeOrder, "orderId" | "pendingShares" | "pendingUsdc">;
+              const [pendingShares, pendingUsdc] = fillsResult.status === 'success'
+                ? (fillsResult.result as [bigint, bigint])
+                : [0n, 0n];
 
-              if (order && order.active) {
-                const pendingFills = fillsResult.status === 'success'
-                  ? (fillsResult.result as [bigint, bigint])
-                  : [0n, 0n];
-
-                orders.push({
-                  orderId,
-                  ...order,
-                  pendingShares: pendingFills?.[0] ?? 0n,
-                  pendingUsdc: pendingFills?.[1] ?? 0n,
-                });
-              }
+              orders.push({
+                orderId,
+                ...order,
+                pendingShares,
+                pendingUsdc,
+              });
             }
           }
         } catch (err) {

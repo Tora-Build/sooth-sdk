@@ -5,7 +5,7 @@
 
 import type { CommandContext, CommandResult } from './types';
 import { ABIS, WAD, MAX_UINT256 } from '../config';
-import { formatWad, parseWad, shortAddress, shortTx, Spinner, success, error, info, dim, bold } from '../utils';
+import { formatWad, parseWad, shortAddress, shortTx, Spinner, success, error, info, dim, bold, readContractWithRpcFallback } from '../utils';
 
 /**
  * Show balances for current actor
@@ -21,12 +21,16 @@ export async function balance(ctx: CommandContext, args: string[]): Promise<Comm
 
   // Fetch all balances in parallel
   const [walletBalance, vaultAvailable, vaultReserved] = await Promise.all([
-    publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [address],
-    }),
+    readContractWithRpcFallback<bigint>(
+      ctx.config.chain,
+      ctx.config.rpc,
+      {
+        address: deployment.contracts.MockUSDC as `0x${string}`,
+        abi: ABIS.MockUSDC,
+        functionName: 'balanceOf',
+        args: [address],
+      },
+    ),
     publicClient.readContract({
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,

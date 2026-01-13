@@ -4,6 +4,14 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Interactive CLI Reliability (2026-01-13)
+- **Fix**: Added RPC fallback retry for `readContract` on Monad when an endpoint returns empty call data (viem: `returned no data ("0x")`) during `createmarket` and balance checks.
+- **Files Changed**: `packages/contracts-testing/script/interactive/utils.ts`, `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/commands/wallet.ts`, `packages/contracts-testing/script/interactive/commands/vault.ts`
+
+### Indexer Reliability (2026-01-13)
+- **Fix**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier `eth_getLogs` 10-block range limit.
+- **Files Changed**: `packages/indexer/ponder.config.ts`
+
 ### Mobile UI Polish (2026-01-12)
 - **Bug Fix (Pro Header Vertical Text)**: Market question was displaying vertically (one character per line) on mobile viewports due to flex layout squeezing the market info container to near-zero width.
   - **Fix**: Split header into two rows (market info + prices) with vertical stacking (`space-y-3`). Added `overflow-x-auto` for price row.

@@ -39,6 +39,15 @@ export const TickBookPoolManagerAbi = [
   },
   {
     type: "event",
+    name: "RangeOrderClosed",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "orderId", type: "uint256", indexed: true },
+    ],
+  },
+  {
+    type: "event",
     name: "MarketOrderFilled",
     inputs: [
       { name: "taker", type: "address", indexed: true },

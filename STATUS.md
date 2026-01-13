@@ -6,6 +6,8 @@
 - **UI Rules Consolidation** — Global UI skill created, frontend-dev simplified to creative philosophy.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-13** — **Interactive CLI RPC Fallback**: `createmarket`/wallet balance reads now retry `readContract` across fallback Monad RPC endpoints when a node returns empty call data (viem: `returned no data ("0x")`).
+- **2026-01-13** — **Indexer Arc Backfill Reliability**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier (avoids `eth_getLogs` 10-block range 400s).
 - **2026-01-12** — **Mobile UI Polish**: Fixed Pro page header vertical text bug (market question displayed one char per line on mobile). Fixed orders list Cancel button cutoff with horizontal scroll wrapper (`min-w-[480px]`). Applied same fix to Spot Sells section.
 - **2026-01-12** — **UI Rules Consolidation**: Created global `~/.claude/skills/ui-rules/SKILL.md` with technical constraints (z-index scale, min text size, safe-area insets). Simplified `frontend-dev.md` to creative philosophy only. Added deep ocean bubble animation to Launchpad, aria-labels to icon buttons, text-balance/text-pretty to headings/paragraphs.
 - **2026-01-12** — **Arc V10.8 Deployment + Full Sync**: Deployed V10.8 to Arc Testnet using stable RPC (`rpc.testnet.arc.network`). Synced addresses to indexer (`ponder.config.ts`), CLI (`config.ts`), README, and frontend. All 3 testnets now on V10.8.
@@ -47,7 +49,9 @@
 - **Contract Verification** — Verify V10.8 contracts on Basescan/Monadexplorer/Arcscan.
 
 ## Known Issues
+- **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
+- **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 - **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
 
@@ -113,41 +117,41 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.8
+### Base Sepolia (chainId: 84532) — V10.8.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x9d17f81207fc377bbd8a73b27ad38eeb23be4388` |
-| **Collateralizer** | `0xd7a7d7829776456527198cfd0da1e6c4dae70817` |
-| **AMMEngine** | `0x67118b2ff01bbadce643c87d86f7228bb2f846b8` |
-| **TickBookVault** | `0xad72ba21563237ebdfbe310c052f87acb7cab0f2` |
-| **LaunchpadEngine** | `0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d` |
-| **MockUSDC** | `0xe35ff7794ca0f3ec55937e3806560684fdcdb74d` |
+| **TickBookPoolManager** | `0xabfac62af3e6fb92765bea241653c3f454169dd8` |
+| **Collateralizer** | `0x2c637e7c996758780e0d4ed781734a31c60c428d` |
+| **AMMEngine** | `0x28b866bc672c7bd79067e5d826f2956c2cb3afb9` |
+| **TickBookVault** | `0x4bf295e9d022986f02501a421bda3d7d3f73cc3f` |
+| **LaunchpadEngine** | `0xa3c20cda4877a1c76728f9cea2224189af2507c4` |
+| **MockUSDC** | `0xd988365b9b329d8c91548eb3695b65c3cbf1cb9c` |
 
-**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
+**Note:** V10.8.1 (2026-01-12 baseline). Added event coverage for indexer.
 
-### Arc Testnet (chainId: 5042002) — V10.8
+### Arc Testnet (chainId: 5042002) — V10.8.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x3520983370eef2d1e417154bbeddf57f0dd5823f` |
-| **Collateralizer** | `0xe9a9b730062f76f35133ad662f36d2f0db97764e` |
-| **AMMEngine** | `0xc3c92b8eb4185657be969848ba14e481752d8d01` |
-| **TickBookVault** | `0x751f57c504cb7311f52ccc4953e3658d2322c274` |
-| **LaunchpadEngine** | `0x137ad07970322fb72c1e4d7758976b2237e3fe36` |
-| **MockUSDC** | `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e` |
+| **TickBookPoolManager** | `0x12a7537f1ccf4fc650402cc573da14d184965566` |
+| **Collateralizer** | `0xd3c564a6a67997f312e5afa34d0cc2e28c560f6a` |
+| **AMMEngine** | `0x2d94583e48576cd031164c28b9705791aff97034` |
+| **TickBookVault** | `0x766347b587bb3c03d2d88d72e9a81c228006a548` |
+| **LaunchpadEngine** | `0x3c2f09ba129d9ac0ea7234aa1e796a0376177d8d` |
+| **MockUSDC** | `0x1678256a75940938fd9ef78852c48e025f48a3ab` |
 
-**Note:** V10.8 redeploy (2026-01-12). Switched to `rpc.testnet.arc.network` (drpc endpoint unstable).
+**Note:** V10.8.1 redeploy (2026-01-13). Fresh arc redeploy to clear historical markets and avoid rate-limited RPCs.
 
-### Monad Testnet (chainId: 10143) — V10.8
+### Monad Testnet (chainId: 10143) — V10.8.1
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xd4090b703e171bca15dce1cce2da4c8e14ff44c1` |
-| **Collateralizer** | `0x75a373de062a25178366e8fecb588547bfdfb589` |
-| **AMMEngine** | `0xaa314e2370587f80b25b217ae97358e8be46d143` |
-| **TickBookVault** | `0x656c7092038334a66928644df2bec755f85c32c8` |
-| **LaunchpadEngine** | `0xa93305a91705b095ddeb3c82f7988b1acdf1f012` |
-| **MockUSDC** | `0x374af5c5d64245a7c779c8d92f9e3c1058fb1315` |
+| **TickBookPoolManager** | `0xe837986c70a38de67835059e5adb8b33ba145053` |
+| **Collateralizer** | `0x02f25f2cd2a3b476804070110ea587e796e123b4` |
+| **AMMEngine** | `0x9bfaf374d560dafca5ebb522de58ca97491a3035` |
+| **TickBookVault** | `0xbb5e3d1eb8c7b9930dc265adbbc21d8e927e3c79` |
+| **LaunchpadEngine** | `0xa948000dfc95f4055c60bc235bf8d87b34e4bc8e` |
+| **MockUSDC** | `0x20283a043d7cc60729f7c3d58785c7397735562e` |
 
-**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
+**Note:** V10.8.1 redeploy (2026-01-13). Fresh monad redeploy to align PoolManager behavior with other chains.
 
 
 ---

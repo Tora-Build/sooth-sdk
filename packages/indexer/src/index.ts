@@ -155,7 +155,7 @@ ponder.on("TickBookPoolManager:RangeOrderCancelled", async ({ event, context }) 
 
   if (existingOrder) {
     const unfilledShares = existingOrder.liquidity - existingOrder.crossingFilled - existingOrder.claimedShares;
-    
+
     await context.db.update(schema.order, { id }).set({
       status: "cancelled",
       updatedAt: event.block.timestamp,
@@ -164,12 +164,67 @@ ponder.on("TickBookPoolManager:RangeOrderCancelled", async ({ event, context }) 
     if (unfilledShares > 0n) {
       const fgId = fillGrowthId(context.chain.id, existingOrder.marketKey, existingOrder.outcome);
       const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
-      
+
       if (fillGrowth) {
-        const newTotalLiquidity = fillGrowth.totalLiquidity > unfilledShares 
-          ? fillGrowth.totalLiquidity - unfilledShares 
+        const newTotalLiquidity = fillGrowth.totalLiquidity > unfilledShares
+          ? fillGrowth.totalLiquidity - unfilledShares
           : 0n;
-        
+
+        await context.db.update(schema.fillGrowthState, { id: fgId }).set({
+          totalLiquidity: newTotalLiquidity,
+          updatedAt: event.block.timestamp,
+        });
+      }
+    }
+
+    for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
+      const tid = tickId(
+        context.chain.id,
+        existingOrder.marketKey,
+        existingOrder.outcome,
+        tick
+      );
+
+      const existingTick = await context.db.find(schema.tickLiquidity, { id: tid });
+      if (existingTick) {
+        await context.db.update(schema.tickLiquidity, { id: tid }).set({
+          totalLiquidity: existingTick.totalLiquidity - existingOrder.liquidity,
+          orderCount: existingTick.orderCount - 1,
+          updatedAt: event.block.timestamp,
+        });
+      }
+    }
+  }
+});
+
+ponder.on("TickBookPoolManager:RangeOrderClosed", async ({ event, context }) => {
+  const { orderId: orderIdBigInt } = event.args;
+
+  const id = orderId(context.chain.id, orderIdBigInt);
+
+  const existingOrder = await context.db.find(schema.order, { id });
+  if (!existingOrder) return;
+
+  const wasActive = existingOrder.status === "active";
+  const unfilledShares = existingOrder.liquidity - existingOrder.crossingFilled - existingOrder.claimedShares;
+
+  await context.db.update(schema.order, { id }).set({
+    status: "closed",
+    pendingShares: 0n,
+    pendingUsdc: 0n,
+    updatedAt: event.block.timestamp,
+  });
+
+  if (wasActive) {
+    if (unfilledShares > 0n) {
+      const fgId = fillGrowthId(context.chain.id, existingOrder.marketKey, existingOrder.outcome);
+      const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+
+      if (fillGrowth) {
+        const newTotalLiquidity = fillGrowth.totalLiquidity > unfilledShares
+          ? fillGrowth.totalLiquidity - unfilledShares
+          : 0n;
+
         await context.db.update(schema.fillGrowthState, { id: fgId }).set({
           totalLiquidity: newTotalLiquidity,
           updatedAt: event.block.timestamp,

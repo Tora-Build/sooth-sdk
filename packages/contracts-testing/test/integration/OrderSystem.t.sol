@@ -254,10 +254,13 @@ contract UnifiedOrderSystemTest is Test {
         vm.prank(alice);
         poolManager.claimFills(marketKey, orderId1);
 
-        // Check Alice has pending pooled refunds (order was fully filled on claimFills)
+        // Refund is handled directly (not pooled) when the order is dust-closed on claim
         uint256 pendingRefund = poolManager.getPendingRefunds(alice, marketKey);
-        // Note: If order completes, refund is pooled. Otherwise check fills worked.
-        
+        assertEq(pendingRefund, 0, "Refund should not remain pooled after claim");
+
+        TickBookPoolManager.RangeOrder memory order = poolManager.getOrder(marketKey, orderId1);
+        assertEq(order.active, false, "Order should be closed after dust completion");
+
         // Either way, the key test is that placeOrder is O(1) - no auto iteration
         // Let's verify the O(1) by placing many orders without incurring O(n) gas
         vm.startPrank(alice);
@@ -275,7 +278,74 @@ contract UnifiedOrderSystemTest is Test {
         // If we got here without running out of gas, placeOrder is O(1)
     }
 
+    function test_ClaimFills_DustClose_EmitsRangeOrderClosedAndInactivates() public {
+        // Alice places order
+        vm.prank(alice);
+        (uint256 orderId1, , , ) = poolManager.placeOrder(
+            marketKey,
+            0,          // NO outcome
+            1000e18,    // shares
+            500,        // tickLower
+            500,        // tickUpper
+            600e18      // maxCost
+        );
+
+        // Bob crosses Alice's order
+        vm.prank(bob);
+        poolManager.placeOrder(
+            marketKey,
+            1,          // YES outcome
+            2000e18,
+            500,
+            500,
+            1200e18
+        );
+
+        vm.expectEmit(true, true, true, false);
+        emit TickBookPoolManager.RangeOrderClosed(alice, marketKey, orderId1);
+
+        // Claim should dust-close the order
+        vm.prank(alice);
+        poolManager.claimFills(marketKey, orderId1);
+
+        TickBookPoolManager.RangeOrder memory order = poolManager.getOrder(marketKey, orderId1);
+        assertEq(order.active, false, "Order should be closed");
+
+        // Cancel after close should revert
+        vm.prank(alice);
+        vm.expectRevert(TickBookPoolManager.OrderNotActive.selector);
+        poolManager.cancelOrder(marketKey, orderId1);
+    }
+
+    function test_PlaceOrder_CrossingDustClose_InactivatesNewOrder() public {
+        // Alice provides opposite liquidity
+        vm.prank(alice);
+        poolManager.placeOrder(
+            marketKey,
+            0,          // NO outcome
+            1000e18,
+            500,
+            500,
+            600e18
+        );
+
+        // Bob places an order that is fully crossed immediately
+        vm.prank(bob);
+        (uint256 bobOrderId, , , ) = poolManager.placeOrder(
+            marketKey,
+            1,          // YES outcome
+            1000e18,
+            500,
+            500,
+            600e18
+        );
+
+        TickBookPoolManager.RangeOrder memory bobOrder = poolManager.getOrder(marketKey, bobOrderId);
+        assertEq(bobOrder.active, false, "New order should be closed when dust-complete on crossing");
+    }
+
     function test_PlaceOrder_SkipsInactiveOrders() public {
+
         // Alice places order
         vm.prank(alice);
         (uint256 orderId1, , , ) = poolManager.placeOrder(

@@ -3,7 +3,7 @@
  * Formatting, parsing, and helper functions
  */
 
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits, parseUnits, createPublicClient, http, type Chain, type PublicClient } from 'viem';
 
 export const WAD = 10n ** 18n;
 
@@ -405,7 +405,8 @@ export function isTransientError(error: Error): boolean {
     msg.includes('econnrefused') ||
     msg.includes('socket') ||
     msg.includes('rate limit') ||
-    msg.includes('429');
+    msg.includes('429') ||
+    msg.includes('returned no data ("0x")');
 }
 
 /**
@@ -419,4 +420,65 @@ export function isContractError(error: Error): boolean {
     msg.includes('insufficient') ||
     msg.includes('panic') ||
     msg.includes('execution reverted');
+}
+
+export function isNoDataError(error: Error): boolean {
+  return error.message.toLowerCase().includes('returned no data ("0x")');
+}
+
+type ReadContractArgs = Parameters<PublicClient['readContract']>[0];
+
+export function getRpcCandidates(primaryRpc: string, chain: Chain, extraRpcs: string[] = []): string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  const push = (rpc: string | undefined) => {
+    const value = rpc?.trim();
+    if (!value) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    candidates.push(value);
+  };
+
+  push(primaryRpc);
+  for (const rpc of extraRpcs) push(rpc);
+  for (const rpc of chain.rpcUrls?.default?.http ?? []) push(rpc);
+
+  return candidates;
+}
+
+export async function readContractWithRpcFallback<T>(
+  chain: Chain,
+  primaryRpc: string,
+  args: ReadContractArgs,
+  extraRpcs: string[] = [],
+): Promise<T> {
+  const candidates = getRpcCandidates(primaryRpc, chain, extraRpcs);
+
+  let lastError: Error | undefined;
+  for (const rpc of candidates) {
+    const client = createPublicClient({
+      chain,
+      transport: http(rpc),
+    });
+
+    try {
+      const result = await client.readContract(args);
+      return result as unknown as T;
+    } catch (err: unknown) {
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      lastError = errorObj;
+
+      if (isContractError(errorObj)) throw errorObj;
+      if (isTransientError(errorObj) || isNoDataError(errorObj)) continue;
+
+      throw errorObj;
+    }
+  }
+
+  const hint = candidates.length > 1
+    ? `Tried RPCs: ${candidates.join(', ')}`
+    : `RPC: ${primaryRpc}`;
+
+  throw new Error(`${decodeError(lastError || new Error('Unknown error'))}. ${hint}`);
 }

@@ -70,7 +70,7 @@ import {
   type DeploymentArtifact,
 } from './chainConfigs.js';
 
-const DEPLOYMENT_VERSION = 'V10.8';
+const DEPLOYMENT_VERSION = 'V10.8.1';
 
 // ============================================
 // Artifact Loading
@@ -258,24 +258,57 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 // Full Chain Deployment
 // ============================================
 
+function safeRpcLabel(rpcUrl: string): string {
+  try {
+    return new URL(rpcUrl).origin;
+  } catch {
+    return rpcUrl;
+  }
+}
+
+async function createClientsWithFallback(opts: {
+  chain: Chain;
+  account: ReturnType<typeof privateKeyToAccount>;
+  rpcUrls: string[];
+}): Promise<{ rpcUrl: string; publicClient: any; walletClient: any }> {
+  let lastError: unknown;
+
+  for (const rpcUrl of opts.rpcUrls) {
+    const publicClient = createPublicClient({
+      chain: opts.chain,
+      transport: http(rpcUrl),
+    });
+
+    try {
+      await publicClient.getBalance({ address: opts.account.address });
+
+      const walletClient = createWalletClient({
+        account: opts.account,
+        chain: opts.chain,
+        transport: http(rpcUrl),
+      });
+
+      return { rpcUrl, publicClient, walletClient };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('No working RPC URL found');
+}
+
 async function deployToChain(chainName: string, privateKey: `0x${string}`): Promise<DeploymentArtifact> {
   const config = getChainConfig(chainName);
   const account = privateKeyToAccount(privateKey);
 
-  // Get the RPC URL from the chain config
-  const rpcUrl = config.chain.rpcUrls.default.http[0];
-  console.log(`[${chainName}] Using RPC: ${rpcUrl}`);
-
-  const publicClient = createPublicClient({
+  const rpcUrls = config.chain.rpcUrls.default.http;
+  const { rpcUrl, publicClient, walletClient } = await createClientsWithFallback({
     chain: config.chain,
-    transport: http(rpcUrl),
-  });
-
-  const walletClient = createWalletClient({
     account,
-    chain: config.chain,
-    transport: http(rpcUrl),
+    rpcUrls,
   });
+
+  console.log(`[${chainName}] Using RPC: ${safeRpcLabel(rpcUrl)}`);
 
   const ctx: DeploymentContext = {
     chainName,

@@ -57,13 +57,26 @@ export const monadTestnet = defineChain({
 
 // Arc Testnet: Circle-backed chain with native USDC as gas token
 // Sub-second finality (~350ms), 3000+ TPS
+const arcRpcCandidates = (process.env.ARC_TESTNET_RPC_URL ?? '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.testnet.arc.network'],
+      http:
+        arcRpcCandidates.length > 0
+          ? arcRpcCandidates
+          : [
+              'https://rpc.testnet.arc.network',
+              'https://rpc.blockdaemon.testnet.arc.network',
+              'https://rpc.drpc.testnet.arc.network',
+              'https://rpc.quicknode.testnet.arc.network',
+            ],
     },
   },
   blockExplorers: {
@@ -148,7 +161,7 @@ export const chainConfigs: Record<string, ChainConfig> = {
     gasSettings: {
       // Arc has stable fee design: minFeePerGas >= 160 Gwei required
       // See: https://docs.arc.network/arc/references/gas-and-fees
-      maxFeePerGas: 200_000_000_000n, // 200 gwei (above 160 min)
+      maxFeePerGas: 180_000_000_000n, // 180 gwei (above 160 min)
       maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
     },
     deploymentConfig: {

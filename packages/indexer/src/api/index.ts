@@ -103,17 +103,25 @@ app.get("/orders/:chainId/:marketKey/:owner", async (c) => {
   const marketKey = c.req.param("marketKey") as `0x${string}`;
   const owner = c.req.param("owner").toLowerCase() as `0x${string}`;
 
-  const orders = await db
-    .select()
-    .from(schema.order)
-    .where(
-      and(
+  const status = c.req.query("status") ?? "active";
+
+  const whereClause = status === "all"
+    ? and(
+        eq(schema.order.chainId, chainId),
+        eq(schema.order.marketKey, marketKey),
+        eq(schema.order.owner, owner)
+      )
+    : and(
         eq(schema.order.chainId, chainId),
         eq(schema.order.marketKey, marketKey),
         eq(schema.order.owner, owner),
         eq(schema.order.status, "active")
-      )
-    )
+      );
+
+  const orders = await db
+    .select()
+    .from(schema.order)
+    .where(whereClause)
     .orderBy(desc(schema.order.createdAt));
 
   const fillGrowthStates = await db
