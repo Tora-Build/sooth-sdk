@@ -14,10 +14,15 @@ const lockEntryId = (chainId: number, user: string, unlockTime: bigint) =>
 ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
   const { market, creator, initialLiquidity, deposit, lpTokens } = event.args;
 
+  // Note: name and symbol are not in the event - they're stored in TruthMarket.
+  // For now, these are null and will be populated by a separate mechanism
+  // (e.g., TruthMarket factory pattern or reading from contract).
   await context.db.insert(schema.launchpadMarket).values({
     address: market,
     chainId: context.chain.id,
     creator,
+    name: null, // Will be populated from TruthMarket.question()
+    symbol: null, // Will be populated from TruthMarket.symbol()
     initialLiquidity,
     deposit,
     totalLPSupply: lpTokens,

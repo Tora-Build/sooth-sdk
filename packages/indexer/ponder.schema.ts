@@ -6,6 +6,8 @@ export const launchpadMarket = onchainTable(
     address: t.hex().primaryKey(),
     chainId: t.integer().notNull(),
     creator: t.hex().notNull(),
+    name: t.text(), // Market question (from TruthMarket.MarketCreated)
+    symbol: t.text(), // Market symbol
     initialLiquidity: t.bigint().notNull(),
     deposit: t.bigint().notNull(),
     totalLPSupply: t.bigint().notNull(),
