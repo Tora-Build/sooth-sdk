@@ -233,11 +233,11 @@ export const Portfolio = () => {
   const rpcLockQueue = useLockQueue(ammEngineAddress);
   const queue = useIndexer
     ? indexedPortfolio.lockEntries.map(e => ({
-        amount: BigInt(e.amountWad),
-        expiryDate: new Date(Number(e.unlockTime) * 1000),
-        isUnlocked: Date.now() >= Number(e.unlockTime) * 1000,
-        timeUntilUnlock: Math.max(0, Number(e.unlockTime) * 1000 - Date.now()),
-      }))
+      amount: BigInt(e.amountWad),
+      expiryDate: new Date(Number(e.unlockTime) * 1000),
+      isUnlocked: Date.now() >= Number(e.unlockTime) * 1000,
+      timeUntilUnlock: Math.max(0, Number(e.unlockTime) * 1000 - Date.now()),
+    }))
     : rpcLockQueue.entries;
   const queueTotal = useIndexer
     ? indexedPortfolio.lockEntries.reduce((acc, e) => acc + BigInt(e.amountWad), 0n)
@@ -252,23 +252,14 @@ export const Portfolio = () => {
   const proReservedFormatted = formatUnits(proReservedWad, 18);
   const isLoadingProVault = rpcVault.isLoading;
 
-  // 4. Markets Data for Aggregation - prefer indexer
+  // 4. Markets Data for Aggregation - prefer indexer for addresses, RPC for names
+  // The indexer doesn't store market names, so we always use RPC for name/symbol
   const rpcMarkets = useOnChainMarkets();
   const onChainMarkets: OnChainMarket[] = useMemo(() => {
-    if (useIndexer && indexedMarkets.markets.length > 0) {
-      return indexedMarkets.markets.map(m => ({
-        address: m.address as `0x${string}`,
-        name: `Market ${m.address.slice(0, 8)}`,
-        symbol: m.address.slice(0, 6).toUpperCase(),
-        creator: m.creator as `0x${string}`,
-        isGraduated: m.isGraduated,
-        createdAt: BigInt(m.createdAt),
-        bBase: BigInt(m.initialLiquidity),
-        bCurrent: BigInt(m.initialLiquidity),
-      }));
-    }
+    // Always prefer RPC markets since they include the full name from contract
+    // Indexer is still used for other portfolio data (positions, LP balances, etc.)
     return rpcMarkets.markets;
-  }, [useIndexer, indexedMarkets.markets, rpcMarkets.markets]);
+  }, [rpcMarkets.markets]);
 
   const [lpValues, setLpValues] = useState<Record<string, number>>({});
   const [ammValues, setAmmValues] = useState<Record<string, number>>({});
