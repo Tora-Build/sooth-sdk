@@ -100,7 +100,6 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onVa
   return (
     <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
       <div className="flex items-center gap-3">
-        <TrendingUp className="w-4 h-4 text-cyan-400" />
         <div>
           <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
           <div className="text-xs font-mono text-cyan-500/80">LIQUIDITY POOL</div>

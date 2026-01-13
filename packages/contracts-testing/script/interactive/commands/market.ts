@@ -22,6 +22,7 @@ import {
   decodeError,
   isTransientError,
   isContractError,
+  readContractWithRpcFallback,
 } from '../utils';
 import { decodeEventLog, parseAbi } from 'viem';
 
@@ -140,12 +141,16 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
 
   try {
     // Step 1: Check USDC balance
-    const usdcBalance = await publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [address],
-    }) as bigint;
+    const usdcBalance = await readContractWithRpcFallback<bigint>(
+      ctx.config.chain,
+      ctx.config.rpc,
+      {
+        address: deployment.contracts.MockUSDC as `0x${string}`,
+        abi: ABIS.MockUSDC,
+        functionName: 'balanceOf',
+        args: [address],
+      },
+    );
 
     // Estimate required USDC: b × ln(2) (MockUSDC uses 18 decimals like WAD)
     // LaunchpadEngine calculates: depositWad = (b × LN2_WAD) / WAD
@@ -371,12 +376,16 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
 
   // Ensure sufficient USDC
   const requiredUsdc = tradeSize * BigInt(numTrades) * 2n; // Rough estimate
-  const usdcBalance = await publicClient.readContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
-    functionName: 'balanceOf',
-    args: [address],
-  }) as bigint;
+  const usdcBalance = await readContractWithRpcFallback<bigint>(
+    ctx.config.chain,
+    ctx.config.rpc,
+    {
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [address],
+    },
+  );
 
   if (usdcBalance < requiredUsdc) {
     console.log(warn(`  Low USDC balance. Minting more...`));

@@ -36,6 +36,7 @@ import {
   useOnChainMarkets,
   RangeOrder
 } from '../hooks';
+import { usePendingRefunds } from '../hooks/usePendingRefunds';
 import { useOrdersIndexed, useOrderbookIndexed, useSpotSellsIndexed, type SpotSellOrderIndexed } from '../hooks/indexer';
 import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
 import { useDeployments } from '../hooks/useDeployments';
@@ -450,21 +451,34 @@ interface UserOrdersPanelProps {
   yesShares?: bigint;
   noShares?: bigint;
   onCancelSpotSell?: (sellId: bigint) => Promise<{ sharesReturned: bigint; txHash: `0x${string}` } | null>;
+  pendingRefundsWad?: bigint;
 }
 
-type OrderFilter = 'all' | 'open' | 'filled';
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
 type OrdersGroup = 'orders' | 'spot';
 
 const MAX_BATCH_SIZE = 50; // Restore to 50 - Base Sepolia should handle this
+const ONE_SHARE_WAD = 10n ** 18n;
 
-const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares, onCancelSpotSell }: UserOrdersPanelProps) => {
+function UserOrdersPanel({
+  orders,
+  spotSells,
+  marketKey,
+  isLoading,
+  onRefresh,
+  contracts,
+  chainId,
+  viewOutcome,
+  yesShares,
+  noShares,
+  onCancelSpotSell,
+  pendingRefundsWad,
+}: UserOrdersPanelProps): JSX.Element {
   const { writeContractAsync } = useWriteContract();
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [group, setGroup] = useState<OrdersGroup>('orders');
-  const [filter, setFilter] = useState<OrderFilter>('all');
   const [sortBy, setSortBy] = useState<OrderSort>('newest');
 
   const userSpotSells = useMemo(() => {
@@ -476,48 +490,46 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
       .sort((a, b) => Number(b.sellId - a.sellId));
   }, [spotSells, userAddress]);
 
-  // Helper to calculate fill percent
-  const getFillPercent = (o: RangeOrder) => {
-    const totalFilled = o.filledShares + o.pendingShares;
-    const capped = totalFilled > o.sharesTotal ? o.sharesTotal : totalFilled;
-    return o.sharesTotal > 0n ? Number(capped * 100n / o.sharesTotal) : 0;
-  };
+  function getFillPercent(order: RangeOrder): number {
+    const totalFilled = order.filledShares + order.pendingShares;
+    const capped = totalFilled > order.sharesTotal ? order.sharesTotal : totalFilled;
+    if (order.sharesTotal === 0n) return 0;
+    return Number((capped * 10000n) / order.sharesTotal) / 100;
+  }
 
-  // Filter orders
-  const filteredOrders = orders.filter(o => {
-    if (!o.active) return false;
-    const fillPct = getFillPercent(o);
-    switch (filter) {
-      case 'open': return fillPct < 100;
-      case 'filled': return fillPct >= 100;
-      default: return true;
-    }
-  });
+  function isEffectivelyFilled(order: RangeOrder): boolean {
+    const totalFilled = order.filledShares + order.pendingShares;
+    if (order.sharesTotal === 0n) return false;
+    const fillPct = (totalFilled * 100n) / order.sharesTotal;
+    const unfilled = order.sharesTotal > totalFilled ? order.sharesTotal - totalFilled : 0n;
+    return fillPct >= 99n || unfilled < ONE_SHARE_WAD;
+  }
+
+  const activeOrders = orders.filter((order) => order.active);
 
   // Sort orders
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
+  const sortedOrders = [...activeOrders].sort((a, b) => {
     switch (sortBy) {
-      case 'price': return a.tickLower - b.tickLower;
-      case 'fill': return getFillPercent(b) - getFillPercent(a);
+      case 'price':
+        return a.tickLower - b.tickLower;
+      case 'fill':
+        return getFillPercent(b) - getFillPercent(a);
       case 'created':
         // Sort by createdAt timestamp (newest first), fallback to orderId
         if (a.createdAt && b.createdAt) return b.createdAt - a.createdAt;
         return Number(b.orderId - a.orderId);
-      default: return Number(b.orderId - a.orderId); // newest first by orderId
+      default:
+        return Number(b.orderId - a.orderId); // newest first by orderId
     }
   });
 
-  // Fully filled orders for batch claim (capped at MAX_BATCH_SIZE)
-  const fullyFilledOrders = orders.filter(o => {
-    if (!o.active) return false;
-    return getFillPercent(o) >= 100;
-  }).slice(0, MAX_BATCH_SIZE);
+  const claimableOrders = activeOrders
+    .filter((order) => order.pendingShares > 0n)
+    .slice(0, MAX_BATCH_SIZE);
 
-  // Open (not fully filled) orders for batch cancel
-  const openOrders = orders.filter(o => {
-    if (!o.active) return false;
-    return getFillPercent(o) < 100;
-  }).slice(0, MAX_BATCH_SIZE);
+  const openOrders = activeOrders
+    .filter((order) => !isEffectivelyFilled(order))
+    .slice(0, MAX_BATCH_SIZE);
 
   const displayedCount = group === 'orders' ? sortedOrders.length : userSpotSells.length;
 
@@ -612,6 +624,27 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
           setActionInProgress(null);
           return;
         }
+      }
+
+      // Also claim any pending refunds that may have accumulated
+      try {
+        const pendingRefunds = await publicClient?.readContract({
+          address: contracts.TickBookPoolManager as `0x${string}`,
+          abi: ABIS.TickBookPoolManager,
+          functionName: 'getPendingRefunds',
+          args: [userAddress, marketKey],
+        }) as bigint | undefined;
+
+        if (pendingRefunds && pendingRefunds > 0n) {
+          await writeContractAsync({
+            address: contracts.TickBookPoolManager as `0x${string}`,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'claimPooledRefunds',
+            args: [marketKey],
+          });
+        }
+      } catch (refundErr) {
+        console.warn('[BatchCancel] Refund claim failed (non-blocking):', refundErr);
       }
 
       toast.success(`Cancelled ${openOrders.length} order(s)`, { id: toastId, duration: 5000 });
@@ -742,6 +775,57 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
     }
   };
 
+  function formatUsdWad(
+    amountWad: bigint,
+    decimals: number = 18,
+    displayDecimals: number = 2
+  ): string {
+    const scale = 10n ** BigInt(decimals);
+    const whole = amountWad / scale;
+    const frac = amountWad % scale;
+
+    const fracScale = 10n ** BigInt(displayDecimals);
+    const fracDisplay = (frac * fracScale) / scale;
+
+    return `${whole.toString()}.${fracDisplay.toString().padStart(displayDecimals, '0')}`;
+  }
+
+  async function handleClaimRefunds(): Promise<void> {
+    if (!marketKey || !pendingRefundsWad || pendingRefundsWad === 0n) return;
+    if (!contracts.TickBookPoolManager) {
+      toast.error('TickBookPoolManager not deployed');
+      return;
+    }
+
+    setActionInProgress('claim-refunds');
+    const toastId = toast.loading('Claiming refunds...');
+    try {
+      const hash = await writeContractAsync({
+        address: contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'claimPooledRefunds',
+        args: [marketKey],
+      });
+
+      toast.loading('Waiting for confirmation...', { id: toastId });
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        if (receipt.status === 'reverted') {
+          toast.error('Transaction reverted', { id: toastId });
+          return;
+        }
+      }
+
+      toast.success(`Refunds claimed: $${formatUsdWad(pendingRefundsWad)}`, { id: toastId });
+      onRefresh();
+    } catch (e: any) {
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Claim refunds failed';
+      toast.error(msg, { id: toastId });
+    } finally {
+      setActionInProgress(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
@@ -765,32 +849,46 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
           YOUR ORDERS <span className="text-slate-600">({displayedCount})</span>
         </span>
         <div className="flex items-center gap-2">
-          {/* Batch Cancel Open Orders */}
-          <button
-            onClick={handleBatchCancel}
-            disabled={group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'}
-            className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
-              group !== 'orders' || openOrders.length === 0 || actionInProgress === 'batch-cancel'
-                ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
-            )}
-          >
-            {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
-            Cancel All ({openOrders.length})
-          </button>
-          {/* Batch Claim Filled Orders */}
-          <ClaimFillsButton
-            marketKey={marketKey}
-            orderIds={fullyFilledOrders.map(o => o.orderId)}
-            compact
-            label={`Claim All (${fullyFilledOrders.length})`}
-            variant="filled"
-            disabled={group !== 'orders' || fullyFilledOrders.length === 0}
-            onSuccess={onRefresh}
-          />
+          {/* Batch Actions based on Group */}
+          {group === 'orders' && (
+            <>
+              <button
+                onClick={handleBatchCancel}
+                disabled={openOrders.length === 0 || actionInProgress === 'batch-cancel'}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
+                  openOrders.length === 0 || actionInProgress === 'batch-cancel'
+                    ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                )}
+              >
+                {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
+                Cancel All ({openOrders.length})
+              </button>
+              <ClaimFillsButton
+                marketKey={marketKey}
+                orderIds={claimableOrders.map(o => o.orderId)}
+                compact
+                label={`Claim All (${claimableOrders.length})`}
+                variant="filled"
+                disabled={claimableOrders.length === 0}
+                onSuccess={onRefresh}
+              />
+            </>
+          )}
+
+          {(pendingRefundsWad ?? 0n) > 0n && (
+            <button
+              onClick={handleClaimRefunds}
+              disabled={actionInProgress === 'claim-refunds'}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+            >
+              {actionInProgress === 'claim-refunds' ? <Loader2 size={10} className="animate-spin" /> : <Wallet size={10} />}
+              Refunds (${formatUsdWad(pendingRefundsWad ?? 0n)})
+            </button>
+          )}
           <Tooltip
-            content="Spot sells are asks backed by shares you already own. If you only own some of what you’re selling, the app may do a hybrid sell (spot + short), often as 2 transactions. Spot sells cancel one-by-one; Cancel All / Claim All only apply to Orders."
+            content="Spot sells are asks backed by shares you already own. If you only own some of what you're selling, the app may do a hybrid sell (spot + short), often as 2 transactions. Spot sells cancel one-by-one; Cancel All / Claim All only apply to Orders."
             position="bottom"
           >
             <button type="button" className="p-1 hover:bg-slate-800 rounded transition-colors" aria-label="Hint">
@@ -800,75 +898,48 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
         </div>
       </div>
 
-      {/* Filter & Sort Row */}
-      <div className="flex items-center gap-2 mb-3 text-xs">
-        {/* Group toggle (left of filters) */}
-        <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-          <button
-            onClick={() => setGroup('orders')}
-            className={cn(
-              "px-2 py-1 rounded-md font-medium transition-colors",
-              group === 'orders' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            Orders
-          </button>
-          <button
-            onClick={() => setGroup('spot')}
-            className={cn(
-              "px-2 py-1 rounded-md font-medium transition-colors",
-              group === 'spot' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            Spot Sells
-          </button>
+        {/* Filter & Sort Row */}
+        <div className="flex items-center gap-2 mb-3 text-xs">
+          {/* Group toggle (left of filters) */}
+          <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
+            <button
+              onClick={() => setGroup('orders')}
+              className={cn(
+                "px-2 py-1 rounded-md font-medium transition-colors",
+                group === 'orders' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              Active Orders
+            </button>
+            <button
+              onClick={() => setGroup('spot')}
+              className={cn(
+                "px-2 py-1 rounded-md font-medium transition-colors",
+                group === 'spot' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              Spot Sells
+            </button>
+          </div>
+
+          {group === 'orders' && (
+            <>
+              <div className="flex items-center gap-1 ml-auto">
+                <span className="text-slate-600">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as OrderSort)}
+                  className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
+                >
+                  <option value="newest">Order ID</option>
+                  <option value="created">Created</option>
+                  <option value="price">Price</option>
+                  <option value="fill">Fill %</option>
+                </select>
+              </div>
+            </>
+          )}
         </div>
-
-        {group === 'orders' && (
-          <>
-            <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-              {(['all', 'open', 'filled'] as OrderFilter[]).map((f) => {
-                // Calculate count for each filter
-                const count = orders.filter(o => {
-                  if (!o.active) return false;
-                  const fillPct = getFillPercent(o);
-                  switch (f) {
-                    case 'open': return fillPct < 100;
-                    case 'filled': return fillPct >= 100;
-                    default: return true;
-                  }
-                }).length;
-
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={cn(
-                      "px-2 py-1 rounded-md font-medium transition-colors capitalize",
-                      filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-                    )}
-                  >
-                    {f} <span className="text-slate-600">({count})</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 ml-auto">
-              <span className="text-slate-600">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as OrderSort)}
-                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
-              >
-                <option value="newest">Order ID</option>
-                <option value="created">Created</option>
-                <option value="price">Price</option>
-                <option value="fill">Fill %</option>
-              </select>
-            </div>
-          </>
-        )}
-      </div>
 
       {/* Summary Cards - Shows vault internal positions, NOT order totals */}
       {(yesShares !== undefined || noShares !== undefined) && (
@@ -912,8 +983,8 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
               const isYesOrder = order.outcome === 1;
               const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
               const orderId = order.orderId.toString();
-              const isFullyFilled = fillPercent >= 100;
-              const hasPendingFills = order.pendingShares > 0n;
+              const isFullyFilled = isEffectivelyFilled(order);
+              const hasPendingFills = order.pendingShares > 0n || (order.pendingUsdc ?? 0n) > 0n;
 
               // Calculate display price (always 1 decimal with ¢)
               const lower = order.tickLower / 10;
@@ -966,14 +1037,14 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                       <div
                         className={cn(
                           "h-full rounded-full transition-all",
-                          fillPercent >= 100 ? "bg-emerald-500" :
+                          isFullyFilled ? "bg-emerald-500" :
                             fillPercent > 0 ? "bg-slate-500" :
                               "bg-slate-600"
                         )}
                         style={{ width: `${Math.min(fillPercent, 100)}%` }}
                       />
                     </div>
-                    <span className="text-xs font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
+                    <span className="text-xs font-mono text-slate-400 w-7 text-right">{Math.round(fillPercent)}%</span>
                   </div>
 
                   {/* Spacer */}
@@ -982,10 +1053,10 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                   <div className="shrink-0 flex items-center justify-end gap-1">
                     <button
                       onClick={() => handleClaimFills(order.orderId)}
-                      disabled={actionInProgress === `claim-${orderId}` || (!isFullyFilled && !hasPendingFills)}
+                      disabled={actionInProgress === `claim-${orderId}` || !hasPendingFills}
                       className={cn(
                         "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
-                        (isFullyFilled || hasPendingFills)
+                        hasPendingFills
                           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
                           : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
                       )}
@@ -994,16 +1065,14 @@ const UserOrdersPanel = ({ orders, spotSells, marketKey, isLoading, onRefresh, c
                     </button>
                     <button
                       onClick={() => handleCancelOrder(order.orderId)}
-                      disabled={actionInProgress === `cancel-${orderId}` || isFullyFilled}
+                      disabled={actionInProgress === `cancel-${orderId}`}
                       className={cn(
                         "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
-                        !isFullyFilled
-                          ? "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
-                          : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
+                        "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
                       )}
-                      title="Cancel order and claim fills"
+                      title={isFullyFilled ? "Close filled order" : "Cancel order"}
                     >
-                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : (isFullyFilled ? 'Close' : 'Cancel')}
                     </button>
                   </div>
                 </div>
@@ -1516,7 +1585,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [useFloorPrice, setUseFloorPrice] = useState(false); // Toggle for floor price
   const [floorPrice, setFloorPrice] = useState('50'); // Default floor value when enabled
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showVaultPanel, setShowVaultPanel] = useState(false);
+
   const [vaultInput, setVaultInput] = useState('');
   const [marketKeyCopied, setMarketKeyCopied] = useState(false);
 
@@ -1582,6 +1651,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   );
 
   const { spotSells, isLoading: isSpotSellsLoading } = useSpotSellsIndexed(
+    tickBook?.marketKey as `0x${string}`
+  );
+
+  const { pendingRefundsWad } = usePendingRefunds(
+    userAddress,
     tickBook?.marketKey as `0x${string}`
   );
 
@@ -2252,6 +2326,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             yesShares={vault?.yesInternal}
             noShares={vault?.noInternal}
             onCancelSpotSell={cancelSpotSell}
+            pendingRefundsWad={pendingRefundsWad}
           />
         </div>
 
@@ -2260,20 +2335,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
           {/* Vault Card - Above Trading Panel */}
           <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-slate-500" />
-                <span className="text-sm font-bold text-white">Vault Balance</span>
-              </div>
-              <button
-                onClick={() => setShowVaultPanel(!showVaultPanel)}
-                className="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1"
-              >
-                {showVaultPanel ? 'Hide' : 'Manage'} <ChevronDown className={cn("w-3 h-3 transition-transform", showVaultPanel && "rotate-180")} />
-              </button>
+            <div className="flex items-center gap-2 mb-3">
+              <Wallet className="w-4 h-4 text-slate-500" />
+              <span className="text-sm font-bold text-white">Vault Balance</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-xs text-slate-500 uppercase">Wallet</div>
                 <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</div>
@@ -2288,47 +2355,45 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </div>
             </div>
 
-            {showVaultPanel && (
-              <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[120px]">
-                  <input
-                    type="number"
-                    placeholder="Amount"
-                    value={vaultInput}
-                    onChange={(e) => setVaultInput(e.target.value)}
-                    className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
-                      ? 'border-rose-500 focus:border-rose-500'
-                      : 'border-slate-700 focus:border-slate-500'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-400"
-                  >
-                    MAX
-                  </button>
-                </div>
-                {needsApproval ? (
-                  <Button onClick={handleApprove} disabled={isSubmitting} className="bg-slate-600 hover:bg-slate-500 text-white text-xs px-3">
-                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={handleDeposit}
-                      disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3"
-                    >
-                      <ArrowUpRight className="w-3 h-3 mr-1" /> Deposit
-                    </Button>
-                    <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3">
-                      <ArrowDownRight className="w-3 h-3 mr-1" /> Withdraw
-                    </Button>
-                  </>
-                )}
+            <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[120px]">
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={vaultInput}
+                  onChange={(e) => setVaultInput(e.target.value)}
+                  className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
+                    ? 'border-rose-500 focus:border-rose-500'
+                    : 'border-slate-700 focus:border-slate-500'
+                    }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-400"
+                >
+                  MAX
+                </button>
               </div>
-            )}
+              {needsApproval ? (
+                <Button onClick={handleApprove} disabled={isSubmitting} className="bg-slate-600 hover:bg-slate-500 text-white text-xs px-3">
+                  {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleDeposit}
+                    disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-3"
+                  >
+                    <ArrowDownRight className="w-3 h-3 mr-1" /> Deposit
+                  </Button>
+                  <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} variant="ghost" className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 text-xs px-3 border-slate-600">
+                    <ArrowUpRight className="w-3 h-3 mr-1" /> Withdraw
+                  </Button>
+                </>
+              )}
+            </div>
           </Card>
 
           {/* Trading Panel */}
@@ -2635,7 +2700,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {amount && isBuying && !hasEnoughBalance && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-rose-400 text-xs">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Insufficient vault balance. <button onClick={() => setShowVaultPanel(true)} className="underline">Deposit more</button></span>
+                  <span>Insufficient vault balance. Deposit more above.</span>
                 </div>
               )}
 
