@@ -52,7 +52,7 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
+        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
@@ -73,21 +73,29 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   );
 };
 
-const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onValueUpdate }: {
+const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, decimals, onValueUpdate }: {
   market: OnChainMarket,
   lpBalance?: bigint,
   lpSupply?: bigint,
   floorValue?: bigint,
+  bCurrent?: bigint,
   decimals: number,
   onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
   const valueUsd = useMemo(() => {
-    if (!lpBalance || !lpSupply || lpSupply === 0n || !floorValue) return 0;
+    if (!lpBalance || !lpSupply || lpSupply === 0n) return 0;
     const userLpNum = Number(formatUnits(lpBalance, 18));
     const totalLpNum = Number(formatUnits(lpSupply, 18));
-    const floorRate = Number(formatUnits(floorValue, decimals)) / totalLpNum;
-    return userLpNum * floorRate;
-  }, [lpBalance, lpSupply, floorValue, decimals]);
+
+    // For graduated markets, floorValue is 0 - use bCurrent (current liquidity) instead
+    const backingValue = (floorValue && floorValue > 0n) ? floorValue : bCurrent;
+    if (!backingValue || backingValue === 0n) return 0;
+
+    // bCurrent is in WAD (18 decimals), floorValue uses USDC decimals
+    const backingDecimals = (floorValue && floorValue > 0n) ? decimals : 18;
+    const rate = Number(formatUnits(backingValue, backingDecimals)) / totalLpNum;
+    return userLpNum * rate;
+  }, [lpBalance, lpSupply, floorValue, bCurrent, decimals]);
 
   useEffect(() => {
     if (onValueUpdate) {
@@ -100,14 +108,11 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onVa
   return (
     <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
       <div className="flex items-center gap-3">
-        <div>
-          <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-          <div className="text-xs font-mono text-cyan-500/80">LIQUIDITY POOL</div>
-        </div>
+        <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
       </div>
       <div className="text-right">
-        <div className="text-sm font-mono font-bold text-white">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
-        <div className="text-xs text-slate-500 font-mono">${valueUsd.toFixed(2)}</div>
+        <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
+        <div className="text-xs text-slate-500 font-mono">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
       </div>
     </div>
   );
@@ -146,7 +151,7 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name} Position</div>
+        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
@@ -195,7 +200,7 @@ const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
         <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
-      <div className="text-xs text-amber-500/70 mb-2 uppercase tracking-wider">Locked for Spot Sell</div>
+
       <div className="flex gap-2">
         {yesLocked > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
@@ -535,6 +540,7 @@ export const Portfolio = () => {
                         lpBalance={batchData?.[baseIdx + 2]?.result as bigint}
                         lpSupply={(batchData?.[baseIdx + 3]?.result as any)?.[3]}
                         floorValue={(batchData?.[baseIdx + 3]?.result as any)?.[5]}
+                        bCurrent={(batchData?.[baseIdx + 3]?.result as any)?.[2]}
                         decimals={decimals}
                         onValueUpdate={handleLpValueUpdate}
                       />
