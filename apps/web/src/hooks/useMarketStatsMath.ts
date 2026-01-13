@@ -29,10 +29,10 @@ interface AMMStateData {
     lockedProceeds?: bigint; // USDC balance of AMMEngine (total locked proceeds)
 }
 
-const LN2 = 0.693147180559945309;
+export const LN2 = 0.693147180559945309;
 
 // Stable log-sum-exp LMSR cost function: C(q) = b * ln(e^(qYes/b) + e^(qNo/b))
-function calculateLMSRCost(qYes: bigint, qNo: bigint, b: bigint): number {
+export function calculateLMSRCost(qYes: bigint, qNo: bigint, b: bigint): number {
     if (b === 0n) return 0;
     const bNum = Number(formatUnits(b, 18));
     const qYesNum = Number(formatUnits(qYes, 18));
