@@ -4,6 +4,20 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Portfolio Market Name Fix (2026-01-13)
+- **Bug Fix**: Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question on Base Sepolia and Monad.
+- **Root Cause**: When indexer was ready (`useIndexer = true`), Portfolio used `indexedMarkets.markets` which lacked the `name` field. Code generated placeholder: `Market ${address.slice(0, 8)}`.
+- **Fix**: Always use RPC data (`useOnChainMarkets`) for market names since LaunchpadEngine.markets() returns the full question. Indexer still used for other portfolio data (LP balances, positions, lock entries).
+- **Files Changed**: `apps/web/src/pages/Portfolio.tsx`
+
+### Indexer Schema Update (2026-01-13)
+- **Schema**: Added `name` (text, nullable) and `symbol` (text, nullable) fields to `launchpad_market` table.
+- **Handler**: `LaunchpadEngine:MarketCreated` now sets name/symbol to null initially.
+- **Frontend**: Updated `LaunchpadMarketIndexed` interface to include new fields.
+- **New**: Created `TruthMarket.ts` ABI with `MarketCreated` event and `question()` view function.
+- **Note**: Fields are nullable pending implementation of TruthMarket factory pattern to populate them automatically.
+- **Files Changed**: `packages/indexer/ponder.schema.ts`, `packages/indexer/src/portfolio.ts`, `packages/indexer/src/abis/TruthMarket.ts`, `apps/web/src/hooks/indexer/useMarketsIndexed.ts`
+
 ### Interactive CLI Reliability (2026-01-13)
 - **Fix**: Added RPC fallback retry for `readContract` on Monad when an endpoint returns empty call data (viem: `returned no data ("0x")`) during `createmarket` and balance checks.
 - **Files Changed**: `packages/contracts-testing/script/interactive/utils.ts`, `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/commands/wallet.ts`, `packages/contracts-testing/script/interactive/commands/vault.ts`

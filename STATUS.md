@@ -1,11 +1,13 @@
 # Project Status
 
 ## Current Focus
-- **V10.8 All Testnets Deployed (2026-01-12)** — Base Sepolia, Monad, and Arc Testnet all running V10.8 with expanded event coverage.
+- **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, and Arc Testnet all running V10.8.1 with expanded event coverage.
+- **Portfolio Market Name Fix (2026-01-13)** — Fixed Portfolio page showing address prefix instead of market question. Indexer schema updated to support names.
 - **Mobile UI Polish (2026-01-12)** — Fixed Pro page header vertical text bug and orders list overflow on mobile viewports.
-- **UI Rules Consolidation** — Global UI skill created, frontend-dev simplified to creative philosophy.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-13** — **Portfolio Market Name Fix**: Fixed bug where Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question. Root cause: when indexer was ready, code used placeholder names. Fix: always use RPC data for market names (LaunchpadEngine.markets() returns full question).
+- **2026-01-13** — **Indexer Schema Update**: Added `name` and `symbol` fields to `launchpadMarket` table. Handler initializes to null; future work to populate via TruthMarket factory pattern or contract event change.
 - **2026-01-13** — **Interactive CLI RPC Fallback**: `createmarket`/wallet balance reads now retry `readContract` across fallback Monad RPC endpoints when a node returns empty call data (viem: `returned no data ("0x")`).
 - **2026-01-13** — **Indexer Arc Backfill Reliability**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier (avoids `eth_getLogs` 10-block range 400s).
 - **2026-01-12** — **Mobile UI Polish**: Fixed Pro page header vertical text bug (market question displayed one char per line on mobile). Fixed orders list Cancel button cutoff with horizontal scroll wrapper (`min-w-[480px]`). Applied same fix to Spot Sells section.
@@ -13,11 +15,6 @@
 - **2026-01-12** — **Arc V10.8 Deployment + Full Sync**: Deployed V10.8 to Arc Testnet using stable RPC (`rpc.testnet.arc.network`). Synced addresses to indexer (`ponder.config.ts`), CLI (`config.ts`), README, and frontend. All 3 testnets now on V10.8.
 - **2026-01-12** — **Trade/Pro Category & Title Fixes**: Fixed category filter switching bug (stale market display), aligned categories with Launchpad (`crypto, sports, cultures, others`), fixed truncated market titles by using `TruthMarket.question` instead of `LaunchpadEngine.markets.name` (contract truncates to 50 chars).
 - **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks.
-- **2026-01-12** — **Event Coverage Expansion**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, and TickBookPoolManager to support comprehensive indexing.
-- **2026-01-12** — **Portfolio Indexer Integration**: Added indexer schema + API endpoints; frontend hooks now prefer indexer with RPC fallback.
-- **2026-01-12** — **PR #39 Integration**: Adopted DecimalMath refactor across contracts-core.
-- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad and Arc RPC endpoints across frontend and CLI configs.
-- **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
 - **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
 - **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
 - **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P\u0026L Simulator in drawer, mobile Create/Learn tab selector.
@@ -42,6 +39,7 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
+- **Indexer Market Name Population** — Schema has `name`/`symbol` fields but they're null. Need to implement: (1) TruthMarket factory pattern in Ponder, or (2) Add name/symbol to `LaunchpadEngine.MarketCreated` event, or (3) Manual backfill script.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
 - **Indexing Reset** — Reset indexer DB and reindex with new Arc addresses (start block 21,290,000).
 - **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
