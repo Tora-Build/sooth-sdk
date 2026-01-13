@@ -12,6 +12,7 @@ import { useDeployments } from '../hooks/useDeployments';
 import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets } from '../hooks';
 import { useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
 import { usePortfolioIndexed, useMarketsIndexed } from '../hooks/indexer';
+import { calculateLMSRCost, LN2 } from '../hooks/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { ERC20_ABI, ABIS } from '../config/abis';
 import type { OnChainMarket } from '../hooks/useOnChainMarkets';
@@ -73,12 +74,14 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   );
 };
 
-const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, decimals, onValueUpdate }: {
+const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate }: {
   market: OnChainMarket,
   lpBalance?: bigint,
   lpSupply?: bigint,
   floorValue?: bigint,
   bCurrent?: bigint,
+  qYes?: bigint,
+  qNo?: bigint,
   decimals: number,
   onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
@@ -87,15 +90,47 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, deci
     const userLpNum = Number(formatUnits(lpBalance, 18));
     const totalLpNum = Number(formatUnits(lpSupply, 18));
 
-    // For graduated markets, floorValue is 0 - use bCurrent (current liquidity) instead
-    const backingValue = (floorValue && floorValue > 0n) ? floorValue : bCurrent;
-    if (!backingValue || backingValue === 0n) return 0;
+    // 1. Try to use direct floorValue from contract (works for un-graduated markets)
+    if (floorValue && floorValue > 0n) {
+      const rate = Number(formatUnits(floorValue, decimals)) / totalLpNum;
+      return userLpNum * rate;
+    }
 
-    // bCurrent is in WAD (18 decimals), floorValue uses USDC decimals
-    const backingDecimals = (floorValue && floorValue > 0n) ? decimals : 18;
-    const rate = Number(formatUnits(backingValue, backingDecimals)) / totalLpNum;
-    return userLpNum * rate;
-  }, [lpBalance, lpSupply, floorValue, bCurrent, decimals]);
+    // 2. For graduated markets, calculate Floor = Cash - Liability via LMSR formula
+    // This aligns with LPHolders / useMarketStatsMath logic
+    if (bCurrent && bCurrent > 0n && qYes !== undefined && qNo !== undefined) {
+      // Calculate Cash = MaxLoss + P&L (ignoring yield for now as it's small)
+      // MaxLoss = b * ln(2)
+      // P&L = C(q) - C(0)
+
+      const currentCost = calculateLMSRCost(qYes, qNo, bCurrent);
+      const initialCost = calculateLMSRCost(0n, 0n, bCurrent);
+      const pnl = currentCost - initialCost;
+
+      const bNum = Number(formatUnits(bCurrent, 18));
+      const maxLoss = bNum * LN2;
+      const cash = maxLoss + pnl;
+
+      // Liability = max(qYes, qNo) in USDC terms (assuming 1 share = 1 USDC payout)
+      const qYesNum = Number(formatUnits(qYes, 18));
+      const qNoNum = Number(formatUnits(qNo, 18));
+      const liability = Math.max(qYesNum, qNoNum);
+
+      // Floor = Cash - Liability
+      const floor = Math.max(0, cash - liability);
+      const rate = floor / totalLpNum;
+      return userLpNum * rate;
+    }
+
+    // 3. Fallback: Estimate Floor as Cash (b * ln(2)) if AMM state missing
+    if (bCurrent && bCurrent > 0n) {
+      const bNum = Number(formatUnits(bCurrent, 18));
+      const cash = bNum * LN2;
+      return userLpNum * (cash / totalLpNum);
+    }
+
+    return 0;
+  }, [lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals]);
 
   useEffect(() => {
     if (onValueUpdate) {
@@ -541,6 +576,8 @@ export const Portfolio = () => {
                         lpSupply={(batchData?.[baseIdx + 3]?.result as any)?.[3]}
                         floorValue={(batchData?.[baseIdx + 3]?.result as any)?.[5]}
                         bCurrent={(batchData?.[baseIdx + 3]?.result as any)?.[2]}
+                        qYes={(batchData?.[baseIdx + 0]?.result as any)?.[0]}
+                        qNo={(batchData?.[baseIdx + 0]?.result as any)?.[1]}
                         decimals={decimals}
                         onValueUpdate={handleLpValueUpdate}
                       />
