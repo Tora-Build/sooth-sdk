@@ -167,8 +167,8 @@ export const Launchpad = () => {
         query: { enabled: !!usdcAddress && !!userAddress }
     });
     const usdcBalance = usdcBalanceData as bigint | undefined;
-    const formattedBalance = usdcBalance && usdcDecimals 
-        ? parseFloat(formatUnits(usdcBalance, usdcDecimals as number)) 
+    const formattedBalance = usdcBalance && usdcDecimals
+        ? parseFloat(formatUnits(usdcBalance, usdcDecimals as number))
         : 0;
 
     const getDeadline = () => {
@@ -300,11 +300,11 @@ export const Launchpad = () => {
     const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator && customGuardian;
     const canProceed = isFormValid && !form.deployPending;
 
-    const particles = useMemo(() => Array.from({ length: 25 }, (_, i) => ({
+    const particles = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
         id: i,
-        left: `${3 + (i * 3.8) % 94}%`,
-        delay: `${(i * 0.5) % 8}s`,
-        duration: `${6 + (i % 5) * 2}s`,
+        left: `${3 + (i * 7.4) % 94}%`,
+        delay: `${(i * 0.7) % 8}s`,
+        duration: `${8 + (i % 5) * 3}s`,
         size: `${4 + (i % 4) * 3}px`,
     })), []);
 
@@ -402,21 +402,21 @@ export const Launchpad = () => {
                                     {MARKET_CATEGORIES.map(cat => {
                                         const IconComponent = cat.icon;
                                         return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setForm(p => ({ ...p, category: cat.id }))}
-                                            className={cn(
-                                                "p-3 rounded-xl font-semibold border transition-all flex items-center gap-2",
-                                                form.category === cat.id
-                                                    ? `bg-gradient-to-br ${cat.gradient} text-white border-transparent`
-                                                    : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
-                                            )}
-                                        >
-                                            <IconComponent className="w-5 h-5" />
-                                            <span className="text-sm">{cat.name}</span>
-                                            {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
-                                        </button>
-                                    );
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setForm(p => ({ ...p, category: cat.id }))}
+                                                className={cn(
+                                                    "p-3 rounded-xl font-semibold border transition-all flex items-center gap-2",
+                                                    form.category === cat.id
+                                                        ? `bg-gradient-to-br ${cat.gradient} text-white border-transparent`
+                                                        : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                                                )}
+                                            >
+                                                <IconComponent className="w-5 h-5" />
+                                                <span className="text-sm">{cat.name}</span>
+                                                {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                                            </button>
+                                        );
                                     })}
                                 </div>
                             </div>
@@ -501,8 +501,8 @@ export const Launchpad = () => {
                                         {userAddress && (
                                             <span className={cn(
                                                 "text-xs font-mono transition-colors",
-                                                (usdcBalance !== undefined && depositWei > usdcBalance) 
-                                                    ? "text-red-400 font-bold" 
+                                                (usdcBalance !== undefined && depositWei > usdcBalance)
+                                                    ? "text-red-400 font-bold"
                                                     : "text-white/40"
                                             )}>
                                                 Balance: ${formattedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
