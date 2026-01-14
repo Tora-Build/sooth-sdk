@@ -4,6 +4,14 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### MegaETH Stability & Market Creation (2026-01-14)
+- **Fix (Gas Limit)**: Removed hardcoded 2.5M gas limit in `createmarket` command; MegaETH requires ~28M gas for market deployment.
+- **Fix (Clock Drift)**: Updated market creation deadline calculation to use on-chain `block.timestamp` instead of local system time, preventing premature expiration reverts.
+- **Enhancement**: Enabled `market buy/sell` in CLI for pre-graduation markets by routing trades to `LaunchpadEngine.tradePositions`.
+- **Infrastructure**: Successfully redeployed V10.8.1 core suite to MegaETH Testnet and updated all configuration endpoints.
+- **Branch Sync**: Reconciled and merged all stability fixes into the `render` branch, verifying zero changes to core contract Solidity source.
+- **Files Changed**: `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/commands/orderbook.ts`, `packages/contracts-core/script/chainConfigs.ts`, `apps/web/src/config/deployments.json`
+
 ### Portfolio Market Name Fix (2026-01-13)
 - **Bug Fix**: Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question on Base Sepolia and Monad.
 - **Root Cause**: When indexer was ready (`useIndexer = true`), Portfolio used `indexedMarkets.markets` which lacked the `name` field. Code generated placeholder: `Market ${address.slice(0, 8)}`.

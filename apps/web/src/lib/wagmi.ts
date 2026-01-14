@@ -1,7 +1,7 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { type AppKitNetwork } from '@reown/appkit/networks';
 import { fallback, http } from 'viem';
-import { baseSepolia, monadTestnet, arcTestnet } from './chains';
+import { baseSepolia, monadTestnet, arcTestnet, megaethTestnet } from './chains';
 
 // Reown AppKit Project ID
 export const projectId = '01ecc3f4925fa2e6a5f3f82b74487317';
@@ -21,7 +21,8 @@ export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   // which has been observed (via NDJSON) to intermittently stall `useReadContracts`.
   baseSepolia as unknown as AppKitNetwork,
   monadTestnet as unknown as AppKitNetwork,
-  arcTestnet as unknown as AppKitNetwork
+  arcTestnet as unknown as AppKitNetwork,
+  megaethTestnet as unknown as AppKitNetwork
 ];
 
 // Base Sepolia RPC config with rate limit handling
@@ -54,20 +55,27 @@ const arcHttpOptions = {
   timeout: 30_000,
 };
 
+// MegaETH RPC config
+const megaethHttpOptions = {
+  retryCount: 2,
+  retryDelay: 1000,
+  timeout: 30_000,
+};
+
 const arcRpcCandidates = (import.meta.env.VITE_ARC_TESTNET_RPC_URL ?? '')
   .split(',')
-  .map((url) => url.trim())
+  .map((url: string) => url.trim())
   .filter(Boolean);
 
 const arcRpcUrls =
   arcRpcCandidates.length > 0
     ? arcRpcCandidates
     : [
-        'https://rpc.blockdaemon.testnet.arc.network',
-        'https://rpc.drpc.testnet.arc.network',
-        'https://rpc.testnet.arc.network',
-        'https://rpc.quicknode.testnet.arc.network',
-      ];
+      'https://rpc.blockdaemon.testnet.arc.network',
+      'https://rpc.drpc.testnet.arc.network',
+      'https://rpc.testnet.arc.network',
+      'https://rpc.quicknode.testnet.arc.network',
+    ];
 
 // Create Wagmi Adapter with custom RPC
 export const wagmiAdapter = new WagmiAdapter({
@@ -80,7 +88,8 @@ export const wagmiAdapter = new WagmiAdapter({
     // Monad: Ankr is the only reliably working endpoint as of 2026-01
     // QuickNode and Foundation RPCs are currently unreachable
     [monadTestnet.id]: http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),
-    [arcTestnet.id]: fallback(arcRpcUrls.map((url) => http(url, arcHttpOptions))),
+    [arcTestnet.id]: fallback(arcRpcUrls.map((url: string) => http(url, arcHttpOptions))),
+    [megaethTestnet.id]: http('https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN', megaethHttpOptions),
   },
 });
 
