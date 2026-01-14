@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
     Palette, Gamepad2, ArrowLeftRight, Swords, Coins,
     TrendingUp, DollarSign, Percent, Clock, Target,
     Zap, AlertTriangle, HelpCircle, Sparkles
@@ -112,9 +112,9 @@ const Slider = ({ label, value, onChange, min, max, step = 1, format, icon: Icon
     </div>
 );
 
-const ResultCard = ({ label, value, subtext, positive }: { 
-    label: string; 
-    value: string; 
+const ResultCard = ({ label, value, subtext, positive }: {
+    label: string;
+    value: string;
     subtext?: string;
     positive?: boolean;
 }) => (
@@ -137,12 +137,12 @@ interface EquationTerm {
     label: string;
 }
 
-const Equation = ({ 
-    result, 
+const Equation = ({
+    result,
     resultLabel,
-    terms, 
+    terms,
     useArrow = false
-}: { 
+}: {
     result: string;
     resultLabel: string;
     terms: EquationTerm[];
@@ -173,7 +173,7 @@ const CreatorPanel = () => {
     const [volume, setVolume] = useState(100000);
     const [imbalance, setImbalance] = useState(0);
 
-    const result = useMemo(() => 
+    const result = useMemo(() =>
         calculateCreatorPnL(liquidityTier, volume, imbalance),
         [liquidityTier, volume, imbalance]
     );
@@ -182,14 +182,14 @@ const CreatorPanel = () => {
         <div className="space-y-6">
             <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
                 <p className="text-sm text-cyan-200">
-                    <span className="font-bold">Carol's Strategy:</span> Create a market, seed liquidity, 
+                    <span className="font-bold">Carol's Strategy:</span> Create a market, seed liquidity,
                     and earn from trading volume. No trading required!
                 </p>
             </div>
 
             <div className="space-y-4">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Influence Factors</h4>
-                
+
                 <Slider
                     label="Liquidity (b)"
                     value={liquidityTier}
@@ -208,7 +208,7 @@ const CreatorPanel = () => {
                     min={1000}
                     max={1000000}
                     step={1000}
-                    format={(v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}k`}
+                    format={(v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}k`}
                     icon={TrendingUp}
                 />
 
@@ -238,7 +238,7 @@ const CreatorPanel = () => {
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">
                     LP Equation <span className="text-white/30 font-mono normal-case">[{(result.ownershipPercent * 100).toFixed(0)}%]</span>
                 </h4>
-                
+
                 <Equation
                     result={formatCurrency(result.lpRedemption)}
                     resultLabel="LP Redemption"
@@ -270,7 +270,7 @@ const CreatorPanel = () => {
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
                     <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold text-white">LMSR Property:</span> Max win = Max loss = Deposit + Flywheel. 
+                        <span className="font-bold text-white">LMSR Property:</span> Max win = Max loss = Deposit + Flywheel.
                         Fee Yield is always yours.
                     </span>
                 </div>
@@ -279,11 +279,11 @@ const CreatorPanel = () => {
     );
 };
 
-const EntryTimingToggle = ({ 
-    isPreGrad, 
-    onChange 
-}: { 
-    isPreGrad: boolean; 
+const EntryTimingToggle = ({
+    isPreGrad,
+    onChange
+}: {
+    isPreGrad: boolean;
     onChange: (v: boolean) => void;
 }) => (
     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
@@ -291,7 +291,7 @@ const EntryTimingToggle = ({
             onClick={() => onChange(false)}
             className={cn(
                 "py-2.5 px-3 rounded-lg text-sm font-bold transition-all",
-                !isPreGrad 
+                !isPreGrad
                     ? "bg-cyan-500/20 text-cyan-300 shadow-sm"
                     : "text-white/40 hover:text-white/60"
             )}
@@ -303,7 +303,7 @@ const EntryTimingToggle = ({
             onClick={() => onChange(true)}
             className={cn(
                 "py-2.5 px-3 rounded-lg text-sm font-bold transition-all",
-                isPreGrad 
+                isPreGrad
                     ? "bg-emerald-500/20 text-emerald-300 shadow-sm"
                     : "text-white/40 hover:text-white/60"
             )}
@@ -331,14 +331,14 @@ const GamingTraderPanel = () => {
         <div className="space-y-6">
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 <p className="text-sm text-emerald-200">
-                    <span className="font-bold">Alice's Strategy:</span> Trade early to earn LP tokens from fees. 
+                    <span className="font-bold">Alice's Strategy:</span> Trade early to earn LP tokens from fees.
                     Even wrong predictions can profit!
                 </p>
             </div>
 
             <div className="space-y-4">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Influence Factors</h4>
-                
+
                 <Slider
                     label="Trade Size"
                     value={tradeSize}
@@ -371,7 +371,7 @@ const GamingTraderPanel = () => {
                             onClick={() => setIsCorrect(true)}
                             className={cn(
                                 "p-3 rounded-xl text-sm font-bold border transition-all",
-                                isCorrect 
+                                isCorrect
                                     ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
@@ -382,7 +382,7 @@ const GamingTraderPanel = () => {
                             onClick={() => setIsCorrect(false)}
                             className={cn(
                                 "p-3 rounded-xl text-sm font-bold border transition-all",
-                                !isCorrect 
+                                !isCorrect
                                     ? "bg-red-500/20 border-red-500/50 text-red-300"
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
@@ -415,7 +415,7 @@ const GamingTraderPanel = () => {
                             min={1000}
                             max={1000000}
                             step={1000}
-                            format={(v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}k`}
+                            format={(v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}k`}
                             icon={TrendingUp}
                         />
 
@@ -445,7 +445,7 @@ const GamingTraderPanel = () => {
                                 </span>
                             </div>
                         </div>
-                        
+
                         <div className="space-y-2">
                             <div className="flex items-baseline gap-2">
                                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">
@@ -489,8 +489,8 @@ const GamingTraderPanel = () => {
                     <span>
                         {isPreGrad ? (
                             <span>
-                                <span className="font-bold text-white">Pre-Grad Bonus:</span> {isCorrect 
-                                    ? "Trade profit + LP redemption = double upside!" 
+                                <span className="font-bold text-white">Pre-Grad Bonus:</span> {isCorrect
+                                    ? "Trade profit + LP redemption = double upside!"
                                     : `Trade loss cushioned by LP redemption of ${formatCurrency(result.lpRedemption)}.`}
                             </span>
                         ) : (
@@ -519,14 +519,14 @@ const ArbitrageurPanel = () => {
         <div className="space-y-6">
             <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
                 <p className="text-sm text-blue-200">
-                    <span className="font-bold">Bob's Strategy:</span> Capture price differences between 
+                    <span className="font-bold">Bob's Strategy:</span> Capture price differences between
                     AMM and TickBook. Risk-free profit when spread exceeds costs!
                 </p>
             </div>
 
             <div className="space-y-4">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Influence Factors</h4>
-                
+
                 <Slider
                     label="Trade Size"
                     value={tradeSize}
@@ -534,7 +534,7 @@ const ArbitrageurPanel = () => {
                     min={500}
                     max={50000}
                     step={500}
-                    format={(v) => `$${(v/1000).toFixed(1)}k`}
+                    format={(v) => `$${(v / 1000).toFixed(1)}k`}
                     icon={DollarSign}
                 />
 
@@ -563,20 +563,20 @@ const ArbitrageurPanel = () => {
 
             <div className="space-y-3">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Bob's P&L</h4>
-                
+
                 <div className="grid grid-cols-3 gap-3">
-                    <ResultCard 
-                        label="Gross Profit" 
+                    <ResultCard
+                        label="Gross Profit"
                         value={formatCurrency(result.grossProfit)}
                         subtext={`${result.spreadPercent.toFixed(1)}% spread`}
                     />
-                    <ResultCard 
-                        label="Total Costs" 
+                    <ResultCard
+                        label="Total Costs"
                         value={formatCurrency(result.totalCosts)}
                         subtext={`Gas + ${formatCurrency(result.ammFee)} fee`}
                     />
-                    <ResultCard 
-                        label="Net Profit" 
+                    <ResultCard
+                        label="Net Profit"
                         value={`${result.netProfit >= 0 ? '+' : ''}${formatCurrency(result.netProfit)}`}
                         positive={result.isProfitable}
                     />
@@ -584,7 +584,7 @@ const ArbitrageurPanel = () => {
 
                 <div className={cn(
                     "p-4 rounded-xl border",
-                    result.isProfitable 
+                    result.isProfitable
                         ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30"
                         : "bg-red-500/10 border-red-500/30"
                 )}>
@@ -612,7 +612,7 @@ const ArbitrageurPanel = () => {
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
                     <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold text-white">Key Insight:</span> Arbs provide a SERVICE 
+                        <span className="font-bold text-white">Key Insight:</span> Arbs provide a SERVICE
                         by tightening spreads. All traders benefit from their activity!
                     </span>
                 </div>
@@ -636,14 +636,14 @@ const PvPTraderPanel = () => {
         <div className="space-y-6">
             <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
                 <p className="text-sm text-orange-200">
-                    <span className="font-bold">Dave's Strategy:</span> Bet on conviction against other traders. 
+                    <span className="font-bold">Dave's Strategy:</span> Bet on conviction against other traders.
                     No LP safety net — winner takes all!
                 </p>
             </div>
 
             <div className="space-y-4">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Influence Factors</h4>
-                
+
                 <Slider
                     label="Position Size"
                     value={positionSize}
@@ -687,7 +687,7 @@ const PvPTraderPanel = () => {
                             onClick={() => setOutcome('win')}
                             className={cn(
                                 "p-3 rounded-xl text-sm font-bold border transition-all",
-                                outcome === 'win' 
+                                outcome === 'win'
                                     ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
@@ -698,7 +698,7 @@ const PvPTraderPanel = () => {
                             onClick={() => setOutcome('lose')}
                             className={cn(
                                 "p-3 rounded-xl text-sm font-bold border transition-all",
-                                outcome === 'lose' 
+                                outcome === 'lose'
                                     ? "bg-red-500/20 border-red-500/50 text-red-300"
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
@@ -709,7 +709,7 @@ const PvPTraderPanel = () => {
                             onClick={() => setOutcome('expected')}
                             className={cn(
                                 "p-3 rounded-xl text-sm font-bold border transition-all",
-                                outcome === 'expected' 
+                                outcome === 'expected'
                                     ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
                                     : "bg-white/5 border-white/10 text-white/50"
                             )}
@@ -722,27 +722,27 @@ const PvPTraderPanel = () => {
 
             <div className="space-y-3">
                 <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider">Dave's P&L</h4>
-                
+
                 <div className="grid grid-cols-2 gap-3">
-                    <ResultCard 
-                        label="Shares Received" 
+                    <ResultCard
+                        label="Shares Received"
                         value={result.sharesReceived.toLocaleString()}
                         subtext={`@ ${(entryPrice * 100).toFixed(0)}%`}
                     />
-                    <ResultCard 
-                        label="Expected Value" 
+                    <ResultCard
+                        label="Expected Value"
                         value={`${result.expectedValue >= 0 ? '+' : ''}${formatCurrency(result.expectedValue)}`}
                         subtext={result.expectedValue > 0 ? "+EV bet!" : "-EV bet"}
                         positive={result.expectedValue > 0}
                     />
-                    <ResultCard 
-                        label="If Win" 
+                    <ResultCard
+                        label="If Win"
                         value={`+${formatCurrency(result.profitIfWin)}`}
                         subtext={`+${Math.round((result.profitIfWin / positionSize) * 100)}% return`}
                         positive={true}
                     />
-                    <ResultCard 
-                        label="If Lose" 
+                    <ResultCard
+                        label="If Lose"
                         value={formatCurrency(result.lossIfWrong)}
                         subtext="100% loss"
                         positive={false}
@@ -782,7 +782,7 @@ const PvPTraderPanel = () => {
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-200">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold">Warning:</span> PvP trading has NO LP safety net. 
+                        <span className="font-bold">Warning:</span> PvP trading has NO LP safety net.
                         If you don't have an edge, you're the counterparty smart money bets against.
                     </span>
                 </div>
@@ -805,7 +805,7 @@ export const PnLSimulator = () => {
     };
 
     return (
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 backdrop-blur-2xl">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 backdrop-blur-lg sm:backdrop-blur-2xl">
             <div className="p-6 pb-0">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -838,7 +838,7 @@ export const PnLSimulator = () => {
                                     : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
                             )}
                         >
-{arch.name}
+                            {arch.name}
                         </button>
                     ))}
                 </div>
@@ -850,8 +850,8 @@ export const PnLSimulator = () => {
                             onClick={() => setActiveIndex(i)}
                             className={cn(
                                 "h-2 rounded-full transition-all",
-                                i === activeIndex 
-                                    ? "w-6 bg-white" 
+                                i === activeIndex
+                                    ? "w-6 bg-white"
                                     : "w-2 bg-white/30"
                             )}
                         />
