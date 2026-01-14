@@ -13,6 +13,7 @@ interface IndexerStatus {
   monadTestnet?: IndexerChainStatus;
   baseSepolia?: IndexerChainStatus;
   arcTestnet?: IndexerChainStatus;
+  megaethTestnet?: IndexerChainStatus;
 }
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:42069';
@@ -66,10 +67,12 @@ export function useIndexerStatus() {
     ? chainId === 84532
       ? status.baseSepolia
       : chainId === 10143
-      ? status.monadTestnet
-      : chainId === 5042002
-      ? status.arcTestnet
-      : null
+        ? status.monadTestnet
+        : chainId === 5042002
+          ? status.arcTestnet
+          : chainId === 6343
+            ? status.megaethTestnet
+            : null
     : null;
 
   return {
