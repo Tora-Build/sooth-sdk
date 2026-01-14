@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords } from 'lucide-react';
+import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords, Twitter } from 'lucide-react';
 
 export const Landing = () => {
   return (
@@ -67,10 +67,10 @@ message SettlementProof {
 
           {/* Badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
-            <Badge color="cyan">v10.8 Modular</Badge>
-            <Badge color="indigo">Base Sepolia</Badge>
+            <Badge color="cyan">Base Sepolia</Badge>
             <Badge color="cyan">Monad Testnet</Badge>
-            <Badge color="emerald">Arc Testnet</Badge>
+            <Badge color="cyan">MegaETH Testnet</Badge>
+            <Badge color="cyan">Arc Testnet</Badge>
           </div>
 
           {/* Title - Fluid Typography */}
@@ -191,13 +191,12 @@ message SettlementProof {
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
           <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            © 2025 Sooth Protocol | V10.8
+            © 2026 Sooth Protocol | V10.8
           </div>
-          <div className="flex items-center gap-8">
-            <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>
-            <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">GitHub</a>
-            <a href="https://discord.gg/sooth" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Discord</a>
-            <a href="https://x.com/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Twitter</a>
+          <div className="flex items-center">
+            <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
+              <Twitter size={20} />
+            </a>
           </div>
         </div>
       </footer>

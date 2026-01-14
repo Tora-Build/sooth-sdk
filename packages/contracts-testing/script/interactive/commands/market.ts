@@ -24,7 +24,7 @@ import {
   isContractError,
   readContractWithRpcFallback,
 } from '../utils';
-import { decodeEventLog, parseAbi } from 'viem';
+import { decodeEventLog, parseAbi, encodeFunctionData } from 'viem';
 
 const TruthMarketAbi = parseAbi([
   'function question() view returns (string)',
@@ -41,6 +41,7 @@ const TruthMarketAbi = parseAbi([
 const CollateralizerAbi = parseAbi([
   'function registerMarket(address market, string name, string symbol) external returns (address yesToken, address noToken)',
   'function getOutcomeTokens(address market) view returns (address yesToken, address noToken)',
+  'function isMarketRegistered(address market) view returns (bool)',
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
@@ -193,11 +194,13 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     const now = block.timestamp;
     const deadline = now + BigInt(template.deadlineDays * 24 * 60 * 60);
 
+    const MAX_GAS = 30_000_000n;
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
       args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
+      gas: MAX_GAS,
     });
 
     const createReceipt = await actorManager.waitForTransactionReceipt(createHash);
@@ -421,7 +424,7 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
   const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures to save gas
 
   for (let i = 0; i < numTrades; i++) {
-    // Alternate buy/sell to accumulate fees
+    // ...
     const isBuy = i % 2 === 0;
     const outcome = 1; // YES
     const delta = isBuy ? tradeSize : -tradeSize / 2n;
@@ -429,54 +432,117 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     const spinner = new Spinner(`  Trade ${i + 1}/${numTrades}: ${isBuy ? 'BUY' : 'SELL'} ${formatWad(delta > 0n ? delta : -delta)} shares...`);
     spinner.start();
 
-    try {
-      // For BUY (positive delta): maxCost = MAX_UINT256 (accept any cost)
-      // For SELL (negative delta): maxCost = 0 (accept any proceeds, i.e., min proceeds = 0)
-      const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
+    let success_trade = false;
+    let attempts = 0;
+    const maxAttempts = 3;
+    const isMegaETH = ctx.config.chain.id === 6343;
 
-      const hash = await walletClient.writeContract({
-        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: LaunchpadEngineAbi,
-        functionName: 'tradePositions',
-        args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
-        gas: 5000000n, // High gas for potential graduation (Monad needs ~5M)
-      });
+    while (!success_trade && attempts < maxAttempts) {
+      attempts++;
+      try {
+        // For BUY (positive delta): maxCost = MAX_UINT256 (accept any cost)
+        // For SELL (negative delta): maxCost = 0 (accept any proceeds, i.e., min proceeds = 0)
+        const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
 
-      const receipt = await actorManager.waitForTransactionReceipt(hash);
-      totalGas += receipt.gasUsed;
-      tradesExecuted++;
+        // Determine gas limit
+        // MegaETH (chain 6343): skip mid-trade reads to avoid RPC corruption, use high gas always
+        // Other chains: check progress and use higher gas near graduation threshold
+        let gasLimit = 10_000_000n;
+        
+        if (isMegaETH) {
+          // MegaETH: 60M gas for graduation tx (code deposit = 10k gas/byte, 2 contracts ~4.4KB = 44M storage gas)
+          gasLimit = 60_000_000n;
+        } else {
+          const [, , currentPercent] = await publicClient.readContract({
+            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: LaunchpadEngineAbi,
+            functionName: 'getGraduationProgress',
+            args: [marketAddress],
+          }) as [bigint, bigint, bigint];
+          // Use 30M if we are > 90% progress, otherwise 5M is enough for trades
+          gasLimit = currentPercent > 9000n ? 30_000_000n : 5_000_000n;
+        }
 
-      spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} ${formatWad(delta > 0n ? delta : -delta)} ${dim(`(gas: ${receipt.gasUsed})`)}`);
+        let hash: `0x${string}`;
+        if (isMegaETH) {
+          // MegaETH: use raw sendTransaction to bypass viem simulation
+          const data = encodeFunctionData({
+            abi: LaunchpadEngineAbi,
+            functionName: 'tradePositions',
+            args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
+          });
+          hash = await walletClient.sendTransaction({
+            to: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            data,
+            gas: gasLimit,
+          });
+        } else {
+          hash = await walletClient.writeContract({
+            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: LaunchpadEngineAbi,
+            functionName: 'tradePositions',
+            args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
+            gas: gasLimit,
+          });
+        }
 
-      // Check if graduated
-      const [, , newPercent] = await publicClient.readContract({
-        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: LaunchpadEngineAbi,
-        functionName: 'getGraduationProgress',
-        args: [marketAddress],
-      }) as [bigint, bigint, bigint];
+        const receipt = await actorManager.waitForTransactionReceipt(hash);
+        totalGas += receipt.gasUsed;
+        tradesExecuted++;
+        success_trade = true;
 
-      if (newPercent >= 10000n) { // 10000 bps = 100%
-        console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
-        return { success: true, data: { tradesExecuted, totalGas } };
-      }
-      consecutiveFailures = 0; // Reset on success
-    } catch (err) {
-      const errMsg = (err as Error).message;
-      // Extract revert reason if present
-      const revertMatch = errMsg.match(/reverted with.*?["']([^"']+)["']/i)
-        || errMsg.match(/reason:\s*([^\n]+)/i);
-      const shortErr = revertMatch ? revertMatch[1] : errMsg.slice(0, 80);
-      spinner.fail(`Trade ${i + 1} failed: ${shortErr}`);
+        spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} ${formatWad(delta > 0n ? delta : -delta)} ${dim(`(gas: ${receipt.gasUsed})`)}`);
 
-      consecutiveFailures++;
-      if (consecutiveFailures >= maxConsecutiveFailures) {
-        console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive failures to save gas`));
-        break;
+        // Check if graduated (MegaETH: wait for state to settle first)
+        if (isMegaETH) {
+          await sleep(2000);
+        }
+        const [, , checkPercent] = await publicClient.readContract({
+          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadEngineAbi,
+          functionName: 'getGraduationProgress',
+          args: [marketAddress],
+        }) as [bigint, bigint, bigint];
+        if (checkPercent >= 10000n) {
+          // Also check isGraduated flag
+          const mktState = await publicClient.readContract({
+            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: LaunchpadEngineAbi,
+            functionName: 'markets',
+            args: [marketAddress],
+          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+          if (mktState[7]) {
+            console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
+            return { success: true, data: { tradesExecuted, totalGas } };
+          }
+        }
+        consecutiveFailures = 0; // Reset on success
+      } catch (err) {
+        const decoded = decodeError(err as Error);
+
+        // If it looks like a node glitch (random address or MegaETH garbage), retry
+        const isGlitch = decoded.includes('RPC error (returned address)') 
+          || decoded.includes('Internal Error')
+          || (isMegaETH && decoded.includes('Unknown error'));
+
+        if (isGlitch && attempts < maxAttempts) {
+          await sleep(isMegaETH ? 3000 : 1000);
+          continue;
+        }
+
+        spinner.fail(`Trade ${i + 1} failed: ${decoded}`);
+        consecutiveFailures++;
+        break; // Exit retry loop on hard error
       }
     }
 
-    await sleep(500); // Brief pause between trades
+    if (!success_trade && consecutiveFailures >= maxConsecutiveFailures) {
+      console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive failures to save gas`));
+      break;
+    }
+
+    // MegaETH has 10ms mini-blocks; wait for state to settle
+    await sleep(ctx.config.chain.id === 6343 ? 2000 : 500);
   }
 
   // Final status

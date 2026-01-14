@@ -143,7 +143,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
       for (const order of allOrders) {
         if (!order.active) continue;
         const isYesOrder = order.outcome === 1;
-        
+
         let lowPercent = order.tickLower / 10;
         let highPercent = order.tickUpper / 10;
 
@@ -192,7 +192,7 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
 
         let lowPercent = s.tickLower / 10;
         let highPercent = s.tickUpper / 10;
-        
+
         if (!sellIsYes) {
           const invLow = 100 - highPercent;
           const invHigh = 100 - lowPercent;
@@ -456,6 +456,7 @@ interface UserOrdersPanelProps {
 
 type OrderSort = 'newest' | 'price' | 'fill' | 'created';
 type OrdersGroup = 'orders' | 'spot';
+type OrderFilter = 'all' | 'claimable' | 'open' | 'filled';
 
 const MAX_BATCH_SIZE = 50; // Restore to 50 - Base Sepolia should handle this
 const ONE_SHARE_WAD = 10n ** 18n;
@@ -480,11 +481,12 @@ function UserOrdersPanel({
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [group, setGroup] = useState<OrdersGroup>('orders');
   const [sortBy, setSortBy] = useState<OrderSort>('newest');
+  const [filter, setFilter] = useState<OrderFilter>('all');
 
   const userSpotSells = useMemo(() => {
     const addr = userAddress?.toLowerCase();
     if (!addr || !spotSells) return [];
-    
+
     return spotSells
       .filter((s) => s.active && s.owner.toLowerCase() === addr)
       .sort((a, b) => Number(b.sellId - a.sellId));
@@ -507,8 +509,27 @@ function UserOrdersPanel({
 
   const activeOrders = orders.filter((order) => order.active);
 
+  // Categorize orders for filter counts
+  const claimableFilterOrders = activeOrders.filter((order) => order.pendingShares > 0n);
+  const filledOrders = activeOrders.filter((order) => isEffectivelyFilled(order));
+  const openOrders = activeOrders.filter((order) => !isEffectivelyFilled(order));
+
+  // Apply filter
+  const filteredOrders = activeOrders.filter((order) => {
+    switch (filter) {
+      case 'claimable':
+        return order.pendingShares > 0n;
+      case 'filled':
+        return isEffectivelyFilled(order);
+      case 'open':
+        return !isEffectivelyFilled(order);
+      default:
+        return true;
+    }
+  });
+
   // Sort orders
-  const sortedOrders = [...activeOrders].sort((a, b) => {
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
     switch (sortBy) {
       case 'price':
         return a.tickLower - b.tickLower;
@@ -527,9 +548,8 @@ function UserOrdersPanel({
     .filter((order) => order.pendingShares > 0n)
     .slice(0, MAX_BATCH_SIZE);
 
-  const openOrders = activeOrders
-    .filter((order) => !isEffectivelyFilled(order))
-    .slice(0, MAX_BATCH_SIZE);
+  // For batch cancel - use openOrders but slice for gas safety
+  const cancelableOrders = openOrders.slice(0, MAX_BATCH_SIZE);
 
   const displayedCount = group === 'orders' ? sortedOrders.length : userSpotSells.length;
 
@@ -658,14 +678,17 @@ function UserOrdersPanel({
     }
   };
 
-  const handleCancelOrder = async (orderId: bigint) => {
+
+  const handleCancelOrder = async (orderId: bigint, isClose: boolean = false) => {
     if (!marketKey) return;
     if (!contracts.TickBookPoolManager) {
       toast.error('TickBookPoolManager not deployed');
       return;
     }
     setActionInProgress(`cancel-${orderId.toString()}`);
-    const toastId = toast.loading('Cancelling order...');
+    const actionLabel = isClose ? 'Closing' : 'Cancelling';
+    const successLabel = isClose ? 'closed' : 'cancelled';
+    const toastId = toast.loading(`${actionLabel} order...`);
     try {
       console.log('[Cancel] Calling cancelOrder:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
 
@@ -697,12 +720,12 @@ function UserOrdersPanel({
         }
       }
 
-      toast.success(`Order cancelled! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
+      toast.success(`Order ${successLabel}! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
       console.log('[Cancel] Success! Refreshing...');
       onRefresh();
     } catch (e: any) {
       console.error('[Cancel] Error:', e);
-      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Cancel failed';
+      const msg = e?.cause?.reason || e?.shortMessage || e?.message || `${actionLabel} failed`;
       toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setActionInProgress(null);
@@ -846,30 +869,35 @@ function UserOrdersPanel({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          YOUR ORDERS <span className="text-slate-600">({displayedCount})</span>
+          YOUR ORDERS <span className="text-slate-600">({activeOrders.length + userSpotSells.length})</span>
         </span>
         <div className="flex items-center gap-2">
-          {/* Batch Actions based on Group */}
+          {/* Batch Actions based on Group and Filter */}
           {group === 'orders' && (
             <>
-              <button
-                onClick={handleBatchCancel}
-                disabled={openOrders.length === 0 || actionInProgress === 'batch-cancel'}
-                className={cn(
-                  'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
-                  openOrders.length === 0 || actionInProgress === 'batch-cancel'
-                    ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
-                )}
-              >
-                {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
-                Cancel All ({openOrders.length})
-              </button>
+              {/* Show Cancel only when not viewing claimable orders */}
+              {filter !== 'claimable' && (
+                <button
+                  onClick={handleBatchCancel}
+                  disabled={cancelableOrders.length === 0 || actionInProgress === 'batch-cancel'}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border',
+                    cancelableOrders.length === 0 || actionInProgress === 'batch-cancel'
+                      ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                  )}
+                  title="Cancel orders that are not fully filled"
+                >
+                  {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
+                  Cancel ({cancelableOrders.length})
+                </button>
+              )}
+              {/* Show Claim when there are claimable orders */}
               <ClaimFillsButton
                 marketKey={marketKey}
                 orderIds={claimableOrders.map(o => o.orderId)}
                 compact
-                label={`Claim All (${claimableOrders.length})`}
+                label={`Claim (${claimableOrders.length})`}
                 variant="filled"
                 disabled={claimableOrders.length === 0}
                 onSuccess={onRefresh}
@@ -883,8 +911,8 @@ function UserOrdersPanel({
               disabled={actionInProgress === 'claim-refunds'}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-all border bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
             >
-              {actionInProgress === 'claim-refunds' ? <Loader2 size={10} className="animate-spin" /> : <Wallet size={10} />}
-              Refunds (${formatUsdWad(pendingRefundsWad ?? 0n)})
+              {actionInProgress === 'claim-refunds' && <Loader2 size={10} className="animate-spin" />}
+              Refund ${formatUsdWad(pendingRefundsWad ?? 0n)}
             </button>
           )}
           <Tooltip
@@ -898,48 +926,63 @@ function UserOrdersPanel({
         </div>
       </div>
 
-        {/* Filter & Sort Row */}
-        <div className="flex items-center gap-2 mb-3 text-xs">
-          {/* Group toggle (left of filters) */}
-          <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-            <button
-              onClick={() => setGroup('orders')}
-              className={cn(
-                "px-2 py-1 rounded-md font-medium transition-colors",
-                group === 'orders' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              Active Orders
-            </button>
-            <button
-              onClick={() => setGroup('spot')}
-              className={cn(
-                "px-2 py-1 rounded-md font-medium transition-colors",
-                group === 'spot' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              Spot Sells
-            </button>
-          </div>
-
-          {group === 'orders' && (
-            <>
-              <div className="flex items-center gap-1 ml-auto">
-                <span className="text-slate-600">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as OrderSort)}
-                  className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
-                >
-                  <option value="newest">Order ID</option>
-                  <option value="created">Created</option>
-                  <option value="price">Price</option>
-                  <option value="fill">Fill %</option>
-                </select>
-              </div>
-            </>
-          )}
+      {/* Filter & Sort Row */}
+      <div className="flex items-center gap-2 mb-3 text-xs flex-wrap">
+        {/* Group toggle (left of filters) */}
+        <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
+          <button
+            onClick={() => setGroup('orders')}
+            className={cn(
+              "px-2 py-1 rounded-md font-medium transition-colors",
+              group === 'orders' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Range ({activeOrders.length})
+          </button>
+          <button
+            onClick={() => setGroup('spot')}
+            className={cn(
+              "px-2 py-1 rounded-md font-medium transition-colors",
+              group === 'spot' ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Spot ({userSpotSells.length})
+          </button>
         </div>
+
+        {group === 'orders' && (
+          <>
+            {/* Filter dropdown */}
+            <div className="flex items-center gap-1">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as OrderFilter)}
+                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
+              >
+                <option value="all">All ({activeOrders.length})</option>
+                <option value="claimable">Claimable ({claimableFilterOrders.length})</option>
+                <option value="open">Open ({openOrders.length})</option>
+                <option value="filled">Filled ({filledOrders.length})</option>
+              </select>
+            </div>
+
+            {/* Sort dropdown */}
+            <div className="flex items-center gap-1 ml-auto">
+              <span className="text-slate-600">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as OrderSort)}
+                className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-xs focus:ring-0"
+              >
+                <option value="newest">Order ID</option>
+                <option value="created">Created</option>
+                <option value="price">Price</option>
+                <option value="fill">Fill %</option>
+              </select>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Summary Cards - Shows vault internal positions, NOT order totals */}
       {(yesShares !== undefined || noShares !== undefined) && (
@@ -962,7 +1005,7 @@ function UserOrdersPanel({
       {group === 'orders' ? (
         sortedOrders.length === 0 ? (
           <div className="text-center py-8">
-            <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <BarChart3 className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <p className="text-sm text-slate-500">No active orders</p>
             <p className="text-xs text-slate-600">Place a limit order to get started</p>
           </div>
@@ -978,106 +1021,110 @@ function UserOrdersPanel({
                 <div className="flex-1" />
                 <span className="shrink-0 text-right">Action</span>
               </div>
-            {sortedOrders.map((order) => {
-              const fillPercent = getFillPercent(order);
-              const isYesOrder = order.outcome === 1;
-              const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
-              const orderId = order.orderId.toString();
-              const isFullyFilled = isEffectivelyFilled(order);
-              const hasPendingFills = order.pendingShares > 0n || (order.pendingUsdc ?? 0n) > 0n;
+              {sortedOrders.map((order) => {
+                const fillPercent = getFillPercent(order);
+                const isYesOrder = order.outcome === 1;
+                const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
+                const orderId = order.orderId.toString();
+                const isFullyFilled = isEffectivelyFilled(order);
+                const hasPendingFills = order.pendingShares > 0n || (order.pendingUsdc ?? 0n) > 0n;
 
-              // Calculate display price (always 1 decimal with ¢)
-              const lower = order.tickLower / 10;
-              const upper = order.tickUpper / 10;
-              let displayPrice = "";
-              if (viewOutcome === 'yes') {
-                if (isYesOrder) {
-                  displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+                // Calculate display price (always 1 decimal with ¢)
+                const lower = order.tickLower / 10;
+                const upper = order.tickUpper / 10;
+                let displayPrice = "";
+                if (viewOutcome === 'yes') {
+                  if (isYesOrder) {
+                    displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+                  } else {
+                    const invLow = 100 - upper;
+                    const invHigh = 100 - lower;
+                    displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                  }
                 } else {
-                  const invLow = 100 - upper;
-                  const invHigh = 100 - lower;
-                  displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                  if (!isYesOrder) {
+                    displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
+                  } else {
+                    const invLow = 100 - upper;
+                    const invHigh = 100 - lower;
+                    displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
+                  }
                 }
-              } else {
-                if (!isYesOrder) {
-                  displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
-                } else {
-                  const invLow = 100 - upper;
-                  const invHigh = 100 - lower;
-                  displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
-                }
-              }
 
-              return (
-                <div
-                  key={orderId}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg border transition-all",
-                    isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
-                  )}
-                >
-                  <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{orderId}</span>
+                return (
+                  <div
+                    key={orderId}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg border transition-all",
+                      isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
+                    )}
+                  >
+                    <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{orderId}</span>
 
-                  <span className={cn(
-                    "shrink-0 w-10 py-0.5 rounded text-xs font-bold text-center uppercase",
-                    isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                  )}>
-                    {isBuy ? 'Buy' : 'Sell'}
-                  </span>
+                    <span className={cn(
+                      "shrink-0 w-10 py-0.5 rounded text-xs font-bold text-center uppercase",
+                      isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    )}>
+                      {isBuy ? 'Buy' : 'Sell'}
+                    </span>
 
-                  <span className="shrink-0 w-24 text-xs font-mono font-medium text-white">{displayPrice}</span>
+                    <span className="shrink-0 w-24 text-xs font-mono font-medium text-white">{displayPrice}</span>
 
-                  <span className="shrink-0 w-12 text-xs font-mono text-slate-400">
-                    {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
+                    <span className="shrink-0 w-12 text-xs font-mono text-slate-400">
+                      {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
 
-                  {/* Fill Progress Bar */}
-                  <div className="shrink-0 w-16 flex items-center gap-1">
-                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          isFullyFilled ? "bg-emerald-500" :
-                            fillPercent > 0 ? "bg-slate-500" :
-                              "bg-slate-600"
-                        )}
-                        style={{ width: `${Math.min(fillPercent, 100)}%` }}
-                      />
+                    {/* Fill Progress Bar */}
+                    <div className="shrink-0 w-16 flex items-center gap-1">
+                      <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            isFullyFilled ? "bg-emerald-500" :
+                              fillPercent > 0 ? "bg-slate-500" :
+                                "bg-slate-600"
+                          )}
+                          style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-slate-400 w-7 text-right">{Math.round(fillPercent)}%</span>
                     </div>
-                    <span className="text-xs font-mono text-slate-400 w-7 text-right">{Math.round(fillPercent)}%</span>
-                  </div>
 
-                  {/* Spacer */}
-                  <div className="flex-1" />
+                    {/* Spacer */}
+                    <div className="flex-1" />
 
-                  <div className="shrink-0 flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => handleClaimFills(order.orderId)}
-                      disabled={actionInProgress === `claim-${orderId}` || !hasPendingFills}
-                      className={cn(
-                        "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
-                        hasPendingFills
-                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
-                          : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
+                    <div className="shrink-0 flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleClaimFills(order.orderId)}
+                        disabled={actionInProgress === `claim-${orderId}` || !hasPendingFills}
+                        className={cn(
+                          "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
+                          hasPendingFills
+                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                            : "bg-slate-800/30 text-slate-600 border-slate-700/30 cursor-not-allowed"
+                        )}
+                        title={isFullyFilled ? "Claim fills & close order" : "Claim pending fills"}
+                      >
+                        {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+                      </button>
+                      {/* Only show Cancel for partially filled orders - fully filled orders auto-close on Claim */}
+                      {!isFullyFilled && (
+                        <button
+                          onClick={() => handleCancelOrder(order.orderId, false)}
+                          disabled={actionInProgress === `cancel-${orderId}`}
+                          className={cn(
+                            "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
+                            "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
+                          )}
+                          title="Cancel order and return unused collateral"
+                        >
+                          {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                        </button>
                       )}
-                    >
-                      {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-                    </button>
-                    <button
-                      onClick={() => handleCancelOrder(order.orderId)}
-                      disabled={actionInProgress === `cancel-${orderId}`}
-                      className={cn(
-                        "h-5 px-2 rounded text-xs font-bold border transition-colors flex items-center justify-center",
-                        "bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30"
-                      )}
-                      title={isFullyFilled ? "Close filled order" : "Cancel order"}
-                    >
-                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : (isFullyFilled ? 'Close' : 'Cancel')}
-                    </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           </div>
         )
@@ -1100,52 +1147,52 @@ function UserOrdersPanel({
                 <span className="shrink-0 text-right">Action</span>
               </div>
               {userSpotSells.map((s) => {
-              const lower = s.tickLower / 10;
-              const upper = s.tickUpper / 10;
-              const remaining = s.sharesTotal > s.sharesFilled ? s.sharesTotal - s.sharesFilled : 0n;
-              const sellOutcomeLabel = s.outcome === 1 ? 'YES' : 'NO';
-              const cancelKey = `spotsell-cancel-${s.sellId.toString()}`;
-              const isCancelling = actionInProgress === cancelKey;
+                const lower = s.tickLower / 10;
+                const upper = s.tickUpper / 10;
+                const remaining = s.sharesTotal > s.sharesFilled ? s.sharesTotal - s.sharesFilled : 0n;
+                const sellOutcomeLabel = s.outcome === 1 ? 'YES' : 'NO';
+                const cancelKey = `spotsell-cancel-${s.sellId.toString()}`;
+                const isCancelling = actionInProgress === cancelKey;
 
-              return (
-                <div
-                  key={s.sellId.toString()}
-                  className="flex items-center gap-2 p-2 rounded-lg border bg-slate-900/40 border-slate-800/40"
-                >
-                  <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{s.sellId.toString()}</span>
-                  <span className={cn("shrink-0 w-10 text-xs font-bold uppercase", s.outcome === 1 ? "text-emerald-400" : "text-rose-400")}>{sellOutcomeLabel}</span>
-                  <span className="shrink-0 w-24 text-[11px] font-mono font-medium text-white">
-                    {lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`}
-                  </span>
-                  <span className="shrink-0 w-16 text-xs font-mono text-slate-400">
-                    {parseFloat(formatUnits(remaining, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                  <div className="flex-1" />
-                  <div className="shrink-0 flex items-center justify-end">
-                    <button
-                      onClick={async () => {
-                        if (!onCancelSpotSell) return;
-                        setActionInProgress(cancelKey);
-                        try {
-                          await onCancelSpotSell(s.sellId);
-                          onRefresh();
-                        } finally {
-                          setActionInProgress(null);
-                        }
-                      }}
-                      disabled={!onCancelSpotSell || isCancelling}
-                      className={cn(
-                        "h-5 px-2 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center",
-                        (!onCancelSpotSell || isCancelling) && "opacity-60 cursor-not-allowed hover:bg-rose-500/20"
-                      )}
-                      title="Cancel spot sell"
-                    >
-                      {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
-                    </button>
+                return (
+                  <div
+                    key={s.sellId.toString()}
+                    className="flex items-center gap-2 p-2 rounded-lg border bg-slate-900/40 border-slate-800/40"
+                  >
+                    <span className="shrink-0 w-10 text-xs font-mono text-slate-500">#{s.sellId.toString()}</span>
+                    <span className={cn("shrink-0 w-10 text-xs font-bold uppercase", s.outcome === 1 ? "text-emerald-400" : "text-rose-400")}>{sellOutcomeLabel}</span>
+                    <span className="shrink-0 w-24 text-[11px] font-mono font-medium text-white">
+                      {lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`}
+                    </span>
+                    <span className="shrink-0 w-16 text-xs font-mono text-slate-400">
+                      {parseFloat(formatUnits(remaining, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                    <div className="flex-1" />
+                    <div className="shrink-0 flex items-center justify-end">
+                      <button
+                        onClick={async () => {
+                          if (!onCancelSpotSell) return;
+                          setActionInProgress(cancelKey);
+                          try {
+                            await onCancelSpotSell(s.sellId);
+                            onRefresh();
+                          } finally {
+                            setActionInProgress(null);
+                          }
+                        }}
+                        disabled={!onCancelSpotSell || isCancelling}
+                        className={cn(
+                          "h-5 px-2 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center",
+                          (!onCancelSpotSell || isCancelling) && "opacity-60 cursor-not-allowed hover:bg-rose-500/20"
+                        )}
+                        title="Cancel spot sell"
+                      >
+                        {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           </div>
         )
@@ -2211,75 +2258,75 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 </div>
                 <div className="text-sm text-slate-400 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
               </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                <div className={cn(
+                  "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
+                  isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
+                )}>
+                  <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
+                  <div className={cn("text-sm font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
+                    {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
+                    {hasArb && <Zap className="w-4 h-4" />}
+                  </div>
+                </div>
+                <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
+                  <div className="text-xs text-slate-500 uppercase">AMM</div>
+                  <div className="text-sm font-mono font-bold text-slate-400">
+                    {ammPriceCents.toFixed(1)}¢
+                  </div>
+                </div>
+                <div className={cn(
+                  "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
+                  hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
+                )}>
+                  <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
+                  <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
+                    {arbSpread.toFixed(1)}¢
+                  </div>
+                </div>
+                <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
+                  <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+                </button>
+              </div>
             </div>
 
-            {/* Prices */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <div className={cn(
-                "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-                isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-              )}>
-                <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
-                <div className={cn("text-sm font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
-                  {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                  {hasArb && <Zap className="w-4 h-4" />}
-                </div>
-              </div>
-              <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
-                <div className="text-xs text-slate-500 uppercase">AMM</div>
-                <div className="text-sm font-mono font-bold text-slate-400">
-                  {ammPriceCents.toFixed(1)}¢
-                </div>
-              </div>
-              <div className={cn(
-                "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-                hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-              )}>
-                <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
-                <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
-                  {arbSpread.toFixed(1)}¢
-                </div>
-              </div>
-              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
-                <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+            {/* Market Key Info */}
+            <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+              <button
+                onClick={() => {
+                  if (tickBook?.marketKey) {
+                    navigator.clipboard.writeText(tickBook.marketKey);
+                    setMarketKeyCopied(true);
+                    toast.success('Market key copied!');
+                    setTimeout(() => setMarketKeyCopied(false), 2000);
+                  }
+                }}
+                className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+                title="Click to copy market key"
+              >
+                <span>Market Key:</span>
+                <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
+                {marketKeyCopied ? (
+                  <Check className="w-3 h-3 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+                )}
               </button>
+              <span>•</span>
+              <a
+                href={getAddressExplorerUrl(chainId, marketAddr)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+              >
+                <span>TruthMarket:</span>
+                <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
+                <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+              </a>
             </div>
           </div>
 
-          {/* Market Key Info */}
-          <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-            <button
-              onClick={() => {
-                if (tickBook?.marketKey) {
-                  navigator.clipboard.writeText(tickBook.marketKey);
-                  setMarketKeyCopied(true);
-                  toast.success('Market key copied!');
-                  setTimeout(() => setMarketKeyCopied(false), 2000);
-                }
-              }}
-              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-              title="Click to copy market key"
-            >
-              <span>Market Key:</span>
-              <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
-              {marketKeyCopied ? (
-                <Check className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-              )}
-            </button>
-            <span>•</span>
-            <a
-              href={getAddressExplorerUrl(chainId, marketAddr)}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-            >
-              <span>TruthMarket:</span>
-              <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
-              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-            </a>
-          </div>
         </Card>
       )}
 
@@ -2343,15 +2390,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-xs text-slate-500 uppercase">Wallet</div>
-                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</div>
+                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-xs text-slate-500 uppercase">In Orders</div>
-                <div className="font-mono text-sm text-slate-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
+                <div className="font-mono text-sm text-slate-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
                 <div className="text-xs text-slate-500 uppercase">Available</div>
-                <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</div>
+                <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
             </div>
 
@@ -2395,6 +2442,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               )}
             </div>
           </Card>
+
 
           {/* Trading Panel */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
@@ -2783,6 +2831,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </Button>
             </div>
           </div>
+
         </div>
       </div>
     </div>

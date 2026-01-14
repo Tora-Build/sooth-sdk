@@ -270,7 +270,7 @@ const CreatorPanel = () => {
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 text-xs text-white/60">
                     <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                     <span>
-                        <span className="font-bold text-white">LMSR Property:</span> Max win = Max loss = Deposit + Flywheel.
+                        <span className="font-bold text-white">LMSR Property:</span> Max loss = Deposit, Max win = Deposit + Flywheel.
                         Fee Yield is always yours.
                     </span>
                 </div>

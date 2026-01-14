@@ -510,10 +510,13 @@ export const SimpleTradingPanel = ({
       // 2. Contract automatically checks availableProceeds in AMMEngine
       // 3. Contract pulls ONLY needed remainder from wallet
       // 4. No need for manual 'depositAndTradeAMM'
-      // Dynamic gas estimation based on this trade's graduation impact:
-      // - Normal trades: 2M gas (safe for Monad)
-      // - Trades predicted to trigger graduation: 5M gas to cover token deploy + TickBook registration
-      const gasLimit = quote.willGraduate ? 5000000n : 2000000n;
+      // Dynamic gas estimation based on chain and graduation impact:
+      // - MegaETH (6343): 60M for graduation (code deposit = 10k gas/byte, ~44M storage gas)
+      // - Other chains: 5M graduation, 2M normal
+      const isMegaETH = chainId === 6343;
+      const gasLimit = quote.willGraduate 
+        ? (isMegaETH ? 60000000n : 5000000n)
+        : (isMegaETH ? 30000000n : 2000000n);
 
       // Simulate first to catch specific revert reasons
       if (publicClient) {

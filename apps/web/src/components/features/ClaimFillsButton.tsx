@@ -222,11 +222,7 @@ export const ClaimFillsButton = ({
           className
         )}
       >
-        {isLoading ? (
-          <Loader2 size={10} className="animate-spin" />
-        ) : (
-          <Gift size={10} />
-        )}
+        {isLoading && <Loader2 size={10} className="animate-spin" />}
         {label || `Claim ${orderIds.length}`}
       </button>
     );

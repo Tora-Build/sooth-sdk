@@ -4,6 +4,23 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Pro Page Cleanup (2026-01-15)
+- **Removed (Split/Merge Panel)**: Removed `<SplitMergePanel />` from `Pro.tsx`.
+  - **Reason**: The panel interacted with `Collateralizer` (ERC20 tokens), but the Pro page trading (`TickBookVault`) uses internal virtual shares.
+  - **Issue**: There is no bridge to deposit ERC20 tokens into the Vault, so users could "Split" USDC into tokens but not trade them on the orderbook.
+  - **Status**: Codebase retains `SplitMergePanel.tsx` (with integer formatting fixes applied) for potential future AMM integration or bridge implementation.
+- **Fixed (Pro Header)**: Restored "Market Key Info" footer in the Pro page header which was missing.
+- **Fixed (Formatting)**: Updated `SplitMergePanel.tsx` to force integer display (truncated decimals on input, 0 fraction digits in visualization) before disabling it.
+- **Files Changed**: `apps/web/src/pages/Pro.tsx`, `apps/web/src/components/features/SplitMergePanel.tsx`
+
+### MegaETH Graduation Gas Fix (2026-01-14)
+- **Root Cause**: MegaETH uses a multidimensional gas model with separate "storage gas" charges. Code deposit costs 10,000 storage gas per byte. Deploying 2 OutcomeToken contracts (~4.4KB total) requires ~44M storage gas alone.
+- **Fix (CLI)**: Updated `graduate` command to use 60M gas limit on MegaETH (chain ID 6343). Also uses `sendTransaction` instead of `writeContract` to bypass viem simulation.
+- **Fix (Frontend)**: Updated `SimpleTradingPanel.tsx` to use 60M gas for graduation trades on MegaETH, 30M for normal trades.
+- **RPC**: Switched MegaETH CLI RPC from Alchemy to official endpoint (`carrot.megaeth.com/rpc`).
+- **Graduation Logic**: Re-enabled mid-loop graduation check for all chains with 2s state settling delay on MegaETH.
+- **Files Changed**: `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/config.ts`, `apps/web/src/components/features/SimpleTradingPanel.tsx`
+
 ### MegaETH Stability & Market Creation (2026-01-14)
 - **Fix (Gas Limit)**: Removed hardcoded 2.5M gas limit in `createmarket` command; MegaETH requires ~28M gas for market deployment.
 - **Fix (Clock Drift)**: Updated market creation deadline calculation to use on-chain `block.timestamp` instead of local system time, preventing premature expiration reverts.

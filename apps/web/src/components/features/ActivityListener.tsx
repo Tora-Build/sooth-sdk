@@ -41,9 +41,9 @@ export function ActivityListener() {
   const ammEngine = contracts.AMMEngine as Address | undefined;
 
   const isMonad = chainId === 10143;
-  const isArc = chainId === 5042002;
-  // Disable activity listener on Monad/Arc to avoid 400 Bad Request errors from eth_newFilter unsupported
-  const enabled = mode === "real" && !!userAddress && !!chainId && !isMonad && !isArc;
+  // Disable activity listener on Monad only: QuickNode RPC (private) doesn't support eth_newFilter.
+  // Base Sepolia, Arc, and MegaETH use Alchemy which supports stateful filters.
+  const enabled = mode === "real" && !!userAddress && !!chainId && !isMonad;
 
   const userTopic = useMemo(() => userAddress as Address | undefined, [userAddress]);
 
