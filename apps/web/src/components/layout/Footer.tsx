@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Twitter } from 'lucide-react';
+import { Twitter, Send } from 'lucide-react';
 import { useIndexerStatus } from '../../hooks/useIndexerStatus';
 import { useChainStatus } from '../../hooks/useChainStatus';
 import deployments from '../../config/deployments.json';
@@ -124,9 +124,14 @@ export const Footer = () => {
           )}
         </div>
 
-        <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
-          <Twitter size={18} />
-        </a>
+        <div className="flex items-center gap-1">
+          <a href="https://t.me/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="Telegram">
+            <Send size={18} />
+          </a>
+          <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
+            <Twitter size={18} />
+          </a>
+        </div>
       </div>
     </footer>
   );

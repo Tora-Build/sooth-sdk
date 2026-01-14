@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords, Twitter } from 'lucide-react';
+import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords, Twitter, Send } from 'lucide-react';
 
 export const Landing = () => {
   return (
@@ -193,7 +193,10 @@ message SettlementProof {
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
             © 2026 Sooth Protocol | V10.8
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
+            <a href="https://t.me/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="Telegram">
+              <Send size={20} />
+            </a>
             <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
               <Twitter size={20} />
             </a>

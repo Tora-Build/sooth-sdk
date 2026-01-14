@@ -20,6 +20,7 @@
     "interactive:megaeth": "pnpm --filter contracts-testing interactive:megaeth"
   },
   "devDependencies": {
-    "turbo": "^2.0.0"
+    "turbo": "^2.0.0",
+    "viem": "^2.44.2"
   }
 }
