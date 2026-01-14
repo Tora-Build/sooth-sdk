@@ -426,30 +426,30 @@ function MarketCard({
         </h3>
       </div>
 
-      <div className="flex items-center gap-3 text-xs flex-wrap">
-        <div className="text-slate-400" title="24h Volume">
-          <span className="text-slate-500">24h:</span>
-          <span className="font-mono ml-0.5">{formatVolume(market.volume24h)}</span>
+      <div className="flex items-center gap-2 md:gap-3 text-xs flex-nowrap overflow-hidden">
+        <div className="text-slate-400 shrink-0" title="24h Volume">
+          <span className="hidden sm:inline text-slate-500">24h:</span>
+          <span className="font-mono sm:ml-0.5">{formatVolume(market.volume24h)}</span>
         </div>
 
-        <div className="text-slate-400" title="Total Volume">
-          <span className="text-slate-500">Vol:</span>
-          <span className="font-mono ml-0.5">{formatVolume(market.volume)}</span>
+        <div className="text-slate-400 shrink-0" title="Total Volume">
+          <span className="hidden sm:inline text-slate-500">Vol:</span>
+          <span className="font-mono sm:ml-0.5">{formatVolume(market.volume)}</span>
         </div>
 
-        <div className="text-slate-400" title="Liquidity">
-          <span className="text-slate-500">Liq:</span>
-          <span className="font-mono ml-0.5">{formatVolume(market.liquidity)}</span>
+        <div className="text-slate-400 shrink-0" title="Liquidity">
+          <span className="hidden sm:inline text-slate-500">Liq:</span>
+          <span className="font-mono sm:ml-0.5">{formatVolume(market.liquidity)}</span>
         </div>
 
-        <div className="text-slate-500" title="End Date">
+        <div className="text-slate-500 shrink-0 whitespace-nowrap" title="End Date">
           <span>{formatDate(market.endDate)}</span>
         </div>
 
         {marketsCount > 0 && (
           <div
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded border",
+              "flex items-center gap-1 px-1 py-0.5 rounded border shrink-0",
               marketsCount > 1
                 ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
                 : "bg-slate-700/30 text-slate-400 border-slate-600/30"
@@ -457,13 +457,7 @@ function MarketCard({
             title={`${marketsCount} market${marketsCount !== 1 ? 's' : ''} in this event`}
           >
             <span className="font-bold">{marketsCount}</span>
-            <span className={marketsCount > 1 ? "text-cyan-400" : "text-slate-500"}>mkt{marketsCount !== 1 ? 's' : ''}</span>
-          </div>
-        )}
-
-        {market.description && (
-          <div className="flex items-center gap-1 text-slate-500" title="Has resolution rules">
-            <FileText className="w-2.5 h-2.5" />
+            <span className="hidden xs:inline opacity-70">mkts</span>
           </div>
         )}
 
