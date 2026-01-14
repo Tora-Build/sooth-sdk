@@ -43,7 +43,14 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
-      # All VITE_ variables must be added manually
+      # All VITE_ variables must be added manually in Render Dashboard:
+      # - VITE_BASE_SEPOLIA_RPC_URL
+      # - VITE_MONAD_TESTNET_RPC_URL
+      # - VITE_MEGAETH_TESTNET_RPC_URL
+      # - VITE_ARC_TESTNET_RPC_URL
+      # - VITE_WALLETCONNECT_PROJECT_ID
+      # - VITE_USE_INDEXER
+      # - VITE_INDEXER_URL
 
 databases:
   - name: sooth-db

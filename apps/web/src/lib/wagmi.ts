@@ -62,20 +62,63 @@ const megaethHttpOptions = {
   timeout: 30_000,
 };
 
-const arcRpcCandidates = (import.meta.env.VITE_ARC_TESTNET_RPC_URL ?? '')
-  .split(',')
-  .map((url: string) => url.trim())
-  .filter(Boolean);
+// Helper to create transport with fallback
+const createTransport = (networkId: number, defaultUrls: string[], envVarName?: string) => {
+  const envUrl = envVarName ? import.meta.env[envVarName] : undefined;
+  const urls = envUrl
+    ? [envUrl, ...defaultUrls]
+    : defaultUrls;
 
-const arcRpcUrls =
-  arcRpcCandidates.length > 0
-    ? arcRpcCandidates
-    : [
-      'https://rpc.blockdaemon.testnet.arc.network',
-      'https://rpc.drpc.testnet.arc.network',
-      'https://rpc.testnet.arc.network',
-      'https://rpc.quicknode.testnet.arc.network',
-    ];
+  // Use unique set of URLs to avoid potential dupes if env var matches default
+  const uniqueUrls = [...new Set(urls)].filter(Boolean);
+
+  if (uniqueUrls.length === 0) {
+    throw new Error(`No RPC URLs configured for network ${networkId}`);
+  }
+
+  // If only one URL, return simple http transport
+  if (uniqueUrls.length === 1) {
+    return http(uniqueUrls[0], getHttpOptions(networkId));
+  }
+
+  // Otherwise return fallback transport
+  return fallback(
+    uniqueUrls.map(url => http(url, getHttpOptions(networkId)))
+  );
+};
+
+// Helper to get HTTP options based on network
+const getHttpOptions = (networkId: number) => {
+  switch (networkId) {
+    case baseSepolia.id: return baseSepoliaHttpOptions;
+    case monadTestnet.id: return monadHttpOptions;
+    case arcTestnet.id: return arcHttpOptions;
+    case megaethTestnet.id: return megaethHttpOptions;
+    default: return undefined;
+  }
+};
+
+const arcDefaultUrls = [
+  'https://rpc.blockdaemon.testnet.arc.network',
+  'https://rpc.drpc.testnet.arc.network',
+  'https://rpc.testnet.arc.network',
+  'https://rpc.quicknode.testnet.arc.network',
+];
+
+const baseSepoliaDefaultUrls = [
+  'https://sepolia.base.org',
+  // Add other reliable public fallbacks if known
+];
+
+const monadDefaultUrls = [
+  'https://rpc.ankr.com/monad_testnet',
+  // 'https://blue-stylish-friday.monad-testnet.quiknode.pro' // Add if needed as fallback
+];
+
+const megaethDefaultUrls = [
+  'https://carrot.megaeth.com/rpc',
+  'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
+];
 
 // Create Wagmi Adapter with custom RPC
 export const wagmiAdapter = new WagmiAdapter({
@@ -83,13 +126,14 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    // Base Sepolia: Official RPC only (publicnode has QUIC protocol issues)
-    [baseSepolia.id]: http('https://sepolia.base.org', baseSepoliaHttpOptions),
-    // Monad: Ankr is the only reliably working endpoint as of 2026-01
-    // QuickNode and Foundation RPCs are currently unreachable
-    [monadTestnet.id]: http('https://rpc.ankr.com/monad_testnet', monadHttpOptions),
-    [arcTestnet.id]: fallback(arcRpcUrls.map((url: string) => http(url, arcHttpOptions))),
-    [megaethTestnet.id]: http('https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN', megaethHttpOptions),
+    // Base Sepolia
+    [baseSepolia.id]: createTransport(baseSepolia.id, baseSepoliaDefaultUrls, 'VITE_BASE_SEPOLIA_RPC_URL'),
+    // Monad
+    [monadTestnet.id]: createTransport(monadTestnet.id, monadDefaultUrls, 'VITE_MONAD_TESTNET_RPC_URL'),
+    // Arc
+    [arcTestnet.id]: createTransport(arcTestnet.id, arcDefaultUrls, 'VITE_ARC_TESTNET_RPC_URL'),
+    // MegaETH
+    [megaethTestnet.id]: createTransport(megaethTestnet.id, megaethDefaultUrls, 'VITE_MEGAETH_TESTNET_RPC_URL'),
   },
 });
 
