@@ -160,22 +160,22 @@ export const allowedChains: AllowedChain[] = [
       decimals: 6,
     },
   },
-  // MegaETH Testnet - HIDDEN (RPC rate limiting)
-  // {
-  //   id: 6343,
-  //   type: 'evm',
-  //   name: 'MegaETH Testnet',
-  //   displayName: 'MegaETH',
-  //   shortName: 'Mega',
-  //   rpcUrl: 'https://timothy.megaeth.com/rpc',
-  //   explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
-  //   icon: '⚡',
-  //   nativeCurrency: {
-  //     name: 'Ether',
-  //     symbol: 'ETH',
-  //     decimals: 18,
-  //   },
-  // },
+  // MegaETH Testnet
+  {
+    id: 6343,
+    type: 'evm',
+    name: 'MegaETH Testnet',
+    displayName: 'MegaETH',
+    shortName: 'Mega',
+    rpcUrl: 'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
+    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+    icon: '⚡',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+  },
 ];
 
 // Define MegaETH Testnet using viem
@@ -184,7 +184,7 @@ export const megaethTestnet = defineChain({
   name: 'MegaETH Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://timothy.megaeth.com/rpc'] },
+    default: { http: ['https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN'] },
   },
   blockExplorers: {
     default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
@@ -257,8 +257,8 @@ export const arcTestnet = defineChain({
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
-// Export wagmi chains array (includes Arc Testnet)
-export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet];
+// Export wagmi chains array
+export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet, megaethTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

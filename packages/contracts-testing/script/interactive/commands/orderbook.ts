@@ -180,7 +180,35 @@ export async function market(ctx: CommandContext, args: string[]): Promise<Comma
   }
 
   if (!marketKey) {
-    return { success: false, message: 'No market selected' };
+    if (ctx.marketAddress) {
+      // Support pre-graduation trading through LaunchpadEngine
+      const side = args[0].toLowerCase();
+      const outcome = parseOutcome(args[1]);
+      const shares = parseWad(args[2]);
+      const deltaShares = side === 'buy' ? shares : -shares;
+      const maxCost = args[3] ? parseWad(args[3]) : shares * 2n;
+
+      const spinner = new Spinner(`${side === 'buy' ? 'Buying' : 'Selling'} ${formatWad(shares)} ${formatOutcome(outcome)} shares via LaunchpadEngine...`);
+      spinner.start();
+
+      try {
+        const hash = await walletClient.writeContract({
+          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: ABIS.LaunchpadEngine,
+          functionName: 'tradePositions',
+          args: [ctx.marketAddress, outcome, deltaShares, maxCost],
+        });
+
+        const receipt = await actorManager.waitForTransactionReceipt(hash);
+        spinner.succeed(`${side === 'buy' ? 'Bought' : 'Sold'} ${formatWad(shares)} ${formatOutcome(outcome)} shares ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+        return { success: true, txHash: hash };
+      } catch (err) {
+        spinner.fail(`Launchpad trade failed: ${(err as Error).message.slice(0, 50)}`);
+        return { success: false, message: (err as Error).message };
+      }
+    }
+    return { success: false, message: 'No market selected. Use: setmarket <address>' };
   }
 
   if (args.length < 3) {

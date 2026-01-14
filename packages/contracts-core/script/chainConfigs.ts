@@ -35,6 +35,19 @@ export const megaethFrontier = defineChain({
   testnet: false, // Frontier is mainnet beta
 });
 
+export const megaethTestnet = defineChain({
+  id: 6343,
+  name: 'MegaETH Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+  },
+  testnet: true,
+});
+
 // Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
 // Using private QuickNode RPC for faster state propagation
 export const monadTestnet = defineChain({
@@ -72,11 +85,11 @@ export const arcTestnet = defineChain({
         arcRpcCandidates.length > 0
           ? arcRpcCandidates
           : [
-              'https://rpc.testnet.arc.network',
-              'https://rpc.blockdaemon.testnet.arc.network',
-              'https://rpc.drpc.testnet.arc.network',
-              'https://rpc.quicknode.testnet.arc.network',
-            ],
+            'https://rpc.testnet.arc.network',
+            'https://rpc.blockdaemon.testnet.arc.network',
+            'https://rpc.drpc.testnet.arc.network',
+            'https://rpc.quicknode.testnet.arc.network',
+          ],
     },
   },
   blockExplorers: {
@@ -134,6 +147,19 @@ export const chainConfigs: Record<string, ChainConfig> = {
       confirmations: 1,
       retryAttempts: 5,
       retryDelay: 1000, // MegaETH is fast
+    },
+    faucetEnabled: true,
+  },
+
+  megaethTestnet: {
+    chain: megaethTestnet,
+    gasSettings: {
+      gasPrice: 10_000_000n,
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 1000,
     },
     faucetEnabled: true,
   },

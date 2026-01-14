@@ -16,7 +16,8 @@
     "benchmark": "pnpm --filter contracts-testing benchmark",
     "interactive:base": "pnpm --filter contracts-testing interactive:base",
     "interactive:monad": "pnpm --filter contracts-testing interactive:monad",
-    "interactive:arc": "pnpm --filter contracts-testing interactive:arc"
+    "interactive:arc": "pnpm --filter contracts-testing interactive:arc",
+    "interactive:megaeth": "pnpm --filter contracts-testing interactive:megaeth"
   },
   "devDependencies": {
     "turbo": "^2.0.0"
