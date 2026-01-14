@@ -5,7 +5,7 @@ import { parseUnits, formatUnits, Address, decodeEventLog } from 'viem';
 import {
     Rocket, Scale, Shield, DollarSign,
     Activity, Check, Coins, BookOpen,
-    Loader2, ExternalLink, Bitcoin, Trophy, Theater, Zap
+    Loader2, ExternalLink, Bitcoin, Trophy, Theater, Zap, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -238,6 +238,10 @@ export const Launchpad = () => {
         try {
             const deadline = getDeadline();
 
+            const isMonad = config.state.chainId === 10143;
+            const isMegaETH = config.state.chainId === 6343;
+            const MAX_GAS_CAP = 30_000_000n;
+
             const createHash = await writeContractAsync({
                 abi: ABIS.LaunchpadEngine,
                 address: launchpadEngineAddress,
@@ -250,7 +254,10 @@ export const Launchpad = () => {
                     customGuardian as Address,
                     bWei,
                     'PRED'
-                ]
+                ],
+                // For Monad/MegaETH market creation, 30M is a safe upper bound.
+                // This covers complex contract initialization which can sometimes fail with default estimation.
+                ...(isMonad || isMegaETH ? { gas: MAX_GAS_CAP } : {})
             });
 
             const receipt = await waitForTransactionReceipt(config, { hash: createHash });
@@ -538,6 +545,13 @@ export const Launchpad = () => {
                                             <span className="text-white/50">Graduation Vol</span>
                                             <span className="text-emerald-400 font-mono font-bold">
                                                 ${(depositAmount * 20).toLocaleString()}
+                                            </span>
+                                        </div>
+
+                                        <div className="pt-2 border-t border-white/5 flex items-start gap-2 text-[10px] text-white/40 leading-relaxed">
+                                            <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 mt-0.5" />
+                                            <span>
+                                                <span className="text-white font-bold">LMSR:</span> Max loss = Deposit. Max win = Deposit + Flywheel. Fee Yield is always yours.
                                             </span>
                                         </div>
                                     </div>

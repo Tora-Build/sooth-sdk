@@ -79,7 +79,7 @@ export const megaethTestnet: Chain = {
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN'],
+      http: ['https://carrot.megaeth.com/rpc'],
     },
   },
   blockExplorers: {
@@ -125,10 +125,10 @@ export const CHAINS: Record<string, ChainConfig> = {
   },
   megaethTestnet: {
     chain: megaethTestnet,
-    rpc: 'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
+    rpc: process.env.MEGAETH_RPC_URL || 'https://carrot.megaeth.com/rpc',
     deploymentFile: 'megaethTestnet.json',
     confirmations: 1,
-    postTxWaitMs: 1000,
+    postTxWaitMs: 2000,
     aliases: ['megaeth', 'megaeth-testnet', 'megaethtestnet'],
   },
 };

@@ -114,7 +114,9 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       });
 
       let gasLimit: bigint | undefined;
+      const MAX_GAS_CAP = 30_000_000n;
       const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
 
       // Simulate first to catch reverts
       if (publicClient) {
@@ -127,9 +129,11 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
             args,
           });
 
-          if (simulation.request.gas && isMonad) {
-            // Monad charges gas_limit not gas_used, so use tight 1.2x buffer
-            gasLimit = (simulation.request.gas * 120n) / 100n;
+          if (simulation.request.gas && (isMonad || isMegaETH)) {
+            // Monad/MegaETH benefit from explicit limits.
+            // Use 1.2x buffer but cap at 30M to prevent runaway estimates.
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
           }
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;
@@ -142,6 +146,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
+        // Apply gasLimit for Monad/MegaETH
         ...(gasLimit && { gas: gasLimit }),
       });
 
@@ -381,10 +386,12 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       }
 
       const args = [marketKey, outcome, shares, tickLower, tickUpper] as const;
+      const MAX_GAS_CAP = 30_000_000n;
       const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
 
       let gasLimit: bigint | undefined;
-      if (publicClient && isMonad) {
+      if (publicClient && (isMonad || isMegaETH)) {
         try {
           const simulation = await publicClient.simulateContract({
             account: address,
@@ -394,8 +401,9 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
             args,
           });
           if (simulation.request.gas) {
-            // Monad charges gas_limit not gas_used
-            gasLimit = (simulation.request.gas * 120n) / 100n;
+            // Apply 1.2x buffer and 30M cap
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
           }
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;
@@ -471,10 +479,12 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
     try {
       const args = [marketKey, sellId] as const;
+      const MAX_GAS_CAP = 30_000_000n;
       const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
 
       let gasLimit: bigint | undefined;
-      if (publicClient && isMonad) {
+      if (publicClient && (isMonad || isMegaETH)) {
         try {
           const simulation = await publicClient.simulateContract({
             account: address,
@@ -484,7 +494,8 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
             args,
           });
           if (simulation.request.gas) {
-            gasLimit = (simulation.request.gas * 120n) / 100n;
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
           }
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;

@@ -143,6 +143,22 @@ export const allowedChains: AllowedChain[] = [
       decimals: 18,
     },
   },
+  // MegaETH Testnet
+  {
+    id: 6343,
+    type: 'evm',
+    name: 'MegaETH Testnet',
+    displayName: 'MegaETH',
+    shortName: 'Mega',
+    rpcUrl: 'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
+    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+    icon: '⚡',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+  },
   // Arc Testnet - Circle-backed chain with native USDC
   // Docs: https://docs.arc.network/arc/references/connect-to-arc
   {
@@ -158,22 +174,6 @@ export const allowedChains: AllowedChain[] = [
       name: 'USDC',
       symbol: 'USDC',
       decimals: 6,
-    },
-  },
-  // MegaETH Testnet
-  {
-    id: 6343,
-    type: 'evm',
-    name: 'MegaETH Testnet',
-    displayName: 'MegaETH',
-    shortName: 'Mega',
-    rpcUrl: 'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
-    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
-    icon: '⚡',
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
     },
   },
 ];
@@ -258,7 +258,7 @@ export const arcTestnet = defineChain({
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
 // Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet, megaethTestnet];
+export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, megaethTestnet, arcTestnet];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {

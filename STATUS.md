@@ -1,11 +1,14 @@
 # Project Status
 
 ## Current Focus
+- **MegaETH Graduation Fixed (2026-01-14)** — Resolved graduation tx failures on MegaETH. Root cause: MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Fixed by increasing gas limit to 60M for graduation trades.
 - **MegaETH Market Creation Debugged (2026-01-14)** — Resolved 28M gas limit requirement and clock drift issues. Successfully created `BTC100K` market and enabled pre-graduation trading.
 - **MegaETH Testnet Deployed (2026-01-14)** — Deployed V10.8.1 core contracts to MegaETH Testnet.
 - **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, and Arc Testnet all running V10.8.1.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-15** — **Pro UI Refinement**: Removed the Split/Merge panel from `Pro.tsx`. The feature was creating confusion because the generated ERC20 tokens cannot be traded on the Vault-based orderbook (no bridge exists). The panel code remains in the codebase (`SplitMergePanel.tsx`) with integer formatting fixes applied for future use.
+- **2026-01-14** — **MegaETH Graduation Gas Fix**: Fixed graduation tx failures on MegaETH. MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Updated CLI and frontend to use 60M gas for graduation trades on MegaETH. Also switched to official MegaETH RPC (`carrot.megaeth.com/rpc`).
 - **2026-01-14** — **MegaETH Stability Fixes**: Debugged and resolved market creation reverts on MegaETH. Root cause was a 28M gas requirement (vs 2.5M cap) and local clock drift. Updated CLI to use block timestamp for deadlines and enabled AMM trading in CLI.
 - **2026-01-13** — **Portfolio Market Name Fix**: Fixed bug where Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question. Root cause: when indexer was ready, code used placeholder names. Fix: always use RPC data for market names (LaunchpadEngine.markets() returns full question).
 - **2026-01-13** — **Indexer Schema Update**: Added `name` and `symbol` fields to `launchpadMarket` table. Handler initializes to null; future work to populate via TruthMarket factory pattern or contract event change.
@@ -53,6 +56,7 @@
 - **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 - **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
+- **Isolated ERC20 Tokens** — The `Collateralizer` (Split/Merge) produces ERC20 tokens, but the `TickBookVault` (Pro Trading) uses internal shares. There is no deposit/withdraw bridge, so Split/Merge tokens cannot be traded on the Pro orderbook.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 

@@ -21,8 +21,8 @@ export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   // which has been observed (via NDJSON) to intermittently stall `useReadContracts`.
   baseSepolia as unknown as AppKitNetwork,
   monadTestnet as unknown as AppKitNetwork,
-  arcTestnet as unknown as AppKitNetwork,
-  megaethTestnet as unknown as AppKitNetwork
+  megaethTestnet as unknown as AppKitNetwork,
+  arcTestnet as unknown as AppKitNetwork
 ];
 
 // Base Sepolia RPC config with rate limit handling

@@ -1,5 +1,28 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-079: ERC20 Token Isolation & Pro Page Split/Merge Removal
+- **Date**: 2026-01-15
+- **Status**: Accepted
+- **Context**:
+  - The `Collateralizer` contract provides `split()`/`merge()` functions to mint ERC20 Outcome Tokens (YES/NO) from USDC.
+  - The `TickBookVault` (which powers the Pro page orderbook) uses **internal virtual shares** (`_yesInternalWad`) for gas-efficient matching.
+  - There is currently **no bridge** to deposit ERC20 Outcome Tokens into the Vault (`depositOutcome` does not exist).
+  - The `SplitMergePanel` on the Pro page allowed users to mint ERC20 tokens, but users were then confused because they could not trade these tokens on the orderbook.
+- **Decision**:
+  1. **Disable Split/Merge UI**: Removed `<SplitMergePanel />` from the Pro trading page.
+  2. **Isolate ERC20s**: Acknowledge that ERC20 Outcome Tokens are currently "wallet-only" assets (for holding/transferring/AMMs) and are **incompatible** with the TickBook orderbook.
+  3. **Preserve Code**: Retained `SplitMergePanel.tsx` in the codebase (with integer formatting fixes) for future AMM integration or if a Vault Bridge is implemented.
+- **Rationale**:
+  - **Reduce Confusion**: Prevents users from locking capital into tokens they cannot trade.
+  - **Honest UI**: The Pro interface should only show actions that are relevant to the orderbook (Deposit/Withdraw USDC, Trade Internal Shares).
+- **Consequences**:
+  - **Feature Gap**: Users cannot purely "mint and hold" via the Pro UI anymore (must use CLI or future specialized UI).
+  - **Refactor Opportunity**: Future work could implement `TickBookVault.depositOutcome()` to bridge the two systems.
+- **Files Changed**:
+  - `apps/web/src/pages/Pro.tsx`
+  - `STATUS.md`
+
+
 ## ADR-078: MegaETH Platform Stability & Gas Limit Handling
 - **Date**: 2026-01-14
 - **Status**: Accepted

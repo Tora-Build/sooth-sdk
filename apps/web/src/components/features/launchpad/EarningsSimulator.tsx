@@ -53,6 +53,13 @@ export const EarningsSimulator = ({ deposit }: { deposit: number }) => {
                     </div>
                 </div>
             </div>
+
+            <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-black/20 text-[10px] sm:text-xs text-slate-400 border border-slate-700/30">
+                <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                    <span className="font-bold text-slate-200">LMSR Property:</span> Max loss = Deposit, Max win = Deposit + Flywheel. Fee Yield is always yours.
+                </span>
+            </div>
         </div>
     );
 };

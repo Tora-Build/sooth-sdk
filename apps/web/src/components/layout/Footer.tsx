@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { Twitter } from 'lucide-react';
 import { useIndexerStatus } from '../../hooks/useIndexerStatus';
 import { useChainStatus } from '../../hooks/useChainStatus';
 import deployments from '../../config/deployments.json';
@@ -8,11 +9,11 @@ export const Footer = () => {
   const { currentChainStatus, isLoading, error } = useIndexerStatus();
   const { rpcBlock, rpcConnected } = useChainStatus();
   const [showStatusHelp, setShowStatusHelp] = useState(false);
-  
-  const syncLag = rpcBlock && currentChainStatus 
-    ? rpcBlock - currentChainStatus.block.number 
+
+  const syncLag = rpcBlock && currentChainStatus
+    ? rpcBlock - currentChainStatus.block.number
     : null;
-  
+
   const isSynced = syncLag !== null && syncLag < 10;
 
   return (
@@ -20,58 +21,56 @@ export const Footer = () => {
       <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
         <div className="flex items-center gap-4">
           <img src="/sooth-logo.svg" alt="Sooth" className="w-6 h-6 opacity-50" />
-          <span className="font-mono text-slate-500">© 2025 Sooth Protocol | {deployments.version}</span>
-          
+          <span className="font-mono text-slate-500">© 2026 Sooth Protocol | {deployments.version}</span>
+
           {!isLoading && (
             <div className="flex items-center gap-3">
-              <div 
-                className="flex items-center gap-1.5" 
+              <div
+                className="flex items-center gap-1.5"
                 title={rpcConnected ? "Direct RPC connection active" : "RPC disconnected"}
               >
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  rpcConnected ? 'bg-blue-500' : 'bg-gray-500'
-                }`} />
+                <div className={`w-1.5 h-1.5 rounded-full ${rpcConnected ? 'bg-blue-500' : 'bg-gray-500'
+                  }`} />
                 <span className="font-mono text-xs text-slate-600">
                   RPC
                 </span>
               </div>
-              
+
               <div className="w-px h-3 bg-slate-700" />
-              
-              <div 
-                className="flex items-center gap-1.5" 
+
+              <div
+                className="flex items-center gap-1.5"
                 title={
-                  error 
-                    ? 'Ponder indexer is offline' 
+                  error
+                    ? 'Ponder indexer is offline'
                     : isSynced
-                    ? 'Indexer is synced with chain'
-                    : syncLag && syncLag > 0
-                    ? `Indexer is ${syncLag} blocks behind`
-                    : 'Indexer status unknown'
+                      ? 'Indexer is synced with chain'
+                      : syncLag && syncLag > 0
+                        ? `Indexer is ${syncLag} blocks behind`
+                        : 'Indexer status unknown'
                 }
               >
-                <div className={`w-2 h-2 rounded-full ${
-                  error 
-                    ? 'bg-red-500' 
-                    : isSynced
-                    ? 'bg-green-500 animate-pulse' 
+                <div className={`w-2 h-2 rounded-full ${error
+                  ? 'bg-red-500'
+                  : isSynced
+                    ? 'bg-green-500 animate-pulse'
                     : currentChainStatus
-                    ? 'bg-yellow-500'
-                    : 'bg-gray-500'
-                }`} />
+                      ? 'bg-yellow-500'
+                      : 'bg-gray-500'
+                  }`} />
                 <span className="font-mono text-xs text-slate-600">
-                  {error 
-                    ? 'Indexer offline' 
-                    : currentChainStatus 
-                    ? isSynced
-                      ? `Block ${currentChainStatus.block.number.toLocaleString()}`
-                      : syncLag && syncLag > 0
-                      ? `Block ${currentChainStatus.block.number.toLocaleString()} (-${syncLag})`
-                      : `Block ${currentChainStatus.block.number.toLocaleString()}`
-                    : 'Not indexed'}
+                  {error
+                    ? 'Indexer offline'
+                    : currentChainStatus
+                      ? isSynced
+                        ? `Block ${currentChainStatus.block.number.toLocaleString()}`
+                        : syncLag && syncLag > 0
+                          ? `Block ${currentChainStatus.block.number.toLocaleString()} (-${syncLag})`
+                          : `Block ${currentChainStatus.block.number.toLocaleString()}`
+                      : 'Not indexed'}
                 </span>
               </div>
-              
+
               <div className="relative">
                 <button
                   className="w-4 h-4 rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-cyan-400 transition-colors flex items-center justify-center text-xs font-bold"
@@ -81,7 +80,7 @@ export const Footer = () => {
                 >
                   ?
                 </button>
-                
+
                 {showStatusHelp && (
                   <div className="absolute bottom-full right-0 mb-2 w-80 bg-slate-900 border border-slate-700 rounded-lg p-4 shadow-xl z-50">
                     <h4 className="text-sm font-bold text-cyan-400 mb-2">Status Indicators</h4>
@@ -98,7 +97,7 @@ export const Footer = () => {
                           <span className="text-red-400">Without: No orderbook visible</span>
                         </p>
                       </div>
-                      
+
                       <div className="border-t border-slate-700 pt-2">
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
@@ -111,7 +110,7 @@ export const Footer = () => {
                           <span className="text-yellow-400">Without: Stale wallet data</span>
                         </p>
                       </div>
-                      
+
                       <div className="border-t border-slate-700 pt-2">
                         <p className="text-slate-500 italic">
                           Colors: 🟢 Synced | 🟡 Lagging | 🔴 Offline
@@ -124,21 +123,10 @@ export const Footer = () => {
             </div>
           )}
         </div>
-        
-        <div className="flex items-center gap-6 font-mono text-slate-500">
-          <Link to="/about" className="hover:text-cyan-400 transition-colors">
-            About
-          </Link>
-          <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
-            Docs
-          </a>
-          <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
-            GitHub
-          </a>
-          <a href="https://discord.gg/sooth" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
-            Discord
-          </a>
-        </div>
+
+        <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
+          <Twitter size={18} />
+        </a>
       </div>
     </footer>
   );
