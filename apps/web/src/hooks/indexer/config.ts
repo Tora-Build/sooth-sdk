@@ -24,6 +24,7 @@ const CHAIN_NAME_MAP: Record<number, string> = {
   84532: "baseSepolia",
   10143: "monadTestnet", 
   5042002: "arcTestnet",
+  6343: "megaethTestnet",
 };
 
 interface ChainStatus {
@@ -81,6 +82,7 @@ export async function checkChainReady(chainId: number): Promise<boolean> {
       84532: 36_260_300,
       10143: 5_932_477,
       5042002: 21_482_180,
+      6343: 8_684_176,
     };
     
     const startBlock = startBlocks[chainId] || 0;

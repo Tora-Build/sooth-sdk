@@ -27,6 +27,16 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 | AMMEngine | `0x9bfaf374d560dafca5ebb522de58ca97491a3035` |
 | MockUSDC | `0x20283a043d7cc60729f7c3d58785c7397735562e` |
 
+### MegaETH Testnet (chainId: 6343) - V10.8.1
+| Contract | Address |
+|----------|---------|
+| TickBookPoolManager | `0xaf358498666d7b0f8cd4a02b5194d19ca654756d` |
+| TickBookVault | `0x46889b5efdf72b506d40b3c339701dce27661232` |
+| LaunchpadEngine | `0x44808be5af27e6856ae40b26a594b03be728b506` |
+| Collateralizer | `0x96ec8fac4c5479cacf226b0070e52bfbd0c19800` |
+| AMMEngine | `0x67d74ce892608817a8c4eb2ef3591d8eec743be8` |
+| MockUSDC | `0xda836339e4487c4e6278babc4c1e3156b7252331` |
+
 ### Arc Testnet (chainId: 5042002) - V10.8.1
 | Contract | Address |
 |----------|---------|

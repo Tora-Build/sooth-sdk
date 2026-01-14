@@ -1,9 +1,9 @@
 # Project Status
 
 ## Current Focus
-- **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, and Arc Testnet all running V10.8.1 with expanded event coverage.
-- **Portfolio Market Name Fix (2026-01-13)** — Fixed Portfolio page showing address prefix instead of market question. Indexer schema updated to support names.
-- **Mobile UI Polish (2026-01-12)** — Fixed Pro page header vertical text bug and orders list overflow on mobile viewports.
+- **MegaETH Market Creation Debugged (2026-01-14)** — Resolved 28M gas limit requirement and clock drift issues. Successfully created `BTC100K` market and enabled pre-graduation trading.
+- **MegaETH Testnet Deployed (2026-01-14)** — Deployed V10.8.1 core contracts to MegaETH Testnet.
+- **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, and Arc Testnet all running V10.8.1.
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-01-13** — **Portfolio Market Name Fix**: Fixed bug where Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question. Root cause: when indexer was ready, code used placeholder names. Fix: always use RPC data for market names (LaunchpadEngine.markets() returns full question).
@@ -149,7 +149,17 @@
 | **LaunchpadEngine** | `0xa948000dfc95f4055c60bc235bf8d87b34e4bc8e` |
 | **MockUSDC** | `0x20283a043d7cc60729f7c3d58785c7397735562e` |
 
-**Note:** V10.8.1 redeploy (2026-01-13). Fresh monad redeploy to align PoolManager behavior with other chains.
+### MegaETH Testnet (chainId: 6343) — V10.8.1
+| Contract | Address |
+|----------|---------|
+| **TickBookPoolManager** | `0xb243697c5f642cd7e75e14f0f3cf224583641120` |
+| **Collateralizer** | `0xebb9f8bf365ba595ab70a2eef6099c29804a553b` |
+| **AMMEngine** | `0x2a1e74f74221b544d20d903fbf042e265e065703` |
+| **TickBookVault** | `0x125d547d5916b9e7d9c0bb312fbdaf127865fe1b` |
+| **LaunchpadEngine** | `0xc29ed9513c421bcc208388b7cc098fad0f338ba7` |
+| **MockUSDC** | `0x6b9923ffa94ef9339a3a07afcf204294fcb9a749` |
+
+**Note:** V10.8.1 redeploy (2026-01-14). Resolved MegaETH-specific gas limits (28M+) and validated market creation.
 
 
 ---

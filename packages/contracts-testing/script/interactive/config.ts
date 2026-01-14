@@ -73,6 +73,21 @@ export const arcTestnet: Chain = {
   testnet: true,
 };
 
+export const megaethTestnet: Chain = {
+  id: 6343,
+  name: 'MegaETH Testnet',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['https://megaeth-testnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+  },
+  testnet: true,
+};
+
 export interface ChainConfig {
   chain: Chain;
   rpc: string;
@@ -107,6 +122,14 @@ export const CHAINS: Record<string, ChainConfig> = {
     confirmations: 1,
     postTxWaitMs: 2000,
     aliases: ['arc', 'arc-testnet', 'arctestnet'],
+  },
+  megaethTestnet: {
+    chain: megaethTestnet,
+    rpc: 'https://megaeth-testnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K',
+    deploymentFile: 'megaethTestnet.json',
+    confirmations: 1,
+    postTxWaitMs: 1000,
+    aliases: ['megaeth', 'megaeth-testnet', 'megaethtestnet'],
   },
 };
 

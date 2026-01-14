@@ -187,14 +187,17 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
 
     // Pass startTime=0 to let contract use block.timestamp (avoids clock drift issues)
     const startTime = 0n;
-    const deadline = BigInt(Math.floor(Date.now() / 1000)) + BigInt(template.deadlineDays * 24 * 60 * 60);
+    // Use block timestamp as base for deadline to avoid issues with chains that have clock drift (like MegaETH)
+    const publicClient = ctx.actorManager.getPublicClient();
+    const block = await publicClient.getBlock();
+    const now = block.timestamp;
+    const deadline = now + BigInt(template.deadlineDays * 24 * 60 * 60);
 
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
       args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
-      gas: 2500000n,
     });
 
     const createReceipt = await actorManager.waitForTransactionReceipt(createHash);
@@ -890,7 +893,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     args: readonly unknown[],
   ): Promise<bigint> => {
     const MIN_GAS = 500_000n;
-    const MAX_GAS = 5_000_000n;
+    const MAX_GAS = 30_000_000n;
     const GAS_BUFFER_PERCENT = 120n;
 
     try {
@@ -898,7 +901,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
         address: deployment.contracts.TickBookPoolManager as `0x${string}`,
         abi: ABIS.TickBookPoolManager,
         functionName,
-        args,
+        args: args as any,
         account: address,
       });
       const withBuffer = (estimated * GAS_BUFFER_PERCENT) / 100n;

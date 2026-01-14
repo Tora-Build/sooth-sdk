@@ -53,6 +53,10 @@ export default createConfig({
       pollingInterval: 2_000,
       ethGetLogsBlockRange: 10,
     },
+    megaethTestnet: {
+      id: 6343,
+      rpc: process.env.MEGAETH_TESTNET_RPC_URL ?? "https://timothy.megaeth.com/rpc",
+    },
   },
   contracts: {
     TickBookPoolManager: {
@@ -69,6 +73,10 @@ export default createConfig({
         arcTestnet: {
           address: "0x12a7537f1ccf4fc650402cc573da14d184965566",
           startBlock: 21_482_193,
+        },
+        megaethTestnet: {
+          address: "0x8352aa95a7670057ac2ee73b7c8c39c5ae0901f5",
+          startBlock: 8_684_178,
         },
       },
     },
@@ -87,6 +95,10 @@ export default createConfig({
           address: "0x3c2f09ba129d9ac0ea7234aa1e796a0376177d8d",
           startBlock: 21_482_202,
         },
+        megaethTestnet: {
+          address: "0x5ab590b3526bfd4ba3c51858be917271e0361311",
+          startBlock: 8_684_179,
+        },
       },
     },
     TickBookVault: {
@@ -104,6 +116,10 @@ export default createConfig({
           address: "0x766347b587bb3c03d2d88d72e9a81c228006a548",
           startBlock: 21_482_187,
         },
+        megaethTestnet: {
+          address: "0x0f450a5589f0cea761c914e8d75e097d3fb1c27f",
+          startBlock: 8_684_177,
+        },
       },
     },
     AMMEngine: {
@@ -120,6 +136,10 @@ export default createConfig({
         arcTestnet: {
           address: "0x2d94583e48576cd031164c28b9705791aff97034",
           startBlock: 21_482_180,
+        },
+        megaethTestnet: {
+          address: "0x45419a4f8fc485ac548f289d1a6279b9010c11ca",
+          startBlock: 8_684_176,
         },
       },
     },
