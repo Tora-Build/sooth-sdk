@@ -75,8 +75,8 @@ export default createConfig({
           startBlock: 21_482_193,
         },
         megaethTestnet: {
-          address: "0x8352aa95a7670057ac2ee73b7c8c39c5ae0901f5",
-          startBlock: 8_684_178,
+          address: "0xb243697c5f642cd7e75e14f0f3cf224583641120",
+          startBlock: 8_684_000,
         },
       },
     },
@@ -96,8 +96,8 @@ export default createConfig({
           startBlock: 21_482_202,
         },
         megaethTestnet: {
-          address: "0x5ab590b3526bfd4ba3c51858be917271e0361311",
-          startBlock: 8_684_179,
+          address: "0xc29ed9513c421bcc208388b7cc098fad0f338ba7",
+          startBlock: 8_684_000,
         },
       },
     },
@@ -117,8 +117,8 @@ export default createConfig({
           startBlock: 21_482_187,
         },
         megaethTestnet: {
-          address: "0x0f450a5589f0cea761c914e8d75e097d3fb1c27f",
-          startBlock: 8_684_177,
+          address: "0x125d547d5916b9e7d9c0bb312fbdaf127865fe1b",
+          startBlock: 8_684_000,
         },
       },
     },
@@ -138,8 +138,8 @@ export default createConfig({
           startBlock: 21_482_180,
         },
         megaethTestnet: {
-          address: "0x45419a4f8fc485ac548f289d1a6279b9010c11ca",
-          startBlock: 8_684_176,
+          address: "0x2a1e74f74221b544d20d903fbf042e265e065703",
+          startBlock: 8_684_000,
         },
       },
     },

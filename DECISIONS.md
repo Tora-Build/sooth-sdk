@@ -1,5 +1,22 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-078: MegaETH Platform Stability & Gas Limit Handling
+- **Date**: 2026-01-14
+- **Status**: Accepted
+- **Context**:
+  - Market creation on MegaETH Testnet consistently reverted or timed out.
+  - Root cause 1: Hardcoded gas limit (2.5M) was insufficient for MegaETH (requires ~28M).
+  - Root cause 2: Clock drift between local machine and MegaETH sequencer caused "deadline in past" reverts.
+  - Root cause 3: CLI trading commands only supported orderbook-based markets, not pre-graduation Launchpad markets.
+- **Decision**:
+  1. **Dynamic Gas Estimation**: Removed hardcoded gas limits in `createmarket` and increased `MAX_GAS` cap to 30M in `estimateGas` helper.
+  2. **On-Chain Deadlines**: Calculate market deadlines using the `block.timestamp` fetched from the RPC instead of local system time.
+  3. **Unified CLI Trading**: Updated `market` command to route trades to `LaunchpadEngine.tradePositions` when a market key is not available but a market address is selected.
+- **Consequences**:
+  - Successful market creation on MegaETH Testnet.
+  - Improved CLI reliability across chains with different gas pricing and clock characteristics.
+  - Seamless transition from pre-graduation (AMM) to post-graduation (Orderbook) trading in the CLI.
+
 ## ADR-077: Event Instrumentation for Indexer Completeness
 - **Date**: 2026-01-12
 - **Status**: Accepted
