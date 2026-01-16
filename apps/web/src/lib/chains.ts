@@ -150,7 +150,7 @@ export const allowedChains: AllowedChain[] = [
     name: 'MegaETH Testnet',
     displayName: 'MegaETH',
     shortName: 'Mega',
-    rpcUrl: 'https://megaeth-testnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K',
+    rpcUrl: 'https://carrot.megaeth.com/rpc',
     explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
     icon: '⚡',
     nativeCurrency: {
@@ -184,7 +184,7 @@ export const megaethTestnet = defineChain({
   name: 'MegaETH Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://megaeth-testnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K'] },
+    default: { http: ['https://carrot.megaeth.com/rpc'] },
   },
   blockExplorers: {
     default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },

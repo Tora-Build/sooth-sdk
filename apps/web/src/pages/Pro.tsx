@@ -411,27 +411,40 @@ const LiquidityMap = ({ tickBook, allOrders, spotSells, currentProb, ammProb, is
         )}
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/50">
-        <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-xs text-slate-500 uppercase">Range Low</div>
-          <div className="text-sm font-mono font-bold text-slate-300">
-            {lowestBoundary === 100 && !hasRealData ? '—' : `${lowestBoundary.toFixed(1)}%`}
+      {(() => {
+        const ammCents = displayAmmProb * 100;
+        const proCents = displayProb * 100;
+        const diff = Math.abs(proCents - ammCents);
+        const hasArb = diff > 2;
+        return (
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">AMM</span>
+                <span className="font-mono font-bold text-white">{ammCents.toFixed(1)}¢</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">DIFF</span>
+                <span className={cn("font-mono font-bold", hasArb ? "text-yellow-400" : "text-slate-500")}>{diff.toFixed(1)}¢</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Low</span>
+                <span className="font-mono text-white">{lowestBoundary === 100 && !hasRealData ? '—' : `${lowestBoundary.toFixed(1)}¢`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">High</span>
+                <span className="font-mono text-white">{highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}¢`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Liq</span>
+                <span className="font-mono text-amber-400">{parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="text-center p-2 rounded-lg bg-slate-900/30">
-          <div className="text-xs text-slate-500 uppercase">Range High</div>
-          <div className="text-sm font-mono font-bold text-slate-300">
-            {highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}%`}
-          </div>
-        </div>
-        <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-xs text-slate-500 uppercase">Total Liq</div>
-          <div className="text-sm font-mono font-bold text-white">
-            {parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
-          </div>
-        </div>
-      </div>
+        );
+      })()}
     </div>
   );
 };
@@ -2208,126 +2221,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
             </button>
           </div>
-          {/* Prices */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {/* Pro Price */}
-            <div className={cn(
-              "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-              isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-            )}>
-              <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
-              <div className={cn("text-sm font-mono font-bold", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
-                {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                {hasArb && <Zap className="w-3 h-3 ml-1 inline-block text-cyan-400" />}
-              </div>
-            </div>
-            {/* AMM Price */}
-            <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
-              <div className="text-xs text-slate-500 uppercase">AMM</div>
-              <div className="text-sm font-mono font-bold text-slate-400">
-                {ammPriceCents.toFixed(1)}¢
-              </div>
-            </div>
-            {/* Diff */}
-            <div className={cn(
-              "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-              hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-            )}>
-              <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
-              <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
-                {arbSpread.toFixed(1)}¢
-              </div>
-            </div>
-          </div>
         </div>
-      )}
-
-      {/* Embedded Mode: Market Summary Card */}
-      {embedded && (
-        <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-          <div className="space-y-3">
-            {/* Market Info */}
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white flex-shrink-0">
-                {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
-                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-xs">GRADUATED</Badge>
-                </div>
-                <div className="text-sm text-slate-400 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-                <div className={cn(
-                  "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-                  isProPriceValid ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-                )}>
-                  <div className={cn("text-xs uppercase", isProPriceValid ? "text-slate-500/70" : "text-slate-500")}>Pro</div>
-                  <div className={cn("text-sm font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-slate-400" : "text-slate-500")}>
-                    {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                    {hasArb && <Zap className="w-4 h-4" />}
-                  </div>
-                </div>
-                <div className="text-center px-3 py-1.5 rounded-lg bg-slate-950 flex-shrink-0">
-                  <div className="text-xs text-slate-500 uppercase">AMM</div>
-                  <div className="text-sm font-mono font-bold text-slate-400">
-                    {ammPriceCents.toFixed(1)}¢
-                  </div>
-                </div>
-                <div className={cn(
-                  "text-center px-3 py-1.5 rounded-lg flex-shrink-0",
-                  hasArb ? "bg-slate-500/10 border border-slate-500/30" : "bg-slate-950"
-                )}>
-                  <div className={cn("text-xs uppercase", hasArb ? "text-slate-500/70" : "text-slate-500")}>Diff</div>
-                  <div className={cn("text-sm font-mono font-bold", hasArb ? "text-slate-400" : "text-slate-500")}>
-                    {arbSpread.toFixed(1)}¢
-                  </div>
-                </div>
-                <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
-                  <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-                </button>
-              </div>
-            </div>
-
-            {/* Market Key Info */}
-            <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-              <button
-                onClick={() => {
-                  if (tickBook?.marketKey) {
-                    navigator.clipboard.writeText(tickBook.marketKey);
-                    setMarketKeyCopied(true);
-                    toast.success('Market key copied!');
-                    setTimeout(() => setMarketKeyCopied(false), 2000);
-                  }
-                }}
-                className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-                title="Click to copy market key"
-              >
-                <span>Market Key:</span>
-                <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
-                {marketKeyCopied ? (
-                  <Check className="w-3 h-3 text-emerald-400" />
-                ) : (
-                  <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-                )}
-              </button>
-              <span>•</span>
-              <a
-                href={getAddressExplorerUrl(chainId, marketAddr)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-              >
-                <span>TruthMarket:</span>
-                <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
-                <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-              </a>
-            </div>
-          </div>
-
-        </Card>
       )}
 
       {/* Main Content Grid - 60/40 like Trade page */}
@@ -2335,6 +2229,61 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         {/* LEFT COLUMN: Liquidity Map + Orders (60%) */}
         <div className="lg:col-span-6 space-y-4">
+          {/* Embedded Mode: Market Summary Card */}
+          {embedded && (
+            <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white flex-shrink-0">
+                    {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
+                      <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-xs">GRADUATED</Badge>
+                    </div>
+                    <div className="text-sm text-slate-400 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
+                  </div>
+                  <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0 ml-auto" title="Refresh">
+                    <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+                  </button>
+                </div>
+                <div className="pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+                  <button
+                    onClick={() => {
+                      if (tickBook?.marketKey) {
+                        navigator.clipboard.writeText(tickBook.marketKey);
+                        setMarketKeyCopied(true);
+                        toast.success('Market key copied!');
+                        setTimeout(() => setMarketKeyCopied(false), 2000);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+                    title="Click to copy market key"
+                  >
+                    <span>Market Key:</span>
+                    <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
+                    {marketKeyCopied ? (
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+                    )}
+                  </button>
+                  <span>•</span>
+                  <a
+                    href={getAddressExplorerUrl(chainId, marketAddr)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+                  >
+                    <span>TruthMarket:</span>
+                    <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
+                    <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+                  </a>
+                </div>
+              </div>
+            </Card>
+          )}
           {/* Pixel Liquidity Map */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">

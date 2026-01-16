@@ -52,7 +52,7 @@ export const MarketCard = ({
   const priceYes = market?.priceYes ?? 0.5;
   const priceNo = 1 - priceYes;
 
-  const isExpired = deadline && Date.now() / 1000 > Number(deadline) && !isGraduated;
+  const isExpired = deadline && Number(deadline) <= 4102444800 && Date.now() / 1000 > Number(deadline) && !isGraduated;
 
   const graduationProgress = bBase && graduationThreshold && graduationThreshold > 0n
     ? Math.min(100, Number((bBase * 100n) / graduationThreshold))
@@ -189,7 +189,7 @@ export const MarketCard = ({
         ) : deadline && !isGraduated && (
           <div className="flex items-center gap-1 text-xs text-slate-500">
             <Clock className="w-3 h-3" />
-            <span>Deadline: {new Date(Number(deadline) * 1000).toLocaleDateString()}</span>
+            <span>Deadline: {Number(deadline) > 4102444800 ? 'No expiry' : new Date(Number(deadline) * 1000).toLocaleDateString()}</span>
           </div>
         )}
       </div>

@@ -32,25 +32,9 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     const progressPercent = graduationProgress ?? (thresholdVal > 0 ? Math.min((feesVal / thresholdVal) * 100, 100) : 0);
     const canGraduate = canGraduateProp ?? (progressPercent >= 100 && !isGraduated);
 
-    // Fee rate based on graduation
-    const feeRate = isGraduated ? '1%' : '5%';
-    const feeLabel = isGraduated ? 'Graduated Fee' : 'Bonding Fee';
-
-    // Minimized view for graduated markets
+    // Don't render for graduated markets - fee shown in header badge
     if (isGraduated) {
-        return (
-            <div className="rounded-lg bg-emerald-950/30 border border-emerald-900/30 px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-emerald-500/80 font-bold uppercase tracking-wider animate-pulse">
-                        <Zap size={14} />
-                        <span className="text-[11px]">TickBook Live</span>
-                    </div>
-                </div>
-                <div className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    1% Fee
-                </div>
-            </div>
-        );
+        return null;
     }
 
     // Full view for bonding markets
@@ -70,11 +54,6 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                             Liquidity grows with each trade
                         </div>
                     </div>
-                </div>
-
-                {/* Fee Badge */}
-                <div className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                    {feeLabel}: {feeRate}
                 </div>
             </div>
 

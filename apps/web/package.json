@@ -18,6 +18,7 @@
     "test:e2e:onchain": "playwright test --project=onchain"
   },
   "dependencies": {
+    "@sooth/sdk-core": "workspace:*",
     "express": "^4.21.0",
     "http-proxy-middleware": "^3.0.3",
     "@reown/appkit": "^1.8.14",

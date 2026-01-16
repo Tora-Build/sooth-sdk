@@ -91,10 +91,8 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
                     {name || 'Untitled Market'}
                 </h1>
 
-                {/* Status badge */}
-                <Badge variant={status.variant} className="flex items-center gap-1.5 px-2.5 py-1 flex-shrink-0">
-                    <span>{status.emoji}</span>
-                    <span>{status.label}</span>
+                <Badge variant={status.variant} className="px-2 py-0.5 text-xs flex-shrink-0">
+                    {status.label} · {isGraduated ? '1%' : '5%'} Fee
                 </Badge>
             </div>
 
@@ -115,16 +113,18 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
                         <Calendar size={12} />
                         <span className="text-slate-600">Expires:</span>
                         <span className="font-mono">
-                            {new Date(deadline * 1000).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
+                            {deadline > 4102444800
+                                ? 'No expiry'
+                                : new Date(deadline * 1000).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
                         </span>
                     </div>
-                    {timeRemaining && !isGraduated && !isExpired && (
+                    {timeRemaining && !isGraduated && !isExpired && deadline <= 4102444800 && (
                         <div className="flex items-center gap-1.5 text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded">
                             <Clock size={11} />
                             <span className="font-mono">{timeRemaining} left</span>

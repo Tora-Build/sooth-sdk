@@ -290,14 +290,48 @@ See: packages/contracts-evm/docs/research/V9/TICKBOOK_FEES.md for full documenta
 
 ---
 
+---
+
+## Infinite Deadline Handling
+
+Markets resolved by truth (not time) use "infinite" deadline.
+
 ```
-Version: V9.7 | KB: v5.3 | Updated: 2025-12-30
-Architecture: V9 Singleton (TickBookPoolManager + Hooks)
+IMPLEMENTATION:
+  deadline = 'infinite' → timestamp 7258118399 (Dec 31, 2199 23:59:59 UTC)
+
+WHY NOT MAX UINT64:
+  - Max uint64 (18446744073709551615) exceeds JavaScript Number.MAX_SAFE_INTEGER
+  - Would cause precision loss and display bugs in frontend
+  - Year 2199 is effectively infinite for prediction markets
+
+FRONTEND DISPLAY:
+  - Threshold: 4102444800 (year 2100)
+  - deadline > threshold → show "No expiry"
+  - deadline > threshold → never mark as "expired"
+
+CONTRACT VALIDATION:
+  - TruthMarket requires: deadline > block.timestamp
+  - Year 2199 passes validation on all chains
+
+FILES:
+  - CLI: packages/contracts-testing/script/interactive/commands/market.ts
+  - SDK: apps/web/src/lib/sdk/commands/market.ts
+  - UI:  apps/web/src/components/features/launchpad/MarketDetailHeader.tsx
+  - UI:  apps/web/src/components/features/market/MarketCard.tsx
+```
+
+---
+
+```
+Version: V10.8.2 | KB: v5.4 | Updated: 2026-01-16
+Architecture: V10 Unified Crossing (TickBookPoolManager)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
 Settlement: Pull-based via TruthMarket
 Custody: None (direct USDC transfers)
 Graduation: threshold = bBase × ln(2) × multiplier (LP break-even based)
 TickBook Fees: Maker/Taker split (taker pays volatility, maker gets rebate)
+Infinite Deadline: Year 2199 (7258118399), display "No expiry" for > year 2100
 QA: 92 tests, invariant suite, settlement coverage added
 ```

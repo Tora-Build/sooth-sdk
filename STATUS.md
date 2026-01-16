@@ -1,12 +1,18 @@
 # Project Status
 
 ## Current Focus
-- **MegaETH Graduation Fixed (2026-01-14)** — Resolved graduation tx failures on MegaETH. Root cause: MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Fixed by increasing gas limit to 60M for graduation trades.
-- **MegaETH Market Creation Debugged (2026-01-14)** — Resolved 28M gas limit requirement and clock drift issues. Successfully created `BTC100K` market and enabled pre-graduation trading.
-- **MegaETH Testnet Deployed (2026-01-14)** — Deployed V10.8.1 core contracts to MegaETH Testnet.
-- **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, and Arc Testnet all running V10.8.1.
+- **V10.8.2 Contract Optimization (2026-01-16)** — Removed redundant `buyFromSpotSell` function. V10 unified crossing handles spot fills automatically via `placeOrder`.
+- **Indexer Event Enhancement (2026-01-16)** — Added `symbol` to `MarketCreated` event so indexer can capture market token names. Added `LaunchpadEngine:MarketCreated` and `MarketGraduated` handlers.
+- **Trade/Pro UI Cleanup (2026-01-16)** — Moved fee info to status badge, removed graduated view from GraduationProgress, moved market header into Pro left panel.
+- **Geek Mode CLI (2026-01-16)** — Added browser-based CLI (`/geek`) with WebTerminal, local wallet (auto-sign), simulate command with streaming output, and full SDK integration.
+- **V10.8.1 All Testnets Deployed (2026-01-13)** — Base Sepolia, Monad, Arc, and MegaETH Testnet all running V10.8.1.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-16** — **V10.8.2 Contract Optimization**: Removed `buyFromSpotSell()` function from TickBookPoolManager. V10 unified crossing already handles spot fills automatically (spot-first priority via `placeOrder`). Removed CLI `buyspotsell` command and ABI entries.
+- **2026-01-16** — **Indexer Event Enhancement**: Added `symbol` field to `LaunchpadEngine.MarketCreated` event. Added `LaunchpadEngine:MarketCreated` and `LaunchpadEngine:MarketGraduated` handlers to indexer. Market symbols now captured in `launchpad_market` table.
+- **2026-01-16** — **Trade/Pro UI Cleanup**: Removed "Bonding Fee: 5%" badge from GraduationProgress (returns null for graduated markets). Added fee info to MarketDetailHeader status badge (`Graduated · 1% Fee` or `Bonding · 5% Fee`). Moved market header card into Pro left panel only. Updated LiquidityMap stats.
+- **2026-01-16** — **SDK Streaming Progress**: Added progress callbacks to `createmarket`, `graduate`, `registermarket` commands. Geek page shows streaming step updates (`[1/4] Checking USDC...`).
+- **2026-01-16** — **Geek Mode CLI**: Added `/geek` page with browser-based CLI. Features: WebTerminal with streaming output, local wallet (create/enable/disable/clear), simulate command with detailed order output (like internal CLI), market persistence. Created `@sooth/sdk-core` shared package unifying utilities between internal CLI and web SDK.
 - **2026-01-15** — **Pro UI Refinement**: Removed the Split/Merge panel from `Pro.tsx`. The feature was creating confusion because the generated ERC20 tokens cannot be traded on the Vault-based orderbook (no bridge exists). The panel code remains in the codebase (`SplitMergePanel.tsx`) with integer formatting fixes applied for future use.
 - **2026-01-14** — **MegaETH Graduation Gas Fix**: Fixed graduation tx failures on MegaETH. MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Updated CLI and frontend to use 60M gas for graduation trades on MegaETH. Also switched to official MegaETH RPC (`carrot.megaeth.com/rpc`).
 - **2026-01-14** — **MegaETH Stability Fixes**: Debugged and resolved market creation reverts on MegaETH. Root cause was a 28M gas requirement (vs 2.5M cap) and local clock drift. Updated CLI to use block timestamp for deadlines and enabled AMM trading in CLI.
@@ -43,12 +49,12 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Indexer Market Name Population** — Schema has `name`/`symbol` fields but they're null. Need to implement: (1) TruthMarket factory pattern in Ponder, or (2) Add name/symbol to `LaunchpadEngine.MarketCreated` event, or (3) Manual backfill script.
+- **Indexing Reset** — Reset indexer DB and reindex with new V10.8.2 addresses (Base: 36389936, Monad: 6513951, Arc: 21946905).
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
-- **Indexing Reset** — Reset indexer DB and reindex with new Arc addresses (start block 21,290,000).
 - **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
-- **Contract Verification** — Verify V10.8 contracts on Basescan/Monadexplorer/Arcscan.
+- **Contract Verification** — Verify V10.8.2 contracts on Basescan/Monadexplorer/Arcscan.
+- **MegaETH V10.8.2** — MegaETH has 5000 byte DA size limit; Collateralizer contract exceeds this. Requires contract size optimization or alternative deployment strategy.
 
 ## Known Issues
 - **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
@@ -120,39 +126,41 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.8.1
+### Base Sepolia (chainId: 84532) — V10.8.2
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xabfac62af3e6fb92765bea241653c3f454169dd8` |
-| **Collateralizer** | `0x2c637e7c996758780e0d4ed781734a31c60c428d` |
-| **AMMEngine** | `0x28b866bc672c7bd79067e5d826f2956c2cb3afb9` |
-| **TickBookVault** | `0x4bf295e9d022986f02501a421bda3d7d3f73cc3f` |
-| **LaunchpadEngine** | `0xa3c20cda4877a1c76728f9cea2224189af2507c4` |
-| **MockUSDC** | `0xd988365b9b329d8c91548eb3695b65c3cbf1cb9c` |
+| **TickBookPoolManager** | `0x096105c2052d10d8d637b7f2f8af88b10396fe5e` |
+| **Collateralizer** | `0xf48510b2a9489469ac73446d1fb18195ddcd81c9` |
+| **AMMEngine** | `0x37718d2eaccfbabd0b07929a900d8cf60db57680` |
+| **TickBookVault** | `0xa2df334de3feb81a32bed868687ffbf9a0b218ab` |
+| **LaunchpadEngine** | `0x29225a42fbd93726424112f8f3eb043698c535c7` |
+| **MockUSDC** | `0x2bb5f27f2f674a80cb5f0fb920d8cd0a9b0b53d6` |
 
-**Note:** V10.8.1 (2026-01-12 baseline). Added event coverage for indexer.
+**Note:** V10.8.2 (2026-01-16). Removed `buyFromSpotSell`, added `symbol` to MarketCreated event.
 
-### Arc Testnet (chainId: 5042002) — V10.8.1
+### Arc Testnet (chainId: 5042002) — V10.8.2
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x12a7537f1ccf4fc650402cc573da14d184965566` |
-| **Collateralizer** | `0xd3c564a6a67997f312e5afa34d0cc2e28c560f6a` |
-| **AMMEngine** | `0x2d94583e48576cd031164c28b9705791aff97034` |
-| **TickBookVault** | `0x766347b587bb3c03d2d88d72e9a81c228006a548` |
-| **LaunchpadEngine** | `0x3c2f09ba129d9ac0ea7234aa1e796a0376177d8d` |
-| **MockUSDC** | `0x1678256a75940938fd9ef78852c48e025f48a3ab` |
+| **TickBookPoolManager** | `0x4af0dc87a6b2a1764ecd8ea6f705e7ab3515ec9c` |
+| **Collateralizer** | `0xf720f8de1f8c2ac572b3b9636607d1cf7f9cadee` |
+| **AMMEngine** | `0x9b8280640361171c94e2f7d221a245df3030f5d3` |
+| **TickBookVault** | `0x9afc2ab14b9e1e1c01f05b5dcc9c583039fe7cb4` |
+| **LaunchpadEngine** | `0xebac310b73a4d9198cd7c688174a03370000f660` |
+| **MockUSDC** | `0xf91116cd23698183943f9d75828e374dbf1f4f7c` |
 
-**Note:** V10.8.1 redeploy (2026-01-13). Fresh arc redeploy to clear historical markets and avoid rate-limited RPCs.
+**Note:** V10.8.2 (2026-01-16). Removed `buyFromSpotSell`, added `symbol` to MarketCreated event.
 
-### Monad Testnet (chainId: 10143) — V10.8.1
+### Monad Testnet (chainId: 10143) — V10.8.2
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xe837986c70a38de67835059e5adb8b33ba145053` |
-| **Collateralizer** | `0x02f25f2cd2a3b476804070110ea587e796e123b4` |
-| **AMMEngine** | `0x9bfaf374d560dafca5ebb522de58ca97491a3035` |
-| **TickBookVault** | `0xbb5e3d1eb8c7b9930dc265adbbc21d8e927e3c79` |
-| **LaunchpadEngine** | `0xa948000dfc95f4055c60bc235bf8d87b34e4bc8e` |
-| **MockUSDC** | `0x20283a043d7cc60729f7c3d58785c7397735562e` |
+| **TickBookPoolManager** | `0x767e0260fce8cdb6fd06aa4d997c0b86c780a73d` |
+| **Collateralizer** | `0x5867e37122b5be1afda83628fa873a856c035220` |
+| **AMMEngine** | `0x85e29adb6591857aab50e6f20276981f31917b9c` |
+| **TickBookVault** | `0x6bcff6cd4edca4d4b0cd6bcbf47de5ad134328ba` |
+| **LaunchpadEngine** | `0xbd280f20ca24d9daecc8fc8756e7408ff095880d` |
+| **MockUSDC** | `0xca1d02199aeb37eb74fc01799847d74d6c6f4bd1` |
+
+**Note:** V10.8.2 (2026-01-16). Removed `buyFromSpotSell`, added `symbol` to MarketCreated event.
 
 ### MegaETH Testnet (chainId: 6343) — V10.8.1
 | Contract | Address |
@@ -164,7 +172,7 @@
 | **LaunchpadEngine** | `0xc29ed9513c421bcc208388b7cc098fad0f338ba7` |
 | **MockUSDC** | `0x6b9923ffa94ef9339a3a07afcf204294fcb9a749` |
 
-**Note:** V10.8.1 redeploy (2026-01-14). Resolved MegaETH-specific gas limits (28M+) and validated market creation.
+**Note:** V10.8.1 (2026-01-14). MegaETH has DA size limit preventing V10.8.2 deployment.
 
 
 ---

@@ -23,6 +23,7 @@ import { Portfolio } from './pages/Portfolio';
 import { Gov } from './pages/Gov';
 import { Learn } from './pages/Learn';
 import { ExploreExternalMarkets } from './pages/ExploreExternalMarkets';
+import { Geek } from './pages/Geek';
 
 import './index.css';
 
@@ -41,6 +42,7 @@ createAppKit({
     analytics: true,
     email: true,
     socials: ['google', 'github', 'discord'],
+    smartSessions: true,
   },
   themeMode: 'dark',
   themeVariables: {
@@ -84,6 +86,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/gov" element={<Gov />} />
               <Route path="/faucet" element={<Faucet />} />
               <Route path="/explore-markets" element={<ExploreExternalMarkets />} />
+              <Route path="/geek" element={<Geek />} />
             </Route>
           </Routes>
         </BrowserRouter>
