@@ -507,10 +507,6 @@ async function handleCommand(input: string): Promise<void> {
         await run(orderbookCommands.cancelspotsell(ctx, args));
         break;
 
-      case 'buyspotsell':
-        await run(orderbookCommands.buyspotsell(ctx, args));
-        break;
-
       case 'spotsells':
         await run(orderbookCommands.spotsells(ctx, args));
         break;

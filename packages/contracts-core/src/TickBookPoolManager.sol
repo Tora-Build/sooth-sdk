@@ -884,69 +884,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _tickLiquidity[marketKey][outcome][tick].spotLiquidity;
     }
 
-    function buyFromSpotSell(
-        bytes32 marketKey,
-        uint256 sellId,
-        uint256 shares,
-        uint256 maxCost
-    ) external nonReentrant returns (uint256 cost) {
-        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
-        if (!order.active) revert SpotSellNotActive();
-        
-        Market memory m = _markets[marketKey];
-        if (!m.isActive) revert MarketNotActive();
-        if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
 
-        uint256 available = order.sharesTotal - order.sharesFilled;
-        if (shares > available) revert InsufficientShares();
-        if (shares == 0) revert ZeroAmount();
-
-        uint256 priceLow = TickMath.tickToProbability(order.tickLower);
-        uint256 priceHigh = TickMath.tickToProbability(order.tickUpper);
-        uint256 avgPrice = (priceLow + priceHigh) / 2;
-        
-        cost = (avgPrice * shares) / WAD;
-        if (cost > maxCost) revert SlippageExceeded();
-
-        uint256 fee = (cost * takerFeeBps) / 10000;
-        uint256 totalCost = cost + fee;
-
-        vault.spendAvailableToMarket(msg.sender, m.truthMarket, totalCost);
-        vault.transferLockedOutcome(m.truthMarket, order.owner, msg.sender, order.outcome, shares);
-
-        order.sharesFilled += uint128(shares);
-        order.proceedsWad += uint128(cost);
-
-        // V10: Remove from unified tick liquidity
-        uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
-        uint128 densityReduction = uint128(shares / ticksInRange);
-        for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
-            TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
-            if (tick.spotLiquidity >= densityReduction) {
-                tick.spotLiquidity -= densityReduction;
-            } else {
-                tick.spotLiquidity = 0;
-            }
-            if (tick.spotLiquidity == 0) {
-                _spotBitmaps[marketKey][order.outcome].clearBit(t);
-            }
-        }
-
-        if (fee > 0 && feeRecipient != address(0)) {
-            vault.transferFee(m.truthMarket, feeRecipient, fee);
-        }
-
-        if (order.sharesFilled >= order.sharesTotal) {
-            order.active = false;
-            _removeFromUserSpotSells(marketKey, order.owner, sellId);
-            if (order.proceedsWad > 0) {
-                vault.creditUsdcAvailable(order.owner, order.proceedsWad);
-                order.proceedsWad = 0;
-            }
-        }
-
-        emit SpotSellFilled(marketKey, sellId, shares, cost);
-    }
 
     function _removeFromUserSpotSells(bytes32 marketKey, address user, uint256 sellId) internal {
         bool removed = _removeFromArray(_userSpotSells[marketKey][user], sellId);

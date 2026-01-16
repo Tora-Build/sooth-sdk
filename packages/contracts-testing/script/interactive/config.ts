@@ -318,14 +318,7 @@ export const ABIS = {
         { type: 'uint256', name: 'sellId' },
       ], outputs: [{ type: 'uint256', name: 'sharesReturned' }], stateMutability: 'nonpayable'
     },
-    {
-      name: 'buyFromSpotSell', type: 'function', inputs: [
-        { type: 'bytes32', name: 'marketKey' },
-        { type: 'uint256', name: 'sellId' },
-        { type: 'uint256', name: 'shares' },
-        { type: 'uint256', name: 'maxCost' },
-      ], outputs: [{ type: 'uint256', name: 'cost' }], stateMutability: 'nonpayable'
-    },
+
     {
       name: 'claimSpotSellProceeds', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },

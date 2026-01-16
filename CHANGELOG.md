@@ -4,6 +4,62 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V10.8.2 Deployment (2026-01-16)
+- **Deployed**: V10.8.2 to Base Sepolia, Monad Testnet, and Arc Testnet.
+- **MegaETH**: Deployment failed due to 5000 byte DA size limit (Collateralizer: 5011 bytes). Remains on V10.8.1.
+- **Synced**: Frontend `deployments.json`, indexer `ponder.config.ts` with new addresses and start blocks.
+
+### V10.8.2 Contract Optimization (2026-01-16)
+- **Removed**: `buyFromSpotSell()` function from `TickBookPoolManager.sol`. V10 unified crossing already handles spot fills automatically with spot-first priority via `placeOrder`.
+- **Removed**: `buyspotsell` CLI command from interactive test REPL.
+- **Removed**: `buyFromSpotSell` ABI entries from CLI config and frontend ABI.
+- **Rationale**: Function was redundant since V10.4 (RFC-001) where spot fills are crossed automatically during `placeOrder()`.
+
+### Indexer Event Enhancement (2026-01-16)
+- **Contract**: Added `symbol` field to `LaunchpadEngine.MarketCreated` event in both interface and implementation.
+- **Indexer**: Added `LaunchpadEngine:MarketCreated` handler - creates `launchpadMarket` record with symbol from event.
+- **Indexer**: Added `LaunchpadEngine:MarketGraduated` handler - updates `isGraduated` and `graduatedAt` fields.
+- **ABI**: Updated `packages/indexer/src/abis/LaunchpadEngine.ts` with new event signature.
+- **Note**: Requires contract redeployment for new markets to emit symbol. Existing markets will have null symbol.
+
+### Trade/Pro UI Cleanup (2026-01-16)
+- **Removed**: "Bonding Fee: 5%" badge from `GraduationProgress.tsx`. Component now returns `null` for graduated markets.
+- **Added**: Fee info to status badge in `MarketDetailHeader.tsx` - shows `Graduated · 1% Fee` or `Bonding · 5% Fee`.
+- **Moved**: Market header card into Pro left panel only (was full-width above grid).
+- **Updated**: LiquidityMap stats row - Left: `AMM 50.0¢ | DIFF 24.1¢`, Right: `Low 0.1¢ | High 99.9¢ | Liq 6,601`.
+
+### SDK Streaming Progress (2026-01-16)
+- **Enhanced**: `createmarket` command now streams progress: `[1/4] Checking USDC...`, `[2/4] Approving...`, etc.
+- **Enhanced**: `graduate` command streams each trade step: `[1/8] buy yes 1234.56 ✓`
+- **Enhanced**: `registermarket` command streams: `[1/3] Fetching tokens...`, `[2/3] Checking status...`, `[3/3] Registering...`
+- **Added**: `onProgress` callback parameter to SDK method signatures.
+- **Updated**: Geek page handlers to display streaming progress in terminal.
+
+### Geek Mode CLI (2026-01-16)
+- **New Page**: Added `/geek` route with browser-based CLI terminal for power users.
+- **WebTerminal**: Custom terminal component with command history, streaming output support, and styled output lines.
+- **Local Wallet**: Auto-signing wallet for testnet use. Commands: `lw create`, `lw enable`, `lw disable`, `lw clear`. Key stored in localStorage, never leaves browser.
+- **Simulate Command**: Places random orders with detailed output matching internal CLI format (`Order 1: RNG #423 YES [40.0%-55.0%] 87.00 (filled: 12.50, resting: 74.50) (gas: 522318)`). Streams results as each order completes.
+- **SDK Integration**: Full access to all SDK commands (balance, mint, deposit, order, cancel, claim, state, book, etc.).
+- **Files Added**: `apps/web/src/pages/Geek.tsx`, `apps/web/src/components/features/WebTerminal.tsx`, `apps/web/src/hooks/useLocalWallet.ts`, `apps/web/src/lib/sdk/`
+
+### SDK Core Package (2026-01-16)
+- **New Package**: Created `packages/sdk-core` (`@sooth/sdk-core`) with shared utilities for internal CLI and web SDK.
+- **Shared Utils**: `formatWad`, `parseWad`, `parseTickRange`, `parseOutcome`, `formatOutcome`, `formatTick`, `shortAddress`, `shortTx`, `computeMarketKey`, `sleep`, `getOrderType`
+- **Shared Types**: `OutputLine`, `CommandResult`, `OrderResult`, `Order`, `MarketState`, `Balances`
+- **Error Decoding**: `ERROR_SELECTORS`, `PANIC_CODES`, `decodeError`, `isTransientError`, `isContractError`
+- **Integration**: Both internal CLI (`packages/contracts-testing`) and web SDK (`apps/web/src/lib/sdk`) now import from `@sooth/sdk-core`
+
+### RPC Security (2026-01-16)
+- **Removed API Keys**: Removed hardcoded Alchemy API keys from frontend bundle (`chains.ts`, `wagmi.ts`).
+- **Public Fallbacks**: Frontend now uses public RPCs:
+  - Base Sepolia: `sepolia.base.org`
+  - Monad: `rpc.ankr.com/monad_testnet`
+  - Arc: `rpc.blockdaemon.testnet.arc.network` (+ 3 fallbacks)
+  - MegaETH: `carrot.megaeth.com/rpc`
+- **Private RPCs**: Internal CLI reads from `.env` (`MONAD_TESTNET_RPC_URL`, etc.) - not bundled into frontend.
+- **Render Config**: No changes needed - `VITE_*` env vars optional, falls back to public RPCs if unset.
+
 ### Pro Page Cleanup (2026-01-15)
 - **Removed (Split/Merge Panel)**: Removed `<SplitMergePanel />` from `Pro.tsx`.
   - **Reason**: The panel interacted with `Collateralizer` (ERC20 tokens), but the Pro page trading (`TickBookVault`) uses internal virtual shares.

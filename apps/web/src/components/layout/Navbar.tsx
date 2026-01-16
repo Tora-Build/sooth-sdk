@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
 import uiContent from '../../config/ui-content.json';
-import { Wallet, TrendingUp, Menu, Droplets, BarChart3, Rocket, Shield, BookOpen, Briefcase, ChevronDown, Globe } from 'lucide-react';
+import { Wallet, TrendingUp, Menu, Droplets, BarChart3, Rocket, Shield, BookOpen, Briefcase, ChevronDown, MoreHorizontal, Terminal } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const { navbar: content } = uiContent;
@@ -53,12 +53,7 @@ export const Navbar = () => {
           </Link>
 
           {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            <NavLink to="/portfolio" active={isActive('/portfolio')}>
-              <Briefcase className="w-4 h-4" />
-              Portfolio
-            </NavLink>
-
+          <nav className="hidden md:flex items-center gap-0">
             <NavLink to="/create" active={isActive('/create')}>
               <Rocket className="w-4 h-4" />
               {content.launchpad}
@@ -74,35 +69,48 @@ export const Navbar = () => {
               {content.pro}
             </NavLink>
 
+            <NavLink to="/geek" active={isActive('/geek')}>
+              <Terminal className="w-4 h-4" />
+              Geek
+            </NavLink>
+
+            <NavLink to="/portfolio" active={isActive('/portfolio')}>
+              <Briefcase className="w-4 h-4" />
+              Portfolio
+            </NavLink>
+
             {/* More Dropdown */}
             <div className="relative" ref={moreRef}>
               <button
                 onClick={() => setMoreOpen(!moreOpen)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all",
+                  "flex items-center gap-1.5 px-2 py-2 text-sm font-medium rounded-lg transition-all",
                   isMoreActive
-                    ? "text-cyan-400 bg-cyan-500/10"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                    ? "bg-cyan-500/10"
+                    : "hover:bg-slate-800/50"
                 )}
               >
-                <Globe className="w-4 h-4" />
-                More
-                <ChevronDown className={cn("w-3 h-3 transition-transform", moreOpen && "rotate-180")} />
+                <div className="flex items-center gap-0.5">
+                  <div className={cn("w-1.5 h-1.5 rounded-full", isMoreActive ? "bg-cyan-400" : "bg-blue-400")} />
+                  <div className={cn("w-1.5 h-1.5 rounded-full", isMoreActive ? "bg-cyan-400" : "bg-purple-400")} />
+                  <div className={cn("w-1.5 h-1.5 rounded-full", isMoreActive ? "bg-cyan-400" : "bg-cyan-400")} />
+                </div>
+                <ChevronDown className={cn("w-3 h-3 transition-transform", isMoreActive ? "text-cyan-400" : "text-slate-400", moreOpen && "rotate-180")} />
               </button>
 
               {moreOpen && (
-                <div className="absolute top-full left-0 mt-1 w-40 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1 z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="absolute top-full right-0 mt-1 w-36 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1 z-50 animate-in fade-in slide-in-from-top-1">
                   <DropdownLink to="/gov" active={isActive('/gov')} onClick={() => setMoreOpen(false)}>
                     <Shield className="w-4 h-4 text-blue-400" />
-                    <span className="text-white font-bold">{content.gov}</span>
+                    <span>{content.gov}</span>
                   </DropdownLink>
                   <DropdownLink to="/learn" active={isActive('/learn')} onClick={() => setMoreOpen(false)}>
                     <BookOpen className="w-4 h-4 text-purple-400" />
-                    <span className="text-white font-bold">{content.learn}</span>
+                    <span>{content.learn}</span>
                   </DropdownLink>
                   <DropdownLink to="/faucet" active={isActive('/faucet')} onClick={() => setMoreOpen(false)}>
                     <Droplets className="w-4 h-4 text-cyan-400" />
-                    <span className="text-white font-bold">{content.faucet}</span>
+                    <span>{content.faucet}</span>
                   </DropdownLink>
                 </div>
               )}
@@ -152,15 +160,6 @@ export const Navbar = () => {
       >
         <nav className="flex flex-col gap-2">
           <MobileNavLink
-            to="/portfolio"
-            active={isActive('/portfolio')}
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <Briefcase className="w-5 h-5" />
-            <span>Portfolio</span>
-          </MobileNavLink>
-
-          <MobileNavLink
             to="/create"
             active={isActive('/create')}
             onClick={() => setIsMobileMenuOpen(false)}
@@ -185,6 +184,24 @@ export const Navbar = () => {
           >
             <BarChart3 className="w-5 h-5" />
             <span>{content.pro}</span>
+          </MobileNavLink>
+
+          <MobileNavLink
+            to="/geek"
+            active={isActive('/geek')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <Terminal className="w-5 h-5" />
+            <span>Geek</span>
+          </MobileNavLink>
+
+          <MobileNavLink
+            to="/portfolio"
+            active={isActive('/portfolio')}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <Briefcase className="w-5 h-5" />
+            <span>Portfolio</span>
           </MobileNavLink>
 
           <div className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest mt-2 border-t border-slate-800/50 pt-4">More</div>

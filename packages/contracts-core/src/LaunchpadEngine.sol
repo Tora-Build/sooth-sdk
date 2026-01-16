@@ -291,7 +291,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
         allMarkets.push(market);
 
-        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
+        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens, symbol);
     }
 
     // ============================================

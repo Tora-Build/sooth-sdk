@@ -117,7 +117,6 @@ const monadDefaultUrls = [
 
 const megaethDefaultUrls = [
   'https://carrot.megaeth.com/rpc',
-  'https://megaeth-testnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN',
 ];
 
 // Create Wagmi Adapter with custom RPC

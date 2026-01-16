@@ -777,3 +777,23 @@ TickBookPoolManagerV10.sol:  oppLiqInOverlap ← WRONG (stale)
   - Tests: Added `SpotSellTickSpace.t.sol` with 6 regression tests (all passing)
   - Gas impact: +11k (350k → 361k) - acceptable for correctness
 
+---
+
+## Future Contract Cleanup: buyFromSpotSell (2026-01-15)
+
+### Note: `buyFromSpotSell` May Be Obsolete
+- **Date:** 2026-01-15
+- **Context:** V10 unified crossing automatically crosses spot sells during `placeOrder()`
+- **Function:** `TickBookPoolManager.buyFromSpotSell(marketKey, sellId, shares, maxCost)`
+- **Current Status:** Function exists but is NOT used by frontend or CLI
+- **Reason:** When a user places a buy order via `placeOrder()`, the contract automatically:
+  1. Crosses against spot sells first (spot-first crossing)
+  2. Then crosses against range orders
+  3. Remaining becomes resting order
+- **Recommendation for V11+:** Consider removing `buyFromSpotSell` from the contract:
+  - Reduces contract size (~500 bytes)
+  - Removes redundant code path
+  - Simplifies mental model (one way to buy, one way to sell)
+- **If Keeping:** Only useful for power users who want to target a specific spot sell by ID
+- **SDK Status:** Removed `buyspotsell` command from Geek Mode CLI (2026-01-15)
+

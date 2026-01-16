@@ -58,25 +58,24 @@ const AMMEngineAbi = parseAbi([
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
 ]);
 
-// Predefined market templates
-const MARKET_TEMPLATES: Record<string, { question: string; name: string; symbol: string; deadlineDays: number }> = {
+const MARKET_TEMPLATES: Record<string, { question: string; name: string; symbol: string; deadline: string }> = {
   alien: {
-    question: 'Will UN confirm alien life by 2026?',
+    question: 'The UN officially confirm extraterrestrial life.',
     name: 'UN Confirms Alien Life',
     symbol: 'ALIEN',
-    deadlineDays: 365,
+    deadline: 'infinite',
   },
-  btc100k: {
-    question: 'Will BTC reach $100k by end of 2025?',
-    name: 'BTC Reaches 100k',
-    symbol: 'BTC100K',
-    deadlineDays: 180,
+  btcath: {
+    question: 'Will BTC/USD reach a new all-time high in 2026? (Chainlink 6H TWAP)',
+    name: 'BTC All-Time High',
+    symbol: 'BTCATH',
+    deadline: '2026-12-31',
   },
-  custom: {
-    question: '',
-    name: '',
-    symbol: '',
-    deadlineDays: 30,
+  lakers: {
+    question: 'Will the LA Lakers win the 2025-26 NBA Championship?',
+    name: 'Lakers 2026 Championship',
+    symbol: 'LAKERS',
+    deadline: '2026-07-01',
   },
 };
 
@@ -137,7 +136,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   console.log(`  Name:      ${template.name}`);
   console.log(`  Symbol:    ${template.symbol}`);
   console.log(`  Liquidity: ${formatWad(liquidityWad)} (b parameter)`);
-  console.log(`  Deadline:  ${template.deadlineDays} days from now`);
+  console.log(`  Deadline:  ${template.deadline}`);
   console.log('');
 
   try {
@@ -186,21 +185,20 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     const spinner2 = new Spinner('[2/2] Creating market in LaunchpadEngine...');
     spinner2.start();
 
-    // Pass startTime=0 to let contract use block.timestamp (avoids clock drift issues)
     const startTime = 0n;
-    // Use block timestamp as base for deadline to avoid issues with chains that have clock drift (like MegaETH)
-    const publicClient = ctx.actorManager.getPublicClient();
-    const block = await publicClient.getBlock();
-    const now = block.timestamp;
-    const deadline = now + BigInt(template.deadlineDays * 24 * 60 * 60);
+    const deadline = template.deadline === 'infinite'
+      ? BigInt('7258118399')
+      : BigInt(Math.floor(new Date(template.deadline + 'T23:59:59Z').getTime() / 1000));
 
-    const MAX_GAS = 30_000_000n;
+    // Gas limits vary by chain. Base Sepolia limits ~15M, MegaETH needs ~30M for code deployment
+    const isMegaETH = ctx.config.chain.id === 6343;
+    const createGas = isMegaETH ? 30_000_000n : 10_000_000n;
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
       args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
-      gas: MAX_GAS,
+      gas: createGas,
     });
 
     const createReceipt = await actorManager.waitForTransactionReceipt(createHash);

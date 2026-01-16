@@ -16,7 +16,8 @@ interface ILaunchpadEngine {
         address indexed creator,
         uint256 initialLiquidity,
         uint256 deposit,
-        uint256 lpTokens
+        uint256 lpTokens,
+        string symbol
     );
 
     event PositionTraded(

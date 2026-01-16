@@ -63,16 +63,16 @@ export default createConfig({
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0xabfac62af3e6fb92765bea241653c3f454169dd8",
-          startBlock: 36_260_304,
+          address: "0x096105c2052d10d8d637b7f2f8af88b10396fe5e",
+          startBlock: 36_389_936,
         },
         monadTestnet: {
-          address: "0xe837986c70a38de67835059e5adb8b33ba145053",
-          startBlock: 5_932_484,
+          address: "0x767e0260fce8cdb6fd06aa4d997c0b86c780a73d",
+          startBlock: 6_513_951,
         },
         arcTestnet: {
-          address: "0x12a7537f1ccf4fc650402cc573da14d184965566",
-          startBlock: 21_482_193,
+          address: "0x4af0dc87a6b2a1764ecd8ea6f705e7ab3515ec9c",
+          startBlock: 21_946_905,
         },
         megaethTestnet: {
           address: "0xb243697c5f642cd7e75e14f0f3cf224583641120",
@@ -84,16 +84,16 @@ export default createConfig({
       abi: LaunchpadEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0xa3c20cda4877a1c76728f9cea2224189af2507c4",
-          startBlock: 36_260_309,
+          address: "0x29225a42fbd93726424112f8f3eb043698c535c7",
+          startBlock: 36_389_940,
         },
         monadTestnet: {
-          address: "0xa948000dfc95f4055c60bc235bf8d87b34e4bc8e",
-          startBlock: 5_932_492,
+          address: "0xbd280f20ca24d9daecc8fc8756e7408ff095880d",
+          startBlock: 6_513_958,
         },
         arcTestnet: {
-          address: "0x3c2f09ba129d9ac0ea7234aa1e796a0376177d8d",
-          startBlock: 21_482_202,
+          address: "0xebac310b73a4d9198cd7c688174a03370000f660",
+          startBlock: 21_946_913,
         },
         megaethTestnet: {
           address: "0xc29ed9513c421bcc208388b7cc098fad0f338ba7",
@@ -105,16 +105,16 @@ export default createConfig({
       abi: TickBookVaultAbi,
       chain: {
         baseSepolia: {
-          address: "0x4bf295e9d022986f02501a421bda3d7d3f73cc3f",
-          startBlock: 36_260_302,
+          address: "0xa2df334de3feb81a32bed868687ffbf9a0b218ab",
+          startBlock: 36_389_933,
         },
         monadTestnet: {
-          address: "0xbb5e3d1eb8c7b9930dc265adbbc21d8e927e3c79",
-          startBlock: 5_932_480,
+          address: "0x6bcff6cd4edca4d4b0cd6bcbf47de5ad134328ba",
+          startBlock: 6_513_948,
         },
         arcTestnet: {
-          address: "0x766347b587bb3c03d2d88d72e9a81c228006a548",
-          startBlock: 21_482_187,
+          address: "0x9afc2ab14b9e1e1c01f05b5dcc9c583039fe7cb4",
+          startBlock: 21_946_901,
         },
         megaethTestnet: {
           address: "0x125d547d5916b9e7d9c0bb312fbdaf127865fe1b",
@@ -126,16 +126,16 @@ export default createConfig({
       abi: AMMEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0x28b866bc672c7bd79067e5d826f2956c2cb3afb9",
-          startBlock: 36_260_300,
+          address: "0x37718d2eaccfbabd0b07929a900d8cf60db57680",
+          startBlock: 36_389_931,
         },
         monadTestnet: {
-          address: "0x9bfaf374d560dafca5ebb522de58ca97491a3035",
-          startBlock: 5_932_477,
+          address: "0x85e29adb6591857aab50e6f20276981f31917b9c",
+          startBlock: 6_513_945,
         },
         arcTestnet: {
-          address: "0x2d94583e48576cd031164c28b9705791aff97034",
-          startBlock: 21_482_180,
+          address: "0x9b8280640361171c94e2f7d221a245df3030f5d3",
+          startBlock: 21_946_898,
         },
         megaethTestnet: {
           address: "0x2a1e74f74221b544d20d903fbf042e265e065703",
