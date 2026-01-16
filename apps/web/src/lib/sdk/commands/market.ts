@@ -4,23 +4,20 @@ import { ABIS, MOCK_ERC20_ABI } from '../../../config/abis';
 import { formatWad, shortAddress, shortTx, success, error, plain, bold, info, warn, dim, separator, computeMarketKey, computeMarketKeyWithHook } from '../utils';
 import { decodeEventLog } from 'viem';
 
-const MARKET_TEMPLATES: Record<string, { question: string; name: string; symbol: string; deadline: string }> = {
+const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
   alien: {
     question: 'The UN officially confirm extraterrestrial life.',
     name: 'UN Confirms Alien Life',
-    symbol: 'ALIEN',
     deadline: 'infinite',
   },
   btcath: {
     question: 'Will BTC/USD reach a new all-time high in 2026? (Chainlink 6H TWAP)',
     name: 'BTC All-Time High',
-    symbol: 'BTCATH',
     deadline: '2026-12-31',
   },
   lakers: {
     question: 'Will the LA Lakers win the 2025-26 NBA Championship?',
     name: 'Lakers 2026 Championship',
-    symbol: 'LAKERS',
     deadline: '2026-07-01',
   },
 };
@@ -74,7 +71,7 @@ export async function createmarket(
   const output: OutputLine[] = [];
 
   out(plain(''));
-  out(bold(`Creating Market: ${template.symbol}`));
+  out(bold(`Creating Market: ${template.name}`));
   out(separator(50));
   out(plain(`Question:  ${template.question}`));
   out(plain(`Liquidity: ${formatWad(liquidityWad)} (b parameter)`));
@@ -127,7 +124,7 @@ export async function createmarket(
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
+      args: [template.question, startTime, deadline, address, address, liquidityWad],
     });
 
     const createReceipt = await config.publicClient.waitForTransactionReceipt({ hash: createHash });
@@ -175,7 +172,6 @@ export async function createmarket(
     out(plain(''));
     out(plain(`TruthMarket: ${marketAddress}`));
     out(plain(`Name:        ${template.name}`));
-    out(plain(`Symbol:      ${template.symbol}`));
     out(plain(''));
     out(info(`Next: setmarket ${marketIndex >= 0 ? marketIndex : allMarkets.length - 1}`));
     out(plain(''));

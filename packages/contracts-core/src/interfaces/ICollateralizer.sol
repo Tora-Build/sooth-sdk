@@ -154,17 +154,13 @@ interface ICollateralizer {
 
     /**
      * @notice Register market and deploy outcome tokens
-     * @dev Creates ERC20 YES and NO tokens for the market
+     * @dev Creates ERC20 YES and NO tokens for the market. Symbol derived from market address.
      * @param market Market address (must implement ITruthMarket)
-     * @param name Token name prefix (e.g., "Sooth Market #123")
-     * @param symbol Token symbol prefix (e.g., "SOOTH-123")
      * @return yesToken Deployed YES token address
      * @return noToken Deployed NO token address
      */
     function registerMarket(
-        address market,
-        string calldata name,
-        string calldata symbol
+        address market
     ) external returns (address yesToken, address noToken);
 
     /**

@@ -324,7 +324,7 @@ FILES:
 ---
 
 ```
-Version: V10.8.2 | KB: v5.4 | Updated: 2026-01-16
+Version: V10.8.3 | KB: v5.5 | Updated: 2026-01-16
 Architecture: V10 Unified Crossing (TickBookPoolManager)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)

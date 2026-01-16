@@ -36,8 +36,7 @@ contract InitializeAMMDirect is Script {
             uint64(block.timestamp + 365 days),
             deployer,
             deployer,
-            liquidity,
-            "ALIEN"
+            liquidity
         ) returns (address market, uint256 lpTokens) {
             console.log("[1/2] ALIEN created:", market);
             console.log("      LP:", lpTokens);
@@ -53,8 +52,7 @@ contract InitializeAMMDirect is Script {
             uint64(block.timestamp + 180 days),
             deployer,
             deployer,
-            liquidity,
-            "BTC100K"
+            liquidity
         ) returns (address market, uint256 lpTokens) {
             console.log("[2/2] BTC100K created:", market);
             console.log("      LP:", lpTokens);

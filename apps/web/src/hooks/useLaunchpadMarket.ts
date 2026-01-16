@@ -160,15 +160,14 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         deadline: bigint,
         adjudicator: `0x${string}`,
         guardian: `0x${string}`,
-        initialLiquidity: bigint,
-        symbol: string
+        initialLiquidity: bigint
     ) => {
         if (!launchpadEngineAddress) return;
         writeContract({
             address: launchpadEngineAddress,
             abi: ABIS.LaunchpadEngine,
             functionName: "createMarket",
-            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity, symbol],
+            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity],
         });
     }, [launchpadEngineAddress, writeContract]);
 
@@ -228,7 +227,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             floorValue,
         ] = detailedState;
 
-        // markets(market) -> (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
+        // markets(market) -> V10.8.3: 10 fields (removed name/symbol)
         const marketState = marketsMappingResult.result as readonly [
             `0x${string}`, // creator
             bigint,        // bBase
@@ -240,8 +239,6 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             boolean,       // isGraduated
             bigint,        // createdAt (uint64)
             bigint,        // graduatedAt (uint64)
-            string,        // name
-            string         // symbol
         ];
         const [
             _c, _bB, _bC,
@@ -249,12 +246,11 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             feesAccruedFromMarket,
             _tLS,
             lpYieldPool,
-            _iG,
-            _cA,
-            _gA,
-            name,
-            symbol
         ] = marketState;
+
+        // V10.8.3: Symbol derived from market address (first 4 bytes = 8 hex chars)
+        const symbol = marketAddress.slice(2, 10).toUpperCase();
+        const name = symbol;
 
         // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
         const graduationProgressTuple = graduationProgressResult.result as readonly [bigint, bigint, bigint];

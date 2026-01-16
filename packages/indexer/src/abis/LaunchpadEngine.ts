@@ -8,7 +8,6 @@ export const LaunchpadEngineAbi = [
       { name: "initialLiquidity", type: "uint256", indexed: false },
       { name: "deposit", type: "uint256", indexed: false },
       { name: "lpTokens", type: "uint256", indexed: false },
-      { name: "symbol", type: "string", indexed: false },
     ],
   },
   {

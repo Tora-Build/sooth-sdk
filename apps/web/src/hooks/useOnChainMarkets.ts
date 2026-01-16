@@ -77,8 +77,6 @@ export function useOnChainMarkets() {
                   boolean, // isGraduated
                   bigint,  // createdAt (uint64)
                   bigint,  // graduatedAt (uint64)
-                  string,  // name
-                  string   // symbol
                 ]
               >(client, {
                 address: launchpadEngineAddress!,
@@ -99,14 +97,23 @@ export function useOnChainMarkets() {
                 _lpYieldPool,
                 isGraduated,
                 createdAt,
-                _graduatedAt,
-                name,
-                symbol,
               ] = marketsMapping;
+
+              const symbol = marketAddress.slice(2, 10).toUpperCase();
+
+              let question = symbol;
+              try {
+                const q = await readContractSafe<string>(client, {
+                  address: marketAddress as Address,
+                  abi: ABIS.TruthMarket,
+                  functionName: "question",
+                });
+                if (q) question = q;
+              } catch {}
 
               return {
                 address: marketAddress,
-                name,
+                name: question,
                 symbol,
                 creator,
                 isGraduated,

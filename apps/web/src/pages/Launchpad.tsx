@@ -506,12 +506,7 @@ export const Launchpad = () => {
                                     <div className="text-right">
                                         <span className="text-white font-mono font-bold block">${depositAmount.toLocaleString()}</span>
                                         {userAddress && (
-                                            <span className={cn(
-                                                "text-xs font-mono transition-colors",
-                                                (usdcBalance !== undefined && depositWei > usdcBalance)
-                                                    ? "text-red-400 font-bold"
-                                                    : "text-white/40"
-                                            )}>
+                                            <span className="text-xs font-mono text-white/40">
                                                 Balance: ${formattedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         )}

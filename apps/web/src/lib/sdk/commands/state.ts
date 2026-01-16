@@ -315,14 +315,23 @@ export async function markets(ctx: SDKContext): Promise<{ result: CommandResult;
           }) as any;
 
           const isGraduated = marketState[7];
-          const name = marketState[10] || 'Unnamed';
-          const symbol = marketState[11] || '???';
+          const symbol = addr.slice(2, 10).toUpperCase();
           const bBase = marketState[1];
           const bDisplay = (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-          let statusStr: string;
+          let name = symbol;
+          try {
+            const question = await config.publicClient.readContract({
+              address: addr as `0x${string}`,
+              abi: [{ name: 'question', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' }],
+              functionName: 'question',
+            }) as string;
+            if (question) name = question.length > 55 ? question.slice(0, 52) + '...' : question;
+          } catch {}
+
+          let pctStr = '?';
           if (isGraduated) {
-            statusStr = 'graduated';
+            pctStr = '✓';
           } else {
             try {
               const progress = await config.publicClient.readContract({
@@ -332,14 +341,12 @@ export async function markets(ctx: SDKContext): Promise<{ result: CommandResult;
                 args: [addr as `0x${string}`],
               }) as [bigint, bigint, bigint];
               const pctBps = Number(progress[2]);
-              const pct = (pctBps / 100).toFixed(0);
-              statusStr = pctBps >= 10000 ? 'ready!' : `${pct}%`;
-            } catch {
-              statusStr = '?';
-            }
+              pctStr = pctBps >= 10000 ? 'ready!' : `${(pctBps / 100).toFixed(0)}%`;
+            } catch {}
           }
 
-          output.push(plain(`${marker} ${i}: ${name} [${symbol}] ${statusStr} b=${bDisplay} (${shortAddress(addr)})`));
+          output.push(plain(`${marker} ${i}: ${name}`));
+          output.push(dim(`     [${symbol}]  ${pctStr.padEnd(6)}  b=${bDisplay.padStart(6)}  ${shortAddress(addr)}`));
         } catch {
           output.push(dim(`${marker} ${i}: (error fetching) (${shortAddress(addr)})`));
         }

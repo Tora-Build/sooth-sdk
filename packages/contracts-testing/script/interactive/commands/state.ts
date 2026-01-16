@@ -359,6 +359,7 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
         const marker = isCurrent ? success('→') : ' ';
 
         try {
+          // V10.8.3: MarketState no longer has name/symbol - derive from address
           const marketState = await publicClient.readContract({
             address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
             abi: [
@@ -377,23 +378,42 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
                   { type: 'bool', name: 'isGraduated' },
                   { type: 'uint64', name: 'createdAt' },
                   { type: 'uint64', name: 'graduatedAt' },
-                  { type: 'string', name: 'name' },
-                  { type: 'string', name: 'symbol' },
                 ],
                 stateMutability: 'view',
               },
             ],
             functionName: 'markets',
             args: [addr as `0x${string}`],
-          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
 
-          const [, bBase, , , , , , isGraduated, , , name, symbol] = marketState;
+          const [, bBase, , , , , , isGraduated] = marketState;
+          
+          // Symbol derived from address (first 4 bytes = 8 hex chars)
+          const symbol = addr.slice(2, 10).toUpperCase();
+          
+          // Try to fetch actual name from TruthMarket.question()
+          let name = symbol;
+          try {
+            const question = await publicClient.readContract({
+              address: addr as `0x${string}`,
+              abi: [
+                {
+                  name: 'question',
+                  type: 'function',
+                  inputs: [],
+                  outputs: [{ type: 'string', name: '' }],
+                  stateMutability: 'view',
+                },
+              ],
+              functionName: 'question',
+            }) as string;
+            if (question) name = question.length > 40 ? question.slice(0, 37) + '...' : question;
+          } catch {}
           const bDisplay = (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-          // Get graduation progress
-          let statusStr: string;
+          let pctStr = '?';
           if (isGraduated) {
-            statusStr = success('✓ graduated');
+            pctStr = '✓';
           } else {
             try {
               const progress = await publicClient.readContract({
@@ -415,15 +435,15 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
                 args: [addr as `0x${string}`],
               }) as [bigint, bigint, bigint];
               const pctBps = Number(progress[2]);
-              const pct = (pctBps / 100).toFixed(0); // Convert bps to %
-              statusStr = pctBps >= 10000 ? warn('ready!') : dim(`${pct}%`);
-            } catch {
-              statusStr = dim('○');
-            }
+              pctStr = pctBps >= 10000 ? 'ready!' : `${(pctBps / 100).toFixed(0)}%`;
+            } catch {}
           }
-          console.log(`  ${marker} ${i}: ${name || 'Unnamed'} [${symbol}] ${statusStr} b=${bDisplay} (${shortAddress(addr)})`);
+          const nameDisplay = (name || 'Unnamed').slice(0, 55);
+          console.log(`  ${marker} ${i}: ${nameDisplay}`);
+          console.log(`     ${dim(`[${symbol}]  ${pctStr.padEnd(6)}  b=${bDisplay.padStart(6)}  ${shortAddress(addr)}`)}`);
         } catch {
-          console.log(`  ${marker} ${i}: ${dim('(error fetching)')} (${shortAddress(addr)})`);
+          console.log(`  ${marker} ${i}: ${dim('(error fetching)')}`);
+          console.log(`     ${dim(`${shortAddress(addr)}`)}`);
         }
       }
     }
@@ -435,7 +455,9 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
       deployment.markets.forEach((m, i) => {
         const isCurrent = m.address.toLowerCase() === marketAddress?.toLowerCase();
         const marker = isCurrent ? success('→') : ' ';
-        console.log(`  ${marker} ${i}: ${m.name || 'Unnamed'} (${shortAddress(m.address)})`);
+        const nameDisplay = (m.name || 'Unnamed').padEnd(50).slice(0, 50);
+        console.log(`  ${marker} ${i}: ${nameDisplay}`);
+        console.log(`     ${dim(shortAddress(m.address))}`);
       });
     }
   }

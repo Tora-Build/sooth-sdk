@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check, Package, ArrowLeftRight, TrendingDown, BarChart3
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, HelpCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -1457,51 +1457,21 @@ interface ProMarketChipProps {
 }
 
 const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
-  // Markets are already confirmed graduated via on-chain discovery
-  const { tickBook, isLoading } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
-
-  const currentTick = tickBook?.currentTick ?? 0;
-  const rawProb = tickBook?.probability ?? null;
-  const isMarketActive = tickBook?.isActive ?? false;
-  const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
-  const isValidPrice = isMarketActive && rawProb !== null && rawProb > 0;
-
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-w-[200px]",
+        "flex-shrink-0 flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all w-[320px]",
         isSelected
           ? "bg-slate-500/10 border-slate-500/50 shadow-lg shadow-slate-500/10"
           : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
       )}
     >
-      {/* Symbol badge - rounded-lg like AMM */}
-      <div className={cn(
-        "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-        isSelected
-          ? "bg-gradient-to-br from-cyan-500 to-cyan-600 text-white"
-          : "bg-slate-800 text-slate-400"
-      )}>
-        {market.symbol.slice(0, 2)}
-      </div>
-
-      {/* Name */}
       <div className="text-left min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
-          <BarChart3 className="w-3 h-3 text-cyan-400 flex-shrink-0" />
-        </div>
-        <div className="text-xs text-slate-500 truncate">{market.name.slice(0, 25)}</div>
+        <div className="text-xs text-white font-medium line-clamp-2 leading-tight">{market.name}</div>
       </div>
 
-      {/* Pro Price */}
-      <span className={cn(
-        "text-sm font-bold tabular-nums flex-shrink-0",
-        proPriceCents > 50 ? "text-emerald-400" : proPriceCents < 50 ? "text-rose-400" : "text-slate-400"
-      )}>
-        {isLoading ? '—' : isValidPrice ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-      </span>
+      <BarChart3 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
     </button>
   );
 };
@@ -1522,59 +1492,39 @@ interface ProMarketCardProps {
 const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
   const { launchpad, isLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const isGraduated = launchpad?.isGraduated;
+  const graduationProgress = launchpad?.graduationProgress ?? 0;
 
   return (
     <button
       onClick={onClick}
       disabled={!isGraduated && !isLoading}
       className={cn(
-        "w-full p-5 rounded-2xl border text-left transition-all",
+        "w-full p-4 rounded-xl border text-left transition-all",
         isGraduated
-          ? "bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 hover:border-slate-500/50 hover:shadow-lg hover:shadow-slate-500/5 cursor-pointer"
+          ? "bg-slate-900/80 border-slate-800 hover:border-slate-600 cursor-pointer"
           : "bg-slate-900/30 border-slate-800/30 cursor-not-allowed opacity-60"
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-            isGraduated
-              ? "bg-gradient-to-br from-cyan-500 to-cyan-600 text-white"
-              : "bg-slate-800 text-slate-500"
-          )}>
-            {market.symbol.slice(0, 2)}
-          </div>
-          <div>
-            <div className="font-semibold text-white">{market.symbol}</div>
-            <div className="text-xs text-slate-500">{market.category || 'Uncategorized'}</div>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-white font-medium line-clamp-2">{market.name}</div>
         </div>
 
-        {/* Status Badge */}
-        {isLoading ? (
-          <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-xs font-medium">
-            Loading...
-          </span>
-        ) : isGraduated ? (
-          <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            Graduated
-          </span>
-        ) : (
-          <span className="px-2 py-1 rounded-full bg-slate-500/20 text-slate-400 text-xs font-medium">
-            Pre-Graduation
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isLoading ? (
+            <span className="text-xs text-slate-500">...</span>
+          ) : isGraduated ? (
+            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+              Graduated
+            </span>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-cyan-400">
+              <Zap className="w-3 h-3" />
+              <span className="font-mono">{graduationProgress.toFixed(0)}%</span>
+            </div>
+          )}
+        </div>
       </div>
-
-      <div className="text-sm text-slate-400 line-clamp-2 mb-3">{market.name}</div>
-
-      {!isGraduated && !isLoading && (
-        <div className="text-xs text-slate-500 flex items-center gap-1">
-          <Zap className="w-3 h-3" />
-          Trade on AMM first
-        </div>
-      )}
     </button>
   );
 };
@@ -2208,18 +2158,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             >
               <ArrowLeft className="w-5 h-5 text-slate-400" />
             </button>
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-white">{staticMetadata?.symbol || launchpad?.symbol || 'Select Market'}</div>
-                <div className="text-xs text-slate-500 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
-              </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-white font-medium line-clamp-1">{truth?.question || staticMetadata?.name || launchpad?.name || 'Select Market'}</div>
             </div>
-            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0" title="Refresh">
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <BarChart3 className="w-4 h-4 text-emerald-400" />
+              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
+                <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2229,58 +2176,44 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         {/* LEFT COLUMN: Liquidity Map + Orders (60%) */}
         <div className="lg:col-span-6 space-y-4">
-          {/* Embedded Mode: Market Summary Card */}
+          {/* Embedded Mode: Compact Market Summary */}
           {embedded && (
-            <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-lg font-bold text-white flex-shrink-0">
-                    {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
+            <Card className="bg-slate-900/60 border-slate-700/50 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+                <Badge variant="success" className="px-2 py-0.5 text-xs">
+                  Graduated · 1% Fee
+                </Badge>
+
+                {truth?.deadline && truth.deadline > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={11} />
+                    <span className="font-mono">
+                      {truth.deadline > 4102444800
+                        ? 'No expiry'
+                        : new Date(truth.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
-                      <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-xs">GRADUATED</Badge>
-                    </div>
-                    <div className="text-sm text-slate-400 line-clamp-2">{truth?.question || staticMetadata?.name || launchpad?.name || '—'}</div>
-                  </div>
-                  <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0 ml-auto" title="Refresh">
-                    <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
-                  </button>
-                </div>
-                <div className="pt-3 border-t border-slate-800/50 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-                  <button
-                    onClick={() => {
-                      if (tickBook?.marketKey) {
-                        navigator.clipboard.writeText(tickBook.marketKey);
-                        setMarketKeyCopied(true);
-                        toast.success('Market key copied!');
-                        setTimeout(() => setMarketKeyCopied(false), 2000);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-                    title="Click to copy market key"
-                  >
-                    <span>Market Key:</span>
-                    <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
-                    {marketKeyCopied ? (
-                      <Check className="w-3 h-3 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-                    )}
-                  </button>
-                  <span>•</span>
-                  <a
-                    href={getAddressExplorerUrl(chainId, marketAddr)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-                  >
-                    <span>TruthMarket:</span>
-                    <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
-                    <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+                )}
+
+                <a href={getAddressExplorerUrl(chainId, marketAddr)} target="_blank" rel="noreferrer" title="View market on explorer">
+                  <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 hover:border-slate-500 transition-colors cursor-pointer">
+                    ${marketAddr.slice(2, 10).toUpperCase()}
+                  </Badge>
+                </a>
+
+                {truth?.creator && (
+                  <a href={getAddressExplorerUrl(chainId, truth.creator)} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-slate-300 transition-colors" title="View creator">
+                    <User size={11} />
+                    <span className="font-mono">{truth.creator.slice(0, 6)}...{truth.creator.slice(-4)}</span>
                   </a>
-                </div>
+                )}
+
+                {truth?.adjudicator && (
+                  <a href={getAddressExplorerUrl(chainId, truth.adjudicator)} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-slate-300 transition-colors" title="View adjudicator">
+                    <Shield size={11} />
+                    <span className="font-mono">{truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}</span>
+                  </a>
+                )}
               </div>
             </Card>
           )}

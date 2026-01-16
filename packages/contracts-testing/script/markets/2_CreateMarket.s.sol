@@ -73,8 +73,7 @@ contract CreateMarket is Script {
             deadline,
             deployer,
             deployer,
-            INITIAL_LIQUIDITY,
-            SYMBOL
+            INITIAL_LIQUIDITY
         );
         console.log("[1/1] Market created:", market);
         console.log("      LP tokens received:", lpTokens);
