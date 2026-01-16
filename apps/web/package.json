@@ -6,7 +6,7 @@
     "validate-config": "node scripts/validate-config.js",
     "sync-deployments": "node scripts/sync-deployments.js",
     "dev": "npm run validate-config && vite",
-    "build": "npm run validate-config && vite build",
+    "build": "pnpm --filter @sooth/sdk-core build && npm run validate-config && vite build",
     "preview": "npm run validate-config && vite preview",
     "export": "npm run build && bash scripts/export-static.sh",
     "serve": "node server.js",
