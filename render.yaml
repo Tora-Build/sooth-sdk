@@ -38,7 +38,7 @@ services:
     repo: https://github.com/Tora-Build/sooth-alpha
     branch: render
     rootDir: ""
-    buildCommand: pnpm install && pnpm --filter ./apps/web build
+    buildCommand: pnpm install && pnpm exec turbo build --filter=./apps/web
     startCommand: node apps/web/server.js
     envVars:
       - key: NODE_VERSION
