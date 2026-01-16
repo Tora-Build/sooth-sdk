@@ -12,14 +12,17 @@ const lockEntryId = (chainId: number, user: string, unlockTime: bigint) =>
   `${chainId}-${user.toLowerCase()}-${unlockTime.toString()}`;
 
 ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
-  const { market, creator, initialLiquidity, deposit, lpTokens, symbol } = event.args;
+  const { market, creator, initialLiquidity, deposit, lpTokens } = event.args;
+
+  // Symbol is now derived from market address (first 4 bytes = 8 hex chars)
+  const derivedSymbol = market.slice(2, 10).toUpperCase();
 
   await context.db.insert(schema.launchpadMarket).values({
     address: market,
     chainId: context.chain.id,
     creator,
     name: null,
-    symbol,
+    symbol: derivedSymbol,
     initialLiquidity,
     deposit,
     totalLPSupply: lpTokens,

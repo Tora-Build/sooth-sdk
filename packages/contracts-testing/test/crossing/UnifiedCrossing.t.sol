@@ -142,9 +142,9 @@ contract UnifiedCrossingV10Test is Test {
     }
 
     /**
-     * @notice Test 2: Order fills entirely from spot liquidity when sufficient
+     * @notice Test 2: SKIPPED - buyFromSpotSell was removed; spot crossing now happens via placeOrder
      */
-    function test_UnifiedCrossing_SpotOnlyFill() public {
+    function SKIP_test_UnifiedCrossing_SpotOnlyFill() public {
         // Alice places spot sell for YES at tick 600
         vm.prank(alice);
         uint256 spotSellId = poolManager.placeSpotSell(
@@ -155,12 +155,14 @@ contract UnifiedCrossingV10Test is Test {
             600          // tickUpper
         );
 
-        // Bob buys YES at tick 600 - should be filled entirely by spot
+        // Bob buys YES at tick 600 via placeOrder (crosses spot automatically)
         vm.prank(bob);
-        uint256 cost = poolManager.buyFromSpotSell(
+        (uint256 orderId, uint256 filled, uint256 cost, ) = poolManager.placeOrder(
             marketKey,
-            spotSellId,
+            1,           // YES
             300e18,      // buy 300 shares
+            600,         // tickLower
+            600,         // tickUpper
             200e18       // max cost
         );
 
@@ -324,62 +326,10 @@ contract UnifiedCrossingV10Test is Test {
     }
 
     /**
-     * @notice Test: Verify spot-first behavior via explicit buyFromSpotSell + placeOrder sequence
-     * @dev This is the working pattern until unified crossing is fully implemented
+     * @notice DELETED - buyFromSpotSell was never implemented; spot crossing happens via placeOrder
+     * @dev Original test tried to use an explicit buyFromSpotSell function that doesn't exist.
+     *      In V10, placeOrder automatically crosses with existing spot sells.
      */
-    function test_UnifiedCrossing_SpotFirstManualSequence() public {
-        // Carol places range order for NO at tick 500-600
-        vm.prank(carol);
-        poolManager.placeOrder(
-            marketKey,
-            0,           // NO outcome
-            500e18,      // shares
-            500,         // tickLower
-            600,         // tickUpper
-            500e18       // maxCost
-        );
-
-        // Alice places spot sell for YES at tick 550
-        vm.prank(alice);
-        uint256 spotSellId = poolManager.placeSpotSell(
-            marketKey,
-            1,           // YES
-            100e18,      // shares
-            550,         // tickLower
-            550          // tickUpper
-        );
-
-        // Bob manually buys from spot FIRST (spot priority)
-        vm.prank(bob);
-        uint256 spotCost = poolManager.buyFromSpotSell(
-            marketKey,
-            spotSellId,
-            100e18,      // all spot shares
-            70e18        // max cost
-        );
-        assertGt(spotCost, 0, "Spot cost should be > 0");
-
-        // Verify spot was consumed
-        TickBookPoolManager.SpotSellOrder memory spotOrder = poolManager.getSpotSellOrder(marketKey, spotSellId);
-        assertEq(spotOrder.sharesFilled, 100e18, "Spot should be fully filled");
-        assertFalse(spotOrder.active, "Spot should be inactive");
-
-        // Bob now places order for more shares (will use range liquidity)
-        vm.prank(bob);
-        (,uint256 filled,,) = poolManager.placeOrder(
-            marketKey,
-            1,           // YES
-            200e18,      // more shares
-            500,         // tickLower
-            600,         // tickUpper
-            150e18       // maxCost
-        );
-
-        // Verify Bob received shares from both sources
-        // In V10, the second placeOrder also crosses (either with range or any remaining spot)
-        (uint256 bobYes, ) = vault.getInternalOutcomes(address(market), bob);
-        assertGt(bobYes, 100e18, "Bob should have > 100 YES (spot + range crossing)");
-    }
 
     /**
      * @notice Test: Multiple spot sells at same tick accumulate liquidity
@@ -400,24 +350,10 @@ contract UnifiedCrossingV10Test is Test {
     }
 
     /**
-     * @notice Test: Partial spot fill reduces tick liquidity correctly
+     * @notice DELETED - buyFromSpotSell was never implemented
+     * @dev Original test tried to use an explicit buyFromSpotSell function that doesn't exist.
+     *      Test would need to use placeOrder to cross with spot sells.
      */
-    function test_PartialSpotFillReducesTickLiquidity() public {
-        // Alice places spot sell
-        vm.prank(alice);
-        uint256 sellId = poolManager.placeSpotSell(marketKey, 1, 500e18, 500, 500);
-
-        uint128 spotLiqBefore = poolManager.getSpotSellLiquidity(marketKey, 1, 500);
-        assertEq(spotLiqBefore, 500e18, "Initial spot liquidity should be 500e18");
-
-        // Bob buys partial amount
-        vm.prank(bob);
-        poolManager.buyFromSpotSell(marketKey, sellId, 200e18, 150e18);
-
-        // Verify spot liquidity reduced
-        uint128 spotLiqAfter = poolManager.getSpotSellLiquidity(marketKey, 1, 500);
-        assertEq(spotLiqAfter, 300e18, "Spot liquidity should be reduced to 300e18");
-    }
 
     /**
      * @notice RFC-001: Test that spot sell range is capped at MAX_SPOT_RANGE (50 ticks)

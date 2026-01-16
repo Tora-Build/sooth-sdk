@@ -158,12 +158,11 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
     noToken = deployedMarket.noToken;
     currentMarketKey = computeMarketKey(marketAddress, yesToken, noToken);
   } else {
-    // Try to fetch token info from chain
-    console.log(dim('  Fetching market info from chain...'));
 
     // First check if market exists in LaunchpadEngine (pre-graduation)
     let isLaunchpadMarket = false;
     try {
+      // V10.8.3: MarketState no longer has name/symbol
       const marketState = await publicClient.readContract({
         address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
         abi: [
@@ -182,36 +181,41 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
               { type: 'bool', name: 'isGraduated' },
               { type: 'uint64', name: 'createdAt' },
               { type: 'uint64', name: 'graduatedAt' },
-              { type: 'string', name: 'name' },
-              { type: 'string', name: 'symbol' },
             ],
             stateMutability: 'view',
           },
         ],
         functionName: 'markets',
         args: [marketAddress as `0x${string}`],
-      }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+      }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
 
-      const [creator, , , , , , , isGraduated, , , name] = marketState;
+      const [creator, , , , , , , isGraduated] = marketState;
       if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
+        let marketName: string | null = null;
+        try {
+          marketName = await publicClient.readContract({
+            address: marketAddress as `0x${string}`,
+            abi: [{ name: 'question', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' }],
+            functionName: 'question',
+          }) as string;
+        } catch {}
+
         if (!isGraduated) {
-          // Pre-graduation market - no tokens yet, but we can still set it for AMM trading
           currentMarketAddress = marketAddress as `0x${string}`;
-          currentMarketKey = null; // No market key for pre-graduation markets
-          currentMarketName = name || null;
-          console.log(success(`  Market set: ${name || shortAddress(marketAddress)}`));
-          console.log(warn('  Pre-graduation market (LaunchpadEngine only)'));
-          console.log(dim('  Use graduate command to graduate, then TickBook will be available'));
+          currentMarketKey = null;
+          currentMarketName = marketName;
+          const symbol = marketAddress.slice(2, 10).toUpperCase();
+          const displayName = marketName ? (marketName.length > 40 ? marketName.slice(0, 37) + '...' : marketName) : symbol;
+          console.log(info(`  Market set (pre-graduation): [${symbol}] ${displayName}`));
+          console.log(dim(`  Address: ${marketAddress}`));
+          console.log(dim(`  Key: (not available pre-graduation)`));
           return true;
         }
-        // For graduated markets, also store the name
-        currentMarketName = name || null;
+        currentMarketName = marketName;
       }
-    } catch {
-      // Market not found in LaunchpadEngine, will try Collateralizer next
-    }
+    } catch {}
 
     // Try Collateralizer (for graduated markets)
     try {
@@ -264,13 +268,9 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           currentMarketKey = keyV10;
         } else if (infoLegacy.ok && infoLegacy.active) {
           currentMarketKey = keyLegacy;
-          console.log(warn('  Using legacy marketKey (no hook) for this TickBook deployment'));
         } else {
           currentMarketKey = keyV10;
-          console.log(warn('  TickBook market not active/registered yet for this marketKey'));
         }
-        console.log(dim(`  YES Token: ${shortAddress(yesToken)}`));
-        console.log(dim(`  NO Token:  ${shortAddress(noToken)}`));
       } else if (!isLaunchpadMarket) {
         console.log(error(`  Market not found: ${shortAddress(marketAddress)}`));
         return false;
@@ -286,10 +286,12 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   }
 
   currentMarketAddress = marketAddress as `0x${string}`;
-  console.log(success(`  Market set: ${deployedMarket?.name || shortAddress(marketAddress)}`));
-  if (currentMarketKey) {
-    console.log(dim(`  Key: ${currentMarketKey.slice(0, 18)}...`));
-  }
+  const symbol = marketAddress.slice(2, 10).toUpperCase();
+  const displayName = currentMarketName || deployedMarket?.name || symbol;
+  const truncatedName = displayName.length > 40 ? displayName.slice(0, 37) + '...' : displayName;
+  console.log(success(`  Market set: [${symbol}] ${truncatedName}`));
+  console.log(dim(`  Address: ${marketAddress}`));
+  console.log(dim(`  Key: ${currentMarketKey || '(none)'}`));
 
   return true;
 }
@@ -671,24 +673,17 @@ async function main(): Promise<void> {
     console.log(warn('No actors loaded. Set PRIVATE_KEY or PRIVATE_KEY_ALICE in .env'));
   }
 
-  // Set default market if specified or available
-  if (marketArg) {
-    await setMarket(marketArg);
-  } else if (config.deployment.markets.length > 0) {
-    await setMarket('0');
-  }
+  if (marketArg) await setMarket(marketArg);
 
-  // Print header
-  const marketName = currentMarketAddress
-    ? config.deployment.markets.find(m => m.address.toLowerCase() === currentMarketAddress?.toLowerCase())?.name || shortAddress(currentMarketAddress)
-    : 'none';
-
-  printBox([
+  const headerLines = [
     bold('SOOTH V10 INTERACTIVE TEST CONSOLE'),
     `Chain: ${config.chainName} | Version: ${config.deployment.version}`,
     `RPC: ${config.rpc.length > 40 ? config.rpc.slice(0, 37) + '...' : config.rpc}`,
-    `Market: ${marketName}`,
-  ]);
+  ];
+  if (currentMarketAddress) {
+    headerLines.push(`Market: ${currentMarketName || shortAddress(currentMarketAddress)}`);
+  }
+  printBox(headerLines);
 
   console.log('');
   console.log(dim('  Type "help" for available commands\n'));

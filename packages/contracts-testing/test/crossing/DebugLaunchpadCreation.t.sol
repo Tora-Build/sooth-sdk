@@ -55,7 +55,7 @@ contract DebugLaunchpadCreation is Test {
         usdc.approve(address(launchpad), type(uint256).max);
 
         console.log("Calling createMarket...");
-        try launchpad.createMarket("Question?", startTime, deadline, creator, creator, liquidity, symbol) returns (address market, uint256 lpTokens) {
+        try launchpad.createMarket("Question?", startTime, deadline, creator, creator, liquidity) returns (address market, uint256 lpTokens) {
             console.log("Success!");
             console.log("Market:", market);
             console.log("LP tokens:", lpTokens);

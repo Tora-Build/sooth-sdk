@@ -36,8 +36,6 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
           boolean, // isGraduated
           bigint,  // createdAt (uint64)
           bigint,  // graduatedAt (uint64)
-          string,  // name
-          string   // symbol
         ]
       >(client, {
         address: launchpadEngineAddress!,
@@ -57,9 +55,10 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         isGraduated,
         createdAt,
         graduatedAt,
-        marketName,
-        marketSymbol
       ] = marketsMapping;
+
+      const marketSymbol = marketAddress!.slice(2, 10).toUpperCase();
+      const marketName = marketSymbol;
 
       const [preGradFeeBps, postGradFeeBps, graduationMultiplier] = await Promise.all([
         readContractSafe<bigint>(client, { address: launchpadEngineAddress!, abi: ABIS.LaunchpadEngine, functionName: "preGradFeeBps" }),

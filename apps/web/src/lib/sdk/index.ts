@@ -145,17 +145,18 @@ export class SoothSDK {
     
     const marketAddr = allMarkets[idx];
 
-    let marketSymbol: string | undefined;
-    let marketName: string | undefined;
+    const marketSymbol = marketAddr.slice(2, 10).toUpperCase();
+    
+    let marketName = marketSymbol;
     try {
-      const marketState = await publicClient.readContract({
-        address: this.config.contracts.LaunchpadEngine,
-        abi: ABIS.LaunchpadEngine,
-        functionName: 'markets',
-        args: [marketAddr],
-      }) as any;
-      marketName = marketState[10] || undefined;
-      marketSymbol = marketState[11] || undefined;
+      const question = await publicClient.readContract({
+        address: marketAddr as Address,
+        abi: [{ name: 'question', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' }],
+        functionName: 'question',
+      }) as string;
+      if (question) {
+        marketName = question.length > 40 ? question.slice(0, 37) + '...' : question;
+      }
     } catch {}
 
     try {
@@ -193,10 +194,8 @@ export class SoothSDK {
         this.marketKey = key3Param;
       } else if (active4) {
         this.marketKey = key4Param;
-        output.push(warn('Using legacy marketKey (with hook) for this TickBook deployment'));
       } else {
         this.marketKey = key3Param;
-        output.push(warn('TickBook pool not active for this market'));
       }
 
       this.marketAddress = marketAddr as Address;

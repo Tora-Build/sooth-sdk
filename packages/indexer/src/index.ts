@@ -55,7 +55,99 @@ ponder.on("TickBookPoolManager:MarketRegistered", async ({ event, context }) => 
 });
 
 /**
- * Handle OrderPlaced events (V9.9.6 unified API)
+ * Handle RangeOrderPlaced events (V10 - may exist on older deployments)
+ * Maps to same schema as OrderPlaced with field name translation
+ */
+ponder.on("TickBookPoolManager:RangeOrderPlaced", async ({ event, context }) => {
+  const {
+    owner,
+    marketKey,
+    orderId: orderIdBigInt,
+    outcome,
+    tickLower,
+    tickUpper,
+    liquidity,
+    collateralReserved,
+    crossingFilled,
+    crossingCost,
+  } = event.args;
+
+  const id = orderId(context.chain.id, orderIdBigInt);
+  const fgId = fillGrowthId(context.chain.id, marketKey, outcome);
+
+  const fillGrowth = await context.db.find(schema.fillGrowthState, { id: fgId });
+  const currentFillGrowthX128 = fillGrowth?.fillGrowthX128 ?? 0n;
+
+  const restingShares = liquidity > crossingFilled ? liquidity - crossingFilled : 0n;
+
+  await context.db.insert(schema.order).values({
+    id,
+    chainId: context.chain.id,
+    orderId: orderIdBigInt,
+    marketKey,
+    owner,
+    outcome,
+    tickLower,
+    tickUpper,
+    liquidity,
+    collateralReserved,
+    crossingFilled,
+    crossingCost,
+    status: restingShares > 0n ? "active" : "filled",
+    filledShares: crossingFilled,
+    claimedShares: 0n,
+    pendingShares: crossingFilled,
+    pendingUsdc: crossingCost,
+    collateralUsed: crossingCost,
+    createdAt: event.block.timestamp,
+    updatedAt: event.block.timestamp,
+    blockNumber: event.block.number,
+    fillGrowthLastX128: currentFillGrowthX128,
+  });
+
+  if (restingShares > 0n) {
+    await context.db
+      .insert(schema.fillGrowthState)
+      .values({
+        id: fgId,
+        chainId: context.chain.id,
+        marketKey,
+        outcome,
+        totalLiquidity: restingShares,
+        fillGrowthX128: 0n,
+        updatedAt: event.block.timestamp,
+      })
+      .onConflictDoUpdate((row) => ({
+        totalLiquidity: row.totalLiquidity + restingShares,
+        updatedAt: event.block.timestamp,
+      }));
+
+    for (let tick = tickLower; tick <= tickUpper; tick++) {
+      const tid = tickId(context.chain.id, marketKey, outcome, tick);
+
+      await context.db
+        .insert(schema.tickLiquidity)
+        .values({
+          id: tid,
+          chainId: context.chain.id,
+          marketKey,
+          outcome,
+          tick,
+          totalLiquidity: restingShares,
+          orderCount: 1,
+          updatedAt: event.block.timestamp,
+        })
+        .onConflictDoUpdate((row) => ({
+          totalLiquidity: row.totalLiquidity + restingShares,
+          orderCount: row.orderCount + 1,
+          updatedAt: event.block.timestamp,
+        }));
+    }
+  }
+});
+
+/**
+ * Handle OrderPlaced events (current primary event)
  */
 ponder.on("TickBookPoolManager:OrderPlaced", async ({ event, context }) => {
   const {

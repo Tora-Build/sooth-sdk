@@ -55,7 +55,9 @@ export default createConfig({
     },
     megaethTestnet: {
       id: 6343,
-      rpc: process.env.MEGAETH_TESTNET_RPC_URL ?? "https://timothy.megaeth.com/rpc",
+      rpc: process.env.MEGAETH_TESTNET_RPC_URL ?? "https://carrot.megaeth.com/rpc",
+      pollingInterval: 2_000,
+      ethGetLogsBlockRange: 500,
     },
   },
   contracts: {
@@ -63,20 +65,20 @@ export default createConfig({
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0x096105c2052d10d8d637b7f2f8af88b10396fe5e",
-          startBlock: 36_389_936,
+          address: "0x463759fa866e6045c97cb37c25bcd74d23aa9b34",
+          startBlock: 36_399_054,
         },
         monadTestnet: {
-          address: "0x767e0260fce8cdb6fd06aa4d997c0b86c780a73d",
-          startBlock: 6_513_951,
+          address: "0xaa3daf93c823258fe025b26be90e8a08d2abf84f",
+          startBlock: 6_558_945,
         },
         arcTestnet: {
-          address: "0x4af0dc87a6b2a1764ecd8ea6f705e7ab3515ec9c",
-          startBlock: 21_946_905,
+          address: "0xb4240ac6cc3a082d5819e9410f0eb90209a4a3f3",
+          startBlock: 21_983_353,
         },
         megaethTestnet: {
-          address: "0xb243697c5f642cd7e75e14f0f3cf224583641120",
-          startBlock: 8_684_000,
+          address: "0x7f7a84196dc38b054a6f31b2efcd7142860b37c6",
+          startBlock: 8_855_931,
         },
       },
     },
@@ -84,20 +86,20 @@ export default createConfig({
       abi: LaunchpadEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0x29225a42fbd93726424112f8f3eb043698c535c7",
-          startBlock: 36_389_940,
+          address: "0xdc51a2beb6ed2e65f1ee4cfa87a228b77e697a21",
+          startBlock: 36_399_058,
         },
         monadTestnet: {
-          address: "0xbd280f20ca24d9daecc8fc8756e7408ff095880d",
-          startBlock: 6_513_958,
+          address: "0x9ca66ac4a00e7c380db41a714be470493bc2eee1",
+          startBlock: 6_558_952,
         },
         arcTestnet: {
-          address: "0xebac310b73a4d9198cd7c688174a03370000f660",
-          startBlock: 21_946_913,
+          address: "0x7015ea4bdada102969f5d9eb9457e087a559cedc",
+          startBlock: 21_983_359,
         },
         megaethTestnet: {
-          address: "0xc29ed9513c421bcc208388b7cc098fad0f338ba7",
-          startBlock: 8_684_000,
+          address: "0x2de2f2e6aad4f310dc72acc6f896412ceb4706f3",
+          startBlock: 8_855_935,
         },
       },
     },
@@ -105,20 +107,20 @@ export default createConfig({
       abi: TickBookVaultAbi,
       chain: {
         baseSepolia: {
-          address: "0xa2df334de3feb81a32bed868687ffbf9a0b218ab",
-          startBlock: 36_389_933,
+          address: "0x3727d8d586bd37cd716c1bdbc05c6c2c6b8adc5d",
+          startBlock: 36_399_052,
         },
         monadTestnet: {
-          address: "0x6bcff6cd4edca4d4b0cd6bcbf47de5ad134328ba",
-          startBlock: 6_513_948,
+          address: "0xb3ea593be1a834650e2955cc8f038921f4571ffa",
+          startBlock: 6_558_941,
         },
         arcTestnet: {
-          address: "0x9afc2ab14b9e1e1c01f05b5dcc9c583039fe7cb4",
-          startBlock: 21_946_901,
+          address: "0xadd058a6bd2bce6f1fe1cbd3c9e21250c055e242",
+          startBlock: 21_983_350,
         },
         megaethTestnet: {
-          address: "0x125d547d5916b9e7d9c0bb312fbdaf127865fe1b",
-          startBlock: 8_684_000,
+          address: "0xb80a06cc6813c03f1b04bc969942740b7483b447",
+          startBlock: 8_855_928,
         },
       },
     },
@@ -126,20 +128,20 @@ export default createConfig({
       abi: AMMEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0x37718d2eaccfbabd0b07929a900d8cf60db57680",
-          startBlock: 36_389_931,
+          address: "0x95c0a48c38a19dcdd9b8d21b0c304154230b56b9",
+          startBlock: 36_399_050,
         },
         monadTestnet: {
-          address: "0x85e29adb6591857aab50e6f20276981f31917b9c",
-          startBlock: 6_513_945,
+          address: "0xd18e6e7489d07e38f903e301c19f6a43650a0178",
+          startBlock: 6_558_938,
         },
         arcTestnet: {
-          address: "0x9b8280640361171c94e2f7d221a245df3030f5d3",
-          startBlock: 21_946_898,
+          address: "0x3c01829ddac95f1f143c04afdcf0c2689aa979f0",
+          startBlock: 21_983_348,
         },
         megaethTestnet: {
-          address: "0x2a1e74f74221b544d20d903fbf042e265e065703",
-          startBlock: 8_684_000,
+          address: "0xed1ffac79bfe9a13715774d2694a0f55ed392656",
+          startBlock: 8_855_926,
         },
       },
     },

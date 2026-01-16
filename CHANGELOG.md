@@ -4,6 +4,77 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### CLI/SDK setmarket Unification (2026-01-16)
+- **Unified**: Internal CLI and web SDK `setmarket` command now produce identical output format.
+- **Format**: `Market set: [SYMBOL] Market Question...` with `Address:` and `Key:` lines.
+- **Pre-graduation**: Shows `Market set (pre-graduation): [SYMBOL] ...` with `Key: (not available pre-graduation)`.
+- **Removed**: "Using legacy marketKey (no hook)" warning from both CLI and SDK.
+- **Removed**: "TickBook pool not active" warning from both CLI and SDK.
+- **Removed**: Verbose YES/NO token output lines from CLI.
+- **Fixed**: SDK now fetches market name from `TruthMarket.question()` instead of address-derived symbol only.
+- **Fixed**: CLI now shows full market key (removed truncation).
+- **Files Changed**: `packages/contracts-testing/script/interactive/interactive-test.ts`, `apps/web/src/lib/sdk/index.ts`
+
+### CLI Private RPC Support (2026-01-16)
+- **Added**: `BASE_SEPOLIA_RPC_URL` environment variable support in CLI config.
+- **Fixed**: `MEGAETH_TESTNET_RPC_URL` env var name (was incorrectly `MEGAETH_RPC_URL`).
+- **Files Changed**: `packages/contracts-testing/script/interactive/config.ts`
+
+### Trade/Pro UI Header Cleanup (2026-01-16)
+- **Changed**: Market chips (Trade/Pro) now show question text + status icon only. Removed redundant symbol display, price/probability values.
+- **Changed**: Graduated markets show BarChart3 icon (📊), bonding markets show Zap icon (⚡) with progress %.
+- **Changed**: MarketDetailHeader simplified to single-row compact format: status badge, expiry date, symbol badge, creator, adjudicator.
+- **Changed**: Pro embedded header matches Trade page style - status badge, expiry, addresses in one row.
+- **Removed**: Conflicting price displays (AMM % vs Orderbook ¢) from Pro page headers.
+- **Removed**: Red "Balance: $0.00" warning from Launchpad deposit slider.
+
+### V10.8.3 Frontend ABI Sync (2026-01-16)
+- **Fixed**: All frontend hooks updated to use 10-field MarketState (removed name/symbol at indices 10/11).
+- **Fixed**: `useLaunchpadMarket.ts`, `useLaunchpadMarketDirect.ts`, `useOnChainMarkets.ts` - symbol derived from address.
+- **Fixed**: `useOnChainMarkets.ts` now fetches question from `TruthMarket.question()` for market names.
+- **Fixed**: SDK `lib/sdk/commands/state.ts` and `lib/sdk/index.ts` - removed stale marketState[10]/[11] access.
+- **Fixed**: CLI `packages/contracts-testing/script/interactive/config.ts` - updated markets ABI to 10 fields.
+
+### Indexer Reset (2026-01-16)
+- **Changed**: Cleared `.ponder/` database to remove stale V10.8.2 indexed data.
+- **Changed**: Restarted indexer to begin fresh indexing from V10.8.3 start blocks.
+
+### Indexer Stability & PostgreSQL Migration (2026-01-16)
+- **Fixed**: MegaETH RPC URL in `ponder.config.ts` from `timothy.megaeth.com` to `carrot.megaeth.com/rpc`.
+- **Fixed**: Added MegaETH polling config (`pollingInterval: 2_000`, `ethGetLogsBlockRange: 500`) to reduce RPC load.
+- **Added**: `RangeOrderPlaced` event to `TickBookPoolManager.ts` ABI for backward compatibility with V10.8.1 deployments.
+- **Added**: `RangeOrderPlaced` handler in `index.ts` mapping legacy event fields to current schema.
+- **Added**: Missing events to ABIs: `PooledRefundsClaimed`, `AutoClaimExecuted` (TickBookPoolManager), `TickBookSet`, `TickBookUpdated`, `FeeCollected` (TickBookVault), `RouterUpdated`, `BalanceUsed`, `WalletPull`, `LiquidityIncreased` (AMMEngine).
+- **Changed**: Local development now uses PostgreSQL instead of PGlite. PGlite was corrupting under multi-chain backfill load.
+- **Note**: MegaETH `LaunchpadEngine:MarketCreated` events won't be indexed (V10.8.1 lacks `symbol` field, different event signature).
+
+### Trade/Pro UI Polish (2026-01-16)
+- **Fixed**: Market chip cards in Trade.tsx - 2 lines for long questions (`line-clamp-2`), smaller font (`text-xs`), fixed width (`w-[320px]`).
+- **Fixed**: Market chip cards in Pro.tsx - same treatment (`w-[280px]`), removed `.slice(0, 25)` truncation.
+
+### CLI V10.8.3 Compatibility (2026-01-16)
+- **Fixed**: Internal CLI (`packages/contracts-testing/script/interactive/`) inline ABIs updated for V10.8.3 MarketState (removed name/symbol fields).
+- **Fixed**: Web SDK (`apps/web/src/lib/sdk/commands/state.ts`) markets command synced with internal CLI format.
+- **Changed**: Market names now fetched from `TruthMarket.question()` instead of MarketState struct.
+- **Changed**: Two-line market display format: Line 1 = market question, Line 2 = symbol/progress/liquidity/address.
+- **Removed**: Debug messages from CLI startup ("Fetching market info...", "Pre-graduation market...").
+- **Removed**: Auto-select market feature - users now explicitly run `setmarket 0` or `setmarket <address>`.
+- **Fixed**: On-chain market discovery for chains with empty deployment config (e.g., MegaETH).
+
+### V10.8.3 Deployment (2026-01-16)
+- **Breaking**: Removed `symbol` parameter from `createMarket()` - now auto-derived from market address (first 4 bytes = 8 hex chars).
+- **Breaking**: Removed `name` and `symbol` from `MarketState` struct (10 fields instead of 12).
+- **Breaking**: `MarketCreated` event no longer includes `symbol` field.
+- **Changed**: `Collateralizer.registerMarket()` now takes only `market` address, derives symbol internally.
+- **Added**: `_addressToSymbol()` helper in Collateralizer - converts address to 8-char uppercase hex symbol.
+- **Deployed**: V10.8.3 to all 4 testnets:
+  - Base Sepolia (84532)
+  - Monad Testnet (10143)
+  - Arc Testnet (5042002)
+  - MegaETH Testnet (6343)
+- **Updated**: Frontend ABIs, SDK, CLI, and indexer to match new contract signatures.
+- **Fixed**: Stale tests that referenced non-existent `buyFromSpotSell()` function.
+
 ### V10.8.2 Deployment (2026-01-16)
 - **Deployed**: V10.8.2 to Base Sepolia, Monad Testnet, and Arc Testnet.
 - **MegaETH**: Deployment failed due to 5000 byte DA size limit (Collateralizer: 5011 bytes). Remains on V10.8.1.

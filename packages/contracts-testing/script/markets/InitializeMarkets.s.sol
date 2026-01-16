@@ -27,8 +27,7 @@ contract InitializeMarkets is Script {
             uint64(block.timestamp + 365 days),
             deployer,
             deployer,
-            1000e18,
-            "ALIEN"
+            1000e18
         );
 
         vm.broadcast(deployerPrivateKey);
@@ -38,8 +37,7 @@ contract InitializeMarkets is Script {
             uint64(block.timestamp + 180 days),
             deployer,
             deployer,
-            1000e18,
-            "BTC100K"
+            1000e18
         );
 
         console2.log("Market initialization complete.");

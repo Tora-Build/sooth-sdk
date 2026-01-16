@@ -87,8 +87,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         bool isGraduated;
         uint64 createdAt;
         uint64 graduatedAt;
-        string name;                // Market name (for TickBook tokens)
-        string symbol;              // Market symbol (for TickBook tokens)
     }
 
     mapping(address => MarketState) public markets;
@@ -242,8 +240,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint64 deadline,
         address adjudicator,
         address guardian,
-        uint256 initialLiquidity,
-        string calldata symbol
+        uint256 initialLiquidity
     ) external override nonReentrant returns (address market, uint256 lpTokens) {
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
@@ -280,9 +277,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             lpYieldPool: 0,
             isGraduated: false,
             createdAt: uint64(block.timestamp),
-            graduatedAt: 0,
-            name: _truncateQuestion(question, 50),
-            symbol: symbol
+            graduatedAt: 0
         });
 
         lpBalances[market][msg.sender] = lpTokens;
@@ -291,7 +286,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
         allMarkets.push(market);
 
-        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens, symbol);
+        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
     }
 
     // ============================================
@@ -425,7 +420,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
                     (address yes, address no) = collateralizer.isMarketRegistered(market)
                         ? collateralizer.getOutcomeTokens(market)
-                        : collateralizer.registerMarket(market, state.name, state.symbol);
+                        : collateralizer.registerMarket(market);
 
                     (,, uint256 ammProbability) = ammEngine.getMarketState(market);
 
@@ -655,15 +650,5 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
         return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
-    }
-
-    function _truncateQuestion(string memory question, uint256 maxLen) internal pure returns (string memory) {
-        bytes memory questionBytes = bytes(question);
-        if (questionBytes.length <= maxLen) return question;
-        bytes memory result = new bytes(maxLen);
-        for (uint256 i = 0; i < maxLen; i++) {
-            result[i] = questionBytes[i];
-        }
-        return string(result);
     }
 }

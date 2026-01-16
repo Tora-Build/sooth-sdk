@@ -73,7 +73,7 @@ contract LiveLaunchpadTrade is Test {
         console.log("Base sell proceeds (before fee):", baseCost);
         
         // Get fee rate
-        (,,,,,,, bool isGraduated,,,,) = launchpad.markets(alienTruth);
+        (,,,,,,, bool isGraduated,,) = launchpad.markets(alienTruth);
         uint16 feeBps = isGraduated ? launchpad.postGradFeeBps() : launchpad.preGradFeeBps();
         uint256 expectedFee = (baseCost * feeBps) / 10000;
         uint256 expectedNet = baseCost - expectedFee;

@@ -42,7 +42,6 @@ export function useLaunchpadFactory() {
 
     const createMarket = (
         question: string,
-        symbol: string,
         startTime: bigint,
         deadline: bigint,
         initialLiquidity: bigint,
@@ -55,7 +54,7 @@ export function useLaunchpadFactory() {
             address: launchpadEngineAddress,
             abi: ABIS.LaunchpadEngine,
             functionName: 'createMarket',
-            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity, symbol],
+            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity],
         });
     };
 

@@ -45,8 +45,8 @@ const CollateralizerAbi = parseAbi([
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
-  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, string symbol) external returns (address market, uint256 lpTokens)',
-  'function markets(address) view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt, string name, string symbol)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity) external returns (address market, uint256 lpTokens)',
+  'function markets(address) view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
   'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
   'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
   'function preGradFeeBps() view returns (uint16)',
@@ -58,23 +58,20 @@ const AMMEngineAbi = parseAbi([
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
 ]);
 
-const MARKET_TEMPLATES: Record<string, { question: string; name: string; symbol: string; deadline: string }> = {
+const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
   alien: {
     question: 'The UN officially confirm extraterrestrial life.',
     name: 'UN Confirms Alien Life',
-    symbol: 'ALIEN',
     deadline: 'infinite',
   },
   btcath: {
     question: 'Will BTC/USD reach a new all-time high in 2026? (Chainlink 6H TWAP)',
     name: 'BTC All-Time High',
-    symbol: 'BTCATH',
     deadline: '2026-12-31',
   },
   lakers: {
     question: 'Will the LA Lakers win the 2025-26 NBA Championship?',
     name: 'Lakers 2026 Championship',
-    symbol: 'LAKERS',
     deadline: '2026-07-01',
   },
 };
@@ -130,11 +127,10 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   // User specifies in whole units, e.g., "500" = 500 WAD = 500e18
   const liquidityWad = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * WAD : 500n * WAD;
 
-  console.log(`\n  ${bold('Creating Market: ' + template.symbol)}`);
+  console.log(`\n  ${bold('Creating Market: ' + template.name)}`);
   console.log('  ' + '═'.repeat(50));
   console.log(`  Question:  ${template.question}`);
   console.log(`  Name:      ${template.name}`);
-  console.log(`  Symbol:    ${template.symbol}`);
   console.log(`  Liquidity: ${formatWad(liquidityWad)} (b parameter)`);
   console.log(`  Deadline:  ${template.deadline}`);
   console.log('');
@@ -197,7 +193,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, address, address, liquidityWad, template.symbol],
+      args: [template.question, startTime, deadline, address, address, liquidityWad],
       gas: createGas,
     });
 
@@ -233,7 +229,6 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     console.log('');
     console.log(`  TruthMarket: ${marketAddress}`);
     console.log(`  Name:        ${template.name}`);
-    console.log(`  Symbol:      ${template.symbol}`);
     console.log('');
     console.log(`  ${info('Next steps:')}`);
     console.log(`    setmarket ${marketAddress}`);

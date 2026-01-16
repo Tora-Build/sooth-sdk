@@ -16,8 +16,7 @@ interface ILaunchpadEngine {
         address indexed creator,
         uint256 initialLiquidity,
         uint256 deposit,
-        uint256 lpTokens,
-        string symbol
+        uint256 lpTokens
     );
 
     event PositionTraded(
@@ -115,7 +114,6 @@ interface ILaunchpadEngine {
      * @param adjudicator Address that can settle the market
      * @param guardian Address that can veto settlement
      * @param initialLiquidity Liquidity parameter b (WAD)
-     * @param symbol Market symbol (for TickBook tokens)
      * @return market Address of deployed TruthMarket
      * @return lpTokens Initial LP tokens minted to creator
      */
@@ -125,8 +123,7 @@ interface ILaunchpadEngine {
         uint64 deadline,
         address adjudicator,
         address guardian,
-        uint256 initialLiquidity,
-        string calldata symbol
+        uint256 initialLiquidity
     ) external returns (address market, uint256 lpTokens);
 
     // ============================================

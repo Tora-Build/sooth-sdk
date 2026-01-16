@@ -7,10 +7,26 @@ export const TickBookPoolManagerAbi = [
       { name: "market", type: "address", indexed: false },
       { name: "yesToken", type: "address", indexed: false },
       { name: "noToken", type: "address", indexed: false },
-      // V9.9.7: hook field removed (simple fee storage replaces hook system)
     ],
   },
-  // V9.9.6 uses OrderPlaced instead of RangeOrderPlaced
+  // V10: RangeOrderPlaced (may exist on older deployments)
+  {
+    type: "event",
+    name: "RangeOrderPlaced",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "orderId", type: "uint256", indexed: true },
+      { name: "outcome", type: "uint8", indexed: false },
+      { name: "tickLower", type: "uint16", indexed: false },
+      { name: "tickUpper", type: "uint16", indexed: false },
+      { name: "liquidity", type: "uint256", indexed: false },
+      { name: "collateralReserved", type: "uint256", indexed: false },
+      { name: "crossingFilled", type: "uint256", indexed: false },
+      { name: "crossingCost", type: "uint256", indexed: false },
+    ],
+  },
+  // V10: OrderPlaced (current primary event)
   {
     type: "event",
     name: "OrderPlaced",
@@ -185,7 +201,26 @@ export const TickBookPoolManagerAbi = [
       { name: "amount", type: "uint256", indexed: false },
     ],
   },
-  // V10: Unified Crossing Event (spot-first + range)
+  {
+    type: "event",
+    name: "PooledRefundsClaimed",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "refund", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "AutoClaimExecuted",
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "ordersClaimed", type: "uint256", indexed: false },
+      { name: "totalShares", type: "uint256", indexed: false },
+      { name: "totalCollateralUsed", type: "uint256", indexed: false },
+    ],
+  },
   {
     type: "event",
     name: "UnifiedCrossing",

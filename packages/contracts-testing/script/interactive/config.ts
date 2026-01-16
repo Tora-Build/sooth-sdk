@@ -100,7 +100,7 @@ export interface ChainConfig {
 export const CHAINS: Record<string, ChainConfig> = {
   baseSepolia: {
     chain: baseSepolia,
-    rpc: 'https://sepolia.base.org',
+    rpc: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
     deploymentFile: 'baseSepolia.json',
     confirmations: 1,
     postTxWaitMs: 0,
@@ -125,7 +125,7 @@ export const CHAINS: Record<string, ChainConfig> = {
   },
   megaethTestnet: {
     chain: megaethTestnet,
-    rpc: process.env.MEGAETH_RPC_URL || 'https://carrot.megaeth.com/rpc',
+    rpc: process.env.MEGAETH_TESTNET_RPC_URL || 'https://carrot.megaeth.com/rpc',
     deploymentFile: 'megaethTestnet.json',
     confirmations: 1,
     postTxWaitMs: 2000,
@@ -395,6 +395,7 @@ export const ABIS = {
       ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
     },
     {
+      // V10.8.3: Removed name/symbol fields (now 10 fields, not 12)
       name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
       outputs: [
         { type: 'address', name: 'creator' },
@@ -407,8 +408,6 @@ export const ABIS = {
         { type: 'bool', name: 'isGraduated' },
         { type: 'uint64', name: 'createdAt' },
         { type: 'uint64', name: 'graduatedAt' },
-        { type: 'string', name: 'name' },
-        { type: 'string', name: 'symbol' },
       ], stateMutability: 'view'
     },
     {

@@ -26,7 +26,7 @@ contract RegisterMarkets is Script {
         Collateralizer collat = Collateralizer(COLLATERALIZER);
 
         // Register ALIEN market
-        try collat.registerMarket(ALIEN_MARKET, "UN Confirms Alien Life", "ALIEN") returns (address yesToken, address noToken) {
+        try collat.registerMarket(ALIEN_MARKET) returns (address yesToken, address noToken) {
             console.log("[1/2] ALIEN registered");
             console.log("      YES:", yesToken);
             console.log("      NO:", noToken);
@@ -37,7 +37,7 @@ contract RegisterMarkets is Script {
         }
 
         // Register BTC100K market
-        try collat.registerMarket(BTC_MARKET, "BTC TWAP >= $100k", "BTC100K") returns (address yesToken, address noToken) {
+        try collat.registerMarket(BTC_MARKET) returns (address yesToken, address noToken) {
             console.log("[2/2] BTC100K registered");
             console.log("      YES:", yesToken);
             console.log("      NO:", noToken);

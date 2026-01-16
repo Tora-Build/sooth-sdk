@@ -111,17 +111,22 @@ contract SpotSellReproTest is Test {
         // Alice's spot sell just sits there
     }
 
-    function test_BuyFromSpotSell_ExplicitlyWorks() public {
+    /**
+     * @notice Test that placeOrder crosses with existing spot sells
+     */
+    function test_PlaceOrder_CrossesWithSpotSell() public {
         // 1. Alice places Spot Sell for YES at tick 600
         vm.prank(alice);
         uint256 sellId = poolManager.placeSpotSell(marketKey, 1, 500e18, 600, 600);
 
-        // 2. Bob calls explicit buyFromSpotSell
+        // 2. Bob buys via placeOrder which crosses with spot
         vm.prank(bob);
-        uint256 cost = poolManager.buyFromSpotSell(
+        (uint256 orderId, uint256 filled, uint256 cost, ) = poolManager.placeOrder(
             marketKey,
-            sellId,
+            1,          // YES
             100e18,     // buy 100 shares
+            600,        // tickLower
+            600,        // tickUpper
             65e18       // max cost (generous buffer)
         );
 

@@ -111,4 +111,28 @@ export const TickBookVaultAbi = [
       { name: "noBurned", type: "uint256", indexed: false },
     ],
   },
+  {
+    type: "event",
+    name: "TickBookSet",
+    inputs: [
+      { name: "tickBook", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "TickBookUpdated",
+    inputs: [
+      { name: "previousTickBook", type: "address", indexed: true },
+      { name: "newTickBook", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "FeeCollected",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "recipient", type: "address", indexed: true },
+      { name: "amountWad", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;
