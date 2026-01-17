@@ -44,6 +44,13 @@
         "."
       ],
       "description": "Secure file operations with configurable access controls"
+    },
+    "playwriter": {
+      "command": "npx",
+      "args": [
+        "playwriter@latest"
+      ],
+      "description": "Browser automation via Chrome extension with full Playwright API"
     }
   }
 }
