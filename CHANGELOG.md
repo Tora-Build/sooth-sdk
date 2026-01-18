@@ -4,6 +4,39 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Keeper Bot & Contract Fix (2026-01-18)
+
+**Contract Bug Fix (V10.8.4)**
+- **Fixed**: `_calculateOverlap` in `TickBookPoolManager.sol` line 1263 - changed `findNextDown(MAX_TICK + 1)` to `findNextUp(0)` for YES spot sells.
+- **Issue**: Was finding HIGHEST tick (most expensive) instead of LOWEST tick (cheapest) for YES spot sell overlap.
+- **Impact**: Spot sells at lower prices were being missed during crossing calculations.
+- **Deployed**: V10.8.4 to Base Sepolia with fix.
+
+**Keeper Bot Improvements**
+- **Fixed**: Analyzer was using `tickLower` instead of `tickUpper` for buy order max price, missing valid arbitrage opportunities.
+- **Added**: `MIN_SAFE_TICK` (10) and `MAX_SAFE_TICK` (990) filters to avoid contract edge cases at tick boundaries.
+- **Fixed**: Executor now sells at buyer's `tickUpper` (max price they'll pay) instead of `tickLower`, maximizing profit.
+- **Removed**: Unnecessary self-buy restriction - contract allows buying from own spot sells.
+- **Improved**: Better error message extraction from contract reverts.
+- **Changed**: Sequential execution (one opportunity at a time) to prevent nonce conflicts.
+- **Redesigned**: TUI with Monokai theme and simplified text-based layout.
+
+**Deployment**
+- Base Sepolia V10.8.4:
+  - TickBookPoolManager: `0x78e046dd0857d05b9cde976a171f7e6f86c3ecaa`
+  - LaunchpadEngine: `0x8bfb3eec9c0f75f036be3a21a913e9a67226f3f8`
+  - TickBookVault: `0x8ac0534cac22417b629f65e3c5ebb94ffa0be159`
+  - MockUSDC: `0x502d6e522b43dfff1951acd9e36d2c20d1333edb`
+
+**Files Changed**
+- `packages/contracts-core/src/TickBookPoolManager.sol` - Fixed spot sell overlap calculation
+- `packages/keeper/src/analyzer.ts` - Fixed tickUpper usage, added safe tick filter
+- `packages/keeper/src/executor.ts` - Fixed sell tick, removed self-buy check, better errors
+- `packages/keeper/src/index.ts` - Sequential execution
+- `packages/keeper/src/dashboard.ts` - Monokai TUI redesign
+- `packages/keeper/src/config.ts` - V10.8.4 addresses
+- `apps/web/src/config/deployments.json` - V10.8.4 addresses
+
 ### Code Quality Sprint Continued (2026-01-18)
 
 **Frontend - Component Extraction**

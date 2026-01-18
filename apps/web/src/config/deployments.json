@@ -1,5 +1,5 @@
 {
-  "version": "V10.8.3",
+  "version": "V10.8.5",
   "networks": {
     "arcTestnet": {
       "chainId": 5042002,

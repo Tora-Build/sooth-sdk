@@ -9,6 +9,9 @@ function calculateRestingShares(order: RangeOrder | SpotSellOrder): bigint {
   return order.sharesTotal - order.filledShares;
 }
 
+const MIN_SAFE_TICK = 10;
+const MAX_SAFE_TICK = 990;
+
 function tickToPrice(tick: number): bigint {
   return (BigInt(tick) * WAD) / 1000n;
 }
@@ -19,77 +22,71 @@ export function findArbitrageOpportunities(
 ): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
 
-  const yesBuys = orders.filter(o => o.outcome === 1 && o.active);
-  const yesSells = spotSells.filter(s => s.outcome === 1 && s.active);
+  opportunities.push(...findOpportunitiesForOutcome(orders, spotSells, 1));
+  opportunities.push(...findOpportunitiesForOutcome(orders, spotSells, 0));
 
-  for (const buy of yesBuys) {
-    const buyRestingShares = calculateRestingShares(buy);
-    if (buyRestingShares <= 0n) continue;
+  return opportunities.sort((a, b) => {
+    const spreadDiff = b.spread - a.spread;
+    if (spreadDiff !== 0) return spreadDiff;
+    return Number(b.estimatedProfitWad - a.estimatedProfitWad);
+  });
+}
 
-    for (const sell of yesSells) {
-      const sellRestingShares = calculateRestingShares(sell);
-      if (sellRestingShares <= 0n) continue;
+function findOpportunitiesForOutcome(
+  orders: RangeOrder[],
+  spotSells: SpotSellOrder[],
+  outcome: number
+): ArbitrageOpportunity[] {
+  const opportunities: ArbitrageOpportunity[] = [];
 
-      const sellAskTick = sell.tickLower;
-      
-      if (sellAskTick < buy.tickLower) {
-        const spread = buy.tickLower - sellAskTick;
-        const maxShares = min(buyRestingShares, sellRestingShares);
-        
-        const buyPriceWad = tickToPrice(buy.tickLower);
-        const sellPriceWad = tickToPrice(sellAskTick);
-        const estimatedProfitWad = ((buyPriceWad - sellPriceWad) * maxShares) / WAD;
+  // Sort buys by tickUpper DESCENDING (highest max price first)
+  // tickUpper = max price buyer is willing to pay
+  const buys = orders
+    .filter(o => o.outcome === outcome && o.active && calculateRestingShares(o) > 0n)
+    .sort((a, b) => b.tickUpper - a.tickUpper);
 
-        opportunities.push({
-          buyOrder: buy,
-          sellSource: sell,
-          buyPrice: buy.tickLower,
-          sellPrice: sellAskTick,
-          spread,
-          maxShares,
-          estimatedProfitWad,
-        });
-      }
+  const sells = spotSells
+    .filter(s => s.outcome === outcome && s.active && calculateRestingShares(s) > 0n && s.tickLower >= MIN_SAFE_TICK && s.tickLower <= MAX_SAFE_TICK)
+    .sort((a, b) => a.tickLower - b.tickLower);
+
+  if (buys.length === 0 || sells.length === 0) return opportunities;
+
+  const lowestSell = sells[0];
+  const highestBuy = buys[0];
+
+  // Arbitrage exists if seller's ask < buyer's max bid
+  if (lowestSell.tickLower >= highestBuy.tickUpper) return opportunities;
+
+  for (const sell of sells) {
+    const sellAskTick = sell.tickLower;
+    const sellRestingShares = calculateRestingShares(sell);
+
+    for (const buy of buys) {
+      // No opportunity if sell price >= buyer's max price
+      if (sellAskTick >= buy.tickUpper) continue;
+
+      const buyRestingShares = calculateRestingShares(buy);
+      // Spread = buyer's max price - seller's ask price
+      const spread = buy.tickUpper - sellAskTick;
+      const maxShares = min(buyRestingShares, sellRestingShares);
+
+      const buyPriceWad = tickToPrice(buy.tickUpper);
+      const sellPriceWad = tickToPrice(sellAskTick);
+      const estimatedProfitWad = ((buyPriceWad - sellPriceWad) * maxShares) / WAD;
+
+      opportunities.push({
+        buyOrder: buy,
+        sellSource: sell,
+        buyPrice: buy.tickUpper,
+        sellPrice: sellAskTick,
+        spread,
+        maxShares,
+        estimatedProfitWad,
+      });
     }
   }
 
-  const noBuys = orders.filter(o => o.outcome === 0 && o.active);
-  const noSells = spotSells.filter(s => s.outcome === 0 && s.active);
-
-  for (const buy of noBuys) {
-    const buyRestingShares = calculateRestingShares(buy);
-    if (buyRestingShares <= 0n) continue;
-
-    for (const sell of noSells) {
-      const sellRestingShares = calculateRestingShares(sell);
-      if (sellRestingShares <= 0n) continue;
-
-      const sellAskTick = sell.tickLower;
-      
-      if (sellAskTick < buy.tickLower) {
-        const spread = buy.tickLower - sellAskTick;
-        const maxShares = min(buyRestingShares, sellRestingShares);
-        
-        const buyPriceWad = tickToPrice(buy.tickLower);
-        const sellPriceWad = tickToPrice(sellAskTick);
-        const estimatedProfitWad = ((buyPriceWad - sellPriceWad) * maxShares) / WAD;
-
-        opportunities.push({
-          buyOrder: buy,
-          sellSource: sell,
-          buyPrice: buy.tickLower,
-          sellPrice: sellAskTick,
-          spread,
-          maxShares,
-          estimatedProfitWad,
-        });
-      }
-    }
-  }
-
-  return opportunities.sort((a, b) => 
-    Number(b.estimatedProfitWad - a.estimatedProfitWad)
-  );
+  return opportunities;
 }
 
 export function formatOpportunity(opp: ArbitrageOpportunity): string {
