@@ -468,7 +468,7 @@ export class SoothSDK {
         plain('      state / book [depth] / positions'),
         plain('      markets / marketinfo / info'),
         plain(''),
-        info('    Testing'),
+        info('    Pressure Testing'),
         plain('      simulate <n>            Place n random orders (1-1000)'),
         plain(''),
         dim(`  ${sep}`),
