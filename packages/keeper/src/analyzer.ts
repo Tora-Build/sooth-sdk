@@ -1,3 +1,4 @@
+import type { Address } from 'viem';
 import type { RangeOrder, SpotSellOrder, ArbitrageOpportunity } from './types.js';
 import { WAD } from './config.js';
 
@@ -18,12 +19,17 @@ function tickToPrice(tick: number): bigint {
 
 export function findArbitrageOpportunities(
   orders: RangeOrder[],
-  spotSells: SpotSellOrder[]
+  spotSells: SpotSellOrder[],
+  keeperAddress?: Address
 ): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
 
-  opportunities.push(...findOpportunitiesForOutcome(orders, spotSells, 1));
-  opportunities.push(...findOpportunitiesForOutcome(orders, spotSells, 0));
+  const filteredSells = keeperAddress
+    ? spotSells.filter(s => s.owner.toLowerCase() !== keeperAddress.toLowerCase())
+    : spotSells;
+
+  opportunities.push(...findOpportunitiesForOutcome(orders, filteredSells, 1));
+  opportunities.push(...findOpportunitiesForOutcome(orders, filteredSells, 0));
 
   return opportunities.sort((a, b) => {
     const spreadDiff = b.spread - a.spread;

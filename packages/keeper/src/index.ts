@@ -5,12 +5,14 @@ import { getNetwork, LAUNCHPAD_ABI, COLLATERALIZER_ABI, POOL_MANAGER_ABI, VAULT_
 import { scanMarket } from './monitor.js';
 import { findArbitrageOpportunities, filterProfitableOpportunities } from './analyzer.js';
 import { executeArbitrage } from './executor.js';
+import { runMaintenance } from './maintenance.js';
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
 import { Dashboard } from './dashboard.js';
 import type { KeeperStats } from './types.js';
 
 const POLL_INTERVAL_MS = 5000;
 const BALANCE_REFRESH_INTERVAL_MS = 10000;
+const MAINTENANCE_INTERVAL_MS = 60000;
 const MIN_PROFIT_WAD = WAD / 10n;
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
@@ -185,6 +187,44 @@ async function main() {
   await refreshBalances();
   setInterval(refreshBalances, BALANCE_REFRESH_INTERVAL_MS);
 
+  async function runMaintenanceCycle() {
+    for (const { market, marketKey } of activeMarketData) {
+      try {
+        dashboard.logInfo('Running maintenance...');
+        const maintenanceResult = await runMaintenance(
+          publicClient,
+          walletClient,
+          config,
+          account,
+          marketKey,
+          market,
+          {
+            onLog: (msg) => dashboard.logInfo(msg),
+            onError: (msg) => dashboard.logError(msg),
+            onSuccess: (msg) => dashboard.logSuccess(msg),
+          }
+        );
+
+        const totalActions = maintenanceResult.fillsClaimed + 
+          maintenanceResult.ordersCancelled + 
+          maintenanceResult.spotSellsCancelled +
+          maintenanceResult.spotSellProceedsClaimed;
+
+        if (totalActions > 0) {
+          dashboard.logSuccess(`Maintenance done: ${totalActions} actions`);
+          await refreshBalances();
+        }
+      } catch (err) {
+        dashboard.logError(`Maintenance error: ${err instanceof Error ? err.message.slice(0, 50) : 'Unknown'}`);
+      }
+    }
+  }
+
+  dashboard.logInfo('Running startup maintenance...');
+  await runMaintenanceCycle();
+
+  setInterval(runMaintenanceCycle, MAINTENANCE_INTERVAL_MS);
+
   async function runScan() {
     stats.lastScanTime = new Date();
     
@@ -197,7 +237,7 @@ async function main() {
         
         if (orders.length === 0 && spotSells.length === 0) continue;
 
-        const opportunities = findArbitrageOpportunities(orders, spotSells);
+        const opportunities = findArbitrageOpportunities(orders, spotSells, account.address);
         const profitable = filterProfitableOpportunities(opportunities, MIN_PROFIT_WAD);
 
         dashboard.updateOpportunities(profitable);
