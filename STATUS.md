@@ -53,12 +53,14 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Deploy Indexer Fixes to Render** — Push indexer ABI/handler changes to `render` branch: MegaETH RPC fix, RangeOrderPlaced handler, missing events.
-- **Indexing Reset** — Reset indexer DB and reindex with new V10.8.3 addresses.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
 - **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 - **Contract Verification** — Verify V10.8.3 contracts on Basescan/Monadexplorer/Arcscan/MegaETH explorer.
+
+## Recently Completed
+- ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
+- ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
 
 ## Known Issues
 - **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
