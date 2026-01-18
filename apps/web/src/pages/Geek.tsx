@@ -208,8 +208,8 @@ export function Geek() {
     if (cmd === 'simulate') {
       const count = parseInt(parts[1] || '10', 10);
       const avgSize = parseInt(parts[2] || '100', 10);
-      if (isNaN(count) || count < 1 || count > 200) {
-        return [{ type: 'error', text: 'Usage: simulate <n> [avgSize] (1-200)' }];
+      if (isNaN(count) || count < 1 || count > 1000) {
+        return [{ type: 'error', text: 'Usage: simulate <n> [avgSize] (1-1000)' }];
       }
 
       const out = (line: OutputLine) => stream ? stream(line) : undefined;
