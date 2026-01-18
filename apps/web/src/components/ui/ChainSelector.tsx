@@ -7,6 +7,7 @@ import { useChainStore } from '../../store/useChainStore';
 import { cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import { Button } from './Button';
+import { logger } from '../../lib/logger';
 
 export const ChainSelector: React.FC = () => {
   const { isConnected } = useAccount();
@@ -33,7 +34,7 @@ export const ChainSelector: React.FC = () => {
         await switchChain({ chainId });
         toast.success(`Network: ${getChainById(chainId)?.name}`);
       } catch (error: any) {
-        console.error('Chain switch failed via wagmi, trying EIP-3085 fallback:', error);
+        logger.chain.error('Chain switch failed via wagmi, trying EIP-3085 fallback:', error);
         
         // Fallback: Try direct EIP-3085/3326 (for Phantom and wallets that need chain added)
         try {
@@ -49,7 +50,7 @@ export const ChainSelector: React.FC = () => {
             }
           }
         } catch (fallbackError: any) {
-          console.error('EIP-3085 fallback also failed:', fallbackError);
+          logger.chain.error('EIP-3085 fallback also failed:', fallbackError);
         }
         
         if (error.message?.includes('rejected')) {

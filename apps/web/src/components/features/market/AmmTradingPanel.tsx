@@ -9,6 +9,7 @@ import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { formatUnits } from 'viem';
 import uiContent from '../../../config/ui-content.json';
 import { useChainStore } from '../../../store/useChainStore';
+import { logger } from '../../../lib/logger';
 
 interface AmmTradingPanelProps {
     address: `0x${string}`;
@@ -142,7 +143,7 @@ export const AmmTradingPanel: React.FC<AmmTradingPanelProps> = ({
                 onTradeSuccess?.();
             }
         } catch (err) {
-            console.error('Trade failed:', err);
+            logger.trade.error('Trade failed:', err);
         } finally {
             setIsPending(false);
         }

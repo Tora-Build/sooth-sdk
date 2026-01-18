@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils';
 import { useChainStore } from '../../store/useChainStore';
 import { marketConfigs } from '../../config';
 import { getChainById } from '../../lib/chains';
+import { logger } from '../../lib/logger';
 
 interface SimpleTradingPanelProps {
   address: `0x${string}`;
@@ -219,17 +220,17 @@ export const SimpleTradingPanel = ({
   // Log transaction hash when it's set
   useEffect(() => {
     if (tradeTxHash) {
-      console.log('[Trade] Transaction hash received:', tradeTxHash);
+      logger.trade.log('Transaction hash received:', tradeTxHash);
     }
   }, [tradeTxHash]);
 
   // Log trade receipt status
   useEffect(() => {
     if (isTradeSuccess) {
-      console.log('[Trade] Transaction confirmed!');
+      logger.trade.log('Transaction confirmed!');
     }
     if (isTradeError) {
-      console.error('[Trade] Transaction failed:', tradeReceiptError);
+      logger.trade.error('Transaction failed:', tradeReceiptError);
     }
   }, [isTradeSuccess, isTradeError, tradeReceiptError]);
 
@@ -344,7 +345,7 @@ export const SimpleTradingPanel = ({
 
     // Approve a large amount in the token's actual decimals
     const approvalAmount = parseUnits('1000000', decimals);
-    console.log('[Approve] Amount:', approvalAmount.toString(), 'decimals:', decimals);
+    logger.trade.log('Approve amount:', approvalAmount.toString(), 'decimals:', decimals);
 
     approve({
       address: contracts.MockUSDC as `0x${string}`,
@@ -454,14 +455,14 @@ export const SimpleTradingPanel = ({
       setAmount(wadToSharesInput(best));
       setAmountError(null);
     } catch (e: any) {
-      console.error('[MAX] Failed to compute max buy', e);
+      logger.trade.error('Failed to compute max buy:', e);
       toast.error('Could not compute MAX right now.');
     }
   };
 
   // Execute trade
   const handleTrade = async () => {
-    console.log('[Trade] handleTrade called', {
+    logger.trade.log('handleTrade called', {
       launchpadEngine: contracts.LaunchpadEngine,
       deltaShares: quote.deltaShares?.toString(),
       sharesNum,
@@ -491,7 +492,7 @@ export const SimpleTradingPanel = ({
       ? (quote.cost * 105n) / 100n
       : (quote.cost * 95n) / 100n;
 
-    console.log('[Trade] Executing (V9):', {
+    logger.trade.log('Executing (V9):', {
       market: address,
       outcome: selectedOutcome,
       deltaShares: deltaShares.toString(),
@@ -521,7 +522,7 @@ export const SimpleTradingPanel = ({
       // Simulate first to catch specific revert reasons
       if (publicClient) {
         try {
-          console.log('[Trade] Simulating tradePositions...', {
+          logger.trade.log('Simulating tradePositions...', {
             address: contracts.LaunchpadEngine,
             args: [address, selectedOutcome, deltaShares, limitCost]
           });
@@ -535,9 +536,9 @@ export const SimpleTradingPanel = ({
             // Use same gas limit for simulation to catch OOG
             gas: gasLimit,
           });
-          console.log('[Trade] Simulation successful');
+          logger.trade.log('Simulation successful');
         } catch (simError: any) {
-          console.error('[Trade] Simulation failed:', simError);
+          logger.trade.error('Simulation failed:', simError);
           const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Unknown revert reason';
           toast.error(`Simulation failed: ${reason}`);
           return; // Abort trade
@@ -552,20 +553,20 @@ export const SimpleTradingPanel = ({
         gas: gasLimit,
       }, {
         onSuccess: (hash) => {
-          console.log('[Trade] Transaction submitted! Hash:', hash);
+          logger.trade.log('Transaction submitted! Hash:', hash);
           const toastId = toast.loading(`Confirming ${tradeInfo.mode} ${tradeInfo.shares} ${tradeInfo.outcome}...`);
           setPendingTxHash(hash);
           setPendingToastId(toastId);
           setPendingTradeInfo(tradeInfo);
         },
         onError: (error: any) => {
-          console.error('[Trade] Error:', error);
+          logger.trade.error('Error:', error);
           const errorMsg = error?.cause?.shortMessage || error?.message || 'Transaction failed';
           toast.error(`Trade failed: ${errorMsg}`);
         },
       });
     } catch (err) {
-      console.error('[Trade] Unexpected error:', err);
+      logger.trade.error('Unexpected error:', err);
       toast.error('Unexpected error during trade');
     }
   };

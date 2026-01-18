@@ -568,8 +568,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         nonReentrant
         returns (uint256 totalCollateralReleased)
     {
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        for (uint256 i = 0; i < orderIds.length;) {
             totalCollateralReleased += _cancelInternal(marketKey, orderIds[i]);
+            unchecked { ++i; }
         }
     }
 
@@ -630,10 +631,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         nonReentrant
         returns (uint256 totalFilledShares, uint256 totalCollateralUsed)
     {
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        for (uint256 i = 0; i < orderIds.length;) {
             (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i]);
             totalFilledShares += filled;
             totalCollateralUsed += used;
+            unchecked { ++i; }
         }
     }
 
@@ -1336,9 +1338,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
             uint256 len = sellIds.length;
             
-            for (uint256 i = 0; i < len && remaining > 0; i++) {
+            for (uint256 i = 0; i < len && remaining > 0;) {
                 uint256 sellId = sellIds[i];
                 SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
+                unchecked { ++i; }
                 
                 if (!spotOrder.active) continue;
                 

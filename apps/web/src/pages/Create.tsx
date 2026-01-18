@@ -26,6 +26,7 @@ import { ABIS, ERC20_ABI } from '../config/abis';
 import marketsConfigRaw from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { MarketConfig, MarketsConfigJson } from '../types';
+import { logger } from '../lib/logger';
 
 const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 import toast from 'react-hot-toast';
@@ -357,7 +358,7 @@ export const Create = () => {
       });
 
     } catch (err: any) {
-      console.error('Deployment failed:', err);
+      logger.launchpad.error('Deployment failed:', err);
       toast.error(err.message || 'Deployment failed');
       setDeploymentStep('error');
       setIsDeploying(false);

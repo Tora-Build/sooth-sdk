@@ -1,12 +1,13 @@
 # Project Status
 
 ## Current Focus
+- **Code Quality Improvements (2026-01-18)** — Production-safe logging utility, TypeScript type safety improvements, error boundaries, contract gas optimization. All changes verified (90 tests pass, frontend builds).
 - **CLI/SDK setmarket Unification (2026-01-16)** — Unified output format between internal CLI and web SDK. Both now show `[SYMBOL] Market Name`, Address, and Key consistently. Removed legacy marketKey warnings. SDK now fetches market name from `TruthMarket.question()`.
-- **CLI Private RPC Support (2026-01-16)** — Added `BASE_SEPOLIA_RPC_URL` env var support. Fixed `MEGAETH_TESTNET_RPC_URL` name mismatch.
 - **Trade/Pro UI Cleanup (2026-01-16)** — Simplified market headers: removed redundant symbol/probability display, now shows question + bonding progress icon (⚡) or graduated icon (📊). Compact metadata card with status badge, expiry, creator, adjudicator.
 - **V10.8.3 ABI Sync (2026-01-16)** — Fixed all frontend hooks and SDK to work with new 10-field MarketState (removed name/symbol). Symbol now derived from market address (first 4 bytes). Question fetched from TruthMarket.question().
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
 - **2026-01-16** — **Indexer Stability Fixes**: Diagnosed "PGlite is closed" errors caused by corrupted WASM database under multi-chain load. Fixed MegaETH RPC URL (`timothy` → `carrot.megaeth.com`). Added `RangeOrderPlaced` handler for V10.8.1 backward compatibility. Added missing ABI events (TickBookVault, AMMEngine). Migrated local dev to PostgreSQL.
 - **2026-01-16** — **Trade/Pro UI Polish**: Fixed market chip cards - now show 2 lines for long questions, smaller font (`text-xs`), fixed width (`w-[320px]`/`w-[280px]`).
 - **2026-01-16** — **CLI V10.8.3 Compatibility Fix**: Fixed internal CLI and web SDK to work with V10.8.3 contracts. Updated inline ABIs (removed name/symbol from MarketState). CLI now fetches market names from `TruthMarket.question()`. Unified two-line market display format. Removed debug messages and auto-select market feature.
@@ -339,4 +340,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-12 (Mobile UI polish + UI rules consolidation)*
+*Last updated: 2026-01-18 (Code quality sprint: logger, types, error boundaries, gas optimization)*

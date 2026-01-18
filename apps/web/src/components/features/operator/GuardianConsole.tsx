@@ -8,6 +8,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import toast from 'react-hot-toast';
+import { logger } from '../../../lib/logger';
 
 export function GuardianConsole() {
   const { t } = useContent();
@@ -49,7 +50,7 @@ export function GuardianConsole() {
       toast.success('Action successful!', { id: toastId });
       refetchStates();
     } catch (error: any) {
-      console.error('Guardian error:', error);
+      logger.market.error('Guardian error:', error);
       toast.error(error.message?.split('\n')[0] || 'Action failed', { id: toastId });
     } finally {
       setIsPending(prev => ({ ...prev, [`${marketAddress}-${action}`]: false }));

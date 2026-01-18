@@ -20,6 +20,7 @@ import { PositionActionsModal } from '../components/features/portfolio/PositionA
 import { useTraderVault } from '../hooks/useTraderVault';
 import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import uiContent from '../config/ui-content.json';
+import { logger } from '../lib/logger';
 
 // Compact Market Info Card Component with Help Button
 const MarketInfoCard = ({
@@ -538,7 +539,7 @@ export const MarketDetail = () => {
   } = marketData;
 
   // TODO: Graduate function should be added to useLaunchpadMarket hook
-  const graduate = async () => { console.warn('Graduate not implemented'); };
+  const graduate = async () => { logger.market.warn('Graduate not implemented'); };
   const isGraduatePending = false;
 
   const isGraduated = launchpad?.isGraduated ?? false;
