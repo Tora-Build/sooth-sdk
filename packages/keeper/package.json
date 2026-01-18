@@ -1,0 +1,25 @@
+{
+  "name": "@sooth/keeper",
+  "version": "1.0.0",
+  "description": "Sooth Protocol TickBook Arbitrage Keeper Bot",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "keeper": "bun run src/index.ts",
+    "keeper:base": "CHAIN=baseSepolia bun run src/index.ts",
+    "keeper:monad": "CHAIN=monadTestnet bun run src/index.ts",
+    "keeper:arc": "CHAIN=arcTestnet bun run src/index.ts",
+    "keeper:megaeth": "CHAIN=megaethTestnet bun run src/index.ts"
+  },
+  "dependencies": {
+    "viem": "^2.21.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
