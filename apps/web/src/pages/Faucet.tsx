@@ -6,6 +6,7 @@ import { parseUnits, formatUnits, parseAbi } from 'viem';
 import { useDeployments } from '../hooks/useDeployments';
 import { Coins, Droplets, ExternalLink, Info, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { logger } from '../lib/logger';
 
 // Simple ABIs for faucet
 const MOCK_ERC20_ABI = parseAbi([
@@ -73,7 +74,7 @@ export const Faucet = () => {
         toast.success('Transaction sent!', { id: tid });
       }
     } catch (err: unknown) {
-      console.error('Faucet error:', err);
+      logger.rpc.error('Faucet error:', err);
       const message = err instanceof Error && 'shortMessage' in err 
         ? (err as { shortMessage: string }).shortMessage 
         : 'Failed to mint tokens';

@@ -106,6 +106,8 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
             liquidity: initialLiquidity,
             initialized: true
         });
+
+        emit MarketInitialized(market, initialLiquidity);
     }
 
     // ============================================

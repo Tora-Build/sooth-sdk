@@ -11,6 +11,7 @@ import { Button } from '../ui/Button';
 import { useDeployments } from '../../hooks/useDeployments';
 import { ABIS } from '../../config/abis';
 import { cn } from '../../lib/utils';
+import { logger } from '../../lib/logger';
 
 // Explorer URL helper
 const getExplorerUrl = (chainId: number, hash: string) => {
@@ -92,13 +93,13 @@ export const ClaimFillsButton = ({
         }
 
         if (validOrderIds.length < orderIds.length) {
-          console.warn(`[BatchClaim] Filtered ${orderIds.length - validOrderIds.length} stale/inactive orders`);
+          logger.claim.warn(`Filtered ${orderIds.length - validOrderIds.length} stale/inactive orders`);
           // Update the list to claim
           orderIds = validOrderIds;
         }
       }
 
-      console.log('[BatchClaim] Calling batchClaimFills:', {
+      logger.claim.log('Calling batchClaimFills:', {
         marketKey,
         orderIds: orderIds.map(id => id.toString()),
         poolManager: poolManagerAddress
@@ -115,7 +116,7 @@ export const ClaimFillsButton = ({
             gas: BigInt(500000 + orderIds.length * 200000),
           });
         } catch (simError: any) {
-          console.error('[BatchClaim] Simulation failed:', simError);
+          logger.claim.error('Simulation failed:', simError);
           const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Simulation failed';
 
           if (reason.includes('OrderNotActive')) {
@@ -124,7 +125,7 @@ export const ClaimFillsButton = ({
             return;
           }
           // Non-blocking simulation
-          console.warn('[BatchClaim] Simulation failed, attempting forced execution:', simError);
+          logger.claim.warn('Simulation failed, attempting forced execution:', simError);
         }
       }
 
@@ -135,14 +136,14 @@ export const ClaimFillsButton = ({
         args: [marketKey, orderIds],
         gas: BigInt(500000 + orderIds.length * 200000), // Aggressive buffer
       });
-      console.log('[BatchClaim] TX submitted:', hash);
+      logger.claim.log('TX submitted:', hash);
 
       toast.loading('Waiting for confirmation...', { id: toastId });
       setIsConfirming(true);
 
       if (publicClient) {
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
-        console.log('[BatchClaim] TX receipt:', receipt.status, receipt);
+        logger.claim.log('TX receipt:', receipt.status, receipt);
         if (receipt.status === 'reverted') {
           toast.error('Transaction reverted on-chain', { id: toastId });
           setIsConfirming(false);
@@ -162,7 +163,7 @@ export const ClaimFillsButton = ({
           }) as bigint;
 
           if (pendingRefunds > 0n) {
-            console.log('[BatchClaim] Claiming pending refunds:', pendingRefunds.toString());
+            logger.claim.log('Claiming pending refunds:', pendingRefunds.toString());
             toast.loading('Claiming refunds...', { id: toastId });
 
             const refundHash = await writeContractAsync({
@@ -174,13 +175,13 @@ export const ClaimFillsButton = ({
 
             const refundReceipt = await publicClient.waitForTransactionReceipt({ hash: refundHash, timeout: 60_000 });
             if (refundReceipt.status === 'reverted') {
-              console.warn('[BatchClaim] Refund claim reverted');
+              logger.claim.warn('Refund claim reverted');
             } else {
               refundsClaimed = true;
             }
           }
         } catch (refundError) {
-          console.warn('[BatchClaim] Refund claim failed (non-blocking):', refundError);
+          logger.claim.warn('Refund claim failed (non-blocking):', refundError);
         }
       }
 
@@ -195,7 +196,7 @@ export const ClaimFillsButton = ({
       );
       onSuccess?.();
     } catch (e: any) {
-      console.error('[BatchClaim] Error:', e);
+      logger.claim.error('Error:', e);
       const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Claim failed';
       toast.error(msg, { id: toastId });
     } finally {

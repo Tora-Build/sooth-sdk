@@ -78,6 +78,9 @@ interface IAMMEngine {
     /// @notice Market liquidity (b) updated (WAD)
     event LiquidityIncreased(address indexed market, uint256 deltaLiquidity, uint256 newLiquidity);
 
+    /// @notice Market initialized with liquidity
+    event MarketInitialized(address indexed market, uint256 initialLiquidity);
+
     // ============================================
     // Structs
     // ============================================

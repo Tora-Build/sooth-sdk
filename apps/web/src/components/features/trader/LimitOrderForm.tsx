@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
+import { logger } from '../../../lib/logger';
 
 interface LimitOrderFormProps {
   marketId: string;
@@ -148,7 +149,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       try {
         await placeOrder(outcome, price, amount, true);
       } catch (e) {
-        console.error('Buy Order Error', e);
+        logger.order.error('Buy Order Error', e);
       }
     } else {
       // Sell Side - Route to correct function based on sell type
@@ -164,7 +165,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           await placeOrder(outcome, price, amount, false);
         }
       } catch (e) {
-        console.error('Sell Order Error', e);
+        logger.order.error('Sell Order Error', e);
       }
     }
   };

@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { Card } from '../../ui/Card';
 import { cn } from '../../../lib/utils';
 import { RefreshCw, Trash2, User } from 'lucide-react';
+import { logger } from '../../../lib/logger';
 
 interface OrderbookProps {
   marketId: string;
@@ -82,7 +83,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         id: `agg-${o.displayPrice}` // aggregated ID
       }));
     } catch (e) {
-      console.error('Orderbook Aggregation Error', e);
+      logger.order.error('Orderbook Aggregation Error', e);
       return [];
     }
   };

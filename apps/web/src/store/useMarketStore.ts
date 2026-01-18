@@ -1,82 +1,53 @@
 import { create } from 'zustand';
-import { Market, Pool } from '../types';
 import marketsConfig from '../config/markets.json';
 
-interface MarketState {
-  mode: 'demo' | 'real';
-  markets: Market[];
-  refreshKey: number;
-
-  setMode: (mode: 'demo' | 'real') => void;
-  updateMarket: (marketId: string, updates: Partial<Market>) => void;
-  triggerRefresh: () => void;
+export interface MarketConfig {
+  id: string;
+  address: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  mode: 'demo' | 'live';
 }
 
-import marketOverrides from '../config/marketOverrides.json';
+/** Raw market config from JSON - may have optional fields */
+interface RawMarketConfig {
+  id?: string;
+  address?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  imageUrl?: string;
+  mode?: string;
+}
 
-// Initial Demo Data
-// Filter out real markets - they should come from LaunchpadFactory dynamically
-const configMarkets = Array.isArray(marketsConfig) ? marketsConfig : (marketsConfig as any).markets || [];
+interface MarketsConfigFile {
+  version: string;
+  markets: RawMarketConfig[];
+}
 
-const initialDemoMarkets: Market[] = configMarkets
-  .filter((m: any) => m.mode === 'demo')
-  .map((m: any) => {
-  // Apply overrides if they exist for this market ID
-  const override = (marketOverrides.overrides as Record<string, any>)[m.id] || {};
-  const mergedMarket = { ...m, ...override };
+interface MarketStore {
+  markets: MarketConfig[];
+  selectedMarket: MarketConfig | null;
+  setSelectedMarket: (market: MarketConfig | null) => void;
+  getMarketById: (id: string) => MarketConfig | undefined;
+  getMarketByAddress: (address: string) => MarketConfig | undefined;
+}
 
-  // Only process demo markets for bParam calculation
-  if ((mergedMarket as any).mode !== 'demo') {
-    return mergedMarket as Market;
-  }
+const typedConfig = marketsConfig as MarketsConfigFile;
 
-  const initialYes = (mergedMarket as any).initialYes || 0.5;
-  const initialNo = 1 - initialYes;
-
-  // Base Liquidity (risk-adjusted allocation)
-  const baseLiquidity = (mergedMarket as any).baseLiquidity ? BigInt((mergedMarket as any).baseLiquidity) :
-    ((mergedMarket as any).riskLevel === 'HIGH' ? 50000n * 10n ** 18n :
-      (mergedMarket as any).riskLevel === 'MEDIUM' ? 25000n * 10n ** 18n :
-        10000n * 10n ** 18n); // LOW or default
-
-  // Reserve Calculation
-  // For BTC (id: 'm1') and UN confirms alien life (id: 'm3') markets, start with 0 reserve (fresh market)
-  // For others, simulate 5% accumulated profit
-  const isFreshMarket = m.id === 'm1' || m.id === 'm3';
-  const reserve = isFreshMarket ? 0n : (baseLiquidity * 5n / 100n);
-
-  // Total Liquidity: b = Base + Reserve
-  const bParam = baseLiquidity + reserve;
-
-  const b = Number(bParam) / 1e18;
-
-  // Calculate qYes and qNo from initial prices using LMSR: q = b * ln(price)
-  // Clamp to avoid Math.log(0) = -Infinity
-  const clampedYes = Math.max(0.001, Math.min(0.999, initialYes));
-  const clampedNo = Math.max(0.001, Math.min(0.999, initialNo));
-  const qYes = BigInt(Math.round(b * Math.log(clampedYes) * 1e18));
-  const qNo = BigInt(Math.round(b * Math.log(clampedNo) * 1e18));
-
-  return {
-    ...mergedMarket,
-    status: (mergedMarket as any).initialStatus || 'trading',
-    priceYes: initialYes,
-    priceNo: initialNo,
-    qYes,
-    qNo,
-    bParam,
-    baseLiquidity,
-    reserve,
-    userYesShares: 0,
-    userNoShares: 0,
-    userYesOutcomeTokens: 0,
-    userNoOutcomeTokens: 0,
-    userAvgEntryYes: null,
-    userAvgEntryNo: null,
-    winningOutcome: (mergedMarket as any).winningOutcome,
-    mode: (mergedMarket as any).mode || 'demo', // Preserve mode from config
-  } as Market;
-});
+const demoMarkets = (typedConfig.markets || [])
+  .filter((m): m is RawMarketConfig & { mode: 'demo' } => m.mode === 'demo')
+  .map((m): MarketConfig => ({
+    id: m.id || '',
+    address: m.address?.toLowerCase() || '',
+    name: m.name || '',
+    description: m.description || '',
+    category: m.category || 'other',
+    imageUrl: m.imageUrl,
+    mode: 'demo',
+  }));
 
 export const useMarketStore = create<MarketState>((set) => ({
   markets: initialDemoMarkets,

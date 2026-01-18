@@ -4,6 +4,71 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Code Quality Sprint Continued (2026-01-18)
+
+**Frontend - Component Extraction**
+- **Extracted**: `LiquidityMap.tsx` (397 lines) from `Pro.tsx` — Visual liquidity depth chart for TickBook orderbook showing bid/ask distribution across price ticks with animated pixel blocks.
+- **Extracted**: `UserOrdersPanel.tsx` (781 lines) from `Pro.tsx` — Order management panel with claim, cancel, batch operations for range orders and spot sells.
+- **New**: Created barrel export at `apps/web/src/components/features/pro/index.ts`.
+- **Reduced**: `Pro.tsx` from ~2700 lines to ~1580 lines (~42% reduction).
+
+**Frontend - Build Optimization**
+- **Added**: Vite `manualChunks` configuration for better bundle caching:
+  - `vendor-react`: react, react-dom, react-router-dom
+  - `vendor-web3`: wagmi, viem, @tanstack/react-query
+  - `vendor-state`: zustand
+
+**Contracts - Documentation**
+- **Updated**: `packages/contracts-core/src/README.md` — Complete rewrite for V10.8.3 architecture (was outdated V8 docs).
+  - New architecture diagram (TruthMarket → LaunchpadEngine → AMMEngine/TickBookPoolManager → TickBookVault).
+  - Updated contract descriptions, features, and deployment addresses.
+  - Test count: 124 tests (was 30).
+
+**Contracts - Testing**
+- **New**: `packages/contracts-testing/test/unit/TickBookVault.t.sol` — 34 unit tests covering:
+  - Constructor validation
+  - USDC deposit/withdraw
+  - Reserve/release USDC (onlyTickBook)
+  - Spend to market collateral
+  - Credit/lock/unlock/transfer outcome shares
+  - Fee transfers
+  - Redemption (YES wins, NO wins, INVALID)
+  - Access control (onlyTickBook modifier)
+
+**Verification**
+- ✅ 124 contract tests pass (90 original + 34 new TickBookVault tests)
+- ✅ Frontend build passes (6.45s)
+- ✅ No TypeScript errors
+
+### Code Quality Sprint (2026-01-18)
+
+**Frontend - Production Logging**
+- **New**: Created `apps/web/src/lib/logger.ts` - Production-safe logging utility with namespaced loggers (trade, order, claim, cancel, market, launchpad, ui, wallet, chain, rpc, indexer).
+- **Changed**: Replaced all 69 `console.log/warn/error` statements across 13 `.tsx` files with logger utility.
+- **Behavior**: Logger only outputs in development mode (`import.meta.env.DEV`). Errors always log (even in production) for debugging.
+- **Files Changed**: `Pro.tsx`, `SimpleTradingPanel.tsx`, `ClaimFillsButton.tsx`, `Faucet.tsx`, `Create.tsx`, `MarketDetail.tsx`, `AppLayout.tsx`, `ChainSelector.tsx`, `Orderbook.tsx`, `AdjudicatorConsole.tsx`, `GuardianConsole.tsx`, `LimitOrderForm.tsx`, `AmmTradingPanel.tsx`
+
+**Frontend - Type Safety**
+- **Fixed**: `useMarketStore.ts` - Replaced `any` types with proper `RawMarketConfig` interface.
+- **Enhanced**: `types.ts` - Added comprehensive protocol types: `OUTCOME`, `TruthMarket`, `RangeOrder`, `SpotSellOrder`, `VaultPosition`, WAD helper types matching Solidity contracts.
+
+**Frontend - Error Handling**
+- **New**: Created `apps/web/src/components/ui/ErrorBoundary.tsx` - React error boundary with retry functionality for graceful error recovery.
+
+**Frontend - Cleanup**
+- **Removed**: `apps/web/src/hooks/useLaunchpadMarketLegacy.ts` - Dead code, unused legacy hook.
+
+**Contracts - Gas Optimization**
+- **Optimized**: `TickBookPoolManager.sol` - Added unchecked arithmetic to batch loop counters (`batchCancelOrders`, `batchClaimFills`, `_fillSpotLiquidity`). Saves ~5-10 gas per iteration, ~100-500 gas per batch call.
+
+**Contracts - Events**
+- **Added**: `MarketInitialized(address indexed market, uint256 initialLiquidity)` event to `AMMEngine.sol` and `IAMMEngine.sol` interface.
+
+**Verification**
+- ✅ 90 contract tests pass (10 test suites)
+- ✅ Frontend build passes (5.66s)
+- ✅ No TypeScript errors
+
 ### CLI/SDK setmarket Unification (2026-01-16)
 - **Unified**: Internal CLI and web SDK `setmarket` command now produce identical output format.
 - **Format**: `Market set: [SYMBOL] Market Question...` with `Address:` and `Key:` lines.

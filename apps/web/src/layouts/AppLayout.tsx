@@ -7,6 +7,7 @@ import { useChainId, useAccount } from 'wagmi';
 import { useChainStore } from '../store/useChainStore';
 import { allowedChains } from '../lib/chains';
 import { useEffect } from 'react';
+import { logger } from '../lib/logger';
 
 export const AppLayout = () => {
   // Sync wallet chain with store
@@ -19,7 +20,7 @@ export const AppLayout = () => {
       // Only sync if the wallet chain is one of our allowed chains
       const isAllowed = allowedChains.some(c => c.id === walletChainId);
       if (isAllowed) {
-        console.log(`[AppLayout] Syncing selected chain to wallet: ${walletChainId}`);
+        logger.chain.log(`Syncing selected chain to wallet: ${walletChainId}`);
         setSelectedChain(walletChainId);
       }
     }
