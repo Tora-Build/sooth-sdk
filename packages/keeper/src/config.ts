@@ -287,6 +287,36 @@ export const POOL_MANAGER_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
+  {
+    type: 'function',
+    name: 'getUserSpotSells',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'user', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'cancelSpotSell',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'sellId', type: 'uint256' },
+    ],
+    outputs: [{ name: 'sharesReturned', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'claimSpotSellProceeds',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'sellId', type: 'uint256' },
+    ],
+    outputs: [{ name: 'proceeds', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
 ] as const;
 
 export const LAUNCHPAD_ABI = [
