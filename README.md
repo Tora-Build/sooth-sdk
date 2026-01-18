@@ -56,9 +56,9 @@ sooth-alpha/
 ├── packages/
 │   ├── contracts-core/           # Solidity smart contracts (Foundry) - Audit scope
 │   ├── contracts-testing/        # Contract tests, CLI & deployment scripts
-│   └── indexer/                  # Ponder indexer for orderbook data
+│   ├── indexer/                  # Ponder indexer for orderbook data
+│   └── keeper/                   # Arbitrage keeper bot for TickBook
 ├── .agent/                       # Agent workflows and knowledge base
-├── start-all.sh                  # Dev environment launcher
 ├── package.json                  # pnpm workspace root
 ├── pnpm-workspace.yaml
 └── turbo.json                    # Build pipeline
@@ -85,57 +85,44 @@ pnpm build
 
 ### Development
 
-**Start Everything (Recommended):**
-
 ```bash
-# Start web + indexer together
-pnpm dev:all
+# Start web + indexer (parallel)
+pnpm dev
 
-# Or with process management (logs, PID tracking)
-./start-all.sh
-```
-
-**Individual Services:**
-
-```bash
-# Frontend only
-pnpm dev:web
-# → http://localhost:5173
-
-# Indexer only
-pnpm dev:indexer
-# → http://localhost:42069
-```
-
-**Service Management:**
-
-```bash
-# Check status
-./start-all.sh --status
-
-# Stop all
-./start-all.sh --stop
+# Or individually
+pnpm dev:web        # → http://localhost:5173
+pnpm dev:indexer    # → http://localhost:42069
 ```
 
 **Contracts:**
 
 ```bash
-# Build core contracts
-cd packages/contracts-core && forge build
+# Build
+pnpm build
 
-# Run tests
-cd packages/contracts-testing && forge test
+# Test
+pnpm test:contracts
 
-# Deploy to testnets
-bun run packages/contracts-core/script/deploy-multichain.ts --chains=baseSepolia,monadTestnet
+# Deploy
+pnpm deploy:contracts
 ```
 
 **Interactive CLI:**
 
 ```bash
-# Interactive REPL for testing
-pnpm interactive:base     # Base Sepolia
-pnpm interactive:monad    # Monad Testnet
+pnpm dev:cli:base      # Base Sepolia
+pnpm dev:cli:monad     # Monad Testnet
+pnpm dev:cli:arc       # Arc Testnet
+pnpm dev:cli:megaeth   # MegaETH Testnet
+```
+
+**Keeper Bot:**
+
+```bash
+PRIVATE_KEY=0x... pnpm dev:keeper:base
+PRIVATE_KEY=0x... pnpm dev:keeper:monad
+PRIVATE_KEY=0x... pnpm dev:keeper:arc
+PRIVATE_KEY=0x... pnpm dev:keeper:megaeth
 ```
 
 ## Architecture (V10 Unified Crossing)
@@ -210,17 +197,23 @@ Run `/preflight` at session start to load context.
 
 ## Scripts
 
-| Script                  | Description                         |
-| ----------------------- | ----------------------------------- |
-| `./start-all.sh`        | Start all dev services              |
-| `./start-all.sh --stop` | Stop all services                   |
-| `./start-all.sh --status` | Check service status              |
-| `pnpm dev:all`          | Start web + indexer (parallel)      |
-| `pnpm dev:web`          | Start web only                      |
-| `pnpm dev:indexer`      | Start indexer only                  |
-| `pnpm test:contracts`   | Run forge tests                     |
-| `pnpm interactive:base` | Interactive CLI (Base Sepolia)      |
-| `pnpm interactive:monad`| Interactive CLI (Monad Testnet)     |
+| Script | Description |
+|--------|-------------|
+| `pnpm dev` | Start web + indexer (parallel) |
+| `pnpm dev:web` | Start web only |
+| `pnpm dev:indexer` | Start indexer only |
+| `pnpm build` | Build all packages |
+| `pnpm test` | Run all tests |
+| `pnpm test:contracts` | Run forge tests |
+| `pnpm deploy:contracts` | Deploy contracts |
+| `pnpm dev:cli:base` | Interactive CLI (Base Sepolia) |
+| `pnpm dev:cli:monad` | Interactive CLI (Monad Testnet) |
+| `pnpm dev:cli:arc` | Interactive CLI (Arc Testnet) |
+| `pnpm dev:cli:megaeth` | Interactive CLI (MegaETH Testnet) |
+| `pnpm dev:keeper:base` | Keeper bot (Base Sepolia) |
+| `pnpm dev:keeper:monad` | Keeper bot (Monad Testnet) |
+| `pnpm dev:keeper:arc` | Keeper bot (Arc Testnet) |
+| `pnpm dev:keeper:megaeth` | Keeper bot (MegaETH Testnet) |
 
 ## Key Files
 
