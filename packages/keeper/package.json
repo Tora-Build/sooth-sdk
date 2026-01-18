@@ -12,7 +12,13 @@
     "keeper:base": "CHAIN=baseSepolia bun run src/index.ts",
     "keeper:monad": "CHAIN=monadTestnet bun run src/index.ts",
     "keeper:arc": "CHAIN=arcTestnet bun run src/index.ts",
-    "keeper:megaeth": "CHAIN=megaethTestnet bun run src/index.ts"
+    "keeper:megaeth": "CHAIN=megaethTestnet bun run src/index.ts",
+    "cleanup": "bun run src/cleanup.ts",
+    "cleanup:status": "bun run src/cleanup.ts status",
+    "cleanup:claim": "bun run src/cleanup.ts claim",
+    "cleanup:cancel": "bun run src/cleanup.ts cancel",
+    "cleanup:withdraw": "bun run src/cleanup.ts withdraw",
+    "cleanup:all": "bun run src/cleanup.ts all"
   },
   "dependencies": {
     "@types/blessed": "^0.1.27",

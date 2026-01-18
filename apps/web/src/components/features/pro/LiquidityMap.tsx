@@ -318,14 +318,13 @@ export const LiquidityMap = ({
                     hasLiquidity && "cursor-pointer"
                   )}
                 >
-                  {/* Hover tooltip */}
                   {hasLiquidity && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
                       <div className="bg-slate-900 border-2 border-slate-700/50 rounded-xl px-3 py-2 text-center shadow-2xl backdrop-blur-md">
                         <div className="font-mono font-bold text-white text-xs mb-1">
-                          {bucket.maxPrice !== null && bucket.maxPrice !== bucket.price
-                            ? `${bucket.price.toFixed(1)}-${bucket.maxPrice.toFixed(1)}%`
-                            : `${bucket.price.toFixed(1)}%`}
+                          {viewOutcome === 'yes' 
+                            ? ((col / 150) * 100).toFixed(0)
+                            : (100 - (col / 150) * 100).toFixed(0)}%
                         </div>
                         <div className={cn("text-[11px] font-bold whitespace-nowrap", isGreen ? "text-emerald-400" : "text-rose-400")}>
                           {isGreen ? 'Buy' : 'Sell'} {(() => {

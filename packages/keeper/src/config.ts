@@ -244,6 +244,49 @@ export const POOL_MANAGER_ABI = [
     ],
     stateMutability: 'view',
   },
+  {
+    type: 'function',
+    name: 'getUserOrders',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'user', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getPendingFills',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'orderId', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'pendingShares', type: 'uint256' },
+      { name: 'pendingUsdc', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'batchClaimFills',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'orderIds', type: 'uint256[]' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'batchCancelOrders',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'orderIds', type: 'uint256[]' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const;
 
 export const LAUNCHPAD_ABI = [
