@@ -73,7 +73,33 @@ export async function executeArbitrage(
   account: Account
 ): Promise<ExecutionResult> {
   try {
-    const maxCost = (opp.maxShares * BigInt(opp.sellSource.tickUpper) * WAD) / (1000n * WAD) + WAD;
+    const freshSell = await publicClient.readContract({
+      address: config.contracts.TickBookPoolManager,
+      abi: POOL_MANAGER_ABI,
+      functionName: 'getSpotSellOrder',
+      args: [marketKey, opp.sellSource.sellId],
+    }) as {
+      owner: `0x${string}`;
+      outcome: number;
+      tickLower: number;
+      tickUpper: number;
+      active: boolean;
+      sharesTotal: bigint;
+      filledShares: bigint;
+      proceedsClaimedWad: bigint;
+    };
+
+    if (!freshSell.active) {
+      return { success: false, error: 'Spot sell no longer active' };
+    }
+    
+    const freshRestingShares = freshSell.sharesTotal - freshSell.filledShares;
+    if (freshRestingShares === 0n) {
+      return { success: false, error: 'Spot sell fully filled' };
+    }
+
+    const sharesToBuy = freshRestingShares < opp.maxShares ? freshRestingShares : opp.maxShares;
+    const maxCost = (sharesToBuy * BigInt(freshSell.tickUpper) * WAD) / (1000n * WAD) * 11n / 10n + WAD;
 
     await ensureVaultApproval(publicClient, walletClient, config, account);
     await ensureVaultBalance(publicClient, walletClient, config, account, maxCost);
@@ -85,8 +111,8 @@ export async function executeArbitrage(
       args: [market, account.address],
     }) as [bigint, bigint];
 
-    const buyTickLower = opp.sellSource.tickLower;
-    const buyTickUpper = opp.sellSource.tickUpper;
+    const buyTickLower = freshSell.tickLower;
+    const buyTickUpper = freshSell.tickUpper;
     
     const { result: simResult } = await publicClient.simulateContract({
       address: config.contracts.TickBookPoolManager,
@@ -94,8 +120,8 @@ export async function executeArbitrage(
       functionName: 'placeOrder',
       args: [
         marketKey,
-        opp.sellSource.outcome,
-        opp.maxShares,
+        freshSell.outcome,
+        sharesToBuy,
         buyTickLower,
         buyTickUpper,
         maxCost,
@@ -105,7 +131,10 @@ export async function executeArbitrage(
     const [, filledShares, , ] = simResult as [bigint, bigint, bigint, bigint];
     
     if (filledShares === 0n) {
-      return { success: false, error: 'No liquidity to fill' };
+      return { 
+        success: false, 
+        error: `No fill: sell#${opp.sellSource.sellId} tick[${buyTickLower}-${buyTickUpper}] ${Number(sharesToBuy)/1e18}sh` 
+      };
     }
     
     const buyHash = await walletClient.writeContract({
@@ -114,8 +143,8 @@ export async function executeArbitrage(
       functionName: 'placeOrder',
       args: [
         marketKey,
-        opp.sellSource.outcome,
-        opp.maxShares,
+        freshSell.outcome,
+        sharesToBuy,
         buyTickLower,
         buyTickUpper,
         maxCost,
@@ -137,15 +166,15 @@ export async function executeArbitrage(
       args: [market, account.address],
     }) as [bigint, bigint];
 
-    const outcomeAfter = opp.sellSource.outcome === 1 ? yesAfter : noAfter;
-    const outcomeBefore = opp.sellSource.outcome === 1 ? yesBefore : noBefore;
+    const outcomeAfter = freshSell.outcome === 1 ? yesAfter : noAfter;
+    const outcomeBefore = freshSell.outcome === 1 ? yesBefore : noBefore;
     const actualFilled = outcomeAfter - outcomeBefore;
 
     if (actualFilled <= 0n) {
       return { success: false, error: 'No tokens received from buy' };
     }
 
-    const sellTick = opp.buyOrder.tickUpper;
+    const sellTick = opp.buyOrder.tickLower;
 
     const sellHash = await walletClient.writeContract({
       address: config.contracts.TickBookPoolManager,
@@ -153,7 +182,7 @@ export async function executeArbitrage(
       functionName: 'placeSpotSell',
       args: [
         marketKey,
-        opp.sellSource.outcome,
+        freshSell.outcome,
         actualFilled,
         sellTick,
         sellTick,
