@@ -1,1 +1,0 @@
-/Users/danieltang/.claude/skills/evm-development/SKILL.md

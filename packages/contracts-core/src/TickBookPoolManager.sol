@@ -1260,12 +1260,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             // 1. NO range orders (at high NO ticks = low YES asking price)
             // 2. YES spot sells (direct YES share sellers)
             uint16 highestNoRange = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
-            uint16 highestYesSpot = _spotBitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
+            uint16 lowestYesSpot = _spotBitmaps[marketKey][1].findNextUp(0);
             
             // For NO range: higher NO tick = seller accepts lower YES price
-            // For YES spot: tick IS the asking price directly
+            // For YES spot: LOWER tick = lower asking price = cheaper for buyer
             uint16 cheapestFromRange = highestNoRange <= MAX_TICK ? 1000 - highestNoRange : MAX_TICK + 1;
-            uint16 cheapestFromSpot = highestYesSpot <= MAX_TICK ? highestYesSpot : MAX_TICK + 1;
+            uint16 cheapestFromSpot = lowestYesSpot <= MAX_TICK ? lowestYesSpot : MAX_TICK + 1;
             
             uint16 cheapestSellerPrice = cheapestFromRange < cheapestFromSpot ? cheapestFromRange : cheapestFromSpot;
             if (cheapestSellerPrice > MAX_TICK || cheapestSellerPrice > tickUpper) return (0, 0, false);

@@ -1,19 +1,24 @@
 import 'dotenv/config';
-import { createPublicClient, createWalletClient, http, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getNetwork, LAUNCHPAD_ABI, WAD } from './config.js';
+import { getNetwork, LAUNCHPAD_ABI, COLLATERALIZER_ABI, POOL_MANAGER_ABI, VAULT_ABI, ERC20_ABI, WAD } from './config.js';
 import { scanMarket } from './monitor.js';
-import { findArbitrageOpportunities, formatOpportunity, filterProfitableOpportunities } from './analyzer.js';
-import { executeArbitrage, estimateGasCost } from './executor.js';
-import { keccak256, encodePacked } from 'viem';
+import { findArbitrageOpportunities, filterProfitableOpportunities } from './analyzer.js';
+import { executeArbitrage } from './executor.js';
+import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
+import { Dashboard } from './dashboard.js';
 import type { KeeperStats } from './types.js';
 
 const POLL_INTERVAL_MS = 5000;
+const BALANCE_REFRESH_INTERVAL_MS = 10000;
 const MIN_PROFIT_WAD = WAD / 10n;
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
 function computeMarketKey(market: Address, yesToken: Address, noToken: Address): `0x${string}` {
-  return keccak256(encodePacked(['address', 'address', 'address'], [market, yesToken, noToken]));
+  return keccak256(encodeAbiParameters(
+    parseAbiParameters('address, address, address'),
+    [market, yesToken, noToken]
+  ));
 }
 
 async function main() {
@@ -26,16 +31,7 @@ async function main() {
   }
 
   const config = getNetwork(chainName);
-  console.log(`\n  Sooth Keeper Bot`);
-  console.log(`  ─────────────────────────────────────`);
-  console.log(`  Chain: ${config.chain.name} (${config.chain.id})`);
-  console.log(`  Mode: ${DRY_RUN ? 'DRY RUN (no execution)' : 'LIVE'}`);
-  console.log(`  Min Profit: ${Number(MIN_PROFIT_WAD) / 1e18} USDC`);
-  console.log(`  Poll Interval: ${POLL_INTERVAL_MS}ms`);
-  console.log(`  ─────────────────────────────────────\n`);
-
   const account = privateKeyToAccount(privateKey as `0x${string}`);
-  console.log(`  Keeper Address: ${account.address}\n`);
 
   const publicClient = createPublicClient({
     chain: config.chain,
@@ -48,6 +44,14 @@ async function main() {
     transport: http(config.rpcUrl || config.chain.rpcUrls.default.http[0]),
   });
 
+  const dashboard = new Dashboard();
+  dashboard.updateChainInfo(
+    config.chain.name,
+    config.chain.id,
+    account.address,
+    DRY_RUN ? 'DRY RUN' : 'LIVE'
+  );
+
   const stats: KeeperStats = {
     totalOpportunitiesFound: 0,
     totalArbitragesExecuted: 0,
@@ -55,128 +59,207 @@ async function main() {
     lastScanTime: new Date(),
   };
 
+  let activeMarketData: { market: Address; marketKey: `0x${string}`; yesToken: Address; noToken: Address }[] = [];
+
+  async function refreshBalances() {
+    try {
+      const [ethBalance, usdcBalance, vaultUsdc] = await Promise.all([
+        publicClient.getBalance({ address: account.address }),
+        publicClient.readContract({
+          address: config.contracts.MockUSDC,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [account.address],
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          address: config.contracts.TickBookVault,
+          abi: VAULT_ABI,
+          functionName: 'availableUsdcWad',
+          args: [account.address],
+        }) as Promise<bigint>,
+      ]);
+
+      let vaultYes = '0.00';
+      let vaultNo = '0.00';
+
+      if (activeMarketData.length > 0) {
+        const { market } = activeMarketData[0];
+        const [yes, no] = await publicClient.readContract({
+          address: config.contracts.TickBookVault,
+          abi: VAULT_ABI,
+          functionName: 'getInternalOutcomes',
+          args: [market, account.address],
+        }) as [bigint, bigint];
+        vaultYes = (Number(yes) / 1e18).toFixed(2);
+        vaultNo = (Number(no) / 1e18).toFixed(2);
+      }
+
+      dashboard.updateBalances(
+        formatEther(ethBalance).slice(0, 8),
+        formatUnits(usdcBalance, 6),
+        (Number(vaultUsdc) / 1e18).toFixed(2),
+        vaultYes,
+        vaultNo
+      );
+    } catch (err) {
+      dashboard.logError(`Balance refresh failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+    }
+  }
+
+  dashboard.logInfo('Initializing keeper...');
+
   const markets = await publicClient.readContract({
     address: config.contracts.LaunchpadEngine,
     abi: LAUNCHPAD_ABI,
     functionName: 'getMarkets',
   }) as Address[];
 
-  console.log(`  Found ${markets.length} markets\n`);
+  dashboard.logInfo(`Found ${markets.length} markets`);
 
   if (markets.length === 0) {
-    console.log('  No markets to monitor. Exiting.');
+    dashboard.logError('No markets to monitor. Exiting.');
+    setTimeout(() => {
+      dashboard.destroy();
+      process.exit(0);
+    }, 3000);
     return;
   }
 
   const marketConfigs = await Promise.all(
     markets.map(async (market) => {
       try {
-        const cfg = await publicClient.readContract({
+        const [, , , , isGraduated] = await publicClient.readContract({
           address: config.contracts.LaunchpadEngine,
           abi: LAUNCHPAD_ABI,
-          functionName: 'getMarketConfig',
+          functionName: 'getMarketState',
           args: [market],
-        }) as {
-          creator: Address;
-          yesToken: Address;
-          noToken: Address;
-          creatorDeposit: bigint;
-          accumulatedFees: bigint;
-          graduated: boolean;
-          registeredInTickBook: boolean;
-        };
+        }) as [Address, bigint, bigint, bigint, boolean, bigint];
         
-        if (cfg.graduated && cfg.registeredInTickBook) {
-          const marketKey = computeMarketKey(market, cfg.yesToken, cfg.noToken);
-          return { market, marketKey, cfg };
+        if (!isGraduated) {
+          dashboard.logInfo(`Market ${market.slice(0, 10)}... not graduated`);
+          return null;
         }
-        return null;
-      } catch {
+
+        const [yesToken, noToken] = await publicClient.readContract({
+          address: config.contracts.Collateralizer,
+          abi: COLLATERALIZER_ABI,
+          functionName: 'getOutcomeTokens',
+          args: [market],
+        }) as [Address, Address];
+
+        const marketKey = computeMarketKey(market, yesToken, noToken);
+
+        const [, , , isActive] = await publicClient.readContract({
+          address: config.contracts.TickBookPoolManager,
+          abi: POOL_MANAGER_ABI,
+          functionName: 'getMarketInfo',
+          args: [marketKey],
+        }) as [Address, Address, Address, boolean];
+
+        if (!isActive) {
+          dashboard.logInfo(`Market ${market.slice(0, 10)}... not registered`);
+          return null;
+        }
+
+        dashboard.logSuccess(`Market ${market.slice(0, 10)}... active`);
+        return { market, marketKey, yesToken, noToken };
+      } catch (err) {
+        dashboard.logError(`Market check failed: ${err instanceof Error ? err.message : 'Unknown'}`);
         return null;
       }
     })
   );
 
-  const activeMarkets = marketConfigs.filter((m): m is NonNullable<typeof m> => m !== null);
-  console.log(`  ${activeMarkets.length} graduated + registered markets\n`);
+  activeMarketData = marketConfigs.filter((m): m is NonNullable<typeof m> => m !== null);
+  dashboard.updateMarkets(markets.length, activeMarketData.length);
 
-  if (activeMarkets.length === 0) {
-    console.log('  No active TickBook markets. Exiting.');
+  if (activeMarketData.length === 0) {
+    dashboard.logError('No active TickBook markets. Exiting.');
+    setTimeout(() => {
+      dashboard.destroy();
+      process.exit(0);
+    }, 3000);
     return;
   }
+
+  await refreshBalances();
+  setInterval(refreshBalances, BALANCE_REFRESH_INTERVAL_MS);
 
   async function runScan() {
     stats.lastScanTime = new Date();
     
-    for (const { market, marketKey } of activeMarkets) {
-      const result = await scanMarket(publicClient, config, marketKey);
-      if (!result) continue;
+    for (const { market, marketKey } of activeMarketData) {
+      try {
+        const result = await scanMarket(publicClient, config, marketKey);
+        if (!result) continue;
 
-      const { orders, spotSells } = result;
-      
-      if (orders.length === 0 && spotSells.length === 0) continue;
-
-      const opportunities = findArbitrageOpportunities(orders, spotSells);
-      const profitable = filterProfitableOpportunities(opportunities, MIN_PROFIT_WAD);
-
-      if (profitable.length > 0) {
-        console.log(`\n  [${new Date().toISOString()}] Market ${market.slice(0, 10)}...`);
-        console.log(`  Orders: ${orders.length} | Spot Sells: ${spotSells.length}`);
-        console.log(`  Opportunities: ${profitable.length}`);
+        const { orders, spotSells } = result;
         
-        for (const opp of profitable) {
+        if (orders.length === 0 && spotSells.length === 0) continue;
+
+        const opportunities = findArbitrageOpportunities(orders, spotSells);
+        const profitable = filterProfitableOpportunities(opportunities, MIN_PROFIT_WAD);
+
+        dashboard.updateOpportunities(profitable);
+
+        if (profitable.length > 0) {
+          const opp = profitable[0];
           stats.totalOpportunitiesFound++;
-          console.log(`\n    ${formatOpportunity(opp)}`);
+          
+          const side = opp.buyOrder.outcome === 1 ? 'YES' : 'NO';
+          const spread = (opp.spread / 10).toFixed(1);
+          const shares = (Number(opp.maxShares) / 1e18).toFixed(1);
           
           if (DRY_RUN) {
-            console.log('    [DRY RUN] Would execute arbitrage');
-            continue;
+            dashboard.logInfo(`[DRY] ${side} ${spread}% ${shares} shares`);
+            return;
           }
 
-          try {
-            const gasEstimate = await estimateGasCost(publicClient, config, marketKey, opp, account.address);
-            const gasPrice = await publicClient.getGasPrice();
-            const gasCostWei = gasEstimate * gasPrice;
-            
-            console.log(`    Gas estimate: ${gasEstimate} (~${Number(gasCostWei) / 1e18} ETH)`);
+          dashboard.logInfo(`${side} ${spread}% spread, ${shares} shares...`);
 
-            const result = await executeArbitrage(
-              publicClient,
-              walletClient,
-              config,
-              marketKey,
-              opp,
-              account.address
-            );
+          const execResult = await executeArbitrage(
+            publicClient,
+            walletClient,
+            config,
+            market,
+            marketKey,
+            opp,
+            account
+          );
 
-            if (result.success) {
-              stats.totalArbitragesExecuted++;
-              stats.totalProfitWad += result.profitWad || 0n;
-              console.log(`    SUCCESS! Profit: ${Number(result.profitWad || 0n) / 1e18} USDC`);
-            } else {
-              console.log(`    FAILED: ${result.error}`);
-            }
-          } catch (err) {
-            console.log(`    ERROR: ${err instanceof Error ? err.message : 'Unknown'}`);
+          if (execResult.success) {
+            const actualProfit = Number(execResult.profitWad || 0n) / 1e18;
+            stats.totalArbitragesExecuted++;
+            stats.totalProfitWad += execResult.profitWad || 0n;
+            dashboard.recordTrade(true, actualProfit);
+            dashboard.logSuccess(`+${actualProfit.toFixed(2)} USDC | ${execResult.txHash?.slice(0, 10)}...`);
+            await refreshBalances();
+          } else {
+            dashboard.recordTrade(false, 0);
+            const errMsg = (execResult.error || 'Unknown').slice(0, 60);
+            dashboard.logError(errMsg);
           }
+          return;
         }
+      } catch (err) {
+        dashboard.logError(`Scan error: ${err instanceof Error ? err.message : 'Unknown'}`);
       }
     }
   }
 
-  console.log('  Starting scan loop...\n');
+  dashboard.logSuccess('Keeper initialized. Starting scan loop...');
   
   await runScan();
-  
   setInterval(runScan, POLL_INTERVAL_MS);
 
   process.on('SIGINT', () => {
-    console.log('\n\n  Keeper Stats');
-    console.log('  ─────────────────────────────────────');
-    console.log(`  Opportunities Found: ${stats.totalOpportunitiesFound}`);
-    console.log(`  Arbitrages Executed: ${stats.totalArbitragesExecuted}`);
-    console.log(`  Total Profit: ${Number(stats.totalProfitWad) / 1e18} USDC`);
-    console.log('  ─────────────────────────────────────\n');
+    dashboard.destroy();
+    console.log('\n\nKeeper Stats');
+    console.log('─────────────────────────────────────');
+    console.log(`Opportunities Found: ${stats.totalOpportunitiesFound}`);
+    console.log(`Arbitrages Executed: ${stats.totalArbitragesExecuted}`);
+    console.log(`Total Profit: ${Number(stats.totalProfitWad) / 1e18} USDC`);
+    console.log('─────────────────────────────────────\n');
     process.exit(0);
   });
 }

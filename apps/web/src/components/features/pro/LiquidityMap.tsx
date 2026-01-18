@@ -61,14 +61,16 @@ export const LiquidityMap = ({
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
     const numBuckets = 150;
-    const bucketData: { price: number; yesLiq: bigint; noLiq: bigint }[] = [];
+    const bucketData: { price: number; yesLiq: bigint; noLiq: bigint; minActualPrice: number | null; maxActualPrice: number | null }[] = [];
 
     // Initialize empty buckets
     for (let i = 0; i < numBuckets; i++) {
       bucketData.push({
-        price: ((i + 1) * 100) / numBuckets, // 1.25% to 100%
+        price: ((i + 1) * 100) / numBuckets, // 1.25% to 100% (synthetic, for fallback)
         yesLiq: 0n,
         noLiq: 0n,
+        minActualPrice: null, // Track actual tick prices of orders in this bucket
+        maxActualPrice: null,
       });
     }
 
@@ -118,6 +120,12 @@ export const LiquidityMap = ({
           } else {
             bucketData[b].noLiq += liqPerBucket;
           }
+          if (bucketData[b].minActualPrice === null || lowPercent < bucketData[b].minActualPrice) {
+            bucketData[b].minActualPrice = lowPercent;
+          }
+          if (bucketData[b].maxActualPrice === null || highPercent > bucketData[b].maxActualPrice) {
+            bucketData[b].maxActualPrice = highPercent;
+          }
         }
 
         totalLiq += remainingLiq;
@@ -156,6 +164,12 @@ export const LiquidityMap = ({
           } else {
             bucketData[b].yesLiq += liqPerBucket;
           }
+          if (bucketData[b].minActualPrice === null || lowPercent < bucketData[b].minActualPrice) {
+            bucketData[b].minActualPrice = lowPercent;
+          }
+          if (bucketData[b].maxActualPrice === null || highPercent > bucketData[b].maxActualPrice) {
+            bucketData[b].maxActualPrice = highPercent;
+          }
         }
 
         totalLiq += remaining;
@@ -177,7 +191,8 @@ export const LiquidityMap = ({
     }
 
     const buckets = bucketData.map(b => ({
-      price: b.price,
+      price: b.minActualPrice ?? b.price,
+      maxPrice: b.maxActualPrice,
       liquidity: b.yesLiq + b.noLiq,
       side: (b.yesLiq > b.noLiq ? 'yes' : b.noLiq > 0n ? 'no' : 'none') as 'yes' | 'no' | 'none',
     }));
@@ -212,6 +227,7 @@ export const LiquidityMap = ({
     return [...buckets].reverse().map(b => ({
       ...b,
       price: 100 - b.price,
+      maxPrice: b.maxPrice !== null ? 100 - b.maxPrice : null,
     }));
   }, [buckets, viewOutcome]);
 
@@ -306,7 +322,11 @@ export const LiquidityMap = ({
                   {hasLiquidity && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
                       <div className="bg-slate-900 border-2 border-slate-700/50 rounded-xl px-3 py-2 text-center shadow-2xl backdrop-blur-md">
-                        <div className="font-mono font-bold text-white text-xs mb-1">{bucket.price.toFixed(1)}%</div>
+                        <div className="font-mono font-bold text-white text-xs mb-1">
+                          {bucket.maxPrice !== null && bucket.maxPrice !== bucket.price
+                            ? `${bucket.price.toFixed(1)}-${bucket.maxPrice.toFixed(1)}%`
+                            : `${bucket.price.toFixed(1)}%`}
+                        </div>
                         <div className={cn("text-[11px] font-bold whitespace-nowrap", isGreen ? "text-emerald-400" : "text-rose-400")}>
                           {isGreen ? 'Buy' : 'Sell'} {(() => {
                             const val = Number(formatUnits(bucket.liquidity, 18));

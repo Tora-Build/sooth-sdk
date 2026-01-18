@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { type Address, type Chain } from 'viem';
 import { baseSepolia } from 'viem/chains';
 
@@ -62,6 +63,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       TickBookPoolManager: '0x463759fa866e6045c97cb37c25bcd74d23aa9b34',
       LaunchpadEngine: '0xdc51a2beb6ed2e65f1ee4cfa87a228b77e697a21',
     },
+    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL,
   },
   monadTestnet: {
     chain: monadTestnet,
@@ -73,6 +75,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       TickBookPoolManager: '0xaa3daf93c823258fe025b26be90e8a08d2abf84f',
       LaunchpadEngine: '0x9ca66ac4a00e7c380db41a714be470493bc2eee1',
     },
+    rpcUrl: process.env.MONAD_TESTNET_RPC_URL,
   },
   arcTestnet: {
     chain: arcTestnet,
@@ -84,6 +87,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       TickBookPoolManager: '0xb4240ac6cc3a082d5819e9410f0eb90209a4a3f3',
       LaunchpadEngine: '0x7015ea4bdada102969f5d9eb9457e087a559cedc',
     },
+    rpcUrl: process.env.ARC_TESTNET_RPC_URL,
   },
   megaethTestnet: {
     chain: megaethTestnet,
@@ -95,6 +99,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       TickBookPoolManager: '0x7f7a84196dc38b054a6f31b2efcd7142860b37c6',
       LaunchpadEngine: '0x2de2f2e6aad4f310dc72acc6f896412ceb4706f3',
     },
+    rpcUrl: process.env.MEGAETH_TESTNET_RPC_URL,
   },
 };
 
@@ -120,6 +125,21 @@ export const POOL_MANAGER_ABI = [
     name: 'getAllMarketSpotSells',
     inputs: [{ name: 'marketKey', type: 'bytes32' }],
     outputs: [{ name: '', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getTickLiquidity',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32' },
+      { name: 'outcome', type: 'uint8' },
+      { name: 'tick', type: 'uint16' },
+    ],
+    outputs: [
+      { name: 'rangeNet', type: 'int128' },
+      { name: 'rangeGross', type: 'uint128' },
+      { name: 'spotLiquidity', type: 'uint128' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -236,22 +256,28 @@ export const LAUNCHPAD_ABI = [
   },
   {
     type: 'function',
-    name: 'getMarketConfig',
+    name: 'getMarketState',
     inputs: [{ name: 'market', type: 'address' }],
     outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        components: [
-          { name: 'creator', type: 'address' },
-          { name: 'yesToken', type: 'address' },
-          { name: 'noToken', type: 'address' },
-          { name: 'creatorDeposit', type: 'uint256' },
-          { name: 'accumulatedFees', type: 'uint256' },
-          { name: 'graduated', type: 'bool' },
-          { name: 'registeredInTickBook', type: 'bool' },
-        ],
-      },
+      { name: 'creator', type: 'address' },
+      { name: 'bBase', type: 'uint256' },
+      { name: 'bCurrent', type: 'uint256' },
+      { name: 'totalLPSupply', type: 'uint256' },
+      { name: 'isGraduated', type: 'bool' },
+      { name: 'floorValue', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+] as const;
+
+export const COLLATERALIZER_ABI = [
+  {
+    type: 'function',
+    name: 'getOutcomeTokens',
+    inputs: [{ name: 'market', type: 'address' }],
+    outputs: [
+      { name: 'yesToken', type: 'address' },
+      { name: 'noToken', type: 'address' },
     ],
     stateMutability: 'view',
   },
