@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-**Current Behavior**: V10 TickBook's `placeOrder` only crosses liquidity **once** at placement time. It doesn't sweep ALL opposing liquidity - just the overlap calculated at that moment.
+**Current Behavior**: V10 TickBook's range orders only cross within their **specified tick range**, not at better prices outside that range.
 
 **Known Issue** (from STATUS.md):
 > ⚠️ Market Order Semantics (V10) — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
@@ -10,38 +10,36 @@
 ### Example of the Problem
 
 ```
-Initial State: Empty orderbook
+Initial State:
 
-1. Alice places YES order at 40-60% for 100 shares
-   → No opposing liquidity, order rests entirely
+1. Alice places YES sell at 29% (tick 290) for 100 shares
+   → Resting ask at 29¢
 
-2. Bob places NO order at 30-50% for 100 shares  
-   → Overlap with Alice at 50-60%
-   → Bob's order crosses with Alice (50 shares each filled)
-   → Bob's remaining 50 shares rest at 30-50%
+2. Bob places YES buy at 30-40% (ticks 300-400) for 100 shares
+   → Bob is willing to pay 30-40¢ for YES
+   → Bob would HAPPILY pay 29¢ (better price!)
+   → But NO MATCH occurs because 29% is outside Bob's tick range [300-400]
 
-3. Carol places NO order at 55-65% for 100 shares
-   → Overlap with Alice at 55-60%
-   → Carol's order crosses with Alice (25 shares filled)
-   → Carol's remaining 75 shares rest at 55-65%
-
-Problem: Alice still has ~25 shares resting that COULD cross with Carol's resting order!
-But since crossing only happens on placement, these never match.
+Result: Both orders rest. Bob misses a better deal.
 ```
+
+**The Core Issue**: Range orders treat tick bounds as a **strict filter** ("only match at 30-40%") rather than price tolerance ("willing to pay UP TO 40%").
+
+A buyer at 30-40% should logically accept anything ≤ 40%, including 29%. But the contract only looks for liquidity WITHIN the specified tick range.
 
 ### Root Cause in Code
 
 In `TickBookPoolManager._crossUnified()` (lines 1091-1232):
 
 ```solidity
-// Only calculates overlap ONCE
+// Overlap is calculated between order ranges
 (uint16 overlapLow, uint16 overlapHigh, bool hasOverlap) = _calculateOverlap(...);
 
-// Only fills what's available in THIS overlap
-result.rangeFilled = remainingToFill < oppLiqInOverlap ? remainingToFill : oppLiqInOverlap;
+// Only fills liquidity WITHIN the overlap
+// Liquidity at better prices (outside the range) is ignored!
 ```
 
-The crossing is **non-iterative** - it doesn't loop to find ALL possible crossings.
+The crossing logic doesn't search for liquidity at **better** prices outside the order's tick range.
 
 ---
 
@@ -85,94 +83,152 @@ interface Order {
   restingShares: bigint;
 }
 
-function findCrossingOpportunities(orders: Order[]): CrossingPair[] {
-  const yesOrders = orders.filter(o => o.outcome === 1);
-  const noOrders = orders.filter(o => o.outcome === 0);
+interface SpotSell {
+  sellId: bigint;
+  outcome: 0 | 1;
+  tick: number;  // Single price point
+  shares: bigint;
+}
+
+interface ArbitrageOpportunity {
+  buyOrder: Order;       // Resting buy order
+  sellSource: Order | SpotSell;  // Cheaper sell
+  buyPrice: number;      // Buyer's lowest tick (what they'll pay)
+  sellPrice: number;     // Seller's ask price
+  spread: number;        // Profit per share (in ticks, /10 for %)
+  maxShares: bigint;
+}
+
+function findArbitrageOpportunities(
+  orders: Order[], 
+  spotSells: SpotSell[]
+): ArbitrageOpportunity[] {
+  const opportunities: ArbitrageOpportunity[] = [];
   
-  const pairs: CrossingPair[] = [];
+  // Find YES buys with cheaper YES sells available
+  const yesBuys = orders.filter(o => o.outcome === 1);
+  const yesSells = spotSells.filter(s => s.outcome === 1);
   
-  for (const yes of yesOrders) {
-    for (const no of noOrders) {
-      // YES tick range = bid price range
-      // NO tick range needs conversion: NO at tick T = asking (1000-T) for YES
-      const yesEffectiveLow = yes.tickLower;  // e.g., 400 = 40%
-      const yesEffectiveHigh = yes.tickUpper; // e.g., 600 = 60%
-      
-      const noEffectiveLow = 1000 - no.tickUpper;   // e.g., NO 300-500 → YES ask 500-700
-      const noEffectiveHigh = 1000 - no.tickLower;
-      
-      // Crossing condition: YES bid >= NO ask (in YES terms)
-      // YES willing to pay up to yesEffectiveHigh
-      // NO willing to accept down to noEffectiveLow
-      if (yesEffectiveHigh >= noEffectiveLow) {
-        // There's overlap!
-        const overlapLow = Math.max(yesEffectiveLow, noEffectiveLow);
-        const overlapHigh = Math.min(yesEffectiveHigh, noEffectiveHigh);
-        
-        if (overlapHigh >= overlapLow) {
-          pairs.push({
-            yesOrder: yes,
-            noOrder: no,
-            overlapLow,
-            overlapHigh,
-            maxCrossable: min(yes.restingShares, no.restingShares)
-          });
-        }
+  for (const buy of yesBuys) {
+    // Buyer willing to pay [tickLower, tickUpper], e.g., 300-400 (30-40%)
+    // Look for sells BELOW tickLower (better price for buyer)
+    
+    for (const sell of yesSells) {
+      if (sell.tick < buy.tickLower) {
+        // Sell at 29% (290), Buy range 30-40% (300-400)
+        // Arbitrage: Buy at 290, sell to resting buyer at 300
+        opportunities.push({
+          buyOrder: buy,
+          sellSource: sell,
+          buyPrice: buy.tickLower,  // 300 (30%)
+          sellPrice: sell.tick,      // 290 (29%)
+          spread: buy.tickLower - sell.tick,  // 10 ticks = 1%
+          maxShares: min(buy.restingShares, sell.shares)
+        });
       }
     }
   }
   
-  return pairs;
+  // Same logic for NO side (inverted)
+  const noBuys = orders.filter(o => o.outcome === 0);
+  const noSells = spotSells.filter(s => s.outcome === 0);
+  
+  for (const buy of noBuys) {
+    for (const sell of noSells) {
+      if (sell.tick < buy.tickLower) {
+        opportunities.push({
+          buyOrder: buy,
+          sellSource: sell,
+          buyPrice: buy.tickLower,
+          sellPrice: sell.tick,
+          spread: buy.tickLower - sell.tick,
+          maxShares: min(buy.restingShares, sell.shares)
+        });
+      }
+    }
+  }
+  
+  // Sort by spread (most profitable first)
+  return opportunities.sort((a, b) => b.spread - a.spread);
 }
 ```
 
 ### Execution Strategy
 
-#### Option A: Place Crossing Order
-Place a small order that triggers crossing:
+#### The Arbitrage Trade
+
+```
+State:
+- Spot Sell: YES at 29% (290) for 100 shares
+- Resting Buy: YES at 30-40% (300-400) for 100 shares
+
+Arbitrage:
+1. Bot buys 100 YES from spot sell at 29% → pays 29 USDC
+2. Bot sells 100 YES to resting buyer at 30% → receives 30 USDC
+3. Profit: 1 USDC (minus gas)
+```
+
+#### Implementation
 
 ```typescript
-async function triggerCrossing(pair: CrossingPair) {
-  // Place a YES order at the overlap price
-  // This will cross with the NO resting order
-  const midTick = (pair.overlapLow + pair.overlapHigh) / 2;
+async function executeArbitrage(opp: ArbitrageOpportunity) {
+  const { buyOrder, sellSource, spread, maxShares } = opp;
   
-  await poolManager.placeOrder(
+  // Step 1: Buy from the cheap source (spot sell)
+  if ('sellId' in sellSource) {
+    // It's a spot sell - use buyFromSpotSell
+    await poolManager.buyFromSpotSell(
+      marketKey,
+      sellSource.sellId,
+      maxShares,
+      maxCost
+    );
+  } else {
+    // It's a range order - place crossing order at that tick
+    await poolManager.placeOrder(
+      marketKey,
+      sellSource.outcome,
+      maxShares,
+      sellSource.tickLower,
+      sellSource.tickUpper,
+      maxCost
+    );
+  }
+  
+  // Step 2: Sell to the resting buyer
+  // Place a spot sell at the buyer's tick range
+  await poolManager.placeSpotSell(
     marketKey,
-    1,  // YES
-    pair.maxCrossable,
-    midTick,
-    midTick,
-    maxCost
+    buyOrder.outcome,
+    maxShares,
+    buyOrder.tickLower,  // Sell at buyer's low tick (guaranteed fill)
+    buyOrder.tickLower
   );
+  
+  // Profit = (buyOrder.tickLower - sellSource.tick) * maxShares / 1000
 }
 ```
 
-**Problem**: Bot takes on position risk.
+#### Atomic Execution (Flash Loan Style)
 
-#### Option B: Place Opposing Pair (Market-Neutral)
-Place both YES and NO orders simultaneously to remain neutral:
+To avoid position risk between steps, bundle in single transaction:
 
-```typescript
-async function triggerCrossingNeutral(pair: CrossingPair) {
-  // Place YES order to cross with resting NO
-  await poolManager.placeOrder(marketKey, 1, shares, tickLow, tickHigh, maxCost);
-  
-  // Place NO order to cross with resting YES  
-  await poolManager.placeOrder(marketKey, 0, shares, tickLow, tickHigh, maxCost);
-  
-  // Net position: ~0 (both sides filled equally)
-  // Profit: any spread between the two resting orders
+```solidity
+// ArbitrageExecutor.sol
+function executeArbitrage(
+    bytes32 marketKey,
+    uint256 spotSellId,
+    uint256 buyOrderId,
+    uint256 shares
+) external {
+    // 1. Buy from spot sell (receive YES tokens)
+    poolManager.buyFromSpotSell(marketKey, spotSellId, shares, type(uint256).max);
+    
+    // 2. Immediately sell to resting buyer
+    poolManager.placeSpotSell(marketKey, 1, shares, targetTick, targetTick);
+    
+    // 3. Profit is already in vault as USDC
 }
-```
-
-#### Option C: Cancel-and-Replace (Impersonate Maker)
-If bot has access to maker's account (e.g., as a service):
-
-```typescript
-// Cancel resting order, replace at better price to trigger cross
-await poolManager.cancelOrder(marketKey, staleOrderId);
-await poolManager.placeOrder(marketKey, outcome, shares, betterTickLow, betterTickHigh, maxCost);
 ```
 
 ### Profitability Analysis
