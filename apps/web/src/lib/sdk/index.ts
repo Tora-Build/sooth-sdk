@@ -469,7 +469,7 @@ export class SoothSDK {
         plain('      markets / marketinfo / info'),
         plain(''),
         info('    Testing'),
-        plain('      simulate <n>            Place n random orders'),
+        plain('      simulate <n> [avgSize]  Place n random orders (1-1000)'),
         plain(''),
         dim(`  ${sep}`),
         plain(''),
