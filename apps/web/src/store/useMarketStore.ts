@@ -49,17 +49,11 @@ const demoMarkets = (typedConfig.markets || [])
     mode: 'demo',
   }));
 
-export const useMarketStore = create<MarketState>((set) => ({
-  markets: initialDemoMarkets,
-  mode: 'real',
-  refreshKey: 0,
-  setMode: (mode) => set({ mode }),
-
-  updateMarket: (marketId, updates) => set((state) => ({
-    markets: state.markets.map(m =>
-      m.id === marketId ? { ...m, ...updates } : m
-    )
-  })),
-
-  triggerRefresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })),
+export const useMarketStore = create<MarketStore>((set, get) => ({
+  markets: demoMarkets,
+  selectedMarket: null,
+  setSelectedMarket: (market) => set({ selectedMarket: market }),
+  getMarketById: (id) => get().markets.find((m) => m.id === id),
+  getMarketByAddress: (address) =>
+    get().markets.find((m) => m.address.toLowerCase() === address.toLowerCase()),
 }));
