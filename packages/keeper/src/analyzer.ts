@@ -39,11 +39,9 @@ function findOpportunitiesForOutcome(
 ): ArbitrageOpportunity[] {
   const opportunities: ArbitrageOpportunity[] = [];
 
-  // Sort buys by tickUpper DESCENDING (highest max price first)
-  // tickUpper = max price buyer is willing to pay
   const buys = orders
     .filter(o => o.outcome === outcome && o.active && calculateRestingShares(o) > 0n)
-    .sort((a, b) => b.tickUpper - a.tickUpper);
+    .sort((a, b) => a.tickLower - b.tickLower);
 
   const sells = spotSells
     .filter(s => s.outcome === outcome && s.active && calculateRestingShares(s) > 0n && s.tickLower >= MIN_SAFE_TICK && s.tickLower <= MAX_SAFE_TICK)
@@ -51,34 +49,26 @@ function findOpportunitiesForOutcome(
 
   if (buys.length === 0 || sells.length === 0) return opportunities;
 
-  const lowestSell = sells[0];
-  const highestBuy = buys[0];
-
-  // Arbitrage exists if seller's ask < buyer's max bid
-  if (lowestSell.tickLower >= highestBuy.tickUpper) return opportunities;
-
   for (const sell of sells) {
-    const sellAskTick = sell.tickLower;
+    const sellTick = sell.tickLower;
     const sellRestingShares = calculateRestingShares(sell);
 
     for (const buy of buys) {
-      // No opportunity if sell price >= buyer's max price
-      if (sellAskTick >= buy.tickUpper) continue;
+      if (sellTick >= buy.tickLower) continue;
 
       const buyRestingShares = calculateRestingShares(buy);
-      // Spread = buyer's max price - seller's ask price
-      const spread = buy.tickUpper - sellAskTick;
+      const spread = buy.tickLower - sellTick;
       const maxShares = min(buyRestingShares, sellRestingShares);
 
-      const buyPriceWad = tickToPrice(buy.tickUpper);
-      const sellPriceWad = tickToPrice(sellAskTick);
+      const buyPriceWad = tickToPrice(buy.tickLower);
+      const sellPriceWad = tickToPrice(sellTick);
       const estimatedProfitWad = ((buyPriceWad - sellPriceWad) * maxShares) / WAD;
 
       opportunities.push({
         buyOrder: buy,
         sellSource: sell,
-        buyPrice: buy.tickUpper,
-        sellPrice: sellAskTick,
+        buyPrice: buy.tickLower,
+        sellPrice: sellTick,
         spread,
         maxShares,
         estimatedProfitWad,
