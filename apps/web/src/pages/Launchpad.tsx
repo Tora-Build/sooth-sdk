@@ -253,7 +253,6 @@ export const Launchpad = () => {
                     customAdjudicator as Address,
                     customGuardian as Address,
                     bWei,
-                    'PRED'
                 ],
                 // For Monad/MegaETH market creation, 30M is a safe upper bound.
                 // This covers complex contract initialization which can sometimes fail with default estimation.

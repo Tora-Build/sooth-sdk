@@ -677,6 +677,40 @@ ponder.on("TickBookPoolManager:SpotSellFilled", async ({ event, context }) => {
   }
 });
 
+ponder.on("TickBookPoolManager:SpotSellClosed", async ({ event, context }) => {
+  const { sellId: sellIdBigInt } = event.args;
+
+  const id = sellId(context.chain.id, sellIdBigInt);
+
+  const existingOrder = await context.db.find(schema.spotSellOrder, { id });
+
+  if (existingOrder) {
+    await context.db.update(schema.spotSellOrder, { id }).set({
+      status: "closed",
+      filledShares: existingOrder.shares,
+      updatedAt: event.block.timestamp,
+    });
+
+    for (let tick = existingOrder.tickLower; tick <= existingOrder.tickUpper; tick++) {
+      const tid = tickId(
+        context.chain.id,
+        existingOrder.marketKey,
+        existingOrder.outcome,
+        tick
+      );
+
+      const existingTick = await context.db.find(schema.tickLiquidity, { id: tid });
+      if (existingTick) {
+        await context.db.update(schema.tickLiquidity, { id: tid }).set({
+          totalLiquidity: existingTick.totalLiquidity - existingOrder.shares,
+          orderCount: existingTick.orderCount - 1,
+          updatedAt: event.block.timestamp,
+        });
+      }
+    }
+  }
+});
+
 // ============================================
 // V10: Unified Crossing Event Handler
 // ============================================

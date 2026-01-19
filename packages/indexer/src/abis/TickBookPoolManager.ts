@@ -146,6 +146,15 @@ export const TickBookPoolManagerAbi = [
   },
   {
     type: "event",
+    name: "SpotSellClosed",
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "marketKey", type: "bytes32", indexed: true },
+      { name: "sellId", type: "uint256", indexed: true },
+    ],
+  },
+  {
+    type: "event",
     name: "UserOrderRemoved",
     inputs: [
       { name: "marketKey", type: "bytes32", indexed: true },

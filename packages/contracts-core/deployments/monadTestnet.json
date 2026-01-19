@@ -1,22 +1,17 @@
 {
   "chainId": 10143,
   "chainName": "monadTestnet",
-  "version": "V10.8.3",
-  "timestamp": "2026-01-16T12:26:29.358Z",
+  "version": "V10.9",
+  "timestamp": "2026-01-19T14:25:09.466Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0x28db001c8803ca586b3da0bfd31d8ce676aff0f0",
-    "Collateralizer": "0x7cbabf4a2dad48f7b5180b54adb8038a42663cb7",
-    "AMMEngine": "0xd18e6e7489d07e38f903e301c19f6a43650a0178",
-    "TickBookVault": "0xb3ea593be1a834650e2955cc8f038921f4571ffa",
-    "TickBookPoolManager": "0xaa3daf93c823258fe025b26be90e8a08d2abf84f",
-    "TickBook": "0xaa3daf93c823258fe025b26be90e8a08d2abf84f",
-    "LaunchpadEngine": "0x9ca66ac4a00e7c380db41a714be470493bc2eee1"
+    "MockUSDC": "0xf187b88051fbe3b755bbd33dc8de0a3c5d53253d",
+    "Collateralizer": "0x7ef64bbb210097341a608a02bb8b4fa8f2db4c0e",
+    "AMMEngine": "0xb48b11382b272f687821aeae964fd51157f427be",
+    "TickBookVault": "0x3ebca73ca7de9a4a93c211df8236e93b8322c1b8",
+    "TickBookPoolManager": "0xe5aa0a546e890cc79002f607c353e88104ba5835",
+    "TickBook": "0xe5aa0a546e890cc79002f607c353e88104ba5835",
+    "LaunchpadEngine": "0x58f0fb2539f6f8b75e2b7711bb633b4b94b44a72"
   },
-  "markets": [
-    {
-      "address": "0x4E878A9Fe2693aa38BcA26CdC5636422FB7B0095",
-      "name": "UN Confirms Alien Life"
-    }
-  ]
+  "markets": []
 }

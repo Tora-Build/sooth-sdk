@@ -354,7 +354,7 @@ export const Create = () => {
         address: launchpadEngineAddress,
         abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
-        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, symbol],
+        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei],
       });
 
     } catch (err: any) {

@@ -62,7 +62,6 @@ export const CreateMarket = () => {
     const liquidityB = parseUnits(String(selectedTierData.bValue), 18);
     createMarket(
       name,
-      symbol,
       0n,
       BigInt(deadline),
       liquidityB,

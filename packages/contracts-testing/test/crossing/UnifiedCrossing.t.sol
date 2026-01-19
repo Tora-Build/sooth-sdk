@@ -373,4 +373,138 @@ contract UnifiedCrossingV10Test is Test {
         vm.expectRevert(TickBookPoolManager.SpotRangeTooWide.selector);
         poolManager.placeSpotSell(marketKey, 1, 500e18, 400, 600);
     }
+
+    /**
+     * @notice BUG REPRODUCTION: Phantom range liquidity after order is fully filled
+     * @dev This test verifies that rangeLiquidityGross is properly cleaned up
+     *      when opposite orders are filled via accumulators during crossing.
+     *
+     *      The bug scenario:
+     *      1. User A places NO range order at 510-650 (adds tick liquidity)
+     *      2. User B places YES order that crosses through A's range
+     *      3. A's order is filled via accumulators, but tick liquidity remains
+     *      4. A calls claimFills() - tick liquidity should now be removed
+     *      5. BUG: If A never claims, tick liquidity is orphaned forever
+     */
+    function test_PhantomLiquidity_AfterCrossing() public {
+        // Carol places NO range order at 510-650 (141 ticks)
+        // This adds rangeLiquidityGross at tick 510 and tick 651
+        vm.prank(carol);
+        (uint256 carolOrderId, , , ) = poolManager.placeOrder(
+            marketKey,
+            0,           // NO outcome
+            1410e18,     // shares (10e18 density per tick)
+            510,         // tickLower
+            650,         // tickUpper
+            1410e18      // maxCost
+        );
+
+        // Verify tick liquidity was added at boundaries
+        (int128 rangeNet510, uint128 rangeGross510, ) = poolManager.getTickLiquidity(marketKey, 0, 510);
+        (int128 rangeNet651, uint128 rangeGross651, ) = poolManager.getTickLiquidity(marketKey, 0, 651);
+        
+        assertGt(rangeGross510, 0, "rangeLiquidityGross should be positive at tick 510");
+        assertGt(rangeGross651, 0, "rangeLiquidityGross should be positive at tick 651");
+        
+        uint128 initialDensity = rangeGross510;
+        console.log("Initial density at tick 510:", initialDensity);
+
+        // Bob places YES order that completely crosses Carol's NO order
+        // YES order at 510-650 crosses with NO order at 510-650
+        vm.prank(bob);
+        (uint256 bobOrderId, uint256 filledShares, uint256 filledCost, uint256 restingShares) = poolManager.placeOrder(
+            marketKey,
+            1,           // YES outcome  
+            1410e18,     // same shares as Carol
+            510,         // tickLower
+            650,         // tickUpper
+            1500e18      // maxCost (slightly higher to cover costs)
+        );
+
+        console.log("Bob filledShares:", filledShares);
+        console.log("Bob restingShares:", restingShares);
+
+        // Check Carol's order state - it should be (almost) fully filled via accumulators
+        TickBookPoolManager.RangeOrder memory carolOrder = poolManager.getOrder(marketKey, carolOrderId);
+        console.log("Carol order active:", carolOrder.active);
+        console.log("Carol order liquidityRemoved:", carolOrder.liquidityRemoved);
+        console.log("Carol order filledShares:", carolOrder.filledShares);
+        console.log("Carol order sharesTotal:", carolOrder.sharesTotal);
+
+        // At this point, Carol's order may still show as active because
+        // fills happen via accumulators and require claiming to finalize
+
+        // Carol claims her fills - THIS should trigger liquidity removal
+        vm.prank(carol);
+        (uint256 claimedShares, uint256 claimedCost) = poolManager.claimFills(marketKey, carolOrderId);
+        console.log("Carol claimed shares:", claimedShares);
+
+        // After claiming, check if Carol's order is now closed
+        TickBookPoolManager.RangeOrder memory carolOrderAfterClaim = poolManager.getOrder(marketKey, carolOrderId);
+        console.log("Carol order after claim - active:", carolOrderAfterClaim.active);
+        console.log("Carol order after claim - liquidityRemoved:", carolOrderAfterClaim.liquidityRemoved);
+
+        // NOW check tick liquidity - THIS IS THE BUG CHECK
+        // If liquidity removal works correctly, these should both be 0
+        (, uint128 rangeGross510After, ) = poolManager.getTickLiquidity(marketKey, 0, 510);
+        (, uint128 rangeGross651After, ) = poolManager.getTickLiquidity(marketKey, 0, 651);
+        
+        console.log("rangeLiquidityGross at tick 510 after claim:", rangeGross510After);
+        console.log("rangeLiquidityGross at tick 651 after claim:", rangeGross651After);
+
+        // These assertions will FAIL if the bug exists
+        assertEq(rangeGross510After, 0, "BUG: rangeLiquidityGross at tick 510 should be 0 after order is filled and claimed");
+        assertEq(rangeGross651After, 0, "BUG: rangeLiquidityGross at tick 651 should be 0 after order is filled and claimed");
+    }
+
+    /**
+     * @notice Additional test: What happens if user NEVER claims their filled order?
+     * @dev This demonstrates the orphaned liquidity problem more clearly
+     */
+    function test_PhantomLiquidity_NeverClaimed() public {
+        // Carol places NO range order
+        vm.prank(carol);
+        (uint256 carolOrderId, , , ) = poolManager.placeOrder(
+            marketKey,
+            0,           // NO outcome
+            500e18,      // shares
+            510,         // tickLower
+            550,         // tickUpper
+            500e18       // maxCost
+        );
+
+        // Verify tick liquidity was added
+        (, uint128 rangeGross510Before, ) = poolManager.getTickLiquidity(marketKey, 0, 510);
+        assertGt(rangeGross510Before, 0, "rangeLiquidityGross should exist initially");
+
+        // Bob crosses Carol's order completely
+        vm.prank(bob);
+        poolManager.placeOrder(
+            marketKey,
+            1,           // YES outcome
+            500e18,
+            510,
+            550,
+            600e18
+        );
+
+        // Carol NEVER claims - this simulates a user who abandons their position
+        // The tick liquidity is now orphaned because:
+        // 1. Carol's order was filled via accumulators
+        // 2. liquidityRemoved flag is still false
+        // 3. But claimFills() will fail if order becomes inactive through some other path
+        
+        // Check the state - order should still be "active" because fills are unclaimed
+        TickBookPoolManager.RangeOrder memory carolOrder = poolManager.getOrder(marketKey, carolOrderId);
+        console.log("Carol order active (no claim):", carolOrder.active);
+        console.log("Carol liquidityRemoved (no claim):", carolOrder.liquidityRemoved);
+
+        // The tick liquidity still exists - this is expected behavior but problematic for UI
+        (, uint128 rangeGross510After, ) = poolManager.getTickLiquidity(marketKey, 0, 510);
+        console.log("rangeLiquidityGross at tick 510 (no claim):", rangeGross510After);
+        
+        // This test documents the expected behavior - liquidity remains until claimed
+        // The question is: should we remove liquidity during crossing instead of claiming?
+        assertEq(rangeGross510After, rangeGross510Before, "Liquidity should remain until claimed (current behavior)");
+    }
 }
