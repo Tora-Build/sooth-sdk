@@ -2,6 +2,60 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [V10.10] - 2026-01-20
+
+### Fixed
+- **Phantom Liquidity Bug**: Fixed event ordering in `placeOrder()` — `OrderPlaced` now emits BEFORE `_crossUnified()`. Previously, when orders were immediately filled during crossing, `RangeOrderClosed` emitted before `OrderPlaced`, causing indexers to miss the close event (order didn't exist yet in DB). Orders stayed "active" in indexer forever despite being closed on-chain.
+
+### Changed
+- `OrderPlaced` event now emits with `filledShares=0, filledCost=0, restingShares=shares` at creation time. Fill data comes from subsequent `UnifiedCrossing`/`RangeOrderClosed` events.
+
+### Frontend
+- Fixed `createMarket()` ABI mismatch in `Create.tsx` and `Launchpad.tsx` (was passing 7 params, contract expects 6).
+- Removed debug console.logs from `LiquidityMap.tsx` and `useOrderbookIndexed.ts`.
+
+### Deployed
+- **Base Sepolia V10.10**: TickBookPoolManager `0x6f81dc9b9a7f922f0dc89a9649eb8f22442ef547`
+- **Monad Testnet V10.10**: TickBookPoolManager `0xe5aa0a546e890cc79002f607c353e88104ba5835`
+- **MegaETH Testnet V10.10**: TickBookPoolManager `0x3dc3281d5f526f5ddd3abeaf20d5e542ad4982e8`
+- **Arc Testnet V10.10**: TickBookPoolManager `0xd699b06f61ef72698b28e133e8061496ed880a55`
+
+---
+
+## [V10.9] - 2026-01-19
+
+### Fixed
+- **Spot Sell Dust Bug**: Fixed `cancelSpotSell()` using `sharesTotal` instead of unfilled shares for density calculation, causing phantom dust liquidity (spot=1) to remain at ticks after partial fills + cancel.
+
+### Added
+- **clearDustLiquidity Admin Function**: Owner can now clear existing dust at specific ticks via `clearDustLiquidity(marketKey, outcome, ticks[])`.
+- **SpotSellClosed Event**: Emitted when spot sell is fully filled during crossing, enabling indexer to track auto-closed spot sells.
+- **Keeper Maintenance**: Simplified `maintenance.ts` with aggressive batch cleanup. Added `fast-cleanup.ts` and `diagnose-dust.ts` tools.
+
+### Deployed
+- **Base Sepolia V10.9**:
+  - TickBookPoolManager: `0xb94c45ed45575b48927a21601724db57dd74a94f`
+  - LaunchpadEngine: `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883`
+  - TickBookVault: `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee`
+- **Monad Testnet V10.9**:
+  - TickBookPoolManager: `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e`
+  - LaunchpadEngine: `0x3ae688354f831a6b37025e3f19744bd857005cca`
+  - TickBookVault: `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9`
+- **MegaETH Testnet V10.9**:
+  - TickBookPoolManager: `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530`
+  - LaunchpadEngine: `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f`
+  - TickBookVault: `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756`
+- **Arc Testnet V10.9**:
+  - TickBookPoolManager: `0x8ba9751284d77ed59f46ea877577e6430bc30209`
+  - LaunchpadEngine: `0x625b4b2997232380126f0aecd84867086f89b27e`
+  - TickBookVault: `0x1695ac9983f457e446d8f903d7c4061fbc7907f8`
+
+### Indexer
+- Added `SpotSellClosed` event to ABI and handler
+- Updated contract addresses and start blocks for all 4 chains
+
+---
+
 ## [Unreleased]
 
 ### Keeper Bot & Contract Fix (2026-01-18)

@@ -299,6 +299,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 proceeds
     );
 
+    event SpotSellClosed(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed sellId
+    );
+
     event UserOrderRemoved(bytes32 indexed marketKey, address indexed user, uint256 orderId);
     event UserSpotSellRemoved(bytes32 indexed marketKey, address indexed user, uint256 sellId);
     event SpotSellIdRemovedAtTick(bytes32 indexed marketKey, uint8 outcome, uint16 tick, uint256 sellId);
@@ -349,6 +355,20 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         takerFeeBps = _takerFee;
         makerFeeBps = _makerFee;
         emit FeesUpdated(_takerFee, _makerFee);
+    }
+
+    function clearDustLiquidity(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint16[] calldata ticks
+    ) external onlyOwner {
+        for (uint256 i = 0; i < ticks.length; ) {
+            uint16 t = ticks[i];
+            TickLiquidity storage tick = _tickLiquidity[marketKey][outcome][t];
+            tick.spotLiquidity = 0;
+            _spotBitmaps[marketKey][outcome].clearBit(t);
+            unchecked { ++i; }
+        }
     }
 
     // ============================================
@@ -506,17 +526,19 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         vault.spendAvailableToMarket(msg.sender, m.truthMarket, collateral);
 
+        // V10.10: Emit OrderPlaced BEFORE crossing to ensure correct event ordering
+        // When crossing immediately fills/closes orders, those events will have higher logIndex
+        // This ensures indexers see OrderPlaced first, then any RangeOrderClosed events
+        emit OrderPlaced(
+            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
+            shares, 0, 0, shares  // filledShares=0, filledCost=0 at creation time
+        );
+
         // V10: Try unified crossing (spot first, then range)
         CrossingResult memory result = _crossUnified(marketKey, orderId);
         filledShares = result.totalFilled;
         filledCost = result.newOrderCost;
-
         restingShares = shares - filledShares;
-
-        emit OrderPlaced(
-            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
-            shares, filledShares, filledCost, restingShares
-        );
     }
 
     function _autoClaimUserOrders(bytes32 marketKey, address user)
@@ -805,10 +827,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         sharesReturned = order.sharesTotal - order.sharesFilled;
 
-        // V10: Remove from unified tick liquidity + spot bitmap
-        // RFC-001: Also remove from tick-indexed arrays
+        // V10.9: Calculate density from UNFILLED shares only (fixes dust bug)
+        // The original placement distributed (sharesTotal / ticksInRange) per tick.
+        // Each fill reduced by (fillAmount / ticksInRange). On cancel, we remove
+        // liquidity proportional to the remaining unfilled shares.
         uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
-        uint128 density = uint128(order.sharesTotal / ticksInRange);
+        uint256 unfilledShares = order.sharesTotal - order.sharesFilled;
+        uint128 density = uint128(unfilledShares / ticksInRange);
         for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
             TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
             if (tick.spotLiquidity >= density) {
@@ -816,11 +841,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             } else {
                 tick.spotLiquidity = 0;
             }
-            // Clear spot bitmap if no more spot liquidity
             if (tick.spotLiquidity == 0) {
                 _spotBitmaps[marketKey][order.outcome].clearBit(t);
             }
-            // RFC-001: Remove from tick index
             _removeFromSpotSellIdsAtTick(marketKey, order.outcome, t, sellId);
         }
 
@@ -1388,12 +1411,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 if (spotOrder.sharesFilled >= spotOrder.sharesTotal) {
                     spotOrder.active = false;
                     _removeFromUserSpotSells(marketKey, spotOrder.owner, sellId);
-                    // RFC-001: Remove from all tick arrays
                     _removeSpotSellFromAllTicks(marketKey, sellerOutcome, spotOrder.tickLower, spotOrder.tickUpper, sellId);
                     if (spotOrder.proceedsWad > 0) {
                         vault.creditUsdcAvailable(spotOrder.owner, spotOrder.proceedsWad);
                         spotOrder.proceedsWad = 0;
                     }
+                    emit SpotSellClosed(spotOrder.owner, marketKey, sellId);
                 }
                 
                 emit SpotSellFilled(marketKey, sellId, toFill, cost);

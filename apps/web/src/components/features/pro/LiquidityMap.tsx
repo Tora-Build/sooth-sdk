@@ -56,7 +56,6 @@ export const LiquidityMap = ({
   isLoading, 
   viewOutcome 
 }: LiquidityMapProps) => {
-
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
   // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
   const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {

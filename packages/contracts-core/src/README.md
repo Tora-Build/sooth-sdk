@@ -2,8 +2,8 @@
 
 **Status**: Production Alpha  
 **Build**: All Tests Passing (124/124)  
-**Version**: V10.8.3  
-**Date**: 2026-01-18
+**Version**: V10.9  
+**Date**: 2026-01-19
 
 ---
 
@@ -160,43 +160,43 @@ forge test --match-contract Invariants
 
 ---
 
-## Current Deployments (V10.8.3)
+## Current Deployments (V10.9)
 
 ### Base Sepolia (chainId: 84532)
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0xdc51a2beb6ed2e65f1ee4cfa87a228b77e697a21` |
-| TickBookPoolManager | `0x463759fa866e6045c97cb37c25bcd74d23aa9b34` |
-| TickBookVault | `0x3727d8d586bd37cd716c1bdbc05c6c2c6b8adc5d` |
-| AMMEngine | `0x95c0a48c38a19dcdd9b8d21b0c304154230b56b9` |
-| Collateralizer | `0x3aeeedd2e749c6d7bbabafdfd76ad84ad6c414f1` |
+| LaunchpadEngine | `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883` |
+| TickBookPoolManager | `0xb94c45ed45575b48927a21601724db57dd74a94f` |
+| TickBookVault | `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee` |
+| AMMEngine | `0xe19c027a9407dc0eddae2d908e263d79aaf0bbe2` |
+| Collateralizer | `0x258883fb64afe22517db08f4c6e886f4967205b9` |
 
 ### Monad Testnet (chainId: 10143)
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0x9ca66ac4a00e7c380db41a714be470493bc2eee1` |
-| TickBookPoolManager | `0xaa3daf93c823258fe025b26be90e8a08d2abf84f` |
-| TickBookVault | `0xb3ea593be1a834650e2955cc8f038921f4571ffa` |
-| AMMEngine | `0xd18e6e7489d07e38f903e301c19f6a43650a0178` |
-| Collateralizer | `0x7cbabf4a2dad48f7b5180b54adb8038a42663cb7` |
+| LaunchpadEngine | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
+| TickBookPoolManager | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
+| TickBookVault | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
+| AMMEngine | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
+| Collateralizer | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
 
 ### MegaETH Testnet (chainId: 6343)
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0x2de2f2e6aad4f310dc72acc6f896412ceb4706f3` |
-| TickBookPoolManager | `0x7f7a84196dc38b054a6f31b2efcd7142860b37c6` |
-| TickBookVault | `0xb80a06cc6813c03f1b04bc969942740b7483b447` |
-| AMMEngine | `0xed1ffac79bfe9a13715774d2694a0f55ed392656` |
-| Collateralizer | `0x86437735e952ec47884e3ff202594d8789943a81` |
+| LaunchpadEngine | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
+| TickBookPoolManager | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
+| TickBookVault | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
+| AMMEngine | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
+| Collateralizer | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
 
 ### Arc Testnet (chainId: 5042002)
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0x7015ea4bdada102969f5d9eb9457e087a559cedc` |
-| TickBookPoolManager | `0xb4240ac6cc3a082d5819e9410f0eb90209a4a3f3` |
-| TickBookVault | `0xadd058a6bd2bce6f1fe1cbd3c9e21250c055e242` |
-| AMMEngine | `0x3c01829ddac95f1f143c04afdcf0c2689aa979f0` |
-| Collateralizer | `0xed16d73f5879ccf8ca1a16cfda46615fa98ef30c` |
+| LaunchpadEngine | `0x625b4b2997232380126f0aecd84867086f89b27e` |
+| TickBookPoolManager | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
+| TickBookVault | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
+| AMMEngine | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
+| Collateralizer | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
 
 ---
 

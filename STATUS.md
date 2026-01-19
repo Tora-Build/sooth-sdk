@@ -1,10 +1,8 @@
 # Project Status
 
 ## Current Focus
-- **Code Quality Improvements (2026-01-18)** — Production-safe logging utility, TypeScript type safety improvements, error boundaries, contract gas optimization. All changes verified (90 tests pass, frontend builds).
-- **CLI/SDK setmarket Unification (2026-01-16)** — Unified output format between internal CLI and web SDK. Both now show `[SYMBOL] Market Name`, Address, and Key consistently. Removed legacy marketKey warnings. SDK now fetches market name from `TruthMarket.question()`.
-- **Trade/Pro UI Cleanup (2026-01-16)** — Simplified market headers: removed redundant symbol/probability display, now shows question + bonding progress icon (⚡) or graduated icon (📊). Compact metadata card with status badge, expiry, creator, adjudicator.
-- **V10.8.3 ABI Sync (2026-01-16)** — Fixed all frontend hooks and SDK to work with new 10-field MarketState (removed name/symbol). Symbol now derived from market address (first 4 bytes). Question fetched from TruthMarket.question().
+- **V10.10 Event Ordering Fix & Deployment (2026-01-20)** — Fixed phantom liquidity bug in indexer caused by incorrect event emission order. `OrderPlaced` now emits BEFORE `_crossUnified()` so indexers see order creation before any `RangeOrderClosed` events. Deployed to all 4 testnets.
+- **Keeper Resilience (2026-01-18)** — Made keeper self-maintaining for delta neutrality. Claims fills, cancels orders/spot sells, sells tokens, withdraws USDC. Maintenance runs on startup + every 60 seconds.
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
@@ -132,45 +130,45 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.8.3
+### Base Sepolia (chainId: 84532) — V10.9
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0xdc51a2beb6ed2e65f1ee4cfa87a228b77e697a21` |
-| **TickBookPoolManager** | `0x463759fa866e6045c97cb37c25bcd74d23aa9b34` |
-| **TickBookVault** | `0x3727d8d586bd37cd716c1bdbc05c6c2c6b8adc5d` |
-| **AMMEngine** | `0x95c0a48c38a19dcdd9b8d21b0c304154230b56b9` |
-| **Collateralizer** | `0x3aeeedd2e749c6d7bbabafdfd76ad84ad6c414f1` |
-| **MockUSDC** | `0x2bba41ddbd9a10b3719c3865029ce5238ec09dac` |
+| **LaunchpadEngine** | `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883` |
+| **TickBookPoolManager** | `0xb94c45ed45575b48927a21601724db57dd74a94f` |
+| **TickBookVault** | `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee` |
+| **AMMEngine** | `0xe19c027a9407dc0eddae2d908e263d79aaf0bbe2` |
+| **Collateralizer** | `0x258883fb64afe22517db08f4c6e886f4967205b9` |
+| **MockUSDC** | `0x2a6601d2471d9215c4572e7a02279382679c2e8a` |
 
-### Arc Testnet (chainId: 5042002) — V10.8.3
+### Arc Testnet (chainId: 5042002) — V10.9
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x7015ea4bdada102969f5d9eb9457e087a559cedc` |
-| **TickBookPoolManager** | `0xb4240ac6cc3a082d5819e9410f0eb90209a4a3f3` |
-| **TickBookVault** | `0xadd058a6bd2bce6f1fe1cbd3c9e21250c055e242` |
-| **AMMEngine** | `0x3c01829ddac95f1f143c04afdcf0c2689aa979f0` |
-| **Collateralizer** | `0xed16d73f5879ccf8ca1a16cfda46615fa98ef30c` |
-| **MockUSDC** | `0x31a1380bea9b3616956cdc05b2f3fad489803717` |
+| **LaunchpadEngine** | `0x625b4b2997232380126f0aecd84867086f89b27e` |
+| **TickBookPoolManager** | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
+| **TickBookVault** | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
+| **AMMEngine** | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
+| **Collateralizer** | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
+| **MockUSDC** | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
 
-### Monad Testnet (chainId: 10143) — V10.8.3
+### Monad Testnet (chainId: 10143) — V10.9
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x9ca66ac4a00e7c380db41a714be470493bc2eee1` |
-| **TickBookPoolManager** | `0xaa3daf93c823258fe025b26be90e8a08d2abf84f` |
-| **TickBookVault** | `0xb3ea593be1a834650e2955cc8f038921f4571ffa` |
-| **AMMEngine** | `0xd18e6e7489d07e38f903e301c19f6a43650a0178` |
-| **Collateralizer** | `0x7cbabf4a2dad48f7b5180b54adb8038a42663cb7` |
-| **MockUSDC** | `0x28db001c8803ca586b3da0bfd31d8ce676aff0f0` |
+| **LaunchpadEngine** | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
+| **TickBookPoolManager** | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
+| **TickBookVault** | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
+| **AMMEngine** | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
+| **Collateralizer** | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
+| **MockUSDC** | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
 
-### MegaETH Testnet (chainId: 6343) — V10.8.3
+### MegaETH Testnet (chainId: 6343) — V10.9
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x2de2f2e6aad4f310dc72acc6f896412ceb4706f3` |
-| **TickBookPoolManager** | `0x7f7a84196dc38b054a6f31b2efcd7142860b37c6` |
-| **TickBookVault** | `0xb80a06cc6813c03f1b04bc969942740b7483b447` |
-| **AMMEngine** | `0xed1ffac79bfe9a13715774d2694a0f55ed392656` |
-| **Collateralizer** | `0x86437735e952ec47884e3ff202594d8789943a81` |
-| **MockUSDC** | `0x749d2d9937c10e28dd065d1f301ed485f1525f0a` |
+| **LaunchpadEngine** | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
+| **TickBookPoolManager** | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
+| **TickBookVault** | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
+| **AMMEngine** | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
+| **Collateralizer** | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
+| **MockUSDC** | `0x57bda4319c306a68054f25017183030752f97d63` |
 
 
 ---
@@ -342,4 +340,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-18 (Code quality sprint: logger, types, error boundaries, gas optimization)*
+*Last updated: 2026-01-19 (V10.9 deployed: dust bug fix, clearDustLiquidity admin function, SpotSellClosed event)*
