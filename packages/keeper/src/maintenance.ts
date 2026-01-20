@@ -59,94 +59,56 @@ export async function runMaintenance(
 
     if (userOrders.length > 0) {
       log(`Found ${userOrders.length} keeper orders`);
-
-      const ordersWithFills: bigint[] = [];
-      const activeOrders: bigint[] = [];
-
-      for (const orderId of userOrders) {
+      
+      const totalBatches = Math.ceil(userOrders.length / BATCH_SIZE);
+      
+      log(`Claiming fills first...`);
+      for (let i = 0; i < userOrders.length; i += BATCH_SIZE) {
+        const batch = userOrders.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        
         try {
-          const order = await publicClient.readContract({
+          const hash = await walletClient.writeContract({
             address: config.contracts.TickBookPoolManager,
             abi: POOL_MANAGER_ABI,
-            functionName: 'getOrder',
-            args: [marketKey, orderId],
-          }) as { active: boolean; liquidityRemoved: boolean };
-
-          const [pendingShares, pendingUsdc] = await publicClient.readContract({
-            address: config.contracts.TickBookPoolManager,
-            abi: POOL_MANAGER_ABI,
-            functionName: 'getPendingFills',
-            args: [marketKey, orderId],
-          }) as [bigint, bigint];
-
-          if (pendingShares > 0n || pendingUsdc > 0n) {
-            ordersWithFills.push(orderId);
-          }
-
-          if (order.active && !order.liquidityRemoved) {
-            activeOrders.push(orderId);
+            functionName: 'batchClaimFills',
+            args: [marketKey, batch],
+            account,
+            chain: config.chain,
+            gas: 8_000_000n,
+          });
+          
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status === 'success') {
+            result.fillsClaimed += batch.length;
+            logSuccess(`Claim ${batchNum}/${totalBatches}`);
           }
         } catch {
-          continue;
         }
       }
 
-      if (ordersWithFills.length > 0) {
-        log(`Claiming fills from ${ordersWithFills.length} orders...`);
+      log(`Cancelling orders...`);
+      for (let i = 0; i < userOrders.length; i += BATCH_SIZE) {
+        const batch = userOrders.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
         
-        for (let i = 0; i < ordersWithFills.length; i += BATCH_SIZE) {
-          const batch = ordersWithFills.slice(i, i + BATCH_SIZE);
-          try {
-            const hash = await walletClient.writeContract({
-              address: config.contracts.TickBookPoolManager,
-              abi: POOL_MANAGER_ABI,
-              functionName: 'batchClaimFills',
-              args: [marketKey, batch],
-              account,
-              chain: config.chain,
-            });
-            
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            if (receipt.status === 'success') {
-              result.fillsClaimed += batch.length;
-              logSuccess(`Claimed ${batch.length} fills`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-            result.errors.push(`Claim batch failed: ${msg}`);
-            logError(`Claim failed: ${msg}`);
+        try {
+          const hash = await walletClient.writeContract({
+            address: config.contracts.TickBookPoolManager,
+            abi: POOL_MANAGER_ABI,
+            functionName: 'batchCancelOrders',
+            args: [marketKey, batch],
+            account,
+            chain: config.chain,
+            gas: 8_000_000n,
+          });
+          
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status === 'success') {
+            result.ordersCancelled += batch.length;
+            logSuccess(`Cancel ${batchNum}/${totalBatches}`);
           }
-          await sleep(DELAY_MS);
-        }
-      }
-
-      if (activeOrders.length > 0) {
-        log(`Cancelling ${activeOrders.length} active orders...`);
-        
-        for (let i = 0; i < activeOrders.length; i += BATCH_SIZE) {
-          const batch = activeOrders.slice(i, i + BATCH_SIZE);
-          try {
-            const hash = await walletClient.writeContract({
-              address: config.contracts.TickBookPoolManager,
-              abi: POOL_MANAGER_ABI,
-              functionName: 'batchCancelOrders',
-              args: [marketKey, batch],
-              account,
-              chain: config.chain,
-              gas: 5_000_000n,
-            });
-            
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            if (receipt.status === 'success') {
-              result.ordersCancelled += batch.length;
-              logSuccess(`Cancelled ${batch.length} orders`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-            result.errors.push(`Cancel batch failed: ${msg}`);
-            logError(`Cancel failed: ${msg}`);
-          }
-          await sleep(DELAY_MS);
+        } catch {
         }
       }
     }
@@ -159,88 +121,29 @@ export async function runMaintenance(
     }) as bigint[];
 
     if (userSpotSells.length > 0) {
-      log(`Found ${userSpotSells.length} keeper spot sells`);
-
-      const activeSpotSells: bigint[] = [];
-      const spotSellsWithProceeds: bigint[] = [];
-
+      log(`Found ${userSpotSells.length} keeper spot sells - cancelling...`);
+      
       for (const sellId of userSpotSells) {
         try {
-          const sell = await publicClient.readContract({
+          const hash = await walletClient.writeContract({
             address: config.contracts.TickBookPoolManager,
             abi: POOL_MANAGER_ABI,
-            functionName: 'getSpotSellOrder',
+            functionName: 'cancelSpotSell',
             args: [marketKey, sellId],
-          }) as { active: boolean; sharesTotal: bigint; filledShares: bigint; proceedsClaimedWad: bigint };
-
-          if (sell.active) {
-            const restingShares = sell.sharesTotal - sell.filledShares;
-            if (restingShares > 0n) {
-              activeSpotSells.push(sellId);
-            }
-          }
-
-          const hasUnclaimedProceeds = sell.filledShares > 0n;
-          if (hasUnclaimedProceeds) {
-            spotSellsWithProceeds.push(sellId);
+            account,
+            chain: config.chain,
+          });
+          
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status === 'success') {
+            result.spotSellsCancelled++;
           }
         } catch {
-          continue;
         }
       }
-
-      if (spotSellsWithProceeds.length > 0) {
-        log(`Claiming proceeds from ${spotSellsWithProceeds.length} spot sells...`);
-        
-        for (const sellId of spotSellsWithProceeds) {
-          try {
-            const hash = await walletClient.writeContract({
-              address: config.contracts.TickBookPoolManager,
-              abi: POOL_MANAGER_ABI,
-              functionName: 'claimSpotSellProceeds',
-              args: [marketKey, sellId],
-              account,
-              chain: config.chain,
-            });
-            
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            if (receipt.status === 'success') {
-              result.spotSellProceedsClaimed++;
-              logSuccess(`Claimed proceeds from spot sell #${sellId}`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-            result.errors.push(`Claim spot sell proceeds failed: ${msg}`);
-          }
-          await sleep(DELAY_MS);
-        }
-      }
-
-      if (activeSpotSells.length > 0) {
-        log(`Cancelling ${activeSpotSells.length} active spot sells...`);
-        
-        for (const sellId of activeSpotSells) {
-          try {
-            const hash = await walletClient.writeContract({
-              address: config.contracts.TickBookPoolManager,
-              abi: POOL_MANAGER_ABI,
-              functionName: 'cancelSpotSell',
-              args: [marketKey, sellId],
-              account,
-              chain: config.chain,
-            });
-            
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            if (receipt.status === 'success') {
-              result.spotSellsCancelled++;
-              logSuccess(`Cancelled spot sell #${sellId}`);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-            result.errors.push(`Cancel spot sell failed: ${msg}`);
-          }
-          await sleep(DELAY_MS);
-        }
+      
+      if (result.spotSellsCancelled > 0) {
+        logSuccess(`Cancelled ${result.spotSellsCancelled} spot sells`);
       }
     }
 
@@ -251,51 +154,85 @@ export async function runMaintenance(
       args: [market, account.address],
     }) as [bigint, bigint];
 
-    if (yesBalance > MIN_TOKENS_TO_SELL) {
-      log(`Selling ${(Number(yesBalance) / 1e18).toFixed(2)} YES tokens...`);
-      try {
-        const hash = await walletClient.writeContract({
-          address: config.contracts.TickBookPoolManager,
-          abi: POOL_MANAGER_ABI,
-          functionName: 'placeSpotSell',
-          args: [marketKey, 1, yesBalance, 1, 1],
-          account,
-          chain: config.chain,
-        });
-        
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (receipt.status === 'success') {
-          result.tokensSold.yes = yesBalance;
-          logSuccess(`Sold YES tokens`);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-        result.errors.push(`YES sell failed: ${msg}`);
-        logError(`YES sell failed: ${msg}`);
-      }
-    }
+    const hasTokensToSell = yesBalance > MIN_TOKENS_TO_SELL || noBalance > MIN_TOKENS_TO_SELL;
+    
+    if (hasTokensToSell) {
+      const allOrders = await publicClient.readContract({
+        address: config.contracts.TickBookPoolManager,
+        abi: POOL_MANAGER_ABI,
+        functionName: 'getAllMarketOrders',
+        args: [marketKey],
+      }) as bigint[];
 
-    if (noBalance > MIN_TOKENS_TO_SELL) {
-      log(`Selling ${(Number(noBalance) / 1e18).toFixed(2)} NO tokens...`);
-      try {
-        const hash = await walletClient.writeContract({
-          address: config.contracts.TickBookPoolManager,
-          abi: POOL_MANAGER_ABI,
-          functionName: 'placeSpotSell',
-          args: [marketKey, 0, noBalance, 1, 1],
-          account,
-          chain: config.chain,
-        });
-        
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (receipt.status === 'success') {
-          result.tokensSold.no = noBalance;
-          logSuccess(`Sold NO tokens`);
+      let hasActiveOrders = false;
+      for (const orderId of allOrders) {
+        try {
+          const order = await publicClient.readContract({
+            address: config.contracts.TickBookPoolManager,
+            abi: POOL_MANAGER_ABI,
+            functionName: 'getOrder',
+            args: [marketKey, orderId],
+          }) as { active: boolean; owner: Address };
+          
+          if (order.active && order.owner.toLowerCase() !== account.address.toLowerCase()) {
+            hasActiveOrders = true;
+            break;
+          }
+        } catch {
+          continue;
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
-        result.errors.push(`NO sell failed: ${msg}`);
-        logError(`NO sell failed: ${msg}`);
+      }
+
+      if (!hasActiveOrders) {
+        log(`Holding ${(Number(yesBalance) / 1e18).toFixed(0)} YES + ${(Number(noBalance) / 1e18).toFixed(0)} NO (no orders to cross)`);
+      } else {
+        if (yesBalance > MIN_TOKENS_TO_SELL) {
+          log(`Selling ${(Number(yesBalance) / 1e18).toFixed(2)} YES tokens...`);
+          try {
+            const hash = await walletClient.writeContract({
+              address: config.contracts.TickBookPoolManager,
+              abi: POOL_MANAGER_ABI,
+              functionName: 'placeSpotSell',
+              args: [marketKey, 1, yesBalance, 1, 1],
+              account,
+              chain: config.chain,
+            });
+            
+            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            if (receipt.status === 'success') {
+              result.tokensSold.yes = yesBalance;
+              logSuccess(`Sold YES tokens`);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
+            result.errors.push(`YES sell failed: ${msg}`);
+            logError(`YES sell failed: ${msg}`);
+          }
+        }
+
+        if (noBalance > MIN_TOKENS_TO_SELL) {
+          log(`Selling ${(Number(noBalance) / 1e18).toFixed(2)} NO tokens...`);
+          try {
+            const hash = await walletClient.writeContract({
+              address: config.contracts.TickBookPoolManager,
+              abi: POOL_MANAGER_ABI,
+              functionName: 'placeSpotSell',
+              args: [marketKey, 0, noBalance, 1, 1],
+              account,
+              chain: config.chain,
+            });
+            
+            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            if (receipt.status === 'success') {
+              result.tokensSold.no = noBalance;
+              logSuccess(`Sold NO tokens`);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message.slice(0, 50) : 'Unknown';
+            result.errors.push(`NO sell failed: ${msg}`);
+            logError(`NO sell failed: ${msg}`);
+          }
+        }
       }
     }
 
@@ -381,7 +318,29 @@ export async function needsMaintenance(
     }) as [bigint, bigint];
 
     if (yesBalance > WAD || noBalance > WAD) {
-      return { needed: true, reason: 'Holding outcome tokens' };
+      const allOrders = await publicClient.readContract({
+        address: config.contracts.TickBookPoolManager,
+        abi: POOL_MANAGER_ABI,
+        functionName: 'getAllMarketOrders',
+        args: [marketKey],
+      }) as bigint[];
+
+      for (const orderId of allOrders) {
+        try {
+          const order = await publicClient.readContract({
+            address: config.contracts.TickBookPoolManager,
+            abi: POOL_MANAGER_ABI,
+            functionName: 'getOrder',
+            args: [marketKey, orderId],
+          }) as { active: boolean; owner: Address };
+          
+          if (order.active && order.owner.toLowerCase() !== account.address.toLowerCase()) {
+            return { needed: true, reason: 'Holding tokens with orders to cross' };
+          }
+        } catch {
+          continue;
+        }
+      }
     }
 
     const userSpotSells = await publicClient.readContract({
