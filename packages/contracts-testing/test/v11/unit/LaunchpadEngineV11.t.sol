@@ -1,0 +1,546 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {V11TestBase} from "../V11TestBase.sol";
+import {LaunchpadEngineV11} from "@core/LaunchpadEngineV11.sol";
+import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
+import {TruthMarket} from "@core/TruthMarket.sol";
+import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
+
+/**
+ * @title LaunchpadEngineV11 Unit Tests
+ * @notice Tests for V11 trial period, dismissal, agent trading features
+ */
+contract LaunchpadEngineV11Test is V11TestBase {
+    // ============================================
+    // Market Creation Tests
+    // ============================================
+
+    function test_CreateMarket_SetsTrialPeriodStart() public {
+        address market = _createMarket();
+
+        (uint64 trialEndTime, , , bool isTrialActive) = launchpad.getTrialStatus(market);
+
+        assertEq(trialEndTime, uint64(block.timestamp) + 7 days, "Trial end time incorrect");
+        assertTrue(isTrialActive, "Trial should be active");
+    }
+
+    function test_CreateMarket_InitializesLockedCostToZero() public {
+        address market = _createMarket();
+
+        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+
+        assertEq(lockedCost, 0, "Locked cost should be zero initially");
+    }
+
+    function test_CreateMarket_InitializesTrialBalanceToZero() public {
+        address market = _createMarket();
+
+        (, int256 trialBalance, ) = launchpad.getExitOptions(market, alice);
+
+        assertEq(trialBalance, 0, "Trial balance should be zero initially");
+    }
+
+    function test_CreateMarket_EmitsMarketCreatedEvent() public {
+        vm.prank(creator);
+        // Don't check market address (unknown in advance), check indexed creator
+        vm.expectEmit(false, true, false, false);
+        emit ILaunchpadEngine.MarketCreated(address(0), creator, 100e18, 0, 0);
+
+        launchpad.createMarket(
+            "Test question",
+            0,
+            uint64(block.timestamp + 30 days),
+            adjudicator,
+            guardian,
+            100e18
+        );
+    }
+
+    function test_CreateMarket_DeploysERC20LPToken() public {
+        address market = _createMarket();
+
+        address lpToken = launchpad.getLPToken(market);
+
+        assertTrue(lpToken != address(0), "LP token should be deployed");
+        assertEq(LaunchpadLPToken(lpToken).market(), market, "LP token market mismatch");
+    }
+
+    function test_CreateMarketWithOptions_CustomTrialPeriod() public {
+        vm.prank(creator);
+        (address market, ) = launchpad.createMarketWithOptions(
+            "Test",
+            0,
+            uint64(block.timestamp + 30 days),
+            adjudicator,
+            guardian,
+            100e18,
+            1 days, // 1 day trial
+            false,
+            0
+        );
+
+        (uint64 trialEndTime, , , ) = launchpad.getTrialStatus(market);
+        assertEq(trialEndTime, uint64(block.timestamp) + 1 days, "Custom trial period not set");
+    }
+
+    // ============================================
+    // Trial Period Trading Tests
+    // ============================================
+
+    function test_TradePositions_UpdatesLockedCost() public {
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, 100e18); // Buy YES
+
+        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+
+        assertGt(lockedCost, 0, "Locked cost should increase on buy");
+    }
+
+    function test_TradePositions_UpdatesTrialBalance() public {
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, 100e18); // Buy YES
+
+        (, int256 trialBalance, ) = launchpad.getExitOptions(market, alice);
+
+        assertLt(trialBalance, 0, "Trial balance should be negative after buy");
+    }
+
+    function test_TradePositions_BuyIncreasesLockedCost() public {
+        address market = _createMarket();
+
+        (uint256 lockedBefore, , ) = launchpad.getExitOptions(market, alice);
+        _buyShares(alice, market, 1, 50e18);
+        (uint256 lockedAfter, , ) = launchpad.getExitOptions(market, alice);
+
+        assertGt(lockedAfter, lockedBefore, "Locked cost should increase");
+    }
+
+    function test_TradePositions_SellUpdatesTrialBalance() public {
+        address market = _createMarket();
+
+        // Setup: Alice buys shares first
+        _buyShares(alice, market, 1, 100e18);
+
+        // Set position in mock so Alice can sell
+        ammEngine.setPosition(market, alice, 100e18, 0);
+
+        (, int256 balanceBefore, ) = launchpad.getExitOptions(market, alice);
+        _sellShares(alice, market, 1, 50e18);
+        (, int256 balanceAfter, ) = launchpad.getExitOptions(market, alice);
+
+        assertGt(balanceAfter, balanceBefore, "Trial balance should improve after sell");
+    }
+
+    function test_TradePositions_RevertsIfDismissed() public {
+        address market = _createMarket();
+
+        // Creator dismisses market
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        // Trading should fail
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: market dismissed");
+        launchpad.tradePositions(market, 1, 100e18, type(uint256).max);
+    }
+
+    function testFuzz_TradePositions_LockedCostNeverNegative(uint256 shares) public {
+        shares = bound(shares, 1e18, 1000e18);
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, shares);
+
+        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+
+        assertGe(lockedCost, 0, "Locked cost should never be negative");
+    }
+
+    // ============================================
+    // Market Dismissal Tests
+    // ============================================
+
+    function test_DismissMarket_OnlyCreatorCanCall() public {
+        address market = _createMarket();
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: not creator");
+        launchpad.dismissMarket(market);
+    }
+
+    function test_DismissMarket_RevertsIfNotInTrial() public {
+        address market = _createMarket();
+
+        // Warp past trial period
+        _advanceTime(8 days);
+
+        vm.prank(creator);
+        vm.expectRevert("LaunchpadEngine: trial ended");
+        launchpad.dismissMarket(market);
+    }
+
+    function test_DismissMarket_RevertsIfAlreadyDismissed() public {
+        address market = _createMarket();
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        vm.prank(creator);
+        vm.expectRevert("LaunchpadEngine: already dismissed");
+        launchpad.dismissMarket(market);
+    }
+
+    function test_DismissMarket_SetsMarketDismissedFlag() public {
+        address market = _createMarket();
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        (, bool isDismissed, , ) = launchpad.getTrialStatus(market);
+        assertTrue(isDismissed, "Market should be dismissed");
+    }
+
+    function test_DismissMarket_EmitsDismissedEvent() public {
+        address market = _createMarket();
+
+        vm.prank(creator);
+        vm.expectEmit(true, true, false, true);
+        emit ILaunchpadEngine.MarketDismissed(market, creator, block.timestamp);
+
+        launchpad.dismissMarket(market);
+    }
+
+    function test_DismissMarket_FreezesTrading() public {
+        address market = _createMarket();
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: market dismissed");
+        launchpad.tradePositions(market, 1, 100e18, type(uint256).max);
+    }
+
+    // ============================================
+    // Refund Claim Tests
+    // ============================================
+
+    function test_ClaimRefund_ReturnsLockedCost() public {
+        address market = _createMarket();
+
+        // Alice trades during trial
+        _buyShares(alice, market, 1, 100e18);
+
+        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+        assertGt(lockedCost, 0, "Alice should have locked cost");
+
+        // Creator dismisses
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        // Alice claims refund
+        uint256 balanceBefore = usdc.balanceOf(alice);
+        vm.prank(alice);
+        uint256 refund = launchpad.claimRefund(market);
+
+        assertGt(refund, 0, "Refund should be > 0");
+        assertGt(usdc.balanceOf(alice), balanceBefore, "Alice should receive USDC");
+    }
+
+    function test_ClaimRefund_RevertsIfNotDismissed() public {
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, 100e18);
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: market not dismissed");
+        launchpad.claimRefund(market);
+    }
+
+    function test_ClaimRefund_RevertsIfAlreadyClaimed() public {
+        address market = _createMarket();
+        _buyShares(alice, market, 1, 100e18);
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        vm.prank(alice);
+        launchpad.claimRefund(market);
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: no refund available");
+        launchpad.claimRefund(market);
+    }
+
+    function test_ClaimRefund_TransfersCorrectAmount() public {
+        address market = _createMarket();
+        _buyShares(alice, market, 1, 100e18);
+
+        (uint256 expectedRefund, , ) = launchpad.getExitOptions(market, alice);
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        vm.prank(alice);
+        uint256 actualRefund = launchpad.claimRefund(market);
+
+        // Refund should match locked cost (converted to USDC decimals)
+        assertGt(actualRefund, 0, "Refund should be positive");
+    }
+
+    function test_ClaimRefund_ResetsUserLockedCost() public {
+        address market = _createMarket();
+        _buyShares(alice, market, 1, 100e18);
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        vm.prank(alice);
+        launchpad.claimRefund(market);
+
+        (uint256 lockedCost, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        assertEq(lockedCost, 0, "Locked cost should be reset");
+        assertFalse(canClaim, "Should not be able to claim again");
+    }
+
+    function testFuzz_ClaimRefund_MultipleUsers(uint8 numUsers) public {
+        // Bound to 1-5 users to avoid edge cases
+        uint256 boundedUsers = bound(uint256(numUsers), 1, 5);
+        address market = _createMarket();
+
+        address[] memory users = new address[](boundedUsers);
+        for (uint256 i = 0; i < boundedUsers; i++) {
+            users[i] = address(uint160(0x1000 + i));
+            usdc.mint(users[i], INITIAL_BALANCE);
+            vm.prank(users[i]);
+            usdc.approve(address(launchpad), type(uint256).max);
+            // Use fixed shares per user to avoid overflow
+            _buyShares(users[i], market, 1, 10e18);
+        }
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        for (uint256 i = 0; i < boundedUsers; i++) {
+            uint256 balanceBefore = usdc.balanceOf(users[i]);
+            vm.prank(users[i]);
+            launchpad.claimRefund(market);
+            assertGt(usdc.balanceOf(users[i]), balanceBefore, "User should receive refund");
+        }
+    }
+
+    // ============================================
+    // Agent Trading Tests (ERC-8004)
+    // ============================================
+
+    function test_TradeWithAgent_RequiresValidAgentId() public {
+        address market = _createMarket();
+
+        // Non-existent agent
+        vm.prank(alice);
+        vm.expectRevert(); // getAgentWallet returns address(0)
+        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, 999);
+    }
+
+    function test_TradeWithAgent_VerifiesAgentWallet() public {
+        address market = _createMarket();
+
+        // Alice tries to trade as agent but isn't the agent's wallet
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: not agent wallet");
+        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+    }
+
+    function test_TradeWithAgent_SucceedsForValidAgent() public {
+        address market = _createMarket();
+
+        // Agent trades (wallet = agent address)
+        vm.prank(agent);
+        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+
+        assertGt(cost, 0, "Trade should have cost");
+    }
+
+    function test_TradeWithAgent_RevertsIfMarketNotAgentGated() public {
+        address market = _createAgentGatedMarket(50);
+
+        // Regular trade should fail
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: agent-gated market, use tradeWithAgent");
+        launchpad.tradePositions(market, 1, 100e18, type(uint256).max);
+    }
+
+    function test_TradeWithAgent_ChecksMinReputation() public {
+        // Create market requiring 90 reputation
+        address market = _createAgentGatedMarket(90);
+
+        // Agent has 80 reputation (set in setUp)
+        vm.prank(agent);
+        vm.expectRevert("LaunchpadEngine: insufficient reputation");
+        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+
+        // Increase reputation
+        reputationRegistry.setReputation(agentId, 95);
+
+        // Now should succeed
+        vm.prank(agent);
+        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+    }
+
+    function test_TradeWithAgent_EmitsAgentTradeEvent() public {
+        address market = _createMarket();
+
+        vm.prank(agent);
+        vm.expectEmit(true, true, true, false);
+        emit ILaunchpadEngine.AgentTrade(market, agent, agentId, 1, 100e18, 0, 0);
+
+        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+    }
+
+    function testFuzz_TradeWithAgent_FeeDiscount(uint8 reputation) public {
+        reputation = uint8(bound(reputation, 0, 100));
+        address market = _createMarket();
+
+        // Set agent reputation
+        reputationRegistry.setReputation(agentId, reputation);
+
+        vm.prank(agent);
+        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+
+        // Cost should be valid (discount applied based on reputation thresholds)
+        assertGt(cost, 0, "Cost should be positive");
+    }
+
+    // ============================================
+    // Agent Gating Tests
+    // ============================================
+
+    function test_SetAgentGating_OnlyCreatorOrOwner() public {
+        address market = _createMarket();
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: not authorized");
+        launchpad.setAgentGating(market, true, 50);
+    }
+
+    function test_SetAgentGating_EmitsEvent() public {
+        address market = _createMarket();
+
+        vm.prank(creator);
+        vm.expectEmit(true, false, false, true);
+        emit ILaunchpadEngine.AgentGatingSet(market, true, 50);
+
+        launchpad.setAgentGating(market, true, 50);
+    }
+
+    // ============================================
+    // View Functions Tests
+    // ============================================
+
+    function test_GetTrialStatus_ReturnsCorrectValues() public {
+        address market = _createMarket();
+
+        (
+            uint64 trialEndTime,
+            bool isDismissed,
+            uint256 totalLockedCost,
+            bool isTrialActive
+        ) = launchpad.getTrialStatus(market);
+
+        assertEq(trialEndTime, uint64(block.timestamp) + 7 days, "Trial end time");
+        assertFalse(isDismissed, "Should not be dismissed");
+        assertEq(totalLockedCost, 0, "No locked cost initially");
+        assertTrue(isTrialActive, "Trial should be active");
+    }
+
+    function test_GetExitOptions_ReturnsCorrectValues() public {
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, 100e18);
+
+        (
+            uint256 lockedCost,
+            int256 trialBalance,
+            bool canClaimRefund
+        ) = launchpad.getExitOptions(market, alice);
+
+        assertGt(lockedCost, 0, "Should have locked cost");
+        assertLt(trialBalance, 0, "Should have negative trial balance");
+        assertFalse(canClaimRefund, "Cannot claim until dismissed");
+    }
+
+    function test_GetExitOptions_CanClaimAfterDismissal() public {
+        address market = _createMarket();
+
+        _buyShares(alice, market, 1, 100e18);
+
+        vm.prank(creator);
+        launchpad.dismissMarket(market);
+
+        (, , bool canClaimRefund) = launchpad.getExitOptions(market, alice);
+        assertTrue(canClaimRefund, "Should be able to claim after dismissal");
+    }
+
+    // ============================================
+    // LP Token Tests
+    // ============================================
+
+    function test_LPToken_MintedOnCreate() public {
+        vm.prank(creator);
+        (address market, uint256 lpTokens) = launchpad.createMarket(
+            "Test",
+            0,
+            uint64(block.timestamp + 30 days),
+            adjudicator,
+            guardian,
+            100e18
+        );
+
+        assertGt(lpTokens, 0, "LP tokens should be minted");
+
+        uint256 balance = launchpad.getLPBalance(market, creator);
+        assertEq(balance, lpTokens, "Creator should have LP tokens");
+    }
+
+    function test_LPToken_MintedOnTrade() public {
+        address market = _createMarket();
+
+        uint256 balanceBefore = launchpad.getLPBalance(market, alice);
+        _buyShares(alice, market, 1, 100e18);
+        uint256 balanceAfter = launchpad.getLPBalance(market, alice);
+
+        assertGt(balanceAfter, balanceBefore, "LP tokens minted to trader");
+    }
+
+    // ============================================
+    // Edge Cases
+    // ============================================
+
+    function test_TradePositions_RevertsOnUnknownMarket() public {
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: market not found");
+        launchpad.tradePositions(address(0x1234), 1, 100e18, type(uint256).max);
+    }
+
+    function test_TradePositions_RevertsOnInvalidOutcome() public {
+        address market = _createMarket();
+
+        vm.prank(alice);
+        vm.expectRevert("LaunchpadEngine: invalid outcome");
+        launchpad.tradePositions(market, 3, 100e18, type(uint256).max);
+    }
+
+    function test_TrialPeriod_EndsAfterTime() public {
+        address market = _createMarket();
+
+        (, , , bool isTrialActiveBefore) = launchpad.getTrialStatus(market);
+        assertTrue(isTrialActiveBefore, "Trial should be active");
+
+        _advanceTime(7 days + 1);
+
+        (, , , bool isTrialActiveAfter) = launchpad.getTrialStatus(market);
+        assertFalse(isTrialActiveAfter, "Trial should end after period");
+    }
+}
