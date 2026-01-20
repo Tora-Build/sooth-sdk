@@ -18,7 +18,8 @@
     "cleanup:claim": "bun run src/cleanup.ts claim",
     "cleanup:cancel": "bun run src/cleanup.ts cancel",
     "cleanup:withdraw": "bun run src/cleanup.ts withdraw",
-    "cleanup:all": "bun run src/cleanup.ts all"
+    "cleanup:all": "bun run src/cleanup.ts all",
+    "cleanup:fast": "bun run src/fast-cleanup.ts"
   },
   "dependencies": {
     "@types/blessed": "^0.1.27",
