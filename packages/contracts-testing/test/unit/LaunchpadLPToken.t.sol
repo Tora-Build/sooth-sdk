@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 
@@ -9,7 +9,7 @@ import {TruthMarket} from "@core/TruthMarket.sol";
  * @title LaunchpadLPToken Unit Tests
  * @notice Tests for ERC20 LP token with settlement-locked transfers
  */
-contract LaunchpadLPTokenTest is V11TestBase {
+contract LaunchpadLPTokenTest is TrialPeriodTestBase {
     // ============================================
     // Test State
     // ============================================

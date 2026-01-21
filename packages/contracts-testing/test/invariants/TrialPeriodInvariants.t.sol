@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 
@@ -10,7 +10,7 @@ import {TruthMarket} from "@core/TruthMarket.sol";
  * @notice Actor-based invariant tests for V11 contracts
  * @dev Tests critical protocol invariants with randomized operations
  */
-contract V11InvariantsTest is V11TestBase {
+contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
     // ============================================
     // Test State
     // ============================================

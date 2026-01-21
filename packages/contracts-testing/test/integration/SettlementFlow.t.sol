@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {ValidatedAdjudicator} from "@core/ValidatedAdjudicator.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
@@ -10,7 +10,7 @@ import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
  * @title Settlement Flow Integration Tests
  * @notice End-to-end tests for TEE settlement → LP locking → redemption
  */
-contract SettlementFlowTest is V11TestBase {
+contract SettlementFlowTest is TrialPeriodTestBase {
     // ============================================
     // Test State
     // ============================================

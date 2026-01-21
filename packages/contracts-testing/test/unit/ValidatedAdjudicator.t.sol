@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {ValidatedAdjudicator} from "@core/ValidatedAdjudicator.sol";
 import {IValidatedAdjudicator} from "@core/interfaces/IAdjudicator.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
@@ -10,7 +10,7 @@ import {TruthMarket} from "@core/TruthMarket.sol";
  * @title ValidatedAdjudicator Unit Tests
  * @notice Tests for TEE-validated settlement flow
  */
-contract ValidatedAdjudicatorTest is V11TestBase {
+contract ValidatedAdjudicatorTest is TrialPeriodTestBase {
     // ============================================
     // Test State
     // ============================================

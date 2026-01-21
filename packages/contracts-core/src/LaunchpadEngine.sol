@@ -8,6 +8,7 @@ import {IAdjudicatorRegistration} from "./interfaces/IAdjudicator.sol";
 import {TruthMarket} from "./TruthMarket.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITickBook} from "./interfaces/ITickBook.sol";
+import {LaunchpadLPToken} from "./LaunchpadLPToken.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -18,9 +19,12 @@ import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title LaunchpadEngine
- * @notice Creator economics layer with LP tokens, fee distribution, and graduation mechanics
- * @dev V8.2: Supports dual-balance position model (users can hold both YES and NO)
- *      Wraps AMMEngine to add Launchpad model on top of pure trading logic
+ * @notice Launchpad with trial periods and ERC20 LP tokens with trial periods and ERC20 LP tokens
+ * @dev Major V11 changes:
+ *      - TRIAL PERIOD: New markets have a trial period where trading costs are locked
+ *      - DISMISS & REFUND: Creator can dismiss market during trial, users claim refunds
+ *      - ERC20 LP TOKENS: LaunchpadLPToken is now ERC20 (transferable pre-settlement)
+ *      - TRADE WITH AGENT: Kept for interface compatibility (no discounts in Launchpad)
  */
 contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -35,6 +39,9 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     uint256 private constant BPS_DENOMINATOR = 10000;
     uint256 private constant MIN_DEPOSIT_WAD = 10e18;
 
+    /// @notice Default trial period duration (7 days)
+    uint64 public constant DEFAULT_TRIAL_PERIOD = 7 days;
+
     // ============================================
     // Immutables
     // ============================================
@@ -45,35 +52,38 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     ITickBook public immutable tickBook;
     IProtocolConfig public immutable protocolConfig;
     address public immutable protocolTreasury;
-    uint8 private immutable usdcDecimals; // Cached for gas savings
+    uint8 private immutable usdcDecimals;
 
     // ============================================
-    // Configurable Parameters (Owner-controlled)
+    // Configurable Parameters
     // ============================================
 
-    /// @notice Pre-graduation fee in basis points (default: 500 = 5%)
     uint16 public preGradFeeBps;
-
-    /// @notice Post-graduation fee in basis points (default: 100 = 1%)
     uint16 public postGradFeeBps;
-
-    /// @notice Post-grad fee split: % to bBase growth (default: 5000 = 50%)
     uint16 public bBaseShareBps;
-
-    /// @notice Post-grad fee split: % to LP yield (default: 3000 = 30%)
     uint16 public lpYieldShareBps;
-
-    /// @notice Post-grad fee split: % to protocol (default: 2000 = 20%)
     uint16 public protocolShareBps;
-
-    /// @notice Graduation multiplier (default: 1 = break-even at bBase×ln(2))
-    /// threshold = bBase × ln(2) × multiplier
-    /// - 1 = graduate when fees equal creator deposit (LP break-even)
-    /// - 2 = graduate when fees are 2× creator deposit
     uint16 public graduationMultiplier;
-
-    /// @notice Default hook for graduated markets (optional, for dynamic fees)
     address public defaultHook;
+
+    // ============================================
+    // V11: Trial Period State
+    // ============================================
+
+    struct TrialState {
+        uint64 trialEndTime;        // When trial period ends
+        bool isDismissed;           // Creator dismissed the market
+        uint256 totalLockedCost;    // Total cost locked across all traders
+    }
+
+    /// @notice Trial state per market
+    mapping(address => TrialState) public trialStates;
+
+    /// @notice User's locked cost per market (for refund calculation)
+    mapping(address => mapping(address => uint256)) public userLockedCost;
+
+    /// @notice User's trial balance per market (net P&L during trial)
+    mapping(address => mapping(address => int256)) public userTrialBalance;
 
     // ============================================
     // Market State
@@ -81,28 +91,20 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     struct MarketState {
         address creator;
-        uint256 bBase;              // Initial liquidity (WAD)
-        uint256 bCurrent;           // Current liquidity (WAD)
-        uint256 creatorDeposit;     // Initial deposit (USDC decimals)
-        uint256 feesAccrued;        // Total fees collected (USDC decimals)
-        uint256 totalLPSupply;      // Total LP tokens minted (WAD)
-        uint256 lpYieldPool;        // Accumulated LP yield (USDC decimals)
+        address lpToken;            // V11: ERC20 LP token address
+        uint256 bBase;
+        uint256 bCurrent;
+        uint256 creatorDeposit;
+        uint256 feesAccrued;
+        uint256 totalLPSupply;
+        uint256 lpYieldPool;
         bool isGraduated;
         uint64 createdAt;
         uint64 graduatedAt;
     }
 
     mapping(address => MarketState) public markets;
-
-    /// @notice Array of all created markets (for enumeration)
     address[] public allMarkets;
-
-    // ============================================
-    // LP Token Tracking
-    // ============================================
-
-    /// @notice LP token balances: market => user => balance (WAD)
-    mapping(address => mapping(address => uint256)) public lpBalances;
 
     // ============================================
     // Constructor
@@ -130,15 +132,16 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         tickBook = ITickBook(_tickBook);
         protocolConfig = IProtocolConfig(_protocolConfig);
         protocolTreasury = _protocolTreasury;
-        usdcDecimals = IERC20Metadata(_usdc).decimals(); // Cache decimals
+        usdcDecimals = IERC20Metadata(_usdc).decimals();
 
         // Set default parameters
-        preGradFeeBps = 500;        // 5%
-        postGradFeeBps = 100;       // 1%
-        bBaseShareBps = 5000;       // 50%
-        lpYieldShareBps = 3000;     // 30%
-        protocolShareBps = 2000;    // 20%
-        graduationMultiplier = 1;   // 1× = break-even (fees = bBase × ln(2))
+        preGradFeeBps = 500;
+        postGradFeeBps = 100;
+        bBaseShareBps = 5000;
+        lpYieldShareBps = 3000;
+        protocolShareBps = 2000;
+        graduationMultiplier = 1;
+
     }
 
     modifier whenNotPaused() {
@@ -147,63 +150,39 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     }
 
     // ============================================
-    // Owner Functions (Governance)
+    // Owner Functions
     // ============================================
 
-    /**
-     * @notice Set pre-graduation fee
-     * @param feeBps Fee in basis points (e.g., 500 = 5%)
-     */
     function setPreGradFee(uint16 feeBps) external onlyOwner {
-        require(feeBps <= 1000, "LaunchpadEngine: fee too high"); // Max 10%
+        require(feeBps <= 1000, "LaunchpadEngine: fee too high");
         preGradFeeBps = feeBps;
         emit PreGradFeeUpdated(feeBps);
     }
 
-    /**
-     * @notice Set post-graduation fee
-     * @param feeBps Fee in basis points (e.g., 100 = 1%)
-     */
     function setPostGradFee(uint16 feeBps) external onlyOwner {
-        require(feeBps <= 500, "LaunchpadEngine: fee too high"); // Max 5%
+        require(feeBps <= 500, "LaunchpadEngine: fee too high");
         postGradFeeBps = feeBps;
         emit PostGradFeeUpdated(feeBps);
     }
 
-    /**
-     * @notice Set post-graduation fee distribution
-     * @param bBaseBps % to bBase growth
-     * @param lpYieldBps % to LP yield
-     * @param protocolBps % to protocol
-     */
     function setFeeDistribution(
         uint16 bBaseBps,
         uint16 lpYieldBps,
         uint16 protocolBps
     ) external onlyOwner {
         require(bBaseBps + lpYieldBps + protocolBps == BPS_DENOMINATOR, "LaunchpadEngine: must sum to 100%");
-        
         bBaseShareBps = bBaseBps;
         lpYieldShareBps = lpYieldBps;
         protocolShareBps = protocolBps;
-        
         emit FeeDistributionUpdated(bBaseBps, lpYieldBps, protocolBps);
     }
 
-    /**
-     * @notice Set graduation multiplier
-     * @param multiplier Graduation threshold = multiplier × bBase (e.g., 2 = 2× bBase)
-     */
     function setGraduationMultiplier(uint16 multiplier) external onlyOwner {
         require(multiplier >= 1 && multiplier <= 10, "LaunchpadEngine: invalid multiplier");
         graduationMultiplier = multiplier;
         emit GraduationMultiplierUpdated(multiplier);
     }
 
-    /**
-     * @notice Set default hook for graduated markets
-     * @param hook The hook contract address (e.g., DynamicFeeHook)
-     */
     function setDefaultHook(address hook) external onlyOwner {
         defaultHook = hook;
         emit DefaultHookUpdated(hook);
@@ -211,32 +190,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     /// @notice Emitted when default hook is updated
     event DefaultHookUpdated(address indexed hook);
-
-    /**
-     * @notice Register a graduated market in TickBook (admin function for migration)
-     * @dev Use this to register markets that graduated before TickBook integration
-     * @param market The market address to register
-     */
-    function registerGraduatedMarketInTickBook(address market) external onlyOwner {
-        MarketState storage state = markets[market];
-        require(state.creator != address(0), "LaunchpadEngine: market not found");
-        require(state.isGraduated, "LaunchpadEngine: not graduated");
-
-        // Get outcome tokens
-        (address yes, address no) = collateralizer.getOutcomeTokens(market);
-        require(yes != address(0) && no != address(0), "LaunchpadEngine: tokens not registered");
-
-        // Get current AMM probability
-        (,, uint256 ammProbability) = ammEngine.getMarketState(market);
-
-        // Register in TickBook with default hook (will revert if already registered)
-        tickBook.registerMarket(market, yes, no, ammProbability, defaultHook);
-
-        emit MarketRegisteredInTickBook(market, yes, no, ammProbability, defaultHook);
-    }
-
-    /// @notice Emitted when a graduated market is manually registered in TickBook
-    event MarketRegisteredInTickBook(address indexed market, address yesToken, address noToken, uint256 initialProbability, address hook);
 
     // ============================================
     // Market Creation
@@ -255,6 +208,73 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint256 adjudicatorAgentId,
         uint256 adjudicatorMinValidators
     ) external override nonReentrant whenNotPaused returns (address market, uint256 lpTokens) {
+        return _createMarketInternal(
+            question,
+            startTime,
+            deadline,
+            adjudicator,
+            guardian,
+            initialLiquidity,
+            DEFAULT_TRIAL_PERIOD,
+            adjudicatorAgentId,
+            adjudicatorMinValidators
+        );
+    }
+
+    /**
+     * @notice Create a market with custom trial period (agent gating disabled in V11)
+     * @param question Market question
+     * @param startTime Trading start timestamp (0 = now)
+     * @param deadline Market deadline
+     * @param adjudicator Address that can settle
+     * @param guardian Address that can veto
+     * @param initialLiquidity Liquidity parameter b (WAD)
+     * @param trialDuration Trial period duration in seconds
+     * @param isAgentGated Reserved (must be false)
+     * @param minReputation Reserved (must be 0)
+     * @param adjudicatorAgentId ERC-8004 agent ID for validated adjudicator (0 to skip)
+     * @param adjudicatorMinValidators Min validators for validated adjudicator (0 to skip)
+     * @return market Address of deployed TruthMarket
+     * @return lpTokens Initial LP tokens minted
+     */
+    function createMarketWithOptions(
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
+        uint256 initialLiquidity,
+        uint64 trialDuration,
+        bool isAgentGated,
+        uint8 minReputation,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) external nonReentrant whenNotPaused returns (address market, uint256 lpTokens) {
+        require(!isAgentGated && minReputation == 0, "LaunchpadEngine: agent gating disabled");
+        return _createMarketInternal(
+            question,
+            startTime,
+            deadline,
+            adjudicator,
+            guardian,
+            initialLiquidity,
+            trialDuration,
+            adjudicatorAgentId,
+            adjudicatorMinValidators
+        );
+    }
+
+    function _createMarketInternal(
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
+        uint256 initialLiquidity,
+        uint64 trialDuration,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) internal returns (address market, uint256 lpTokens) {
         require(guardian == address(protocolConfig), "LaunchpadEngine: guardian must be protocol");
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
@@ -282,8 +302,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
         lpTokens = depositWad;
 
+        // Create ERC20 LP token
+        string memory lpName = string(abi.encodePacked("Sooth LP: ", _truncateString(question, 50)));
+        string memory lpSymbol = string(abi.encodePacked("sLP-", _addressToString(market)));
+        address lpToken = address(new LaunchpadLPToken(market, address(this), lpName, lpSymbol));
+
         markets[market] = MarketState({
             creator: msg.sender,
+            lpToken: lpToken,
             bBase: initialLiquidity,
             bCurrent: initialLiquidity,
             creatorDeposit: deposit,
@@ -295,13 +321,34 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             graduatedAt: 0
         });
 
-        lpBalances[market][msg.sender] = lpTokens;
+        // V11: Initialize trial period
+        trialStates[market] = TrialState({
+            trialEndTime: uint64(block.timestamp) + trialDuration,
+            isDismissed: false,
+            totalLockedCost: 0
+        });
 
-        emit LPBalanceUpdated(market, msg.sender, int256(lpTokens), lpBalances[market][msg.sender], lpTokens);
+        // Mint LP tokens to creator
+        LaunchpadLPToken(lpToken).mint(msg.sender, lpTokens);
 
         allMarkets.push(market);
 
+        emit LPTokenCreated(market, lpToken);
+        emit LPBalanceUpdated(market, msg.sender, int256(lpTokens), lpTokens, lpTokens);
         emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
+    }
+
+    function _registerAdjudicatorMarket(
+        address market,
+        address adjudicator,
+        uint256 agentId,
+        uint256 minValidators
+    ) internal {
+        if (agentId == 0 && minValidators == 0) {
+            return;
+        }
+        require(agentId > 0 && minValidators > 0, "LaunchpadEngine: invalid adjudicator config");
+        IAdjudicatorRegistration(adjudicator).registerMarket(market, agentId, minValidators);
     }
 
     // ============================================
@@ -317,83 +364,199 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
     ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
+        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender);
+    }
+
+    /**
+     * @notice Compatibility entrypoint; behaves like tradePositions in V11
+     * @param market Market address
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Position change
+     * @param maxCostOrMinProceeds Slippage protection
+     * @param agentId The ERC-8004 agent ID
+     * @return actualCost Actual cost/proceeds
+     */
+    function tradeWithAgent(
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        uint256 maxCostOrMinProceeds,
+        uint256 agentId
+    ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
+        agentId;
+        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender);
+    }
+
+    function _tradeInternal(
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        uint256 maxCostOrMinProceeds,
+        address trader
+    ) internal returns (uint256 actualCost) {
         MarketState storage state = markets[market];
+        TrialState storage trial = trialStates[market];
+
         require(state.creator != address(0), "LaunchpadEngine: market not found");
+        require(!trial.isDismissed, "LaunchpadEngine: market dismissed");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
         require(ammEngine.router() == address(this), "LaunchpadEngine: amm not configured");
         require(outcome <= 1, "LaunchpadEngine: invalid outcome");
 
+        bool isTrialPeriod = block.timestamp < trial.trialEndTime;
         bool isBuy = deltaShares > 0;
 
-        // Get quote from AMM (base cost without fees)
+        // Get quote from AMM
         (uint256 baseCost, ) = ammEngine.getPositionQuote(market, outcome, deltaShares);
 
+        // Calculate fee
+        uint16 baseFee = state.isGraduated ? postGradFeeBps : preGradFeeBps;
+        uint256 fee = (baseCost * uint256(baseFee)) / BPS_DENOMINATOR;
+
         if (!isBuy) {
-            // SELL: Calculate and deduct fee
-            uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
-            uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
-            uint256 feeUsdc = _wadToUsdc(fee); // Floor for AMM push
-            
-            // Calculate net proceeds
+            // SELL logic
+            uint256 feeUsdc = _wadToUsdc(fee);
             uint256 netProceeds = baseCost > fee ? baseCost - fee : 0;
             actualCost = netProceeds;
 
-            // Execute trade on AMM (pass fee to be routed to us)
-            // AMMEngine checks slippage against netProceeds
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, maxCostOrMinProceeds, fee);
+            ammEngine.tradePositionsFor(trader, market, outcome, deltaShares, maxCostOrMinProceeds, fee);
 
-            // Accrue fee
             if (feeUsdc > 0) {
-                 _distributeFee(market, fee, feeUsdc, msg.sender);
+                _distributeFee(market, fee, feeUsdc, trader);
             }
 
-            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, fee);
+            // V11: Track trial balance for sells
+            if (isTrialPeriod) {
+                userTrialBalance[market][trader] += int256(netProceeds);
+            }
         } else {
-            // BUY: user pays baseCost + fee
-            uint16 feeBps = state.isGraduated ? postGradFeeBps : preGradFeeBps;
-            uint256 fee = (baseCost * uint256(feeBps)) / BPS_DENOMINATOR;
+            // BUY logic
             actualCost = baseCost + fee;
-
             require(actualCost <= maxCostOrMinProceeds, "LaunchpadEngine: cost too high");
 
-            // Check user's spendable balance in AMMEngine
-            // This balance can cover part of the baseCost (not the fee - fee always comes from wallet)
-            (uint256 userAvailable, ) = ammEngine.getBalances(msg.sender);
+            (uint256 userAvailable, ) = ammEngine.getBalances(trader);
             uint256 fromBalance = userAvailable > baseCost ? baseCost : userAvailable;
-            uint256 fromWallet = actualCost - fromBalance; // baseCost - fromBalance + fee
+            uint256 fromWallet = actualCost - fromBalance;
 
-            // Convert to USDC decimals for transfers
             uint256 fromWalletUsdc = _wadToUsdcCeil(fromWallet);
             uint256 feeUsdc = _wadToUsdcCeil(fee);
             uint256 baseCostFromWallet = fromWallet > fee ? fromWallet - fee : 0;
             uint256 baseCostFromWalletUsdc = _wadToUsdcCeil(baseCostFromWallet);
 
-            // Pull only what's needed from user's wallet
             if (fromWalletUsdc > 0) {
-                usdc.safeTransferFrom(msg.sender, address(this), fromWalletUsdc);
+                usdc.safeTransferFrom(trader, address(this), fromWalletUsdc);
             }
 
-            // Approve AMM for the portion of baseCost that comes from wallet
-            // (AMMEngine will use user's balance for the rest)
-            // Using forceApprove to handle tokens that don't allow approve() when current allowance is non-zero
             if (baseCostFromWalletUsdc > 0) {
                 usdc.forceApprove(address(ammEngine), baseCostFromWalletUsdc);
             }
 
-            // Execute trade on AMM
-            // AMMEngine will use user's _availableBalance first, then pull remainder from us
-            ammEngine.tradePositionsFor(msg.sender, market, outcome, deltaShares, baseCost, 0);
+            ammEngine.tradePositionsFor(trader, market, outcome, deltaShares, baseCost, 0);
 
-            // Distribute fee (fee always stays in LaunchpadEngine)
-            _distributeFee(market, fee, feeUsdc, msg.sender);
+            _distributeFee(market, fee, feeUsdc, trader);
 
-            emit PositionTraded(msg.sender, market, outcome, deltaShares, actualCost, fee);
+            // V11: Track locked cost during trial
+            if (isTrialPeriod) {
+                userLockedCost[market][trader] += actualCost;
+                trial.totalLockedCost += actualCost;
+                userTrialBalance[market][trader] -= int256(actualCost);
+            }
         }
+
+        emit PositionTraded(trader, market, outcome, deltaShares, actualCost, fee);
+    }
+
+    // ============================================
+    // V11: Trial Period Functions
+    // ============================================
+
+    /**
+     * @notice Dismiss a market during trial period (creator only)
+     * @dev Sets isDismissed flag, allowing users to claim refunds
+     * @param market The market to dismiss
+     */
+    function dismissMarket(address market) external nonReentrant {
+        MarketState storage state = markets[market];
+        TrialState storage trial = trialStates[market];
+
+        require(msg.sender == state.creator, "LaunchpadEngine: not creator");
+        require(block.timestamp < trial.trialEndTime, "LaunchpadEngine: trial ended");
+        require(!trial.isDismissed, "LaunchpadEngine: already dismissed");
+        require(!state.isGraduated, "LaunchpadEngine: already graduated");
+
+        trial.isDismissed = true;
+
+        emit MarketDismissed(market, msg.sender, block.timestamp);
     }
 
     /**
-     * @notice Distribute trading fee according to graduation status
+     * @notice Claim refund after market dismissal
+     * @dev Returns user's locked cost during trial period
+     * @param market The dismissed market
+     * @return refundAmount Amount refunded
      */
+    function claimRefund(address market) external nonReentrant returns (uint256 refundAmount) {
+        TrialState storage trial = trialStates[market];
+        require(trial.isDismissed, "LaunchpadEngine: market not dismissed");
+
+        refundAmount = userLockedCost[market][msg.sender];
+        require(refundAmount > 0, "LaunchpadEngine: no refund available");
+
+        userLockedCost[market][msg.sender] = 0;
+        trial.totalLockedCost -= refundAmount;
+
+        uint256 refundUsdc = _wadToUsdc(refundAmount);
+        usdc.safeTransfer(msg.sender, refundUsdc);
+
+        emit RefundClaimed(market, msg.sender, refundUsdc);
+    }
+
+    /**
+     * @notice Get trial status for a market
+     * @param market The market address
+     * @return trialEndTime When trial ends
+     * @return isDismissed Whether market was dismissed
+     * @return totalLockedCost Total cost locked in trial
+     * @return isTrialActive Whether trial is currently active
+     */
+    function getTrialStatus(address market) external view returns (
+        uint64 trialEndTime,
+        bool isDismissed,
+        uint256 totalLockedCost,
+        bool isTrialActive
+    ) {
+        TrialState memory trial = trialStates[market];
+        return (
+            trial.trialEndTime,
+            trial.isDismissed,
+            trial.totalLockedCost,
+            block.timestamp < trial.trialEndTime && !trial.isDismissed
+        );
+    }
+
+    /**
+     * @notice Get user's exit options for a market
+     * @param market The market address
+     * @param user The user address
+     * @return lockedCost User's locked cost during trial
+     * @return trialBalance User's net P&L during trial
+     * @return canClaimRefund Whether user can claim refund
+     */
+    function getExitOptions(address market, address user) external view returns (
+        uint256 lockedCost,
+        int256 trialBalance,
+        bool canClaimRefund
+    ) {
+        TrialState memory trial = trialStates[market];
+        lockedCost = userLockedCost[market][user];
+        trialBalance = userTrialBalance[market][user];
+        canClaimRefund = trial.isDismissed && lockedCost > 0;
+    }
+
+    // ============================================
+    // Fee Distribution (unchanged from V10)
+    // ============================================
+
     function _distributeFee(
         address market,
         uint256 feeWad,
@@ -403,68 +566,52 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         MarketState storage state = markets[market];
 
         if (!state.isGraduated) {
-            // PRE-GRADUATION: 100% to bBase growth + LP minting to TRADER
-            // This converts traders into stakeholders (V7 model)
-
-            // Increase liquidity parameter: scale fee by 1/ln(2) to preserve max loss capacity
-            // maxLoss = b * ln(2). If we want maxLoss to increase by feeUSD, then deltaB = feeUSD / ln(2).
             uint256 deltaB = (feeWad * LN2_INV_WAD) / WAD;
             state.bCurrent += deltaB;
-            // Mirror depth growth into AMM pricing
             ammEngine.increaseLiquidity(market, deltaB);
 
-            // Mint LP tokens to TRADER (1:1 with fee paid, matching creator's USD-par model)
             uint256 lpTokens = feeWad;
-            lpBalances[market][trader] += lpTokens;
+            LaunchpadLPToken(state.lpToken).mint(trader, lpTokens);
             state.totalLPSupply += lpTokens;
 
-            emit LPBalanceUpdated(market, trader, int256(lpTokens), lpBalances[market][trader], state.totalLPSupply);
+            emit LPBalanceUpdated(market, trader, int256(lpTokens), LaunchpadLPToken(state.lpToken).balanceOf(trader), state.totalLPSupply);
 
             state.feesAccrued += feeUsdc;
             emit FeesAccrued(market, feeUsdc, state.feesAccrued);
 
-            if (!state.isGraduated) {
-                uint256 graduationThreshold = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
-                uint256 feesInWad = _usdcToWad(state.feesAccrued);
+            uint256 graduationThreshold = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
+            uint256 feesInWad = _usdcToWad(state.feesAccrued);
 
-                emit GraduationProgressUpdated(market, feesInWad, graduationThreshold);
+            emit GraduationProgressUpdated(market, feesInWad, graduationThreshold);
 
-                if (feesInWad >= graduationThreshold) {
-                    state.isGraduated = true;
-                    state.graduatedAt = uint64(block.timestamp);
+            if (feesInWad >= graduationThreshold) {
+                state.isGraduated = true;
+                state.graduatedAt = uint64(block.timestamp);
 
-                    (address yes, address no) = collateralizer.isMarketRegistered(market)
-                        ? collateralizer.getOutcomeTokens(market)
-                        : collateralizer.registerMarket(market);
+                (address yes, address no) = collateralizer.isMarketRegistered(market)
+                    ? collateralizer.getOutcomeTokens(market)
+                    : collateralizer.registerMarket(market);
 
-                    (,, uint256 ammProbability) = ammEngine.getMarketState(market);
+                (,, uint256 ammProbability) = ammEngine.getMarketState(market);
 
-                    try tickBook.registerMarket(market, yes, no, ammProbability, defaultHook) returns (bytes32) {
-                    } catch (bytes memory reason) {
-                        bytes4 duplicateMarketSelector = 0xedd7c146;
-                        if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
-                            revert("LaunchpadEngine: tickbook register failed");
-                        }
+                try tickBook.registerMarket(market, yes, no, ammProbability, defaultHook) returns (bytes32) {
+                } catch (bytes memory reason) {
+                    bytes4 duplicateMarketSelector = 0xedd7c146;
+                    if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
+                        revert("LaunchpadEngine: tickbook register failed");
                     }
-
-                    emit MarketGraduated(market, state.feesAccrued, block.timestamp);
                 }
+
+                emit MarketGraduated(market, state.feesAccrued, block.timestamp);
             }
 
             emit FeeDistributedPreGrad(market, feeUsdc, feeWad, lpTokens, trader);
-
         } else {
-            // POST-GRADUATION: Split according to configured percentages
-
-            // toBBase is WAD growth, calculated from feeWad
             uint256 toBBase = (feeWad * uint256(bBaseShareBps)) / BPS_DENOMINATOR;
-            
-            // LPYield and Protocol are USDC transfers, calculated from feeUsdc
             uint256 toLPYield = (feeUsdc * uint256(lpYieldShareBps)) / BPS_DENOMINATOR;
             uint256 toProtocol = (feeUsdc * uint256(protocolShareBps)) / BPS_DENOMINATOR;
 
             state.bCurrent += toBBase;
-            // Mirror depth growth into AMM pricing
             if (toBBase > 0) {
                 ammEngine.increaseLiquidity(market, toBBase);
             }
@@ -496,47 +643,34 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint256 lpAmount
     ) external override nonReentrant returns (uint256 usdcAmount) {
         MarketState storage state = markets[market];
-        require(lpBalances[market][msg.sender] >= lpAmount, "LaunchpadEngine: insufficient LP");
+        LaunchpadLPToken lpToken = LaunchpadLPToken(state.lpToken);
 
-        // Calculate redemption value using Honest Floor Model
+        require(lpToken.balanceOf(msg.sender) >= lpAmount, "LaunchpadEngine: insufficient LP");
+
         uint256 floorValue = _calculateFloor(market);
-
-        // Pro-rata share
         usdcAmount = (floorValue * lpAmount) / state.totalLPSupply;
 
-        lpBalances[market][msg.sender] -= lpAmount;
+        lpToken.burn(msg.sender, lpAmount);
         state.totalLPSupply -= lpAmount;
 
-        emit LPBalanceUpdated(market, msg.sender, -int256(lpAmount), lpBalances[market][msg.sender], state.totalLPSupply);
+        emit LPBalanceUpdated(market, msg.sender, -int256(lpAmount), lpToken.balanceOf(msg.sender), state.totalLPSupply);
 
-        // Transfer USDC
         usdc.safeTransfer(msg.sender, usdcAmount);
 
         emit LPRedeemed(msg.sender, market, lpAmount, usdcAmount);
     }
 
-    /**
-     * @notice Calculate floor value (worst-case LP value)
-     * @dev Floor = (Deposit + Fees + LP Yield) - max(qYes, qNo)
-     */
     function _calculateFloor(address market) internal view returns (uint256) {
         MarketState memory state = markets[market];
-
-        // Get AMM state
         (uint256 qYes, uint256 qNo, ) = ammEngine.getMarketState(market);
-
-        // Total cash in market
         uint256 totalCash = state.creatorDeposit + state.feesAccrued + state.lpYieldPool;
-
-        // Maximum liability (worst case: all traders hold winning outcome)
         uint256 maxLiability = qYes > qNo ? qYes : qNo;
         uint256 maxLiabilityInUsdc = _wadToUsdc(maxLiability);
 
-        // Floor = Cash - Liability
         if (totalCash > maxLiabilityInUsdc) {
             return totalCash - maxLiabilityInUsdc;
         } else {
-            return 0; // Market underwater
+            return 0;
         }
     }
 
@@ -554,18 +688,17 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         MarketState storage state = markets[market];
         require(msg.sender == state.creator, "LaunchpadEngine: not creator");
 
-        // Transfer USDC from creator
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 amountInWad = _usdcToWad(amount);
         state.bCurrent += amountInWad;
         state.bBase += amountInWad;
 
-        lpBalances[market][msg.sender] += amountInWad;
+        LaunchpadLPToken(state.lpToken).mint(msg.sender, amountInWad);
         state.totalLPSupply += amountInWad;
 
         emit BaseLiquidityIncreased(market, amountInWad, state.bBase, state.bCurrent);
-        emit LPBalanceUpdated(market, msg.sender, int256(amountInWad), lpBalances[market][msg.sender], state.totalLPSupply);
+        emit LPBalanceUpdated(market, msg.sender, int256(amountInWad), LaunchpadLPToken(state.lpToken).balanceOf(msg.sender), state.totalLPSupply);
         emit LiquidityIncreased(market, msg.sender, amount, amountInWad);
     }
 
@@ -609,7 +742,16 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         override
         returns (uint256)
     {
-        return lpBalances[market][user];
+        MarketState memory state = markets[market];
+        if (state.lpToken == address(0)) return 0;
+        return LaunchpadLPToken(state.lpToken).balanceOf(user);
+    }
+
+    /**
+     * @notice Get the LP token address for a market
+     */
+    function getLPToken(address market) external view returns (address) {
+        return markets[market].lpToken;
     }
 
     /**
@@ -622,14 +764,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         returns (uint256 feesAccrued, uint256 threshold, uint256 progressBps)
     {
         MarketState memory state = markets[market];
-
         feesAccrued = state.feesAccrued;
-        // Threshold = bBase × ln(2) × multiplier (same formula as _distributeFee)
         uint256 thresholdWad = (state.bBase * LN2_WAD * uint256(graduationMultiplier)) / WAD;
         threshold = _wadToUsdc(thresholdWad);
 
         if (state.isGraduated) {
-            progressBps = BPS_DENOMINATOR; // 100%
+            progressBps = BPS_DENOMINATOR;
         } else if (threshold > 0) {
             progressBps = (feesAccrued * BPS_DENOMINATOR) / threshold;
         } else {
@@ -667,50 +807,25 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
     }
 
-    function _registerAdjudicatorMarket(
-        address market,
-        address adjudicator,
-        uint256 agentId,
-        uint256 minValidators
-    ) internal {
-        if (agentId == 0 && minValidators == 0) {
-            return;
+    function _truncateString(string memory str, uint256 maxLen) internal pure returns (string memory) {
+        bytes memory strBytes = bytes(str);
+        if (strBytes.length <= maxLen) return str;
+
+        bytes memory result = new bytes(maxLen);
+        for (uint256 i = 0; i < maxLen; i++) {
+            result[i] = strBytes[i];
         }
-        require(agentId > 0 && minValidators > 0, "LaunchpadEngine: invalid adjudicator config");
-        IAdjudicatorRegistration(adjudicator).registerMarket(market, agentId, minValidators);
+        return string(result);
     }
 
-    // ============================================
-    // V11 Interface Stubs (Not implemented in V10)
-    // ============================================
-
-    function dismissMarket(address) external pure override {
-        revert("LaunchpadEngine: V11 feature not available");
-    }
-
-    function claimRefund(address) external pure override returns (uint256) {
-        revert("LaunchpadEngine: V11 feature not available");
-    }
-
-    function getTrialStatus(address) external pure override returns (
-        uint64, bool, uint256, bool
-    ) {
-        return (0, false, 0, false);
-    }
-
-    function getExitOptions(address, address) external pure override returns (
-        uint256, int256, bool
-    ) {
-        return (0, 0, false);
-    }
-
-    function tradeWithAgent(
-        address, uint8, int256, uint256, uint256
-    ) external pure override returns (uint256) {
-        revert("LaunchpadEngine: V11 feature not available");
-    }
-
-    function getLPToken(address) external pure override returns (address) {
-        return address(0); // V10 uses internal LP tracking, not ERC20
+    function _addressToString(address addr) internal pure returns (string memory) {
+        bytes memory alphabet = "0123456789abcdef";
+        bytes memory data = abi.encodePacked(addr);
+        bytes memory str = new bytes(8); // First 4 bytes = 8 hex chars
+        for (uint256 i = 0; i < 4; i++) {
+            str[i*2] = alphabet[uint8(data[i] >> 4)];
+            str[i*2+1] = alphabet[uint8(data[i] & 0x0f)];
+        }
+        return string(str);
     }
 }
