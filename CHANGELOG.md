@@ -58,6 +58,30 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V11 Architecture Decisions (2026-01-21)
+
+**ADR-082: Adjudicator Trust & Guardian Role**
+- Permissionless adjudicator choice (creators pick any address)
+- Adjudicator registries = off-chain trust signals, not protocol-enforced
+- Protocol-level guardian (role list), not per-market selection
+- Global pause delegated to guardians; owner retains emergency override
+- Finalize = adjudicator-only; guardians cannot finalize
+- Retroactive settlement (tStar) applied at finalize, not settle
+- `ValidatedAdjudicator.registerMarket` auto-called by Launchpad during market creation
+
+**ADR-083: Canonical Filenames**
+- Rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`
+- Move `test/v11/` to feature-based, non-versioned paths
+- Use Git history for versioning; no parallel versioned copies
+
+**CLI Actor Testing Tool**
+- Planning complete: 8 actors (Creator, AMM Trader, TickBook Trader, Adjudicator, Guardian, Keeper, Arbitrager, Protocol Owner)
+- Action Purpose table with 30+ functions and recommendations
+- Proposed: `claimSpotSellProceedsFor` for keeper parity
+- Proposed: `ProtocolConfig` contract for guardian role list + global pause
+
+---
+
 ### V11 Implementation (2026-01-20)
 
 **Phase 1: Trial Period & LP Tokens**
