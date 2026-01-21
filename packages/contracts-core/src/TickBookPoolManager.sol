@@ -3,8 +3,10 @@ pragma solidity ^0.8.24;
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IIdentityRegistry, IReputationRegistry} from "./interfaces/IERC8004.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -64,6 +66,8 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     error InsufficientShares();
     error SpotSellNotActive();
     error SpotRangeTooWide();
+    error AgentNotRegistered();
+    error NotAgentWallet();
 
     // ============================================
     // Types
@@ -180,6 +184,20 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Simple fee storage
     uint24 public takerFeeBps = 10;  // 0.1% default
     uint24 public makerFeeBps = 0;   // No maker fee by default
+
+    // ============================================
+    // V11: ERC-8004 Agent Integration
+    // ============================================
+
+    /// @notice ERC-8004 Identity Registry (optional)
+    IIdentityRegistry public identityRegistry;
+
+    /// @notice ERC-8004 Reputation Registry (optional)
+    IReputationRegistry public reputationRegistry;
+
+    /// @notice Reputation score thresholds for fee discounts
+    uint8[] public reputationThresholds;
+    uint16[] public reputationDiscountBps;
 
     // ============================================
     // Events
@@ -312,6 +330,18 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     event ActiveLiquidityUpdated(bytes32 indexed marketKey, uint8 outcome, uint128 previousActive, uint128 newActive);
     event PendingRefundsCleared(address indexed user, bytes32 indexed marketKey, uint256 amount);
 
+    // V11 Events
+    event AgentOrderPlaced(
+        address indexed wallet,
+        bytes32 indexed marketKey,
+        uint256 indexed orderId,
+        uint256 agentId,
+        uint8 outcome,
+        uint256 shares,
+        uint256 filledShares
+    );
+    event ReputationRegistriesSet(address identityRegistry, address reputationRegistry);
+
     // ============================================
     // Modifiers
     // ============================================
@@ -370,6 +400,35 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             unchecked { ++i; }
         }
     }
+
+    /**
+     * @notice Set ERC-8004 registries for agent integration
+     * @param _identityRegistry Identity registry address (or address(0) to disable)
+     * @param _reputationRegistry Reputation registry address (or address(0) to disable)
+     */
+    function setReputationRegistries(
+        address _identityRegistry,
+        address _reputationRegistry
+    ) external onlyOwner {
+        identityRegistry = IIdentityRegistry(_identityRegistry);
+        reputationRegistry = IReputationRegistry(_reputationRegistry);
+        emit ReputationRegistriesSet(_identityRegistry, _reputationRegistry);
+    }
+
+    /**
+     * @notice Set reputation-based fee discounts (reserved for future TickBook fees)
+     * @param thresholds Reputation score thresholds (ascending order)
+     * @param discountBps Discount in basis points for each threshold
+     */
+    function setReputationDiscounts(
+        uint8[] calldata thresholds,
+        uint16[] calldata discountBps
+    ) external onlyOwner {
+        require(thresholds.length == discountBps.length, "length mismatch");
+        reputationThresholds = thresholds;
+        reputationDiscountBps = discountBps;
+    }
+
 
     // ============================================
     // Market Registration
@@ -471,6 +530,98 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 filledCost,
         uint256 restingShares
     ) {
+        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, 0);
+    }
+
+    /**
+     * @notice Place an order with EIP-2612 permit for gasless approval
+     * @dev V11: Allows users to sign approval off-chain
+     * @param marketKey The market identifier
+     * @param outcome 0 = NO, 1 = YES
+     * @param shares Total shares to place
+     * @param tickLower Lower tick bound
+     * @param tickUpper Upper tick bound
+     * @param maxCost Maximum cost willing to pay
+     * @param permitDeadline Permit signature deadline
+     * @param v Permit signature v
+     * @param r Permit signature r
+     * @param s Permit signature s
+     */
+    function placeOrderWithPermit(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 maxCost,
+        uint256 permitDeadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant returns (
+        uint256 orderId,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    ) {
+        // Execute permit on vault's USDC
+        IERC20Permit(address(vault.usdc())).permit(msg.sender, address(vault), maxCost, permitDeadline, v, r, s);
+
+        // Forward to regular placeOrder
+        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, 0);
+    }
+
+    /**
+     * @notice Place an order with agent attribution
+     * @dev V11: For ERC-8004 registered agents (discounts reserved for future fees)
+     * @param marketKey The market identifier
+     * @param outcome 0 = NO, 1 = YES
+     * @param shares Total shares to place
+     * @param tickLower Lower tick bound
+     * @param tickUpper Upper tick bound
+     * @param maxCost Maximum cost willing to pay
+     * @param agentId The ERC-8004 agent ID
+     */
+    function placeOrderWithAgent(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 maxCost,
+        uint256 agentId
+    ) external nonReentrant returns (
+        uint256 orderId,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    ) {
+        // Verify agent ownership
+        if (address(identityRegistry) == address(0)) revert AgentNotRegistered();
+        address agentWallet = identityRegistry.getAgentWallet(agentId);
+        if (agentWallet != msg.sender) revert NotAgentWallet();
+
+        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, agentId);
+    }
+
+    /**
+     * @dev Internal order placement logic (shared by placeOrder, placeOrderWithPermit, placeOrderWithAgent)
+     */
+    function _placeOrderInternal(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 maxCost,
+        address trader,
+        uint256 agentId
+    ) internal returns (
+        uint256 orderId,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    ) {
         Market memory m = _markets[marketKey];
         if (!m.isActive) revert MarketNotActive();
         if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
@@ -480,14 +631,14 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (tickLower > tickUpper) revert InvalidTickRange();
 
         // Auto-claim ONLY 100% filled orders (max 20 for gas safety)
-        _autoClaimUserOrders(marketKey, msg.sender);
+        _autoClaimUserOrders(marketKey, trader);
 
         // Also auto-release pooled refunds to available balance
-        uint256 pooled = _pendingRefunds[msg.sender][marketKey];
+        uint256 pooled = _pendingRefunds[trader][marketKey];
         if (pooled > 0) {
-            _pendingRefunds[msg.sender][marketKey] = 0;
-            vault.refundMarketToAvailable(m.truthMarket, msg.sender, pooled);
-            emit PendingRefundsCleared(msg.sender, marketKey, pooled);
+            _pendingRefunds[trader][marketKey] = 0;
+            vault.refundMarketToAvailable(m.truthMarket, trader, pooled);
+            emit PendingRefundsCleared(trader, marketKey, pooled);
         }
 
         orderId = ++_nextOrderId;
@@ -503,7 +654,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (collateral > maxCost) revert SlippageExceeded();
 
         _orders[marketKey][orderId] = RangeOrder({
-            owner: msg.sender,
+            owner: trader,
             outcome: outcome,
             tickLower: tickLower,
             tickUpper: tickUpper,
@@ -515,7 +666,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             filledShares: 0,
             collateralUsedWad: 0
         });
-        _userOrders[marketKey][msg.sender].push(orderId);
+        _userOrders[marketKey][trader].push(orderId);
 
         _fillGrowthLastX128[marketKey][orderId] = _fillGrowthGlobalX128[marketKey][outcome];
         _collateralUsedGrowthLastX128[marketKey][orderId] = _collateralUsedGrowthGlobalX128[marketKey][outcome];
@@ -524,14 +675,15 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         _updateTickBoundaries(marketKey, outcome, tickLower, tickUpper, int128(uint128(density)), true);
         _updateActiveLiquidity(marketKey, outcome, tickLower, tickUpper, uint128(density), true);
 
-        vault.spendAvailableToMarket(msg.sender, m.truthMarket, collateral);
+        vault.spendAvailableToMarket(trader, m.truthMarket, collateral);
 
-        // V10.10: Emit OrderPlaced BEFORE crossing to ensure correct event ordering
-        // When crossing immediately fills/closes orders, those events will have higher logIndex
-        // This ensures indexers see OrderPlaced first, then any RangeOrderClosed events
+        // Emit appropriate event
+        if (agentId > 0) {
+            emit AgentOrderPlaced(trader, marketKey, orderId, agentId, outcome, shares, 0);
+        }
         emit OrderPlaced(
-            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
-            shares, 0, 0, shares  // filledShares=0, filledCost=0 at creation time
+            trader, marketKey, orderId, outcome, tickLower, tickUpper,
+            shares, 0, 0, shares
         );
 
         // V10: Try unified crossing (spot first, then range)

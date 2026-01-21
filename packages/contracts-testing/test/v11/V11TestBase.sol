@@ -11,8 +11,6 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {MockAMMEngine} from "./mocks/MockAMMEngine.sol";
 import {MockCollateralizer} from "./mocks/MockCollateralizer.sol";
 import {MockTickBook} from "./mocks/MockTickBook.sol";
-import {MockIdentityRegistry} from "./mocks/MockIdentityRegistry.sol";
-import {MockReputationRegistry} from "./mocks/MockReputationRegistry.sol";
 import {MockValidationRegistry} from "./mocks/MockValidationRegistry.sol";
 
 /**
@@ -57,15 +55,11 @@ abstract contract V11TestBase is Test {
     // ERC-8004 Mocks
     // ============================================
 
-    MockIdentityRegistry internal identityRegistry;
-    MockReputationRegistry internal reputationRegistry;
     MockValidationRegistry internal validationRegistry;
 
     // ============================================
     // Test State
     // ============================================
-
-    uint256 internal agentId = 1;
 
     // ============================================
     // Setup
@@ -100,9 +94,6 @@ abstract contract V11TestBase is Test {
         // Deploy TickBook mock
         tickBook = new MockTickBook();
 
-        // Deploy ERC-8004 mocks
-        identityRegistry = new MockIdentityRegistry();
-        reputationRegistry = new MockReputationRegistry();
         validationRegistry = new MockValidationRegistry();
     }
 
@@ -130,17 +121,6 @@ abstract contract V11TestBase is Test {
         // Set launchpad as AMM router
         ammEngine.setRouter(address(launchpad));
 
-        // Set ERC-8004 registries on launchpad
-        launchpad.setReputationRegistries(
-            address(identityRegistry),
-            address(reputationRegistry)
-        );
-
-        // Set up test agent in identity registry
-        identityRegistry.setAgent(agentId, agent, agent);
-
-        // Set up default reputation
-        reputationRegistry.setReputation(agentId, 80);
     }
 
     function _fundActors() internal {
@@ -201,24 +181,6 @@ abstract contract V11TestBase is Test {
             trialDuration,
             false,
             0
-        );
-    }
-
-    /**
-     * @notice Create an agent-gated market
-     */
-    function _createAgentGatedMarket(uint8 minReputation) internal returns (address market) {
-        vm.prank(creator);
-        (market, ) = launchpad.createMarketWithOptions(
-            "Will ETH reach $10k?",
-            0,
-            uint64(block.timestamp + 30 days),
-            adjudicator,
-            guardian,
-            100e18,
-            7 days,
-            true,
-            minReputation
         );
     }
 

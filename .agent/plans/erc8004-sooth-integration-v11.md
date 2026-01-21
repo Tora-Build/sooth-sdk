@@ -13,7 +13,7 @@ This document specifies the integration of [ERC-8004 "Trustless Agents"](https:/
 
 | Feature | Impact | Complexity |
 |---------|--------|------------|
-| Agent-Gated Markets | High - new market type | Medium |
+| Agent-Gated Markets | Deferred (not planned for V11) | N/A |
 | Reputation-Weighted Fees | High - trader incentives | Low |
 | AI Adjudicators with TEE | High - trust infrastructure | High |
 | x402 Trading API | Medium - agent accessibility | Medium |
@@ -21,9 +21,12 @@ This document specifies the integration of [ERC-8004 "Trustless Agents"](https:/
 
 ---
 
-## Current Focus (2026-01-19)
+## Current Focus (2026-01-20)
 
-- Priority: adjudicator validation flow (ValidatedAdjudicator + registry integration).
+- Priority: adjudicator validation flow; first target is ZK/Brevis (TEE deferred).
+- Clarification: agent-gated markets are deferred; trading remains open to all users.
+- Scope: agent incentives limited to TickBook fee discounts for registered market makers.
+- Clarification: adjudicators may settle before market expiration when truth resolves.
 - Deferred: KYC/compliance gating as an extension to agent gating (post-V11).
 
 ---
@@ -136,6 +139,8 @@ Client                          Server                      Facilitator
 Two complementary features:
 1. **Agent-Gated Markets**: Markets where only ERC-8004 registered agents can trade
 2. **Reputation-Weighted Fees**: Fee discounts based on agent reputation score
+
+Note (2026-01-20): Agent-gated markets are deferred; current V11 scope is fee discounts on TickBook only.
 
 ### 2.2 Contract Changes: LaunchpadEngine
 
