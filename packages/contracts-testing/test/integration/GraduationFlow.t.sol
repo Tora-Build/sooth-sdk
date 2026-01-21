@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
 
@@ -9,7 +9,7 @@ import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
  * @title Graduation Flow Integration Tests
  * @notice End-to-end tests for trial → graduation → TickBook flow
  */
-contract GraduationFlowTest is V11TestBase {
+contract GraduationFlowTest is TrialPeriodTestBase {
     // ============================================
     // Graduation Flow Tests
     // ============================================

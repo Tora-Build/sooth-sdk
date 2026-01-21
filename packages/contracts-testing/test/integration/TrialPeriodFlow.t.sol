@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 
 /**
  * @title Trial Period Flow Integration Tests
  * @notice End-to-end tests for trial → dismiss → refund flow
  */
-contract TrialPeriodFlowTest is V11TestBase {
+contract TrialPeriodFlowTest is TrialPeriodTestBase {
     // ============================================
     // Full Dismissal Flow Tests
     // ============================================

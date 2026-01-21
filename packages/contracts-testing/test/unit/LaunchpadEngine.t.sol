@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {V11TestBase} from "../V11TestBase.sol";
-import {LaunchpadEngineV11} from "@core/LaunchpadEngineV11.sol";
+import {TrialPeriodTestBase} from "../base/TrialPeriodTestBase.sol";
+import {LaunchpadEngine} from "@core/LaunchpadEngine.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
@@ -11,7 +11,7 @@ import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
  * @title LaunchpadEngineV11 Unit Tests
  * @notice Tests for V11 trial period, dismissal, and LP token flow
  */
-contract LaunchpadEngineV11Test is V11TestBase {
+contract LaunchpadEngineTest is TrialPeriodTestBase {
     // ============================================
     // Market Creation Tests
     // ============================================

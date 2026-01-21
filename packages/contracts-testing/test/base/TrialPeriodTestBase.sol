@@ -2,24 +2,24 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import {LaunchpadEngineV11} from "@core/LaunchpadEngineV11.sol";
+import {LaunchpadEngine} from "@core/LaunchpadEngine.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ValidatedAdjudicator} from "@core/ValidatedAdjudicator.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
-import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
-import {MockAMMEngine} from "./mocks/MockAMMEngine.sol";
-import {MockCollateralizer} from "./mocks/MockCollateralizer.sol";
-import {MockTickBook} from "./mocks/MockTickBook.sol";
-import {MockValidationRegistry} from "./mocks/MockValidationRegistry.sol";
+import {MockAMMEngine} from "../mocks/MockAMMEngine.sol";
+import {MockCollateralizer} from "../mocks/MockCollateralizer.sol";
+import {MockTickBook} from "../mocks/MockTickBook.sol";
+import {MockValidationRegistry} from "../mocks/MockValidationRegistry.sol";
 
 /**
- * @title V11TestBase
- * @notice Shared test infrastructure for V11 contract tests
+ * @title TrialPeriodTestBase
+ * @notice Shared test infrastructure for trial period contract tests
  * @dev Sets up actors, mocks, and core contracts
  */
-abstract contract V11TestBase is Test {
+abstract contract TrialPeriodTestBase is Test {
     // ============================================
     // Constants
     // ============================================
@@ -49,9 +49,9 @@ abstract contract V11TestBase is Test {
     MockAMMEngine internal ammEngine;
     MockCollateralizer internal collateralizer;
     MockTickBook internal tickBook;
-    LaunchpadEngineV11 internal launchpad;
-    ValidatedAdjudicator internal validatedAdjudicator;
+    LaunchpadEngine internal launchpad;
     ProtocolConfig internal protocolConfig;
+    ValidatedAdjudicator internal validatedAdjudicator;
 
     // ============================================
     // ERC-8004 Mocks
@@ -102,8 +102,8 @@ abstract contract V11TestBase is Test {
     function _deployCoreContracts() internal {
         protocolConfig = new ProtocolConfig(deployer);
 
-        // Deploy LaunchpadEngineV11
-        launchpad = new LaunchpadEngineV11(
+        // Deploy LaunchpadEngine
+        launchpad = new LaunchpadEngine(
             address(usdc),
             address(ammEngine),
             address(collateralizer),
@@ -125,12 +125,6 @@ abstract contract V11TestBase is Test {
     function _configureContracts() internal {
         // Set launchpad as AMM router
         ammEngine.setRouter(address(launchpad));
-
-        // Set guardian role
-        address[] memory add = new address[](1);
-        add[0] = guardian;
-        address[] memory remove = new address[](0);
-        protocolConfig.setGuardians(add, remove);
 
     }
 
@@ -257,10 +251,10 @@ abstract contract V11TestBase is Test {
     }
 
     /**
-     * @notice Finalize a market via adjudicator
+     * @notice Finalize a market via guardian
      */
     function _finalizeMarket(address market) internal {
-        vm.prank(adjudicator);
+        vm.prank(guardian);
         TruthMarket(market).finalize();
     }
 }

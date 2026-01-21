@@ -192,7 +192,7 @@ contract SellSideFeeIntegrationTest is Test {
         // The key is that AMMEngine transferred fee to router
         // Since pre-grad: fee goes to bBase growth + LP mint, no direct USDC remains
         // But feesAccrued should increase
-        (,,,, uint256 feesAccrued,,,,,) = launchpad.markets(address(market));
+        (,,,,, uint256 feesAccrued,,,,,) = launchpad.markets(address(market));
         
         assertGt(feesAccrued, 0, "Fees should have accrued");
     }
@@ -203,14 +203,14 @@ contract SellSideFeeIntegrationTest is Test {
         launchpad.tradePositions(address(market), YES, int256(100 * WAD), 200 * WAD);
 
         // Get feesAccrued before sell
-        (,,,, uint256 feesBefore,,,,,) = launchpad.markets(address(market));
+        (,,,,, uint256 feesBefore,,,,,) = launchpad.markets(address(market));
 
         // Sell
         vm.prank(trader);
         launchpad.tradePositions(address(market), YES, -int256(50 * WAD), 0);
 
         // Get feesAccrued after sell
-        (,,,, uint256 feesAfter,,,,,) = launchpad.markets(address(market));
+        (,,,,, uint256 feesAfter,,,,,) = launchpad.markets(address(market));
 
         assertGt(feesAfter, feesBefore, "Fees should increase after sell");
     }
@@ -242,7 +242,7 @@ contract SellSideFeeIntegrationTest is Test {
 
     function test_SellFee_PreGradRate() public {
         // Market starts pre-graduation
-        (,,,,,,, bool isGraduated,,) = launchpad.markets(address(market));
+        (,,,,,,,, bool isGraduated,,) = launchpad.markets(address(market));
         assertFalse(isGraduated, "Should start pre-grad");
 
         // Buy and sell
@@ -353,7 +353,7 @@ contract SellSideFeeIntegrationTest is Test {
         vm.prank(trader);
         launchpad.tradePositions(address(market), YES, int256(100 * WAD), 300 * WAD);
 
-        (,,,, uint256 feesBefore,,,,,) = launchpad.markets(address(market));
+        (,,,,, uint256 feesBefore,,,,,) = launchpad.markets(address(market));
 
         // Sell in batches
         vm.startPrank(trader);
@@ -362,7 +362,7 @@ contract SellSideFeeIntegrationTest is Test {
         launchpad.tradePositions(address(market), YES, -int256(20 * WAD), 0);
         vm.stopPrank();
 
-        (,,,, uint256 feesAfter,,,,,) = launchpad.markets(address(market));
+        (,,,,, uint256 feesAfter,,,,,) = launchpad.markets(address(market));
 
         // Each sell should have contributed fees
         assertGt(feesAfter, feesBefore, "Multiple sells should accumulate fees");
