@@ -14,20 +14,59 @@ Extend the CLI into a comprehensive testing tool that simulates the full market 
 
 ## Actor Definitions
 
-| Actor | Contract(s) | Actions | Notes |
-|-------|-------------|---------|-------|
-| **Creator** | LaunchpadEngine | `createMarket`, `dismissMarket` | Only creator can dismiss during trial |
-| **AMM Trader** | LaunchpadEngine | `tradePositions` | Bonding + post-graduation AMM |
-| **TickBook Trader** | TickBookPoolManager | `placeOrder`, `placeSpotSell`, `cancelOrder`, `cancelSpotSell` | Post-graduation orderbook |
-| **Adjudicator** | TruthMarket | `settle` | Resolves market outcome |
-| **Guardian** | TruthMarket | `veto`, `finalize` | Veto bad settlements, finalize good ones |
-| **Keeper** | TickBookPoolManager | `claimFillsFor`, `claimSpotSellProceedsFor` (new), maintenance | Permissionless claims for others |
-| **Arbitrager** | Both | Trade both venues | Exploits AMM↔TickBook price gaps |
+| Actor | Contract(s) | Actions | Purpose | Notes |
+|-------|-------------|---------|---------|-------|
+| **Creator** | LaunchpadEngine | `createMarket`, `dismissMarket` | Launch or abort trial markets | Only creator can dismiss during trial |
+| **AMM Trader** | LaunchpadEngine | `tradePositions` | Trade on LMSR (bonding + post-grad AMM) | Bonding + post-graduation AMM |
+| **TickBook Trader** | TickBookPoolManager | `placeOrder`, `placeSpotSell`, `cancelOrder`, `cancelSpotSell` | Trade on orderbook post-graduation | Post-graduation orderbook |
+| **Adjudicator** | TruthMarket | `settle`, `finalize` | Resolve and finalize outcome | Resolves market outcome |
+| **Guardian** | TruthMarket | `veto`, `pauseProtocol`, `unpauseProtocol` | Safety checks + global pause | Protocol-level role list (not creator-chosen) |
+| **Keeper** | TickBookPoolManager | `claimFillsFor`, `claimSpotSellProceedsFor` (new), maintenance | Permissionless maintenance for others | Permissionless claims for others |
+| **Arbitrager** | Both | Trade both venues | Enforce price efficiency | Exploits AMM↔TickBook price gaps |
+| **Protocol Owner** | LaunchpadEngine, TickBookPoolManager, TickBookVault, AMMEngine, ValidatedAdjudicator | Admin knobs, registrars, fees, hooks, router/vault wiring, guardian role config, pause override | Protocol configuration | Governance/ops role |
 
 ### Removed Actors
 - ~~General Trader~~ → split into AMM Trader + TickBook Trader
 - ~~LP Redeemer~~ → user behavior (self-claim via `redeemLP`)
 - ~~Refund Claimer~~ → user behavior (self-claim via `claimRefund`)
+
+---
+
+## Action Purpose (Per Function)
+
+| Function | Contract | Purpose (Short) | Primary Actor | Scope | Recommendation (Why) |
+|---------|----------|------------------|---------------|-------|----------------------|
+| `createMarket` | LaunchpadEngine | Deploy a market and start trial period | Creator | Market | Keep; core protocol entrypoint |
+| `dismissMarket` | LaunchpadEngine | Abort trial period market | Creator | Market | Keep; creator protection during trial |
+| `tradePositions` | LaunchpadEngine | AMM trade (bonding + post-grad) | AMM Trader | Market | Keep; primary AMM flow |
+| `placeOrder` | TickBookPoolManager | Place ranged/limit order | TickBook Trader | Market | Keep; primary orderbook flow |
+| `placeSpotSell` | TickBookPoolManager | Place spot sell order | TickBook Trader | Market | Keep; enables token-backed liquidity |
+| `cancelOrder` | TickBookPoolManager | Cancel range order, refund collateral | TickBook Trader | Market | Keep; user risk control |
+| `cancelSpotSell` | TickBookPoolManager | Cancel spot sell, unlock shares | TickBook Trader | Market | Keep; user risk control |
+| `settle` | TruthMarket | Set market outcome | Adjudicator | Market | Keep; required resolution step |
+| `veto` | TruthMarket | Revert settlement to settling state | Guardian | Market | Keep; safety backstop |
+| `finalize` | TruthMarket | Finalize settlement (apply tStar retroactive logic) | Adjudicator | Market | Keep; adjudicator-only finalization |
+| `pauseProtocol` | ProtocolConfig (new) | Pause creation/trading/deposits | Guardian | Protocol | Add; guardian daily ops, owner override |
+| `unpauseProtocol` | ProtocolConfig (new) | Resume creation/trading/deposits | Guardian | Protocol | Add; guardian daily ops, owner override |
+| `claimFillsFor` | TickBookPoolManager | Permissionless claim of range fills | Keeper | Market | Keep; safe keeper action |
+| `claimSpotSellProceedsFor` (new) | TickBookPoolManager | Permissionless claim of spot proceeds | Keeper | Market | Add; parity with range claims |
+| `maintenance` (off-chain) | Off-chain | Batch claim/cancel/dust cleanup ops | Keeper | Market | Keep; ops-only workflow |
+| `setFees` | TickBookPoolManager | Update taker/maker fees | Protocol Owner | Protocol | Keep; governed economic control |
+| `setRegistrar` | TickBookPoolManager | Set TickBook registrar | Protocol Owner | Protocol | Keep; required wiring |
+| `setFeeRecipient` | TickBookPoolManager | Set TickBook fee recipient | Protocol Owner | Protocol | Keep; treasury routing |
+| `setReputationRegistries` | TickBookPoolManager | Configure agent registries | Protocol Owner | Protocol | Defer/remove; unused until discounts |
+| `setReputationDiscounts` | TickBookPoolManager | Configure agent discount tiers | Protocol Owner | Protocol | Defer/remove; unused until discounts |
+| `setPreGradFee` | LaunchpadEngine | Update Launchpad pre-grad fee | Protocol Owner | Protocol | Keep; governed fee tuning |
+| `setPostGradFee` | LaunchpadEngine | Update Launchpad post-grad fee | Protocol Owner | Protocol | Keep; governed fee tuning |
+| `setGraduationMultiplier` | LaunchpadEngine | Adjust graduation threshold scaling | Protocol Owner | Protocol | Keep; controlled graduation economics |
+| `setDefaultHook` | LaunchpadEngine | Set TickBook hook for new markets | Protocol Owner | Protocol | Keep; govern + allowlist |
+| `setTickBook` | TickBookVault | Wire vault to TickBook | Protocol Owner | Protocol | Keep; lock after init |
+| `setRouter` | AMMEngine | Wire AMM router | Protocol Owner | Protocol | Keep; lock after init |
+| `setGuardians` | ProtocolConfig (new) | Manage guardian role list | Protocol Owner | Protocol | Add; governance-managed |
+| `setValidationRegistry` | ValidatedAdjudicator | Set adjudicator validation registry | Protocol Owner | Protocol | Keep; governed security |
+| `setAttestationWindow` | ValidatedAdjudicator | Set adjudicator attestation window | Protocol Owner | Protocol | Keep; tuning with governance |
+| `setMinValidationScore` | ValidatedAdjudicator | Set adjudicator minimum score | Protocol Owner | Protocol | Keep; tuning with governance |
+| `registerMarket` (adjudicator) | ValidatedAdjudicator | Register market for adjudication | LaunchpadEngine (auto) | Market | Auto-call on create; no daily ops |
 
 ---
 
@@ -92,7 +131,7 @@ Extend the CLI into a comprehensive testing tool that simulates the full market 
 │    Actions:                                                             │
 │      - Adjudicator: settle(outcome, tStar) → SETTLED state              │
 │      - Guardian: veto() → revert to SETTLING (optional)                 │
-│      - Guardian/Adjudicator: finalize() → FINALIZED state               │
+│      - Adjudicator: finalize() → FINALIZED state (apply tStar logic)    │
 │    State: Trading halted, outcome locked                                │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -181,13 +220,15 @@ function claimSpotSellProceedsFor(bytes32 marketKey, uint256 sellId)
 
 ## Guardian Role Clarification
 
-### Current Implementation
+### Target Implementation (Planned)
 
 | Function | Who Can Call | Contract |
 |----------|--------------|----------|
 | `dismissMarket()` | **Creator only** | LaunchpadEngineV11 |
 | `veto()` | Guardian | TruthMarket |
-| `finalize()` | Guardian or Adjudicator | TruthMarket |
+| `finalize()` | **Adjudicator only (planned)** | TruthMarket |
+
+**Note**: Guardian is protocol-level (role list), not creator-chosen per market. Current code allows guardian finalize; target is adjudicator-only and finalize applies tStar retroactive logic.
 
 ### Open Question
 
@@ -238,6 +279,9 @@ cli scenario dismissal --trade-count <n>
 ### Phase 1: Contract Changes
 - [ ] Add `claimSpotSellProceedsFor` to TickBookPoolManager
 - [ ] (Optional) Add `batchClaimSpotSellProceedsFor` for gas efficiency
+- [ ] Decision: remove or disable `clearDustLiquidity` (admin-only dust cleanup) to avoid non-essential maintenance hooks
+- [ ] Add `ProtocolConfig` (guardian role list + global pause) and wire pause checks into Launchpad/TickBook/Vault/AMM; owner override
+- [ ] Auto-register markets in adjudicator during `createMarket` with per-market config (no deployer ops)
 - [ ] Decision: Guardian dismiss authority?
 
 ### Phase 2: CLI Actor Framework
@@ -249,6 +293,7 @@ cli scenario dismissal --trade-count <n>
 - [ ] Implement Guardian actor
 - [ ] Implement Keeper actor
 - [ ] Implement Arbitrager actor
+- [ ] Implement ProtocolOwner actor
 
 ### Phase 3: Scenarios
 - [ ] Full lifecycle scenario
@@ -277,6 +322,7 @@ cli scenario dismissal --trade-count <n>
 | `packages/contracts-testing/script/interactive/actors/Guardian.ts` | New |
 | `packages/contracts-testing/script/interactive/actors/Keeper.ts` | Refactor from existing |
 | `packages/contracts-testing/script/interactive/actors/Arbitrager.ts` | Refactor from existing |
+| `packages/contracts-testing/script/interactive/actors/ProtocolOwner.ts` | New |
 | `packages/contracts-testing/script/interactive/scenarios/` | New directory |
 
 ---
