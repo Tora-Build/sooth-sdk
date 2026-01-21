@@ -1,12 +1,15 @@
 # Project Status
 
 ## Current Focus
+- **V11 Architecture Decisions (2026-01-21)** — ADR-082 (adjudicator trust + guardian role) and ADR-083 (canonical filenames) accepted. Key changes: permissionless adjudicator choice, protocol-level guardian (not per-market), adjudicator-only finalize, ValidatedAdjudicator auto-registers via Launchpad. Pending: refactor versioned files per ADR-083.
+- **CLI Actor Testing Tool (2026-01-21)** — Planning complete. Actors: Creator, AMM Trader, TickBook Trader, Adjudicator, Guardian, Keeper, Arbitrager, Protocol Owner. Added `claimSpotSellProceedsFor` proposal for keeper parity. See `.agent/plans/cli-actor-testing-tool.md`.
 - **V11 Implementation (2026-01-20)** — Implemented Phase 1 (Trial Period, LaunchpadLPToken ERC20, placeOrderWithPermit) and Phase 2 (ERC-8004 interfaces, ValidatedAdjudicator, agent attribution hooks). All 132 V11 tests passing. Branch: `v11`.
 - **V11 Policy Clarifications (2026-01-20)** — Early settlement allowed pre-expiration; no agent-gated markets; agent discounts limited to TickBook; first adjudicator target is ZK/Brevis (multi-validator interface unchanged).
 - **V10.10 Event Ordering Fix & Deployment (2026-01-20)** — Fixed phantom liquidity bug in indexer caused by incorrect event emission order. `OrderPlaced` now emits BEFORE `_crossUnified()` so indexers see order creation before any `RangeOrderClosed` events. Deployed to all 4 testnets.
 - **Keeper Resilience (2026-01-18)** — Made keeper self-maintaining for delta neutrality. Claims fills, cancels orders/spot sells, sells tokens, withdraws USDC. Maintenance runs on startup + every 60 seconds.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-21** — **V11 Architecture Decisions**: Added ADR-082 (adjudicator trust: permissionless choice, off-chain registry, protocol-level guardian, adjudicator-only finalize, tStar at finalize, auto-register via Launchpad) and ADR-083 (canonical filenames: rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature paths). Updated CLI actor testing tool plan with Protocol Owner actor, Action Purpose table, and guardian/pause flows.
 - **2026-01-20** — **V11 Implementation**: Implemented ERC-8004 Trustless Agents interfaces and Trial Period mechanics. Created `IERC8004.sol` (Identity, Reputation, Validation registries), `LaunchpadLPToken.sol` (ERC20 with settlement-locked transfers), `ValidatedAdjudicator.sol` (TEE attestation-based settlement), `LaunchpadEngineV11.sol` (trial period + adjudicator readiness). Added `placeOrderWithPermit()` and `placeOrderWithAgent()` to TickBookPoolManager. All 132 V11 tests pass.
 - **2026-01-20** — **V11 Policy Alignment**: Disabled agent-gated markets and Launchpad fee discounts; `tradeWithAgent` now a compatibility alias. TickBook keeps agent attribution hooks only. Batched `forge test` runs passed.
 - **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
@@ -55,10 +58,12 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
+- **ADR-083 Refactor** — Rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature-based paths per canonical filename policy.
+- **claimSpotSellProceedsFor** — Add permissionless spot sell claim for keeper parity (see cli-actor-testing-tool.md).
+- **ProtocolConfig Contract** — Add guardian role list + global pause per ADR-082.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
 - **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
-- **Contract Verification** — Verify V10.8.3 contracts on Basescan/Monadexplorer/Arcscan/MegaETH explorer.
 
 ## Recently Completed
 - ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
