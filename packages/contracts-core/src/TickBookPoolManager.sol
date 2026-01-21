@@ -1045,6 +1045,62 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
+    /// @notice Permissionless claim of spot sell proceeds (for keeper bots)
+    /// @dev Credits proceeds to order.owner, not msg.sender
+    /// @param marketKey The market key
+    /// @param sellId The spot sell order ID
+    /// @return proceeds Amount of USDC credited to owner
+    function claimSpotSellProceedsFor(bytes32 marketKey, uint256 sellId)
+        external
+        nonReentrant
+        returns (uint256 proceeds)
+    {
+        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
+        address owner = order.owner;
+
+        proceeds = order.proceedsWad;
+        order.proceedsWad = 0;
+
+        if (proceeds > 0) {
+            vault.creditUsdcAvailable(owner, proceeds);
+        }
+
+        if (order.sharesFilled >= order.sharesTotal) {
+            order.active = false;
+            _removeFromUserSpotSells(marketKey, owner, sellId);
+        }
+    }
+
+    /// @notice Batch claim spot sell proceeds (for keeper bots)
+    /// @param marketKey The market key
+    /// @param sellIds Array of spot sell order IDs
+    /// @return totalProceeds Total USDC credited across all orders
+    function batchClaimSpotSellProceedsFor(bytes32 marketKey, uint256[] calldata sellIds)
+        external
+        nonReentrant
+        returns (uint256 totalProceeds)
+    {
+        for (uint256 i = 0; i < sellIds.length;) {
+            SpotSellOrder storage order = _spotSellOrders[marketKey][sellIds[i]];
+            address owner = order.owner;
+
+            uint256 proceeds = order.proceedsWad;
+            order.proceedsWad = 0;
+
+            if (proceeds > 0) {
+                vault.creditUsdcAvailable(owner, proceeds);
+                totalProceeds += proceeds;
+            }
+
+            if (order.sharesFilled >= order.sharesTotal) {
+                order.active = false;
+                _removeFromUserSpotSells(marketKey, owner, sellIds[i]);
+            }
+
+            unchecked { ++i; }
+        }
+    }
+
     function getSpotSellOrder(bytes32 marketKey, uint256 sellId)
         external
         view
