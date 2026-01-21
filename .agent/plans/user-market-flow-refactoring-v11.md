@@ -494,6 +494,9 @@ useLPToken(market)          // ERC20 LP token info
 5. **LP transfer window**: Should LP transfers be allowed before or after settlement?
    - **Decision**: Transferable pre-settlement, locked after settlement
 
+6. **Settlement timing**: Can adjudicators settle before market expiration?
+   - **Decision**: Yes — allow early settlement when truth resolves, even if before deadline.
+
 ---
 
 ## Success Metrics

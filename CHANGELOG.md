@@ -58,6 +58,52 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### V11 Implementation (2026-01-20)
+
+**Phase 1: Trial Period & LP Tokens**
+- **Added**: Trial period system with `lockedCost` and `trialBalance` tracking per user/market
+- **Added**: `dismissMarket()` for creators to abort during trial period
+- **Added**: `claimRefund()` for users to recover locked costs after dismissal
+- **Added**: `getTrialStatus()` and `getExitOptions()` view functions
+- **Added**: `LaunchpadLPToken.sol` — ERC20 LP tokens with settlement-locked transfers
+- **Added**: `placeOrderWithPermit()` to TickBookPoolManager for gasless USDC approval (EIP-2612)
+
+**Phase 2: ERC-8004 Trustless Agents**
+- **Added**: `IERC8004.sol` interfaces (IIdentityRegistry, IReputationRegistry, IValidationRegistry)
+- **Added**: `IAdjudicator.sol` — Standard adjudicator interface with `IValidatedAdjudicator` extension
+  - `canSettle(market)` — Check if adjudicator can settle
+  - `adjudicatorType()` — Returns adjudicator type ("tee", "manual", "oracle", etc.)
+  - `settle(market, outcome, tStar, resolutionData)` — Generic settlement function
+- **Added**: `ValidatedAdjudicator.sol` — TEE attestation-based settlement (implements `IValidatedAdjudicator`)
+  - Multi-validator support for high-value markets
+  - Configurable attestation window and minimum score
+- **Added**: `tradeWithAgent()` — Compatibility alias (no Launchpad discounts; reserved for future agent attribution)
+- **Added**: `placeOrderWithAgent()` to TickBookPoolManager (agent attribution only)
+- **Added**: Agent order attribution on TickBook (no agent-gated markets in V11 scope)
+- **Added**: `createMarketWithOptions()` for trial period configuration (agent gating disabled; requires `isAgentGated=false` and `minReputation=0`)
+
+**Changed**
+- Clarified V11 policy: early settlement allowed pre-expiration; agent-gated markets not planned; agent discounts limited to TickBook; first adjudicator target is ZK/Brevis (multi-validator interface unchanged).
+- Launchpad agent gating and fee discounts are disabled in V11; `tradeWithAgent` routes to standard trading and `createMarketWithOptions` rejects agent-gated configuration.
+
+**Files Created**
+- `packages/contracts-core/src/interfaces/IERC8004.sol`
+- `packages/contracts-core/src/interfaces/IAdjudicator.sol`
+- `packages/contracts-core/src/LaunchpadLPToken.sol`
+- `packages/contracts-core/src/ValidatedAdjudicator.sol`
+- `packages/contracts-core/src/LaunchpadEngineV11.sol`
+
+**Files Modified**
+- `packages/contracts-core/src/TickBookPoolManager.sol` — Added permit and agent functions
+- `packages/contracts-core/src/interfaces/ITruthMarket.sol` — Added `settle()` and `finalize()`
+- `packages/contracts-core/src/interfaces/ITickBookVault.sol` — Added `usdc()` function
+- `packages/contracts-core/src/interfaces/ILaunchpadEngine.sol` — Added V11 events and functions
+- `packages/contracts-core/src/LaunchpadEngine.sol` — Added V11 stub implementations
+
+**Tests**: V11 suite (132) + crossing/integration/invariants/repro/unit suites passed (0 failing)
+
+---
+
 ### Keeper Bot & Contract Fix (2026-01-18)
 
 **Contract Bug Fix (V10.8.4)**

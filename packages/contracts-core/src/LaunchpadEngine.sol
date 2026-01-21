@@ -651,4 +651,38 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
         return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
     }
+
+    // ============================================
+    // V11 Interface Stubs (Not implemented in V10)
+    // ============================================
+
+    function dismissMarket(address) external pure override {
+        revert("LaunchpadEngine: V11 feature not available");
+    }
+
+    function claimRefund(address) external pure override returns (uint256) {
+        revert("LaunchpadEngine: V11 feature not available");
+    }
+
+    function getTrialStatus(address) external pure override returns (
+        uint64, bool, uint256, bool
+    ) {
+        return (0, false, 0, false);
+    }
+
+    function getExitOptions(address, address) external pure override returns (
+        uint256, int256, bool
+    ) {
+        return (0, 0, false);
+    }
+
+    function tradeWithAgent(
+        address, uint8, int256, uint256, uint256
+    ) external pure override returns (uint256) {
+        revert("LaunchpadEngine: V11 feature not available");
+    }
+
+    function getLPToken(address) external pure override returns (address) {
+        return address(0); // V10 uses internal LP tracking, not ERC20
+    }
 }

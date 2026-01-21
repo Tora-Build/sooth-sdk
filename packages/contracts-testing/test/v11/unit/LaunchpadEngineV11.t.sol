@@ -9,7 +9,7 @@ import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
 
 /**
  * @title LaunchpadEngineV11 Unit Tests
- * @notice Tests for V11 trial period, dismissal, agent trading features
+ * @notice Tests for V11 trial period, dismissal, and LP token flow
  */
 contract LaunchpadEngineV11Test is V11TestBase {
     // ============================================
@@ -332,107 +332,32 @@ contract LaunchpadEngineV11Test is V11TestBase {
     }
 
     // ============================================
-    // Agent Trading Tests (ERC-8004)
+    // Agent Trading Tests
     // ============================================
 
-    function test_TradeWithAgent_RequiresValidAgentId() public {
+    function test_TradeWithAgent_ActsLikeStandardTrade() public {
         address market = _createMarket();
 
-        // Non-existent agent
         vm.prank(alice);
-        vm.expectRevert(); // getAgentWallet returns address(0)
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, 999);
-    }
-
-    function test_TradeWithAgent_VerifiesAgentWallet() public {
-        address market = _createMarket();
-
-        // Alice tries to trade as agent but isn't the agent's wallet
-        vm.prank(alice);
-        vm.expectRevert("LaunchpadEngine: not agent wallet");
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-    }
-
-    function test_TradeWithAgent_SucceedsForValidAgent() public {
-        address market = _createMarket();
-
-        // Agent trades (wallet = agent address)
-        vm.prank(agent);
-        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
+        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, 123);
 
         assertGt(cost, 0, "Trade should have cost");
     }
 
-    function test_TradeWithAgent_RevertsIfMarketNotAgentGated() public {
-        address market = _createAgentGatedMarket(50);
-
-        // Regular trade should fail
-        vm.prank(alice);
-        vm.expectRevert("LaunchpadEngine: agent-gated market, use tradeWithAgent");
-        launchpad.tradePositions(market, 1, 100e18, type(uint256).max);
-    }
-
-    function test_TradeWithAgent_ChecksMinReputation() public {
-        // Create market requiring 90 reputation
-        address market = _createAgentGatedMarket(90);
-
-        // Agent has 80 reputation (set in setUp)
-        vm.prank(agent);
-        vm.expectRevert("LaunchpadEngine: insufficient reputation");
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-
-        // Increase reputation
-        reputationRegistry.setReputation(agentId, 95);
-
-        // Now should succeed
-        vm.prank(agent);
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-    }
-
-    function test_TradeWithAgent_EmitsAgentTradeEvent() public {
-        address market = _createMarket();
-
-        vm.prank(agent);
-        vm.expectEmit(true, true, true, false);
-        emit ILaunchpadEngine.AgentTrade(market, agent, agentId, 1, 100e18, 0, 0);
-
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-    }
-
-    function testFuzz_TradeWithAgent_FeeDiscount(uint8 reputation) public {
-        reputation = uint8(bound(reputation, 0, 100));
-        address market = _createMarket();
-
-        // Set agent reputation
-        reputationRegistry.setReputation(agentId, reputation);
-
-        vm.prank(agent);
-        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-
-        // Cost should be valid (discount applied based on reputation thresholds)
-        assertGt(cost, 0, "Cost should be positive");
-    }
-
-    // ============================================
-    // Agent Gating Tests
-    // ============================================
-
-    function test_SetAgentGating_OnlyCreatorOrOwner() public {
-        address market = _createMarket();
-
-        vm.prank(alice);
-        vm.expectRevert("LaunchpadEngine: not authorized");
-        launchpad.setAgentGating(market, true, 50);
-    }
-
-    function test_SetAgentGating_EmitsEvent() public {
-        address market = _createMarket();
-
+    function test_CreateMarketWithOptions_RevertsIfAgentGated() public {
         vm.prank(creator);
-        vm.expectEmit(true, false, false, true);
-        emit ILaunchpadEngine.AgentGatingSet(market, true, 50);
-
-        launchpad.setAgentGating(market, true, 50);
+        vm.expectRevert("LaunchpadEngine: agent gating disabled");
+        launchpad.createMarketWithOptions(
+            "Will ETH reach $10k?",
+            0,
+            uint64(block.timestamp + 30 days),
+            adjudicator,
+            guardian,
+            100e18,
+            7 days,
+            true,
+            50
+        );
     }
 
     // ============================================

@@ -1,5 +1,84 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-081: V11 Adjudicator & Agent Policy Clarifications
+- **Date**: 2026-01-20
+- **Status**: Accepted
+- **Context**:
+  - Some markets resolve based on real-world events without a fixed date, so settlement must be allowed before expiration.
+  - Agent-gated markets are not planned for V11; incentives are limited to fee discounts for registered market makers.
+  - Adjudicator roadmap prioritizes ZK verification (Brevis) over TEE for the first implementation.
+- **Decision**:
+  1. Allow adjudicator settlement before market expiration when the truth event resolves (deadline remains the fallback expiration).
+  2. Do not enable agent-gated markets in V11; trading remains open to all users.
+  3. Limit agent incentives to TickBook fee discounts for registered market makers.
+  4. Keep multi-validator adjudicator interfaces as-is; first target adjudicator is ZK/Brevis (TEE deferred).
+  5. `tradeWithAgent` in Launchpad remains a compatibility alias (no gating or fee discounts).
+- **Consequences**:
+  - UI/docs should not assume settlement only after deadline.
+  - Agent gating flags should default off; enforcement is not required beyond TickBook discounts.
+  - ValidatedAdjudicator remains as a reference; ZK adjudicator integration is the next path.
+
+## ADR-080: V11 ERC-8004 Integration & Trial Period System
+- **Date**: 2026-01-20
+- **Status**: Implemented (Branch: v11)
+- **Context**:
+  - V10 lacked creator protection mechanisms for new markets (no "undo" option if market doesn't gain traction)
+  - AI agents needed first-class support for trading with reputation-based incentives
+  - Market settlement required trustless verification via TEE attestations
+  - LP tokens were internal accounting only, limiting DeFi composability
+- **Decision**: Implement V11 in two phases:
+
+  **Phase 1: Trial Period & LP Tokens**
+  1. **Trial Period System**: New markets have a configurable trial window during which:
+     - User costs are tracked via `lockedCost[market][user]`
+     - P&L tracked via `trialBalance[market][user]`
+     - Creator can call `dismissMarket()` to abort
+     - Users can call `claimRefund()` to recover locked costs
+  2. **LaunchpadLPToken (ERC20)**:
+     - Settlement-locked transfers (freely tradable pre-settlement, locked post-settlement)
+     - Enables LP tokens as collateral, staking, or secondary market trading
+     - `transfersUnlocked()` = `!ITruthMarket(market).isSettled()`
+  3. **Permit Support**: `placeOrderWithPermit()` enables gasless USDC approval (EIP-2612)
+
+  **Phase 2: ERC-8004 Trustless Agents**
+  1. **ERC-8004 Interfaces**:
+     - `IIdentityRegistry`: Agent identity and wallet management
+     - `IReputationRegistry`: Reputation scores and fee discount queries
+     - `IValidationRegistry`: TEE attestation storage and verification
+  2. **Standard Adjudicator Interface** (`IAdjudicator.sol`):
+     - `settle(market, outcome, tStar, resolutionData)`: Generic settlement
+     - `canSettle(market)`: Query settlement authorization
+     - `adjudicatorType()`: Returns type ("tee", "manual", "oracle", "dao")
+     - `IValidatedAdjudicator` extends with multi-attestation support
+  3. **ValidatedAdjudicator**: TEE-validated settlement (implements `IValidatedAdjudicator`)
+     - Requires valid attestation from registered agent before `settle()`
+     - Multi-validator support for high-value markets
+     - Configurable attestation window and minimum score
+  3. **Agent Trading**:
+     - `tradeWithAgent(agentId)`: Fee discount based on agent reputation
+     - `placeOrderWithAgent(agentId)`: Orderbook access for agents
+     - Agent-gated markets: Only agents with min reputation can trade
+- **Rationale**:
+  - **Creator Protection**: Trial period reduces risk of launching markets that fail to attract volume
+  - **DeFi Composability**: ERC20 LP tokens enable yield farming, collateralization, and DEX trading
+  - **Agent Adoption**: Reputation-weighted fees incentivize quality agent behavior
+  - **Trust Minimization**: TEE attestations provide cryptographic proof of correct settlement
+  - **Capital Efficiency**: Permit removes approval transaction requirement
+- **Consequences**:
+  - **New Contract**: `LaunchpadEngineV11.sol` replaces `LaunchpadEngine.sol` for new deployments
+  - **Interface Extension**: `ILaunchpadEngine.sol` and `ITruthMarket.sol` expanded
+  - **ERC-8004 Dependency**: Requires external registry contracts (can be mocked for testing)
+  - **Migration Path**: Existing V10 markets continue to work; V11 features for new markets only
+- **Files Added**:
+  - `packages/contracts-core/src/interfaces/IERC8004.sol`
+  - `packages/contracts-core/src/interfaces/IAdjudicator.sol`
+  - `packages/contracts-core/src/LaunchpadLPToken.sol`
+  - `packages/contracts-core/src/ValidatedAdjudicator.sol`
+  - `packages/contracts-core/src/LaunchpadEngineV11.sol`
+- **Test Coverage**: 126 tests passing (100%)
+
+---
+
 ## ADR-079: ERC20 Token Isolation & Pro Page Split/Merge Removal
 - **Date**: 2026-01-15
 - **Status**: Accepted

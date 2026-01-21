@@ -90,4 +90,21 @@ interface ITruthMarket {
      * @return Address of market creator
      */
     function creator() external view returns (address);
+
+    // ============================================
+    // Settlement (Adjudicator Only)
+    // ============================================
+
+    /**
+     * @notice Settle market with outcome (adjudicator only)
+     * @param outcome Winning outcome (0=NO, 1=YES, 2=INVALID)
+     * @param tStar Retroactive truth-time (0 if not applicable)
+     */
+    function settle(uint8 outcome, uint64 tStar) external;
+
+    /**
+     * @notice Finalize settlement (irreversible)
+     * @dev Can be called by adjudicator or guardian after settlement
+     */
+    function finalize() external;
 }

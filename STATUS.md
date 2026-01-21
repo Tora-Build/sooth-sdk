@@ -1,10 +1,14 @@
 # Project Status
 
 ## Current Focus
+- **V11 Implementation (2026-01-20)** — Implemented Phase 1 (Trial Period, LaunchpadLPToken ERC20, placeOrderWithPermit) and Phase 2 (ERC-8004 interfaces, ValidatedAdjudicator, agent attribution hooks). All 132 V11 tests passing. Branch: `v11`.
+- **V11 Policy Clarifications (2026-01-20)** — Early settlement allowed pre-expiration; no agent-gated markets; agent discounts limited to TickBook; first adjudicator target is ZK/Brevis (multi-validator interface unchanged).
 - **V10.10 Event Ordering Fix & Deployment (2026-01-20)** — Fixed phantom liquidity bug in indexer caused by incorrect event emission order. `OrderPlaced` now emits BEFORE `_crossUnified()` so indexers see order creation before any `RangeOrderClosed` events. Deployed to all 4 testnets.
 - **Keeper Resilience (2026-01-18)** — Made keeper self-maintaining for delta neutrality. Claims fills, cancels orders/spot sells, sells tokens, withdraws USDC. Maintenance runs on startup + every 60 seconds.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-20** — **V11 Implementation**: Implemented ERC-8004 Trustless Agents interfaces and Trial Period mechanics. Created `IERC8004.sol` (Identity, Reputation, Validation registries), `LaunchpadLPToken.sol` (ERC20 with settlement-locked transfers), `ValidatedAdjudicator.sol` (TEE attestation-based settlement), `LaunchpadEngineV11.sol` (trial period + adjudicator readiness). Added `placeOrderWithPermit()` and `placeOrderWithAgent()` to TickBookPoolManager. All 132 V11 tests pass.
+- **2026-01-20** — **V11 Policy Alignment**: Disabled agent-gated markets and Launchpad fee discounts; `tradeWithAgent` now a compatibility alias. TickBook keeps agent attribution hooks only. Batched `forge test` runs passed.
 - **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
 - **2026-01-16** — **Indexer Stability Fixes**: Diagnosed "PGlite is closed" errors caused by corrupted WASM database under multi-chain load. Fixed MegaETH RPC URL (`timothy` → `carrot.megaeth.com`). Added `RangeOrderPlaced` handler for V10.8.1 backward compatibility. Added missing ABI events (TickBookVault, AMMEngine). Migrated local dev to PostgreSQL.
 - **2026-01-16** — **Trade/Pro UI Polish**: Fixed market chip cards - now show 2 lines for long questions, smaller font (`text-xs`), fixed width (`w-[320px]`/`w-[280px]`).
@@ -340,4 +344,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-19 (V10.9 deployed: dust bug fix, clearDustLiquidity admin function, SpotSellClosed event)*
+*Last updated: 2026-01-20 (V11 policy alignment; V10.10 deployed: event ordering fix)*

@@ -294,24 +294,5 @@ contract V11InvariantsTest is V11TestBase {
         assertEq(bobLockedAfter, 0, "Bob locked should be zero");
     }
 
-    // ============================================
-    // Invariant: Agent Gating Enforcement
-    // ============================================
-
-    function test_Invariant_AgentGatingEnforcement() public {
-        // Create agent-gated market
-        address market = _createAgentGatedMarket(50);
-
-        // Regular trade should fail
-        vm.prank(alice);
-        vm.expectRevert("LaunchpadEngine: agent-gated market, use tradeWithAgent");
-        launchpad.tradePositions(market, 1, 100e18, type(uint256).max);
-
-        // Agent trade should work
-        vm.prank(agent);
-        launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, agentId);
-
-        // Position should be recorded for agent
-        // (Mock AMM tracks positions)
-    }
+    // Agent gating disabled for V11 (no invariants here).
 }
