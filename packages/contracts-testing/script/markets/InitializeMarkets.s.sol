@@ -10,6 +10,7 @@ contract InitializeMarkets is Script {
     function run() external {
         address LAUNCHPAD_ENGINE = 0x7a886fc43508A37f7F5467AC7460F72C578Da19B;
         address USDC = 0x0C31bBb6dA82ba97fBAFbE3325Ee8757A4D724e3;
+        address PROTOCOL_CONFIG = vm.envAddress("PROTOCOL_CONFIG");
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -26,8 +27,10 @@ contract InitializeMarkets is Script {
             startTime,
             uint64(block.timestamp + 365 days),
             deployer,
-            deployer,
-            1000e18
+            PROTOCOL_CONFIG,
+            1000e18,
+            0,
+            0
         );
 
         vm.broadcast(deployerPrivateKey);
@@ -36,8 +39,10 @@ contract InitializeMarkets is Script {
             startTime,
             uint64(block.timestamp + 180 days),
             deployer,
-            deployer,
-            1000e18
+            PROTOCOL_CONFIG,
+            1000e18,
+            0,
+            0
         );
 
         console2.log("Market initialization complete.");

@@ -6,6 +6,7 @@ import {LaunchpadEngineV11} from "@core/LaunchpadEngineV11.sol";
 import {ValidatedAdjudicator} from "@core/ValidatedAdjudicator.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import {MockAMMEngine} from "./mocks/MockAMMEngine.sol";
@@ -50,6 +51,7 @@ abstract contract V11TestBase is Test {
     MockTickBook internal tickBook;
     LaunchpadEngineV11 internal launchpad;
     ValidatedAdjudicator internal validatedAdjudicator;
+    ProtocolConfig internal protocolConfig;
 
     // ============================================
     // ERC-8004 Mocks
@@ -98,12 +100,15 @@ abstract contract V11TestBase is Test {
     }
 
     function _deployCoreContracts() internal {
+        protocolConfig = new ProtocolConfig(deployer);
+
         // Deploy LaunchpadEngineV11
         launchpad = new LaunchpadEngineV11(
             address(usdc),
             address(ammEngine),
             address(collateralizer),
             address(tickBook),
+            address(protocolConfig),
             treasury,
             deployer
         );
@@ -120,6 +125,12 @@ abstract contract V11TestBase is Test {
     function _configureContracts() internal {
         // Set launchpad as AMM router
         ammEngine.setRouter(address(launchpad));
+
+        // Set guardian role
+        address[] memory add = new address[](1);
+        add[0] = guardian;
+        address[] memory remove = new address[](0);
+        protocolConfig.setGuardians(add, remove);
 
     }
 

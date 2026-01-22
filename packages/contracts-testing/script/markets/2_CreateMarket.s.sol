@@ -40,6 +40,7 @@ contract CreateMarket is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         address launchpadAddr = vm.envAddress("LAUNCHPAD_ENGINE");
+        address protocolConfig = vm.envAddress("PROTOCOL_CONFIG");
 
         console.log("========================================");
         console.log("  STEP 2: CREATE MARKET");
@@ -72,8 +73,10 @@ contract CreateMarket is Script {
             startTime,
             deadline,
             deployer,
-            deployer,
-            INITIAL_LIQUIDITY
+            protocolConfig,
+            INITIAL_LIQUIDITY,
+            0,
+            0
         );
         console.log("[1/1] Market created:", market);
         console.log("      LP tokens received:", lpTokens);

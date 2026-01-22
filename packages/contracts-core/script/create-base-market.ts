@@ -3,6 +3,7 @@
 import {
   createWalletClient,
   createPublicClient,
+  decodeEventLog,
   http,
   parseEther,
   type Address,
@@ -67,18 +68,6 @@ const walletClient = createWalletClient({
   transport: http('https://sepolia.base.org'),
 });
 
-const TRUTH_MARKET_BYTECODE = await (async () => {
-  const artifactPath = path.join(__dirname, '../out/TruthMarket.sol/TruthMarket.json');
-  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'));
-  return artifact.bytecode.object;
-})();
-
-const TRUTH_MARKET_ABI = await (async () => {
-  const artifactPath = path.join(__dirname, '../out/TruthMarket.sol/TruthMarket.json');
-  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'));
-  return artifact.abi;
-})();
-
 async function main() {
   console.log('╔════════════════════════════════════════════════╗');
   console.log('║  Create Market on Base Sepolia (V10.7)        ║');
@@ -93,31 +82,7 @@ async function main() {
   console.log(`Deadline: ${new Date(Number(DEADLINE) * 1000).toISOString()}`);
   console.log(`Initial Liquidity: 100 WAD\n`);
 
-  console.log('1️⃣  Deploying TruthMarket contract...');
-  const truthMarketHash = await walletClient.deployContract({
-    abi: TRUTH_MARKET_ABI,
-    bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
-    args: [
-      QUESTION,
-      DEADLINE,
-      account.address,
-      account.address,
-    ],
-  });
-
-  const truthMarketReceipt = await publicClient.waitForTransactionReceipt({ 
-    hash: truthMarketHash 
-  });
-
-  const truthMarket = truthMarketReceipt.contractAddress;
-  if (!truthMarket) {
-    throw new Error('Failed to deploy TruthMarket');
-  }
-
-  console.log(`   ✅ TruthMarket deployed: ${truthMarket}`);
-  console.log(`   📝 Tx: ${truthMarketHash}\n`);
-
-  console.log('2️⃣  Minting USDC...');
+  console.log('1️⃣  Minting USDC...');
   const mintHash = await walletClient.writeContract({
     address: CONTRACTS.usdc,
     abi: [
@@ -135,7 +100,7 @@ async function main() {
   await publicClient.waitForTransactionReceipt({ hash: mintHash });
   console.log(`   ✅ Minted 1,000,000 USDC\n`);
 
-  console.log('3️⃣  Approving Vault...');
+  console.log('2️⃣  Approving Vault...');
   const approveHash = await walletClient.writeContract({
     address: CONTRACTS.usdc,
     abi: [
@@ -153,7 +118,7 @@ async function main() {
   await publicClient.waitForTransactionReceipt({ hash: approveHash });
   console.log(`   ✅ Vault approved\n`);
 
-  console.log('4️⃣  Depositing to Vault...');
+  console.log('3️⃣  Depositing to Vault...');
   const depositHash = await walletClient.writeContract({
     address: CONTRACTS.vault,
     abi: [
@@ -171,31 +136,95 @@ async function main() {
   await publicClient.waitForTransactionReceipt({ hash: depositHash });
   console.log(`   ✅ Deposited 10,000 USDC\n`);
 
-  console.log('5️⃣  Creating market in LaunchpadEngine...');
-  const createMarketHash = await walletClient.writeContract({
+  console.log('4️⃣  Creating market in LaunchpadEngine...');
+  const launchpadAbi = [
+    {
+      inputs: [],
+      name: 'protocolConfig',
+      outputs: [{ name: '', type: 'address' }],
+      stateMutability: 'view',
+      type: 'function',
+    },
+    {
+      inputs: [
+        { name: 'question', type: 'string' },
+        { name: 'startTime', type: 'uint64' },
+        { name: 'deadline', type: 'uint64' },
+        { name: 'adjudicator', type: 'address' },
+        { name: 'guardian', type: 'address' },
+        { name: 'initialLiquidity', type: 'uint256' },
+        { name: 'adjudicatorAgentId', type: 'uint256' },
+        { name: 'adjudicatorMinValidators', type: 'uint256' },
+      ],
+      name: 'createMarket',
+      outputs: [
+        { name: 'market', type: 'address' },
+        { name: 'lpTokens', type: 'uint256' },
+      ],
+      stateMutability: 'nonpayable',
+      type: 'function',
+    },
+    {
+      anonymous: false,
+      inputs: [
+        { indexed: true, name: 'market', type: 'address' },
+        { indexed: true, name: 'creator', type: 'address' },
+        { indexed: false, name: 'initialLiquidity', type: 'uint256' },
+        { indexed: false, name: 'deposit', type: 'uint256' },
+        { indexed: false, name: 'lpTokens', type: 'uint256' },
+      ],
+      name: 'MarketCreated',
+      type: 'event',
+    },
+  ] as const;
+
+  const protocolConfig = await publicClient.readContract({
     address: CONTRACTS.launchpad,
-    abi: [
-      {
-        inputs: [
-          { name: 'market', type: 'address' },
-          { name: 'initialLiquidity', type: 'uint256' },
-          { name: 'name', type: 'string' },
-          { name: 'symbol', type: 'string' },
-        ],
-        name: 'createMarket',
-        outputs: [{ name: 'lpTokens', type: 'uint256' }],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-    ],
-    functionName: 'createMarket',
-    args: [truthMarket, INITIAL_LIQUIDITY, 'BTC100K', 'BTC100K-YES/NO'],
+    abi: launchpadAbi,
+    functionName: 'protocolConfig',
   });
 
-  await publicClient.waitForTransactionReceipt({ hash: createMarketHash });
-  console.log(`   ✅ Market created in LaunchpadEngine\n`);
+  const createMarketHash = await walletClient.writeContract({
+    address: CONTRACTS.launchpad,
+    abi: launchpadAbi,
+    functionName: 'createMarket',
+    args: [
+      QUESTION,
+      0n,
+      DEADLINE,
+      account.address,
+      protocolConfig as Address,
+      INITIAL_LIQUIDITY,
+      0n,
+      0n,
+    ],
+  });
 
-  console.log('6️⃣  Registering market in PoolManager...');
+  const createReceipt = await publicClient.waitForTransactionReceipt({ hash: createMarketHash });
+  let marketAddress: Address | undefined;
+  for (const log of createReceipt.logs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: launchpadAbi,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName === 'MarketCreated') {
+        marketAddress = decoded.args.market as Address;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (!marketAddress) {
+    throw new Error('MarketCreated event not found');
+  }
+
+  console.log(`   ✅ Market created: ${marketAddress}\n`);
+
+  console.log('5️⃣  Registering market in PoolManager...');
   const registerHash = await walletClient.writeContract({
     address: CONTRACTS.poolManager,
     abi: [
@@ -208,13 +237,13 @@ async function main() {
       },
     ],
     functionName: 'registerMarket',
-    args: [truthMarket],
+    args: [marketAddress],
   });
 
   await publicClient.waitForTransactionReceipt({ hash: registerHash });
   console.log(`   ✅ Market registered in PoolManager\n`);
 
-  console.log('7️⃣  Getting market key...');
+  console.log('6️⃣  Getting market key...');
   const marketKey = await publicClient.readContract({
     address: CONTRACTS.poolManager,
     abi: [
@@ -227,7 +256,7 @@ async function main() {
       },
     ],
     functionName: 'getMarketKey',
-    args: [truthMarket],
+    args: [marketAddress],
   });
 
   console.log(`   🔑 Market Key: ${marketKey}\n`);
@@ -237,7 +266,7 @@ async function main() {
   console.log('╚════════════════════════════════════════════════╝\n');
 
   console.log(`Question:      ${QUESTION}`);
-  console.log(`TruthMarket:   ${truthMarket}`);
+  console.log(`TruthMarket:   ${marketAddress}`);
   console.log(`Market Key:    ${marketKey}`);
   console.log(`Chain:         Base Sepolia (84532)`);
   console.log(`\nIndexer should pick this up automatically! 🎉`);

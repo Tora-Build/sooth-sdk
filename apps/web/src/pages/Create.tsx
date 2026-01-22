@@ -307,6 +307,12 @@ export const Create = () => {
   // Create market
   const { writeContract: writeCreate, data: createTxHash } = useWriteContract();
   const { isSuccess: isCreateConfirmed, data: createReceipt } = useWaitForTransactionReceipt({ hash: createTxHash });
+  const { data: protocolConfig } = useReadContract({
+    address: launchpadEngineAddress,
+    abi: ABIS.LaunchpadEngine,
+    functionName: 'protocolConfig',
+    query: { enabled: !!launchpadEngineAddress }
+  });
 
   // Calculate deposit based on liquidity (b)
   const depositAmount = Math.floor((parseInt(wizardData.liquidity, 10) || 0) * 0.693);
@@ -346,15 +352,20 @@ export const Create = () => {
 
       const deadline = Math.floor(new Date(wizardData.deadline).getTime() / 1000);
       const adjudicatorAddr = (wizardData.adjudicator || userAddress!) as `0x${string}`;
-      const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
-      const symbol = wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const guardianAddr = protocolConfig as `0x${string}` | undefined;
+      if (!guardianAddr) {
+        toast.error('ProtocolConfig not configured');
+        setDeploymentStep('error');
+        setIsDeploying(false);
+        return;
+      }
 
       const liquidityWei = BigInt(wizardData.liquidity) * 10n ** 18n;
       writeCreate({
         address: launchpadEngineAddress,
         abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
-        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei],
+        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, 0n, 0n],
       });
 
     } catch (err: any) {
@@ -363,7 +374,7 @@ export const Create = () => {
       setDeploymentStep('error');
       setIsDeploying(false);
     }
-  }, [wizardData, launchpadEngineAddress, usdcAddress, userAddress, isApproved, isDepositValid, writeApprove, writeCreate]);
+  }, [wizardData, launchpadEngineAddress, protocolConfig, usdcAddress, userAddress, isApproved, isDepositValid, writeApprove, writeCreate]);
 
   // Continue deployment after approval
   const handleContinueAfterApproval = useCallback(async () => {
@@ -898,4 +909,3 @@ export const Create = () => {
 };
 
 export default Create;
-

@@ -24,6 +24,7 @@ contract InitializeAMMDirect is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        address protocolConfig = vm.envAddress("PROTOCOL_CONFIG");
         LaunchpadEngine launchpad = LaunchpadEngine(LAUNCHPAD);
         IERC20(USDC).approve(address(launchpad), type(uint256).max);
 
@@ -35,8 +36,10 @@ contract InitializeAMMDirect is Script {
             startTime,
             uint64(block.timestamp + 365 days),
             deployer,
-            deployer,
-            liquidity
+            protocolConfig,
+            liquidity,
+            0,
+            0
         ) returns (address market, uint256 lpTokens) {
             console.log("[1/2] ALIEN created:", market);
             console.log("      LP:", lpTokens);
@@ -51,8 +54,10 @@ contract InitializeAMMDirect is Script {
             startTime,
             uint64(block.timestamp + 180 days),
             deployer,
-            deployer,
-            liquidity
+            protocolConfig,
+            liquidity,
+            0,
+            0
         ) returns (address market, uint256 lpTokens) {
             console.log("[2/2] BTC100K created:", market);
             console.log("      LP:", lpTokens);

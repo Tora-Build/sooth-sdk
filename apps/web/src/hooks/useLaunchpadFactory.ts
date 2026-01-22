@@ -40,21 +40,39 @@ export function useLaunchpadFactory() {
         }
     }, [receipt]);
 
+    const { data: protocolConfig } = useReadContract({
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'protocolConfig',
+        query: { enabled: !!launchpadEngineAddress },
+    });
+
     const createMarket = (
         question: string,
         startTime: bigint,
         deadline: bigint,
         initialLiquidity: bigint,
         adjudicator: `0x${string}`,
-        guardian: `0x${string}`
+        adjudicatorAgentId: bigint = 0n,
+        adjudicatorMinValidators: bigint = 0n
     ) => {
         if (!launchpadEngineAddress) throw new Error("LaunchpadEngine not configured");
+        if (!protocolConfig) throw new Error("ProtocolConfig not configured");
 
         writeContract({
             address: launchpadEngineAddress,
             abi: ABIS.LaunchpadEngine,
             functionName: 'createMarket',
-            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity],
+            args: [
+                question,
+                startTime,
+                deadline,
+                adjudicator,
+                protocolConfig as `0x${string}`,
+                initialLiquidity,
+                adjudicatorAgentId,
+                adjudicatorMinValidators,
+            ],
         });
     };
 

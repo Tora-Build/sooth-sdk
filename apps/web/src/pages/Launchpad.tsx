@@ -138,6 +138,12 @@ export const Launchpad = () => {
 
     const launchpadEngineAddress = deployments?.contracts['LaunchpadEngine'] as Address;
     const usdcAddress = deployments?.contracts['MockUSDC'] as Address;
+    const { data: protocolConfig } = useReadContract({
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'protocolConfig',
+        query: { enabled: !!launchpadEngineAddress }
+    });
 
     const { data: usdcDecimals } = useReadContract({
         address: usdcAddress,
@@ -195,8 +201,8 @@ export const Launchpad = () => {
             toast.error('Invalid Adjudicator address');
             return false;
         }
-        if (!customGuardian.startsWith('0x') || customGuardian.length !== 42) {
-            toast.error('Invalid Guardian address');
+        if (!protocolConfig) {
+            toast.error('ProtocolConfig not configured');
             return false;
         }
         if (depositAmount < 10) {
@@ -251,8 +257,10 @@ export const Launchpad = () => {
                     0n,
                     BigInt(deadline),
                     customAdjudicator as Address,
-                    customGuardian as Address,
+                    protocolConfig as Address,
                     bWei,
+                    0n,
+                    0n,
                 ],
                 // For Monad/MegaETH market creation, 30M is a safe upper bound.
                 // This covers complex contract initialization which can sometimes fail with default estimation.
