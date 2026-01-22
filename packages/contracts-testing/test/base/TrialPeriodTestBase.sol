@@ -126,6 +126,10 @@ abstract contract TrialPeriodTestBase is Test {
         // Set launchpad as AMM router
         ammEngine.setRouter(address(launchpad));
 
+        address[] memory guardiansToAdd = new address[](1);
+        guardiansToAdd[0] = guardian;
+        protocolConfig.setGuardians(guardiansToAdd, new address[](0));
+
     }
 
     function _fundActors() internal {

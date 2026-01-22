@@ -259,7 +259,7 @@ contract SettlementFlowTest is TrialPeriodTestBase {
         validatedAdjudicator.settle(testMarket, 1, 0, attestationHash);
 
         // Finalize
-        vm.prank(adjudicator);
+        vm.prank(address(validatedAdjudicator));
         TruthMarket(testMarket).finalize();
 
         // Veto should fail
@@ -276,7 +276,7 @@ contract SettlementFlowTest is TrialPeriodTestBase {
         validationRegistry.setAttestation(attestationHash, validator, teeAgentId, 100, block.timestamp);
         validatedAdjudicator.settle(testMarket, 1, 0, attestationHash);
 
-        vm.prank(adjudicator);
+        vm.prank(address(validatedAdjudicator));
         TruthMarket(testMarket).finalize();
 
         assertTrue(TruthMarket(testMarket).isFinalized(), "Should be finalized");
