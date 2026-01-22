@@ -64,9 +64,8 @@ const VAULT_ABI = parseAbi([
 ]);
 
 const LAUNCHPAD_ABI = parseAbi([
-  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, string symbol) external returns (address market, uint256 lpTokens)',
-  'function getMarketKey(address truthMarket) external view returns (bytes32)',
-  'function graduate(bytes32 marketKey) external',
+  'function protocolConfig() external view returns (address)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, uint256 adjudicatorAgentId, uint256 adjudicatorMinValidators) external returns (address market, uint256 lpTokens)',
   'event MarketCreated(address indexed market, address indexed creator, uint256 initialLiquidity, uint256 deposit, uint256 lpTokens)',
 ]);
 
@@ -168,11 +167,17 @@ async function createAlienMarket(chainKey: string) {
   const startTime = BigInt(Math.floor(Date.now() / 1000));
   const deadline = startTime + BigInt(365 * 24 * 60 * 60);
 
+  const protocolConfig = await publicClient.readContract({
+    address: config.contracts.launchpad,
+    abi: LAUNCHPAD_ABI,
+    functionName: 'protocolConfig',
+  }) as `0x${string}`;
+
   const createMarketHash = await walletClient.writeContract({
     address: config.contracts.launchpad,
     abi: LAUNCHPAD_ABI,
     functionName: 'createMarket',
-    args: [MARKET_QUESTION, startTime, deadline, account.address, account.address, INITIAL_LIQUIDITY, 'ALIEN'],
+    args: [MARKET_QUESTION, startTime, deadline, account.address, protocolConfig, INITIAL_LIQUIDITY, 0n, 0n],
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: createMarketHash });
   console.log(`   ✅ Market created - tx: ${createMarketHash}`);
@@ -199,28 +204,8 @@ async function createAlienMarket(chainKey: string) {
   }
   console.log(`   📍 TruthMarket: ${truthMarketAddress}`);
 
-  console.log(`6️⃣  Getting market key...`);
-  const marketKey = await publicClient.readContract({
-    address: config.contracts.launchpad,
-    abi: LAUNCHPAD_ABI,
-    functionName: 'getMarketKey',
-    args: [truthMarketAddress],
-  });
-  console.log(`   🔑 Market key: ${marketKey}`);
-
-  console.log(`7️⃣  Graduating market...`);
-  const graduateHash = await walletClient.writeContract({
-    address: config.contracts.launchpad,
-    abi: LAUNCHPAD_ABI,
-    functionName: 'graduate',
-    args: [marketKey],
-  });
-  await publicClient.waitForTransactionReceipt({ hash: graduateHash });
-  console.log(`   ✅ Graduated - tx: ${graduateHash}`);
-
   console.log(`\n✨ ${config.name} alien market complete!`);
   console.log(`   Question: ${MARKET_QUESTION}`);
-  console.log(`   Market Key: ${marketKey}`);
   console.log(`   TruthMarket: ${truthMarketAddress}`);
 }
 

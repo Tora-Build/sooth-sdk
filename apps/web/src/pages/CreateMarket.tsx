@@ -66,7 +66,8 @@ export const CreateMarket = () => {
       BigInt(deadline),
       liquidityB,
       userAddress,
-      userAddress
+      0n,
+      0n
     );
   };
 

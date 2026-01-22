@@ -57,6 +57,13 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         query: { enabled: !!userAddress && !!usdcAddress }
     });
 
+    const { data: protocolConfig } = useReadContract({
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'protocolConfig',
+        query: { enabled: !!launchpadEngineAddress },
+    });
+
     // Market reads (lightweight mapping state + graduation)
     const readMarket = useReadContracts({
         contracts: [
@@ -159,17 +166,27 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         startTime: bigint,
         deadline: bigint,
         adjudicator: `0x${string}`,
-        guardian: `0x${string}`,
-        initialLiquidity: bigint
+        initialLiquidity: bigint,
+        adjudicatorAgentId: bigint = 0n,
+        adjudicatorMinValidators: bigint = 0n
     ) => {
-        if (!launchpadEngineAddress) return;
+        if (!launchpadEngineAddress || !protocolConfig) return;
         writeContract({
             address: launchpadEngineAddress,
             abi: ABIS.LaunchpadEngine,
             functionName: "createMarket",
-            args: [question, startTime, deadline, adjudicator, guardian, initialLiquidity],
+            args: [
+                question,
+                startTime,
+                deadline,
+                adjudicator,
+                protocolConfig as `0x${string}`,
+                initialLiquidity,
+                adjudicatorAgentId,
+                adjudicatorMinValidators,
+            ],
         });
-    }, [launchpadEngineAddress, writeContract]);
+    }, [launchpadEngineAddress, protocolConfig, writeContract]);
 
     const approveUSDC = useCallback(() => {
         if (!usdcAddress || !launchpadEngineAddress) return;

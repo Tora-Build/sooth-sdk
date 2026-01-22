@@ -58,6 +58,16 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **ProtocolConfig**: New protocol-level guardian list + global pause contract; Launchpad/AMM/TickBook/Vault read pause state.
+- **V11 Validation Script**: `validate-spot-crossing.ts` ported to V11 (launchpad create → graduation → TickBook orderbook).
+
+### Changed
+- **Launchpad createMarket**: New signature adds `adjudicatorAgentId`/`adjudicatorMinValidators`; guardian must equal protocol config.
+- **TruthMarket finalize**: Adjudicator-only finalize; guardian keeps veto only.
+- **Adjudicator auto-register**: `ValidatedAdjudicator.registerMarket` is permissionless and auto-called at market creation with per-market config.
+- **Frontend + scripts**: Create-market flows and scripts updated to read `protocolConfig()` and pass new args.
+
 ### V11 Architecture Decisions (2026-01-21)
 
 **ADR-082: Adjudicator Trust & Guardian Role**
@@ -66,7 +76,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 - Protocol-level guardian (role list), not per-market selection
 - Global pause delegated to guardians; owner retains emergency override
 - Finalize = adjudicator-only; guardians cannot finalize
-- Retroactive settlement (tStar) applied at finalize, not settle
+- Retroactive settlement (tStar) deferred; finalize is the future hook
 - `ValidatedAdjudicator.registerMarket` auto-called by Launchpad during market creation
 
 **ADR-083: Canonical Filenames**
@@ -78,7 +88,7 @@ All notable changes to Sooth Protocol will be documented in this file.
 - Planning complete: 8 actors (Creator, AMM Trader, TickBook Trader, Adjudicator, Guardian, Keeper, Arbitrager, Protocol Owner)
 - Action Purpose table with 30+ functions and recommendations
 - Proposed: `claimSpotSellProceedsFor` for keeper parity
-- Proposed: `ProtocolConfig` contract for guardian role list + global pause
+- Added: `ProtocolConfig` contract for guardian role list + global pause
 
 ---
 

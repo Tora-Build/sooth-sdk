@@ -14,12 +14,13 @@
   3. Remove per-market guardian selection; guardian is a protocol-level role list (EOA/multisig), not creator-controlled.
   4. Global pause authority is delegated to guardians; protocol owner retains emergency override.
   5. Finalization is adjudicator-only; guardians do not finalize.
-  6. Retroactive settlement (tStar) is applied at finalize; settle records outcome/tStar, finalize triggers any retroactive adjustments.
+  6. Retroactive settlement (tStar) is deferred; `settle()` records outcome/tStar and `finalize()` is the future hook for retroactive adjustments.
   7. `ValidatedAdjudicator.registerMarket` should be auto-called during market creation with per-market config (Launchpad-only), so no deployer ops are required.
 - **Consequences**:
-  - UI/indexers can display registry trust without constraining creation.
-  - Guardian/veto/finalize authority is consistent across all markets in a protocol instance.
-  - Daily operations move to guardians; owner acts only in emergencies.
+- UI/indexers can display registry trust without constraining creation.
+- Guardian/veto/finalize authority is consistent across all markets in a protocol instance.
+- Daily operations move to guardians; owner acts only in emergencies.
+- Retroactive settlement remains doc-only; finalize is the planned integration point.
 
 ## ADR-083: Canonical Filenames (Remove Versioned Code Paths)
 - **Date**: 2026-01-21
@@ -31,6 +32,7 @@
   1. Rename versioned contract files to canonical names (e.g., `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`).
   2. Move tests from `test/v11/` into feature-based, non-versioned paths and rename files to canonical names.
   3. Preserve history via Git; avoid parallel versioned copies in active code.
+  4. All new V11 changes must land in canonical filenames; any remaining `*V11*` files are migration debt to remove before release.
 - **Consequences**:
   - Imports, deploy scripts, and tests must be updated to the canonical paths.
   - Legacy behavior should be tracked in Git history or archived in a `legacy/` folder if needed.

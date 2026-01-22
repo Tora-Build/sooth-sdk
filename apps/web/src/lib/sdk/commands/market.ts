@@ -120,11 +120,17 @@ export async function createmarket(
       ? BigInt('7258118399')
       : BigInt(Math.floor(new Date(template.deadline + 'T23:59:59Z').getTime() / 1000));
 
+    const protocolConfig = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'protocolConfig',
+    }) as `0x${string}`;
+
     const createHash = await config.walletClient.writeContract({
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, address, address, liquidityWad],
+      args: [template.question, startTime, deadline, address, protocolConfig, liquidityWad, 0n, 0n],
     });
 
     const createReceipt = await config.publicClient.waitForTransactionReceipt({ hash: createHash });
