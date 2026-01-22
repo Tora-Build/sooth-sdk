@@ -274,6 +274,39 @@ contract SpotSellTickSpaceTest is Test {
     }
 
     /**
+     * @notice Regression: multiple spot sells at the same ticks should not revert while crossing
+     */
+    function test_MultipleSpotSellsSameTick_NoRevert() public {
+        // Fund Alice with more NO for two overlapping spot sells
+        vm.prank(address(poolManager));
+        vault.creditOutcome(address(market), alice, 0, 500e18);
+
+        vm.startPrank(alice);
+        uint256 sellId1 = poolManager.placeSpotSell(marketKey, 0, 100e18, 150, 160);
+        uint256 sellId2 = poolManager.placeSpotSell(marketKey, 0, 100e18, 150, 160);
+        vm.stopPrank();
+
+        // Single order crosses both spot sells in one transaction
+        vm.prank(bob);
+        (, uint256 filledShares, , ) = poolManager.placeOrder(
+            marketKey,
+            0,          // NO
+            300e18,     // shares
+            1,          // tickLower
+            500,        // tickUpper
+            50_000e18   // maxCost
+        );
+
+        assertGt(filledShares, 0, "Should cross overlapping spot sells");
+
+        TickBookPoolManager.SpotSellOrder memory spot1 = poolManager.getSpotSellOrder(marketKey, sellId1);
+        TickBookPoolManager.SpotSellOrder memory spot2 = poolManager.getSpotSellOrder(marketKey, sellId2);
+
+        assertGt(spot1.sharesFilled, 0, "Spot sell 1 should be filled");
+        assertGt(spot2.sharesFilled, 0, "Spot sell 2 should be filled");
+    }
+
+    /**
      * @notice Fuzz test: NO spot sell at any tick within buyer's range should cross
      */
     function testFuzz_NOSpotSell_WithinRange_AlwaysCrosses(
