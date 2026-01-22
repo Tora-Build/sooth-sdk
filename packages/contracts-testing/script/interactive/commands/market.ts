@@ -47,7 +47,7 @@ const CollateralizerAbi = parseAbi([
 const LaunchpadEngineAbi = parseAbi([
   'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, uint256 adjudicatorAgentId, uint256 adjudicatorMinValidators) external returns (address market, uint256 lpTokens)',
   'function protocolConfig() view returns (address)',
-  'function markets(address) view returns (address creator, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
+  'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
   'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
   'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
   'function preGradFeeBps() view returns (uint16)',
@@ -300,8 +300,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     abi: LaunchpadEngineAbi,
     functionName: 'markets',
     args: [marketAddress],
-  }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
-  const isGraduated = marketState[7];
+  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+  const isGraduated = marketState[8];
 
   // percentComplete is in basis points (10000 = 100%)
   const progressPct = Number(percentComplete) / 100;
@@ -661,14 +661,15 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
     if (initialized) {
       console.log(`  Initialized: ${success('YES')}`);
       console.log(`  Creator:     ${shortAddress(marketState[0])}`);
-      console.log(`  bBase:       ${formatWad(marketState[1])}`);
-      console.log(`  bCurrent:    ${formatWad(marketState[2])}`);
-      console.log(`  Deposit:     ${(Number(marketState[3]) / 1e6).toFixed(2)} USDC`);
-      console.log(`  Fees:        ${formatWad(marketState[4])} USDC`);
-      console.log(`  LP Supply:   ${formatWad(marketState[5])}`);
-      console.log(`  Graduated:   ${marketState[7] ? success('YES') : warn('NO')}`);
+      console.log(`  LP Token:    ${shortAddress(marketState[1])}`);
+      console.log(`  bBase:       ${formatWad(marketState[2])}`);
+      console.log(`  bCurrent:    ${formatWad(marketState[3])}`);
+      console.log(`  Deposit:     ${(Number(marketState[4]) / 1e6).toFixed(2)} USDC`);
+      console.log(`  Fees:        ${formatWad(marketState[5])} USDC`);
+      console.log(`  LP Supply:   ${formatWad(marketState[6])}`);
+      console.log(`  Graduated:   ${marketState[8] ? success('YES') : warn('NO')}`);
 
-      if (!marketState[7]) {
+      if (!marketState[8]) {
         const [feesAccrued, threshold, percent] = await publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,

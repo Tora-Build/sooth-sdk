@@ -29,7 +29,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         // 4. Verify creator's deposit (LP tokens still exist but no redemption in this flow)
         // The creator's initial deposit is in the AMM, which would need separate handling
         // This test verifies the trial flow works
-        (, bool isDismissed, , ) = launchpad.getTrialStatus(market);
+        (, bool isDismissed, , ) = _getTrialStatus(market);
         assertTrue(isDismissed, "Market should be dismissed");
     }
 
@@ -41,8 +41,8 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         _buyShares(alice, market, 1, 100e18);
         _buyShares(bob, market, 0, 50e18);
 
-        (uint256 aliceLockedCost, , ) = launchpad.getExitOptions(market, alice);
-        (uint256 bobLockedCost, , ) = launchpad.getExitOptions(market, bob);
+        (uint256 aliceLockedCost, , ) = _getExitOptions(market, alice);
+        (uint256 bobLockedCost, , ) = _getExitOptions(market, bob);
 
         assertGt(aliceLockedCost, 0, "Alice should have locked cost");
         assertGt(bobLockedCost, 0, "Bob should have locked cost");
@@ -64,8 +64,8 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         assertGt(usdc.balanceOf(bob), bobBalanceBefore, "Bob should receive refund");
 
         // 5. Verify no more claims available
-        (, , bool aliceCanClaim) = launchpad.getExitOptions(market, alice);
-        (, , bool bobCanClaim) = launchpad.getExitOptions(market, bob);
+        (, , bool aliceCanClaim) = _getExitOptions(market, alice);
+        (, , bool bobCanClaim) = _getExitOptions(market, bob);
 
         assertFalse(aliceCanClaim, "Alice cannot claim again");
         assertFalse(bobCanClaim, "Bob cannot claim again");
@@ -77,7 +77,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
 
         // 2. Trade during trial (LP tokens minted)
         _buyShares(alice, market, 1, 100e18);
-        uint256 aliceLPAfterTrade = launchpad.getLPBalance(market, alice);
+        uint256 aliceLPAfterTrade = _getLPBalance(market, alice);
         assertGt(aliceLPAfterTrade, 0, "Alice should have LP tokens from trade");
 
         // 3. Dismiss market
@@ -90,7 +90,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         launchpad.tradePositions(market, 1, 50e18, type(uint256).max);
 
         // LP tokens remain but market is frozen
-        uint256 aliceLPFinal = launchpad.getLPBalance(market, alice);
+        uint256 aliceLPFinal = _getLPBalance(market, alice);
         assertEq(aliceLPFinal, aliceLPAfterTrade, "LP balance unchanged");
     }
 
@@ -109,7 +109,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         _advanceTime(8 days);
 
         // 4. Verify trial ended but market is NOT dismissed
-        (, , , bool isTrialActive) = launchpad.getTrialStatus(market);
+        (, , , bool isTrialActive) = _getTrialStatus(market);
         assertFalse(isTrialActive, "Trial should have ended");
 
         // 5. Trading continues (market not dismissed)
@@ -117,7 +117,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         _buyShares(bob, market, 0, 30e18);
 
         // 6. No refund available (market not dismissed)
-        (, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        (, , bool canClaim) = _getExitOptions(market, alice);
         assertFalse(canClaim, "Cannot claim if not dismissed");
     }
 
@@ -145,7 +145,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         launchpad.dismissMarket(market);
 
         // Alice never traded, no refund
-        (, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        (, , bool canClaim) = _getExitOptions(market, alice);
         assertFalse(canClaim, "No refund without trading");
     }
 
@@ -166,7 +166,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         launchpad.dismissMarket(market);
 
         // Alice can still claim
-        (uint256 lockedCost, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , bool canClaim) = _getExitOptions(market, alice);
         assertTrue(canClaim, "Should be able to claim");
         assertGt(lockedCost, 0, "Should have locked cost");
     }

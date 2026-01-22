@@ -12,6 +12,7 @@ export interface OnChainMarket {
   name: string;
   symbol: string;
   creator: Address;
+  lpToken: Address;
   isGraduated: boolean;
   createdAt: bigint;
   bBase: bigint;
@@ -68,6 +69,7 @@ export function useOnChainMarkets() {
               const marketsMapping = await readContractSafe<
                 readonly [
                   Address, // creator
+                  Address, // lpToken
                   bigint,  // bBase
                   bigint,  // bCurrent
                   bigint,  // creatorDeposit
@@ -76,7 +78,7 @@ export function useOnChainMarkets() {
                   bigint,  // lpYieldPool
                   boolean, // isGraduated
                   bigint,  // createdAt (uint64)
-                  bigint,  // graduatedAt (uint64)
+                  bigint   // graduatedAt (uint64)
                 ]
               >(client, {
                 address: launchpadEngineAddress!,
@@ -89,6 +91,7 @@ export function useOnChainMarkets() {
 
               const [
                 creator,
+                lpToken,
                 bBase,
                 bCurrent,
                 _creatorDeposit,
@@ -97,6 +100,7 @@ export function useOnChainMarkets() {
                 _lpYieldPool,
                 isGraduated,
                 createdAt,
+                _graduatedAt
               ] = marketsMapping;
 
               const symbol = marketAddress.slice(2, 10).toUpperCase();
@@ -116,6 +120,7 @@ export function useOnChainMarkets() {
                 name: question,
                 symbol,
                 creator,
+                lpToken,
                 isGraduated,
                 createdAt,
                 bBase,

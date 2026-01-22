@@ -19,7 +19,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_CreateMarket_SetsTrialPeriodStart() public {
         address market = _createMarket();
 
-        (uint64 trialEndTime, , , bool isTrialActive) = launchpad.getTrialStatus(market);
+        (uint64 trialEndTime, , , bool isTrialActive) = _getTrialStatus(market);
 
         assertEq(trialEndTime, uint64(block.timestamp) + 7 days, "Trial end time incorrect");
         assertTrue(isTrialActive, "Trial should be active");
@@ -28,7 +28,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_CreateMarket_InitializesLockedCostToZero() public {
         address market = _createMarket();
 
-        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , ) = _getExitOptions(market, alice);
 
         assertEq(lockedCost, 0, "Locked cost should be zero initially");
     }
@@ -36,7 +36,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_CreateMarket_InitializesTrialBalanceToZero() public {
         address market = _createMarket();
 
-        (, int256 trialBalance, ) = launchpad.getExitOptions(market, alice);
+        (, int256 trialBalance, ) = _getExitOptions(market, alice);
 
         assertEq(trialBalance, 0, "Trial balance should be zero initially");
     }
@@ -62,30 +62,17 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_CreateMarket_DeploysERC20LPToken() public {
         address market = _createMarket();
 
-        address lpToken = launchpad.getLPToken(market);
+        address lpToken = _getLPToken(market);
 
         assertTrue(lpToken != address(0), "LP token should be deployed");
         assertEq(LaunchpadLPToken(lpToken).market(), market, "LP token market mismatch");
     }
 
-    function test_CreateMarketWithOptions_CustomTrialPeriod() public {
-        vm.prank(creator);
-        (address market, ) = launchpad.createMarketWithOptions(
-            "Test",
-            0,
-            uint64(block.timestamp + 30 days),
-            adjudicator,
-            address(protocolConfig),
-            100e18,
-            1 days, // 1 day trial
-            false,
-            0,
-            0,
-            0
-        );
+    function test_CreateMarket_DefaultTrialPeriod() public {
+        address market = _createMarket();
 
-        (uint64 trialEndTime, , , ) = launchpad.getTrialStatus(market);
-        assertEq(trialEndTime, uint64(block.timestamp) + 1 days, "Custom trial period not set");
+        (uint64 trialEndTime, , , ) = _getTrialStatus(market);
+        assertEq(trialEndTime, uint64(block.timestamp) + 7 days, "Default trial period not set");
     }
 
     // ============================================
@@ -97,7 +84,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, 100e18); // Buy YES
 
-        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , ) = _getExitOptions(market, alice);
 
         assertGt(lockedCost, 0, "Locked cost should increase on buy");
     }
@@ -107,7 +94,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, 100e18); // Buy YES
 
-        (, int256 trialBalance, ) = launchpad.getExitOptions(market, alice);
+        (, int256 trialBalance, ) = _getExitOptions(market, alice);
 
         assertLt(trialBalance, 0, "Trial balance should be negative after buy");
     }
@@ -115,9 +102,9 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_TradePositions_BuyIncreasesLockedCost() public {
         address market = _createMarket();
 
-        (uint256 lockedBefore, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedBefore, , ) = _getExitOptions(market, alice);
         _buyShares(alice, market, 1, 50e18);
-        (uint256 lockedAfter, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedAfter, , ) = _getExitOptions(market, alice);
 
         assertGt(lockedAfter, lockedBefore, "Locked cost should increase");
     }
@@ -131,9 +118,9 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         // Set position in mock so Alice can sell
         ammEngine.setPosition(market, alice, 100e18, 0);
 
-        (, int256 balanceBefore, ) = launchpad.getExitOptions(market, alice);
+        (, int256 balanceBefore, ) = _getExitOptions(market, alice);
         _sellShares(alice, market, 1, 50e18);
-        (, int256 balanceAfter, ) = launchpad.getExitOptions(market, alice);
+        (, int256 balanceAfter, ) = _getExitOptions(market, alice);
 
         assertGt(balanceAfter, balanceBefore, "Trial balance should improve after sell");
     }
@@ -157,7 +144,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, shares);
 
-        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , ) = _getExitOptions(market, alice);
 
         assertGe(lockedCost, 0, "Locked cost should never be negative");
     }
@@ -202,7 +189,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
-        (, bool isDismissed, , ) = launchpad.getTrialStatus(market);
+        (, bool isDismissed, , ) = _getTrialStatus(market);
         assertTrue(isDismissed, "Market should be dismissed");
     }
 
@@ -237,7 +224,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         // Alice trades during trial
         _buyShares(alice, market, 1, 100e18);
 
-        (uint256 lockedCost, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , ) = _getExitOptions(market, alice);
         assertGt(lockedCost, 0, "Alice should have locked cost");
 
         // Creator dismisses
@@ -282,7 +269,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         address market = _createMarket();
         _buyShares(alice, market, 1, 100e18);
 
-        (uint256 expectedRefund, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 expectedRefund, , ) = _getExitOptions(market, alice);
 
         vm.prank(creator);
         launchpad.dismissMarket(market);
@@ -304,7 +291,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         vm.prank(alice);
         launchpad.claimRefund(market);
 
-        (uint256 lockedCost, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedCost, , bool canClaim) = _getExitOptions(market, alice);
         assertEq(lockedCost, 0, "Locked cost should be reset");
         assertFalse(canClaim, "Should not be able to claim again");
     }
@@ -336,37 +323,6 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     }
 
     // ============================================
-    // Agent Trading Tests
-    // ============================================
-
-    function test_TradeWithAgent_ActsLikeStandardTrade() public {
-        address market = _createMarket();
-
-        vm.prank(alice);
-        uint256 cost = launchpad.tradeWithAgent(market, 1, 100e18, type(uint256).max, 123);
-
-        assertGt(cost, 0, "Trade should have cost");
-    }
-
-    function test_CreateMarketWithOptions_RevertsIfAgentGated() public {
-        vm.prank(creator);
-        vm.expectRevert("LaunchpadEngine: agent gating disabled");
-        launchpad.createMarketWithOptions(
-            "Will ETH reach $10k?",
-            0,
-            uint64(block.timestamp + 30 days),
-            adjudicator,
-            address(protocolConfig),
-            100e18,
-            7 days,
-            true,
-            50,
-            0,
-            0
-        );
-    }
-
-    // ============================================
     // View Functions Tests
     // ============================================
 
@@ -378,7 +334,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
             bool isDismissed,
             uint256 totalLockedCost,
             bool isTrialActive
-        ) = launchpad.getTrialStatus(market);
+        ) = _getTrialStatus(market);
 
         assertEq(trialEndTime, uint64(block.timestamp) + 7 days, "Trial end time");
         assertFalse(isDismissed, "Should not be dismissed");
@@ -395,7 +351,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
             uint256 lockedCost,
             int256 trialBalance,
             bool canClaimRefund
-        ) = launchpad.getExitOptions(market, alice);
+        ) = _getExitOptions(market, alice);
 
         assertGt(lockedCost, 0, "Should have locked cost");
         assertLt(trialBalance, 0, "Should have negative trial balance");
@@ -410,7 +366,7 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
-        (, , bool canClaimRefund) = launchpad.getExitOptions(market, alice);
+        (, , bool canClaimRefund) = _getExitOptions(market, alice);
         assertTrue(canClaimRefund, "Should be able to claim after dismissal");
     }
 
@@ -433,16 +389,16 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         assertGt(lpTokens, 0, "LP tokens should be minted");
 
-        uint256 balance = launchpad.getLPBalance(market, creator);
+        uint256 balance = _getLPBalance(market, creator);
         assertEq(balance, lpTokens, "Creator should have LP tokens");
     }
 
     function test_LPToken_MintedOnTrade() public {
         address market = _createMarket();
 
-        uint256 balanceBefore = launchpad.getLPBalance(market, alice);
+        uint256 balanceBefore = _getLPBalance(market, alice);
         _buyShares(alice, market, 1, 100e18);
-        uint256 balanceAfter = launchpad.getLPBalance(market, alice);
+        uint256 balanceAfter = _getLPBalance(market, alice);
 
         assertGt(balanceAfter, balanceBefore, "LP tokens minted to trader");
     }
@@ -468,12 +424,12 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_TrialPeriod_EndsAfterTime() public {
         address market = _createMarket();
 
-        (, , , bool isTrialActiveBefore) = launchpad.getTrialStatus(market);
+        (, , , bool isTrialActiveBefore) = _getTrialStatus(market);
         assertTrue(isTrialActiveBefore, "Trial should be active");
 
         _advanceTime(7 days + 1);
 
-        (, , , bool isTrialActiveAfter) = launchpad.getTrialStatus(market);
+        (, , , bool isTrialActiveAfter) = _getTrialStatus(market);
         assertFalse(isTrialActiveAfter, "Trial should end after period");
     }
 }

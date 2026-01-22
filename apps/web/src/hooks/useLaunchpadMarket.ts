@@ -96,19 +96,35 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         },
     });
 
+    const lpTokenAddress = useMemo(() => {
+        const marketsMappingResult = (readMarket.data as any[] | undefined)?.[1];
+        if (marketsMappingResult?.status !== "success") return undefined;
+        const marketState = marketsMappingResult.result as readonly [
+            `0x${string}`, // creator
+            `0x${string}`, // lpToken
+            bigint,        // bBase
+            bigint,        // bCurrent
+            bigint,        // creatorDeposit
+            bigint,        // feesAccrued
+            bigint,        // totalLPSupply
+            bigint,        // lpYieldPool
+            boolean,       // isGraduated
+            bigint,        // createdAt
+            bigint         // graduatedAt
+        ];
+        const lpToken = marketState[1];
+        if (lpToken === "0x0000000000000000000000000000000000000000") return undefined;
+        return lpToken;
+    }, [readMarket.data]);
+
     // LP Balance (separate optional read)
-    const readLpBalance = useReadContracts({
-        contracts: [
-            {
-                address: launchpadEngineAddress,
-                abi: ABIS.LaunchpadEngine,
-                functionName: "getLPBalance",
-                args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
-                chainId,
-            },
-        ],
+    const readLpBalance = useReadContract({
+        address: lpTokenAddress,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: userAddress ? [userAddress] : undefined,
         query: {
-            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId && !!userAddress,
+            enabled: !!lpTokenAddress && !!userAddress,
             refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
@@ -215,7 +231,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         const marketStateDetailedResult = marketResults[0];
         const marketsMappingResult = marketResults[1];
         const graduationProgressResult = marketResults[2];
-        const lpBalanceResult = (dataLpBalance as any[] | undefined)?.[0];
+        const lpBalanceResult = dataLpBalance;
 
         const preGradFeeResult = (dataParams as any[] | undefined)?.[0];
         const postGradFeeResult = (dataParams as any[] | undefined)?.[1];
@@ -244,9 +260,10 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             floorValue,
         ] = detailedState;
 
-        // markets(market) -> V10.8.3: 10 fields (removed name/symbol)
+        // markets(market) -> V11: includes lpToken
         const marketState = marketsMappingResult.result as readonly [
             `0x${string}`, // creator
+            `0x${string}`, // lpToken
             bigint,        // bBase
             bigint,        // bCurrent
             bigint,        // creatorDeposit
@@ -255,10 +272,13 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             bigint,        // lpYieldPool
             boolean,       // isGraduated
             bigint,        // createdAt (uint64)
-            bigint,        // graduatedAt (uint64)
+            bigint         // graduatedAt (uint64)
         ];
         const [
-            _c, _bB, _bC,
+            _c,
+            lpToken,
+            _bB,
+            _bC,
             creatorDeposit,
             feesAccruedFromMarket,
             _tLS,
@@ -273,10 +293,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         const graduationProgressTuple = graduationProgressResult.result as readonly [bigint, bigint, bigint];
         const [feesAccrued, graduationThreshold, progressBps] = graduationProgressTuple;
 
-        const userLpBalance =
-            lpBalanceResult?.status === "success"
-                ? (lpBalanceResult.result as bigint)
-                : 0n;
+        const userLpBalance = typeof lpBalanceResult === "bigint" ? lpBalanceResult : 0n;
         const preGradFeeBps =
             preGradFeeResult?.status === "success"
                 ? (preGradFeeResult.result as bigint)

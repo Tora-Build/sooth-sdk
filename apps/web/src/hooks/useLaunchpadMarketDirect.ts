@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { ABIS } from "../config/abis";
+import { ABIS, ERC20_ABI } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -27,6 +27,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
       const marketsMapping = await readContractSafe<
         readonly [
           Address, // creator
+          Address, // lpToken
           bigint,  // bBase
           bigint,  // bCurrent
           bigint,  // creatorDeposit
@@ -46,6 +47,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
 
       const [
         creator,
+        lpToken,
         bBase,
         bCurrent,
         creatorDeposit,
@@ -80,12 +82,12 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
       const isEffectiveGraduated = isGraduated || (!!progressBps && progressBps >= 10000n);
       const currentFeeBps = isEffectiveGraduated ? postGradFeeBps : preGradFeeBps;
 
-      const userLpBalance = userAddress
+      const userLpBalance = userAddress && lpToken !== ZERO_ADDRESS
         ? await readContractSafe<bigint>(client, {
-          address: launchpadEngineAddress!,
-          abi: ABIS.LaunchpadEngine,
-          functionName: "lpBalances",
-          args: [marketAddress!, userAddress],
+          address: lpToken,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [userAddress],
         })
         : 0n;
 
@@ -111,6 +113,7 @@ export function useLaunchpadMarketDirect(marketAddress: Address | undefined) {
         address: marketAddress!,
         isCreated,
         creator,
+        lpToken,
         initialBBase: bBase,
         currentBBase: bCurrent,
         creatorDeposit,

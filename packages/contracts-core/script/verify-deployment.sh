@@ -313,6 +313,20 @@ else
             continue
         fi
 
+        # Skip collateralizer/tickbook checks for pre-graduation markets
+        MARKET_STATE=$(cast call $LAUNCHPAD_ENGINE "markets(address)(address,address,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint64,uint64)" "$MARKET" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
+        if [ "$MARKET_STATE" == "FAILED" ] || [ -z "$MARKET_STATE" ]; then
+            echo "⚠️  LaunchpadEngine.markets($MARKET) call failed; skipping graduation checks"
+            echo ""
+            continue
+        fi
+        IS_GRAD=$(echo "$MARKET_STATE" | sed -n '9p' | tr '[:upper:]' '[:lower:]')
+        if [ "$IS_GRAD" != "true" ]; then
+            echo "⚠️  Market not graduated yet; collateralizer/tickbook checks deferred"
+            echo ""
+            continue
+        fi
+
         IS_REG=$(cast call $COLLATERALIZER "isMarketRegistered(address)(bool)" "$MARKET" --rpc-url $RPC_URL 2>/dev/null || echo "FAILED")
         if [ "$IS_REG" != "true" ]; then
             echo "❌ Collateralizer.isMarketRegistered($MARKET) = $IS_REG (expected true)"

@@ -344,7 +344,7 @@ export const Portfolio = () => {
     contracts: onChainMarkets.flatMap(m => [
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getMarketState', args: [m.address] },
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getPosition', args: [m.address, userAddress] },
-      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.address, userAddress] },
+      { address: m.lpToken, abi: ERC20_ABI, functionName: 'balanceOf', args: [userAddress] },
       { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.address] }
     ]),
     query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && onChainMarkets.length > 0 }

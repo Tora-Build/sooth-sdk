@@ -169,6 +169,7 @@ async function deployContract(
 
 interface CoreContracts {
   mockUSDC: `0x${string}`;
+  protocolConfig: `0x${string}`;
   collateralizer: `0x${string}`;
   ammEngine: `0x${string}`;
   tickBookVault: `0x${string}`;
@@ -183,28 +184,32 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   // 1. MockUSDC
   const mockUSDC = await deployContract(ctx, 'MockUSDC', ['Mock USDC', 'USDC']);
 
-  // 2. Collateralizer
+  // 2. ProtocolConfig
+  const protocolConfig = await deployContract(ctx, 'ProtocolConfig', [ctx.deployer]);
+
+  // 3. Collateralizer
   const collateralizer = await deployContract(ctx, 'Collateralizer', [mockUSDC]);
 
-  // 3. AMMEngine
-  const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, ctx.deployer]);
+  // 4. AMMEngine
+  const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, protocolConfig, ctx.deployer]);
 
-  // 4. Singleton TickBook Components (V10 Unified Crossing)
-  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, ctx.deployer]);
-  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault]);
+  // 5. Singleton TickBook Components (V10 Unified Crossing)
+  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, protocolConfig, ctx.deployer]);
+  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault, protocolConfig]);
   const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
 
-  // 5. LaunchpadEngine
+  // 6. LaunchpadEngine
   const launchpadEngine = await deployContract(ctx, 'LaunchpadEngine', [
     mockUSDC,
     ammEngine,
     collateralizer,
     tickBookPoolManager,
+    protocolConfig,
     ctx.deployer, // Protocol Treasury
     ctx.deployer, // Initial owner
   ]);
 
-  // 6. Configure Engines (Link up permissions)
+  // 7. Configure Engines (Link up permissions)
   console.log(`\n[${ctx.chainName}] === Configuring Engines & Permissions ===`);
 
   console.log(`  [${ctx.chainName}] Linking Vault to PoolManager...`);
@@ -245,6 +250,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 
   return {
     mockUSDC,
+    protocolConfig,
     collateralizer,
     ammEngine,
     tickBookVault,
@@ -344,6 +350,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
     deployer: account.address,
     contracts: {
       MockUSDC: core.mockUSDC,
+      ProtocolConfig: core.protocolConfig,
       Collateralizer: core.collateralizer,
       AMMEngine: core.ammEngine,
       TickBookVault: core.tickBookVault,
@@ -413,6 +420,7 @@ async function main() {
       const artifact = result.value;
       console.log(`\n✅ ${chainName} (Chain ID: ${artifact.chainId})`);
       console.log(`   MockUSDC: ${artifact.contracts.MockUSDC}`);
+      console.log(`   ProtocolConfig: ${artifact.contracts.ProtocolConfig}`);
       console.log(`   Collateralizer: ${artifact.contracts.Collateralizer}`);
       console.log(`   AMMEngine: ${artifact.contracts.AMMEngine}`);
       console.log(`   TickBookVault: ${artifact.contracts.TickBookVault}`);

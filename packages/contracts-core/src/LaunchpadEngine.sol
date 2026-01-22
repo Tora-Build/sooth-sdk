@@ -24,7 +24,6 @@ import {DecimalMath} from "./libraries/DecimalMath.sol";
  *      - TRIAL PERIOD: New markets have a trial period where trading costs are locked
  *      - DISMISS & REFUND: Creator can dismiss market during trial, users claim refunds
  *      - ERC20 LP TOKENS: LaunchpadLPToken is now ERC20 (transferable pre-settlement)
- *      - TRADE WITH AGENT: Kept for interface compatibility (no discounts in Launchpad)
  */
 contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -221,49 +220,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         );
     }
 
-    /**
-     * @notice Create a market with custom trial period (agent gating disabled in V11)
-     * @param question Market question
-     * @param startTime Trading start timestamp (0 = now)
-     * @param deadline Market deadline
-     * @param adjudicator Address that can settle
-     * @param guardian Address that can veto
-     * @param initialLiquidity Liquidity parameter b (WAD)
-     * @param trialDuration Trial period duration in seconds
-     * @param isAgentGated Reserved (must be false)
-     * @param minReputation Reserved (must be 0)
-     * @param adjudicatorAgentId ERC-8004 agent ID for validated adjudicator (0 to skip)
-     * @param adjudicatorMinValidators Min validators for validated adjudicator (0 to skip)
-     * @return market Address of deployed TruthMarket
-     * @return lpTokens Initial LP tokens minted
-     */
-    function createMarketWithOptions(
-        string calldata question,
-        uint64 startTime,
-        uint64 deadline,
-        address adjudicator,
-        address guardian,
-        uint256 initialLiquidity,
-        uint64 trialDuration,
-        bool isAgentGated,
-        uint8 minReputation,
-        uint256 adjudicatorAgentId,
-        uint256 adjudicatorMinValidators
-    ) external nonReentrant whenNotPaused returns (address market, uint256 lpTokens) {
-        require(!isAgentGated && minReputation == 0, "LaunchpadEngine: agent gating disabled");
-        return _createMarketInternal(
-            question,
-            startTime,
-            deadline,
-            adjudicator,
-            guardian,
-            initialLiquidity,
-            trialDuration,
-            adjudicatorAgentId,
-            adjudicatorMinValidators
-        );
-    }
-
     function _createMarketInternal(
         string calldata question,
         uint64 startTime,
@@ -364,26 +320,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
     ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
-        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender);
-    }
-
-    /**
-     * @notice Compatibility entrypoint; behaves like tradePositions in V11
-     * @param market Market address
-     * @param outcome 0 = YES, 1 = NO
-     * @param deltaShares Position change
-     * @param maxCostOrMinProceeds Slippage protection
-     * @param agentId The ERC-8004 agent ID
-     * @return actualCost Actual cost/proceeds
-     */
-    function tradeWithAgent(
-        address market,
-        uint8 outcome,
-        int256 deltaShares,
-        uint256 maxCostOrMinProceeds,
-        uint256 agentId
-    ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
-        agentId;
         return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender);
     }
 
@@ -509,48 +445,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         usdc.safeTransfer(msg.sender, refundUsdc);
 
         emit RefundClaimed(market, msg.sender, refundUsdc);
-    }
-
-    /**
-     * @notice Get trial status for a market
-     * @param market The market address
-     * @return trialEndTime When trial ends
-     * @return isDismissed Whether market was dismissed
-     * @return totalLockedCost Total cost locked in trial
-     * @return isTrialActive Whether trial is currently active
-     */
-    function getTrialStatus(address market) external view returns (
-        uint64 trialEndTime,
-        bool isDismissed,
-        uint256 totalLockedCost,
-        bool isTrialActive
-    ) {
-        TrialState memory trial = trialStates[market];
-        return (
-            trial.trialEndTime,
-            trial.isDismissed,
-            trial.totalLockedCost,
-            block.timestamp < trial.trialEndTime && !trial.isDismissed
-        );
-    }
-
-    /**
-     * @notice Get user's exit options for a market
-     * @param market The market address
-     * @param user The user address
-     * @return lockedCost User's locked cost during trial
-     * @return trialBalance User's net P&L during trial
-     * @return canClaimRefund Whether user can claim refund
-     */
-    function getExitOptions(address market, address user) external view returns (
-        uint256 lockedCost,
-        int256 trialBalance,
-        bool canClaimRefund
-    ) {
-        TrialState memory trial = trialStates[market];
-        lockedCost = userLockedCost[market][user];
-        trialBalance = userTrialBalance[market][user];
-        canClaimRefund = trial.isDismissed && lockedCost > 0;
     }
 
     // ============================================
@@ -731,27 +625,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             state.isGraduated,
             _calculateFloor(market)
         );
-    }
-
-    /**
-     * @inheritdoc ILaunchpadEngine
-     */
-    function getLPBalance(address market, address user)
-        external
-        view
-        override
-        returns (uint256)
-    {
-        MarketState memory state = markets[market];
-        if (state.lpToken == address(0)) return 0;
-        return LaunchpadLPToken(state.lpToken).balanceOf(user);
-    }
-
-    /**
-     * @notice Get the LP token address for a market
-     */
-    function getLPToken(address market) external view returns (address) {
-        return markets[market].lpToken;
     }
 
     /**

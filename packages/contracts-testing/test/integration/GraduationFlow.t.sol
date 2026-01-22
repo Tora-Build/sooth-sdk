@@ -19,7 +19,7 @@ contract GraduationFlowTest is TrialPeriodTestBase {
         address market = _createMarketWithLiquidity(100e18);
 
         // Verify market is in trial
-        (, , , bool isTrialActive) = launchpad.getTrialStatus(market);
+        (, , , bool isTrialActive) = _getTrialStatus(market);
         assertTrue(isTrialActive, "Should be in trial");
 
         // 2. Check graduation progress
@@ -41,18 +41,18 @@ contract GraduationFlowTest is TrialPeriodTestBase {
 
     function test_GraduationFlow_LPTokensTransferablePreGraduation() public {
         address market = _createMarket();
-        address lpToken = launchpad.getLPToken(market);
+        address lpToken = _getLPToken(market);
 
         // Get LP tokens from trading
         _buyShares(alice, market, 1, 100e18);
-        uint256 aliceLP = launchpad.getLPBalance(market, alice);
+        uint256 aliceLP = _getLPBalance(market, alice);
         assertGt(aliceLP, 0, "Alice should have LP");
 
         // Transfer should work pre-graduation
         vm.prank(alice);
         LaunchpadLPToken(lpToken).transfer(bob, aliceLP / 2);
 
-        assertEq(launchpad.getLPBalance(market, bob), aliceLP / 2, "Bob received LP");
+        assertEq(_getLPBalance(market, bob), aliceLP / 2, "Bob received LP");
     }
 
     function test_GraduationFlow_CannotDismissAfterGraduation() public {
@@ -73,9 +73,9 @@ contract GraduationFlowTest is TrialPeriodTestBase {
     function test_LPToken_MintedToTraderPreGrad() public {
         address market = _createMarket();
 
-        uint256 lpBefore = launchpad.getLPBalance(market, alice);
+        uint256 lpBefore = _getLPBalance(market, alice);
         _buyShares(alice, market, 1, 100e18);
-        uint256 lpAfter = launchpad.getLPBalance(market, alice);
+        uint256 lpAfter = _getLPBalance(market, alice);
 
         assertGt(lpAfter, lpBefore, "LP minted on pre-grad trade");
     }
@@ -83,7 +83,7 @@ contract GraduationFlowTest is TrialPeriodTestBase {
     function test_LPToken_CreatorCanIncreaseLiquidity() public {
         address market = _createMarket();
 
-        uint256 lpBefore = launchpad.getLPBalance(market, creator);
+        uint256 lpBefore = _getLPBalance(market, creator);
         (, uint256 bBaseBefore, , , , ) = launchpad.getMarketState(market);
 
         vm.prank(creator);
@@ -92,7 +92,7 @@ contract GraduationFlowTest is TrialPeriodTestBase {
         vm.prank(creator);
         launchpad.increaseBBase(market, 50e18);
 
-        uint256 lpAfter = launchpad.getLPBalance(market, creator);
+        uint256 lpAfter = _getLPBalance(market, creator);
         (, uint256 bBaseAfter, , , , ) = launchpad.getMarketState(market);
 
         assertGt(lpAfter, lpBefore, "Creator LP increased");
