@@ -1575,9 +1575,17 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         
         // RFC-001: Iterate through ticks in overlap range instead of all historical IDs
         for (uint16 t = iterLow; t <= iterHigh && remaining > 0; t++) {
-            uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
-            uint256 len = sellIds.length;
-            
+            uint256[] storage sellIdsAtTick = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
+            uint256 len = sellIdsAtTick.length;
+            if (len == 0) continue;
+
+            // Snapshot IDs to avoid storage mutation (swap/pop) during iteration.
+            uint256[] memory sellIds = new uint256[](len);
+            for (uint256 j = 0; j < len; ) {
+                sellIds[j] = sellIdsAtTick[j];
+                unchecked { ++j; }
+            }
+
             for (uint256 i = 0; i < len && remaining > 0;) {
                 uint256 sellId = sellIds[i];
                 SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
