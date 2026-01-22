@@ -8,8 +8,8 @@ import {TruthMarket} from "@core/TruthMarket.sol";
 import {ILaunchpadEngine} from "@core/interfaces/ILaunchpadEngine.sol";
 
 /**
- * @title LaunchpadEngineV11 Unit Tests
- * @notice Tests for V11 trial period, dismissal, and LP token flow
+ * @title LaunchpadEngine Unit Tests
+ * @notice Tests for trial period, dismissal, and LP token flow
  */
 contract LaunchpadEngineTest is TrialPeriodTestBase {
     // ============================================
