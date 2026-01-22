@@ -26,11 +26,21 @@ contract LiveLaunchpadTrade is Test {
     uint8 constant YES = 1;
     uint8 constant NO = 0;
 
+    bool internal runLive;
+
     function setUp() public {
+        runLive = vm.envOr("RUN_LIVE_FORK_TESTS", false);
+        if (!runLive) return;
+
         vm.createSelectFork("https://sepolia.base.org");
     }
 
     function test_live_buy_alien() public {
+        if (!runLive) {
+            emit log("Skipping live fork test (set RUN_LIVE_FORK_TESTS=true).");
+            return;
+        }
+
         vm.startPrank(user);
         
         uint256 buyAmount = 10 * 1e18; // 10 shares
@@ -52,6 +62,11 @@ contract LiveLaunchpadTrade is Test {
     }
 
     function test_live_sell_alien_yes() public {
+        if (!runLive) {
+            emit log("Skipping live fork test (set RUN_LIVE_FORK_TESTS=true).");
+            return;
+        }
+
         // First, ensure user has a position to sell
         vm.startPrank(user);
         
@@ -106,6 +121,11 @@ contract LiveLaunchpadTrade is Test {
     }
 
     function test_live_buy_sell_roundtrip() public {
+        if (!runLive) {
+            emit log("Skipping live fork test (set RUN_LIVE_FORK_TESTS=true).");
+            return;
+        }
+
         vm.startPrank(user);
         
         // Get initial state
