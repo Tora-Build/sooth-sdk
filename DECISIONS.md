@@ -75,7 +75,7 @@
      - Settlement-locked transfers (freely tradable pre-settlement, locked post-settlement)
      - Enables LP tokens as collateral, staking, or secondary market trading
      - `transfersUnlocked()` = `!ITruthMarket(market).isSettled()`
-  3. **Permit Support**: `placeOrderWithPermit()` enables gasless USDC approval (EIP-2612)
+  3. **Permit Support (Deferred)**: `placeOrderWithPermit()` removed from TickBookPoolManager to stay under the EVM code size limit; revisit via module or alternate approval flow.
 
   **Phase 2: ERC-8004 Trustless Agents**
   1. **ERC-8004 Interfaces**:
@@ -91,9 +91,9 @@
      - Requires valid attestation from registered agent before `settle()`
      - Multi-validator support for high-value markets
      - Configurable attestation window and minimum score
-  3. **Agent Trading**:
+  3. **Agent Trading (Deferred in TickBook)**:
      - `tradeWithAgent(agentId)`: Fee discount based on agent reputation
-     - `placeOrderWithAgent(agentId)`: Orderbook access for agents
+     - `placeOrderWithAgent(agentId)` removed from TickBookPoolManager to stay under the EVM code size limit
      - Agent-gated markets: Only agents with min reputation can trade
 - **Rationale**:
   - **Creator Protection**: Trial period reduces risk of launching markets that fail to attract volume

@@ -3,11 +3,9 @@ pragma solidity ^0.8.24;
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
-import {IIdentityRegistry, IReputationRegistry} from "./interfaces/IERC8004.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -67,8 +65,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     error InsufficientShares();
     error SpotSellNotActive();
     error SpotRangeTooWide();
-    error AgentNotRegistered();
-    error NotAgentWallet();
 
     // ============================================
     // Types
@@ -186,20 +182,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Simple fee storage
     uint24 public takerFeeBps = 10;  // 0.1% default
     uint24 public makerFeeBps = 0;   // No maker fee by default
-
-    // ============================================
-    // V11: ERC-8004 Agent Integration
-    // ============================================
-
-    /// @notice ERC-8004 Identity Registry (optional)
-    IIdentityRegistry public identityRegistry;
-
-    /// @notice ERC-8004 Reputation Registry (optional)
-    IReputationRegistry public reputationRegistry;
-
-    /// @notice Reputation score thresholds for fee discounts
-    uint8[] public reputationThresholds;
-    uint16[] public reputationDiscountBps;
 
     // ============================================
     // Events
@@ -332,18 +314,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     event ActiveLiquidityUpdated(bytes32 indexed marketKey, uint8 outcome, uint128 previousActive, uint128 newActive);
     event PendingRefundsCleared(address indexed user, bytes32 indexed marketKey, uint256 amount);
 
-    // V11 Events
-    event AgentOrderPlaced(
-        address indexed wallet,
-        bytes32 indexed marketKey,
-        uint256 indexed orderId,
-        uint256 agentId,
-        uint8 outcome,
-        uint256 shares,
-        uint256 filledShares
-    );
-    event ReputationRegistriesSet(address identityRegistry, address reputationRegistry);
-
     // ============================================
     // Modifiers
     // ============================================
@@ -394,48 +364,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         takerFeeBps = _takerFee;
         makerFeeBps = _makerFee;
         emit FeesUpdated(_takerFee, _makerFee);
-    }
-
-    function clearDustLiquidity(
-        bytes32 marketKey,
-        uint8 outcome,
-        uint16[] calldata ticks
-    ) external onlyOwner {
-        for (uint256 i = 0; i < ticks.length; ) {
-            uint16 t = ticks[i];
-            TickLiquidity storage tick = _tickLiquidity[marketKey][outcome][t];
-            tick.spotLiquidity = 0;
-            _spotBitmaps[marketKey][outcome].clearBit(t);
-            unchecked { ++i; }
-        }
-    }
-
-    /**
-     * @notice Set ERC-8004 registries for agent integration
-     * @param _identityRegistry Identity registry address (or address(0) to disable)
-     * @param _reputationRegistry Reputation registry address (or address(0) to disable)
-     */
-    function setReputationRegistries(
-        address _identityRegistry,
-        address _reputationRegistry
-    ) external onlyOwner {
-        identityRegistry = IIdentityRegistry(_identityRegistry);
-        reputationRegistry = IReputationRegistry(_reputationRegistry);
-        emit ReputationRegistriesSet(_identityRegistry, _reputationRegistry);
-    }
-
-    /**
-     * @notice Set reputation-based fee discounts (reserved for future TickBook fees)
-     * @param thresholds Reputation score thresholds (ascending order)
-     * @param discountBps Discount in basis points for each threshold
-     */
-    function setReputationDiscounts(
-        uint8[] calldata thresholds,
-        uint16[] calldata discountBps
-    ) external onlyOwner {
-        require(thresholds.length == discountBps.length, "length mismatch");
-        reputationThresholds = thresholds;
-        reputationDiscountBps = discountBps;
     }
 
 
@@ -539,82 +467,11 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 filledCost,
         uint256 restingShares
     ) {
-        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, 0);
+        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender);
     }
 
     /**
-     * @notice Place an order with EIP-2612 permit for gasless approval
-     * @dev V11: Allows users to sign approval off-chain
-     * @param marketKey The market identifier
-     * @param outcome 0 = NO, 1 = YES
-     * @param shares Total shares to place
-     * @param tickLower Lower tick bound
-     * @param tickUpper Upper tick bound
-     * @param maxCost Maximum cost willing to pay
-     * @param permitDeadline Permit signature deadline
-     * @param v Permit signature v
-     * @param r Permit signature r
-     * @param s Permit signature s
-     */
-    function placeOrderWithPermit(
-        bytes32 marketKey,
-        uint8 outcome,
-        uint256 shares,
-        uint16 tickLower,
-        uint16 tickUpper,
-        uint256 maxCost,
-        uint256 permitDeadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external nonReentrant whenNotPaused returns (
-        uint256 orderId,
-        uint256 filledShares,
-        uint256 filledCost,
-        uint256 restingShares
-    ) {
-        // Execute permit on vault's USDC
-        IERC20Permit(address(vault.usdc())).permit(msg.sender, address(vault), maxCost, permitDeadline, v, r, s);
-
-        // Forward to regular placeOrder
-        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, 0);
-    }
-
-    /**
-     * @notice Place an order with agent attribution
-     * @dev V11: For ERC-8004 registered agents (discounts reserved for future fees)
-     * @param marketKey The market identifier
-     * @param outcome 0 = NO, 1 = YES
-     * @param shares Total shares to place
-     * @param tickLower Lower tick bound
-     * @param tickUpper Upper tick bound
-     * @param maxCost Maximum cost willing to pay
-     * @param agentId The ERC-8004 agent ID
-     */
-    function placeOrderWithAgent(
-        bytes32 marketKey,
-        uint8 outcome,
-        uint256 shares,
-        uint16 tickLower,
-        uint16 tickUpper,
-        uint256 maxCost,
-        uint256 agentId
-    ) external nonReentrant whenNotPaused returns (
-        uint256 orderId,
-        uint256 filledShares,
-        uint256 filledCost,
-        uint256 restingShares
-    ) {
-        // Verify agent ownership
-        if (address(identityRegistry) == address(0)) revert AgentNotRegistered();
-        address agentWallet = identityRegistry.getAgentWallet(agentId);
-        if (agentWallet != msg.sender) revert NotAgentWallet();
-
-        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender, agentId);
-    }
-
-    /**
-     * @dev Internal order placement logic (shared by placeOrder, placeOrderWithPermit, placeOrderWithAgent)
+     * @dev Internal order placement logic (shared by placeOrder)
      */
     function _placeOrderInternal(
         bytes32 marketKey,
@@ -623,8 +480,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower,
         uint16 tickUpper,
         uint256 maxCost,
-        address trader,
-        uint256 agentId
+        address trader
     ) internal returns (
         uint256 orderId,
         uint256 filledShares,
@@ -686,10 +542,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         vault.spendAvailableToMarket(trader, m.truthMarket, collateral);
 
-        // Emit appropriate event
-        if (agentId > 0) {
-            emit AgentOrderPlaced(trader, marketKey, orderId, agentId, outcome, shares, 0);
-        }
         emit OrderPlaced(
             trader, marketKey, orderId, outcome, tickLower, tickUpper,
             shares, 0, 0, shares
@@ -1576,20 +1428,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         // RFC-001: Iterate through ticks in overlap range instead of all historical IDs
         for (uint16 t = iterLow; t <= iterHigh && remaining > 0; t++) {
             uint256[] storage sellIdsAtTick = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
-            uint256 len = sellIdsAtTick.length;
-            if (len == 0) continue;
-
-            // Snapshot IDs to avoid storage mutation (swap/pop) during iteration.
-            uint256[] memory sellIds = new uint256[](len);
-            for (uint256 j = 0; j < len; ) {
-                sellIds[j] = sellIdsAtTick[j];
-                unchecked { ++j; }
-            }
-
-            for (uint256 i = 0; i < len && remaining > 0;) {
-                uint256 sellId = sellIds[i];
+            for (uint256 i = sellIdsAtTick.length; i > 0 && remaining > 0; ) {
+                unchecked { --i; }
+                uint256 sellId = sellIdsAtTick[i];
                 SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
-                unchecked { ++i; }
                 
                 if (!spotOrder.active) continue;
                 
