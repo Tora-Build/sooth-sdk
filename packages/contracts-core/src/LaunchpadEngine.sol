@@ -19,8 +19,8 @@ import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
  * @title LaunchpadEngine
- * @notice Launchpad with trial periods and ERC20 LP tokens with trial periods and ERC20 LP tokens
- * @dev Major V11 changes:
+ * @notice Launchpad with trial periods and ERC20 LP tokens
+ * @dev Key features:
  *      - TRIAL PERIOD: New markets have a trial period where trading costs are locked
  *      - DISMISS & REFUND: Creator can dismiss market during trial, users claim refunds
  *      - ERC20 LP TOKENS: LaunchpadLPToken is now ERC20 (transferable pre-settlement)
