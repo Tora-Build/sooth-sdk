@@ -4,9 +4,11 @@ pragma solidity ^0.8.20;
 import {ILaunchpadEngine} from "./interfaces/ILaunchpadEngine.sol";
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IAdjudicatorRegistration} from "./interfaces/IAdjudicator.sol";
 import {TruthMarket} from "./TruthMarket.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 import {ITickBook} from "./interfaces/ITickBook.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -41,6 +43,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     IAMMEngine public immutable ammEngine;
     ICollateralizer public immutable collateralizer;
     ITickBook public immutable tickBook;
+    IProtocolConfig public immutable protocolConfig;
     address public immutable protocolTreasury;
     uint8 private immutable usdcDecimals; // Cached for gas savings
 
@@ -110,6 +113,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         address _ammEngine,
         address _collateralizer,
         address _tickBook,
+        address _protocolConfig,
         address _protocolTreasury,
         address _owner
     ) Ownable(_owner) {
@@ -117,12 +121,14 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         require(_ammEngine != address(0), "LaunchpadEngine: zero ammEngine");
         require(_collateralizer != address(0), "LaunchpadEngine: zero collateralizer");
         require(_tickBook != address(0), "LaunchpadEngine: zero tickBook");
+        require(_protocolConfig != address(0), "LaunchpadEngine: zero protocol config");
         require(_protocolTreasury != address(0), "LaunchpadEngine: zero treasury");
 
         usdc = IERC20(_usdc);
         ammEngine = IAMMEngine(_ammEngine);
         collateralizer = ICollateralizer(_collateralizer);
         tickBook = ITickBook(_tickBook);
+        protocolConfig = IProtocolConfig(_protocolConfig);
         protocolTreasury = _protocolTreasury;
         usdcDecimals = IERC20Metadata(_usdc).decimals(); // Cache decimals
 
@@ -133,6 +139,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         lpYieldShareBps = 3000;     // 30%
         protocolShareBps = 2000;    // 20%
         graduationMultiplier = 1;   // 1× = break-even (fees = bBase × ln(2))
+    }
+
+    modifier whenNotPaused() {
+        require(!protocolConfig.isPaused(), "LaunchpadEngine: paused");
+        _;
     }
 
     // ============================================
@@ -240,8 +251,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint64 deadline,
         address adjudicator,
         address guardian,
-        uint256 initialLiquidity
-    ) external override nonReentrant returns (address market, uint256 lpTokens) {
+        uint256 initialLiquidity,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) external override nonReentrant whenNotPaused returns (address market, uint256 lpTokens) {
+        require(guardian == address(protocolConfig), "LaunchpadEngine: guardian must be protocol");
         require(initialLiquidity > 0, "LaunchpadEngine: zero liquidity");
 
         uint64 normalizedStartTime = startTime == 0 ? uint64(block.timestamp) : startTime;
@@ -259,10 +273,11 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             normalizedStartTime,
             deadline,
             adjudicator,
-            guardian,
+            address(protocolConfig),
             msg.sender
         ));
 
+        _registerAdjudicatorMarket(market, adjudicator, adjudicatorAgentId, adjudicatorMinValidators);
         ammEngine.initializeMarket(market, initialLiquidity);
 
         lpTokens = depositWad;
@@ -301,7 +316,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint8 outcome,
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
-    ) external override nonReentrant returns (uint256 actualCost) {
+    ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
         MarketState storage state = markets[market];
         require(state.creator != address(0), "LaunchpadEngine: market not found");
         require(ITruthMarket(market).isLive(), "LaunchpadEngine: market not live");
@@ -650,6 +665,19 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
         return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
+    }
+
+    function _registerAdjudicatorMarket(
+        address market,
+        address adjudicator,
+        uint256 agentId,
+        uint256 minValidators
+    ) internal {
+        if (agentId == 0 && minValidators == 0) {
+            return;
+        }
+        require(agentId > 0 && minValidators > 0, "LaunchpadEngine: invalid adjudicator config");
+        IAdjudicatorRegistration(adjudicator).registerMarket(market, agentId, minValidators);
     }
 
     // ============================================

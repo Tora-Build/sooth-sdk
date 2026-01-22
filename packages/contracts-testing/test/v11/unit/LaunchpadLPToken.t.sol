@@ -30,7 +30,7 @@ contract LaunchpadLPTokenTest is V11TestBase {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
+            address(protocolConfig),
             creator
         ));
 
@@ -140,7 +140,7 @@ contract LaunchpadLPTokenTest is V11TestBase {
         vm.prank(adjudicator);
         TruthMarket(testMarket).settle(1, 0);
 
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         TruthMarket(testMarket).finalize();
 
         assertFalse(lpToken.transfersUnlocked(), "Should be locked after finalize");

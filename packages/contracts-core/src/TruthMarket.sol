@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 
 /**
  * @title TruthMarket
@@ -11,7 +12,7 @@ import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
  * Lifecycle: LIVE → SETTLING → SETTLED → FINALIZED
  *   - LIVE: Trading active (between startTime and deadline)
  *   - SETTLING: Deadline passed, awaiting adjudicator resolution
- *   - SETTLED: Outcome determined, guardian can veto
+ *   - SETTLED: Outcome determined, guardian role can veto
  *   - FINALIZED: Settlement locked, redemption enabled
  */
 contract TruthMarket is ITruthMarket {
@@ -45,7 +46,7 @@ contract TruthMarket is ITruthMarket {
     uint64 public override tStar;
 
     address public adjudicator;
-    address public guardian;
+    IProtocolConfig public protocolConfig;
 
     // ============================================
     // Constructor
@@ -56,12 +57,12 @@ contract TruthMarket is ITruthMarket {
         uint64 _startTime,
         uint64 _deadline,
         address _adjudicator,
-        address _guardian,
+        address _protocolConfig,
         address _creator
     ) {
         require(_deadline > block.timestamp, "TruthMarket: deadline in past");
         require(_adjudicator != address(0), "TruthMarket: zero adjudicator");
-        require(_guardian != address(0), "TruthMarket: zero guardian");
+        require(_protocolConfig != address(0), "TruthMarket: zero protocol config");
         require(_creator != address(0), "TruthMarket: zero creator");
 
         uint64 normalizedStartTime = _startTime == 0 ? uint64(block.timestamp) : _startTime;
@@ -73,7 +74,7 @@ contract TruthMarket is ITruthMarket {
         deadline = _deadline;
         creator = _creator;
         adjudicator = _adjudicator;
-        guardian = _guardian;
+        protocolConfig = IProtocolConfig(_protocolConfig);
         state = MarketState.LIVE;
 
         emit MarketCreated(address(this), _question, normalizedStartTime, _deadline);
@@ -111,7 +112,7 @@ contract TruthMarket is ITruthMarket {
      * @notice Finalize settlement (irreversible)
      */
     function finalize() external {
-        require(msg.sender == adjudicator || msg.sender == guardian, "TruthMarket: not authorized");
+        require(msg.sender == adjudicator, "TruthMarket: not adjudicator");
         require(state == MarketState.SETTLED, "TruthMarket: not settled");
 
         state = MarketState.FINALIZED;
@@ -123,7 +124,7 @@ contract TruthMarket is ITruthMarket {
      * @dev Reverts market to SETTLING state for re-adjudication
      */
     function veto() external {
-        require(msg.sender == guardian, "TruthMarket: not guardian");
+        require(protocolConfig.isGuardian(msg.sender), "TruthMarket: not guardian");
         require(state == MarketState.SETTLED, "TruthMarket: not settled");
 
         uint8 previousOutcome = winningOutcome;

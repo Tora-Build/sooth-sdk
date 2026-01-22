@@ -104,7 +104,7 @@ interface ITruthMarket {
 
     /**
      * @notice Finalize settlement (irreversible)
-     * @dev Can be called by adjudicator or guardian after settlement
+     * @dev Can be called by adjudicator after settlement
      */
     function finalize() external;
 }

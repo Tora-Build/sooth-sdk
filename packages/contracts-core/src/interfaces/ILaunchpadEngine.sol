@@ -129,6 +129,8 @@ interface ILaunchpadEngine {
      * @param adjudicator Address that can settle the market
      * @param guardian Address that can veto settlement
      * @param initialLiquidity Liquidity parameter b (WAD)
+     * @param adjudicatorAgentId ERC-8004 agent ID for validated adjudicator (0 to skip)
+     * @param adjudicatorMinValidators Min validators for validated adjudicator (0 to skip)
      * @return market Address of deployed TruthMarket
      * @return lpTokens Initial LP tokens minted to creator
      */
@@ -138,7 +140,9 @@ interface ILaunchpadEngine {
         uint64 deadline,
         address adjudicator,
         address guardian,
-        uint256 initialLiquidity
+        uint256 initialLiquidity,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
     ) external returns (address market, uint256 lpTokens);
 
     // ============================================

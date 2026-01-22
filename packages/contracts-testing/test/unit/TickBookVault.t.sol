@@ -5,10 +5,12 @@ import "forge-std/Test.sol";
 import {TickBookVault} from "@core/TickBookVault.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 import {OutcomeToken} from "@core/OutcomeToken.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract TickBookVaultTest is Test {
     TickBookVault public vault;
+    ProtocolConfig public protocolConfig;
     ERC20Mock public usdc;
     TruthMarket public market;
 
@@ -24,7 +26,8 @@ contract TickBookVaultTest is Test {
     function setUp() public {
         usdc = new ERC20Mock();
 
-        vault = new TickBookVault(address(usdc), owner);
+        protocolConfig = new ProtocolConfig(owner);
+        vault = new TickBookVault(address(usdc), address(protocolConfig), owner);
 
         vm.prank(owner);
         vault.setTickBook(tickBook);
@@ -34,7 +37,7 @@ contract TickBookVaultTest is Test {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
+            address(protocolConfig),
             owner
         );
 
@@ -49,7 +52,7 @@ contract TickBookVaultTest is Test {
 
     function test_Constructor_RevertWhenZeroUsdc() public {
         vm.expectRevert("TickBookVault: zero usdc");
-        new TickBookVault(address(0), owner);
+        new TickBookVault(address(0), address(protocolConfig), owner);
     }
 
     function test_SetTickBook_OnlyOwner() public {

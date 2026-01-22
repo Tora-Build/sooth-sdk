@@ -33,7 +33,7 @@ contract SettlementFlowTest is V11TestBase {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             address(validatedAdjudicator),
-            guardian,
+            address(protocolConfig),
             creator
         ));
 
@@ -76,7 +76,7 @@ contract SettlementFlowTest is V11TestBase {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             address(validatedAdjudicator),
-            guardian,
+            address(protocolConfig),
             creator
         ));
 
@@ -259,7 +259,7 @@ contract SettlementFlowTest is V11TestBase {
         validatedAdjudicator.settle(testMarket, 1, 0, attestationHash);
 
         // Finalize
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         TruthMarket(testMarket).finalize();
 
         // Veto should fail
@@ -276,7 +276,7 @@ contract SettlementFlowTest is V11TestBase {
         validationRegistry.setAttestation(attestationHash, validator, teeAgentId, 100, block.timestamp);
         validatedAdjudicator.settle(testMarket, 1, 0, attestationHash);
 
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         TruthMarket(testMarket).finalize();
 
         assertTrue(TruthMarket(testMarket).isFinalized(), "Should be finalized");
@@ -293,7 +293,7 @@ contract SettlementFlowTest is V11TestBase {
             uint64(block.timestamp + 1 days),
             uint64(block.timestamp + 30 days),
             address(validatedAdjudicator),
-            guardian,
+            address(protocolConfig),
             creator
         ));
 

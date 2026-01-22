@@ -7,6 +7,7 @@ import {AMMEngine} from "@core/AMMEngine.sol";
 import {Collateralizer} from "@core/Collateralizer.sol";
 import {TickBookPoolManager} from "@core/TickBookPoolManager.sol";
 import {TickBookVault} from "@core/TickBookVault.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract DebugLaunchpadCreation is Test {
@@ -15,6 +16,7 @@ contract DebugLaunchpadCreation is Test {
     Collateralizer collateralizer;
     TickBookPoolManager tickBook;
     TickBookVault vault;
+    ProtocolConfig protocolConfig;
     ERC20Mock usdc;
 
     address creator = address(0x123);
@@ -25,10 +27,11 @@ contract DebugLaunchpadCreation is Test {
         deployer = address(this);
 
         usdc = new ERC20Mock();
-        amm = new AMMEngine(address(usdc), deployer);
+        protocolConfig = new ProtocolConfig(deployer);
+        amm = new AMMEngine(address(usdc), address(protocolConfig), deployer);
         collateralizer = new Collateralizer(address(usdc));
-        vault = new TickBookVault(address(usdc), deployer);
-        tickBook = new TickBookPoolManager(address(vault));
+        vault = new TickBookVault(address(usdc), address(protocolConfig), deployer);
+        tickBook = new TickBookPoolManager(address(vault), address(protocolConfig));
         vault.setTickBook(address(tickBook));
 
         launchpad = new LaunchpadEngine(
@@ -36,6 +39,7 @@ contract DebugLaunchpadCreation is Test {
             address(amm),
             address(collateralizer),
             address(tickBook),
+            address(protocolConfig),
             treasury,
             deployer
         );
@@ -55,7 +59,16 @@ contract DebugLaunchpadCreation is Test {
         usdc.approve(address(launchpad), type(uint256).max);
 
         console.log("Calling createMarket...");
-        try launchpad.createMarket("Question?", startTime, deadline, creator, creator, liquidity) returns (address market, uint256 lpTokens) {
+        try launchpad.createMarket(
+            "Question?",
+            startTime,
+            deadline,
+            creator,
+            address(protocolConfig),
+            liquidity,
+            0,
+            0
+        ) returns (address market, uint256 lpTokens) {
             console.log("Success!");
             console.log("Market:", market);
             console.log("LP tokens:", lpTokens);

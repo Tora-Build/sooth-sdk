@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {IIdentityRegistry, IReputationRegistry} from "./interfaces/IERC8004.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -140,6 +141,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // ============================================
 
     ITickBookVault public immutable vault;
+    IProtocolConfig public immutable protocolConfig;
 
     // Markets (singleton pattern)
     mapping(bytes32 => Market) private _markets;
@@ -359,9 +361,16 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // Constructor
     // ============================================
 
-    constructor(address _vault) Ownable(msg.sender) {
+    constructor(address _vault, address _protocolConfig) Ownable(msg.sender) {
         if (_vault == address(0)) revert ZeroAddress();
+        if (_protocolConfig == address(0)) revert ZeroAddress();
         vault = ITickBookVault(_vault);
+        protocolConfig = IProtocolConfig(_protocolConfig);
+    }
+
+    modifier whenNotPaused() {
+        require(!protocolConfig.isPaused(), "TickBook: paused");
+        _;
     }
 
     // ============================================
@@ -524,7 +533,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower,
         uint16 tickUpper,
         uint256 maxCost
-    ) external nonReentrant returns (
+    ) external nonReentrant whenNotPaused returns (
         uint256 orderId,
         uint256 filledShares,
         uint256 filledCost,
@@ -558,7 +567,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external nonReentrant returns (
+    ) external nonReentrant whenNotPaused returns (
         uint256 orderId,
         uint256 filledShares,
         uint256 filledCost,
@@ -590,7 +599,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickUpper,
         uint256 maxCost,
         uint256 agentId
-    ) external nonReentrant returns (
+    ) external nonReentrant whenNotPaused returns (
         uint256 orderId,
         uint256 filledShares,
         uint256 filledCost,
@@ -919,7 +928,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 shares,
         uint16 tickLower,
         uint16 tickUpper
-    ) external nonReentrant returns (uint256 sellId) {
+    ) external nonReentrant whenNotPaused returns (uint256 sellId) {
         Market memory m = _markets[marketKey];
         if (!m.isActive) revert MarketNotActive();
         if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
