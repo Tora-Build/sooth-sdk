@@ -161,8 +161,10 @@ abstract contract V11TestBase is Test {
             0, // startTime = now
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
-            liquidity
+            address(protocolConfig),
+            liquidity,
+            0,
+            0
         );
     }
 
@@ -176,10 +178,12 @@ abstract contract V11TestBase is Test {
             0,
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
+            address(protocolConfig),
             100e18,
             trialDuration,
             false,
+            0,
+            0,
             0
         );
     }
@@ -242,10 +246,10 @@ abstract contract V11TestBase is Test {
     }
 
     /**
-     * @notice Finalize a market via guardian
+     * @notice Finalize a market via adjudicator
      */
     function _finalizeMarket(address market) internal {
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         TruthMarket(market).finalize();
     }
 }

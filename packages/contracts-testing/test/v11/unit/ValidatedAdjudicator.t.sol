@@ -33,7 +33,7 @@ contract ValidatedAdjudicatorTest is V11TestBase {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             address(validatedAdjudicator),
-            guardian,
+            address(protocolConfig),
             creator
         ));
     }
@@ -42,10 +42,13 @@ contract ValidatedAdjudicatorTest is V11TestBase {
     // Market Registration Tests
     // ============================================
 
-    function test_RegisterMarket_OnlyOwnerCanCall() public {
+    function test_RegisterMarket_AllowsAnyCaller() public {
         vm.prank(alice);
-        vm.expectRevert();
         validatedAdjudicator.registerMarket(testMarket, teeAgentId, 1);
+
+        (bool registered, uint256 storedAgentId, , ) = validatedAdjudicator.getMarketConfig(testMarket);
+        assertTrue(registered, "Market should be registered");
+        assertEq(storedAgentId, teeAgentId, "Agent ID should match");
     }
 
     function test_RegisterMarket_StoresAgentId() public {
@@ -72,6 +75,14 @@ contract ValidatedAdjudicatorTest is V11TestBase {
     function test_RegisterMarket_RevertsOnZeroAddress() public {
         vm.expectRevert(ValidatedAdjudicator.ZeroAddress.selector);
         validatedAdjudicator.registerMarket(address(0), teeAgentId, 1);
+    }
+
+    function test_RegisterMarket_RevertsOnInvalidConfig() public {
+        vm.expectRevert(ValidatedAdjudicator.InvalidConfig.selector);
+        validatedAdjudicator.registerMarket(testMarket, 0, 1);
+
+        vm.expectRevert(ValidatedAdjudicator.InvalidConfig.selector);
+        validatedAdjudicator.registerMarket(testMarket, teeAgentId, 0);
     }
 
     function test_RegisterMarket_EmitsEvent() public {

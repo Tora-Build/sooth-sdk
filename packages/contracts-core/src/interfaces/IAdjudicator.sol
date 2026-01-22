@@ -119,3 +119,17 @@ interface IValidatedAdjudicator is IAdjudicator {
      */
     function minValidationScore() external view returns (uint8);
 }
+
+/**
+ * @title IAdjudicatorRegistration
+ * @notice Optional interface for adjudicators that require per-market registration
+ */
+interface IAdjudicatorRegistration {
+    /**
+     * @notice Register a market with adjudicator-specific config
+     * @param market The TruthMarket address
+     * @param agentId The ERC-8004 agent ID authorized to settle
+     * @param minValidators Minimum validators required
+     */
+    function registerMarket(address market, uint256 agentId, uint256 minValidators) external;
+}

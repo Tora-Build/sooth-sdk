@@ -29,6 +29,7 @@ contract ValidatedAdjudicator is IValidatedAdjudicator, Ownable {
     // ============================================
 
     error ZeroAddress();
+    error InvalidConfig();
     error MarketNotRegistered();
     error MarketAlreadySettled();
     error NotRegisteredAgent();
@@ -136,8 +137,9 @@ contract ValidatedAdjudicator is IValidatedAdjudicator, Ownable {
         address market,
         uint256 agentId,
         uint256 minValidators
-    ) external onlyOwner {
+    ) external {
         if (market == address(0)) revert ZeroAddress();
+        if (agentId == 0 || minValidators == 0) revert InvalidConfig();
         if (marketConfigs[market].registered) revert MarketAlreadyRegistered();
 
         marketConfigs[market] = MarketConfig({

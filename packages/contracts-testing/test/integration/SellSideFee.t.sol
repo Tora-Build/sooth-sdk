@@ -9,6 +9,7 @@ import {TruthMarket} from "@core/TruthMarket.sol";
 import {Collateralizer} from "@core/Collateralizer.sol";
 import {TickBookPoolManager} from "@core/TickBookPoolManager.sol";
 import {TickBookVault} from "@core/TickBookVault.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 /**
@@ -30,6 +31,7 @@ contract SellSideFeeIntegrationTest is Test {
     Collateralizer public collateralizer;
     TickBookPoolManager public tickBook;
     TickBookVault public vault;
+    ProtocolConfig public protocolConfig;
     ERC20Mock public usdc;
 
     // ============================================
@@ -69,12 +71,13 @@ contract SellSideFeeIntegrationTest is Test {
         usdc = new ERC20Mock();
 
         // Deploy core contracts
-        amm = new AMMEngine(address(usdc), deployer);
+        protocolConfig = new ProtocolConfig(deployer);
+        amm = new AMMEngine(address(usdc), address(protocolConfig), deployer);
         collateralizer = new Collateralizer(address(usdc));
         
         // Deploy TickBook V9 (Singleton architecture)
-        vault = new TickBookVault(address(usdc), deployer);
-        tickBook = new TickBookPoolManager(address(vault));
+        vault = new TickBookVault(address(usdc), address(protocolConfig), deployer);
+        tickBook = new TickBookPoolManager(address(vault), address(protocolConfig));
         vault.setTickBook(address(tickBook));
         
         launchpad = new LaunchpadEngine(
@@ -82,6 +85,7 @@ contract SellSideFeeIntegrationTest is Test {
             address(amm),
             address(collateralizer),
             address(tickBook),
+            address(protocolConfig),
             treasury,
             deployer
         );
@@ -103,8 +107,10 @@ contract SellSideFeeIntegrationTest is Test {
             startTime,
             deadline,
             adjudicator,
-            guardian,
-            INITIAL_LIQUIDITY
+            address(protocolConfig),
+            INITIAL_LIQUIDITY,
+            0,
+            0
         );
         vm.stopPrank();
 

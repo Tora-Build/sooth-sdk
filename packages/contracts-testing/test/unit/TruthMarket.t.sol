@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 
 /**
  * @title TruthMarket Lifecycle Tests
@@ -10,6 +11,7 @@ import {TruthMarket} from "@core/TruthMarket.sol";
  */
 contract TruthMarketLifecycleTest is Test {
     TruthMarket public market;
+    ProtocolConfig public protocolConfig;
 
     address public creator = address(0xC0E8);
     address public adjudicator = address(0xAD7);
@@ -24,12 +26,17 @@ contract TruthMarketLifecycleTest is Test {
         startTime = uint64(block.timestamp);
         deadline = uint64(block.timestamp + 30 days);
 
+        protocolConfig = new ProtocolConfig(address(this));
+        address[] memory add = new address[](1);
+        add[0] = guardian;
+        protocolConfig.setGuardians(add, new address[](0));
+
         market = new TruthMarket(
             QUESTION,
             startTime,
             deadline,
             adjudicator,
-            guardian,
+            address(protocolConfig),
             creator
         );
     }
@@ -44,22 +51,22 @@ contract TruthMarketLifecycleTest is Test {
         assertEq(market.startTime(), startTime);
         assertEq(market.creator(), creator);
         assertEq(market.adjudicator(), adjudicator);
-        assertEq(market.guardian(), guardian);
+        assertEq(address(market.protocolConfig()), address(protocolConfig));
         assertEq(uint8(market.state()), 0);
     }
 
     function test_Constructor_RevertWhenDeadlineInPast() public {
         vm.expectRevert("TruthMarket: deadline in past");
-        new TruthMarket(QUESTION, startTime, uint64(block.timestamp - 1), adjudicator, guardian, creator);
+        new TruthMarket(QUESTION, startTime, uint64(block.timestamp - 1), adjudicator, address(protocolConfig), creator);
     }
 
     function test_Constructor_RevertWhenZeroAdjudicator() public {
         vm.expectRevert("TruthMarket: zero adjudicator");
-        new TruthMarket(QUESTION, startTime, deadline, address(0), guardian, creator);
+        new TruthMarket(QUESTION, startTime, deadline, address(0), address(protocolConfig), creator);
     }
 
-    function test_Constructor_RevertWhenZeroGuardian() public {
-        vm.expectRevert("TruthMarket: zero guardian");
+    function test_Constructor_RevertWhenZeroProtocolConfig() public {
+        vm.expectRevert("TruthMarket: zero protocol config");
         new TruthMarket(QUESTION, startTime, deadline, adjudicator, address(0), creator);
     }
 
@@ -79,7 +86,7 @@ contract TruthMarketLifecycleTest is Test {
             futureStart,
             futureDeadline,
             adjudicator,
-            guardian,
+            address(protocolConfig),
             creator
         );
 
@@ -143,7 +150,7 @@ contract TruthMarketLifecycleTest is Test {
             futureStart,
             futureDeadline,
             adjudicator,
-            guardian,
+            address(protocolConfig),
             creator
         );
 
@@ -210,14 +217,13 @@ contract TruthMarketLifecycleTest is Test {
         assertTrue(market.isFinalized());
     }
 
-    function test_Finalize_ByGuardian() public {
+    function test_Finalize_ByGuardian_Reverts() public {
         vm.prank(adjudicator);
         market.settle(1, 0);
 
         vm.prank(guardian);
+        vm.expectRevert("TruthMarket: not adjudicator");
         market.finalize();
-
-        assertTrue(market.isFinalized());
     }
 
     function test_Finalize_RevertWhenNotAuthorized() public {
@@ -225,7 +231,7 @@ contract TruthMarketLifecycleTest is Test {
         market.settle(1, 0);
 
         vm.prank(randomUser);
-        vm.expectRevert("TruthMarket: not authorized");
+        vm.expectRevert("TruthMarket: not adjudicator");
         market.finalize();
     }
 
@@ -233,7 +239,7 @@ contract TruthMarketLifecycleTest is Test {
         vm.prank(adjudicator);
         market.settle(1, 0);
 
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         market.finalize();
 
         vm.prank(guardian);
@@ -289,7 +295,7 @@ contract TruthMarketLifecycleTest is Test {
         market.settle(1, 0);
         assertTrue(market.isSettled());
 
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         market.finalize();
         assertTrue(market.isFinalized());
 
@@ -307,7 +313,7 @@ contract TruthMarketLifecycleTest is Test {
         vm.prank(adjudicator);
         market.settle(1, 0);
 
-        vm.prank(guardian);
+        vm.prank(adjudicator);
         market.finalize();
 
         assertEq(market.getRedemptionValue(1), 1e18);

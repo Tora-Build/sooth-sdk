@@ -6,6 +6,7 @@ import {TickBookPoolManager} from "@core/TickBookPoolManager.sol";
 import {TickBookVault} from "@core/TickBookVault.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 import {OutcomeToken} from "@core/OutcomeToken.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 /**
@@ -21,6 +22,7 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 contract UnifiedOrderSystemTest is Test {
     TickBookPoolManager public poolManager;
     TickBookVault public vault;
+    ProtocolConfig public protocolConfig;
     TruthMarket public market;
     OutcomeToken public yesToken;
     OutcomeToken public noToken;
@@ -40,10 +42,11 @@ contract UnifiedOrderSystemTest is Test {
         usdc = new ERC20Mock();
 
         // Deploy vault
-        vault = new TickBookVault(address(usdc), deployer);
+        protocolConfig = new ProtocolConfig(deployer);
+        vault = new TickBookVault(address(usdc), address(protocolConfig), deployer);
 
         // Deploy pool manager V9.9.6
-        poolManager = new TickBookPoolManager(address(vault));
+        poolManager = new TickBookPoolManager(address(vault), address(protocolConfig));
 
         // Link vault to pool manager
         vault.setTickBook(address(poolManager));
@@ -54,7 +57,7 @@ contract UnifiedOrderSystemTest is Test {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             deployer,
-            deployer,
+            address(protocolConfig),
             deployer
         );
 

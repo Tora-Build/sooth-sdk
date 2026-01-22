@@ -6,11 +6,13 @@ import {TickBookPoolManager} from "@core/TickBookPoolManager.sol";
 import {TickBookVault} from "@core/TickBookVault.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
 import {OutcomeToken} from "@core/OutcomeToken.sol";
+import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract SpotSellReproTest is Test {
     TickBookPoolManager public poolManager;
     TickBookVault public vault;
+    ProtocolConfig public protocolConfig;
     TruthMarket public market;
     OutcomeToken public yesToken;
     OutcomeToken public noToken;
@@ -23,8 +25,9 @@ contract SpotSellReproTest is Test {
 
     function setUp() public {
         usdc = new ERC20Mock();
-        vault = new TickBookVault(address(usdc), address(this));
-        poolManager = new TickBookPoolManager(address(vault));
+        protocolConfig = new ProtocolConfig(address(this));
+        vault = new TickBookVault(address(usdc), address(protocolConfig), address(this));
+        poolManager = new TickBookPoolManager(address(vault), address(protocolConfig));
         vault.setTickBook(address(poolManager));
 
         market = new TruthMarket(
@@ -32,7 +35,7 @@ contract SpotSellReproTest is Test {
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days),
             address(this),
-            address(this),
+            address(protocolConfig),
             address(this)
         );
         yesToken = new OutcomeToken("Yes Token", "YES", address(this), address(market), 1);

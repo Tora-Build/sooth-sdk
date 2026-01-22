@@ -52,8 +52,10 @@ contract LaunchpadEngineV11Test is V11TestBase {
             0,
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
-            100e18
+            address(protocolConfig),
+            100e18,
+            0,
+            0
         );
     }
 
@@ -73,10 +75,12 @@ contract LaunchpadEngineV11Test is V11TestBase {
             0,
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
+            address(protocolConfig),
             100e18,
             1 days, // 1 day trial
             false,
+            0,
+            0,
             0
         );
 
@@ -352,11 +356,13 @@ contract LaunchpadEngineV11Test is V11TestBase {
             0,
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
+            address(protocolConfig),
             100e18,
             7 days,
             true,
-            50
+            50,
+            0,
+            0
         );
     }
 
@@ -419,8 +425,10 @@ contract LaunchpadEngineV11Test is V11TestBase {
             0,
             uint64(block.timestamp + 30 days),
             adjudicator,
-            guardian,
-            100e18
+            address(protocolConfig),
+            100e18,
+            0,
+            0
         );
 
         assertGt(lpTokens, 0, "LP tokens should be minted");
