@@ -29,7 +29,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         traders.push(alice);
         traders.push(bob);
 
-        // Create test markets
+        // Create test markets (custom duration deferred; defaults used)
         markets.push(_createMarket());
         markets.push(_createMarketWithTrialPeriod(3 days));
     }
@@ -45,7 +45,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
             for (uint j = 0; j < traders.length; j++) {
                 address trader = traders[j];
 
-                (uint256 lockedCost, , ) = launchpad.getExitOptions(market, trader);
+                (uint256 lockedCost, , ) = _getExitOptions(market, trader);
 
                 // Locked cost should never exceed what the trader deposited
                 // This is a simplified check - in reality would track deposits separately
@@ -62,12 +62,12 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         for (uint i = 0; i < markets.length; i++) {
             address market = markets[i];
 
-            (, , uint256 totalLockedCost, ) = launchpad.getTrialStatus(market);
+            (, , uint256 totalLockedCost, ) = _getTrialStatus(market);
 
             // Sum of individual locked costs should equal total
             uint256 sumLockedCost = 0;
             for (uint j = 0; j < traders.length; j++) {
-                (uint256 lockedCost, , ) = launchpad.getExitOptions(market, traders[j]);
+                (uint256 lockedCost, , ) = _getExitOptions(market, traders[j]);
                 sumLockedCost += lockedCost;
             }
 
@@ -91,7 +91,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         launchpad.dismissMarket(market);
 
         // Verify market is frozen
-        (, bool isDismissed, , ) = launchpad.getTrialStatus(market);
+        (, bool isDismissed, , ) = _getTrialStatus(market);
         assertTrue(isDismissed, "Market should be dismissed");
 
         // Any trading attempt should fail
@@ -110,16 +110,16 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
 
     function test_Invariant_LPTransferLocking() public {
         address market = _createMarket();
-        address lpToken = launchpad.getLPToken(market);
+        address lpToken = _getLPToken(market);
 
         // Trade to get LP tokens
         _buyShares(alice, market, 1, 100e18);
-        uint256 aliceLP = launchpad.getLPBalance(market, alice);
+        uint256 aliceLP = _getLPBalance(market, alice);
 
         // Pre-settlement: transfers work
         vm.prank(alice);
         LaunchpadLPToken(lpToken).transfer(bob, aliceLP / 4);
-        assertEq(launchpad.getLPBalance(market, bob), aliceLP / 4, "Transfer should work pre-settlement");
+        assertEq(_getLPBalance(market, bob), aliceLP / 4, "Transfer should work pre-settlement");
 
         // Settle market
         _settleMarket(market, 1);
@@ -136,17 +136,17 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
 
     function test_Invariant_LPSupplyConsistency() public {
         address market = _createMarket();
-        address lpToken = launchpad.getLPToken(market);
+        address lpToken = _getLPToken(market);
 
         // Creator has initial LP
-        uint256 creatorLP = launchpad.getLPBalance(market, creator);
+        uint256 creatorLP = _getLPBalance(market, creator);
 
         // Trade to mint more LP
         _buyShares(alice, market, 1, 100e18);
         _buyShares(bob, market, 0, 50e18);
 
-        uint256 aliceLP = launchpad.getLPBalance(market, alice);
-        uint256 bobLP = launchpad.getLPBalance(market, bob);
+        uint256 aliceLP = _getLPBalance(market, alice);
+        uint256 bobLP = _getLPBalance(market, bob);
 
         // Total supply should equal sum of balances
         uint256 totalSupply = LaunchpadLPToken(lpToken).totalSupply();
@@ -166,7 +166,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, 100e18);
 
-        (uint256 lockedBefore, , ) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedBefore, , ) = _getExitOptions(market, alice);
         assertGt(lockedBefore, 0, "Should have locked cost before claim");
 
         vm.prank(creator);
@@ -175,7 +175,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         vm.prank(alice);
         launchpad.claimRefund(market);
 
-        (uint256 lockedAfter, , bool canClaim) = launchpad.getExitOptions(market, alice);
+        (uint256 lockedAfter, , bool canClaim) = _getExitOptions(market, alice);
         assertEq(lockedAfter, 0, "Locked cost should be zero after claim");
         assertFalse(canClaim, "Cannot claim again");
     }
@@ -185,22 +185,23 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
     // ============================================
 
     function test_Invariant_TrialPeriodTiming() public {
-        // Test with 3-day trial market
-        address market = markets[1];
+        // Test with default trial market
+        address market = markets[0];
+        uint64 trialPeriod = launchpad.DEFAULT_TRIAL_PERIOD();
 
         // Initial: trial active
-        (, , , bool isActiveInitial) = launchpad.getTrialStatus(market);
+        (, , , bool isActiveInitial) = _getTrialStatus(market);
         assertTrue(isActiveInitial, "Trial should be active initially");
 
-        // Warp 2 days: still active
-        _advanceTime(2 days);
-        (, , , bool isActiveMiddle) = launchpad.getTrialStatus(market);
-        assertTrue(isActiveMiddle, "Trial should be active at 2 days");
+        // Warp near end: still active
+        _advanceTime(uint256(trialPeriod) - 1);
+        (, , , bool isActiveMiddle) = _getTrialStatus(market);
+        assertTrue(isActiveMiddle, "Trial should be active before end");
 
-        // Warp past 3 days: no longer active
-        _advanceTime(2 days);
-        (, , , bool isActiveAfter) = launchpad.getTrialStatus(market);
-        assertFalse(isActiveAfter, "Trial should end after 3 days");
+        // Warp past trial: no longer active
+        _advanceTime(2);
+        (, , , bool isActiveAfter) = _getTrialStatus(market);
+        assertFalse(isActiveAfter, "Trial should end after duration");
     }
 
     // ============================================
@@ -236,14 +237,14 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         }
 
         // Check invariants hold after random trading
-        (, , , bool isTrialActive) = launchpad.getTrialStatus(market);
+        (, , , bool isTrialActive) = _getTrialStatus(market);
 
         // If trial still active, dismissal should work
         if (isTrialActive) {
             vm.prank(creator);
             launchpad.dismissMarket(market);
 
-            (, bool isDismissed, , ) = launchpad.getTrialStatus(market);
+            (, bool isDismissed, , ) = _getTrialStatus(market);
             assertTrue(isDismissed, "Dismissal should succeed during trial");
         }
     }
@@ -268,8 +269,8 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         }
 
         // Record locked costs
-        (uint256 aliceLocked, , ) = launchpad.getExitOptions(market, alice);
-        (uint256 bobLocked, , ) = launchpad.getExitOptions(market, bob);
+        (uint256 aliceLocked, , ) = _getExitOptions(market, alice);
+        (uint256 bobLocked, , ) = _getExitOptions(market, bob);
 
         // Dismiss
         vm.prank(creator);
@@ -287,8 +288,8 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         }
 
         // Both locked costs zeroed
-        (uint256 aliceLockedAfter, , ) = launchpad.getExitOptions(market, alice);
-        (uint256 bobLockedAfter, , ) = launchpad.getExitOptions(market, bob);
+        (uint256 aliceLockedAfter, , ) = _getExitOptions(market, alice);
+        (uint256 bobLockedAfter, , ) = _getExitOptions(market, bob);
 
         assertEq(aliceLockedAfter, 0, "Alice locked should be zero");
         assertEq(bobLockedAfter, 0, "Bob locked should be zero");

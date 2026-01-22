@@ -112,11 +112,11 @@ contract SettlementFlowTest is TrialPeriodTestBase {
     function test_TEESettlement_LPTokensLockedAfterSettlement() public {
         // Create market through launchpad for LP tokens
         address market = _createMarket();
-        address lpToken = launchpad.getLPToken(market);
+        address lpToken = _getLPToken(market);
 
         // Trade to get LP tokens
         _buyShares(alice, market, 1, 100e18);
-        uint256 aliceLP = launchpad.getLPBalance(market, alice);
+        uint256 aliceLP = _getLPBalance(market, alice);
         assertGt(aliceLP, 0, "Alice should have LP");
 
         // Check how much LP alice has for transfer
@@ -140,7 +140,7 @@ contract SettlementFlowTest is TrialPeriodTestBase {
 
         // Trade to get LP tokens
         _buyShares(alice, market, 1, 100e18);
-        uint256 aliceLP = launchpad.getLPBalance(market, alice);
+        uint256 aliceLP = _getLPBalance(market, alice);
 
         // Settle
         _settleMarket(market, 1);
@@ -152,7 +152,7 @@ contract SettlementFlowTest is TrialPeriodTestBase {
 
         // Note: Redemption value depends on floor calculation
         // Just verify the call succeeded
-        assertLt(launchpad.getLPBalance(market, alice), aliceLP, "LP burned");
+        assertLt(_getLPBalance(market, alice), aliceLP, "LP burned");
     }
 
     // ============================================

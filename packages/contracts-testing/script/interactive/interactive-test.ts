@@ -89,15 +89,41 @@ function computeLegacyMarketKey(
 }
 
 /**
- * Set current market by address or index
+ * Set current market by address, index, or latest
  */
 async function setMarket(addressOrIndex: string): Promise<boolean> {
   const publicClient = actorManager.getPublicClient();
 
   let marketAddress: string;
+  const normalized = addressOrIndex.trim().toLowerCase();
 
-  // Check if it's an index - fetch from on-chain markets list
-  if (/^\d+$/.test(addressOrIndex)) {
+  // Latest market helper
+  if (normalized === 'latest' || normalized === 'last') {
+    try {
+      const onChainMarkets = await publicClient.readContract({
+        address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: [
+          {
+            name: 'getMarkets',
+            type: 'function',
+            inputs: [],
+            outputs: [{ type: 'address[]', name: '' }],
+            stateMutability: 'view',
+          },
+        ],
+        functionName: 'getMarkets',
+      }) as string[];
+
+      if (onChainMarkets.length === 0) {
+        console.log(error('  No markets available on-chain'));
+        return false;
+      }
+      marketAddress = onChainMarkets[onChainMarkets.length - 1];
+    } catch (err) {
+      console.log(error(`  Failed to fetch latest market: ${(err as Error).message}`));
+      return false;
+    }
+  } else if (/^\d+$/.test(addressOrIndex)) {
     const index = parseInt(addressOrIndex, 10);
 
     // Fetch on-chain markets from LaunchpadEngine
@@ -162,7 +188,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
     // First check if market exists in LaunchpadEngine (pre-graduation)
     let isLaunchpadMarket = false;
     try {
-      // V10.8.3: MarketState no longer has name/symbol
+      // V11: MarketState includes lpToken
       const marketState = await publicClient.readContract({
         address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
         abi: [
@@ -172,6 +198,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
             inputs: [{ type: 'address', name: 'market' }],
             outputs: [
               { type: 'address', name: 'creator' },
+              { type: 'address', name: 'lpToken' },
               { type: 'uint256', name: 'bBase' },
               { type: 'uint256', name: 'bCurrent' },
               { type: 'uint256', name: 'creatorDeposit' },
@@ -187,9 +214,9 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         ],
         functionName: 'markets',
         args: [marketAddress as `0x${string}`],
-      }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+      }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
 
-      const [creator, , , , , , , isGraduated] = marketState;
+      const [creator, , , , , , , , isGraduated] = marketState;
       if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
@@ -354,7 +381,7 @@ function printHelp(): void {
       positions            Show all actor positions
       info                 Show market info (addresses)
       markets              Show current market & available markets
-      setmarket <addr>     Set current market
+      setmarket <addr|index|latest>  Set current market
 
     ${info('Simulation:')}
       simulate [n] [size] [seed]  Run orderbook simulation
@@ -561,7 +588,13 @@ async function handleCommand(input: string): Promise<void> {
 
       // Market lifecycle commands
       case 'createmarket':
-        await run(marketCommands.createmarket(ctx, args));
+        {
+          const res = await run(marketCommands.createmarket(ctx, args));
+          const created = res.data?.marketAddress as string | undefined;
+          if (res.success && created) {
+            await setMarket(created);
+          }
+        }
         break;
 
       case 'graduate':
@@ -687,6 +720,24 @@ async function main(): Promise<void> {
 
   console.log('');
   console.log(dim('  Type "help" for available commands\n'));
+
+  // Non-interactive mode: read piped commands and execute sequentially.
+  if (!process.stdin.isTTY) {
+    const input = await new Promise<string>((resolve) => {
+      let data = '';
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', (chunk) => {
+        data += chunk;
+      });
+      process.stdin.on('end', () => resolve(data));
+    });
+
+    const lines = input.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    for (const line of lines) {
+      await handleCommand(line);
+    }
+    return;
+  }
 
   // Start REPL
   const rl = readline.createInterface({

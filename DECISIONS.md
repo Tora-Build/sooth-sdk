@@ -49,7 +49,7 @@
   2. Do not enable agent-gated markets in V11; trading remains open to all users.
   3. Limit agent incentives to TickBook fee discounts for registered market makers.
   4. Keep multi-validator adjudicator interfaces as-is; first target adjudicator is ZK/Brevis (TEE deferred).
-  5. `tradeWithAgent` in Launchpad remains a compatibility alias (no gating or fee discounts).
+  5. Launchpad `tradeWithAgent` is deferred/removed to reduce code size; no Launchpad fee discounts.
 - **Consequences**:
   - UI/docs should not assume settlement only after deadline.
   - Agent gating flags should default off; enforcement is not required beyond TickBook discounts.
@@ -91,10 +91,10 @@
      - Requires valid attestation from registered agent before `settle()`
      - Multi-validator support for high-value markets
      - Configurable attestation window and minimum score
-  3. **Agent Trading (Deferred in TickBook)**:
-     - `tradeWithAgent(agentId)`: Fee discount based on agent reputation
+  3. **Agent Trading (Deferred)**:
+     - Launchpad `tradeWithAgent(agentId)` removed to reduce code size (no Launchpad discounts)
      - `placeOrderWithAgent(agentId)` removed from TickBookPoolManager to stay under the EVM code size limit
-     - Agent-gated markets: Only agents with min reputation can trade
+     - Agent-gated markets: deferred; trading remains permissionless
 - **Rationale**:
   - **Creator Protection**: Trial period reduces risk of launching markets that fail to attract volume
   - **DeFi Composability**: ERC20 LP tokens enable yield farming, collateralization, and DEX trading
@@ -102,7 +102,7 @@
   - **Trust Minimization**: TEE attestations provide cryptographic proof of correct settlement
   - **Capital Efficiency**: Permit removes approval transaction requirement
 - **Consequences**:
-  - **New Contract**: `LaunchpadEngineV11.sol` replaces `LaunchpadEngine.sol` for new deployments
+  - **New Contract**: `LaunchpadEngine.sol` (canonical V11 implementation) replaces the prior LaunchpadEngine for new deployments
   - **Interface Extension**: `ILaunchpadEngine.sol` and `ITruthMarket.sol` expanded
   - **ERC-8004 Dependency**: Requires external registry contracts (can be mocked for testing)
   - **Migration Path**: Existing V10 markets continue to work; V11 features for new markets only
@@ -111,7 +111,7 @@
   - `packages/contracts-core/src/interfaces/IAdjudicator.sol`
   - `packages/contracts-core/src/LaunchpadLPToken.sol`
   - `packages/contracts-core/src/ValidatedAdjudicator.sol`
-  - `packages/contracts-core/src/LaunchpadEngineV11.sol`
+  - `packages/contracts-core/src/LaunchpadEngine.sol`
 - **Test Coverage**: 126 tests passing (100%)
 
 ---

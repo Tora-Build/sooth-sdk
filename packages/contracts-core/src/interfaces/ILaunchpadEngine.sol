@@ -105,16 +105,6 @@ interface ILaunchpadEngine {
     // V11 Events
     event MarketDismissed(address indexed market, address indexed creator, uint256 timestamp);
     event RefundClaimed(address indexed market, address indexed user, uint256 amount);
-    event AgentTrade(
-        address indexed market,
-        address indexed wallet,
-        uint256 indexed agentId,
-        uint8 outcome,
-        int256 deltaShares,
-        uint256 cost,
-        uint256 fee
-    );
-    event AgentGatingSet(address indexed market, bool isAgentGated, uint8 minReputation);
     event LPTokenCreated(address indexed market, address indexed lpToken);
 
     // ============================================
@@ -220,17 +210,6 @@ interface ILaunchpadEngine {
         );
 
     /**
-     * @notice Get LP token balance
-     * @param market Market address
-     * @param user User address
-     * @return LP token balance (WAD)
-     */
-    function getLPBalance(address market, address user)
-        external
-        view
-        returns (uint256);
-
-    /**
      * @notice Get graduation progress
      * @param market Market address
      * @return feesAccrued Total fees collected (USDC)
@@ -275,60 +254,4 @@ interface ILaunchpadEngine {
      */
     function claimRefund(address market) external returns (uint256 refundAmount);
 
-    /**
-     * @notice Get trial status for a market
-     * @param market The market address
-     * @return trialEndTime When trial ends
-     * @return isDismissed Whether market was dismissed
-     * @return totalLockedCost Total cost locked in trial
-     * @return isTrialActive Whether trial is currently active
-     */
-    function getTrialStatus(address market) external view returns (
-        uint64 trialEndTime,
-        bool isDismissed,
-        uint256 totalLockedCost,
-        bool isTrialActive
-    );
-
-    /**
-     * @notice Get user's exit options for a market
-     * @param market The market address
-     * @param user The user address
-     * @return lockedCost User's locked cost during trial
-     * @return trialBalance User's net P&L during trial
-     * @return canClaimRefund Whether user can claim refund
-     */
-    function getExitOptions(address market, address user) external view returns (
-        uint256 lockedCost,
-        int256 trialBalance,
-        bool canClaimRefund
-    );
-
-    // ============================================
-    // V11: Agent Trading
-    // ============================================
-
-    /**
-     * @notice Trade with agent attribution (Launchpad has no agent discounts in V11)
-     * @param market Market address
-     * @param outcome 0 = YES, 1 = NO
-     * @param deltaShares Position change
-     * @param maxCostOrMinProceeds Slippage protection
-     * @param agentId The ERC-8004 agent ID
-     * @return actualCost Actual cost/proceeds
-     */
-    function tradeWithAgent(
-        address market,
-        uint8 outcome,
-        int256 deltaShares,
-        uint256 maxCostOrMinProceeds,
-        uint256 agentId
-    ) external returns (uint256 actualCost);
-
-    /**
-     * @notice Get the LP token address for a market
-     * @param market The market address
-     * @return LP token address
-     */
-    function getLPToken(address market) external view returns (address);
 }

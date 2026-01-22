@@ -395,10 +395,11 @@ export const ABIS = {
       ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
     },
     {
-      // V10.8.3: Removed name/symbol fields (now 10 fields, not 12)
+      // V11: lpToken added to markets struct (11 fields total)
       name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
       outputs: [
         { type: 'address', name: 'creator' },
+        { type: 'address', name: 'lpToken' },
         { type: 'uint256', name: 'bBase' },
         { type: 'uint256', name: 'bCurrent' },
         { type: 'uint256', name: 'creatorDeposit' },

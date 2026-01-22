@@ -98,7 +98,6 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **Added**: Trial period system with `lockedCost` and `trialBalance` tracking per user/market
 - **Added**: `dismissMarket()` for creators to abort during trial period
 - **Added**: `claimRefund()` for users to recover locked costs after dismissal
-- **Added**: `getTrialStatus()` and `getExitOptions()` view functions
 - **Added**: `LaunchpadLPToken.sol` — ERC20 LP tokens with settlement-locked transfers
 
 **Phase 2: ERC-8004 Trustless Agents**
@@ -110,24 +109,24 @@ All notable changes to Sooth Protocol will be documented in this file.
 - **Added**: `ValidatedAdjudicator.sol` — TEE attestation-based settlement (implements `IValidatedAdjudicator`)
   - Multi-validator support for high-value markets
   - Configurable attestation window and minimum score
-- **Added**: `tradeWithAgent()` — Compatibility alias (no Launchpad discounts; reserved for future agent attribution)
-- **Added**: `createMarketWithOptions()` for trial period configuration (agent gating disabled; requires `isAgentGated=false` and `minReputation=0`)
 
 **Changed**
 - Clarified V11 policy: early settlement allowed pre-expiration; agent-gated markets not planned; agent discounts limited to TickBook; first adjudicator target is ZK/Brevis (multi-validator interface unchanged).
-- Launchpad agent gating and fee discounts are disabled in V11; `tradeWithAgent` routes to standard trading and `createMarketWithOptions` rejects agent-gated configuration.
+- Launchpad agent gating and fee discounts are disabled in V11; Launchpad agent helpers are deferred until code size allows.
 
 **Deferred/Removed (Code Size)**
 - **Deferred**: `placeOrderWithPermit()` removed from TickBookPoolManager to stay under the EVM code size limit; revisit via module or alternate approval flow.
 - **Deferred**: `placeOrderWithAgent()` removed from TickBookPoolManager to stay under the EVM code size limit.
 - **Removed**: `clearDustLiquidity()` admin helper removed from TickBookPoolManager to stay under code size limit.
+- **Removed**: Launchpad `tradeWithAgent()` and `createMarketWithOptions()` helpers removed to reduce code size.
+- **Removed**: Launchpad `getTrialStatus()` and `getExitOptions()` view helpers removed; derive via public mappings.
 
 **Files Created**
 - `packages/contracts-core/src/interfaces/IERC8004.sol`
 - `packages/contracts-core/src/interfaces/IAdjudicator.sol`
 - `packages/contracts-core/src/LaunchpadLPToken.sol`
 - `packages/contracts-core/src/ValidatedAdjudicator.sol`
-- `packages/contracts-core/src/LaunchpadEngineV11.sol`
+- `packages/contracts-core/src/LaunchpadEngine.sol`
 
 **Files Modified**
 - `packages/contracts-core/src/TickBookPoolManager.sol` — Removed permit/agent helpers to stay under EVM code size limit

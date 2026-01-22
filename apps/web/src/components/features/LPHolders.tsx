@@ -32,15 +32,15 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     // 1.5. Fetch creator's actual LP balance
     const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
     const { data: creatorLpBalance } = useDirectRead({
-        queryKey: ['v8', 'creatorLpBalance', chainId, launchpadEngineAddress, marketAddress, launchpad?.creator],
-        enabled: !!marketAddress && !!chainId && !!launchpadEngineAddress && !!launchpad?.creator,
+        queryKey: ['v8', 'creatorLpBalance', chainId, launchpad?.lpToken, launchpad?.creator],
+        enabled: !!marketAddress && !!chainId && !!launchpad?.lpToken && !!launchpad?.creator,
         chainId,
         read: async (client) => {
             const balance = await readContractSafe<bigint>(client, {
-                address: launchpadEngineAddress!,
-                abi: ABIS.LaunchpadEngine,
-                functionName: 'getLPBalance',
-                args: [marketAddress, launchpad!.creator as `0x${string}`],
+                address: launchpad!.lpToken as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: 'balanceOf',
+                args: [launchpad!.creator as `0x${string}`],
             });
             return balance ?? 0n;
         },

@@ -178,23 +178,41 @@ abstract contract TrialPeriodTestBase is Test {
     }
 
     /**
-     * @notice Create a market with custom trial period
+     * @notice Create a market with default trial period (custom duration deferred)
      */
-    function _createMarketWithTrialPeriod(uint64 trialDuration) internal returns (address market) {
-        vm.prank(creator);
-        (market, ) = launchpad.createMarketWithOptions(
-            "Will ETH reach $10k?",
-            0,
-            uint64(block.timestamp + 30 days),
-            adjudicator,
-            address(protocolConfig),
-            100e18,
-            trialDuration,
-            false,
-            0,
-            0,
-            0
-        );
+    function _createMarketWithTrialPeriod(uint64) internal returns (address market) {
+        return _createMarket();
+    }
+
+    function _getTrialStatus(address market) internal view returns (
+        uint64 trialEndTime,
+        bool isDismissed,
+        uint256 totalLockedCost,
+        bool isTrialActive
+    ) {
+        (trialEndTime, isDismissed, totalLockedCost) = launchpad.trialStates(market);
+        isTrialActive = block.timestamp < trialEndTime && !isDismissed;
+    }
+
+    function _getExitOptions(address market, address user) internal view returns (
+        uint256 lockedCost,
+        int256 trialBalance,
+        bool canClaimRefund
+    ) {
+        (, bool isDismissed, ) = launchpad.trialStates(market);
+        lockedCost = launchpad.userLockedCost(market, user);
+        trialBalance = launchpad.userTrialBalance(market, user);
+        canClaimRefund = isDismissed && lockedCost > 0;
+    }
+
+    function _getLPToken(address market) internal view returns (address lpToken) {
+        (, lpToken, , , , , , , , , ) = launchpad.markets(market);
+    }
+
+    function _getLPBalance(address market, address user) internal view returns (uint256) {
+        address lpToken = _getLPToken(market);
+        if (lpToken == address(0)) return 0;
+        return LaunchpadLPToken(lpToken).balanceOf(user);
     }
 
     /**

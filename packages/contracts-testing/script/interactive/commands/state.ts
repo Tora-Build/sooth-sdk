@@ -473,9 +473,10 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
 export async function setmarket(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   // This is handled in the main REPL, but we provide help here
   if (args.length < 1) {
-    console.log('\n  Usage: setmarket <address|index>');
+    console.log('\n  Usage: setmarket <address|index|latest>');
     console.log('  Example: setmarket 0x1234...');
     console.log('  Example: setmarket 0  (first market in deployment)');
+    console.log('  Example: setmarket latest  (most recent on-chain)');
 
     // Show available markets
     if (ctx.deployment.markets.length > 0) {
