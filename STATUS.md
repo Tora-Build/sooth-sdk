@@ -1,15 +1,31 @@
 # Project Status
 
+> **Codebase Version**: V11.0  
+> **Active Testing**: Base Sepolia  
+> **Last Updated**: 2026-01-23
+
+## V11 Features (Implemented)
+
+| Feature | Contract | Status |
+|---------|----------|--------|
+| Trial Period (7 days) | `LaunchpadEngine` | ✅ Implemented |
+| ERC20 LP Token | `LaunchpadLPToken` | ✅ Implemented |
+| Validated Adjudicator | `ValidatedAdjudicator` | ✅ Implemented |
+| Protocol Config (guardian + pause) | `ProtocolConfig` | ✅ Implemented |
+| Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
+
+**Tests**: 237 passing (unit, integration, invariant, fuzz)
+
 ## Current Focus
-- **Protocol Guardian Implementation (2026-01-21)** — Worktree `impl-guardian-protocol-config` adds `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator, and new `createMarket` args (`adjudicatorAgentId/minValidators`). Frontend + scripts updated; pending test pass + merge.
-- **V11 Architecture Decisions (2026-01-21)** — ADR-082 (adjudicator trust + guardian role) and ADR-083 (canonical filenames) accepted. Key changes: permissionless adjudicator choice, protocol-level guardian (not per-market), adjudicator-only finalize, ValidatedAdjudicator auto-registers via Launchpad. Pending: refactor versioned files per ADR-083.
-- **CLI Actor Testing Tool (2026-01-21)** — Planning complete. Actors: Creator, AMM Trader, TickBook Trader, Adjudicator, Guardian, Keeper, Arbitrager, Protocol Owner. Added `claimSpotSellProceedsFor` proposal for keeper parity. See `.agent/plans/cli-actor-testing-tool.md`.
-- **V11 Implementation (2026-01-20)** — Implemented Phase 1 (Trial Period, LaunchpadLPToken ERC20) and Phase 2 (ERC-8004 interfaces, ValidatedAdjudicator). TickBook permit/agent order functions deferred due to EVM code size. Branch: `v11`.
-- **V11 Policy Clarifications (2026-01-20)** — Early settlement allowed pre-expiration; no agent-gated markets; agent discounts limited to TickBook; first adjudicator target is ZK/Brevis (multi-validator interface unchanged).
-- **V10.10 Event Ordering Fix & Deployment (2026-01-20)** — Fixed phantom liquidity bug in indexer caused by incorrect event emission order. `OrderPlaced` now emits BEFORE `_crossUnified()` so indexers see order creation before any `RangeOrderClosed` events. Deployed to all 4 testnets.
-- **Keeper Resilience (2026-01-18)** — Made keeper self-maintaining for delta neutrality. Claims fills, cancels orders/spot sells, sells tokens, withdraws USDC. Maintenance runs on startup + every 60 seconds.
+- **V11 Testing on Base Sepolia (2026-01-23)** — V11 deployed to all 4 testnets. Active testing on Base Sepolia with CLI multi-actor scenarios.
+- **CLI Zero-Sum P&L Verification Fix (2026-01-23)** — Fixed `checksum` command showing -71.24 USDC imbalance. Added AMM position tracking (`AMMEngine.getPosition`) per actor.
+- **V11 CLI Multi-Actor Automation (2026-01-22)** — Added scenario auto-run flag (`--scenario`), new `market-lifecycle-multi-actor` scenario, keeper claim command, and actor roles.
+- **Protocol Guardian Implementation (2026-01-21)** — `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator.
+- **V11 Architecture Decisions (2026-01-21)** — ADR-082 (adjudicator trust + guardian role) and ADR-083 (canonical filenames) accepted.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-23** — **CLI Zero-Sum P&L Fix**: Added AMM position tracking to `snapshot` and `checksum` commands. Previously missing `AMMEngine.getPosition()` data caused -71.24 USDC discrepancy after `market-lifecycle-multi-actor` scenario. Now tracks `ammYes`/`ammNo` per actor and includes in total value calculations.
+- **2026-01-22** — **CLI Multi-Actor Automation**: Added `market-lifecycle-multi-actor` scenario, `--scenario` auto-run flag, scenario failure enforcement, `setmarket created` flow, keeper `claimspotsellfor` command, and actor role mapping (alice/bob/charlie/david/ellen). Updated README help strings.
 - **2026-01-21** — **Protocol Guardian + Pause Wiring**: Added `ProtocolConfig` (guardian list + pause), shifted guardian checks to protocol-level, adjudicator-only finalize, Launchpad auto-register with per-market adjudicator config, and updated frontend + scripts to new `createMarket` signature. Ported `validate-spot-crossing.ts` to V11 flow (launchpad → graduation → TickBook).
 - **2026-01-21** — **TickBookPoolManager Size + Crossing Fix**: Removed `placeOrderWithPermit`, `placeOrderWithAgent`, and `clearDustLiquidity` from TickBookPoolManager to stay under EVM code size. Fixed spot-sell crossing iteration to avoid OOB when multiple sells share ticks; updated ABIs.
 - **2026-01-21** — **V11 Architecture Decisions**: Added ADR-082 (adjudicator trust: permissionless choice, off-chain registry, protocol-level guardian, adjudicator-only finalize, tStar deferred with finalize hook, auto-register via Launchpad) and ADR-083 (canonical filenames: rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature paths). Updated CLI actor testing tool plan with Protocol Owner actor, Action Purpose table, and guardian/pause flows.
@@ -141,15 +157,15 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.9
+### Base Sepolia (chainId: 84532) — V11.0 (Active Testing)
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883` |
-| **TickBookPoolManager** | `0xb94c45ed45575b48927a21601724db57dd74a94f` |
-| **TickBookVault** | `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee` |
-| **AMMEngine** | `0xe19c027a9407dc0eddae2d908e263d79aaf0bbe2` |
-| **Collateralizer** | `0x258883fb64afe22517db08f4c6e886f4967205b9` |
-| **MockUSDC** | `0x2a6601d2471d9215c4572e7a02279382679c2e8a` |
+| **LaunchpadEngine** | `0x0ec7c40acbe1b0b1340aa20b9bb141e2d0996826` |
+| **TickBookPoolManager** | `0xa2261ad47f5f60048384f66f544d7ec48ddb3ed0` |
+| **TickBookVault** | `0xa21f54a6964c0213c610ef55dc1abf88ee63982e` |
+| **AMMEngine** | `0x16948479c5d43b59742adae6401645271546366d` |
+| **Collateralizer** | `0x113eaa03740480ef36b9def40b2399e27495748c` |
+| **MockUSDC** | `0x2db2e129f31b2a659b2c1c07410789b8d3c898b9` |
 
 ### Arc Testnet (chainId: 5042002) — V10.9
 | Contract | Address |
@@ -351,4 +367,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-20 (V11 policy alignment; V10.10 deployed: event ordering fix)*
+*Last updated: 2026-01-23 (CLI zero-sum P&L fix: added AMM position tracking)*

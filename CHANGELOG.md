@@ -56,17 +56,41 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [V11.0] - 2026-01-23
+
+### Summary
+V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**, and **Protocol Config** (guardian + global pause). Deployed to all 4 testnets; active testing on Base Sepolia.
+
+### Fixed
+- **CLI Zero-Sum P&L Verification**: Fixed `checksum` command showing -71.24 USDC imbalance after `market-lifecycle-multi-actor` scenario.
+  - **Root Cause**: AMM positions (YES/NO shares from pre-graduation trades via `LaunchpadEngine.tradePositions`) were not being tracked.
+  - **Fix**: Added `AMMEngine.getPosition(market, user)` calls to `snapshot` and `checksum` functions in `wallet.ts`.
+  - **Changes**:
+    - Added `AMMEngineAbi` with `getPosition` function
+    - Extended `ActorPositions` interface with `ammYes` and `ammNo` fields
+    - Updated `snapshot()` to fetch AMM positions per actor
+    - Updated `checksum()` to fetch AMM positions per actor
+    - Updated `calculateActorTotalValue()` to include AMM positions in YES/NO totals
+    - Updated `printSnapshot()` to display AMM positions in breakdown (`amm:X/Y`)
+  - **Result**: Checksum now returns 0.00 USDC (true zero-sum verification).
 
 ### Added
 - **ProtocolConfig**: New protocol-level guardian list + global pause contract; Launchpad/AMM/TickBook/Vault read pause state.
 - **V11 Validation Script**: `validate-spot-crossing.ts` ported to V11 (launchpad create → graduation → TickBook orderbook).
+- **CLI Scenario Auto-Run**: `--scenario` flag for non-interactive runs and new `market-lifecycle-multi-actor` scenario (creator/AMM/TickBook/keeper flows).
+- **Keeper Claim Command**: `claimspotsellfor` for permissionless spot sell proceeds claim.
+- **Actor Roles**: Added `david` (adjudicator) and `ellen` (keeper) with `.env` support.
 
 ### Changed
 - **Launchpad createMarket**: New signature adds `adjudicatorAgentId`/`adjudicatorMinValidators`; guardian must equal protocol config.
 - **TruthMarket finalize**: Adjudicator-only finalize; guardian keeps veto only.
 - **Adjudicator auto-register**: `ValidatedAdjudicator.registerMarket` is permissionless and auto-called at market creation with per-market config.
 - **Frontend + scripts**: Create-market flows and scripts updated to read `protocolConfig()` and pass new args.
+- **Scenario Flow**: `setmarket created` support and scenario now re-selects the created market post-graduation.
+- **Actor Defaults**: Roles mapped to creator/amm/tickbook/adjudicator/keeper for multi-actor testing.
+
+### Fixed
+- **Scenario Failure Handling**: Scenario mode now fails on command errors instead of always passing.
 
 ### V11 Architecture Decisions (2026-01-21)
 
@@ -135,7 +159,25 @@ All notable changes to Sooth Protocol will be documented in this file.
 - `packages/contracts-core/src/interfaces/ILaunchpadEngine.sol` — Added V11 events and functions
 - `packages/contracts-core/src/LaunchpadEngine.sol` — Added V11 stub implementations
 
-**Tests**: V11 suite (132) + crossing/integration/invariants/repro/unit suites passed (0 failing)
+**Tests**: 237 passing (unit, integration, invariant, fuzz)
+
+### Deployed
+
+**Base Sepolia V11.0** (Active Testing):
+- LaunchpadEngine: `0x0ec7c40acbe1b0b1340aa20b9bb141e2d0996826`
+- TickBookPoolManager: `0xa2261ad47f5f60048384f66f544d7ec48ddb3ed0`
+- TickBookVault: `0xa21f54a6964c0213c610ef55dc1abf88ee63982e`
+- AMMEngine: `0x16948479c5d43b59742adae6401645271546366d`
+- Collateralizer: `0x113eaa03740480ef36b9def40b2399e27495748c`
+- MockUSDC: `0x2db2e129f31b2a659b2c1c07410789b8d3c898b9`
+
+*Other networks remain on V10.9 pending V11 testing completion.*
+
+---
+
+## [V10.10] - 2026-01-20
+
+(V10 archived - see git history for full V10.x changelog)
 
 ---
 
