@@ -20,6 +20,7 @@ const TickBookVaultAbi = parseAbi([
 
 const LaunchpadEngineAbi = parseAbi([
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
+  'function trialStates(address market) view returns (uint64 trialEndTime, bool isDismissed, uint256 totalLockedCost)',
 ]);
 
 const TruthMarketAbi = parseAbi([
@@ -257,6 +258,7 @@ export interface MarketState {
   isSettled: boolean;
   winningOutcome: number; // 0=NO, 1=YES, 2=INVALID, -1=not settled
   isGraduated: boolean;
+  isDismissed: boolean;
 }
 
 export interface BalanceSnapshot {
@@ -313,7 +315,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 
   if (marketAddress) {
     try {
-      const [marketState, isSettled] = await Promise.all([
+      const [marketState, isSettled, trialState] = await Promise.all([
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
@@ -325,9 +327,16 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
           abi: TruthMarketAbi,
           functionName: 'isSettled',
         }).catch(() => false) as Promise<boolean>,
+        publicClient.readContract({
+          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadEngineAbi,
+          functionName: 'trialStates',
+          args: [marketAddress],
+        }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
       ]);
 
       const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, , isGraduated] = marketState;
+      const [, isDismissed] = trialState;
 
       let winningOutcome = -1;
       if (isSettled) {
@@ -347,6 +356,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         isSettled,
         winningOutcome,
         isGraduated,
+        isDismissed,
       };
     } catch (e) {
       console.log(dim('  Could not fetch market state'));
@@ -499,8 +509,15 @@ function calculateActorTotalValue(data: ActorPositions, market: MarketState | nu
   
   let yesValue = 0n;
   let noValue = 0n;
+  let lpValue = 0n;
   
-  if (market.isSettled) {
+  if (market.isDismissed) {
+    // Dismissed markets: positions are worthless, LP tokens are worthless
+    // Traders already got refunds via claimRefund()
+    yesValue = 0n;
+    noValue = 0n;
+    lpValue = 0n;
+  } else if (market.isSettled) {
     if (market.winningOutcome === 1) {
       yesValue = totalYes;
     } else if (market.winningOutcome === 0) {
@@ -509,15 +526,17 @@ function calculateActorTotalValue(data: ActorPositions, market: MarketState | nu
       yesValue = totalYes / 2n;
       noValue = totalNo / 2n;
     }
+    if (data.lpTokens > 0n && market.totalLPSupply > 0n) {
+      const poolValue = market.creatorDeposit + market.feesAccrued;
+      lpValue = (poolValue * data.lpTokens) / market.totalLPSupply;
+    }
   } else {
     yesValue = totalYes / 2n;
     noValue = totalNo / 2n;
-  }
-  
-  let lpValue = 0n;
-  if (data.lpTokens > 0n && market.totalLPSupply > 0n) {
-    const poolValue = market.creatorDeposit + market.feesAccrued;
-    lpValue = (poolValue * data.lpTokens) / market.totalLPSupply;
+    if (data.lpTokens > 0n && market.totalLPSupply > 0n) {
+      const poolValue = market.creatorDeposit + market.feesAccrued;
+      lpValue = (poolValue * data.lpTokens) / market.totalLPSupply;
+    }
   }
   
   return liquidUsdc + yesValue + noValue + lpValue;
@@ -601,7 +620,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
 
   if (marketAddress) {
     try {
-      const [marketState, isSettled] = await Promise.all([
+      const [marketState, isSettled, trialState] = await Promise.all([
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
@@ -613,9 +632,16 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
           abi: TruthMarketAbi,
           functionName: 'isSettled',
         }).catch(() => false) as Promise<boolean>,
+        publicClient.readContract({
+          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadEngineAbi,
+          functionName: 'trialStates',
+          args: [marketAddress],
+        }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
       ]);
 
       const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, , isGraduated] = marketState;
+      const [, isDismissed] = trialState;
 
       let winningOutcome = -1;
       if (isSettled) {
@@ -635,6 +661,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
         isSettled,
         winningOutcome,
         isGraduated,
+        isDismissed,
       };
     } catch {}
   }
@@ -773,9 +800,11 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
 
   if (after.market) {
     const m = after.market;
-    const settlementStatus = m.isSettled 
-      ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}` 
-      : 'live';
+    const settlementStatus = m.isDismissed
+      ? 'dismissed (trial period)'
+      : m.isSettled 
+        ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}` 
+        : 'live';
     console.log(`  ${info('Market Status:')} ${settlementStatus}`);
   }
 
@@ -829,7 +858,11 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
   const launchpadDelta = after.contracts.launchpadEngine - before.contracts.launchpadEngine;
   const collateralizerDelta = after.contracts.collateralizer - before.contracts.collateralizer;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
-  const totalContractDelta = launchpadDelta + collateralizerDelta;
+  
+  const isDismissed = after.market?.isDismissed ?? false;
+  const totalContractDelta = isDismissed
+    ? launchpadDelta + collateralizerDelta + ammEngineDelta
+    : launchpadDelta + collateralizerDelta;
 
   const printDelta = (name: string, delta: bigint) => {
     const sign = delta >= 0n ? '+' : '';
@@ -838,7 +871,12 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
   };
 
   printDelta('LaunchpadEngine', launchpadDelta);
-  console.log(`    ${dim('AMMEngine'.padEnd(18))} ${dim(`${ammEngineDelta >= 0n ? '+' : ''}${formatWad(ammEngineDelta)}`.padStart(12))} ${dim('USDC (backs AMM positions, excluded)')}`);
+  if (isDismissed) {
+    printDelta('AMMEngine', ammEngineDelta);
+    console.log(`    ${dim(''.padEnd(18))} ${dim('(included: dismissed market, positions worthless)')}`);
+  } else {
+    console.log(`    ${dim('AMMEngine'.padEnd(18))} ${dim(`${ammEngineDelta >= 0n ? '+' : ''}${formatWad(ammEngineDelta)}`.padStart(12))} ${dim('USDC (backs AMM positions, excluded)')}`);
+  }
   printDelta('Collateralizer', collateralizerDelta);
   
   const vaultDelta = after.contracts.tickBookVault - before.contracts.tickBookVault;

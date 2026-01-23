@@ -69,6 +69,12 @@ const LaunchpadEngineAbi = parseAbi([
   'function postGradFeeBps() view returns (uint16)',
   'function protocolShareBps() view returns (uint16)',
   'function redeemLP(address market, uint256 lpAmount) external returns (uint256 usdcReturned)',
+  // V11: Trial Period Functions
+  'function dismissMarket(address market) external',
+  'function claimRefund(address market) external returns (uint256)',
+  'function trialStates(address market) view returns (uint64 trialEndTime, bool isDismissed, uint256 totalLockedCost)',
+  'function userLockedCost(address market, address user) view returns (uint256)',
+  'function DEFAULT_TRIAL_PERIOD() view returns (uint64)',
 ]);
 
 const AMMEngineAbi = parseAbi([
@@ -1886,6 +1892,219 @@ export async function transferlp(ctx: CommandContext, args: string[]): Promise<C
   }
 }
 
+/**
+ * Show trial period status for current market
+ * Usage: trialstatus
+ */
+export async function trialstatus(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const publicClient = actorManager.getPublicClient();
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  try {
+    const trialState = await publicClient.readContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'trialStates',
+      args: [marketAddress],
+    }) as readonly [bigint, boolean, bigint];
+
+    const [trialEndTime, isDismissed, totalLockedCost] = trialState;
+
+    const trialDurationSeconds = await publicClient.readContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'DEFAULT_TRIAL_PERIOD',
+      args: [],
+    }) as bigint;
+
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const isInTrialPeriod = now < trialEndTime && !isDismissed;
+    const trialEndDate = new Date(Number(trialEndTime) * 1000);
+
+    console.log(`
+  ${bold('Trial Period Status')}
+  ────────────────────────────────────────
+  Market:           ${shortAddress(marketAddress)}
+  Trial Duration:   ${Number(trialDurationSeconds) / 86400} days
+  Trial End Time:   ${trialEndDate.toISOString()}
+  Is Dismissed:     ${isDismissed ? warn('YES') : success('NO')}
+  In Trial Period:  ${isInTrialPeriod ? success('YES') : 'NO'}
+  Total Locked:     ${formatWad(totalLockedCost)} USDC
+`);
+
+    const actors = actorManager.listActors();
+    const lockedCosts: { name: string; locked: bigint }[] = [];
+
+    for (const actor of actors) {
+      const userLocked = await publicClient.readContract({
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: 'userLockedCost',
+        args: [marketAddress, actor.account.address],
+      }) as bigint;
+
+      if (userLocked > 0n) {
+        lockedCosts.push({ name: actor.name, locked: userLocked });
+      }
+    }
+
+    if (lockedCosts.length > 0) {
+      console.log(`  ${bold('User Locked Costs:')}`);
+      for (const { name, locked } of lockedCosts) {
+        console.log(`    ${name}: ${formatWad(locked)} USDC`);
+      }
+      console.log('');
+    }
+
+    return { 
+      success: true, 
+      data: { trialEndTime, isDismissed, totalLockedCost, isInTrialPeriod } 
+    };
+  } catch (err) {
+    return { success: false, message: `Failed to fetch trial status: ${(err as Error).message}` };
+  }
+}
+
+/**
+ * Dismiss market during trial period (creator only)
+ * Usage: dismiss
+ */
+export async function dismiss(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  const trialState = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'trialStates',
+    args: [marketAddress],
+  }) as readonly [bigint, boolean, bigint];
+
+  const [trialEndTime, isDismissed, totalLockedCost] = trialState;
+
+  if (isDismissed) {
+    return { success: false, message: 'Market already dismissed' };
+  }
+
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (now >= trialEndTime) {
+    return { success: false, message: 'Trial period has ended' };
+  }
+
+  const spinner = new Spinner(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'dismissMarket',
+      args: [marketAddress],
+      gas: 200000n,
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+    await sleep(3000);
+    spinner.succeed(`Market dismissed! Traders can now claim refunds ${dim(`(tx: ${shortTx(hash)})`)}`);
+    return { success: true, txHash: hash };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('OnlyCreator')) {
+      spinner.fail('Only the market creator can dismiss');
+      return { success: false, message: 'Only creator can dismiss market' };
+    }
+    if (errMsg.includes('trial ended')) {
+      spinner.fail('Trial period has ended');
+      return { success: false, message: 'Trial period has ended' };
+    }
+    spinner.fail(`Dismiss failed: ${errMsg.slice(0, 80)}`);
+    return { success: false, message: errMsg };
+  }
+}
+
+/**
+ * Claim refund after market dismissal
+ * Usage: claimrefund
+ */
+export async function claimrefund(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  const trialState = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'trialStates',
+    args: [marketAddress],
+  }) as readonly [bigint, boolean, bigint];
+
+  const [, isDismissed] = trialState;
+
+  if (!isDismissed) {
+    return { success: false, message: 'Market is not dismissed. Cannot claim refund.' };
+  }
+
+  const userLocked = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'userLockedCost',
+    args: [marketAddress, address],
+  }) as bigint;
+
+  if (userLocked === 0n) {
+    return { success: false, message: 'No locked cost to refund' };
+  }
+
+  const spinner = new Spinner(`Claiming refund of ${formatWad(userLocked)} USDC...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'claimRefund',
+      args: [marketAddress],
+      gas: 200000n,
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+    await sleep(3000);
+    spinner.succeed(`Refunded ${formatWad(userLocked)} USDC ${dim(`(tx: ${shortTx(hash)})`)}`);
+    return { success: true, txHash: hash, data: { refundAmount: userLocked } };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('not dismissed')) {
+      spinner.fail('Market is not dismissed');
+      return { success: false, message: 'Market must be dismissed first' };
+    }
+    spinner.fail(`Claim refund failed: ${errMsg.slice(0, 80)}`);
+    return { success: false, message: errMsg };
+  }
+}
+
 export const marketCommands = {
   createmarket,
   graduate,
@@ -1896,4 +2115,7 @@ export const marketCommands = {
   redeemlp,
   transferlp,
   pnl,
+  trialstatus,
+  dismiss,
+  claimrefund,
 };

@@ -396,8 +396,13 @@ function printHelp(): void {
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
     transferlp <actor> <amt> Transfer LP tokens to another actor
-                             Example: transferlp ellen 50
-                             ${dim('LP tokens can only be transferred pre-settlement')}
+                              Example: transferlp ellen 50
+                              ${dim('LP tokens can only be transferred pre-settlement')}
+
+    ${info('Trial Period (V11):')}
+      trialstatus              Show trial period status and locked costs
+      dismiss                  Dismiss market during trial (creator only)
+      claimrefund              Claim refund after market dismissal
 
   ${dim('  │')}
   ${dim('  └─ Graduated markets become TickBook pools (marketKey)')}
@@ -681,6 +686,18 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'simulate':
         await run(marketCommands.simulate(ctx, args));
+        break;
+
+      case 'trialstatus':
+        await run(marketCommands.trialstatus(ctx, args));
+        break;
+
+      case 'dismiss':
+        await run(marketCommands.dismiss(ctx, args));
+        break;
+
+      case 'claimrefund':
+        await run(marketCommands.claimrefund(ctx, args));
         break;
 
       // Scenario commands
