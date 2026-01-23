@@ -395,6 +395,9 @@ function printHelp(): void {
     redeem                   Redeem winning tokens for USDC (after settlement)
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
+    transferlp <actor> <amt> Transfer LP tokens to another actor
+                             Example: transferlp ellen 50
+                             ${dim('LP tokens can only be transferred pre-settlement')}
 
   ${dim('  │')}
   ${dim('  └─ Graduated markets become TickBook pools (marketKey)')}
@@ -670,6 +673,10 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'pnl':
         await run(marketCommands.pnl(ctx, args));
+        break;
+
+      case 'transferlp':
+        await run(marketCommands.transferlp(ctx, args));
         break;
 
       case 'simulate':
