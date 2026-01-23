@@ -232,6 +232,7 @@ export const ABIS = {
     { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
     { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
     { name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
+    { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
   ],
 
   TickBookVault: [
@@ -382,6 +383,22 @@ export const ABIS = {
         { type: 'uint256', name: 'totalFilledShares' },
         { type: 'uint256', name: 'totalCollateralUsed' },
       ], stateMutability: 'nonpayable'
+    },
+    // Keeper functions
+    {
+      name: 'claimSpotSellProceedsFor', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+      ], outputs: [{ type: 'uint256', name: 'proceeds' }], stateMutability: 'nonpayable'
+    },
+    // State queries
+    {
+      name: 'getNextOrderId', type: 'function', inputs: [],
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'getNextSpotSellId', type: 'function', inputs: [],
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
     },
   ],
 

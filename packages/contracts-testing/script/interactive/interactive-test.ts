@@ -43,6 +43,7 @@ const chainArg = args.find(a => a.startsWith('--chain='))?.split('=')[1]
   || 'baseSepolia';
 const marketArg = args.find(a => a.startsWith('--market='))?.split('=')[1];
 const rpcArg = args.find(a => a.startsWith('--rpc='))?.split('=')[1];
+const scenarioArg = args.find(a => a.startsWith('--scenario='))?.split('=')[1];
 
 // Global state
 let config: InteractiveConfig;
@@ -50,8 +51,10 @@ let actorManager: ActorManager;
 let currentMarketKey: `0x${string}` | null = null;
 let currentMarketAddress: `0x${string}` | null = null;
 let currentMarketName: string | null = null;
+let lastCreatedMarketAddress: string | null = null;
 let recording: RecordingState = { active: false, commands: [], startTime: 0 };
 let scenarioEngine: ScenarioEngine;
+let scenarioMode = false;
 
 /**
  * Compute market key from market info
@@ -96,6 +99,16 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
 
   let marketAddress: string;
   const normalized = addressOrIndex.trim().toLowerCase();
+  const isDirectAddress = addressOrIndex.startsWith('0x');
+
+  if (normalized === 'created' || normalized === 'lastcreated') {
+    if (!lastCreatedMarketAddress) {
+      console.log(error('  No created market cached yet'));
+      return false;
+    }
+    marketAddress = lastCreatedMarketAddress;
+    return await setMarket(marketAddress);
+  }
 
   // Latest market helper
   if (normalized === 'latest' || normalized === 'last') {
@@ -155,7 +168,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       }
       marketAddress = config.deployment.markets[index].address;
     }
-  } else if (addressOrIndex.startsWith('0x')) {
+  } else if (isDirectAddress) {
     marketAddress = addressOrIndex;
   } else {
     // Try to find by name in deployment config
@@ -303,6 +316,15 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         return false;
       }
     } catch (collateralizerErr) {
+      if (!isLaunchpadMarket && isDirectAddress) {
+        currentMarketAddress = marketAddress as `0x${string}`;
+        currentMarketKey = null;
+        const symbol = marketAddress.slice(2, 10).toUpperCase();
+        console.log(warn(`  Market set (unverified): [${symbol}]`));
+        console.log(dim(`  Address: ${marketAddress}`));
+        console.log(dim(`  Key: (not available)`));
+        return true;
+      }
       if (!isLaunchpadMarket) {
         console.log(error(`  Failed to fetch market info: ${(collateralizerErr as Error).message}`));
         return false;
@@ -346,7 +368,7 @@ function printHelp(): void {
   ${bold('Commands:')}
 
   ${info('Actor Management:')}
-    actor <name>         Switch to actor (alice, bob, charlie, keeper)
+    actor <name>         Switch to actor (alice, bob, charlie, david, ellen, admin)
     actors               List all actors
 
   ${dim('┄'.repeat(62))}
@@ -356,13 +378,23 @@ function printHelp(): void {
     mint <amount>        Mint MockUSDC
     approve <contract>   Approve (vault, poolmanager, launchpad, all)
     allowance            Show current allowances
+    snapshot             Take balance snapshot (before scenario)
+    snapshot show        Show stored snapshot
+    snapshot clear       Clear stored snapshot
+    checksum             Verify zero-sum: Σ(all P&L) = minted
 
   ${dim('┄'.repeat(62))}
 
   ${info('Market (TruthMarket / LaunchpadEngine):')}
     createmarket <template>  Create new market (alien, btc100k, custom)
+                             Options: --adjudicator=<actor> (default: creator)
     graduate [steps]         Graduate market via trades (default 8 steps)
     marketstatus             Show full market lifecycle status
+    settle <outcome>         Settle market (adjudicator only)
+                             outcome: yes, no, invalid
+    redeem                   Redeem winning tokens for USDC (after settlement)
+    redeemlp [amount|max]    Redeem LP tokens for USDC + fees
+    pnl [initial]            Show P&L summary (e.g., pnl 50000)
 
   ${dim('  │')}
   ${dim('  └─ Graduated markets become TickBook pools (marketKey)')}
@@ -375,13 +407,14 @@ function printHelp(): void {
       withdraw <amount>    Withdraw USDC from vault
       reserved             Show reserved balance details
 
-    ${info('Orderbook (V10 Unified Order API):')}\n      order <side> <range> <shares>   Place order (range, limit, or market)\n                                      Range:  order yes 40-60 100\n                                      Limit:  order yes 50 100\n                                      Market: order yes 1-999 100\n      cancel <orderId>                Cancel order\n      claim <orderId>                 Claim fills\n      market buy|sell <side> <shares> Market order shortcut\n                                      Example: market buy no 50\n      orders [actor]                  List orders\n\n    ${info('Spot Sells:')}\n      spotsell <side> <tickRange> <shares>  Place spot sell order\n                                            Example: spotsell no 100-110 1000\n      spotsells                             List all spot sell orders\n      cancelspotsell <sellId>               Cancel a spot sell\n      claimspotsell <sellId>                Claim proceeds from spot sell\n      hybridsell <side> <amount> <tickLow> <tickHigh>  Hybrid sell\n\n    ${info('State:')}
+    ${info('Orderbook (V10 Unified Order API):')}\n      order <side> <range> <shares>   Place order (range, limit, or market)\n                                      Range:  order yes 40-60 100\n                                      Limit:  order yes 50 100\n                                      Market: order yes 1-999 100\n      cancel <orderId>                Cancel order\n      claim <orderId>                 Claim fills\n      market buy|sell <side> <shares> Market order shortcut\n                                      Example: market buy no 50\n      orders [actor]                  List orders\n\n    ${info('Spot Sells:')}\n      spotsell <side> <tickRange> <shares>  Place spot sell order\n                                            Example: spotsell no 100-110 1000\n      spotsells                             List all spot sell orders\n      cancelspotsell <sellId>               Cancel a spot sell\n      claimspotsell <sellId>                Claim proceeds from spot sell
+      claimspotsellfor <sellId>             Keeper claim proceeds for spot sell\n      hybridsell <side> <amount> <tickLow> <tickHigh>  Hybrid sell\n\n    ${info('State:')}
       state                Show market state (tick, liquidity)
       book [depth]         Show orderbook
       positions            Show all actor positions
       info                 Show market info (addresses)
       markets              Show current market & available markets
-      setmarket <addr|index|latest>  Set current market
+      setmarket <addr|index|latest|created>  Set current market
 
     ${info('Simulation:')}
       simulate [n] [size] [seed]  Run orderbook simulation
@@ -445,8 +478,13 @@ async function handleCommand(input: string): Promise<void> {
   try {
     const run = async (p: Promise<CommandResult>) => {
       const res = await p;
-      if (!res.success && res.message) {
-        console.log(error(`  ${res.message}`));
+      if (!res.success) {
+        if (res.message) {
+          console.log(error(`  ${res.message}`));
+        }
+        if (scenarioMode) {
+          throw new Error(res.message || 'Command failed');
+        }
       }
       return res;
     };
@@ -488,6 +526,14 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'allowance':
         await run(walletCommands.allowance(ctx, args));
+        break;
+
+      case 'snapshot':
+        await run(walletCommands.snapshot(ctx, args));
+        break;
+
+      case 'checksum':
+        await run(walletCommands.checksum(ctx, args));
         break;
 
       // Vault commands
@@ -544,6 +590,10 @@ async function handleCommand(input: string): Promise<void> {
         await run(orderbookCommands.claimspotsell(ctx, args));
         break;
 
+      case 'claimspotsellfor':
+        await run(orderbookCommands.claimspotsellfor(ctx, args));
+        break;
+
       case 'hybridsell':
         await run(orderbookCommands.hybridsell(ctx, args));
         break;
@@ -592,6 +642,7 @@ async function handleCommand(input: string): Promise<void> {
           const res = await run(marketCommands.createmarket(ctx, args));
           const created = res.data?.marketAddress as string | undefined;
           if (res.success && created) {
+            lastCreatedMarketAddress = created;
             await setMarket(created);
           }
         }
@@ -605,6 +656,22 @@ async function handleCommand(input: string): Promise<void> {
         await run(marketCommands.marketstatus(ctx, args));
         break;
 
+      case 'settle':
+        await run(marketCommands.settle(ctx, args));
+        break;
+
+      case 'redeem':
+        await run(marketCommands.redeem(ctx, args));
+        break;
+
+      case 'redeemlp':
+        await run(marketCommands.redeemlp(ctx, args));
+        break;
+
+      case 'pnl':
+        await run(marketCommands.pnl(ctx, args));
+        break;
+
       case 'simulate':
         await run(marketCommands.simulate(ctx, args));
         break;
@@ -614,7 +681,12 @@ async function handleCommand(input: string): Promise<void> {
         if (args.length < 1) {
           console.log(error('  Usage: scenario <name>'));
         } else {
-          await scenarioEngine.run(args[0], ctx);
+          scenarioMode = true;
+          try {
+            await scenarioEngine.run(args[0], ctx);
+          } finally {
+            scenarioMode = false;
+          }
         }
         break;
 
@@ -677,6 +749,9 @@ async function handleCommand(input: string): Promise<void> {
         console.log(dim('  Type "help" for available commands'));
     }
   } catch (err) {
+    if (scenarioMode) {
+      throw err;
+    }
     console.log(error(`  Error: ${(err as Error).message}`));
   }
 }
@@ -707,6 +782,17 @@ async function main(): Promise<void> {
   }
 
   if (marketArg) await setMarket(marketArg);
+
+  if (scenarioArg) {
+    const ctx = buildContext();
+    scenarioMode = true;
+    try {
+      const passed = await scenarioEngine.run(scenarioArg, ctx);
+      process.exit(passed ? 0 : 1);
+    } finally {
+      scenarioMode = false;
+    }
+  }
 
   const headerLines = [
     bold('SOOTH V10 INTERACTIVE TEST CONSOLE'),
