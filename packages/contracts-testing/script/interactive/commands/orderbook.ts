@@ -596,6 +596,49 @@ export async function claimspotsell(ctx: CommandContext, args: string[]): Promis
 }
 
 /**
+ * Keeper claim proceeds from filled spot sell orders
+ * Usage: claimspotsellfor <sellId>
+ */
+export async function claimspotsellfor(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  if (args.length < 1) {
+    return { success: false, message: 'Usage: claimspotsellfor <sellId>' };
+  }
+
+  const sellId = BigInt(args[0]);
+  const spinner = new Spinner(`Keeper claim for spot sell #${sellId}...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'claimSpotSellProceedsFor',
+      args: [marketKey, sellId],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+
+    spinner.succeed(`Keeper claimed spot sell #${sellId} ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Keeper claim failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+/**
  * Hybrid sell: Spot sell shares you own + short sell the rest
  * Usage: hybridsell <outcome> <tickRange> <totalShares>
  * Example: hybridsell yes 50-60 100
@@ -718,5 +761,6 @@ export const orderbookCommands = {
   cancelspotsell,
   spotsells,
   claimspotsell,
+  claimspotsellfor,
   hybridsell,
 };

@@ -35,6 +35,7 @@ const TruthMarketAbi = parseAbi([
   'function isLive() view returns (bool)',
   'function isSettled() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
+  'function settle(uint8 outcome, uint64 tStar) external',
   'event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline)',
 ]);
 
@@ -42,6 +43,20 @@ const CollateralizerAbi = parseAbi([
   'function registerMarket(address market, string name, string symbol) external returns (address yesToken, address noToken)',
   'function getOutcomeTokens(address market) view returns (address yesToken, address noToken)',
   'function isMarketRegistered(address market) view returns (bool)',
+  'function redeem(address market, uint256 amount) external returns (uint256)',
+  'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
+  'function isMarketSettled(address market) view returns (bool)',
+]);
+
+const ERC20Abi = parseAbi([
+  'function balanceOf(address account) view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+]);
+
+const TickBookVaultAbi = parseAbi([
+  'function redeemResolved(address market) external',
+  'function getInternalOutcomes(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
+  'function availableUsdcWad(address user) view returns (uint256)',
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
@@ -51,7 +66,9 @@ const LaunchpadEngineAbi = parseAbi([
   'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
   'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
   'function preGradFeeBps() view returns (uint16)',
-  'function postGradFeeBps() view returns (uint16)'
+  'function postGradFeeBps() view returns (uint16)',
+  'function protocolShareBps() view returns (uint16)',
+  'function redeemLP(address market, uint256 lpAmount) external returns (uint256 usdcReturned)',
 ]);
 
 const AMMEngineAbi = parseAbi([
@@ -98,13 +115,13 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     console.log(`
   ${bold('Create Market')}
 
-  Usage: createmarket <template> [liquidity]
+  Usage: createmarket <template> [liquidity] [--adjudicator=<actor>]
 
   Templates: ${Object.keys(MARKET_TEMPLATES).join(', ')}
 
   ${info('Examples:')}
-    createmarket alien 500      Create ALIEN market with 500 USDC
-    createmarket btc100k 1000   Create BTC100K market with 1000 USDC
+    createmarket alien 500                   Create ALIEN market with creator as adjudicator
+    createmarket alien 500 --adjudicator=david   Create ALIEN market with david as adjudicator
 
   ${dim('This will:')}
     1. Approve USDC
@@ -116,6 +133,17 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   const templateName = args[0].toLowerCase();
   const template = MARKET_TEMPLATES[templateName];
 
+  let adjudicatorAddress = address;
+  const adjudicatorFlag = args.find(a => a.startsWith('--adjudicator='));
+  if (adjudicatorFlag) {
+    const adjudicatorName = adjudicatorFlag.split('=')[1];
+    const adjudicatorActor = actorManager.listActors().find(a => a.name.toLowerCase() === adjudicatorName.toLowerCase());
+    if (!adjudicatorActor) {
+      return { success: false, message: `Unknown actor: ${adjudicatorName}. Available: ${actorManager.listActors().map(a => a.name).join(', ')}` };
+    }
+    adjudicatorAddress = adjudicatorActor.account.address;
+  }
+
   if (!template) {
     return { success: false, message: `Unknown template: ${templateName}. Available: ${Object.keys(MARKET_TEMPLATES).join(', ')}` };
   }
@@ -124,9 +152,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     return { success: false, message: 'Custom template not yet supported. Use alien or btc100k.' };
   }
 
-  // Parse liquidity as LMSR 'b' parameter (WAD, 18 decimals)
-  // User specifies in whole units, e.g., "500" = 500 WAD = 500e18
-  const liquidityWad = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * WAD : 500n * WAD;
+  const liquidityArg = args.find((a, i) => i > 0 && !a.startsWith('--'));
+  const liquidityWad = liquidityArg ? BigInt(Math.floor(parseFloat(liquidityArg))) * WAD : 500n * WAD;
 
   console.log(`\n  ${bold('Creating Market: ' + template.name)}`);
   console.log('  ' + '═'.repeat(50));
@@ -134,6 +161,10 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   console.log(`  Name:      ${template.name}`);
   console.log(`  Liquidity: ${formatWad(liquidityWad)} (b parameter)`);
   console.log(`  Deadline:  ${template.deadline}`);
+  if (adjudicatorAddress !== address) {
+    const adjName = actorManager.listActors().find(a => a.account.address === adjudicatorAddress)?.name || 'unknown';
+    console.log(`  Adjudicator: ${adjName} (${shortAddress(adjudicatorAddress)})`);
+  }
   console.log('');
 
   try {
@@ -205,7 +236,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, address, protocolConfig, liquidityWad, 0n, 0n],
+      args: [template.question, startTime, deadline, adjudicatorAddress, protocolConfig, liquidityWad, 0n, 0n],
       gas: createGas,
     });
 
@@ -1249,9 +1280,620 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   return { success: true, data: { placedOrders: placedOrders.length } };
 }
 
+/**
+ * Settle a market (adjudicator only)
+ * Usage: settle <outcome>
+ * outcome: yes (1), no (0), invalid (2)
+ */
+export async function settle(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  if (args.length < 1) {
+    console.log(`
+  ${bold('Settle Market')}
+
+  Usage: settle <outcome>
+
+  Outcomes:
+    yes, 1     - YES wins
+    no, 0      - NO wins
+    invalid, 2 - Market invalid (50/50 split)
+
+  ${dim('Only the adjudicator can settle the market.')}
+`);
+    return { success: true };
+  }
+
+  const outcomeArg = args[0].toLowerCase();
+  let outcome: number;
+  switch (outcomeArg) {
+    case 'yes':
+    case '1':
+      outcome = 1;
+      break;
+    case 'no':
+    case '0':
+      outcome = 0;
+      break;
+    case 'invalid':
+    case '2':
+      outcome = 2;
+      break;
+    default:
+      return { success: false, message: `Invalid outcome: ${outcomeArg}. Use yes, no, or invalid.` };
+  }
+
+  const spinner = new Spinner(`Settling market as ${['NO', 'YES', 'INVALID'][outcome]}...`);
+  spinner.start();
+
+  try {
+    const settleHash = await walletClient.writeContract({
+      address: marketAddress,
+      abi: TruthMarketAbi,
+      functionName: 'settle',
+      args: [outcome, 0n],
+      gas: 500000n,
+    });
+    await actorManager.waitForTransactionReceipt(settleHash);
+    spinner.succeed(`Market settled as ${['NO', 'YES', 'INVALID'][outcome]} ${dim(`(tx: ${settleHash.slice(0, 10)}...)`)}`);
+    return { success: true, txHash: settleHash };
+  } catch (err) {
+    spinner.fail(`Settlement failed`);
+    return { success: false, message: `Settlement failed: ${(err as Error).message}` };
+  }
+}
+
+/**
+ * Redeem winning outcome tokens for USDC after settlement
+ * Also redeems internal vault outcomes
+ * Usage: redeem
+ */
+export async function redeem(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  const isSettled = await publicClient.readContract({
+    address: deployment.contracts.Collateralizer as `0x${string}`,
+    abi: CollateralizerAbi,
+    functionName: 'isMarketSettled',
+    args: [marketAddress],
+  });
+
+  if (!isSettled) {
+    return { success: false, message: 'Market is not settled yet.' };
+  }
+
+  const winningOutcome = await publicClient.readContract({
+    address: marketAddress,
+    abi: TruthMarketAbi,
+    functionName: 'winningOutcome',
+  }) as number;
+
+  console.log(`\n  ${bold('Redeeming Positions')}`);
+  console.log('  ' + '─'.repeat(40));
+  console.log(`  Winner: ${['NO', 'YES', 'INVALID'][winningOutcome]}`);
+
+  let totalRedeemed = 0n;
+
+  const [internalYes, internalNo] = await publicClient.readContract({
+    address: deployment.contracts.TickBookVault as `0x${string}`,
+    abi: TickBookVaultAbi,
+    functionName: 'getInternalOutcomes',
+    args: [marketAddress, address],
+  }) as [bigint, bigint];
+
+  if (internalYes > 0n || internalNo > 0n) {
+    console.log(`  Internal YES: ${formatWad(internalYes)}`);
+    console.log(`  Internal NO:  ${formatWad(internalNo)}`);
+
+    const spinner1 = new Spinner('Redeeming internal vault outcomes...');
+    spinner1.start();
+
+    try {
+      const hash = await walletClient.writeContract({
+        address: deployment.contracts.TickBookVault as `0x${string}`,
+        abi: TickBookVaultAbi,
+        functionName: 'redeemResolved',
+        args: [marketAddress],
+        gas: 500000n,
+      });
+      await actorManager.waitForTransactionReceipt(hash);
+      
+      const internalValue = winningOutcome === 1 ? internalYes : winningOutcome === 0 ? internalNo : (internalYes + internalNo) / 2n;
+      totalRedeemed += internalValue;
+      spinner1.succeed(`Redeemed internal outcomes ${dim(`(tx: ${shortTx(hash)})`)}`);
+    } catch (err) {
+      spinner1.fail(`Internal redeem failed: ${(err as Error).message.slice(0, 50)}`);
+    }
+  }
+
+  const [yesBalance, noBalance] = await publicClient.readContract({
+    address: deployment.contracts.Collateralizer as `0x${string}`,
+    abi: CollateralizerAbi,
+    functionName: 'getBalances',
+    args: [marketAddress, address],
+  }) as [bigint, bigint];
+
+  console.log(`  ERC20 YES:    ${formatWad(yesBalance)}`);
+  console.log(`  ERC20 NO:     ${formatWad(noBalance)}`);
+
+  const totalTokens = yesBalance + noBalance;
+
+  if (totalTokens > 0n) {
+    const spinner2 = new Spinner('Redeeming ERC20 outcome tokens...');
+    spinner2.start();
+
+    try {
+      const hash = await walletClient.writeContract({
+        address: deployment.contracts.Collateralizer as `0x${string}`,
+        abi: CollateralizerAbi,
+        functionName: 'redeem',
+        args: [marketAddress, totalTokens],
+        gas: 500000n,
+      });
+      const receipt = await actorManager.waitForTransactionReceipt(hash);
+      
+      const tokenValue = winningOutcome === 1 ? yesBalance : winningOutcome === 0 ? noBalance : (yesBalance + noBalance) / 2n;
+      totalRedeemed += tokenValue;
+      spinner2.succeed(`Redeemed ${formatWad(totalTokens)} tokens ${dim(`(tx: ${shortTx(hash)})`)}`);
+    } catch (err) {
+      spinner2.fail(`Token redeem failed: ${(err as Error).message.slice(0, 50)}`);
+    }
+  }
+
+  if (totalRedeemed === 0n && totalTokens === 0n && internalYes === 0n && internalNo === 0n) {
+    console.log(`\n  ${warn('No positions to redeem')}`);
+  } else {
+    console.log(`\n  ${success(`Total redeemed: ~${formatWad(totalRedeemed)} USDC`)}`);
+  }
+
+  console.log('');
+  return { success: true, data: { totalRedeemed } };
+}
+
+/**
+ * Redeem LP tokens for USDC + accrued fees
+ * Usage: redeemlp [amount|max]
+ */
+export async function redeemlp(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  const marketState = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'markets',
+    args: [marketAddress],
+  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+
+  const [, lpTokenAddress, , , , , totalLPSupply] = marketState;
+
+  if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
+    return { success: false, message: 'Market not found in LaunchpadEngine' };
+  }
+
+  const lpBalance = await publicClient.readContract({
+    address: lpTokenAddress as `0x${string}`,
+    abi: ERC20Abi,
+    functionName: 'balanceOf',
+    args: [address],
+  }) as bigint;
+
+  if (lpBalance === 0n) {
+    console.log(`\n  ${warn('No LP tokens to redeem')}`);
+    return { success: true };
+  }
+
+  const amountArg = args[0]?.toLowerCase();
+  let amount = lpBalance;
+  if (amountArg && amountArg !== 'max' && amountArg !== 'all') {
+    amount = parseWad(amountArg);
+    if (amount > lpBalance) {
+      return { success: false, message: `Insufficient LP balance: ${formatWad(lpBalance)}` };
+    }
+  }
+
+  console.log(`\n  ${bold('Redeeming LP Tokens')}`);
+  console.log('  ' + '─'.repeat(40));
+  console.log(`  LP Balance:    ${formatWad(lpBalance)}`);
+  console.log(`  Redeeming:     ${formatWad(amount)}`);
+  console.log(`  Total Supply:  ${formatWad(totalLPSupply)}`);
+  console.log(`  Share:         ${((Number(amount) / Number(totalLPSupply)) * 100).toFixed(2)}%`);
+
+  const spinner = new Spinner('Redeeming LP tokens...');
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'redeemLP',
+      args: [marketAddress, amount],
+      gas: 1000000n,
+    });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
+    spinner.succeed(`Redeemed ${formatWad(amount)} LP tokens ${dim(`(tx: ${shortTx(hash)})`)}`);
+    console.log('');
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`LP redemption failed`);
+    return { success: false, message: `LP redemption failed: ${(err as Error).message}` };
+  }
+}
+
+/**
+ * Show profit/loss summary for current actor
+ * Usage: pnl
+ */
+export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+  const actorName = actorManager.currentActor()?.name || 'unknown';
+
+  if (!address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  let initialInvestment = 0n;
+  if (args.length > 0 && args[0]) {
+    const initialStr = args[0].replace(/,/g, '');
+    const initialNum = parseFloat(initialStr);
+    if (!isNaN(initialNum) && initialNum > 0) {
+      initialInvestment = BigInt(Math.floor(initialNum * 1e18));
+    }
+  }
+
+  console.log(`\n  ${bold(`P&L Summary: ${actorName}`)}`);
+  console.log('  ' + '═'.repeat(50));
+
+  const walletUsdc = await publicClient.readContract({
+    address: deployment.contracts.MockUSDC as `0x${string}`,
+    abi: ERC20Abi,
+    functionName: 'balanceOf',
+    args: [address],
+  }) as bigint;
+
+  const vaultUsdc = await publicClient.readContract({
+    address: deployment.contracts.TickBookVault as `0x${string}`,
+    abi: TickBookVaultAbi,
+    functionName: 'availableUsdcWad',
+    args: [address],
+  }) as bigint;
+
+  const [internalYes, internalNo] = await publicClient.readContract({
+    address: deployment.contracts.TickBookVault as `0x${string}`,
+    abi: TickBookVaultAbi,
+    functionName: 'getInternalOutcomes',
+    args: [marketAddress, address],
+  }) as [bigint, bigint];
+
+  let yesTokens = 0n;
+  let noTokens = 0n;
+  try {
+    [yesTokens, noTokens] = await publicClient.readContract({
+      address: deployment.contracts.Collateralizer as `0x${string}`,
+      abi: CollateralizerAbi,
+      functionName: 'getBalances',
+      args: [marketAddress, address],
+    }) as [bigint, bigint];
+  } catch {}
+
+  let lpBalance = 0n;
+  let lpValue = 0n;
+  let creatorDeposit = 0n;
+  let feesAccrued = 0n;
+  let totalLPSupply = 0n;
+  let lpYieldPool = 0n;
+  let isGraduated = false;
+  let protocolShareBps = 2000n;
+  try {
+    const marketState = await publicClient.readContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'markets',
+      args: [marketAddress],
+    }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+
+    const [, lpTokenAddress, , , deposit, fees, supply, yieldPool, graduated] = marketState;
+    creatorDeposit = deposit;
+    feesAccrued = fees;
+    totalLPSupply = supply;
+    lpYieldPool = yieldPool;
+    isGraduated = graduated;
+
+    try {
+      const rawProtocolShareBps = await publicClient.readContract({
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: 'protocolShareBps',
+      }) as unknown;
+      protocolShareBps = BigInt(Number(rawProtocolShareBps));
+    } catch {}
+
+    if (lpTokenAddress !== '0x0000000000000000000000000000000000000000') {
+      lpBalance = await publicClient.readContract({
+        address: lpTokenAddress as `0x${string}`,
+        abi: ERC20Abi,
+        functionName: 'balanceOf',
+        args: [address],
+      }) as bigint;
+
+      if (lpBalance > 0n && totalLPSupply > 0n) {
+        const poolValue = creatorDeposit + feesAccrued;
+        lpValue = (poolValue * lpBalance) / totalLPSupply;
+      }
+    }
+  } catch {}
+
+  let isSettled = false;
+  let winningOutcome = -1;
+  try {
+    isSettled = await publicClient.readContract({
+      address: marketAddress,
+      abi: TruthMarketAbi,
+      functionName: 'isSettled',
+    }) as boolean;
+
+    if (isSettled) {
+      winningOutcome = await publicClient.readContract({
+        address: marketAddress,
+        abi: TruthMarketAbi,
+        functionName: 'winningOutcome',
+      }) as number;
+    }
+  } catch {}
+
+  let yesValue = 0n;
+  let noValue = 0n;
+
+  if (isSettled) {
+    if (winningOutcome === 1) {
+      yesValue = yesTokens + internalYes;
+    } else if (winningOutcome === 0) {
+      noValue = noTokens + internalNo;
+    } else {
+      yesValue = (yesTokens + internalYes) / 2n;
+      noValue = (noTokens + internalNo) / 2n;
+    }
+  } else {
+    yesValue = (yesTokens + internalYes) / 2n;
+    noValue = (noTokens + internalNo) / 2n;
+  }
+
+  const totalPositionValue = yesValue + noValue + lpValue;
+  const totalValue = walletUsdc + vaultUsdc + totalPositionValue;
+
+  console.log(`\n  ${info('USDC Holdings')}`);
+  console.log('  ' + '─'.repeat(40));
+  console.log(`  Wallet:        ${formatWad(walletUsdc).padStart(15)} USDC`);
+  console.log(`  Vault:         ${formatWad(vaultUsdc).padStart(15)} USDC`);
+
+  console.log(`\n  ${info('Positions')} ${isSettled ? dim(`(settled: ${['NO', 'YES', 'INVALID'][winningOutcome]})`) : dim('(live)')}`);
+  console.log('  ' + '─'.repeat(40));
+  
+  if (yesTokens + internalYes > 0n || noTokens + internalNo > 0n) {
+    console.log(`  YES tokens:    ${formatWad(yesTokens + internalYes).padStart(15)} → ${formatWad(yesValue)} USDC`);
+    console.log(`  NO tokens:     ${formatWad(noTokens + internalNo).padStart(15)} → ${formatWad(noValue)} USDC`);
+  }
+  
+  if (lpBalance > 0n) {
+    console.log(`  LP tokens:     ${formatWad(lpBalance).padStart(15)} → ~${formatWad(lpValue)} USDC`);
+  }
+
+  if (yesTokens + internalYes === 0n && noTokens + internalNo === 0n && lpBalance === 0n) {
+    console.log(dim('  No positions'));
+  }
+
+  if (feesAccrued > 0n || lpYieldPool > 0n) {
+    console.log(`\n  ${info('Fee Distribution')}`);
+    console.log('  ' + '─'.repeat(40));
+    
+    const lpShareBps = 10000n - protocolShareBps;
+    const postGradFees = lpShareBps > 0n ? (lpYieldPool * 10000n) / lpShareBps : 0n;
+    const protocolEarnings = postGradFees - lpYieldPool;
+    const preGradFees = feesAccrued - postGradFees;
+    
+    if (preGradFees > 0n) {
+      console.log(`  Pre-grad fees: ${formatWad(preGradFees).padStart(15)} USDC ${dim('(→ LP Pool)')}`);
+    }
+    
+    if (isGraduated && postGradFees > 0n) {
+      console.log(`  Post-grad fees:${formatWad(postGradFees).padStart(15)} USDC`);
+      console.log(`    → LP Pool:   ${formatWad(lpYieldPool).padStart(15)} USDC ${dim(`(${100 - Number(protocolShareBps) / 100}%)`)}`);
+      console.log(`    → Protocol:  ${formatWad(protocolEarnings).padStart(15)} USDC ${dim(`(${Number(protocolShareBps) / 100}%)`)}`);
+    }
+    
+    console.log(`  Pool Total:    ${formatWad(creatorDeposit + feesAccrued).padStart(15)} USDC`);
+    
+    if (lpBalance > 0n && totalLPSupply > 0n) {
+      const userFeeShare = (feesAccrued * lpBalance) / totalLPSupply;
+      console.log(`  Your Share:    ${formatWad(userFeeShare).padStart(15)} USDC ${dim(`(${((Number(lpBalance) / Number(totalLPSupply)) * 100).toFixed(1)}% of pool)`)}`);
+    }
+  }
+
+  console.log(`\n  ${info('Summary')}`);
+  console.log('  ' + '─'.repeat(40));
+  
+  const liquidUsdc = walletUsdc + vaultUsdc;
+  console.log(`  Liquid USDC:   ${formatWad(liquidUsdc).padStart(15)} USDC`);
+  
+  if (totalPositionValue > 0n) {
+    console.log(`  Position Value:${formatWad(totalPositionValue).padStart(15)} USDC`);
+  }
+  
+  console.log(`  ${bold('Total Value:')}   ${bold(formatWad(totalValue).padStart(15))} ${bold('USDC')}`);
+
+  if (initialInvestment > 0n) {
+    const pnlAmount = totalValue - initialInvestment;
+    const pnlPercent = Number(pnlAmount * 10000n / initialInvestment) / 100;
+    const pnlSign = pnlAmount >= 0n ? '+' : '';
+    const pnlColor = pnlAmount >= 0n ? success : error;
+    
+    console.log('  ' + '─'.repeat(40));
+    console.log(`  Initial:       ${formatWad(initialInvestment).padStart(15)} USDC`);
+    console.log(`  ${bold('P&L:')}            ${pnlColor(`${pnlSign}${formatWad(pnlAmount).padStart(13)}`)} ${bold('USDC')} ${dim(`(${pnlSign}${pnlPercent.toFixed(2)}%)`)}`);
+  }
+
+  if (isSettled && (yesTokens > 0n || noTokens > 0n || internalYes > 0n || internalNo > 0n)) {
+    console.log(`\n  ${warn('Unredeemed positions! Run: redeem')}`);
+  }
+
+  if (lpBalance > 0n && isSettled) {
+    console.log(`\n  ${warn('Unredeemed LP! Run: redeemlp max')}`);
+  }
+
+  console.log('');
+  return { success: true, data: { walletUsdc, vaultUsdc, yesValue, noValue, lpValue, totalValue, initialInvestment, pnl: totalValue - initialInvestment } };
+}
+
+/**
+ * Transfer LP tokens to another actor
+ * Usage: transferlp <actor> <amount|max>
+ */
+export async function transferlp(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  if (args.length < 2) {
+    console.log(`
+  ${bold('Transfer LP Tokens')}
+
+  Usage: transferlp <actor> <amount|max>
+
+  Examples:
+    transferlp ellen 100    Transfer 100 LP tokens to ellen
+    transferlp ellen max    Transfer all LP tokens to ellen
+
+  ${dim('LP tokens can only be transferred BEFORE settlement.')}
+`);
+    return { success: true };
+  }
+
+  const targetActorName = args[0].toLowerCase();
+  const targetActor = actorManager.listActors().find(a => a.name.toLowerCase() === targetActorName);
+  if (!targetActor) {
+    return { success: false, message: `Actor not found: ${targetActorName}. Available: ${actorManager.listActors().map(a => a.name).join(', ')}` };
+  }
+
+  const targetAddress = targetActor.account.address;
+  if (targetAddress === address) {
+    return { success: false, message: 'Cannot transfer to yourself' };
+  }
+
+  const marketState = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'markets',
+    args: [marketAddress],
+  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+
+  const lpTokenAddress = marketState[1];
+  if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
+    return { success: false, message: 'Market not found in LaunchpadEngine' };
+  }
+
+  const lpBalance = await publicClient.readContract({
+    address: lpTokenAddress as `0x${string}`,
+    abi: ERC20Abi,
+    functionName: 'balanceOf',
+    args: [address],
+  }) as bigint;
+
+  if (lpBalance === 0n) {
+    return { success: false, message: 'No LP tokens to transfer' };
+  }
+
+  const amountArg = args[1]?.toLowerCase();
+  let amount = lpBalance;
+  if (amountArg && amountArg !== 'max' && amountArg !== 'all') {
+    amount = parseWad(amountArg);
+    if (amount > lpBalance) {
+      return { success: false, message: `Insufficient LP balance: ${formatWad(lpBalance)}` };
+    }
+  }
+
+  const spinner = new Spinner(`Transferring ${formatWad(amount)} LP to ${targetActorName}...`);
+  spinner.start();
+
+  try {
+    const LPTokenTransferAbi = parseAbi([
+      'function transfer(address to, uint256 amount) external returns (bool)',
+    ]);
+
+    const hash = await walletClient.writeContract({
+      address: lpTokenAddress as `0x${string}`,
+      abi: LPTokenTransferAbi,
+      functionName: 'transfer',
+      args: [targetAddress, amount],
+      gas: 200000n,
+    });
+    await actorManager.waitForTransactionReceipt(hash);
+    spinner.succeed(`Transferred ${formatWad(amount)} LP to ${targetActorName} ${dim(`(tx: ${shortTx(hash)})`)}`);
+    return { success: true, txHash: hash };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('TransfersLocked')) {
+      spinner.fail('LP transfers are locked (market is settled)');
+      return { success: false, message: 'LP transfers are locked after settlement' };
+    }
+    spinner.fail(`Transfer failed: ${errMsg.slice(0, 50)}`);
+    return { success: false, message: errMsg };
+  }
+}
+
 export const marketCommands = {
   createmarket,
   graduate,
   marketstatus,
   simulate,
+  settle,
+  redeem,
+  redeemlp,
+  transferlp,
+  pnl,
 };

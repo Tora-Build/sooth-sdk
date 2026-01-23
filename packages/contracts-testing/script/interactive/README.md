@@ -14,6 +14,9 @@ bun run interactive
 # Or specify chain
 bun run interactive:base
 bun run interactive:monad
+
+# Auto-run a scenario (non-interactive)
+bun run interactive:base -- --scenario=market-lifecycle-multi-actor
 ```
 
 ## Prerequisites
@@ -27,7 +30,8 @@ bun run interactive:monad
    PRIVATE_KEY_ALICE=0x...
    PRIVATE_KEY_BOB=0x...
    PRIVATE_KEY_CHARLIE=0x...
-   PRIVATE_KEY_KEEPER=0x...
+   PRIVATE_KEY_DAVID=0x...
+   PRIVATE_KEY_ELLEN=0x...
    ```
 
 2. **Deployment Config**: Ensure `contracts-core/deployments/v9-baseSepolia.json` exists with market data.
@@ -38,7 +42,7 @@ bun run interactive:monad
 
 ### Actor Management
 ```
-actor <name>    Switch to actor (alice, bob, charlie, keeper, admin)
+actor <name>    Switch to actor (alice, bob, charlie, david, ellen, admin)
 actors          List all available actors with addresses
 ```
 
@@ -78,7 +82,7 @@ state               Show market state (tick, liquidity, probability)
 book [depth]        Show orderbook with active orders
 positions           Show all actor positions
 info                Show market info (addresses)
-setmarket <addr>    Set current market by address or index
+setmarket <addr|index|latest|created>    Set current market
 ```
 
 ### Scenarios
@@ -193,6 +197,7 @@ alice> invariants
 |------|-------------|
 | `basic-roundtrip` | Place order, cross it, claim fills |
 | `multi-actor-orderbook` | Multiple actors placing and crossing orders |
+| `market-lifecycle-multi-actor` | Full lifecycle with creator, AMM, TickBook, keeper roles |
 | `order-lifecycle` | Complete order lifecycle with partial fills |
 | `stress-orderbook` | Stress test with many orders |
 

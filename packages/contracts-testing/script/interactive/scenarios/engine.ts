@@ -109,11 +109,11 @@ export class ScenarioEngine {
   /**
    * Run a scenario by name
    */
-  async run(name: string, ctx: CommandContext): Promise<void> {
+  async run(name: string, ctx: CommandContext): Promise<boolean> {
     const scenario = this.loadScenario(name);
     if (!scenario) {
       console.log(error(`  Scenario not found: ${name}`));
-      return;
+      return false;
     }
 
     console.log(`\n  ${bold(`Running scenario: ${scenario.name}`)}`);
@@ -136,7 +136,12 @@ export class ScenarioEngine {
         const loopConfig = (step as any).loop;
         for (let i = 0; i < loopConfig.count; i++) {
           for (const loopStep of loopConfig.steps) {
-            await this.executeStep(loopStep, stepNum, ctx);
+            const result = await this.executeStep(loopStep, stepNum, ctx);
+            if (result) {
+              successCount++;
+            } else {
+              failCount++;
+            }
           }
         }
         continue;
@@ -145,7 +150,14 @@ export class ScenarioEngine {
       if ('parallel' in step) {
         // Parallel step - run multiple steps concurrently
         const parallelSteps = (step as any).parallel;
-        await Promise.all(parallelSteps.map((s: ScenarioStep) => this.executeStep(s, stepNum, ctx)));
+        const results = await Promise.all(parallelSteps.map((s: ScenarioStep) => this.executeStep(s, stepNum, ctx)));
+        for (const result of results) {
+          if (result) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        }
         continue;
       }
 
@@ -173,6 +185,8 @@ export class ScenarioEngine {
 
     const status = failCount === 0 ? success('PASSED') : error('FAILED');
     console.log(`\n  Scenario ${status} in ${elapsed}s (${stepNum} steps, ${failCount} failures)\n`);
+
+    return failCount === 0;
   }
 
   /**
@@ -192,12 +206,22 @@ export class ScenarioEngine {
     }
 
     const actor = this.actorManager.currentActor()?.name || '?';
-    console.log(`  Step ${stepNum}: ${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')})`);
+    const expectFail = step.expect?.fail === true;
+    const stepLabel = expectFail ? `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')}) ${dim('[expect: fail]')}` : `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')})`;
+    console.log(`  Step ${stepNum}: ${stepLabel}`);
 
     try {
       await this.executeCommand(cmdStr);
+      if (expectFail) {
+        console.log(`    ${error('✗')} Expected failure but succeeded`);
+        return false;
+      }
       return true;
     } catch (err) {
+      if (expectFail) {
+        console.log(`    ${success('✓')} Failed as expected: ${(err as Error).message.slice(0, 50)}`);
+        return true;
+      }
       console.log(`    ${error('✗')} ${(err as Error).message}`);
       return false;
     }
