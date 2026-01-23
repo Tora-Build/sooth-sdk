@@ -1,0 +1,134 @@
+# Trial Period Test
+#
+# Demonstrates V11 trial period dismissal and refund flow:
+#   alice   = creator (creates market, then dismisses during trial)
+#   bob     = trader (buys YES during trial, claims refund after dismissal)
+#   charlie = trader (buys NO during trial, claims refund after dismissal)
+#
+# Flow:
+#   1. Snapshot initial balances
+#   2. Alice creates market (trial period starts)
+#   3. Bob and Charlie fund accounts and trade on AMM
+#   4. Show trial status (locked costs visible)
+#   5. Alice dismisses market during trial period
+#   6. Bob and Charlie claim refunds
+#   7. Verify checksum (all funds should balance)
+
+name: trial-period
+description: Trial period dismissal and refund flow with multi-actor verification
+
+steps:
+  # ============================================================
+  # PHASE 0: Snapshot (capture balances BEFORE any minting)
+  # ============================================================
+  - actor: alice
+    action: snapshot
+    args: {}
+
+  # ============================================================
+  # PHASE 1: Market Creation (Alice creates with herself as adjudicator)
+  # ============================================================
+  - actor: alice
+    action: mint
+    args:
+      amount: "50000"
+
+  - actor: alice
+    action: approve
+    args:
+      contract: "all"
+
+  - actor: alice
+    action: createmarket
+    args:
+      template: "alien"
+      liquidity: "500"
+
+  - actor: alice
+    action: setmarket
+    args:
+      address: "created"
+
+  # ============================================================
+  # PHASE 2: Fund traders and trade on AMM (during trial period)
+  # ============================================================
+  - actor: bob
+    action: mint
+    args:
+      amount: "10000"
+
+  - actor: bob
+    action: approve
+    args:
+      contract: "all"
+
+  - actor: charlie
+    action: mint
+    args:
+      amount: "10000"
+
+  - actor: charlie
+    action: approve
+    args:
+      contract: "all"
+
+  # Bob buys YES shares (cost gets locked during trial)
+  - actor: bob
+    action: market
+    args:
+      direction: "buy"
+      outcome: "yes"
+      shares: "100"
+
+  # Charlie buys NO shares (cost gets locked during trial)
+  - actor: charlie
+    action: market
+    args:
+      direction: "buy"
+      outcome: "no"
+      shares: "100"
+
+  # ============================================================
+  # PHASE 3: Check trial status (shows locked costs)
+  # ============================================================
+  - actor: alice
+    action: trialstatus
+    args: {}
+
+  - actor: alice
+    action: marketstatus
+    args: {}
+
+  # ============================================================
+  # PHASE 4: Creator dismisses market during trial period
+  # ============================================================
+  - actor: alice
+    action: dismiss
+    args: {}
+
+  # Verify dismissal
+  - actor: alice
+    action: trialstatus
+    args: {}
+
+  # ============================================================
+  # PHASE 5: Traders claim refunds
+  # ============================================================
+  - actor: bob
+    action: claimrefund
+    args: {}
+
+  - actor: charlie
+    action: claimrefund
+    args: {}
+
+  # ============================================================
+  # PHASE 6: Verify all funds balance (checksum)
+  # ============================================================
+  - actor: alice
+    action: trialstatus
+    args: {}
+
+  - actor: alice
+    action: checksum
+    args: {}
