@@ -829,7 +829,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
   const launchpadDelta = after.contracts.launchpadEngine - before.contracts.launchpadEngine;
   const collateralizerDelta = after.contracts.collateralizer - before.contracts.collateralizer;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
-  const totalContractDelta = launchpadDelta + collateralizerDelta + ammEngineDelta;
+  const totalContractDelta = launchpadDelta + collateralizerDelta;
 
   const printDelta = (name: string, delta: bigint) => {
     const sign = delta >= 0n ? '+' : '';
@@ -838,7 +838,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
   };
 
   printDelta('LaunchpadEngine', launchpadDelta);
-  printDelta('AMMEngine', ammEngineDelta);
+  console.log(`    ${dim('AMMEngine'.padEnd(18))} ${dim(`${ammEngineDelta >= 0n ? '+' : ''}${formatWad(ammEngineDelta)}`.padStart(12))} ${dim('USDC (backs AMM positions, excluded)')}`);
   printDelta('Collateralizer', collateralizerDelta);
   
   const vaultDelta = after.contracts.tickBookVault - before.contracts.tickBookVault;
