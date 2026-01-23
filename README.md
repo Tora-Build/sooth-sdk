@@ -2,20 +2,21 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V10.9 (Spot Sell Dust Fix)  
+**Current Version**: V11.0 (Trial Period, ERC20 LP, ValidatedAdjudicator)  
+**Codebase**: V11 | **Deployed**: V11.0 (Base Sepolia testing)  
 **Status**: Alpha (breaking changes allowed)
 
 ## Active Deployments
 
-### Base Sepolia (chainId: 84532) - V10.9
+### Base Sepolia (chainId: 84532) - V11.0 (Active Testing)
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883` |
-| TickBookPoolManager | `0xb94c45ed45575b48927a21601724db57dd74a94f` |
-| TickBookVault | `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee` |
-| AMMEngine | `0xe19c027a9407dc0eddae2d908e263d79aaf0bbe2` |
-| Collateralizer | `0x258883fb64afe22517db08f4c6e886f4967205b9` |
-| MockUSDC | `0x2a6601d2471d9215c4572e7a02279382679c2e8a` |
+| LaunchpadEngine | `0x0ec7c40acbe1b0b1340aa20b9bb141e2d0996826` |
+| TickBookPoolManager | `0xa2261ad47f5f60048384f66f544d7ec48ddb3ed0` |
+| TickBookVault | `0xa21f54a6964c0213c610ef55dc1abf88ee63982e` |
+| AMMEngine | `0x16948479c5d43b59742adae6401645271546366d` |
+| Collateralizer | `0x113eaa03740480ef36b9def40b2399e27495748c` |
+| MockUSDC | `0x2db2e129f31b2a659b2c1c07410789b8d3c898b9` |
 
 ### Monad Testnet (chainId: 10143) - V10.9
 | Contract | Address |

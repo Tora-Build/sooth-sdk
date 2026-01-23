@@ -1,9 +1,19 @@
-# V10 Implementation - Unified Prediction Market Protocol
+# V11 Implementation - Unified Prediction Market Protocol
 
 **Status**: Production Alpha  
-**Build**: All Tests Passing (124/124)  
-**Version**: V10.9  
-**Date**: 2026-01-19
+**Build**: All Tests Passing (237/237)  
+**Version**: V11.0  
+**Date**: 2026-01-23
+
+## V11 Features
+
+| Feature | Contract | Description |
+|---------|----------|-------------|
+| Trial Period | `LaunchpadEngine` | 7-day trial with dismissMarket/claimRefund |
+| ERC20 LP Token | `LaunchpadLPToken` | Transferable pre-settlement, locked post-settlement |
+| Validated Adjudicator | `ValidatedAdjudicator` | TEE attestation-based settlement |
+| Protocol Config | `ProtocolConfig` | Guardian list + global pause |
+| Adjudicator-only finalize | `TruthMarket` | Guardians can veto but not finalize |
 
 ---
 
