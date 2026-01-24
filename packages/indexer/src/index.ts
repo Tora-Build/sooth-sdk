@@ -756,11 +756,166 @@ ponder.on("TickBookPoolManager:UnifiedCrossing", async ({ event, context }) => {
 
     if (fillGrowth && fillGrowth.totalLiquidity > 0n) {
       const growthDelta = (rangeFilled * Q128) / fillGrowth.totalLiquidity;
-      
+
       await context.db.update(schema.fillGrowthState, { id: fgId }).set({
         fillGrowthX128: fillGrowth.fillGrowthX128 + growthDelta,
         updatedAt: event.block.timestamp,
       });
     }
+  }
+});
+
+// ============================================
+// V11: LaunchpadEngine Event Handlers
+// ============================================
+
+// Default trial period (7 days in seconds)
+const DEFAULT_TRIAL_PERIOD = 7n * 24n * 60n * 60n;
+
+/**
+ * Handle MarketCreated events (LaunchpadEngine)
+ * Initialize launchpadMarket and trialState records
+ */
+ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
+  const { market, creator, initialLiquidity, deposit, lpTokens } = event.args;
+
+  const trialEndTime = event.block.timestamp + DEFAULT_TRIAL_PERIOD;
+
+  // Create launchpad market record
+  await context.db
+    .insert(schema.launchpadMarket)
+    .values({
+      address: market,
+      chainId: context.chain.id,
+      creator,
+      name: null,
+      symbol: null,
+      initialLiquidity,
+      deposit,
+      totalLPSupply: lpTokens,
+      isGraduated: false,
+      createdAt: event.block.timestamp,
+      graduatedAt: null,
+      blockNumber: event.block.number,
+      lpToken: null, // Will be set by LPTokenCreated event
+      trialEndTime,
+      isDismissed: false,
+    })
+    .onConflictDoNothing();
+
+  // Create trial state record
+  const id = market.toLowerCase();
+  await context.db
+    .insert(schema.trialState)
+    .values({
+      id,
+      chainId: context.chain.id,
+      market,
+      trialEndTime,
+      isDismissed: false,
+      totalLockedCost: 0n,
+      dismissedAt: null,
+      blockNumber: event.block.number,
+    })
+    .onConflictDoNothing();
+});
+
+/**
+ * Handle MarketGraduated events
+ * Update launchpadMarket graduation status
+ */
+ponder.on("LaunchpadEngine:MarketGraduated", async ({ event, context }) => {
+  const { market, timestamp } = event.args;
+
+  const existingMarket = await context.db.find(schema.launchpadMarket, { address: market });
+  if (existingMarket) {
+    await context.db.update(schema.launchpadMarket, { address: market }).set({
+      isGraduated: true,
+      graduatedAt: timestamp,
+    });
+  }
+});
+
+/**
+ * Handle PositionTraded events
+ * Update trial state locked costs for buys during trial period
+ */
+ponder.on("LaunchpadEngine:PositionTraded", async ({ event, context }) => {
+  const { trader, market, deltaShares, cost } = event.args;
+
+  // Only track for buys (deltaShares > 0) during trial
+  if (deltaShares <= 0n) return;
+
+  const trialId = market.toLowerCase();
+  const trialState = await context.db.find(schema.trialState, { id: trialId });
+
+  if (!trialState) return;
+
+  // Check if still in trial period and not dismissed
+  if (event.block.timestamp >= trialState.trialEndTime || trialState.isDismissed) return;
+
+  // Update total locked cost
+  await context.db.update(schema.trialState, { id: trialId }).set({
+    totalLockedCost: trialState.totalLockedCost + cost,
+  });
+});
+
+/**
+ * Handle MarketDismissed events - when a market is dismissed during trial period
+ */
+ponder.on("LaunchpadEngine:MarketDismissed", async ({ event, context }) => {
+  const { market, timestamp } = event.args;
+
+  const id = market.toLowerCase();
+
+  // Update trial state
+  const trialState = await context.db.find(schema.trialState, { id });
+  if (trialState) {
+    await context.db.update(schema.trialState, { id }).set({
+      isDismissed: true,
+      dismissedAt: timestamp,
+    });
+  }
+
+  // Update launchpad market
+  const existingMarket = await context.db.find(schema.launchpadMarket, { address: market });
+  if (existingMarket) {
+    await context.db.update(schema.launchpadMarket, { address: market }).set({
+      isDismissed: true,
+    });
+  }
+});
+
+/**
+ * Handle RefundClaimed events - when a user claims a refund after market dismissal
+ */
+ponder.on("LaunchpadEngine:RefundClaimed", async ({ event, context }) => {
+  const { market, user, amount } = event.args;
+
+  const id = eventId(event.transaction.hash, event.log.logIndex);
+
+  await context.db.insert(schema.refundClaim).values({
+    id,
+    chainId: context.chain.id,
+    market,
+    user,
+    amount,
+    timestamp: event.block.timestamp,
+    blockNumber: event.block.number,
+    txHash: event.transaction.hash,
+  });
+});
+
+/**
+ * Handle LPTokenCreated events - when an ERC20 LP token is created for a market
+ */
+ponder.on("LaunchpadEngine:LPTokenCreated", async ({ event, context }) => {
+  const { market, lpToken } = event.args;
+
+  const existingMarket = await context.db.find(schema.launchpadMarket, { address: market });
+  if (existingMarket) {
+    await context.db.update(schema.launchpadMarket, { address: market }).set({
+      lpToken,
+    });
   }
 });

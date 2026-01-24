@@ -828,7 +828,7 @@ async function main(): Promise<void> {
   }
 
   const headerLines = [
-    bold('SOOTH V10 INTERACTIVE TEST CONSOLE'),
+    bold('SOOTH V11 INTERACTIVE TEST CONSOLE'),
     `Chain: ${config.chainName} | Version: ${config.deployment.version}`,
     `RPC: ${config.rpc.length > 40 ? config.rpc.slice(0, 37) + '...' : config.rpc}`,
   ];

@@ -121,4 +121,31 @@ export const LaunchpadEngineAbi = [
       { name: "thresholdWad", type: "uint256", indexed: false },
     ],
   },
+  // V11 Events
+  {
+    type: "event",
+    name: "MarketDismissed",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "creator", type: "address", indexed: true },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "RefundClaimed",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "LPTokenCreated",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "lpToken", type: "address", indexed: true },
+    ],
+  },
 ] as const;
