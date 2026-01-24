@@ -9,7 +9,7 @@
 
 import * as readline from 'readline';
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
-import { createConfig, type InteractiveConfig, type Deployment, ABIS, sleep } from './config';
+import { createConfig, type InteractiveConfig, type Deployment, ABIS } from './config';
 import { createActorManager, type ActorManager } from './actors';
 import {
   parseCommand,
@@ -21,6 +21,7 @@ import {
   warn,
   printBox,
   shortAddress,
+  sleep,
 } from './utils';
 import {
   type CommandContext,
