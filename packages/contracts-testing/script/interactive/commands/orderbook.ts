@@ -95,7 +95,53 @@ export async function cancel(ctx: CommandContext, args: string[]): Promise<Comma
   }
 
   if (args.length < 1) {
-    return { success: false, message: 'Usage: cancel <orderId>' };
+    return { success: false, message: 'Usage: cancel <orderId|all>' };
+  }
+
+  const address = actorManager.currentAddress();
+
+  if (args[0].toLowerCase() === 'all') {
+    const orderIds = await publicClient.readContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'getUserOrders',
+      args: [marketKey, address],
+    }) as bigint[];
+
+    const activeOrders = [];
+    for (const orderId of orderIds) {
+      const order = await publicClient.readContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'getOrder',
+        args: [marketKey, orderId],
+      }) as any;
+      if (order.active) activeOrders.push(orderId);
+    }
+
+    if (activeOrders.length === 0) {
+      console.log(dim('  No active orders to cancel'));
+      return { success: true };
+    }
+
+    const spinner = new Spinner(`Cancelling ${activeOrders.length} orders...`);
+    spinner.start();
+
+    try {
+      const hash = await walletClient.writeContract({
+        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+        abi: ABIS.TickBookPoolManager,
+        functionName: 'batchCancelOrders',
+        args: [marketKey, activeOrders],
+      });
+
+      await actorManager.waitForTransactionReceipt(hash);
+      spinner.succeed(`Cancelled ${activeOrders.length} orders ${dim(`(tx: ${shortTx(hash)})`)}`);
+      return { success: true, txHash: hash };
+    } catch (err) {
+      spinner.fail(`Batch cancel failed: ${(err as Error).message.slice(0, 50)}`);
+      return { success: false, message: (err as Error).message };
+    }
   }
 
   const orderId = BigInt(args[0]);
@@ -110,7 +156,7 @@ export async function cancel(ctx: CommandContext, args: string[]): Promise<Comma
       args: [marketKey, orderId],
     });
 
-    const receipt = await actorManager.waitForTransactionReceipt(hash);
+    await actorManager.waitForTransactionReceipt(hash);
     spinner.succeed(`Cancelled order #${orderId} ${dim(`(tx: ${shortTx(hash)})`)}`);
 
     return { success: true, txHash: hash };
@@ -749,14 +795,61 @@ export async function hybridsell(ctx: CommandContext, args: string[]): Promise<C
   }
 }
 
+export async function claimrefunds(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market selected' };
+  }
+
+  const address = actorManager.currentAddress();
+  const pending = await publicClient.readContract({
+    address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+    abi: ABIS.TickBookPoolManager,
+    functionName: 'getPendingRefunds',
+    args: [address, marketKey],
+  }) as bigint;
+
+  if (pending === 0n) {
+    console.log(dim('  No pending refunds'));
+    return { success: true };
+  }
+
+  const spinner = new Spinner(`Claiming ${formatWad(pending)} USDC pending refunds...`);
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+      abi: ABIS.TickBookPoolManager,
+      functionName: 'claimPooledRefunds',
+      args: [marketKey],
+    });
+
+    await actorManager.waitForTransactionReceipt(hash);
+    spinner.succeed(`Claimed ${formatWad(pending)} USDC refunds ${dim(`(tx: ${shortTx(hash)})`)}`);
+
+    return { success: true, txHash: hash };
+  } catch (err) {
+    spinner.fail(`Claim refunds failed: ${(err as Error).message.slice(0, 50)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
 export const orderbookCommands = {
   order,
   cancel,
   claim,
+  claimrefunds,
   market,
   orders,
   getorder,
-  // V10: Spot Sell
   spotsell,
   cancelspotsell,
   spotsells,

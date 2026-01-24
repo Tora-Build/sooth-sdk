@@ -400,6 +400,18 @@ export const ABIS = {
       name: 'getNextSpotSellId', type: 'function', inputs: [],
       outputs: [{ type: 'uint256' }], stateMutability: 'view'
     },
+    // Refund management
+    {
+      name: 'getPendingRefunds', type: 'function', inputs: [
+        { type: 'address', name: 'user' },
+        { type: 'bytes32', name: 'marketKey' },
+      ], outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'claimPooledRefunds', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+      ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
+    },
   ],
 
   LaunchpadEngine: [
