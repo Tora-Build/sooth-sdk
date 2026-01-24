@@ -1,0 +1,29 @@
+{
+  "name": "@sooth/pitch-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion render PitchVideo out/sooth-pitch.mp4",
+    "build:gif": "remotion render PitchVideo out/sooth-pitch.gif --image-format=png",
+    "build:intro": "remotion render IntroVideo out/sooth-intro.mp4",
+    "build:intro:square": "remotion render IntroVideoSquare out/sooth-intro-square.mp4",
+    "build:intro:vertical": "remotion render IntroVideoVertical out/sooth-intro-vertical.mp4",
+    "build:intro:all": "npm run build:intro && npm run build:intro:square && npm run build:intro:vertical",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.408",
+    "@remotion/media": "4.0.408",
+    "@remotion/transitions": "4.0.408",
+    "lucide-react": "^0.562.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.408"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

@@ -393,6 +393,7 @@ function printHelp(): void {
     settle <outcome>         Settle market (adjudicator only)
                              outcome: yes, no, invalid
     redeem                   Redeem winning tokens for USDC (after settlement)
+    redeemamm                Redeem AMM positions for USDC (after settlement)
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
     transferlp <actor> <amt> Transfer LP tokens to another actor
@@ -570,6 +571,10 @@ async function handleCommand(input: string): Promise<void> {
         await run(orderbookCommands.claim(ctx, args));
         break;
 
+      case 'claimrefunds':
+        await run(orderbookCommands.claimrefunds(ctx, args));
+        break;
+
       case 'market':
         await run(orderbookCommands.market(ctx, args));
         break;
@@ -670,6 +675,10 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'redeem':
         await run(marketCommands.redeem(ctx, args));
+        break;
+
+      case 'redeemamm':
+        await run(marketCommands.redeemamm(ctx, args));
         break;
 
       case 'redeemlp':

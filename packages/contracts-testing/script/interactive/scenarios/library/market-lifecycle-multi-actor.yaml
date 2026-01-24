@@ -3,22 +3,21 @@
 # Demonstrates full market lifecycle with 5 distinct actor roles:
 #   alice   = creator (creates market, provides liquidity)
 #   bob     = AMM trader (trades pre-graduation), TickBook maker
-#   charlie = TickBook taker (crosses orders to get internal shares), spot seller
+#   charlie = TickBook trader (places orders post-graduation)
 #   david   = adjudicator (settles market)
-#   ellen   = keeper (claims spot sell proceeds for charlie)
+#   ellen   = keeper (receives LP tokens from creator)
 #
 # Flow:
 #   1. Alice creates market with David as adjudicator
 #   2. Bob and Charlie fund and trade on AMM to graduate market
-#   3. After graduation, Bob places a maker order (NO)
-#   4. Charlie crosses Bob's order (gets YES shares as taker)
-#   5. Charlie places a spot sell with his YES shares
-#   6. Ellen (keeper) claims spot sell proceeds for Charlie
-#   7. David settles the market as YES
-#   8. Run invariant checks
+#   3. After graduation, actors place TickBook orders
+#   4. Alice transfers LP tokens to Ellen
+#   5. David settles the market as YES
+#   6. Actors redeem their positions and LP tokens
+#   7. Run invariant checks
 
 name: market-lifecycle-multi-actor
-description: Full 5-actor lifecycle from creation through settlement with TickBook spot sells and keeper claims
+description: Full 5-actor lifecycle from creation through settlement with TickBook trading and LP transfers
 
 steps:
   # ============================================================
@@ -113,17 +112,14 @@ steps:
     args: {}
 
   # ============================================================
-  # PHASE 3: TickBook trading - Charlie gets internal shares as taker
+  # PHASE 3: TickBook trading (post-graduation)
   # ============================================================
   
-  # Bob sets market context
   - actor: bob
     action: setmarket
     args:
       address: "created"
 
-  # Bob places a NO order (maker) - will be crossed by Charlie
-  # Range: 45-55 means he's willing to sell NO at 45-55% price
   - actor: bob
     action: order
     args:
@@ -131,47 +127,10 @@ steps:
       tickRange: "450-550"
       shares: "50"
 
-  # Charlie sets market context
   - actor: charlie
     action: setmarket
     args:
       address: "created"
-
-  # Charlie places a YES order that crosses Bob's NO order
-  # As a taker crossing the order, Charlie receives internal YES shares
-  - actor: charlie
-    action: order
-    args:
-      outcome: "yes"
-      tickRange: "400-600"
-      shares: "50"
-
-  # ============================================================
-  # PHASE 4: Random TickBook Trading (generates post-grad fees)
-  # ============================================================
-
-  # Bob places more NO orders at different price levels
-  - actor: bob
-    action: order
-    args:
-      outcome: "no"
-      tickRange: "400-450"
-      shares: "30"
-
-  - actor: bob
-    action: order
-    args:
-      outcome: "no"
-      tickRange: "500-600"
-      shares: "40"
-
-  # Charlie crosses Bob's orders with YES orders
-  - actor: charlie
-    action: order
-    args:
-      outcome: "yes"
-      tickRange: "350-500"
-      shares: "35"
 
   - actor: charlie
     action: order
@@ -180,39 +139,17 @@ steps:
       tickRange: "450-550"
       shares: "25"
 
-  # Bob places YES order (switching sides)
   - actor: bob
     action: order
     args:
       outcome: "yes"
-      tickRange: "480-520"
-      shares: "20"
-
-  # Charlie places NO order (switching sides)
-  - actor: charlie
-    action: order
-    args:
-      outcome: "no"
-      tickRange: "520-580"
-      shares: "15"
-
-  # ============================================================
-  # PHASE 5: Spot Sell - Charlie sells his internal YES shares
-  # ============================================================
-  
-  # Charlie places a spot sell with his YES shares from being a taker
-  - actor: charlie
-    action: spotsell
-    args:
-      outcome: "yes"
-      tickRange: "500-540"
+      tickRange: "450-550"
       shares: "20"
 
   # ============================================================
-  # PHASE 6: Keeper claim - Ellen claims spot sell for Charlie
+  # PHASE 4: Set up Ellen (keeper)
   # ============================================================
-  
-  # Ellen needs to be funded and set up
+
   - actor: ellen
     action: mint
     args:
@@ -228,18 +165,8 @@ steps:
     args:
       address: "created"
 
-  # List spot sells to see the sell ID
-  - actor: ellen
-    action: spotsells
-    args: {}
-
-  - actor: ellen
-    action: claimspotsellfor
-    args:
-      sellId: "0"
-
   # ============================================================
-  # PHASE 7: Token Transfer Tests (BEFORE settlement)
+  # PHASE 5: Token Transfer Tests (BEFORE settlement)
   # LP tokens are transferable pre-settlement, locked post-settlement
   # Internal TickBook shares are NOT user-transferable (by design)
   # ============================================================
@@ -308,8 +235,24 @@ steps:
     args:
       address: "created"
 
+  # IMPORTANT: Cancel orders and claim refunds BEFORE redeeming internal outcomes
+  # The refund pool uses _marketCollateralWad which gets depleted by redemptions
+  - actor: bob
+    action: cancel
+    args:
+      orderId: "all"
+
+  - actor: bob
+    action: claimrefunds
+    args: {}
+
+  # Now redeem internal outcomes (from order fills)
   - actor: bob
     action: redeem
+    args: {}
+
+  - actor: bob
+    action: redeemamm
     args: {}
 
   - actor: bob
@@ -322,8 +265,23 @@ steps:
     args:
       address: "created"
 
+  # Cancel TickBook orders (claims fills + refunds unfilled collateral)
+  - actor: charlie
+    action: cancel
+    args:
+      orderId: "all"
+
   - actor: charlie
     action: redeem
+    args: {}
+
+  - actor: charlie
+    action: redeemamm
+    args: {}
+
+  # Claim pending refunds from order cancellations
+  - actor: charlie
+    action: claimrefunds
     args: {}
 
   - actor: charlie

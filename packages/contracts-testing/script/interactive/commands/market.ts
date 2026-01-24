@@ -80,6 +80,7 @@ const LaunchpadEngineAbi = parseAbi([
 const AMMEngineAbi = parseAbi([
   'function getPrice(address market, uint8 outcome) view returns (uint256)',
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
+  'function settlePosition(address market) external returns (uint256 payout)',
 ]);
 
 const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
@@ -1477,10 +1478,77 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
   return { success: true, data: { totalRedeemed } };
 }
 
-/**
- * Redeem LP tokens for USDC + accrued fees
- * Usage: redeemlp [amount|max]
- */
+export async function redeemamm(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketAddress } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+  const publicClient = actorManager.getPublicClient();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketAddress) {
+    return { success: false, message: 'No market selected. Use setmarket first.' };
+  }
+
+  const isSettled = await publicClient.readContract({
+    address: marketAddress,
+    abi: TruthMarketAbi,
+    functionName: 'isSettled',
+  }).catch(() => false);
+
+  if (!isSettled) {
+    return { success: false, message: 'Market is not settled yet.' };
+  }
+
+  const [ammYes, ammNo] = await publicClient.readContract({
+    address: deployment.contracts.AMMEngine as `0x${string}`,
+    abi: AMMEngineAbi,
+    functionName: 'getPosition',
+    args: [marketAddress, address],
+  }) as [bigint, bigint];
+
+  if (ammYes === 0n && ammNo === 0n) {
+    console.log(`\n  ${warn('No AMM position to redeem')}`);
+    return { success: true, data: { payout: 0n } };
+  }
+
+  console.log(`\n  ${bold('Redeeming AMM Position')}`);
+  console.log('  ' + '─'.repeat(40));
+  console.log(`  AMM YES: ${formatWad(ammYes)}`);
+  console.log(`  AMM NO:  ${formatWad(ammNo)}`);
+
+  const spinner = new Spinner('Settling AMM position...');
+  spinner.start();
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: deployment.contracts.AMMEngine as `0x${string}`,
+      abi: AMMEngineAbi,
+      functionName: 'settlePosition',
+      args: [marketAddress],
+      gas: 300000n,
+    });
+    const receipt = await actorManager.waitForTransactionReceipt(hash);
+    
+    const winningOutcome = await publicClient.readContract({
+      address: marketAddress,
+      abi: TruthMarketAbi,
+      functionName: 'winningOutcome',
+    }) as number;
+    
+    const payout = winningOutcome === 1 ? ammYes : winningOutcome === 0 ? ammNo : (ammYes + ammNo) / 2n;
+    spinner.succeed(`Settled AMM position for ${formatWad(payout)} USDC ${dim(`(tx: ${shortTx(hash)})`)}`);
+    
+    console.log('');
+    return { success: true, data: { payout } };
+  } catch (err) {
+    spinner.fail(`AMM settle failed: ${(err as Error).message.slice(0, 60)}`);
+    return { success: false, message: (err as Error).message };
+  }
+}
+
 export async function redeemlp(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketAddress } = ctx;
   const walletClient = actorManager.currentWalletClient();
@@ -2112,6 +2180,7 @@ export const marketCommands = {
   simulate,
   settle,
   redeem,
+  redeemamm,
   redeemlp,
   transferlp,
   pnl,
