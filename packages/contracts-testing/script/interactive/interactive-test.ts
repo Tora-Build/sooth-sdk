@@ -21,7 +21,6 @@ import {
   warn,
   printBox,
   shortAddress,
-  sleep,
 } from './utils';
 import {
   type CommandContext,
@@ -657,8 +656,6 @@ async function handleCommand(input: string): Promise<void> {
           const created = res.data?.marketAddress as string | undefined;
           if (res.success && created) {
             lastCreatedMarketAddress = created;
-            await sleep(2000); // Wait for RPC state propagation
-            await setMarket(created);
           }
         }
         break;
