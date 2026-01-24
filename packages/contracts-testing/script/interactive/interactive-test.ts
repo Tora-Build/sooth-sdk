@@ -9,7 +9,7 @@
 
 import * as readline from 'readline';
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
-import { createConfig, type InteractiveConfig, type Deployment, ABIS } from './config';
+import { createConfig, type InteractiveConfig, type Deployment, ABIS, sleep } from './config';
 import { createActorManager, type ActorManager } from './actors';
 import {
   parseCommand,
@@ -656,6 +656,7 @@ async function handleCommand(input: string): Promise<void> {
           const created = res.data?.marketAddress as string | undefined;
           if (res.success && created) {
             lastCreatedMarketAddress = created;
+            await sleep(2000); // Wait for RPC state propagation
             await setMarket(created);
           }
         }
