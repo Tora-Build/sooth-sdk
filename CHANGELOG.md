@@ -56,12 +56,32 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ---
 
-## [V11.0] - 2026-01-23
+## [V11.0] - 2026-01-24
 
 ### Summary
 V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**, and **Protocol Config** (guardian + global pause). Deployed to all 4 testnets; active testing on Base Sepolia.
 
-### Fixed
+### Fixed (2026-01-24)
+- **CLI Checksum Complete Fix**: Added complete USDC tracking to `checksum` command.
+  - **Problem**: After AMM fix, checksum still showed -1.27 USDC imbalance in some runs.
+  - **Root Cause**: Missing tracking for `vaultMarketCollateral` (TickBookVault) and `lpYieldPool` (LaunchpadEngine).
+  - **Fix**: 
+    - Added `vaultMarketCollateral` fetch via `TickBookVault.marketCollateralWad(market)`
+    - Added `lpYieldPool` to `MarketState` interface
+    - Added "Potential Stuck USDC" display section when non-zero
+  - **Result**: Both `market-lifecycle-multi-actor` and `trial-period` scenarios now pass with exact 0.00 USDC balance.
+
+- **Scenario Test Report**: Consolidated scenario testing documentation.
+  - Renamed `REPORT-2026-01-23.md` to `SCENARIO-TEST-REPORT.md` (living document)
+  - Added scenario status table distinguishing V11 vs legacy scenarios
+  - Added lessons learned section (6 key learnings)
+  - Added maintenance schedule for periodic testing
+
+- **Trial Period Scenario**: Verified V11 dismissal and refund flow.
+  - 19 steps, 0 failures, 0.00 USDC checksum
+  - Tests: market creation → AMM trading during trial → creator dismissal → trader refunds
+
+### Fixed (2026-01-23)
 - **CLI Zero-Sum P&L Verification**: Fixed `checksum` command showing -71.24 USDC imbalance after `market-lifecycle-multi-actor` scenario.
   - **Root Cause**: AMM positions (YES/NO shares from pre-graduation trades via `LaunchpadEngine.tradePositions`) were not being tracked.
   - **Fix**: Added `AMMEngine.getPosition(market, user)` calls to `snapshot` and `checksum` functions in `wallet.ts`.
@@ -72,7 +92,6 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
     - Updated `checksum()` to fetch AMM positions per actor
     - Updated `calculateActorTotalValue()` to include AMM positions in YES/NO totals
     - Updated `printSnapshot()` to display AMM positions in breakdown (`amm:X/Y`)
-  - **Result**: Checksum now returns 0.00 USDC (true zero-sum verification).
 
 ### Added
 - **ProtocolConfig**: New protocol-level guardian list + global pause contract; Launchpad/AMM/TickBook/Vault read pause state.
