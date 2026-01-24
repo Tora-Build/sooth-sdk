@@ -5,6 +5,7 @@
 .env.*.local
 **/.vscode
 **/.idea
+tmp/
 
 # Security - Private Keys & Secrets
 *.key
