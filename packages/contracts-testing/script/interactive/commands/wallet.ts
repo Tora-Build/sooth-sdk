@@ -16,11 +16,13 @@ const CollateralizerAbi = parseAbi([
 
 const TickBookVaultAbi = parseAbi([
   'function getInternalOutcomes(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
+  'function marketCollateralWad(address market) view returns (uint256)',
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
   'function trialStates(address market) view returns (uint64 trialEndTime, bool isDismissed, uint256 totalLockedCost)',
+  'function protocolTreasury() view returns (address)',
 ]);
 
 const TruthMarketAbi = parseAbi([
@@ -255,6 +257,7 @@ export interface MarketState {
   feesAccrued: bigint;
   totalLPSupply: bigint;
   lpTokenAddress: string;
+  lpYieldPool: bigint;
   isSettled: boolean;
   winningOutcome: number; // 0=NO, 1=YES, 2=INVALID, -1=not settled
   isGraduated: boolean;
@@ -267,9 +270,13 @@ export interface BalanceSnapshot {
   contracts: {
     launchpadEngine: bigint;
     tickBookVault: bigint;
+    tickBookPoolManager: bigint;
     collateralizer: bigint;
     ammEngine: bigint;
+    protocolTreasury: bigint;
+    vaultMarketCollateral: bigint;
   };
+  protocolTreasuryAddress: string | null;
   totalMinted: bigint;
   market: MarketState | null;
 }
@@ -306,9 +313,13 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     contracts: {
       launchpadEngine: 0n,
       tickBookVault: 0n,
+      tickBookPoolManager: 0n,
       collateralizer: 0n,
       ammEngine: 0n,
+      protocolTreasury: 0n,
+      vaultMarketCollateral: 0n,
     },
+    protocolTreasuryAddress: null,
     totalMinted: 0n,
     market: null,
   };
@@ -335,7 +346,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
       ]);
 
-      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, , isGraduated] = marketState;
+      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated] = marketState;
       const [, isDismissed] = trialState;
 
       let winningOutcome = -1;
@@ -353,6 +364,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         feesAccrued,
         totalLPSupply,
         lpTokenAddress,
+        lpYieldPool,
         isSettled,
         winningOutcome,
         isGraduated,
@@ -449,7 +461,13 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     };
   }
 
-  const [launchpadBal, vaultBal, collateralizerBal, ammEngineBal] = await Promise.all([
+  const protocolTreasuryAddr = await publicClient.readContract({
+    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+    abi: LaunchpadEngineAbi,
+    functionName: 'protocolTreasury',
+  }) as `0x${string}`;
+
+  const [launchpadBal, vaultBal, poolManagerBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
@@ -466,6 +484,12 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'balanceOf',
+      args: [deployment.contracts.TickBookPoolManager as `0x${string}`],
+    }) as Promise<bigint>,
+    publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
       args: [deployment.contracts.Collateralizer as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
@@ -474,14 +498,36 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
       functionName: 'balanceOf',
       args: [deployment.contracts.AMMEngine as `0x${string}`],
     }) as Promise<bigint>,
+    publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [protocolTreasuryAddr],
+    }) as Promise<bigint>,
   ]);
+
+  let vaultMarketCollateral = 0n;
+  if (marketAddress) {
+    try {
+      vaultMarketCollateral = await publicClient.readContract({
+        address: deployment.contracts.TickBookVault as `0x${string}`,
+        abi: TickBookVaultAbi,
+        functionName: 'marketCollateralWad',
+        args: [marketAddress],
+      }) as bigint;
+    } catch {}
+  }
 
   snap.contracts = {
     launchpadEngine: launchpadBal,
     tickBookVault: vaultBal,
+    tickBookPoolManager: poolManagerBal,
     collateralizer: collateralizerBal,
     ammEngine: ammEngineBal,
+    protocolTreasury: treasuryBal,
+    vaultMarketCollateral,
   };
+  snap.protocolTreasuryAddress = protocolTreasuryAddr;
 
   snap.totalMinted = await publicClient.readContract({
     address: deployment.contracts.MockUSDC as `0x${string}`,
@@ -497,23 +543,27 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   return { success: true, data: { snapshot: snap } };
 }
 
-function calculateActorTotalValue(data: ActorPositions, market: MarketState | null): bigint {
+function calculateActorTotalValue(data: ActorPositions, market: MarketState | null, excludeAmm: boolean = false): bigint {
   const liquidUsdc = data.wallet + data.vault;
   
   if (!market) {
     return liquidUsdc;
   }
 
-  const totalYes = data.internalYes + data.erc20Yes + data.ammYes;
-  const totalNo = data.internalNo + data.erc20No + data.ammNo;
+  // AMM positions are backed by AMMEngine USDC (counted separately in contract totals)
+  // Only count internal (TickBook) and ERC20 positions here
+  const totalYes = excludeAmm 
+    ? data.internalYes + data.erc20Yes 
+    : data.internalYes + data.erc20Yes + data.ammYes;
+  const totalNo = excludeAmm 
+    ? data.internalNo + data.erc20No 
+    : data.internalNo + data.erc20No + data.ammNo;
   
   let yesValue = 0n;
   let noValue = 0n;
   let lpValue = 0n;
   
   if (market.isDismissed) {
-    // Dismissed markets: positions are worthless, LP tokens are worthless
-    // Traders already got refunds via claimRefund()
     yesValue = 0n;
     noValue = 0n;
     lpValue = 0n;
@@ -581,10 +631,12 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
   console.log(`    ${'Total'.padEnd(10)} ${formatWad(totalActorValue).padStart(12)} USDC`);
 
   console.log(`\n  ${info('Contract Balances:')}`);
-  console.log(`    LaunchpadEngine ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`);
-  console.log(`    AMMEngine       ${formatWad(snap.contracts.ammEngine).padStart(12)} USDC`);
-  console.log(`    TickBookVault   ${formatWad(snap.contracts.tickBookVault).padStart(12)} USDC ${dim('(custodial)')}`);
-  console.log(`    Collateralizer  ${formatWad(snap.contracts.collateralizer).padStart(12)} USDC`);
+  console.log(`    LaunchpadEngine  ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`);
+  console.log(`    AMMEngine        ${formatWad(snap.contracts.ammEngine).padStart(12)} USDC`);
+  console.log(`    TickBookPoolMgr  ${formatWad(snap.contracts.tickBookPoolManager).padStart(12)} USDC`);
+  console.log(`    TickBookVault    ${formatWad(snap.contracts.tickBookVault).padStart(12)} USDC ${dim('(custodial)')}`);
+  console.log(`    Collateralizer   ${formatWad(snap.contracts.collateralizer).padStart(12)} USDC`);
+  console.log(`    ProtocolTreasury ${formatWad(snap.contracts.protocolTreasury).padStart(12)} USDC`);
 
   console.log(`\n  ${info('Summary:')}`);
   console.log(`    Total Minted:   ${formatWad(snap.totalMinted).padStart(12)} USDC`);
@@ -611,9 +663,13 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
     contracts: {
       launchpadEngine: 0n,
       tickBookVault: 0n,
+      tickBookPoolManager: 0n,
       collateralizer: 0n,
       ammEngine: 0n,
+      protocolTreasury: 0n,
+      vaultMarketCollateral: 0n,
     },
+    protocolTreasuryAddress: before.protocolTreasuryAddress,
     totalMinted: 0n,
     market: null,
   };
@@ -640,7 +696,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
         }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
       ]);
 
-      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, , isGraduated] = marketState;
+      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated] = marketState;
       const [, isDismissed] = trialState;
 
       let winningOutcome = -1;
@@ -658,6 +714,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
         feesAccrued,
         totalLPSupply,
         lpTokenAddress,
+        lpYieldPool,
         isSettled,
         winningOutcome,
         isGraduated,
@@ -752,7 +809,9 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
     };
   }
 
-  const [launchpadBal, vaultBal, collateralizerBal, ammEngineBal] = await Promise.all([
+  const treasuryAddr = before.protocolTreasuryAddress as `0x${string}` | null;
+  
+  const [launchpadBal, vaultBal, poolManagerBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
@@ -769,6 +828,12 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'balanceOf',
+      args: [deployment.contracts.TickBookPoolManager as `0x${string}`],
+    }) as Promise<bigint>,
+    publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
       args: [deployment.contracts.Collateralizer as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
@@ -777,13 +842,34 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
       functionName: 'balanceOf',
       args: [deployment.contracts.AMMEngine as `0x${string}`],
     }) as Promise<bigint>,
+    treasuryAddr ? publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [treasuryAddr],
+    }) as Promise<bigint> : Promise.resolve(0n),
   ]);
+
+  let vaultMarketCollateral = 0n;
+  if (marketAddress) {
+    try {
+      vaultMarketCollateral = await publicClient.readContract({
+        address: deployment.contracts.TickBookVault as `0x${string}`,
+        abi: TickBookVaultAbi,
+        functionName: 'marketCollateralWad',
+        args: [marketAddress],
+      }) as bigint;
+    } catch {}
+  }
 
   after.contracts = {
     launchpadEngine: launchpadBal,
     tickBookVault: vaultBal,
+    tickBookPoolManager: poolManagerBal,
     collateralizer: collateralizerBal,
     ammEngine: ammEngineBal,
+    protocolTreasury: treasuryBal,
+    vaultMarketCollateral,
   };
 
   after.totalMinted = await publicClient.readContract({
@@ -792,7 +878,7 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
     functionName: 'totalSupply',
   }) as bigint;
 
-  console.log(`\n  ${bold('Zero-Sum P&L Verification (Comprehensive)')}`);
+  console.log(`\n  ${bold('Zero-Sum USDC Verification')}`);
   console.log('  ' + '═'.repeat(70));
 
   const mintedDelta = after.totalMinted - before.totalMinted;
@@ -808,87 +894,116 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
     console.log(`  ${info('Market Status:')} ${settlementStatus}`);
   }
 
-  console.log(`\n  ${info('Actor Total Value (USDC + Tokens + LP):')}`);
+  console.log(`\n  ${info('Actor USDC (wallet + vault):')}`);
   console.log('  ' + '─'.repeat(70));
 
-  let totalActorValueBefore = 0n;
-  let totalActorValueAfter = 0n;
+  let totalActorUsdcBefore = 0n;
+  let totalActorUsdcAfter = 0n;
   const actorDeltas: { name: string; delta: bigint; breakdown: string }[] = [];
+  
+  let totalUnredeemedYes = 0n;
+  let totalUnredeemedNo = 0n;
+  let totalUnredeemedLp = 0n;
+  const unredeemedActors: string[] = [];
 
   for (const [addr, afterData] of Object.entries(after.actors)) {
     const beforeData = before.actors[addr];
     if (!beforeData) continue;
 
-    const beforeValue = calculateActorTotalValue(beforeData, before.market);
-    const afterValue = calculateActorTotalValue(afterData, after.market);
-    const delta = afterValue - beforeValue;
+    const beforeUsdc = beforeData.wallet + beforeData.vault;
+    const afterUsdc = afterData.wallet + afterData.vault;
+    const delta = afterUsdc - beforeUsdc;
     
-    totalActorValueBefore += beforeValue;
-    totalActorValueAfter += afterValue;
+    totalActorUsdcBefore += beforeUsdc;
+    totalActorUsdcAfter += afterUsdc;
 
-    const parts: string[] = [];
-    const usdcDelta = (afterData.wallet + afterData.vault) - (beforeData.wallet + beforeData.vault);
-    if (usdcDelta !== 0n) parts.push(`usdc:${usdcDelta >= 0n ? '+' : ''}${formatWad(usdcDelta)}`);
+    const actorYesTokens = afterData.internalYes + afterData.erc20Yes + afterData.ammYes;
+    const actorNoTokens = afterData.internalNo + afterData.erc20No + afterData.ammNo;
+    const actorLpTokens = afterData.lpTokens;
     
-    if (after.market) {
-      const yesDelta = (afterData.internalYes + afterData.erc20Yes + afterData.ammYes) - (beforeData.internalYes + beforeData.erc20Yes + beforeData.ammYes);
-      const noDelta = (afterData.internalNo + afterData.erc20No + afterData.ammNo) - (beforeData.internalNo + beforeData.erc20No + beforeData.ammNo);
-      const lpDelta = afterData.lpTokens - beforeData.lpTokens;
-      
-      if (yesDelta !== 0n) parts.push(`yes:${yesDelta >= 0n ? '+' : ''}${formatWad(yesDelta)}`);
-      if (noDelta !== 0n) parts.push(`no:${noDelta >= 0n ? '+' : ''}${formatWad(noDelta)}`);
-      if (lpDelta !== 0n) parts.push(`lp:${lpDelta >= 0n ? '+' : ''}${formatWad(lpDelta)}`);
+    if (actorYesTokens > 0n || actorNoTokens > 0n || actorLpTokens > 0n) {
+      totalUnredeemedYes += actorYesTokens;
+      totalUnredeemedNo += actorNoTokens;
+      totalUnredeemedLp += actorLpTokens;
+      unredeemedActors.push(afterData.name);
     }
-
-    actorDeltas.push({ name: afterData.name, delta, breakdown: parts.join(', ') || 'no change' });
 
     const sign = delta >= 0n ? '+' : '';
     const color = delta >= 0n ? success : error;
-    console.log(`    ${afterData.name.padEnd(10)} ${color(`${sign}${formatWad(delta)}`.padStart(15))} USDC ${dim(`(${parts.join(', ') || 'no change'})`)}`);
+    console.log(`    ${afterData.name.padEnd(10)} ${color(`${sign}${formatWad(delta)}`.padStart(15))} USDC`);
+    
+    actorDeltas.push({ name: afterData.name, delta, breakdown: `usdc:${sign}${formatWad(delta)}` });
   }
   
   console.log('  ' + '─'.repeat(70));
-  const totalActorDelta = totalActorValueAfter - totalActorValueBefore;
+  const totalActorDelta = totalActorUsdcAfter - totalActorUsdcBefore;
   const actorSign = totalActorDelta >= 0n ? '+' : '';
   console.log(`    ${'Actors Σ'.padEnd(10)} ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`);
 
-  console.log(`\n  ${info('Contract USDC (protocol-owned):')}`);
+  console.log(`\n  ${info('Protocol USDC:')}`);
   console.log('  ' + '─'.repeat(70));
 
   const launchpadDelta = after.contracts.launchpadEngine - before.contracts.launchpadEngine;
+  const poolManagerDelta = after.contracts.tickBookPoolManager - (before.contracts.tickBookPoolManager ?? 0n);
   const collateralizerDelta = after.contracts.collateralizer - before.contracts.collateralizer;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
+  const treasuryDelta = after.contracts.protocolTreasury - before.contracts.protocolTreasury;
   
-  const isDismissed = after.market?.isDismissed ?? false;
-  const totalContractDelta = isDismissed
-    ? launchpadDelta + collateralizerDelta + ammEngineDelta
-    : launchpadDelta + collateralizerDelta;
+  const actorAddresses = new Set(Object.keys(after.actors).map(a => a.toLowerCase()));
+  const treasuryIsActor = before.protocolTreasuryAddress && actorAddresses.has(before.protocolTreasuryAddress.toLowerCase());
+  const effectiveTreasuryDelta = treasuryIsActor ? 0n : treasuryDelta;
+  
+  const totalContractDelta = launchpadDelta + poolManagerDelta + collateralizerDelta + ammEngineDelta + effectiveTreasuryDelta;
 
-  const printDelta = (name: string, delta: bigint) => {
+  const printDelta = (name: string, delta: bigint, note?: string) => {
     const sign = delta >= 0n ? '+' : '';
     const color = delta >= 0n ? success : error;
-    console.log(`    ${name.padEnd(18)} ${color(`${sign}${formatWad(delta)}`.padStart(12))} USDC`);
+    const suffix = note ? ` ${dim(note)}` : '';
+    console.log(`    ${name.padEnd(18)} ${color(`${sign}${formatWad(delta)}`.padStart(12))} USDC${suffix}`);
   };
 
   printDelta('LaunchpadEngine', launchpadDelta);
-  if (isDismissed) {
-    printDelta('AMMEngine', ammEngineDelta);
-    console.log(`    ${dim(''.padEnd(18))} ${dim('(included: dismissed market, positions worthless)')}`);
-  } else {
-    console.log(`    ${dim('AMMEngine'.padEnd(18))} ${dim(`${ammEngineDelta >= 0n ? '+' : ''}${formatWad(ammEngineDelta)}`.padStart(12))} ${dim('USDC (backs AMM positions, excluded)')}`);
-  }
+  printDelta('AMMEngine', ammEngineDelta);
+  printDelta('TickBookPoolMgr', poolManagerDelta);
   printDelta('Collateralizer', collateralizerDelta);
+  if (treasuryIsActor) {
+    console.log(`    ${dim('ProtocolTreasury'.padEnd(18))} ${dim(`${treasuryDelta >= 0n ? '+' : ''}${formatWad(treasuryDelta)}`.padStart(12))} ${dim('USDC (= actor, not counted)')}`);
+  } else {
+    printDelta('ProtocolTreasury', treasuryDelta);
+  }
   
   const vaultDelta = after.contracts.tickBookVault - before.contracts.tickBookVault;
-  console.log(`    ${dim('TickBookVault'.padEnd(18))} ${dim(`${vaultDelta >= 0n ? '+' : ''}${formatWad(vaultDelta)}`.padStart(12))} ${dim('USDC (custodial, not counted)')}`);
+  console.log(`    ${dim('TickBookVault'.padEnd(18))} ${dim(`${vaultDelta >= 0n ? '+' : ''}${formatWad(vaultDelta)}`.padStart(12))} ${dim('USDC (custodial)')}`);
   
   console.log('  ' + '─'.repeat(70));
   const contractSign = totalContractDelta >= 0n ? '+' : '';
   console.log(`    ${'Protocol Σ'.padEnd(18)} ${(contractSign + formatWad(totalContractDelta)).padStart(12)} USDC`);
 
+  if (totalUnredeemedYes > 0n || totalUnredeemedNo > 0n || totalUnredeemedLp > 0n) {
+    console.log(`\n  ${warn('Unredeemed Positions:')}`);
+    if (totalUnredeemedYes > 0n) console.log(`    YES tokens: ${formatWad(totalUnredeemedYes)}`);
+    if (totalUnredeemedNo > 0n) console.log(`    NO tokens:  ${formatWad(totalUnredeemedNo)}`);
+    if (totalUnredeemedLp > 0n) console.log(`    LP tokens:  ${formatWad(totalUnredeemedLp)}`);
+    console.log(dim(`    Actors: ${unredeemedActors.join(', ')}`));
+    console.log(dim('    Run: redeem, redeemamm, redeemlp max'));
+  }
+
+  const hasStuckUsdc = after.contracts.vaultMarketCollateral > 0n || (after.market?.lpYieldPool ?? 0n) > 0n;
+  if (hasStuckUsdc) {
+    console.log(`\n  ${warn('Potential Stuck USDC:')}`);
+    if (after.contracts.vaultMarketCollateral > 0n) {
+      console.log(`    Vault marketCollateral: ${formatWad(after.contracts.vaultMarketCollateral)} USDC`);
+      console.log(dim('      → Unredeemed internal outcomes. Run: redeem'));
+    }
+    if ((after.market?.lpYieldPool ?? 0n) > 0n) {
+      console.log(`    lpYieldPool:            ${formatWad(after.market!.lpYieldPool)} USDC`);
+      console.log(dim('      → Unclaimed LP yield. Run: claimlpyield'));
+    }
+  }
+
   console.log(`\n  ${bold('Zero-Sum Equation:')}`);
   console.log('  ' + '═'.repeat(70));
-  console.log(`    Actors Value Δ:    ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`);
+  console.log(`    Actor USDC Δ:      ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`);
   console.log(`    Protocol USDC Δ:   ${(contractSign + formatWad(totalContractDelta)).padStart(15)} USDC`);
   console.log(`    ─────────────────────────────────────────────────`);
   
@@ -901,14 +1016,14 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
   const checksumPass = checksumValue === 0n;
   
   if (checksumPass) {
-    console.log(`    ${success('✓ CHECKSUM:')}          ${bold('0.00')} USDC ${success('(BALANCED)')}`);
+    console.log(`    ${success('✓ CHECKSUM:')}          ${bold('0.00')} USDC ${success('(EXACT BALANCE)')}`);
   } else {
     console.log(`    ${error('✗ CHECKSUM:')}          ${error(formatWad(checksumValue))} USDC ${error('(IMBALANCED)')}`);
-    console.log(`\n  ${warn('WARNING: Funds are unaccounted for!')}`);
+    console.log(`\n  ${error('USDC LEAK DETECTED!')}`);
     console.log(dim('  Possible causes:'));
-    console.log(dim('    - Outcome tokens not properly valued (check market settlement)'));
-    console.log(dim('    - LP tokens not properly valued (check pool state)'));
-    console.log(dim('    - Funds in addresses not tracked (external treasury?)'));
+    console.log(dim('    - Unredeemed positions (see above)'));
+    console.log(dim('    - Stuck USDC in contracts (see above)'));
+    console.log(dim('    - USDC in untracked address'));
     console.log(dim('    - Protocol bug: money creation/destruction'));
   }
 
@@ -923,6 +1038,12 @@ export async function checksum(ctx: CommandContext, args: string[]): Promise<Com
       totalContractDelta,
       checksum: checksumValue,
       actorDeltas,
+      unredeemed: {
+        yes: totalUnredeemedYes,
+        no: totalUnredeemedNo,
+        lp: totalUnredeemedLp,
+        actors: unredeemedActors,
+      },
     } 
   };
 }
