@@ -11,78 +11,9 @@ const lpBalanceId = (chainId: number, market: string, user: string) =>
 const lockEntryId = (chainId: number, user: string, unlockTime: bigint) =>
   `${chainId}-${user.toLowerCase()}-${unlockTime.toString()}`;
 
-ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
-  const { market, creator, initialLiquidity, deposit, lpTokens } = event.args;
-
-  // Symbol is now derived from market address (first 4 bytes = 8 hex chars)
-  const derivedSymbol = market.slice(2, 10).toUpperCase();
-
-  await context.db.insert(schema.launchpadMarket).values({
-    address: market,
-    chainId: context.chain.id,
-    creator,
-    name: null,
-    symbol: derivedSymbol,
-    initialLiquidity,
-    deposit,
-    totalLPSupply: lpTokens,
-    isGraduated: false,
-    createdAt: event.block.timestamp,
-    graduatedAt: null,
-    blockNumber: event.block.number,
-  });
-
-  const id = lpBalanceId(context.chain.id, market, creator);
-  await context.db.insert(schema.lpBalance).values({
-    id,
-    chainId: context.chain.id,
-    market,
-    user: creator,
-    balance: lpTokens,
-    updatedAt: event.block.timestamp,
-  });
-});
-
-ponder.on("LaunchpadEngine:MarketGraduated", async ({ event, context }) => {
-  const { market, timestamp } = event.args;
-
-  await context.db.update(schema.launchpadMarket, { address: market }).set({
-    isGraduated: true,
-    graduatedAt: timestamp,
-  });
-});
-
-ponder.on("LaunchpadEngine:PositionTraded", async ({ event, context }) => {
-  const { trader, market, outcome, deltaShares } = event.args;
-
-  const id = ammPositionId(context.chain.id, market, trader);
-  const existing = await context.db.find(schema.ammPosition, { id });
-
-  if (existing) {
-    const newYes = outcome === 1
-      ? existing.yesShares + deltaShares
-      : existing.yesShares;
-    const newNo = outcome === 0
-      ? existing.noShares + deltaShares
-      : existing.noShares;
-
-    await context.db.update(schema.ammPosition, { id }).set({
-      yesShares: newYes > 0n ? newYes : 0n,
-      noShares: newNo > 0n ? newNo : 0n,
-      updatedAt: event.block.timestamp,
-    });
-  } else {
-    await context.db.insert(schema.ammPosition).values({
-      id,
-      chainId: context.chain.id,
-      market,
-      user: trader,
-      yesShares: outcome === 1 ? (deltaShares > 0n ? deltaShares : 0n) : 0n,
-      noShares: outcome === 0 ? (deltaShares > 0n ? deltaShares : 0n) : 0n,
-      updatedAt: event.block.timestamp,
-    });
-  }
-});
+// NOTE: LaunchpadEngine:MarketCreated handler moved to index.ts (includes trial state)
+// NOTE: LaunchpadEngine:MarketGraduated handler moved to index.ts
+// NOTE: LaunchpadEngine:PositionTraded handler moved to index.ts (merged AMM position + trial state)
 
 ponder.on("LaunchpadEngine:LPRedeemed", async ({ event, context }) => {
   const { user, market, lpAmount } = event.args;

@@ -430,41 +430,8 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   }
 });
 
-/**
- * Handle MarketOrderFilled events
- */
-ponder.on("TickBookPoolManager:MarketOrderFilled", async ({ event, context }) => {
-  const {
-    taker,
-    marketKey,
-    outcome,
-    sharesRequested,
-    sharesFilled,
-    totalCost,
-    startTick,
-    endTick,
-    refunded,
-  } = event.args;
-
-  const id = eventId(event.transaction.hash, event.log.logIndex);
-
-  await context.db.insert(schema.marketOrder).values({
-    id,
-    chainId: context.chain.id,
-    marketKey,
-    taker,
-    outcome,
-    sharesRequested,
-    sharesFilled,
-    totalCost,
-    startTick,
-    endTick,
-    refunded,
-    timestamp: event.block.timestamp,
-    blockNumber: event.block.number,
-    txHash: event.transaction.hash,
-  });
-});
+// NOTE: MarketOrderFilled event removed from contract - market orders now tracked via UnifiedCrossing
+// If market order tracking is needed, use the UnifiedCrossing handler which includes crossing data
 
 /**
  * Handle OrdersCrossed events - when a new order crosses existing liquidity
@@ -781,6 +748,9 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
 
   const trialEndTime = event.block.timestamp + DEFAULT_TRIAL_PERIOD;
 
+  // Symbol is derived from market address (first 4 bytes = 8 hex chars)
+  const derivedSymbol = market.slice(2, 10).toUpperCase();
+
   // Create launchpad market record
   await context.db
     .insert(schema.launchpadMarket)
@@ -789,7 +759,7 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
       chainId: context.chain.id,
       creator,
       name: null,
-      symbol: null,
+      symbol: derivedSymbol,
       initialLiquidity,
       deposit,
       totalLPSupply: lpTokens,
@@ -804,11 +774,11 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
     .onConflictDoNothing();
 
   // Create trial state record
-  const id = market.toLowerCase();
+  const trialId = market.toLowerCase();
   await context.db
     .insert(schema.trialState)
     .values({
-      id,
+      id: trialId,
       chainId: context.chain.id,
       market,
       trialEndTime,
@@ -818,6 +788,17 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
       blockNumber: event.block.number,
     })
     .onConflictDoNothing();
+
+  // Create LP balance for creator
+  const lpBalanceId = `${context.chain.id}-${market.toLowerCase()}-${creator.toLowerCase()}`;
+  await context.db.insert(schema.lpBalance).values({
+    id: lpBalanceId,
+    chainId: context.chain.id,
+    market,
+    user: creator,
+    balance: lpTokens,
+    updatedAt: event.block.timestamp,
+  }).onConflictDoNothing();
 });
 
 /**
@@ -838,12 +819,42 @@ ponder.on("LaunchpadEngine:MarketGraduated", async ({ event, context }) => {
 
 /**
  * Handle PositionTraded events
- * Update trial state locked costs for buys during trial period
+ * - Update trial state locked costs for buys during trial period
+ * - Update AMM positions (yesShares/noShares)
  */
 ponder.on("LaunchpadEngine:PositionTraded", async ({ event, context }) => {
-  const { trader, market, deltaShares, cost } = event.args;
+  const { trader, market, outcome, deltaShares, cost } = event.args;
 
-  // Only track for buys (deltaShares > 0) during trial
+  // 1. Update AMM position
+  const ammPositionId = `${context.chain.id}-${market.toLowerCase()}-${trader.toLowerCase()}`;
+  const existingPosition = await context.db.find(schema.ammPosition, { id: ammPositionId });
+
+  if (existingPosition) {
+    const newYes = outcome === 1
+      ? existingPosition.yesShares + deltaShares
+      : existingPosition.yesShares;
+    const newNo = outcome === 0
+      ? existingPosition.noShares + deltaShares
+      : existingPosition.noShares;
+
+    await context.db.update(schema.ammPosition, { id: ammPositionId }).set({
+      yesShares: newYes > 0n ? newYes : 0n,
+      noShares: newNo > 0n ? newNo : 0n,
+      updatedAt: event.block.timestamp,
+    });
+  } else {
+    await context.db.insert(schema.ammPosition).values({
+      id: ammPositionId,
+      chainId: context.chain.id,
+      market,
+      user: trader,
+      yesShares: outcome === 1 ? (deltaShares > 0n ? deltaShares : 0n) : 0n,
+      noShares: outcome === 0 ? (deltaShares > 0n ? deltaShares : 0n) : 0n,
+      updatedAt: event.block.timestamp,
+    });
+  }
+
+  // 2. Update trial state locked costs (only for buys during trial)
   if (deltaShares <= 0n) return;
 
   const trialId = market.toLowerCase();
