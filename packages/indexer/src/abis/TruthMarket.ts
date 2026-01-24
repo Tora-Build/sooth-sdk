@@ -17,6 +17,23 @@ export const TruthMarketAbi = [
             { name: "adjudicator", type: "address", indexed: true },
         ],
     },
+    // V11 Events
+    {
+        type: "event",
+        name: "MarketVetoed",
+        inputs: [
+            { name: "market", type: "address", indexed: true },
+            { name: "previousOutcome", type: "uint8", indexed: false },
+            { name: "previousTStar", type: "uint64", indexed: false },
+        ],
+    },
+    {
+        type: "event",
+        name: "MarketFinalized",
+        inputs: [
+            { name: "market", type: "address", indexed: true },
+        ],
+    },
     {
         type: "function",
         name: "question",

@@ -33,8 +33,9 @@ const baseRpcUrls = Array.from(
 );
 
 export default createConfig({
-  // V10.10 deployment - 2026-01-20
-  // Note: Use DATABASE_SCHEMA env var on Render to set schema (e.g., sooth_v10_10)
+  // V11.0 deployment - 2026-01-22 (Base Sepolia)
+  // Other chains remain at V10.x per STATUS.md
+  // Note: Use DATABASE_SCHEMA env var on Render to set schema (e.g., sooth_v11)
   // to avoid migration conflicts when contract addresses change
   chains: {
     baseSepolia: {
@@ -66,8 +67,8 @@ export default createConfig({
       abi: TickBookPoolManagerAbi,
       chain: {
         baseSepolia: {
-          address: "0x6f81dc9b9a7f922f0dc89a9649eb8f22442ef547",
-          startBlock: 36_532_214,
+          address: "0xa2261ad47f5f60048384f66f544d7ec48ddb3ed0",
+          startBlock: 36_700_000,
         },
         monadTestnet: {
           address: "0xe5aa0a546e890cc79002f607c353e88104ba5835",
@@ -87,8 +88,8 @@ export default createConfig({
       abi: LaunchpadEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0xf8712a447f987bf796c26cc5bbd693a6a5a09282",
-          startBlock: 36_532_218,
+          address: "0x0ec7c40acbe1b0b1340aa20b9bb141e2d0996826",
+          startBlock: 36_700_000,
         },
         monadTestnet: {
           address: "0x58f0fb2539f6f8b75e2b7711bb633b4b94b44a72",
@@ -108,8 +109,8 @@ export default createConfig({
       abi: TickBookVaultAbi,
       chain: {
         baseSepolia: {
-          address: "0xb6de2a206eb5933db5949ba3fb91c82011c1dedf",
-          startBlock: 36_532_211,
+          address: "0xa21f54a6964c0213c610ef55dc1abf88ee63982e",
+          startBlock: 36_700_000,
         },
         monadTestnet: {
           address: "0x3ebca73ca7de9a4a93c211df8236e93b8322c1b8",
@@ -129,8 +130,8 @@ export default createConfig({
       abi: AMMEngineAbi,
       chain: {
         baseSepolia: {
-          address: "0xe86cb3de0a628b9bda5123454960dc3d12057759",
-          startBlock: 36_532_209,
+          address: "0x16948479c5d43b59742adae6401645271546366d",
+          startBlock: 36_700_000,
         },
         monadTestnet: {
           address: "0xb48b11382b272f687821aeae964fd51157f427be",

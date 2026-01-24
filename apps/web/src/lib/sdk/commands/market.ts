@@ -231,7 +231,7 @@ export async function graduate(
       functionName: 'markets',
       args: [marketAddress],
     }) as any;
-    const isGraduated = marketState[7];
+    const isGraduated = marketState[8]; // V11: lpToken at [1] shifts indices
 
     const progressPct = Number(percentComplete) / 100;
 
@@ -351,7 +351,7 @@ export async function graduate(
           functionName: 'markets',
           args: [marketAddress],
         }) as any;
-        if (checkState[7]) {
+        if (checkState[8]) {
           out(plain(''));
           out(success(`GRADUATED after ${tradesExecuted} trades`));
           return { result: { success: true, data: { tradesExecuted } }, output };
@@ -484,13 +484,14 @@ export async function marketstatus(ctx: SDKContext, args: string[]): Promise<{ r
     const initialized = marketState[0] !== '0x0000000000000000000000000000000000000000';
 
     if (initialized) {
-      isGraduated = marketState[7];
+      isGraduated = marketState[8];
       output.push(plain(`Initialized: YES`));
       output.push(plain(`Creator:     ${shortAddress(marketState[0])}`));
-      output.push(plain(`bBase:       ${formatWad(marketState[1])}`));
-      output.push(plain(`bCurrent:    ${formatWad(marketState[2])}`));
-      output.push(plain(`Fees:        ${formatWad(marketState[4])} USDC`));
-      output.push(plain(`LP Supply:   ${formatWad(marketState[5])}`));
+      output.push(plain(`LP Token:    ${shortAddress(marketState[1])}`));
+      output.push(plain(`bBase:       ${formatWad(marketState[2])}`));
+      output.push(plain(`bCurrent:    ${formatWad(marketState[3])}`));
+      output.push(plain(`Fees:        ${formatWad(marketState[5])} USDC`));
+      output.push(plain(`LP Supply:   ${formatWad(marketState[6])}`));
       output.push(plain(`Graduated:   ${isGraduated ? 'YES' : 'NO'}`));
 
       if (!isGraduated) {
@@ -738,4 +739,510 @@ export async function registermarket(
   }
 }
 
-export const marketCommands = { createmarket, graduate, marketstatus, registermarket };
+/**
+ * Show trial period status for current market
+ * Usage: trialstatus
+ */
+export async function trialstatus(ctx: SDKContext, _args: string[]): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, marketAddress } = ctx;
+  const output: OutputLine[] = [];
+
+  if (!marketAddress) {
+    return {
+      result: { success: false, message: 'No market selected' },
+      output: [error('No market selected. Use: setmarket <index>')],
+    };
+  }
+
+  try {
+    // Read trial state
+    const trialState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'trialStates',
+      args: [marketAddress],
+    }) as readonly [bigint, boolean, bigint];
+
+    const [trialEndTime, isDismissed, totalLockedCost] = trialState;
+
+    // Read default trial period
+    const trialDurationSeconds = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'DEFAULT_TRIAL_PERIOD',
+    }) as bigint;
+
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const isInTrialPeriod = now < trialEndTime && !isDismissed;
+    const trialEndDate = new Date(Number(trialEndTime) * 1000);
+
+    output.push(plain(''));
+    output.push(bold('Trial Period Status'));
+    output.push(separator(40));
+    output.push(plain(`Market:           ${shortAddress(marketAddress)}`));
+    output.push(plain(`Trial Duration:   ${Number(trialDurationSeconds) / 86400} days`));
+    output.push(plain(`Trial End Time:   ${trialEndDate.toISOString()}`));
+    output.push(isDismissed ? warn(`Is Dismissed:     YES`) : success(`Is Dismissed:     NO`));
+    output.push(isInTrialPeriod ? success(`In Trial Period:  YES`) : plain(`In Trial Period:  NO`));
+    output.push(plain(`Total Locked:     ${formatWad(totalLockedCost)} USDC`));
+    output.push(plain(''));
+
+    return {
+      result: { success: true, data: { trialEndTime, isDismissed, totalLockedCost, isInTrialPeriod } },
+      output,
+    };
+  } catch (err) {
+    return {
+      result: { success: false, message: (err as Error).message },
+      output: [error(`Failed to fetch trial status: ${(err as Error).message}`)],
+    };
+  }
+}
+
+/**
+ * Dismiss market during trial period (creator only)
+ * Usage: dismiss
+ */
+export async function dismiss(
+  ctx: SDKContext,
+  _args: string[],
+  onProgress?: (line: OutputLine) => void
+): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketAddress } = ctx;
+  const out = (line: OutputLine) => { onProgress?.(line); };
+
+  if (!address || !config.walletClient) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  if (!marketAddress) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  const output: OutputLine[] = [];
+
+  try {
+    // Check trial state first
+    const trialState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'trialStates',
+      args: [marketAddress],
+    }) as readonly [bigint, boolean, bigint];
+
+    const [trialEndTime, isDismissed, totalLockedCost] = trialState;
+
+    if (isDismissed) {
+      return { result: { success: false, message: 'Market already dismissed' }, output: [error('Market already dismissed')] };
+    }
+
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    if (now >= trialEndTime) {
+      return { result: { success: false, message: 'Trial period has ended' }, output: [error('Trial period has ended')] };
+    }
+
+    out(plain(''));
+    out(info(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`));
+
+    const hash = await config.walletClient.writeContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'dismissMarket',
+      args: [marketAddress],
+      gas: 200000n,
+    });
+
+    await config.publicClient.waitForTransactionReceipt({ hash });
+
+    out(success(`Market dismissed! Traders can now claim refunds`));
+    out(dim(`Tx: ${shortTx(hash)}`));
+    out(plain(''));
+
+    return { result: { success: true, txHash: hash }, output };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('OnlyCreator')) {
+      out(error('Only the market creator can dismiss'));
+      return { result: { success: false, message: 'Only creator can dismiss market' }, output };
+    }
+    if (errMsg.includes('trial ended')) {
+      out(error('Trial period has ended'));
+      return { result: { success: false, message: 'Trial period has ended' }, output };
+    }
+    out(error(`Dismiss failed: ${errMsg.slice(0, 80)}`));
+    return { result: { success: false, message: errMsg }, output };
+  }
+}
+
+/**
+ * Claim refund after market dismissal
+ * Usage: claimrefund
+ */
+export async function claimrefund(
+  ctx: SDKContext,
+  _args: string[],
+  onProgress?: (line: OutputLine) => void
+): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketAddress } = ctx;
+  const out = (line: OutputLine) => { onProgress?.(line); };
+
+  if (!address || !config.walletClient) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  if (!marketAddress) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  const output: OutputLine[] = [];
+
+  try {
+    // Check if market is dismissed
+    const trialState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'trialStates',
+      args: [marketAddress],
+    }) as readonly [bigint, boolean, bigint];
+
+    const [, isDismissed] = trialState;
+
+    if (!isDismissed) {
+      return { result: { success: false, message: 'Market is not dismissed' }, output: [error('Market is not dismissed. Cannot claim refund.')] };
+    }
+
+    // Check user's locked cost
+    const userLocked = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'userLockedCost',
+      args: [marketAddress, address],
+    }) as bigint;
+
+    if (userLocked === 0n) {
+      return { result: { success: false, message: 'No locked cost to refund' }, output: [error('No locked cost to refund')] };
+    }
+
+    out(plain(''));
+    out(info(`Claiming refund of ${formatWad(userLocked)} USDC...`));
+
+    const hash = await config.walletClient.writeContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'claimRefund',
+      args: [marketAddress],
+      gas: 200000n,
+    });
+
+    await config.publicClient.waitForTransactionReceipt({ hash });
+
+    out(success(`Refunded ${formatWad(userLocked)} USDC`));
+    out(dim(`Tx: ${shortTx(hash)}`));
+    out(plain(''));
+
+    return { result: { success: true, txHash: hash, data: { refundAmount: userLocked } }, output };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('not dismissed')) {
+      out(error('Market is not dismissed'));
+      return { result: { success: false, message: 'Market must be dismissed first' }, output };
+    }
+    out(error(`Claim refund failed: ${errMsg.slice(0, 80)}`));
+    return { result: { success: false, message: errMsg }, output };
+  }
+}
+
+/**
+ * Get LP token balance for current market
+ * Usage: lpbalance
+ */
+export async function lpbalance(ctx: SDKContext, _args: string[]): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketAddress } = ctx;
+  const output: OutputLine[] = [];
+
+  if (!address) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  if (!marketAddress) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  try {
+    // Get market state to find LP token address
+    const marketState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'markets',
+      args: [marketAddress],
+    }) as any;
+
+    const lpTokenAddress = marketState[1] as `0x${string}`;
+    if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
+      return { result: { success: false, message: 'Market not found' }, output: [error('Market not found in LaunchpadEngine')] };
+    }
+
+    // Get LP balance
+    const lpBalance = await config.publicClient.readContract({
+      address: lpTokenAddress,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }) as bigint;
+
+    // Get total supply
+    const totalSupply = marketState[6] as bigint;
+    const sharePercent = totalSupply > 0n ? (Number(lpBalance) / Number(totalSupply) * 100) : 0;
+
+    output.push(plain(''));
+    output.push(bold('LP Token Balance'));
+    output.push(separator(40));
+    output.push(plain(`LP Balance:    ${formatWad(lpBalance)}`));
+    output.push(plain(`Total Supply:  ${formatWad(totalSupply)}`));
+    output.push(plain(`Your Share:    ${sharePercent.toFixed(2)}%`));
+    output.push(plain(`LP Token:      ${shortAddress(lpTokenAddress)}`));
+    output.push(plain(''));
+
+    return { result: { success: true, data: { lpBalance, totalSupply, sharePercent } }, output };
+  } catch (err) {
+    return {
+      result: { success: false, message: (err as Error).message },
+      output: [error(`Failed to get LP balance: ${(err as Error).message}`)],
+    };
+  }
+}
+
+/**
+ * Redeem LP tokens for USDC
+ * Usage: redeemlp [amount|max]
+ */
+export async function redeemlp(
+  ctx: SDKContext,
+  args: string[],
+  onProgress?: (line: OutputLine) => void
+): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketAddress } = ctx;
+  const out = (line: OutputLine) => { onProgress?.(line); };
+
+  if (!address || !config.walletClient) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  if (!marketAddress) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  const output: OutputLine[] = [];
+
+  try {
+    // Get market state
+    const marketState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'markets',
+      args: [marketAddress],
+    }) as any;
+
+    const lpTokenAddress = marketState[1] as `0x${string}`;
+    if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
+      return { result: { success: false, message: 'Market not found' }, output: [error('Market not found')] };
+    }
+
+    // Get LP balance
+    const lpBalance = await config.publicClient.readContract({
+      address: lpTokenAddress,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }) as bigint;
+
+    if (lpBalance === 0n) {
+      return { result: { success: false, message: 'No LP tokens to redeem' }, output: [warn('No LP tokens to redeem')] };
+    }
+
+    // Parse amount
+    const amountArg = args[0]?.toLowerCase();
+    let amount = lpBalance;
+    if (amountArg && amountArg !== 'max' && amountArg !== 'all') {
+      amount = BigInt(Math.floor(parseFloat(amountArg))) * WAD;
+      if (amount > lpBalance) {
+        return { result: { success: false, message: `Insufficient LP balance: ${formatWad(lpBalance)}` }, output: [error(`Insufficient LP balance: ${formatWad(lpBalance)}`)] };
+      }
+    }
+
+    out(plain(''));
+    out(info(`Redeeming ${formatWad(amount)} LP tokens...`));
+
+    const hash = await config.walletClient.writeContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'redeemLP',
+      args: [marketAddress, amount],
+      gas: 500000n,
+    });
+
+    await config.publicClient.waitForTransactionReceipt({ hash });
+
+    out(success(`Redeemed ${formatWad(amount)} LP tokens`));
+    out(dim(`Tx: ${shortTx(hash)}`));
+    out(plain(''));
+
+    return { result: { success: true, txHash: hash, data: { amount } }, output };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('insufficient')) {
+      out(error('Insufficient LP balance'));
+      return { result: { success: false, message: 'Insufficient LP balance' }, output };
+    }
+    out(error(`Redeem failed: ${errMsg.slice(0, 80)}`));
+    return { result: { success: false, message: errMsg }, output };
+  }
+}
+
+/**
+ * Transfer LP tokens to another address
+ * Usage: transferlp <toAddress> <amount|max>
+ */
+export async function transferlp(
+  ctx: SDKContext,
+  args: string[],
+  onProgress?: (line: OutputLine) => void
+): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketAddress } = ctx;
+  const out = (line: OutputLine) => { onProgress?.(line); };
+
+  if (!address || !config.walletClient) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  if (!marketAddress) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  if (args.length < 2) {
+    return {
+      result: { success: true },
+      output: [
+        plain(''),
+        bold('Transfer LP Tokens'),
+        plain(''),
+        plain('Usage: transferlp <toAddress> <amount|max>'),
+        plain(''),
+        plain('Examples:'),
+        plain('  transferlp 0x123...abc 100    Transfer 100 LP tokens'),
+        plain('  transferlp 0x123...abc max    Transfer all LP tokens'),
+        plain(''),
+        dim('LP tokens can only be transferred BEFORE settlement.'),
+        plain(''),
+      ],
+    };
+  }
+
+  const toAddress = args[0] as `0x${string}`;
+  const output: OutputLine[] = [];
+
+  try {
+    // Get market state
+    const marketState = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'markets',
+      args: [marketAddress],
+    }) as any;
+
+    const lpTokenAddress = marketState[1] as `0x${string}`;
+    if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
+      return { result: { success: false, message: 'Market not found' }, output: [error('Market not found')] };
+    }
+
+    // Get LP balance
+    const lpBalance = await config.publicClient.readContract({
+      address: lpTokenAddress,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }) as bigint;
+
+    if (lpBalance === 0n) {
+      return { result: { success: false, message: 'No LP tokens to transfer' }, output: [error('No LP tokens to transfer')] };
+    }
+
+    // Parse amount
+    const amountArg = args[1]?.toLowerCase();
+    let amount = lpBalance;
+    if (amountArg && amountArg !== 'max' && amountArg !== 'all') {
+      amount = BigInt(Math.floor(parseFloat(amountArg))) * WAD;
+      if (amount > lpBalance) {
+        return { result: { success: false, message: `Insufficient LP balance: ${formatWad(lpBalance)}` }, output: [error(`Insufficient LP balance: ${formatWad(lpBalance)}`)] };
+      }
+    }
+
+    out(plain(''));
+    out(info(`Transferring ${formatWad(amount)} LP to ${shortAddress(toAddress)}...`));
+
+    const hash = await config.walletClient.writeContract({
+      address: lpTokenAddress,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'transfer',
+      args: [toAddress, amount],
+      gas: 200000n,
+    });
+
+    await config.publicClient.waitForTransactionReceipt({ hash });
+
+    out(success(`Transferred ${formatWad(amount)} LP tokens to ${shortAddress(toAddress)}`));
+    out(dim(`Tx: ${shortTx(hash)}`));
+    out(plain(''));
+
+    return { result: { success: true, txHash: hash, data: { amount, toAddress } }, output };
+  } catch (err) {
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('TransfersLocked')) {
+      out(error('LP transfers are locked (market is settled)'));
+      return { result: { success: false, message: 'LP transfers are locked after settlement' }, output };
+    }
+    out(error(`Transfer failed: ${errMsg.slice(0, 80)}`));
+    return { result: { success: false, message: errMsg }, output };
+  }
+}
+
+/**
+ * Check protocol pause status
+ * Usage: pausestatus
+ */
+export async function pausestatus(ctx: SDKContext, _args: string[]): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config } = ctx;
+  const output: OutputLine[] = [];
+
+  try {
+    // Read protocolConfig address from LaunchpadEngine
+    const protocolConfigAddr = await config.publicClient.readContract({
+      address: config.contracts.LaunchpadEngine,
+      abi: ABIS.LaunchpadEngine,
+      functionName: 'protocolConfig',
+    }) as `0x${string}`;
+
+    // Check if paused
+    const isPaused = await config.publicClient.readContract({
+      address: protocolConfigAddr,
+      abi: [{ type: 'function', name: 'isPaused', inputs: [], outputs: [{ type: 'bool' }], stateMutability: 'view' }],
+      functionName: 'isPaused',
+    }) as boolean;
+
+    output.push(plain(''));
+    output.push(bold('Protocol Status'));
+    output.push(separator(40));
+    output.push(isPaused ? warn(`Status: PAUSED`) : success(`Status: ACTIVE`));
+    output.push(dim(`ProtocolConfig: ${shortAddress(protocolConfigAddr)}`));
+    output.push(plain(''));
+
+    return { result: { success: true, data: { isPaused, protocolConfigAddr } }, output };
+  } catch (err) {
+    return {
+      result: { success: false, message: (err as Error).message },
+      output: [error(`Failed to check pause status: ${(err as Error).message}`)],
+    };
+  }
+}
+
+export const marketCommands = { createmarket, graduate, marketstatus, registermarket, trialstatus, dismiss, claimrefund, lpbalance, redeemlp, transferlp, pausestatus };

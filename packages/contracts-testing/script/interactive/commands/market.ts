@@ -553,8 +553,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
             abi: LaunchpadEngineAbi,
             functionName: 'markets',
             args: [marketAddress],
-          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
-          if (mktState[7]) {
+          }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+          if (mktState[8]) {
             console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
             return { success: true, data: { tradesExecuted, totalGas } };
           }

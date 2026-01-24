@@ -314,9 +314,9 @@ export async function markets(ctx: SDKContext): Promise<{ result: CommandResult;
             args: [addr as `0x${string}`],
           }) as any;
 
-          const isGraduated = marketState[7];
+          const isGraduated = marketState[8]; // V11: lpToken at [1] shifts indices
           const symbol = addr.slice(2, 10).toUpperCase();
-          const bBase = marketState[1];
+          const bBase = marketState[2]; // V11: bBase now at [2]
           const bDisplay = (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
           let name = symbol;

@@ -343,6 +343,34 @@ export class SoothSDK {
     return marketCommands.registermarket(this.getContext(), args, onProgress);
   }
 
+  async trialstatus(args: string[] = []) {
+    return marketCommands.trialstatus(this.getContext(), args);
+  }
+
+  async dismiss(args: string[] = [], onProgress?: (line: OutputLine) => void) {
+    return marketCommands.dismiss(this.getContext(), args, onProgress);
+  }
+
+  async claimrefund(args: string[] = [], onProgress?: (line: OutputLine) => void) {
+    return marketCommands.claimrefund(this.getContext(), args, onProgress);
+  }
+
+  async lpbalance(args: string[] = []) {
+    return marketCommands.lpbalance(this.getContext(), args);
+  }
+
+  async redeemlp(args: string[] = [], onProgress?: (line: OutputLine) => void) {
+    return marketCommands.redeemlp(this.getContext(), args, onProgress);
+  }
+
+  async transferlp(args: string[] = [], onProgress?: (line: OutputLine) => void) {
+    return marketCommands.transferlp(this.getContext(), args, onProgress);
+  }
+
+  async pausestatus(args: string[] = []) {
+    return marketCommands.pausestatus(this.getContext(), args);
+  }
+
   async executeCommand(input: string): Promise<{ result: CommandResult; output: OutputLine[]; orderResult?: OrderResult }> {
     const parts = input.trim().split(/\s+/);
     if (parts.length === 0 || !parts[0]) {
@@ -412,6 +440,20 @@ export class SoothSDK {
         return this.marketstatus(args);
       case 'registermarket':
         return this.registermarket(args);
+      case 'trialstatus':
+        return this.trialstatus(args);
+      case 'dismiss':
+        return this.dismiss(args);
+      case 'claimrefund':
+        return this.claimrefund(args);
+      case 'lpbalance':
+        return this.lpbalance(args);
+      case 'redeemlp':
+        return this.redeemlp(args);
+      case 'transferlp':
+        return this.transferlp(args);
+      case 'pausestatus':
+        return this.pausestatus(args);
       case 'setmarket':
         if (args.length < 1) {
           return {
@@ -445,6 +487,19 @@ export class SoothSDK {
         plain('    marketstatus              Lifecycle status'),
         plain('    registermarket            Register in TickBook (admin)'),
         plain('    setmarket <index>         Select market'),
+        plain(''),
+        info('  Trial Period (V11)'),
+        plain('    trialstatus               Show trial period status'),
+        plain('    dismiss                   Dismiss market (creator only)'),
+        plain('    claimrefund               Claim refund after dismissal'),
+        plain(''),
+        info('  LP Tokens (V11 ERC20)'),
+        plain('    lpbalance                 Show LP token balance'),
+        plain('    redeemlp [amount|max]     Redeem LP tokens for USDC'),
+        plain('    transferlp <to> <amount>  Transfer LP tokens'),
+        plain(''),
+        info('  Protocol (V11)'),
+        plain('    pausestatus               Check protocol pause status'),
         plain(''),
         dim(`  ${sep}`),
         plain(''),
