@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { formatEther } from 'viem';
-import { Zap, TrendingUp, Trophy } from 'lucide-react';
+import { Zap, TrendingUp, Trophy, XCircle } from 'lucide-react';
 
 interface GraduationProgressProps {
     bBase: bigint;
@@ -11,6 +11,10 @@ interface GraduationProgressProps {
     feesAccrued?: bigint;
     onGraduate?: () => void;
     isGraduatePending?: boolean;
+    // V11: Trial period props
+    isInTrialPeriod?: boolean;
+    trialTimeRemaining?: number;
+    isDismissed?: boolean;
 }
 
 export const GraduationProgress: React.FC<GraduationProgressProps> = ({
@@ -19,7 +23,11 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     isGraduated,
     feesAccrued,
     onGraduate,
-    isGraduatePending
+    isGraduatePending,
+    // V11: Trial period props
+    isInTrialPeriod,
+    trialTimeRemaining,
+    isDismissed,
 }) => {
     const currentLiq = bBase ? parseFloat(formatEther(bBase)) : 0;
     const thresholdVal = graduationThreshold ? parseFloat(formatEther(graduationThreshold)) : 10000;
@@ -30,6 +38,17 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     // Fee rate based on graduation
     const feeRate = isGraduated ? '1%' : '5%';
     const feeLabel = isGraduated ? 'Graduated Fee' : 'Bonding Fee';
+
+    // V11: Format trial time remaining
+    const formatTrialTime = (seconds: number) => {
+        if (seconds <= 0) return 'Ended';
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        if (days > 0) return `${days}d ${hours}h`;
+        const mins = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+    };
 
     return (
         <div className="rounded-xl bg-slate-900/50 border border-slate-800 p-6 space-y-4">
@@ -60,6 +79,25 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                     {feeLabel}: {feeRate}
                 </div>
             </div>
+
+            {/* V11: Trial Period Status */}
+            {isInTrialPeriod && !isDismissed && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-sm text-amber-300 font-medium">Trial Period Active</span>
+                    </div>
+                    <span className="text-sm font-mono text-amber-400">{formatTrialTime(trialTimeRemaining || 0)} remaining</span>
+                </div>
+            )}
+
+            {/* V11: Dismissed Warning */}
+            {isDismissed && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span className="text-sm text-rose-300">Market dismissed - Refunds available</span>
+                </div>
+            )}
 
             {/* Progress Bar */}
             <div className="space-y-2">

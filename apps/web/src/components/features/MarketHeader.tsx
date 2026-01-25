@@ -21,6 +21,10 @@ interface MarketHeaderProps {
   onCategoryChange: (category: string) => void;
   categories: { id: string; label: string; count?: number }[];
   marketCount: number;
+  // Optional stage filter
+  stage?: string;
+  onStageChange?: (stage: string) => void;
+  stages?: { id: string; label: string; count?: number }[];
 }
 
 export const MarketHeader = ({
@@ -33,6 +37,9 @@ export const MarketHeader = ({
   onCategoryChange,
   categories,
   marketCount,
+  stage,
+  onStageChange,
+  stages,
 }: MarketHeaderProps) => {
   const location = useLocation();
   const isProPage = location.pathname.startsWith('/pro');
@@ -119,24 +126,44 @@ export const MarketHeader = ({
           </span>
         </div>
 
-        {/* Right side: Categories */}
-        <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => onCategoryChange(cat.id)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                category === cat.id
-                  ? isAmmPage
+        {/* Right side: Stage filter + Categories */}
+        <div className="flex items-center gap-2">
+          {/* Stage Filter */}
+          {stages && onStageChange && (
+            <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+              {stages.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onStageChange(s.id)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                    stage === s.id
+                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  )}
+                >
+                  {s.label} {s.count !== undefined && `(${s.count})`}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Category Filter */}
+          <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => onCategoryChange(cat.id)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  category === cat.id
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                    : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              )}
-            >
-              {cat.label} {cat.count !== undefined && `(${cat.count})`}
-            </button>
-          ))}
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                )}
+              >
+                {cat.label} {cat.count !== undefined && `(${cat.count})`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

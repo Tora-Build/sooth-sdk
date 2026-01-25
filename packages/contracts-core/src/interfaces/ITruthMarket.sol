@@ -36,6 +36,13 @@ interface ITruthMarket {
     function isSettled() external view returns (bool);
 
     /**
+     * @notice Check if market is fully finalized
+     * @dev Returns true if settlement is irreversible
+     * @return True if market is finalized
+     */
+    function isFinalized() external view returns (bool);
+
+    /**
      * @notice Get winning outcome
      * @dev 0 = NO, 1 = YES, 2 = INVALID
      * @return Winning outcome index

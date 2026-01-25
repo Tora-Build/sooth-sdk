@@ -407,8 +407,10 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     // ============================================
 
     /**
-     * @notice Dismiss a market during trial period (creator only)
-     * @dev Sets isDismissed flag, allowing users to claim refunds
+     * @notice Dismiss a market after trial period ends (creator only)
+     * @dev Sets isDismissed flag, allowing users to claim refunds.
+     *      Only callable after trial period AND if market has NOT graduated.
+     *      Graduated markets cannot be dismissed (they proved traction).
      * @param market The market to dismiss
      */
     function dismissMarket(address market) external nonReentrant {
@@ -416,7 +418,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         TrialState storage trial = trialStates[market];
 
         require(msg.sender == state.creator, "LaunchpadEngine: not creator");
-        require(block.timestamp < trial.trialEndTime, "LaunchpadEngine: trial ended");
+        require(block.timestamp >= trial.trialEndTime, "LaunchpadEngine: trial not ended");
         require(!trial.isDismissed, "LaunchpadEngine: already dismissed");
         require(!state.isGraduated, "LaunchpadEngine: already graduated");
 

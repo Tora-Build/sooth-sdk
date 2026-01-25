@@ -1991,7 +1991,20 @@ export async function trialstatus(ctx: CommandContext, _args: string[]): Promise
 
     const now = BigInt(Math.floor(Date.now() / 1000));
     const isInTrialPeriod = now < trialEndTime && !isDismissed;
+    const trialEnded = now >= trialEndTime;
     const trialEndDate = new Date(Number(trialEndTime) * 1000);
+
+    // Check graduation status
+    const mktState = await publicClient.readContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'markets',
+      args: [marketAddress],
+    }) as readonly [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+    const isGraduated = mktState[8];
+
+    // Dismiss is allowed: after trial ends AND not graduated AND not already dismissed
+    const canDismiss = trialEnded && !isGraduated && !isDismissed;
 
     console.log(`
   ${bold('Trial Period Status')}
@@ -1999,8 +2012,10 @@ export async function trialstatus(ctx: CommandContext, _args: string[]): Promise
   Market:           ${shortAddress(marketAddress)}
   Trial Duration:   ${Number(trialDurationSeconds) / 86400} days
   Trial End Time:   ${trialEndDate.toISOString()}
-  Is Dismissed:     ${isDismissed ? warn('YES') : success('NO')}
-  In Trial Period:  ${isInTrialPeriod ? success('YES') : 'NO'}
+  Trial Ended:      ${trialEnded ? success('YES') : 'NO'}
+  Is Graduated:     ${isGraduated ? success('YES') : 'NO'}
+  Is Dismissed:     ${isDismissed ? warn('YES') : 'NO'}
+  Can Dismiss:      ${canDismiss ? warn('YES (trial ended, not graduated)') : 'NO'}
   Total Locked:     ${formatWad(totalLockedCost)} USDC
 `);
 
@@ -2028,9 +2043,9 @@ export async function trialstatus(ctx: CommandContext, _args: string[]): Promise
       console.log('');
     }
 
-    return { 
-      success: true, 
-      data: { trialEndTime, isDismissed, totalLockedCost, isInTrialPeriod } 
+    return {
+      success: true,
+      data: { trialEndTime, isDismissed, totalLockedCost, isInTrialPeriod, trialEnded, isGraduated, canDismiss }
     };
   } catch (err) {
     return { success: false, message: `Failed to fetch trial status: ${(err as Error).message}` };
@@ -2069,8 +2084,8 @@ export async function dismiss(ctx: CommandContext, _args: string[]): Promise<Com
   }
 
   const now = BigInt(Math.floor(Date.now() / 1000));
-  if (now >= trialEndTime) {
-    return { success: false, message: 'Trial period has ended' };
+  if (now < trialEndTime) {
+    return { success: false, message: 'Trial period not ended yet' };
   }
 
   const spinner = new Spinner(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`);
@@ -2095,9 +2110,9 @@ export async function dismiss(ctx: CommandContext, _args: string[]): Promise<Com
       spinner.fail('Only the market creator can dismiss');
       return { success: false, message: 'Only creator can dismiss market' };
     }
-    if (errMsg.includes('trial ended')) {
-      spinner.fail('Trial period has ended');
-      return { success: false, message: 'Trial period has ended' };
+    if (errMsg.includes('trial not ended')) {
+      spinner.fail('Trial period has not ended yet');
+      return { success: false, message: 'Trial period has not ended yet' };
     }
     spinner.fail(`Dismiss failed: ${errMsg.slice(0, 80)}`);
     return { success: false, message: errMsg };

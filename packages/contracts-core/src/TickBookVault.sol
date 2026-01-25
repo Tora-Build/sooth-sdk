@@ -313,7 +313,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     function redeemResolved(address market) external nonReentrant returns (uint256 payoutWad) {
         require(market != address(0), "TickBookVault: zero market");
         ITruthMarket tm = ITruthMarket(market);
-        require(tm.isSettled(), "TickBookVault: not settled");
+        require(tm.isFinalized(), "TickBookVault: not finalized");
 
         uint256 yesBal = _yesInternalWad[market][msg.sender];
         uint256 noBal = _noInternalWad[market][msg.sender];

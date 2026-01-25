@@ -261,6 +261,10 @@ export const Gov = () => {
     lpShare: '30',
     protocolShare: '20',
     gradMultiplier: '2',
+    // V11 settings
+    isPaused: false,
+    trialPeriodDays: '7',
+    guardianAddress: '0x0000000000000000000000000000000000000000',
   });
 
   // Count guardian roles
@@ -584,6 +588,113 @@ export const Gov = () => {
                   <p className="text-xs text-slate-500 mt-1">
                     Markets graduate when b reaches {settings.gradMultiplier}× initial deposit
                   </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* V11: Protocol Status */}
+            <Card className={settings.isPaused ? 'border-rose-500/50 bg-rose-500/5' : ''}>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <AlertTriangle className={`w-4 h-4 ${settings.isPaused ? 'text-rose-400' : 'text-slate-400'}`} />
+                  Protocol Status (V11)
+                </h3>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm text-slate-400">
+                      Pause Protocol
+                    </label>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Emergency stop all trading protocol-wide
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSettings(s => ({ ...s, isPaused: !s.isPaused }))}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      settings.isPaused ? 'bg-rose-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                        settings.isPaused ? 'translate-x-8' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {settings.isPaused && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
+                    ⚠️ Protocol is PAUSED. All trading is halted.
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* V11: Trial Period Settings */}
+            <Card>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-cyan-400" />
+                  Trial Period Settings (V11)
+                </h3>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Trial Period Duration
+                  </label>
+                  <div className="relative w-48">
+                    <input
+                      type="number"
+                      value={settings.trialPeriodDays}
+                      onChange={(e) => setSettings(s => ({ ...s, trialPeriodDays: e.target.value }))}
+                      className="input-field pr-12"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">days</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    New markets can be dismissed by creator within this period
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-sm text-slate-300">
+                  <p className="font-medium text-cyan-400 mb-1">Trial Period Protection</p>
+                  <ul className="text-xs text-slate-400 space-y-1">
+                    <li>• Creators can dismiss markets during trial</li>
+                    <li>• Traders' locked costs are fully refundable</li>
+                    <li>• Trial ends on graduation or time expiry</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+
+            {/* V11: Guardian Settings */}
+            <Card>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-rose-400" />
+                  Guardian Settings (V11)
+                </h3>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Guardian Address
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.guardianAddress}
+                    onChange={(e) => setSettings(s => ({ ...s, guardianAddress: e.target.value }))}
+                    className="input-field font-mono text-xs w-full"
+                    placeholder="0x..."
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Can veto settlements during finalization window
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Shield className="w-3 h-3" />
+                  <span>Guardian is typically a multisig or DAO</span>
                 </div>
               </div>
             </Card>

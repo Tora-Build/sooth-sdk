@@ -88,6 +88,22 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
+            // V11: Trial period state
+            {
+                address: launchpadEngineAddress,
+                abi: ABIS.LaunchpadEngine,
+                functionName: "trialStates",
+                args: marketAddress ? [marketAddress] : undefined,
+                chainId,
+            },
+            // V11: User's locked cost for refund
+            {
+                address: launchpadEngineAddress,
+                abi: ABIS.LaunchpadEngine,
+                functionName: "userLockedCost",
+                args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
+                chainId,
+            },
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
@@ -224,6 +240,28 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         });
     }, [launchpadEngineAddress, marketAddress, writeContract]);
 
+    // V11: Dismiss market (creator only, after trial ends, if not graduated)
+    const dismissMarket = useCallback(() => {
+        if (!launchpadEngineAddress || !marketAddress) return;
+        writeContract({
+            address: launchpadEngineAddress,
+            abi: ABIS.LaunchpadEngine,
+            functionName: 'dismissMarket',
+            args: [marketAddress]
+        });
+    }, [launchpadEngineAddress, marketAddress, writeContract]);
+
+    // V11: Claim refund (after dismissal)
+    const claimRefund = useCallback(() => {
+        if (!launchpadEngineAddress || !marketAddress) return;
+        writeContract({
+            address: launchpadEngineAddress,
+            abi: ABIS.LaunchpadEngine,
+            functionName: 'claimRefund',
+            args: [marketAddress]
+        });
+    }, [launchpadEngineAddress, marketAddress, writeContract]);
+
     const launchpadData = useMemo(() => {
         if (!dataMarket || !marketAddress) return null;
 
@@ -231,6 +269,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         const marketStateDetailedResult = marketResults[0];
         const marketsMappingResult = marketResults[1];
         const graduationProgressResult = marketResults[2];
+        const trialStateResult = marketResults[3];
+        const userLockedCostResult = marketResults[4];
         const lpBalanceResult = dataLpBalance;
 
         const preGradFeeResult = (dataParams as any[] | undefined)?.[0];
@@ -276,7 +316,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         ];
         const [
             _c,
-            lpToken,
+            _lpToken,
             _bB,
             _bC,
             creatorDeposit,
@@ -292,6 +332,31 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
         const graduationProgressTuple = graduationProgressResult.result as readonly [bigint, bigint, bigint];
         const [feesAccrued, graduationThreshold, progressBps] = graduationProgressTuple;
+
+        // V11: Parse trial state
+        let trialEndTime = 0n;
+        let isDismissed = false;
+        let totalLockedCost = 0n;
+        if (trialStateResult?.status === "success") {
+            const trialTuple = trialStateResult.result as readonly [bigint, boolean, bigint];
+            [trialEndTime, isDismissed, totalLockedCost] = trialTuple;
+        }
+
+        // V11: User's locked cost
+        const userLockedCostValue = userLockedCostResult?.status === "success"
+            ? (userLockedCostResult.result as bigint)
+            : 0n;
+
+        // V11: Trial period calculations
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        const isInTrialPeriod = now < trialEndTime && !isDismissed;
+        const trialEnded = now >= trialEndTime;
+        // Can dismiss: trial ended, not dismissed, not graduated
+        const canDismiss = trialEnded && !isDismissed && !isGraduated;
+        // Can claim refund: dismissed and has locked cost
+        const canClaimRefund = isDismissed && userLockedCostValue > 0n;
+        // Trial time remaining in seconds
+        const trialTimeRemaining = trialEndTime > now ? Number(trialEndTime - now) : 0;
 
         const userLpBalance = typeof lpBalanceResult === "bigint" ? lpBalanceResult : 0n;
         const preGradFeeBps =
@@ -337,6 +402,16 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             canGraduate: progressBps >= 10000n && !isGraduated,
             hasLpTokens: userLpBalance > 0n,
             hasAccruedFees: (feesAccrued ?? feesAccruedFromMarket) > 0n,
+            // V11: Trial period data
+            trialEndTime: Number(trialEndTime),
+            isDismissed,
+            totalLockedCost,
+            userLockedCost: userLockedCostValue,
+            isInTrialPeriod,
+            trialEnded,
+            canDismiss,
+            canClaimRefund,
+            trialTimeRemaining,
         };
     }, [dataMarket, dataParams, dataLpBalance, marketAddress]);
 
@@ -348,6 +423,9 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         createMarket,
         approveUSDC,
         redeemLP,
+        // V11: Trial period actions
+        dismissMarket,
+        claimRefund,
         isPending,
         isApprovePending,
         isConfirmed,

@@ -14,9 +14,14 @@ export interface OnChainMarket {
   creator: Address;
   lpToken: Address;
   isGraduated: boolean;
+  isSettled: boolean;
+  isFinalized: boolean;
+  isDismissed: boolean;
   createdAt: bigint;
   bBase: bigint;
   bCurrent: bigint;
+  // Computed stage for filtering
+  stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
 }
 
 /**
@@ -105,15 +110,58 @@ export function useOnChainMarkets() {
 
               const symbol = marketAddress.slice(2, 10).toUpperCase();
 
+              // Fetch question, isSettled, isFinalized, and trial state in parallel
               let question = symbol;
+              let isSettled = false;
+              let isFinalized = false;
+              let isDismissed = false;
+
               try {
-                const q = await readContractSafe<string>(client, {
-                  address: marketAddress as Address,
-                  abi: ABIS.TruthMarket,
-                  functionName: "question",
-                });
+                const [q, settled, finalized, trialState] = await Promise.all([
+                  readContractSafe<string>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "question",
+                  }).catch(() => null),
+                  readContractSafe<boolean>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "isSettled",
+                  }).catch(() => false),
+                  readContractSafe<boolean>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "isFinalized",
+                  }).catch(() => false),
+                  readContractSafe<readonly [bigint, boolean, bigint]>(client, {
+                    address: launchpadEngineAddress!,
+                    abi: ABIS.LaunchpadEngine,
+                    functionName: "trialStates",
+                    args: [marketAddress],
+                  }).catch(() => null),
+                ]);
+
                 if (q) question = q;
+                isSettled = settled ?? false;
+                isFinalized = finalized ?? false;
+                if (trialState) {
+                  isDismissed = trialState[1]; // [trialEndTime, isDismissed, totalLockedCost]
+                }
               } catch {}
+
+              // Compute stage (order matters: finalized > settled > live > bonding)
+              let stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
+              if (isDismissed) {
+                stage = 'dismissed';
+              } else if (isFinalized) {
+                stage = 'finalized';
+              } else if (isSettled) {
+                stage = 'settled';
+              } else if (isGraduated) {
+                stage = 'live';
+              } else {
+                stage = 'bonding';
+              }
 
               return {
                 address: marketAddress,
@@ -122,9 +170,13 @@ export function useOnChainMarkets() {
                 creator,
                 lpToken,
                 isGraduated,
+                isSettled,
+                isFinalized,
+                isDismissed,
                 createdAt,
                 bBase,
                 bCurrent,
+                stage,
               } as OnChainMarket;
             } catch (error) {
               console.warn(`Failed to fetch market ${marketAddress}:`, error);

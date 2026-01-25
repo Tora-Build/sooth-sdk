@@ -580,7 +580,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
      *      INVALID returns 50% of total shares (both YES and NO)
      */
     function settlePosition(address market) external override nonReentrant returns (uint256 payout) {
-        require(ITruthMarket(market).isSettled(), "AMMEngine: not settled");
+        require(ITruthMarket(market).isFinalized(), "AMMEngine: not finalized");
 
         Position storage position = _positions[market][msg.sender];
         require(position.yesShares > 0 || position.noShares > 0, "AMMEngine: no position");

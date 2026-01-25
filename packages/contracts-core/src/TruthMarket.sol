@@ -170,7 +170,7 @@ contract TruthMarket is ITruthMarket {
      * @notice Check if market is fully finalized (irreversible)
      * @return True if market is finalized
      */
-    function isFinalized() external view returns (bool) {
+    function isFinalized() external view override returns (bool) {
         return state == MarketState.FINALIZED;
     }
 

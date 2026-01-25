@@ -9,6 +9,7 @@ export { VaultBalanceCard } from './VaultBalanceCard';
 export { AMMPositionCard } from './AMMPositionCard';
 export { AMMStatsCard } from './AMMStatsCard';
 export { AMMSettlementCard } from './AMMSettlementCard';
+export { DismissedMarketPanel } from './DismissedMarketPanel';
 export { DynamicFeeDisplay } from './DynamicFeeDisplay';
 export { SettlementPanel } from './SettlementPanel';
 export { ActivityLog } from './ActivityLog';

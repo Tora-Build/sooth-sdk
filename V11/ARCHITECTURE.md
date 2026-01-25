@@ -402,9 +402,9 @@ require !trialStates[market].isDismissed
 **dismissMarket(market)** (V11)
 ```
 require msg.sender == markets[market].creator
-require now < trialStates[market].trialEndTime
+require now >= trialStates[market].trialEndTime  // After trial ends
 require !trialStates[market].isDismissed
-require !markets[market].isGraduated
+require !markets[market].isGraduated             // Only non-graduated markets
 
 1. Set trialStates[market].isDismissed = true
 2. Emit MarketDismissed event
@@ -792,10 +792,12 @@ else:
 
 ### Trial Period
 
-Markets have a 7-day trial period where:
-1. **Creator can dismiss** — Calls `dismissMarket()` to cancel the market
-2. **Traders get refunds** — If dismissed, traders can call `claimRefund()` to recover locked costs
-3. **After trial ends** — No dismissal or refunds possible, market operates normally
+Markets have a 7-day trial period that serves as a "proving ground":
+1. **During trial** — Trading happens, fees accrue, costs are tracked for potential refunds
+2. **After trial ends** — Evaluation based on graduation status:
+   - **Graduated** → Market proved traction, continues normally (no dismiss allowed)
+   - **NOT graduated** → Creator can dismiss, traders get refunds
+3. **Dismiss condition** — `now >= trialEndTime && !isGraduated`
 
 **Flow:**
 ```
@@ -805,18 +807,23 @@ Market Created
 ┌────────────────────────────────────┐
 │         TRIAL PERIOD (7 days)      │
 │                                    │
-│  Creator can call dismissMarket()  │
-│  Traders can trade (costs tracked) │
+│  Trading happens, costs tracked    │
+│  Fees accrue toward graduation     │
 └──────────────┬─────────────────────┘
                │
+               ▼ Trial ends, evaluate:
      ┌─────────┴─────────┐
      ▼                   ▼
-┌──────────┐      ┌──────────────────┐
-│ DISMISSED │      │  TRIAL ENDED     │
-│           │      │  (normal market) │
-│ Refunds   │      │                  │
-│ available │      │  No refunds      │
-└──────────┘      └──────────────────┘
+┌──────────────┐   ┌──────────────────┐
+│ NOT GRADUATED │   │    GRADUATED     │
+│               │   │                  │
+│ Creator can   │   │ Market continues │
+│ dismiss()     │   │ (no dismiss)     │
+│     │         │   │                  │
+│     ▼         │   └──────────────────┘
+│ DISMISSED     │
+│ Refunds OK    │
+└──────────────┘
 ```
 
 **Tracking:**
@@ -1106,17 +1113,20 @@ pendingFills = ((fillGrowthGlobalX128 - fillGrowthLastX128[orderId]) × order.li
 ### Trial Period Resolution
 
 ```
-OPTION A: Market Dismissed
-1. Creator calls dismissMarket() during trial
-2. Trading stops immediately
-3. Traders call claimRefund() to recover locked costs
-4. Market frozen (no graduation possible)
+After 7-day trial period ends, evaluate graduation status:
 
-OPTION B: Trial Expires
-1. 7 days pass without dismissal
+OPTION A: Market Graduated (success)
+1. Fees accrued >= graduation threshold
 2. Market continues normally
-3. No refunds available
-4. Can graduate and proceed to settlement
+3. Creator CANNOT dismiss (market proved traction)
+4. No refunds available
+5. Proceeds to settlement when deadline passes
+
+OPTION B: Market NOT Graduated (failed to gain traction)
+1. Fees accrued < graduation threshold after 7 days
+2. Creator can call dismissMarket()
+3. Traders call claimRefund() to recover locked costs
+4. Market frozen
 ```
 
 ### Graduation Trigger

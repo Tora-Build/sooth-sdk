@@ -837,8 +837,8 @@ export async function dismiss(
     }
 
     const now = BigInt(Math.floor(Date.now() / 1000));
-    if (now >= trialEndTime) {
-      return { result: { success: false, message: 'Trial period has ended' }, output: [error('Trial period has ended')] };
+    if (now < trialEndTime) {
+      return { result: { success: false, message: 'Trial period not ended yet' }, output: [error('Trial period not ended yet. Dismiss is only allowed after trial ends.')] };
     }
 
     out(plain(''));
@@ -865,9 +865,9 @@ export async function dismiss(
       out(error('Only the market creator can dismiss'));
       return { result: { success: false, message: 'Only creator can dismiss market' }, output };
     }
-    if (errMsg.includes('trial ended')) {
-      out(error('Trial period has ended'));
-      return { result: { success: false, message: 'Trial period has ended' }, output };
+    if (errMsg.includes('trial not ended')) {
+      out(error('Trial period has not ended yet'));
+      return { result: { success: false, message: 'Trial period has not ended yet' }, output };
     }
     out(error(`Dismiss failed: ${errMsg.slice(0, 80)}`));
     return { result: { success: false, message: errMsg }, output };

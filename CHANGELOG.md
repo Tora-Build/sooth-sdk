@@ -61,6 +61,19 @@ All notable changes to Sooth Protocol will be documented in this file.
 ### Summary
 V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**, and **Protocol Config** (guardian + global pause). Deployed to all 4 testnets; active testing on Base Sepolia.
 
+### Frontend (2026-01-24)
+- **Stage Filtering**: Added comprehensive market lifecycle stage filtering to Trade and Pro pages.
+  - 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`
+  - `settled` = adjudicator declared outcome, veto period active
+  - `finalized` = veto period ended, users can redeem
+  - `dismissed` = V11 trial period failure, users can claim refunds
+- **AMMSettlementCard**: Now properly distinguishes settled vs finalized:
+  - Settled: Amber styling, "Veto Period Active" badge, claim disabled
+  - Finalized: Emerald styling, "Final" badge, claim button enabled
+- **DismissedMarketPanel**: New component for V11 trial period refund claims
+- **useOnChainMarkets**: Added `isFinalized` read from TruthMarket for each market
+- **Pro Page**: Now excludes settled/finalized/dismissed markets (only shows tradeable)
+
 ### Fixed (2026-01-24)
 - **CLI Checksum Complete Fix**: Added complete USDC tracking to `checksum` command.
   - **Problem**: After AMM fix, checksum still showed -1.27 USDC imbalance in some runs.

@@ -3,14 +3,14 @@ import { useAccount, useConfig, useReadContract, useWriteContract } from 'wagmi'
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { parseUnits, formatUnits, Address, decodeEventLog } from 'viem';
 import {
-    Rocket, Scale, Shield, DollarSign,
+    Rocket, Scale, DollarSign,
     Activity, Check, Coins, BookOpen,
     Loader2, ExternalLink, Bitcoin, Trophy, Theater, Zap, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { ABIS, ERC20_ABI } from '../config/abis';
-import { ADJUDICATOR_REGISTRY, GUARDIAN_REGISTRY } from '../config/registries';
+import { ADJUDICATOR_REGISTRY } from '../config/registries';
 import { useDeployments } from '../hooks/useDeployments';
 import { cn } from '../lib/utils';
 
@@ -48,12 +48,10 @@ export const Launchpad = () => {
     });
 
     const [adjudicatorMode, setAdjudicatorMode] = useState<'registry' | 'custom'>('registry');
-    const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-zk-rule');
+    const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-zktls');
     const [customAdjudicator, setCustomAdjudicator] = useState<string>('');
 
-    const [guardianMode, setGuardianMode] = useState<'registry' | 'custom'>('registry');
-    const [selectedGuardianId, setSelectedGuardianId] = useState('dao');
-    const [customGuardian, setCustomGuardian] = useState<string>('');
+    // Guardian is protocol-level (automatic) - no state needed
 
     const [mobileTab, setMobileTab] = useState<'create' | 'learn'>('create');
     const [showPolymarket, setShowPolymarket] = useState(false);
@@ -122,19 +120,7 @@ export const Launchpad = () => {
         }
     }, [adjudicatorMode, selectedAdjudicatorId, userAddress, customAdjudicator]);
 
-    useEffect(() => {
-        if (guardianMode === 'registry') {
-            const selected = GUARDIAN_REGISTRY.find(g => g.id === selectedGuardianId);
-            if (selected && selected.address !== 'SELF') {
-                setCustomGuardian(selected.address as string);
-            }
-        } else if (guardianMode === 'custom' && userAddress) {
-            const isRegistryAddress = GUARDIAN_REGISTRY.some(g => g.address === customGuardian);
-            if (!customGuardian || isRegistryAddress) {
-                setCustomGuardian(userAddress);
-            }
-        }
-    }, [guardianMode, selectedGuardianId, userAddress, customGuardian]);
+    // Guardian is now protocol-level - no useEffect needed
 
     const launchpadEngineAddress = deployments?.contracts['LaunchpadEngine'] as Address;
     const usdcAddress = deployments?.contracts['MockUSDC'] as Address;
@@ -311,7 +297,7 @@ export const Launchpad = () => {
     };
 
     const needsApproval = allowance !== undefined && allowance < depositWei;
-    const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator && customGuardian;
+    const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator;
     const canProceed = isFormValid && !form.deployPending;
 
     const particles = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
@@ -492,18 +478,6 @@ export const Launchpad = () => {
                                 userAddress={userAddress}
                             />
 
-                            <AddressSelector
-                                label="Guardian"
-                                icon={Shield}
-                                options={GUARDIAN_REGISTRY}
-                                selectedMode={guardianMode}
-                                setSelectedMode={setGuardianMode}
-                                selectedRegistryId={selectedGuardianId}
-                                setSelectedRegistryId={setSelectedGuardianId}
-                                customAddress={customGuardian}
-                                setCustomAddress={setCustomGuardian}
-                                userAddress={userAddress}
-                            />
 
                             <div className="h-px bg-white/10" />
 
