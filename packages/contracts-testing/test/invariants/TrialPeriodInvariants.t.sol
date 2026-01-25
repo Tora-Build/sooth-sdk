@@ -87,6 +87,8 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         _buyShares(alice, market, 1, 100e18);
 
         // Dismiss
+        _advanceTime(8 days);
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -169,6 +171,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         (uint256 lockedBefore, , ) = _getExitOptions(market, alice);
         assertGt(lockedBefore, 0, "Should have locked cost before claim");
 
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -240,12 +243,16 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         (, , , bool isTrialActive) = _getTrialStatus(market);
 
         // If trial still active, dismissal should work
-        if (isTrialActive) {
+        if (!isTrialActive) {
             vm.prank(creator);
             launchpad.dismissMarket(market);
 
             (, bool isDismissed, , ) = _getTrialStatus(market);
-            assertTrue(isDismissed, "Dismissal should succeed during trial");
+            assertTrue(isDismissed, "Dismissal should succeed after trial");
+        } else {
+            vm.prank(creator);
+            vm.expectRevert("LaunchpadEngine: trial not ended");
+            launchpad.dismissMarket(market);
         }
     }
 
@@ -273,6 +280,7 @@ contract TrialPeriodInvariantsTest is TrialPeriodTestBase {
         (uint256 bobLocked, , ) = _getExitOptions(market, bob);
 
         // Dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
