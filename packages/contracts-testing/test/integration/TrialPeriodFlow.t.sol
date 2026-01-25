@@ -14,15 +14,14 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
     // ============================================
 
     function test_FullDismissalFlow_CreatorGetsDeposit() public {
-        uint256 creatorBalanceBefore = usdc.balanceOf(creator);
-
         // 1. Create market (creator deposits)
         address market = _createMarketWithLiquidity(100e18);
 
         // 2. Alice trades during trial
         _buyShares(alice, market, 1, 50e18);
 
-        // 3. Creator dismisses market
+        // 3. Warp past trial period, then creator dismisses market
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -47,7 +46,8 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         assertGt(aliceLockedCost, 0, "Alice should have locked cost");
         assertGt(bobLockedCost, 0, "Bob should have locked cost");
 
-        // 3. Creator dismisses
+        // 3. Warp past trial period, then creator dismisses
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -80,7 +80,8 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         uint256 aliceLPAfterTrade = _getLPBalance(market, alice);
         assertGt(aliceLPAfterTrade, 0, "Alice should have LP tokens from trade");
 
-        // 3. Dismiss market
+        // 3. Warp past trial period, then dismiss market
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -121,15 +122,14 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         assertFalse(canClaim, "Cannot claim if not dismissed");
     }
 
-    function test_TrialExpiry_CreatorCannotDismissAfterTrialEnds() public {
+    function test_TrialExpiry_CreatorCanDismissAfterTrialEnds() public {
         address market = _createMarket();
 
         // Warp past trial
         _advanceTime(8 days);
 
-        // Creator cannot dismiss
+        // Creator can dismiss
         vm.prank(creator);
-        vm.expectRevert("LaunchpadEngine: trial ended");
         launchpad.dismissMarket(market);
     }
 
@@ -141,6 +141,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
         // Create and immediately dismiss
         address market = _createMarket();
 
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -161,7 +162,8 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 0, 50e18);
 
-        // Dismiss
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -176,6 +178,7 @@ contract TrialPeriodFlowTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, 100e18);
 
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
