@@ -2,10 +2,11 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
-## [Unreleased]
+## [V11.0] - 2026-01-25
 
 ### Fixed
 - **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to dismiss only after the trial period ends, aligning tests with on-chain dismissal rules.
+- **Finalization-Gated Redemptions**: Payouts now require market finalization to prevent veto-window insolvency across Collateralizer, AMMEngine, and TickBookVault (V11 lifecycle: SETTLED → FINALIZED).
 
 ## [V10.10] - 2026-01-20
 
