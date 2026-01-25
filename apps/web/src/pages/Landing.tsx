@@ -61,7 +61,7 @@ message SettlementProof {
             </div>
             <div className="flex gap-4 font-mono text-xs text-slate-500">
               <span>LATENCY: 40MS</span>
-              <span>SYNC_V10.8: OK</span>
+              <span>SYNC_V11.0: OK</span>
             </div>
           </div>
 
@@ -191,7 +191,7 @@ message SettlementProof {
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
           <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            © 2026 Sooth Protocol | V10.8
+            © 2026 Sooth Protocol | V11.0
           </div>
           <div className="flex items-center gap-1">
             <a href="https://t.me/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="Telegram">

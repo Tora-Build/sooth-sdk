@@ -19,6 +19,10 @@ interface MarketDetailHeaderProps {
     isExpired: boolean;
     isLive: boolean;
     chainId: number;
+    // V11: Trial period props
+    isInTrialPeriod?: boolean;
+    trialTimeRemaining?: number;
+    isDismissed?: boolean;
 }
 
 export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
@@ -33,14 +37,33 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
     isExpired,
     isLive,
     chainId,
+    // V11: Trial period props
+    isInTrialPeriod,
+    trialTimeRemaining,
+    isDismissed,
 }) => {
     const truncate = (addr: string | undefined) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '...';
 
+    // V11: Format trial time remaining
+    const formatTrialTime = (seconds: number) => {
+        if (seconds <= 0) return '';
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        if (days > 0) return `${days}d ${hours}h`;
+        const mins = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+    };
+
     // Status determination
     const getStatus = () => {
+        // V11: Dismissed market
+        if (isDismissed) return { label: 'Dismissed', variant: 'danger' as const, emoji: '✗' };
         if (isGraduated) return { label: 'Graduated', variant: 'success' as const, emoji: '✓' };
         if (isExpired) return { label: 'Expired', variant: 'danger' as const, emoji: '' };
         if (!isLive) return { label: 'Settled', variant: 'outline' as const, emoji: '✓' };
+        // V11: Trial period
+        if (isInTrialPeriod) return { label: `Trial · ${formatTrialTime(trialTimeRemaining || 0)} left`, variant: 'warning' as const, emoji: '⏱' };
         return { label: 'Bonding', variant: 'live' as const, emoji: '⚡' };
     };
 

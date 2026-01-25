@@ -9,7 +9,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   PlusCircle, Coins, Scale, GraduationCap, Clock,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  ExternalLink, ChevronRight, Calendar, DollarSign, Loader2
+  ExternalLink, ChevronRight, Calendar, DollarSign, Loader2,
+  XCircle, RefreshCw
 } from 'lucide-react';
 import { useAccount, useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { maxUint256, decodeEventLog } from 'viem';
@@ -45,7 +46,7 @@ interface CreatorMarketCardProps {
 
 const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddress, isCreator, isAdjudicator }) => {
   const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(market.contractAddress as `0x${string}`);
-  const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
+  const { launchpad, isLoading: launchpadLoading, dismissMarket, isPending } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const { amm } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
 
   const isLoading = truthLoading || launchpadLoading;
@@ -59,10 +60,40 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
   const isSettled = truthMarket?.isSettled ?? false;
   const isLive = truthMarket?.isLive ?? true;
 
+  // V11: Trial period status
+  const isInTrialPeriod = launchpad?.isInTrialPeriod ?? false;
+  const trialEnded = launchpad?.trialEnded ?? false;
+  const isDismissed = launchpad?.isDismissed ?? false;
+  const canDismiss = launchpad?.canDismiss ?? false;
+  const trialTimeRemaining = launchpad?.trialTimeRemaining ?? 0;
+
+  // Format trial time remaining
+  const formatTimeRemaining = (seconds: number) => {
+    if (seconds <= 0) return 'Ended';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    if (days > 0) return `${days}d ${hours}h`;
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+
+  // Handle dismiss
+  const handleDismiss = () => {
+    if (!canDismiss || !isCreator) return;
+    if (window.confirm('Are you sure you want to dismiss this market? Traders will be able to claim refunds.')) {
+      dismissMarket();
+      toast('Dismissing market...');
+    }
+  };
+
   // Status
-  let status: 'live' | 'graduated' | 'settling' | 'settled' = 'live';
+  let status: 'live' | 'graduated' | 'settling' | 'settled' | 'dismissed' | 'trial' = 'live';
   let statusColor = 'bg-emerald-500';
-  if (isSettled) {
+  if (isDismissed) {
+    status = 'dismissed';
+    statusColor = 'bg-rose-500';
+  } else if (isSettled) {
     status = 'settled';
     statusColor = 'bg-slate-500';
   } else if (!isLive) {
@@ -71,6 +102,9 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
   } else if (isGraduated) {
     status = 'graduated';
     statusColor = 'bg-cyan-500';
+  } else if (isInTrialPeriod) {
+    status = 'trial';
+    statusColor = 'bg-amber-500';
   }
 
   if (isLoading) {
@@ -129,8 +163,53 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
           </div>
         </div>
 
+        {/* V11: Trial Period Info */}
+        {isInTrialPeriod && !isDismissed && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-amber-300 font-medium">Trial Period</span>
+              </div>
+              <span className="text-xs font-mono text-amber-400">{formatTimeRemaining(trialTimeRemaining)} left</span>
+            </div>
+          </div>
+        )}
+
+        {/* V11: Trial Ended - Can Dismiss */}
+        {trialEnded && canDismiss && isCreator && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs text-rose-300">Trial ended, not graduated</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDismiss}
+                disabled={isPending}
+                className="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300"
+              >
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3 mr-1" />}
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* V11: Dismissed State */}
+        {isDismissed && (
+          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-2">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-slate-400" />
+              <span className="text-xs text-slate-400">Market dismissed - traders can claim refunds</span>
+            </div>
+          </div>
+        )}
+
         {/* Graduation Progress */}
-        {!isSettled && (
+        {!isSettled && !isDismissed && (
           <div>
             <div className="flex justify-between text-xs text-slate-400 mb-1">
               <span>Graduation</span>
@@ -274,12 +353,14 @@ export const Create = () => {
 
   const [activeTab, setActiveTab] = useState<Tab>('markets');
   const [wizardStep, setWizardStep] = useState(1);
+  // Brevis Optimistic Adjudicator (default)
+  const BREVIS_OPTIMISTIC_ADJUDICATOR = '0xB60F9c524d8bb90CE3905a906ffE6b915ce347C2';
+
   const [wizardData, setWizardData] = useState({
     question: '',
     deadline: '',
     liquidity: '1000',
-    adjudicator: '',
-    guardian: '',
+    adjudicator: BREVIS_OPTIMISTIC_ADJUDICATOR,
   });
 
   // Deployment state
@@ -760,28 +841,19 @@ export const Create = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="0x..."
+                      placeholder={BREVIS_OPTIMISTIC_ADJUDICATOR}
                       value={wizardData.adjudicator}
                       onChange={(e) => setWizardData(prev => ({ ...prev, adjudicator: e.target.value }))}
                       className="input-field font-mono text-sm"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {content.wizard.r.adjDesc}
+                      Default: Brevis Optimistic Adjudicator. {content.wizard.r.adjDesc}
                     </p>
                   </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">
-                      {content.wizard.r.guardLabel}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="0x..."
-                      value={wizardData.guardian}
-                      onChange={(e) => setWizardData(prev => ({ ...prev, guardian: e.target.value }))}
-                      className="input-field font-mono text-sm"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {content.wizard.r.guardDesc}
+                  {/* Guardian is now protocol-level (ProtocolConfig), not per-market */}
+                  <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p className="text-xs text-slate-400">
+                      <span className="text-slate-300 font-medium">Guardian:</span> Protocol-level (automatic)
                     </p>
                   </div>
                 </div>
@@ -816,9 +888,7 @@ export const Create = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Guardian</span>
-                    <span className="text-white font-mono text-sm">
-                      {wizardData.guardian ? `${wizardData.guardian.slice(0, 6)}...${wizardData.guardian.slice(-4)}` : 'Not set'}
-                    </span>
+                    <span className="text-slate-300 text-sm">Protocol-level (automatic)</span>
                   </div>
                 </div>
 

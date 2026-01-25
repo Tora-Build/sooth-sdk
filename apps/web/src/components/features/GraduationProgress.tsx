@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { formatUnits } from 'viem';
-import { Zap, TrendingUp, Trophy } from 'lucide-react';
+import { Zap, TrendingUp, Trophy, XCircle } from 'lucide-react';
 
 interface GraduationProgressProps {
     feesAccrued: bigint;           // WAD (18 decimals) - from getGraduationProgress
@@ -13,6 +13,10 @@ interface GraduationProgressProps {
     canGraduate?: boolean;
     onGraduate?: () => void;
     isGraduatePending?: boolean;
+    // V11: Trial period props
+    isInTrialPeriod?: boolean;
+    trialTimeRemaining?: number;
+    isDismissed?: boolean;
 }
 
 export const GraduationProgress: React.FC<GraduationProgressProps> = ({
@@ -22,7 +26,11 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     isGraduated,
     canGraduate: canGraduateProp,
     onGraduate,
-    isGraduatePending
+    isGraduatePending,
+    // V11: Trial period props
+    isInTrialPeriod,
+    trialTimeRemaining,
+    isDismissed,
 }) => {
     // Values are in WAD (18 decimals) from the contract
     const feesVal = feesAccrued ? parseFloat(formatUnits(feesAccrued, 18)) : 0;
@@ -31,6 +39,17 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
     // Use provided progress or calculate from fees/threshold
     const progressPercent = graduationProgress ?? (thresholdVal > 0 ? Math.min((feesVal / thresholdVal) * 100, 100) : 0);
     const canGraduate = canGraduateProp ?? (progressPercent >= 100 && !isGraduated);
+
+    // V11: Format trial time remaining
+    const formatTrialTime = (seconds: number) => {
+        if (seconds <= 0) return 'Ended';
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        if (days > 0) return `${days}d ${hours}h`;
+        const mins = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+    };
 
     // Don't render for graduated markets - fee shown in header badge
     if (isGraduated) {
@@ -56,6 +75,25 @@ export const GraduationProgress: React.FC<GraduationProgressProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* V11: Trial Period Status */}
+            {isInTrialPeriod && !isDismissed && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-sm text-amber-300 font-medium">Trial Period Active</span>
+                    </div>
+                    <span className="text-sm font-mono text-amber-400">{formatTrialTime(trialTimeRemaining || 0)} remaining</span>
+                </div>
+            )}
+
+            {/* V11: Dismissed Warning */}
+            {isDismissed && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span className="text-sm text-rose-300">Market dismissed - Refunds available</span>
+                </div>
+            )}
 
             {/* Progress Bar */}
             <div className="space-y-2">

@@ -271,37 +271,45 @@ Timeline:
 
 ## 6. Trader Protection: Trial Period (V11)
 
-### 6.1 7-Day Safety Window
+### 6.1 7-Day Proving Ground
 
-New markets enter a **trial period** where:
-- Creator can **dismiss** the market if something's wrong
-- Traders receive **full refunds** of locked costs
-- No penalty for early exit
+New markets enter a **trial period** — a proving ground where:
+- Trading happens and fees accrue toward graduation
+- Trading costs are tracked for potential refunds
+- After 7 days, graduation status determines the market's fate
 
 ```solidity
 struct TrialState {
     uint64 trialEndTime;      // 7 days from creation
-    bool isDismissed;         // Creator can abort
+    bool isDismissed;         // Creator dismissed after trial
     uint256 totalLockedCost;  // Refundable amount
 }
 ```
 
 ### 6.2 Why Trial Period Matters
 
-| Scenario | Without Trial | With Trial Period |
-|----------|---------------|-------------------|
-| Ambiguous question | Traders stuck | Creator dismisses, full refund |
-| Market manipulation | Losses realized | Early detection, abort |
-| Technical issue | Stuck funds | Clean exit for everyone |
+| After Trial | Graduated? | Outcome |
+|-------------|------------|---------|
+| ✅ Gained traction | Yes | Market continues, no dismiss allowed |
+| ❌ Failed to gain traction | No | Creator can dismiss, traders get refunds |
+
+**Key insight:** Graduation protects traders. If a market proves traction (enough trading fees), the creator cannot pull the rug.
 
 ### 6.3 Trial Period Flow
 
 ```
-CREATE ──► TRIAL (7 days) ──► LIVE ──► SETTLED
-              │
-              │ Creator detects issue
-              ▼
-          DISMISSED ──► Traders claim refunds
+CREATE ──► TRIAL (7 days) ──► Evaluate:
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+              GRADUATED                   NOT GRADUATED
+              (continue)                  (creator can dismiss)
+                    │                           │
+                    ▼                           ▼
+                  LIVE                     DISMISSED
+                    │                     (refunds available)
+                    ▼
+                SETTLED
 ```
 
 ---
@@ -470,28 +478,42 @@ function settleWithAttestation(
 ## 10. Market Lifecycle
 
 ```
-┌──────────┐   7 days    ┌──────────┐   activate   ┌──────────┐
-│ CREATED  │────────────►│  TRIAL   │─────────────►│   LIVE   │
-└──────────┘             └──────────┘              └──────────┘
-     │                        │                         │
-     │                        │ dismiss()               │ deadline
-     │                        ▼                         ▼
-     │                   ┌──────────┐             ┌──────────┐
-     │                   │DISMISSED │             │ SETTLING │
-     │                   └──────────┘             └──────────┘
-     │                        │                         │
-     │                        │ claimRefund()           │ settle()
-     │                        ▼                         ▼
-     │                   [Refunded]                ┌──────────┐
-     │                                            │ SETTLED  │
-     │                                            └──────────┘
-     │                                                  │
-     │                                                  │ veto window
-     │                                                  ▼
-     │                                            ┌──────────┐
-     │                                            │FINALIZED │
-     │                                            └──────────┘
-     │                                                  │
+┌──────────┐            ┌──────────┐   7 days    ┌─────────────────────┐
+│ CREATED  │───────────►│  TRIAL   │────────────►│ TRIAL ENDED:        │
+└──────────┘            └──────────┘             │ Evaluate graduation │
+                                                 └──────────┬──────────┘
+                                                            │
+                                    ┌───────────────────────┴───────────────────────┐
+                                    ▼                                               ▼
+                           ┌────────────────┐                              ┌────────────────┐
+                           │ NOT GRADUATED  │                              │   GRADUATED    │
+                           │ (failed)       │                              │   (success)    │
+                           └───────┬────────┘                              └───────┬────────┘
+                                   │                                               │
+                                   │ dismiss() by creator                          │ continues
+                                   ▼                                               ▼
+                           ┌──────────┐                                    ┌──────────┐
+                           │DISMISSED │                                    │   LIVE   │
+                           └──────────┘                                    └──────────┘
+                                   │                                               │
+                                   │ claimRefund()                                 │ deadline
+                                   ▼                                               ▼
+                              [Refunded]                                   ┌──────────┐
+                                                                          │ SETTLING │
+                                                                          └──────────┘
+                                                                                 │
+                                                                                 │ settle()
+                                                                                 ▼
+                                                                          ┌──────────┐
+                                                                          │ SETTLED  │
+                                                                          └──────────┘
+                                                                                 │
+                                                                                 │ veto window
+                                                                                 ▼
+                                                                          ┌──────────┐
+                                                                          │FINALIZED │
+                                                                          └──────────┘
+                                                                                 │
      └────────────────────────────────────────────────►│
                                                        ▼
                                                   [Complete]

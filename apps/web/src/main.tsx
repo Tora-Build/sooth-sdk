@@ -20,7 +20,7 @@ import { Trade } from './pages/Trade';
 import { Launchpad } from './pages/Launchpad';
 import { Pro } from './pages/Pro';
 import { Portfolio } from './pages/Portfolio';
-import { Gov } from './pages/Gov';
+import { Operator } from './pages/Operator';
 import { Learn } from './pages/Learn';
 import { ExploreExternalMarkets } from './pages/ExploreExternalMarkets';
 import { Geek } from './pages/Geek';
@@ -83,7 +83,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/create" element={<Launchpad />} />
               <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/gov" element={<Gov />} />
+              <Route path="/operator" element={<Operator />} />
               <Route path="/faucet" element={<Faucet />} />
               <Route path="/explore-markets" element={<ExploreExternalMarkets />} />
               <Route path="/geek" element={<Geek />} />

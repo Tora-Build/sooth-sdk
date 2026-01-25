@@ -779,11 +779,11 @@ export const Portfolio = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-xs text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
+                  <p className="text-xs text-slate-500 uppercase">Architecture Version: V11.0 Trial Period Protection</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sooth V10.8 uses atomic market creation with spot-first price discovery. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) in a single transaction. The TickBook orderbook provides deep liquidity with range orders and spot sells crossing at best available prices.
+                Sooth V11.0 features trial period protection for new markets. Creators can dismiss markets within 7 days, and traders' costs are fully refundable. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) with atomic creation. The TickBook orderbook provides deep liquidity with spot-first crossing.
               </p>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">

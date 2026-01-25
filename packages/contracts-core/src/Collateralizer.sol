@@ -141,7 +141,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
     }
 
     // ============================================
-    // Redemption (Post-Settlement)
+    // Redemption (Post-Finalization)
     // ============================================
 
     /**
@@ -156,7 +156,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
         returns (uint256 usdcAmount)
     {
         require(amount > 0, "Collateralizer: zero amount");
-        require(isMarketSettled(market), "Collateralizer: not settled");
+        require(ITruthMarket(market).isFinalized(), "Collateralizer: not finalized");
 
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);
@@ -204,7 +204,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
     ) external override nonReentrant returns (uint256 usdcAmount) {
         require(amount > 0, "Collateralizer: zero amount");
         require(outcome <= 1, "Collateralizer: invalid outcome");
-        require(isMarketSettled(market), "Collateralizer: not settled");
+        require(ITruthMarket(market).isFinalized(), "Collateralizer: not finalized");
 
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);

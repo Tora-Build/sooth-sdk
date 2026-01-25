@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield, Trophy, XCircle
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { logger } from '../lib/logger';
@@ -73,6 +73,12 @@ const CATEGORIES = [
   { id: 'others', label: 'Others' },
 ];
 
+// Stages for Pro - only graduated markets can use TickBook (no bonding, dismissed, or settled)
+const STAGES = [
+  { id: 'all', label: 'All' },
+  { id: 'live', label: 'Graduated' },
+];
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -103,6 +109,7 @@ export const Pro = () => {
 const ProMarketList = ({ chainId }: { chainId: number }) => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [stage, setStage] = useState('all');
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -110,12 +117,14 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   // V9.9.6: On-chain market discovery - only show graduated markets
   const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
 
-  // Filter to only graduated markets and merge with static config for UI metadata
+  // Filter to only graduated (live) markets for Pro trading
   const allMarkets = useMemo(() => {
-    // Only show graduated markets for Pro trading
-    const graduatedOnChain = onChainMarkets.filter(m => m.isGraduated);
+    // Show only graduated markets that are not settled, finalized, or dismissed
+    const eligibleMarkets = onChainMarkets.filter(m =>
+      m.isGraduated && !m.isSettled && !m.isFinalized && !m.isDismissed
+    );
 
-    return graduatedOnChain.map(m => {
+    return eligibleMarkets.map(m => {
       const staticMarket = staticMarkets.find(
         s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
       );
@@ -134,13 +143,16 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
         isGraduated: m.isGraduated,
+        isSettled: m.isSettled,
+        isDismissed: m.isDismissed,
+        stage: m.stage,
         creator: m.creator,
         createdAt: m.createdAt,
       };
     });
   }, [onChainMarkets]);
 
-  // Filter by search and category
+  // Filter by search, category, and stage
   const filteredMarkets = useMemo(() => {
     return allMarkets.filter(m => {
       const matchesSearch = !search ||
@@ -150,9 +162,11 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
       const matchesCategory = category === 'all' ||
         m.category?.toLowerCase() === category.toLowerCase();
 
-      return matchesSearch && matchesCategory;
+      const matchesStage = stage === 'all' || m.stage === stage;
+
+      return matchesSearch && matchesCategory && matchesStage;
     });
-  }, [allMarkets, search, category]);
+  }, [allMarkets, search, category, stage]);
 
   // Generate category counts
   const categoriesWithCounts = useMemo(() => {
@@ -161,6 +175,16 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
       count: cat.id === 'all'
         ? allMarkets.length
         : allMarkets.filter(m => m.category?.toLowerCase() === cat.id).length
+    }));
+  }, [allMarkets]);
+
+  // Generate stage counts
+  const stagesWithCounts = useMemo(() => {
+    return STAGES.map(s => ({
+      ...s,
+      count: s.id === 'all'
+        ? allMarkets.length
+        : allMarkets.filter(m => m.stage === s.id).length
     }));
   }, [allMarkets]);
 
@@ -209,6 +233,9 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         category={category}
         onCategoryChange={setCategory}
         categories={categoriesWithCounts}
+        stage={stage}
+        onStageChange={setStage}
+        stages={stagesWithCounts}
         marketCount={totalMarketCount}
       />
 
@@ -247,6 +274,7 @@ interface GraduatedMarketsScrollProps {
     name: string;
     symbol: string;
     category?: string;
+    stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
   }>;
   selectedMarketId: string | null;
   onSelect: (market: any) => void;
@@ -310,12 +338,40 @@ interface ProMarketChipProps {
     name: string;
     symbol: string;
     category?: string;
+    stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
   };
   isSelected: boolean;
   onClick: () => void;
 }
 
 const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
+  const getStageDisplay = () => {
+    switch (market.stage) {
+      case 'dismissed':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-rose-400">
+            <XCircle className="w-3 h-3" />
+            <span>Dismissed</span>
+          </div>
+        );
+      case 'settled':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-amber-400">
+            <Trophy className="w-3 h-3" />
+            <span>Settled</span>
+          </div>
+        );
+      case 'live':
+      default:
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <BarChart3 className="w-3 h-3" />
+            <span>Graduated</span>
+          </div>
+        );
+    }
+  };
+
   return (
     <button
       onClick={onClick}
@@ -330,7 +386,7 @@ const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
         <div className="text-xs text-white font-medium line-clamp-2 leading-tight">{market.name}</div>
       </div>
 
-      <BarChart3 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+      {getStageDisplay()}
     </button>
   );
 };
@@ -992,6 +1048,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 graduationThreshold={launchpad.graduationThreshold ?? 0n}
                 isGraduated={launchpad.isGraduated ?? false}
                 feesAccrued={launchpad.feesAccrued ?? 0n}
+                isInTrialPeriod={launchpad.isInTrialPeriod}
+                trialTimeRemaining={launchpad.trialTimeRemaining}
+                isDismissed={launchpad.isDismissed}
               />
             </div>
           )}

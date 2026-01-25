@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 import { ChainSelector } from '../ui/ChainSelector';
 import { Drawer } from '../ui/Drawer';
 import uiContent from '../../config/ui-content.json';
-import { Wallet, TrendingUp, Menu, Droplets, BarChart3, Rocket, Shield, BookOpen, Briefcase, ChevronDown, MoreHorizontal, Terminal } from 'lucide-react';
+import { Wallet, TrendingUp, Menu, Droplets, BarChart3, Rocket, Shield, BookOpen, Briefcase, ChevronDown, Terminal } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const { navbar: content } = uiContent;
@@ -35,7 +35,7 @@ export const Navbar = () => {
     : '';
 
   const isActive = (path: string) => location.pathname === path;
-  const isMoreActive = ['/gov', '/learn', '/faucet'].some(p => isActive(p));
+  const isMoreActive = ['/operator', '/learn', '/faucet'].some(p => isActive(p));
 
   return (
     <header className="h-16 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-40">
@@ -100,9 +100,9 @@ export const Navbar = () => {
 
               {moreOpen && (
                 <div className="absolute top-full right-0 mt-1 w-36 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1 z-50 animate-in fade-in slide-in-from-top-1">
-                  <DropdownLink to="/gov" active={isActive('/gov')} onClick={() => setMoreOpen(false)}>
-                    <Shield className="w-4 h-4 text-blue-400" />
-                    <span>{content.gov}</span>
+                  <DropdownLink to="/operator" active={isActive('/operator')} onClick={() => setMoreOpen(false)}>
+                    <Shield className="w-4 h-4 text-cyan-400" />
+                    <span>Operator</span>
                   </DropdownLink>
                   <DropdownLink to="/learn" active={isActive('/learn')} onClick={() => setMoreOpen(false)}>
                     <BookOpen className="w-4 h-4 text-purple-400" />
@@ -207,12 +207,12 @@ export const Navbar = () => {
           <div className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest mt-2 border-t border-slate-800/50 pt-4">More</div>
 
           <MobileNavLink
-            to="/gov"
-            active={isActive('/gov')}
+            to="/operator"
+            active={isActive('/operator')}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <Shield className="w-5 h-5" />
-            <span>{content.gov}</span>
+            <span>Operator</span>
           </MobileNavLink>
 
           <MobileNavLink

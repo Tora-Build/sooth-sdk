@@ -387,6 +387,8 @@ contract TickBookVaultTest is Test {
 
         vm.prank(adjudicator);
         market.settle(1, 0);
+        vm.prank(adjudicator);
+        market.finalize();
 
         vm.prank(user2);
         uint256 payout = vault.redeemResolved(address(market));
@@ -412,6 +414,8 @@ contract TickBookVaultTest is Test {
 
         vm.prank(adjudicator);
         market.settle(0, 0);
+        vm.prank(adjudicator);
+        market.finalize();
 
         vm.prank(user2);
         uint256 payout = vault.redeemResolved(address(market));
@@ -439,6 +443,8 @@ contract TickBookVaultTest is Test {
 
         vm.prank(adjudicator);
         market.settle(2, 0);
+        vm.prank(adjudicator);
+        market.finalize();
 
         vm.prank(user2);
         uint256 payout = vault.redeemResolved(address(market));
@@ -447,18 +453,23 @@ contract TickBookVaultTest is Test {
         assertEq(payout, 80 * WAD);
     }
 
-    function test_RedeemResolved_RevertWhenNotSettled() public {
+    function test_RedeemResolved_RevertWhenNotFinalized() public {
         vm.prank(tickBook);
         vault.creditOutcome(address(market), user2, 1, 100 * WAD);
 
+        vm.prank(adjudicator);
+        market.settle(1, 0);
+
         vm.prank(user2);
-        vm.expectRevert("TickBookVault: not settled");
+        vm.expectRevert("TickBookVault: not finalized");
         vault.redeemResolved(address(market));
     }
 
     function test_RedeemResolved_RevertWhenNoPosition() public {
         vm.prank(adjudicator);
         market.settle(1, 0);
+        vm.prank(adjudicator);
+        market.finalize();
 
         vm.prank(user2);
         vm.expectRevert("TickBookVault: no position");

@@ -6,7 +6,7 @@
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { Trophy, TrendingUp, TrendingDown, CheckCircle, Wallet, AlertCircle } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, CheckCircle, Wallet, AlertCircle, Clock } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useTruthMarketDirect, useAmmMarketDirect } from '../../hooks';
 
@@ -29,9 +29,10 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
   const { address: userAddress, isConnected } = useAccount();
   const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
   const { isLoading: ammLoading } = useAmmMarketDirect(address);
-  
+
   const isLoading = truthLoading || ammLoading;
   const isSettled = truthMarket?.isSettled ?? false;
+  const isFinalized = truthMarket?.isFinalized ?? false;
   const winningOutcome = truthMarket?.winningOutcome ?? 0;
   
   // Mock user position - in production from AMMEngine.getPosition
@@ -70,32 +71,53 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
 
   if (!isConnected) {
     return (
-      <Card className="border-emerald-500/30 bg-emerald-500/5">
+      <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
         <div className="p-6 text-center">
-          <Trophy className="w-8 h-8 mx-auto text-emerald-400 mb-3" />
-          <h3 className="text-lg font-semibold text-white mb-2">Market Settled</h3>
+          {isFinalized ? (
+            <Trophy className="w-8 h-8 mx-auto text-emerald-400 mb-3" />
+          ) : (
+            <Clock className="w-8 h-8 mx-auto text-amber-400 mb-3" />
+          )}
+          <h3 className="text-lg font-semibold text-white mb-2">
+            {isFinalized ? 'Market Finalized' : 'Market Settled'}
+          </h3>
           <p className="text-slate-400 text-sm mb-4">
             Outcome: {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
           </p>
-          <p className="text-slate-500 text-xs">Connect wallet to claim any payouts</p>
+          {isFinalized ? (
+            <p className="text-slate-500 text-xs">Connect wallet to claim any payouts</p>
+          ) : (
+            <p className="text-amber-400/80 text-xs">Veto period active - redemption not yet available</p>
+          )}
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className="border-emerald-500/30 bg-emerald-500/5">
+    <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-emerald-400" />
-            Market Settled
+            {isFinalized ? (
+              <Trophy className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <Clock className="w-5 h-5 text-amber-400" />
+            )}
+            {isFinalized ? 'Market Finalized' : 'Market Settled'}
           </h3>
-          <Badge variant="success" className="flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            Final
-          </Badge>
+          {isFinalized ? (
+            <Badge variant="success" className="flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Final
+            </Badge>
+          ) : (
+            <Badge variant="warning" className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Veto Period
+            </Badge>
+          )}
         </div>
 
         {/* Outcome Display */}
@@ -154,8 +176,15 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
           )}
         </div>
 
-        {/* Claim Button */}
-        {hasWinningPosition ? (
+        {/* Claim Button or Veto Period Notice */}
+        {!isFinalized ? (
+          <div className="text-center py-3 bg-amber-500/10 rounded-lg">
+            <p className="text-amber-400 text-sm font-medium">Veto Period Active</p>
+            <p className="text-slate-500 text-xs mt-1">
+              Redemption will be available after the veto period ends
+            </p>
+          </div>
+        ) : hasWinningPosition ? (
           <Button variant="primary" className="w-full">
             <Wallet className="w-4 h-4 mr-2" />
             Claim {formatUSDC(userPayout)} Payout

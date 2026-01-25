@@ -8,14 +8,14 @@
  */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2, BarChart3, Check } from 'lucide-react';
+import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2, BarChart3, Check, Trophy, XCircle } from 'lucide-react';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { MarketHeader, GraduationProgress, MarketStats, LPHolders } from '../components/features';
+import { MarketHeader, GraduationProgress, MarketStats, LPHolders, AMMSettlementCard, DismissedMarketPanel } from '../components/features';
 import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
-import { useAmmMarketDirect, useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';
+import { useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';
@@ -42,6 +42,15 @@ const CATEGORIES = [
   { id: 'others', label: 'Others' },
 ];
 
+const STAGES = [
+  { id: 'all', label: 'All Stages' },
+  { id: 'bonding', label: 'Bonding' },
+  { id: 'live', label: 'Graduated' },
+  { id: 'settled', label: 'Settled' },
+  { id: 'finalized', label: 'Finalized' },
+  { id: 'dismissed', label: 'Dismissed' },
+];
+
 // Market chip for horizontal scroll
 interface MarketChipProps {
   market: {
@@ -49,17 +58,68 @@ interface MarketChipProps {
     name: string;
     symbol: string;
     category?: string;
+    stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
+    isGraduated?: boolean;
+    isSettled?: boolean;
+    isFinalized?: boolean;
+    isDismissed?: boolean;
   };
   isSelected: boolean;
   onSelect: () => void;
 }
 
 const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect }) => {
-  const { amm, isLoading } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
   const { launchpad } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
-  const probability = amm?.yesProbability ?? 0.5;
-  const isGraduated = launchpad?.isGraduated ?? false;
   const graduationProgress = launchpad?.graduationProgress ?? 0;
+
+  // Use data from parent if available, fallback to hook data
+  const stage = market.stage ?? (
+    market.isDismissed ? 'dismissed' :
+    market.isFinalized ? 'finalized' :
+    market.isSettled ? 'settled' :
+    market.isGraduated ? 'live' : 'bonding'
+  );
+
+  const getStageDisplay = () => {
+    switch (stage) {
+      case 'dismissed':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-rose-400">
+            <XCircle className="w-3 h-3" />
+            <span>Dismissed</span>
+          </div>
+        );
+      case 'settled':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-amber-400">
+            <Clock className="w-3 h-3" />
+            <span>Settled</span>
+          </div>
+        );
+      case 'finalized':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <Trophy className="w-3 h-3" />
+            <span>Finalized</span>
+          </div>
+        );
+      case 'live':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <BarChart3 className="w-3 h-3" />
+            <span>Graduated</span>
+          </div>
+        );
+      case 'bonding':
+      default:
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-cyan-400">
+            <Zap className="w-3 h-3" />
+            <span className="font-mono">{graduationProgress.toFixed(0)}%</span>
+          </div>
+        );
+    }
+  };
 
   return (
     <button
@@ -76,14 +136,7 @@ const MarketChip: React.FC<MarketChipProps> = ({ market, isSelected, onSelect })
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {isGraduated ? (
-          <BarChart3 className="w-4 h-4 text-emerald-400" />
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-cyan-400">
-            <Zap className="w-3 h-3" />
-            <span className="font-mono">{graduationProgress.toFixed(0)}%</span>
-          </div>
-        )}
+        {getStageDisplay()}
       </div>
     </button>
   );
@@ -98,6 +151,7 @@ export const Trade = () => {
   // Search and filter state
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [stage, setStage] = useState('all');
   const [selectedMarketAddress, setSelectedMarketAddress] = useState<string | null>(null);
 
   // Scroll ref
@@ -129,13 +183,17 @@ export const Trade = () => {
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
         isGraduated: m.isGraduated,
+        isSettled: m.isSettled,
+        isFinalized: m.isFinalized,
+        isDismissed: m.isDismissed,
+        stage: m.stage,
         creator: m.creator,
         createdAt: m.createdAt,
       };
     });
   }, [onChainMarkets]);
 
-  // Apply search and category filters
+  // Apply search, category, and stage filters
   const filteredMarkets = useMemo(() => {
     return allMarkets.filter(m => {
       const matchesSearch = search === '' ||
@@ -143,9 +201,10 @@ export const Trade = () => {
         m.symbol.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = category === 'all' ||
         m.category?.toLowerCase() === category.toLowerCase();
-      return matchesSearch && matchesCategory;
+      const matchesStage = stage === 'all' || m.stage === stage;
+      return matchesSearch && matchesCategory && matchesStage;
     });
-  }, [allMarkets, search, category]);
+  }, [allMarkets, search, category, stage]);
 
   // Get category counts based on actual market categories
   const categoriesWithCounts = useMemo(() => {
@@ -154,6 +213,16 @@ export const Trade = () => {
       count: cat.id === 'all'
         ? allMarkets.length
         : allMarkets.filter(m => m.category?.toLowerCase() === cat.id.toLowerCase()).length
+    }));
+  }, [allMarkets]);
+
+  // Get stage counts
+  const stagesWithCounts = useMemo(() => {
+    return STAGES.map(s => ({
+      ...s,
+      count: s.id === 'all'
+        ? allMarkets.length
+        : allMarkets.filter(m => m.stage === s.id).length
     }));
   }, [allMarkets]);
 
@@ -220,6 +289,9 @@ export const Trade = () => {
         category={category}
         onCategoryChange={setCategory}
         categories={categoriesWithCounts}
+        stage={stage}
+        onStageChange={setStage}
+        stages={stagesWithCounts}
         marketCount={filteredMarkets.length}
       />
 
@@ -287,19 +359,31 @@ export const Trade = () => {
               isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
               isLive={truth?.isLive ?? false}
               chainId={chainId}
+              isInTrialPeriod={launchpad?.isInTrialPeriod}
+              trialTimeRemaining={launchpad?.trialTimeRemaining}
+              isDismissed={launchpad?.isDismissed}
             />
 
-                            {/* Trading Panel - wrapped in Card for consistent styling */}
-            <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
-              <SimpleTradingPanel
-                address={selectedMarket.contractAddress as `0x${string}`}
-                isGraduated={launchpad?.isGraduated}
-                isSettled={truth?.isSettled ?? false}
-              />
-            </Card>
+            {/* Conditional Panel based on market state */}
+            {launchpad?.isDismissed ? (
+              /* Dismissed Market - Show refund claim UI */
+              <DismissedMarketPanel address={selectedMarket.contractAddress as `0x${string}`} />
+            ) : truth?.isSettled ? (
+              /* Settled Market - Show redemption UI */
+              <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} />
+            ) : (
+              /* Active Market - Show trading panel */
+              <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
+                <SimpleTradingPanel
+                  address={selectedMarket.contractAddress as `0x${string}`}
+                  isGraduated={launchpad?.isGraduated}
+                  isSettled={truth?.isSettled ?? false}
+                />
+              </Card>
+            )}
 
             {/* Quick Links */}
-            {launchpad?.isGraduated && (
+            {launchpad?.isGraduated && !launchpad?.isDismissed && !truth?.isSettled && (
               <div className="flex items-center justify-end text-sm">
                 <Link
                   to={`/pro/${selectedMarket.contractAddress}`}
@@ -322,6 +406,9 @@ export const Trade = () => {
                 graduationProgress={launchpad.graduationProgress}
                 isGraduated={launchpad.isGraduated}
                 canGraduate={launchpad.canGraduate}
+                isInTrialPeriod={launchpad.isInTrialPeriod}
+                trialTimeRemaining={launchpad.trialTimeRemaining}
+                isDismissed={launchpad.isDismissed}
               />
             )}
 

@@ -1,18 +1,30 @@
-# Trial Period Test
+# Trial Period Test (V11)
 #
 # Demonstrates V11 trial period dismissal and refund flow:
-#   alice   = creator (creates market, then dismisses during trial)
+#   alice   = creator (creates market, waits for trial to end, then dismisses)
 #   bob     = trader (buys YES during trial, claims refund after dismissal)
 #   charlie = trader (buys NO during trial, claims refund after dismissal)
+#
+# V11 Trial Period Rules:
+#   - Trial period = 7 days after market creation
+#   - During trial: trading is tracked, costs are locked
+#   - AFTER trial ends:
+#     - If GRADUATED: market continues, dismiss NOT allowed (traction proven)
+#     - If NOT GRADUATED: creator CAN dismiss, traders get refunds
+#
+# IMPORTANT: This scenario requires time manipulation to work:
+#   - On Anvil: Use `cast rpc evm_increaseTime 604801` before dismiss step
+#   - On testnets: Must wait 7 days after market creation
 #
 # Flow:
 #   1. Snapshot initial balances
 #   2. Alice creates market (trial period starts)
 #   3. Bob and Charlie fund accounts and trade on AMM
 #   4. Show trial status (locked costs visible)
-#   5. Alice dismisses market during trial period
-#   6. Bob and Charlie claim refunds
-#   7. Verify checksum (all funds should balance)
+#   5. [TIME PASSES: 7+ days] - Manual step on testnets
+#   6. Alice dismisses market (only works after trial ends AND if not graduated)
+#   7. Bob and Charlie claim refunds
+#   8. Verify checksum (all funds should balance)
 
 name: trial-period
 description: Trial period dismissal and refund flow with multi-actor verification
@@ -89,7 +101,7 @@ steps:
       shares: "100"
 
   # ============================================================
-  # PHASE 3: Check trial status (shows locked costs)
+  # PHASE 3: Check trial status (shows locked costs, trial active)
   # ============================================================
   - actor: alice
     action: trialstatus
@@ -100,8 +112,20 @@ steps:
     args: {}
 
   # ============================================================
-  # PHASE 4: Creator dismisses market during trial period
+  # PHASE 4: Wait for trial period to end
   # ============================================================
+  # MANUAL STEP REQUIRED:
+  #   On Anvil:   cast rpc evm_increaseTime 604801 --rpc-url $RPC_URL
+  #               cast rpc evm_mine --rpc-url $RPC_URL
+  #   On testnet: Wait 7 days from market creation
+  #
+  # The dismiss command will fail if trial has not ended!
+
+  # ============================================================
+  # PHASE 5: Creator dismisses market (AFTER trial period ends)
+  # ============================================================
+  # NOTE: This will revert with "LaunchpadEngine: trial not ended"
+  # if you haven't advanced time past the 7-day trial period.
   - actor: alice
     action: dismiss
     args: {}
@@ -112,7 +136,7 @@ steps:
     args: {}
 
   # ============================================================
-  # PHASE 5: Traders claim refunds
+  # PHASE 6: Traders claim refunds
   # ============================================================
   - actor: bob
     action: claimrefund
@@ -123,7 +147,7 @@ steps:
     args: {}
 
   # ============================================================
-  # PHASE 6: Verify all funds balance (checksum)
+  # PHASE 7: Verify all funds balance (checksum)
   # ============================================================
   - actor: alice
     action: trialstatus

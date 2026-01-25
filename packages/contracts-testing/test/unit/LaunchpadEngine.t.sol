@@ -128,7 +128,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_TradePositions_RevertsIfDismissed() public {
         address market = _createMarket();
 
-        // Creator dismisses market
+        // Warp past trial period, then creator dismisses market
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -161,19 +162,20 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         launchpad.dismissMarket(market);
     }
 
-    function test_DismissMarket_RevertsIfNotInTrial() public {
+    function test_DismissMarket_RevertsIfTrialNotEnded() public {
         address market = _createMarket();
 
-        // Warp past trial period
-        _advanceTime(8 days);
-
+        // Try to dismiss during trial (should fail)
         vm.prank(creator);
-        vm.expectRevert("LaunchpadEngine: trial ended");
+        vm.expectRevert("LaunchpadEngine: trial not ended");
         launchpad.dismissMarket(market);
     }
 
     function test_DismissMarket_RevertsIfAlreadyDismissed() public {
         address market = _createMarket();
+
+        // Warp past trial period first
+        _advanceTime(8 days);
 
         vm.prank(creator);
         launchpad.dismissMarket(market);
@@ -186,6 +188,9 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_DismissMarket_SetsMarketDismissedFlag() public {
         address market = _createMarket();
 
+        // Warp past trial period first
+        _advanceTime(8 days);
+
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -196,6 +201,9 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
     function test_DismissMarket_EmitsDismissedEvent() public {
         address market = _createMarket();
 
+        // Warp past trial period first
+        _advanceTime(8 days);
+
         vm.prank(creator);
         vm.expectEmit(true, true, false, true);
         emit ILaunchpadEngine.MarketDismissed(market, creator, block.timestamp);
@@ -205,6 +213,9 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
     function test_DismissMarket_FreezesTrading() public {
         address market = _createMarket();
+
+        // Warp past trial period first
+        _advanceTime(8 days);
 
         vm.prank(creator);
         launchpad.dismissMarket(market);
@@ -227,7 +238,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         (uint256 lockedCost, , ) = _getExitOptions(market, alice);
         assertGt(lockedCost, 0, "Alice should have locked cost");
 
-        // Creator dismisses
+        // Warp past trial period, then creator dismisses
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -254,6 +266,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         address market = _createMarket();
         _buyShares(alice, market, 1, 100e18);
 
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -271,6 +285,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         (uint256 expectedRefund, , ) = _getExitOptions(market, alice);
 
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -285,6 +301,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
         address market = _createMarket();
         _buyShares(alice, market, 1, 100e18);
 
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -311,6 +329,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
             _buyShares(users[i], market, 1, 10e18);
         }
 
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 
@@ -363,6 +383,8 @@ contract LaunchpadEngineTest is TrialPeriodTestBase {
 
         _buyShares(alice, market, 1, 100e18);
 
+        // Warp past trial period, then dismiss
+        _advanceTime(8 days);
         vm.prank(creator);
         launchpad.dismissMarket(market);
 

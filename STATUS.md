@@ -17,6 +17,7 @@
 **Tests**: 237 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
+- **Frontend Stage Filtering (2026-01-24)** — Added market lifecycle stage filtering to Trade and Pro pages. Properly distinguishes between `settled` (veto period active) and `finalized` (can redeem) stages. New stages: Bonding, Graduated, Settled, Finalized, Dismissed.
 - **CLI Checksum Complete Fix (2026-01-24)** — Fixed checksum to track ALL USDC locations. Added `vaultMarketCollateral` and `lpYieldPool` tracking. Checksum now passes with exact 0.00 USDC balance.
 - **V11 Testing on Base Sepolia (2026-01-23)** — V11 deployed to all 4 testnets. Active testing on Base Sepolia with CLI multi-actor scenarios.
 - **CLI Zero-Sum P&L Verification Fix (2026-01-23)** — Fixed `checksum` command showing -71.24 USDC imbalance. Added AMM position tracking (`AMMEngine.getPosition`) per actor.
@@ -24,6 +25,13 @@
 - **Protocol Guardian Implementation (2026-01-21)** — `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:
+  - `useOnChainMarkets.ts`: Reads `isFinalized` from TruthMarket for each market
+  - `useTruthMarketDirect.ts`: Added `isFinalized` to market data
+  - `AMMSettlementCard.tsx`: Shows different UI for settled (amber, "Veto Period Active") vs finalized (emerald, claim button enabled)
+  - `DismissedMarketPanel.tsx`: New component for V11 trial period refund claims
+  - `Trade.tsx` / `Pro.tsx`: Stage filter dropdown with counts per stage
+  - Pro page excludes settled/finalized/dismissed markets (only tradeable markets)
 - **2026-01-24** — **CLI Checksum Complete Fix**: Added `vaultMarketCollateral` (TickBookVault) and `lpYieldPool` (LaunchpadEngine) tracking to `checksum` command. Previous -1.27 USDC discrepancy was due to missing tracking of these contract-held funds. Checksum now shows "Potential Stuck USDC" section when `vaultMarketCollateral > 0` or `lpYieldPool > 0`. The `market-lifecycle-multi-actor` scenario now passes with exact 0.00 USDC balance.
 - **2026-01-23** — **CLI Zero-Sum P&L Fix**: Added AMM position tracking to `snapshot` and `checksum` commands. Previously missing `AMMEngine.getPosition()` data caused -71.24 USDC discrepancy after `market-lifecycle-multi-actor` scenario. Now tracks `ammYes`/`ammNo` per actor and includes in total value calculations.
 - **2026-01-22** — **CLI Multi-Actor Automation**: Added `market-lifecycle-multi-actor` scenario, `--scenario` auto-run flag, scenario failure enforcement, `setmarket created` flow, keeper `claimspotsellfor` command, and actor role mapping (alice/bob/charlie/david/ellen). Updated README help strings.

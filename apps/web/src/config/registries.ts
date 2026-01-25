@@ -36,7 +36,6 @@ export const ADJUDICATOR_REGISTRY: AdjudicatorOption[] = [
         icon: Lock,
         desc: 'Proves on-chain conditions via ZK proofs. Fully automated.',
         details: 'Uses ZK proofs to verify on-chain data like price feeds or events. No human involvement. Example: "BTC > $100k" via Chainlink price feed.',
-        badge: 'Recommended'
     },
     {
         id: 'brevis-zk-oracle',
@@ -48,21 +47,18 @@ export const ADJUDICATOR_REGISTRY: AdjudicatorOption[] = [
         icon: Lock,
         desc: 'Aggregates data feeds to prove complex conditions.',
         details: 'Computes complex conditions off-chain (like 7-day TWAP), then proves result with ZK. Still trustless - math verifies everything. Example: "ETH TWAP > $3k over 7 days".',
-        badge: 'Advanced'
     },
     {
-        id: 'brevis-optimistic',
-        name: 'Brevis Optimistic',
-        address: '0x3333333333333333333333333333333333333333' as Address,
+        id: 'brevis-zktls',
+        name: 'Brevis zkTLS',
+        address: '0xB60F9c524d8bb90CE3905a906ffE6b915ce347C2' as Address,
         type: 'OPTIMISTIC',
         trustModel: 'Challengeable',
         trustLevel: 2,
         icon: Zap,
         desc: 'Fast resolution with challenge window. Good for subjective events.',
         details: 'Resolution posted quickly, then 24h challenge period. If disputed, falls back to ZK proof verification. Best for events that need fast resolution but may be contested.',
-        badge: 'Beta'
     },
-
 ];
 
 export const GUARDIAN_REGISTRY: GuardianOption[] = [

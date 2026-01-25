@@ -323,8 +323,47 @@ FILES:
 
 ---
 
+## V11 Trial Period (CRITICAL)
+
 ```
-Version: V10.8.3 | KB: v5.5 | Updated: 2026-01-16
+TRIAL PERIOD = 7-DAY PROVING GROUND
+
+Purpose: Protect traders from failed markets while allowing successful markets to continue.
+
+FLOW:
+  Market Created → TRIAL (7 days) → Evaluate graduation status:
+    - GRADUATED → Market continues (no dismiss allowed)
+    - NOT GRADUATED → Creator can dismiss, traders get refunds
+
+DISMISS CONDITIONS (ALL must be true):
+  1. block.timestamp >= trialEndTime  (trial period ended)
+  2. !isGraduated                     (market failed to gain traction)
+  3. !isDismissed                     (not already dismissed)
+  4. msg.sender == creator            (only creator can dismiss)
+
+KEY INSIGHT:
+  Graduation PROTECTS traders. If a market proves traction (enough fees),
+  the creator cannot pull the rug.
+
+STORAGE:
+  struct TrialState {
+      uint64 trialEndTime;       // creation + 7 days
+      bool isDismissed;          // creator dismissed after trial
+      uint256 totalLockedCost;   // refundable amount
+  }
+  mapping(address => mapping(address => uint256)) userLockedCost;
+
+FUNCTIONS:
+  dismissMarket(market)  → Creator aborts after trial if not graduated
+  claimRefund(market)    → Trader recovers locked cost after dismissal
+
+DEFAULT_TRIAL_PERIOD = 7 days = 604800 seconds
+```
+
+---
+
+```
+Version: V11.0 | KB: v5.6 | Updated: 2026-01-24
 Architecture: V10 Unified Crossing (TickBookPoolManager)
 Position Model: Dual-Balance (yesShares + noShares, can hold both)
 Lock Model: Lock-on-Sell (proceeds locked 24h, spendable immediately)
@@ -333,5 +372,5 @@ Custody: None (direct USDC transfers)
 Graduation: threshold = bBase × ln(2) × multiplier (LP break-even based)
 TickBook Fees: Maker/Taker split (taker pays volatility, maker gets rebate)
 Infinite Deadline: Year 2199 (7258118399), display "No expiry" for > year 2100
-QA: 92 tests, invariant suite, settlement coverage added
+Trial Period: 7-day proving ground, dismiss only AFTER trial AND if NOT graduated
 ```

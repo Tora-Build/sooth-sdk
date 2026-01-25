@@ -56,11 +56,11 @@ interface ICollateralizer {
     function merge(address market, uint256 amount) external;
 
     // ============================================
-    // Redemption (Post-Settlement)
+    // Redemption (Post-Finalization)
     // ============================================
 
     /**
-     * @notice Redeem winning tokens for USDC post-settlement
+     * @notice Redeem winning tokens for USDC post-finalization
      * @dev Converts outcome tokens to USDC based on ITruthMarket.getRedemptionValue()
      *      For binary markets: 1 winning token → 1 USDC
      *      For INVALID markets: may return fractional USDC
@@ -73,7 +73,7 @@ interface ICollateralizer {
         returns (uint256 usdcAmount);
 
     /**
-     * @notice Redeem specific outcome tokens
+     * @notice Redeem specific outcome tokens post-finalization
      * @dev Allows redeeming YES or NO tokens separately
      * @param market Market address
      * @param outcome Outcome to redeem (0=NO, 1=YES)
