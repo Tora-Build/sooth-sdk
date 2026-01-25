@@ -2,6 +2,11 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to dismiss only after the trial period ends, aligning tests with on-chain dismissal rules.
+
 ## [V10.10] - 2026-01-20
 
 ### Fixed

@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V11.0  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-01-24
+> **Last Updated**: 2026-01-25
 
 ## V11 Features (Implemented)
 
@@ -14,9 +14,10 @@
 | Protocol Config (guardian + pause) | `ProtocolConfig` | ✅ Implemented |
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
-**Tests**: 237 passing (unit, integration, invariant, fuzz)
+**Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
+- **Trial Period Test Alignment (2026-01-25)** — Updated integration + invariant tests to respect the on-chain rule that dismissal is only allowed after the trial period ends. Full `forge test` passes again.
 - **Frontend Stage Filtering (2026-01-24)** — Added market lifecycle stage filtering to Trade and Pro pages. Properly distinguishes between `settled` (veto period active) and `finalized` (can redeem) stages. New stages: Bonding, Graduated, Settled, Finalized, Dismissed.
 - **CLI Checksum Complete Fix (2026-01-24)** — Fixed checksum to track ALL USDC locations. Added `vaultMarketCollateral` and `lpYieldPool` tracking. Checksum now passes with exact 0.00 USDC balance.
 - **V11 Testing on Base Sepolia (2026-01-23)** — V11 deployed to all 4 testnets. Active testing on Base Sepolia with CLI multi-actor scenarios.
@@ -25,6 +26,7 @@
 - **Protocol Guardian Implementation (2026-01-21)** — `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
 - **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:
   - `useOnChainMarkets.ts`: Reads `isFinalized` from TruthMarket for each market
   - `useTruthMarketDirect.ts`: Added `isFinalized` to market data
