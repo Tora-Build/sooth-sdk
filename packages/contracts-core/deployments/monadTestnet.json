@@ -2,16 +2,16 @@
   "chainId": 10143,
   "chainName": "monadTestnet",
   "version": "V10.9",
-  "timestamp": "2026-01-19T14:25:09.466Z",
+  "timestamp": "2026-01-25T02:30:00.000Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0xf187b88051fbe3b755bbd33dc8de0a3c5d53253d",
-    "Collateralizer": "0x7ef64bbb210097341a608a02bb8b4fa8f2db4c0e",
-    "AMMEngine": "0xb48b11382b272f687821aeae964fd51157f427be",
-    "TickBookVault": "0x3ebca73ca7de9a4a93c211df8236e93b8322c1b8",
-    "TickBookPoolManager": "0xe5aa0a546e890cc79002f607c353e88104ba5835",
-    "TickBook": "0xe5aa0a546e890cc79002f607c353e88104ba5835",
-    "LaunchpadEngine": "0x58f0fb2539f6f8b75e2b7711bb633b4b94b44a72"
+    "MockUSDC": "0x394e0e16baf10cb2e2bb0016f854635ea80a3d23",
+    "Collateralizer": "0x6a6454680c547c4db7e9bb7b06cac3030ce60183",
+    "AMMEngine": "0x8f3e3e0309f0730c62b3fdc68bff2291308537bd",
+    "TickBookVault": "0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9",
+    "TickBookPoolManager": "0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e",
+    "TickBook": "0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e",
+    "LaunchpadEngine": "0x3ae688354f831a6b37025e3f19744bd857005cca"
   },
   "markets": []
 }

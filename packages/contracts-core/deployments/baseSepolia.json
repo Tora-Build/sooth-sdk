@@ -1,7 +1,7 @@
 {
   "chainId": 84532,
   "chainName": "baseSepolia",
-  "version": "V10.9",
+  "version": "V11.0",
   "timestamp": "2026-01-22T06:05:02.448Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
