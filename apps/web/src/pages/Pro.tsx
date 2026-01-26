@@ -1074,7 +1074,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
    // Settled/Finalized market - show settlement UI instead of trading
    if (truth?.isSettled === true || truth?.isFinalized === true || currentMarketStage === 'settled' || currentMarketStage === 'finalized') {
     const winningOutcome = truth?.winningOutcome ?? 0;
-    const isFinalized = truth?.isFinalized ?? false;
+    const isFinalized = truth?.isFinalized === true || currentMarketStage === 'finalized';
     const yesBalance = vault?.yesInternalWad ?? 0n;
     const noBalance = vault?.noInternalWad ?? 0n;
     const hasPosition = yesBalance > 0n || noBalance > 0n;
