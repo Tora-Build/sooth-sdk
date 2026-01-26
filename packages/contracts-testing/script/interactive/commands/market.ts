@@ -2232,6 +2232,7 @@ export const marketCommands = {
   marketstatus,
   simulate,
   settle,
+  finalize,
   redeem,
   redeemamm,
   redeemlp,
