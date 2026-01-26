@@ -1082,8 +1082,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
    if (truth?.isSettled === true || truth?.isFinalized === true || currentMarketStage === 'settled' || currentMarketStage === 'finalized') {
     const winningOutcome = truth?.winningOutcome ?? 0;
     const isFinalized = truth?.isFinalized === true || currentMarketStage === 'finalized';
-    const yesBalance = vault?.yesInternalWad ?? 0n;
-    const noBalance = vault?.noInternalWad ?? 0n;
+    const yesBalance = vault?.yesInternal ?? 0n;
+    const noBalance = vault?.noInternal ?? 0n;
     const hasPosition = yesBalance > 0n || noBalance > 0n;
 
     return (
@@ -1205,18 +1205,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             marketKey={tickBook.marketKey as `0x${string}`}
             isLoading={isOrdersLoading}
             onRefresh={invalidateV8Queries}
-            contracts={contracts}
+            contracts={contracts as Record<string, string>}
             chainId={chainId}
-            viewOutcome={viewOutcome}
-            yesShares={vault?.yesInternalWad}
-            noShares={vault?.noInternalWad}
+            viewOutcome="yes"
+            yesShares={vault?.yesInternal}
+            noShares={vault?.noInternal}
             onCancelSpotSell={cancelSpotSell}
             pendingRefundsWad={pendingRefundsWad}
           />
         )}
 
         {/* LP Redemption */}
-        {launchpad?.totalLPSupply && launchpad.totalLPSupply > 0n && (
+        {launchpad?.lpSupply && launchpad.lpSupply > 0n && (
           <Card className="border-slate-700/50 bg-slate-900/50">
             <div className="p-4 space-y-3">
               <h4 className="text-sm font-medium text-white flex items-center gap-2">
@@ -1237,7 +1237,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       address: contracts.LaunchpadEngine as `0x${string}`,
                       abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'lpAmount', type: 'uint256' }], outputs: [{ name: 'usdcRedeemed', type: 'uint256' }], stateMutability: 'nonpayable' }],
                       functionName: 'redeemLP',
-                      args: [marketAddr, launchpad.totalLPSupply],
+                      args: [marketAddr, launchpad.lpSupply],
                     });
                     invalidateV8Queries();
                   } catch (e: any) {
