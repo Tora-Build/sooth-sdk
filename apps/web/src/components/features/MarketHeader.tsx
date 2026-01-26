@@ -107,62 +107,82 @@ export const MarketHeader = ({
         </div>
       )}
 
-      {/* Search + Categories + Count (all inline) */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        {/* Left side: Search + Count */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
+      {/* Controls Section */}
+      <div className="flex flex-col gap-4">
+        {/* Top Bar: Search & Stage Filters */}
+        <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+          {/* Search Input */}
+          <div className="relative w-full xl:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Search markets..."
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-700 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
             />
           </div>
-          <span className="text-xs text-slate-500 whitespace-nowrap">
-            <span className="text-white font-medium">{marketCount}</span> market{marketCount !== 1 ? 's' : ''}
-          </span>
-        </div>
 
-        {/* Right side: Stage filter + Categories */}
-        <div className="flex items-center gap-2">
-          {/* Stage Filter */}
+          {/* Stage Filter - Segmented Control Style */}
           {stages && onStageChange && (
-            <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+            <div className="flex flex-wrap gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800 w-full xl:w-auto overflow-x-auto">
               {stages.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => onStageChange(s.id)}
                   className={cn(
-                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center whitespace-nowrap",
                     stage === s.id
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                      ? "bg-cyan-500/10 text-cyan-400 shadow-sm border border-cyan-500/20"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent"
                   )}
                 >
-                  {s.label} {s.count !== undefined && `(${s.count})`}
+                  {s.label}
+                  {s.count !== undefined && s.count > 0 && (
+                    <span className={cn(
+                      "ml-1.5 px-1.5 py-0.5 rounded-full text-[10px]",
+                      stage === s.id ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-800 text-slate-500"
+                    )}>
+                      {s.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
           )}
-          {/* Category Filter */}
-          <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+        </div>
+
+        {/* Bottom Bar: Categories & Results Count */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-800/50 pt-4">
+          {/* Category Pills */}
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => onCategoryChange(cat.id)}
                 className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  "px-3 py-1.5 text-xs font-medium rounded-full border transition-all flex items-center",
                   category === cat.id
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "bg-slate-800 text-white border-slate-600 shadow-sm"
+                    : "bg-transparent text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-400"
                 )}
               >
-                {cat.label} {cat.count !== undefined && `(${cat.count})`}
+                {cat.label}
+                {cat.count !== undefined && cat.count > 0 && (
+                  <span className={cn(
+                    "ml-1.5 text-[10px]",
+                    category === cat.id ? "text-slate-400" : "text-slate-600"
+                  )}>
+                    {cat.count}
+                  </span>
+                )}
               </button>
             ))}
+          </div>
+
+          {/* Result Count */}
+          <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
+            {marketCount} result{marketCount !== 1 ? 's' : ''}
           </div>
         </div>
       </div>

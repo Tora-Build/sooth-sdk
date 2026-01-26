@@ -1,7 +1,8 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { type AppKitNetwork } from '@reown/appkit/networks';
 import { fallback, http } from 'viem';
-import { baseSepolia, monadTestnet, arcTestnet, megaethTestnet } from './chains';
+// V11.1: Single-chain focus - only import baseSepolia
+import { baseSepolia } from './chains';
 
 // Reown AppKit Project ID
 export const projectId = '01ecc3f4925fa2e6a5f3f82b74487317';
@@ -14,15 +15,9 @@ export const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
-// Networks for AppKit (includes Arc Testnet)
+// Networks for AppKit - V11.1: Single-chain focus
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
-  // IMPORTANT: use our local chain definitions for EVM networks.
-  // This avoids wagmi auto-enabling Multicall3 batching in some network presets,
-  // which has been observed (via NDJSON) to intermittently stall `useReadContracts`.
   baseSepolia as unknown as AppKitNetwork,
-  monadTestnet as unknown as AppKitNetwork,
-  megaethTestnet as unknown as AppKitNetwork,
-  arcTestnet as unknown as AppKitNetwork
 ];
 
 // Base Sepolia RPC config with rate limit handling
@@ -125,14 +120,7 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    // Base Sepolia
     [baseSepolia.id]: createTransport(baseSepolia.id, baseSepoliaDefaultUrls, 'VITE_BASE_SEPOLIA_RPC_URL'),
-    // Monad
-    [monadTestnet.id]: createTransport(monadTestnet.id, monadDefaultUrls, 'VITE_MONAD_TESTNET_RPC_URL'),
-    // Arc
-    [arcTestnet.id]: createTransport(arcTestnet.id, arcDefaultUrls, 'VITE_ARC_TESTNET_RPC_URL'),
-    // MegaETH
-    [megaethTestnet.id]: createTransport(megaethTestnet.id, megaethDefaultUrls, 'VITE_MEGAETH_TESTNET_RPC_URL'),
   },
 });
 
