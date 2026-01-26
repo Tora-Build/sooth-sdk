@@ -7,6 +7,7 @@ import {
   Activity, CheckCircle
 } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
+import { Badge } from '../components/ui/Badge';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
 import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets } from '../hooks';
@@ -54,7 +55,14 @@ const AMMPositionRow = ({ market, stage, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
@@ -146,6 +154,11 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
     <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
       <div className="flex items-center gap-3">
         <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
+        {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+        {stage === 'live' && <Badge variant="success">Live</Badge>}
+        {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+        {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+        {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
       </div>
       <div className="text-right">
         <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
@@ -189,7 +202,14 @@ const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate 
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
@@ -236,7 +256,14 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-amber-500/10 hover:border-amber-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
 
