@@ -5,6 +5,7 @@
       "chainId": 84532,
       "contracts": {
         "MockUSDC": "0x2db2e129f31b2a659b2c1c07410789b8d3c898b9",
+        "ProtocolConfig": "0xc40fdea950084a57c713cf4c689558558fac35f3",
         "Collateralizer": "0x113eaa03740480ef36b9def40b2399e27495748c",
         "AMMEngine": "0x16948479c5d43b59742adae6401645271546366d",
         "TickBookVault": "0xa21f54a6964c0213c610ef55dc1abf88ee63982e",
