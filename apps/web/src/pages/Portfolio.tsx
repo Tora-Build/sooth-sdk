@@ -25,8 +25,9 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-const AMMPositionRow = ({ market, price, onValueUpdate }: {
+const AMMPositionRow = ({ market, stage, price, onValueUpdate }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
 }) => {
@@ -74,8 +75,9 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   );
 };
 
-const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate }: {
+const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   lpBalance?: bigint,
   lpSupply?: bigint,
   floorValue?: bigint,
@@ -158,8 +160,9 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, bCurrent, qYes
 /**
  * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
-const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
+const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
@@ -207,8 +210,9 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   );
 };
 
-const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
+const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void
@@ -572,6 +576,7 @@ export const Portfolio = () => {
                       <LPPositionRow
                         key={market.address}
                         market={market}
+                        stage={market.stage}
                         lpBalance={batchData?.[baseIdx + 2]?.result as bigint}
                         lpSupply={(batchData?.[baseIdx + 3]?.result as any)?.[3]}
                         floorValue={(batchData?.[baseIdx + 3]?.result as any)?.[5]}
@@ -612,6 +617,7 @@ export const Portfolio = () => {
                       <AMMPositionRow
                         key={`amm-${market.address}`}
                         market={market}
+                        stage={market.stage}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleAmmValueUpdate}
                       />
@@ -715,6 +721,7 @@ export const Portfolio = () => {
                       <TickBookInternalRow
                         key={market.address}
                         market={market}
+                        stage={market.stage}
                         userAddress={userAddress!}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleVaultSharesUpdate}
@@ -760,6 +767,7 @@ export const Portfolio = () => {
                   <LockedSharesRow
                     key={market.address}
                     market={market}
+                    stage={market.stage}
                     userAddress={userAddress!}
                     price={getMarketPrice(market.address)}
                     onValueUpdate={handleLockedSharesUpdate}
