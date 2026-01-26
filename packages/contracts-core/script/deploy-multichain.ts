@@ -70,7 +70,7 @@ import {
   type DeploymentArtifact,
 } from './chainConfigs.js';
 
-const DEPLOYMENT_VERSION = 'V11.0';
+const DEPLOYMENT_VERSION = 'V11.1';
 
 // ============================================
 // Artifact Loading

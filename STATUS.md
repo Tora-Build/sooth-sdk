@@ -1,8 +1,8 @@
 # Project Status
 
-> **Codebase Version**: V11.0  
+> **Codebase Version**: V11.1  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-01-25
+> **Last Updated**: 2026-01-26
 
 ## V11 Features (Implemented)
 
@@ -26,6 +26,7 @@
 - **Protocol Guardian Implementation (2026-01-21)** — `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
 - **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
 - **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:
   - `useOnChainMarkets.ts`: Reads `isFinalized` from TruthMarket for each market
@@ -168,15 +169,18 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V11.0 (Active Testing)
+### Base Sepolia (chainId: 84532) — V11.1 (Active Testing)
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x0ec7c40acbe1b0b1340aa20b9bb141e2d0996826` |
-| **TickBookPoolManager** | `0xa2261ad47f5f60048384f66f544d7ec48ddb3ed0` |
-| **TickBookVault** | `0xa21f54a6964c0213c610ef55dc1abf88ee63982e` |
-| **AMMEngine** | `0x16948479c5d43b59742adae6401645271546366d` |
-| **Collateralizer** | `0x113eaa03740480ef36b9def40b2399e27495748c` |
-| **MockUSDC** | `0x2db2e129f31b2a659b2c1c07410789b8d3c898b9` |
+| **LaunchpadEngine** | `0x3cfa2113c919c916e8334d245b157de937e76836` |
+| **TickBookPoolManager** | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
+| **TickBookVault** | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
+| **AMMEngine** | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
+| **Collateralizer** | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
+| **ProtocolConfig** | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
+| **MockUSDC** | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
+
+> **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
 
 ### Arc Testnet (chainId: 5042002) — V10.9
 | Contract | Address |
@@ -378,4 +382,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-24 (CLI checksum complete: added vaultMarketCollateral + lpYieldPool tracking)*
+*Last updated: 2026-01-26 (V11.1 fresh deployment to Base Sepolia)*

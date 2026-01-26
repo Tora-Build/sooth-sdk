@@ -126,56 +126,65 @@ export const allowedChains: AllowedChain[] = [
     },
   },
   */
-  // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
-  // Note: QuickNode/Foundation RPCs unreachable as of 2026-01
-  {
-    id: 10143,
-    type: 'evm',
-    name: 'Monad Testnet',
-    displayName: 'Monad',
-    shortName: 'Monad',
-    rpcUrl: 'https://rpc.ankr.com/monad_testnet',
-    explorerUrl: 'https://testnet.monadvision.com',
-    icon: '🟣',
-    nativeCurrency: {
-      name: 'Monad',
-      symbol: 'MON',
-      decimals: 18,
-    },
-  },
-  // MegaETH Testnet
-  {
-    id: 6343,
-    type: 'evm',
-    name: 'MegaETH Testnet',
-    displayName: 'MegaETH',
-    shortName: 'Mega',
-    rpcUrl: 'https://carrot.megaeth.com/rpc',
-    explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
-    icon: '⚡',
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-  },
-  // Arc Testnet - Circle-backed chain with native USDC
-  // Docs: https://docs.arc.network/arc/references/connect-to-arc
-  {
-    id: 5042002,
-    type: 'evm',
-    name: 'Arc Testnet',
-    displayName: 'Arc',
-    shortName: 'Arc',
-    rpcUrl: 'https://rpc.testnet.arc.network',
-    explorerUrl: 'https://testnet.arcscan.app',
-    icon: '🔶',
-    nativeCurrency: {
-      name: 'USDC',
-      symbol: 'USDC',
-      decimals: 6,
-    },
-  },
+   // V11.1: Disabled - single-chain focus
+   /*
+   // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
+   // Note: QuickNode/Foundation RPCs unreachable as of 2026-01
+   {
+     id: 10143,
+     type: 'evm',
+     name: 'Monad Testnet',
+     displayName: 'Monad',
+     shortName: 'Monad',
+     rpcUrl: 'https://rpc.ankr.com/monad_testnet',
+     explorerUrl: 'https://testnet.monadvision.com',
+     icon: '🟣',
+     nativeCurrency: {
+       name: 'Monad',
+       symbol: 'MON',
+       decimals: 18,
+     },
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   // MegaETH Testnet
+   {
+     id: 6343,
+     type: 'evm',
+     name: 'MegaETH Testnet',
+     displayName: 'MegaETH',
+     shortName: 'Mega',
+     rpcUrl: 'https://carrot.megaeth.com/rpc',
+     explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+     icon: '⚡',
+     nativeCurrency: {
+       name: 'Ether',
+       symbol: 'ETH',
+       decimals: 18,
+     },
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   // Arc Testnet - Circle-backed chain with native USDC
+   // Docs: https://docs.arc.network/arc/references/connect-to-arc
+   {
+     id: 5042002,
+     type: 'evm',
+     name: 'Arc Testnet',
+     displayName: 'Arc',
+     shortName: 'Arc',
+     rpcUrl: 'https://rpc.testnet.arc.network',
+     explorerUrl: 'https://testnet.arcscan.app',
+     icon: '🔶',
+     nativeCurrency: {
+       name: 'USDC',
+       symbol: 'USDC',
+       decimals: 6,
+     },
+   },
+   */
 ];
 
 // Define MegaETH Testnet using viem
@@ -258,7 +267,8 @@ export const arcTestnet = defineChain({
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
 // Export wagmi chains array
-export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, megaethTestnet, arcTestnet];
+// V11.1: Single-chain focus - other chains disabled
+export const wagmiChains: Chain[] = [baseSepolia];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {
