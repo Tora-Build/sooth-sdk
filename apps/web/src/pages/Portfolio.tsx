@@ -261,12 +261,13 @@ const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate,
   );
 };
 
-const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate }: {
+const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
   const yesLocked = vault?.yesLocked ?? 0n;
@@ -312,6 +313,14 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate }: {
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesLocked > 0n || noLocked > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
@@ -319,64 +328,65 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate }: {
 export const Portfolio = () => {
   useChainStore();
   const deployments = useDeployments();
-  const ammEngineAddress = deployments?.contracts?.AMMEngine as `0x${string}`;
-  const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
+  const contracts = deployments?.contracts;
+  const ammEngineAddress = contracts?.AMMEngine as `0x${string}`;
+  const launchpadEngineAddress = contracts?.LaunchpadEngine as `0x${string}`;
   const { address: userAddress } = useAccount();
 
   const { writeContractAsync } = useWriteContract();
   const invalidateV8Queries = useInvalidateQueries();
   const queryClient = useQueryClient();
 
-  const handleRedeemAMM = async (marketAddr: string) => {
-    if (!deployments?.contracts?.AMMEngine || !writeContractAsync) return;
+  const handleRedeemAMM = useCallback(async (marketAddr: string) => {
+    if (!contracts?.AMMEngine || !writeContractAsync) return;
     try {
       await writeContractAsync({
-        address: deployments.contracts.AMMEngine as `0x${string}`,
+        address: contracts.AMMEngine as `0x${string}`,
         abi: ABIS.AMMEngine,
         functionName: 'settlePosition',
         args: [marketAddr as `0x${string}`],
       });
-      toast.success('AMM position redeemed!');
+      toast.success('AMM position redeemed successfully');
       invalidateV8Queries();
       queryClient.invalidateQueries({ queryKey: ['v10'] });
     } catch (e: any) {
-      toast.error(`Redemption failed: ${e.message}`);
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
     }
-  };
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
 
-  const handleRedeemTickBook = async (marketAddr: string) => {
-    if (!deployments?.contracts?.TickBookVault || !writeContractAsync) return;
+  const handleRedeemTickBook = useCallback(async (marketAddr: string) => {
+    if (!contracts?.TickBookVault || !writeContractAsync) return;
     try {
       await writeContractAsync({
-        address: deployments.contracts.TickBookVault as `0x${string}`,
+        address: contracts.TickBookVault as `0x${string}`,
         abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
         functionName: 'redeemResolved',
         args: [marketAddr as `0x${string}`],
       });
-      toast.success('TickBook position redeemed!');
+      toast.success('TickBook position redeemed successfully');
       invalidateV8Queries();
       queryClient.invalidateQueries({ queryKey: ['v10'] });
     } catch (e: any) {
-      toast.error(`Redemption failed: ${e.message}`);
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
     }
-  };
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
 
-  const handleRedeemLP = async (marketAddr: string, lpBalance: bigint) => {
-    if (!deployments?.contracts?.LaunchpadEngine || !writeContractAsync) return;
+  const handleRedeemLP = useCallback(async (marketAddr: string, lpBalance: bigint) => {
+    if (!contracts?.LaunchpadEngine || !writeContractAsync) return;
     try {
       await writeContractAsync({
-        address: deployments.contracts.LaunchpadEngine as `0x${string}`,
-        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'lpAmount', type: 'uint256' }], outputs: [{ name: 'usdcRedeemed', type: 'uint256' }], stateMutability: 'nonpayable' }],
+        address: contracts.LaunchpadEngine as `0x${string}`,
+        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
         functionName: 'redeemLP',
         args: [marketAddr as `0x${string}`, lpBalance],
       });
-      toast.success('LP tokens redeemed!');
+      toast.success('LP tokens redeemed successfully');
       invalidateV8Queries();
       queryClient.invalidateQueries({ queryKey: ['v10'] });
     } catch (e: any) {
-      toast.error(`Redemption failed: ${e.message}`);
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
     }
-  };
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
 
   // Indexer hooks (primary data source when available)
   const indexedPortfolio = usePortfolioIndexed(userAddress);
@@ -887,6 +897,7 @@ export const Portfolio = () => {
                     userAddress={userAddress!}
                     price={getMarketPrice(market.address)}
                     onValueUpdate={handleLockedSharesUpdate}
+                    onRedeem={handleRedeemTickBook}
                   />
                 ))}
                 {proReservedWad === 0n && totalLockedSharesVal === 0 && (
