@@ -23,6 +23,9 @@ interface MarketDetailHeaderProps {
     isInTrialPeriod?: boolean;
     trialTimeRemaining?: number;
     isDismissed?: boolean;
+    // Settlement status
+    isSettled?: boolean;
+    isFinalized?: boolean;
 }
 
 export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
@@ -41,6 +44,9 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
     isInTrialPeriod,
     trialTimeRemaining,
     isDismissed,
+    // Settlement status
+    isSettled,
+    isFinalized,
 }) => {
     const truncate = (addr: string | undefined) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '...';
 
@@ -55,19 +61,28 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
         return `${mins}m`;
     };
 
-    // Status determination
+    // Status determination - check settlement status first
     const getStatus = () => {
         // V11: Dismissed market
         if (isDismissed) return { label: 'Dismissed', variant: 'danger' as const, emoji: '✗' };
+        // Settlement status takes priority over graduated
+        if (isFinalized) return { label: 'Finalized', variant: 'success' as const, emoji: '✓' };
+        if (isSettled) return { label: 'Settled', variant: 'outline' as const, emoji: '✓' };
         if (isGraduated) return { label: 'Graduated', variant: 'success' as const, emoji: '✓' };
         if (isExpired) return { label: 'Expired', variant: 'danger' as const, emoji: '' };
-        if (!isLive) return { label: 'Settled', variant: 'outline' as const, emoji: '✓' };
         // V11: Trial period
         if (isInTrialPeriod) return { label: `Trial · ${formatTrialTime(trialTimeRemaining || 0)} left`, variant: 'warning' as const, emoji: '⏱' };
         return { label: 'Bonding', variant: 'live' as const, emoji: '⚡' };
     };
 
     const status = getStatus();
+
+    // Determine fee based on status
+    const getFee = () => {
+        if (isSettled || isFinalized) return '1%';
+        if (isGraduated) return '1%';
+        return '5%';
+    };
 
     // Time remaining calculation
     const getTimeRemaining = () => {
@@ -91,7 +106,7 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
         <Card className="px-4 py-3 bg-slate-900/60 border-slate-700/50">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
                 <Badge variant={status.variant} className="px-2 py-0.5 text-xs">
-                    {status.label} · {isGraduated ? '1%' : '5%'} Fee
+                    {status.label} · {getFee()} Fee
                 </Badge>
 
                 {deadline && deadline > 0 && (

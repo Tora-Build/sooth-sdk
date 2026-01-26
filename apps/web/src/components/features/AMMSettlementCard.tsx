@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Trophy, TrendingUp, TrendingDown, CheckCircle, Wallet, AlertCircle, Clock } from 'lucide-react';
 import { useAccount } from 'wagmi';
+import { useRef, useMemo } from 'react';
 import { useTruthMarketDirect, useAmmMarketDirect } from '../../hooks';
 
 interface AMMSettlementCardProps {
@@ -26,11 +27,24 @@ const formatWad = (value: bigint): string => {
 };
 
 export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
-  const { address: userAddress, isConnected } = useAccount();
-  const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
-  const { isLoading: ammLoading } = useAmmMarketDirect(address);
+   const { address: userAddress, isConnected } = useAccount();
+   const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
+   const { isLoading: ammLoading } = useAmmMarketDirect(address);
 
-  const isLoading = truthLoading || ammLoading;
+   // Track initial load state to avoid flicker during polling refetches
+   const initialLoadRef = useRef(true);
+   const rawIsLoading = truthLoading || ammLoading;
+   
+   // Memoized loading state: only show skeleton on initial load, not on subsequent refetches
+   const isLoading = useMemo(() => {
+     if (rawIsLoading && initialLoadRef.current) {
+       return true; // Show skeleton on initial load
+     }
+     if (!rawIsLoading) {
+       initialLoadRef.current = false; // Mark initial load complete
+     }
+     return false; // Don't show skeleton on refetches
+   }, [rawIsLoading]);
   const isSettled = truthMarket?.isSettled ?? false;
   const isFinalized = truthMarket?.isFinalized ?? false;
   const winningOutcome = truthMarket?.winningOutcome ?? 0;
@@ -42,23 +56,19 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
   };
   
   // Calculate payout based on winning outcome
+  // Protocol encoding: 0=NO, 1=YES, 2=INVALID
   const redemptionValue = 1.0; // $1 per winning share
   const userPayout = winningOutcome === 1 
     ? Number(mockPosition.yesShares) / 1e18 * redemptionValue
-    : winningOutcome === 2
+    : winningOutcome === 0
     ? Number(mockPosition.noShares) / 1e18 * redemptionValue
     : 0;
 
-  const hasWinningPosition = 
-    (winningOutcome === 1 && mockPosition.yesShares > 0n) ||
-    (winningOutcome === 2 && mockPosition.noShares > 0n);
+   const hasWinningPosition = 
+     (winningOutcome === 1 && mockPosition.yesShares > 0n) ||
+     (winningOutcome === 0 && mockPosition.noShares > 0n);
 
-  // Don't show if market not settled
-  if (!isSettled && !isLoading) {
-    return null;
-  }
-
-  if (isLoading) {
+   if (isLoading) {
     return (
       <Card>
         <div className="p-4 animate-pulse space-y-3">
@@ -82,7 +92,7 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
             {isFinalized ? 'Market Finalized' : 'Market Settled'}
           </h3>
           <p className="text-slate-400 text-sm mb-4">
-            Outcome: {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
+            Outcome: {winningOutcome === 1 ? 'YES' : winningOutcome === 0 ? 'NO' : 'INVALID'}
           </p>
           {isFinalized ? (
             <p className="text-slate-500 text-xs">Connect wallet to claim any payouts</p>
@@ -130,7 +140,7 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                   <span className="font-bold text-emerald-400">YES ✓</span>
                 </>
-              ) : winningOutcome === 2 ? (
+              ) : winningOutcome === 0 ? (
                 <>
                   <TrendingDown className="w-4 h-4 text-rose-400" />
                   <span className="font-bold text-rose-400">NO ✓</span>
@@ -157,7 +167,7 @@ export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
           {mockPosition.noShares > 0n && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Your NO Shares</span>
-              <span className={winningOutcome === 2 ? 'text-emerald-400' : 'text-slate-500 line-through'}>
+              <span className={winningOutcome === 0 ? 'text-emerald-400' : 'text-slate-500 line-through'}>
                 {formatWad(mockPosition.noShares)}
               </span>
             </div>

@@ -36,6 +36,7 @@ const TruthMarketAbi = parseAbi([
   'function isSettled() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
   'function settle(uint8 outcome, uint64 tStar) external',
+  'function finalize() external',
   'event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline)',
 ]);
 
@@ -1354,17 +1355,54 @@ export async function settle(ctx: CommandContext, args: string[]): Promise<Comma
     await actorManager.waitForTransactionReceipt(settleHash);
     spinner.succeed(`Market settled as ${['NO', 'YES', 'INVALID'][outcome]} ${dim(`(tx: ${settleHash.slice(0, 10)}...)`)}`);
     return { success: true, txHash: settleHash };
-  } catch (err) {
-    spinner.fail(`Settlement failed`);
-    return { success: false, message: `Settlement failed: ${(err as Error).message}` };
-  }
-}
+   } catch (err) {
+     spinner.fail(`Settlement failed`);
+     return { success: false, message: `Settlement failed: ${(err as Error).message}` };
+   }
+ }
 
-/**
- * Redeem winning outcome tokens for USDC after settlement
- * Also redeems internal vault outcomes
- * Usage: redeem
- */
+ /**
+  * Finalize a settled market (adjudicator only)
+  * Usage: finalize
+  */
+ export async function finalize(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+   const { actorManager, deployment, marketAddress } = ctx;
+   const walletClient = actorManager.currentWalletClient();
+   const address = actorManager.currentAddress();
+
+   if (!walletClient || !address) {
+     return { success: false, message: 'No actor selected' };
+   }
+
+   if (!marketAddress) {
+     return { success: false, message: 'No market selected. Use setmarket first.' };
+   }
+
+   const spinner = new Spinner(`Finalizing market...`);
+   spinner.start();
+
+   try {
+     const finalizeHash = await walletClient.writeContract({
+       address: marketAddress,
+       abi: TruthMarketAbi,
+       functionName: 'finalize',
+       args: [],
+       gas: 500000n,
+     });
+     await actorManager.waitForTransactionReceipt(finalizeHash);
+     spinner.succeed(`Market finalized ${dim(`(tx: ${finalizeHash.slice(0, 10)}...)`)}`);
+     return { success: true, txHash: finalizeHash };
+   } catch (err) {
+     spinner.fail(`Finalization failed`);
+     return { success: false, message: `Finalization failed: ${(err as Error).message}` };
+   }
+ }
+
+ /**
+  * Redeem winning outcome tokens for USDC after settlement
+  * Also redeems internal vault outcomes
+  * Usage: redeem
+  */
 export async function redeem(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketAddress } = ctx;
   const walletClient = actorManager.currentWalletClient();

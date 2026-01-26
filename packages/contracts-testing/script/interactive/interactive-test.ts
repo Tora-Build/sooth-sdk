@@ -390,9 +390,10 @@ function printHelp(): void {
                              Options: --adjudicator=<actor> (default: creator)
     graduate [steps]         Graduate market via trades (default 8 steps)
     marketstatus             Show full market lifecycle status
-    settle <outcome>         Settle market (adjudicator only)
-                             outcome: yes, no, invalid
-    redeem                   Redeem winning tokens for USDC (after settlement)
+     settle <outcome>         Settle market (adjudicator only)
+                              outcome: yes, no, invalid
+     finalize                 Finalize settled market (adjudicator only)
+     redeem                   Redeem winning tokens for USDC (after settlement)
     redeemamm                Redeem AMM positions for USDC (after settlement)
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
@@ -668,11 +669,15 @@ async function handleCommand(input: string): Promise<void> {
         await run(marketCommands.marketstatus(ctx, args));
         break;
 
-      case 'settle':
-        await run(marketCommands.settle(ctx, args));
-        break;
+       case 'settle':
+         await run(marketCommands.settle(ctx, args));
+         break;
 
-      case 'redeem':
+       case 'finalize':
+         await run(marketCommands.finalize(ctx, args));
+         break;
+
+       case 'redeem':
         await run(marketCommands.redeem(ctx, args));
         break;
 

@@ -261,7 +261,7 @@ export const Trade = () => {
   }, [selectedMarketAddress, filteredMarkets]);
 
   // Get market data
-  const { market: truth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
+  const { market: truth, isLoading: isLoadingTruth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
   const handleSelectMarket = (market: typeof allMarkets[0]) => {
@@ -362,28 +362,27 @@ export const Trade = () => {
               isInTrialPeriod={launchpad?.isInTrialPeriod}
               trialTimeRemaining={launchpad?.trialTimeRemaining}
               isDismissed={launchpad?.isDismissed}
+              isSettled={truth?.isSettled ?? (selectedMarket?.stage === 'settled')}
+              isFinalized={truth?.isFinalized ?? (selectedMarket?.stage === 'finalized')}
             />
 
             {/* Conditional Panel based on market state */}
             {launchpad?.isDismissed ? (
-              /* Dismissed Market - Show refund claim UI */
               <DismissedMarketPanel address={selectedMarket.contractAddress as `0x${string}`} />
-            ) : truth?.isSettled ? (
-              /* Settled Market - Show redemption UI */
+            ) : (truth?.isSettled === true || truth?.isFinalized === true || selectedMarket?.stage === 'settled' || selectedMarket?.stage === 'finalized') ? (
               <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} />
             ) : (
-              /* Active Market - Show trading panel */
               <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
                 <SimpleTradingPanel
                   address={selectedMarket.contractAddress as `0x${string}`}
                   isGraduated={launchpad?.isGraduated}
-                  isSettled={truth?.isSettled ?? false}
+                  isSettled={truth?.isSettled === true}
                 />
               </Card>
             )}
 
             {/* Quick Links */}
-            {launchpad?.isGraduated && !launchpad?.isDismissed && !truth?.isSettled && (
+            {launchpad?.isGraduated && !launchpad?.isDismissed && truth?.isSettled !== true && truth?.isFinalized !== true && selectedMarket?.stage !== 'settled' && selectedMarket?.stage !== 'finalized' && (
               <div className="flex items-center justify-end text-sm">
                 <Link
                   to={`/pro/${selectedMarket.contractAddress}`}

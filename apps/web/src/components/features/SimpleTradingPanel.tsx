@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket, Scale } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
-import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries } from '../../hooks';
+import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries, useTruthMarketDirect } from '../../hooks';
 import { useDeployments } from '../../hooks/useDeployments';
 import { ABIS, ERC20_ABI } from '../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
@@ -39,6 +39,8 @@ export const SimpleTradingPanel = ({
   const publicClient = usePublicClient({ chainId });
   const { amm, isLoading: isLoadingAmm } = useAmmMarketDirect(address);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(address);
+  const { market: truth } = useTruthMarketDirect(address);
+  const marketIsSettled = truth?.isSettled === true || truth?.isFinalized === true || isSettled;
   const { contracts } = useDeployments();
   const ammEngineAddress = contracts.AMMEngine as `0x${string}` | undefined;
   const { available: spendableProceeds } = useAvailableBalance(ammEngineAddress);
@@ -571,13 +573,17 @@ export const SimpleTradingPanel = ({
     }
   };
 
-  if (isSettled) {
+  if (marketIsSettled) {
+    const winningOutcome = truth?.winningOutcome;
     return (
-      <div className="p-4 text-center">
-        <div className="text-slate-400 mb-2 flex items-center justify-center gap-2">
-          <Scale className="w-4 h-4" /> Market Settled
+      <div className="p-6 text-center space-y-4">
+        <div className="text-amber-400 mb-2 flex items-center justify-center gap-2">
+          <Scale className="w-5 h-5" /> Market {truth?.isFinalized ? 'Finalized' : 'Settled'}
         </div>
-        <p className="text-sm text-slate-500">Trading is closed for this market.</p>
+        <div className="text-2xl font-bold text-white">
+          Winner: {winningOutcome === 1 ? 'YES' : winningOutcome === 0 ? 'NO' : 'INVALID'}
+        </div>
+        <p className="text-sm text-slate-500">Trading is closed. {truth?.isFinalized ? 'You can now redeem positions.' : 'Awaiting finalization.'}</p>
       </div>
     );
   }

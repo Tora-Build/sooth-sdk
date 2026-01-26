@@ -72,7 +72,8 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
     }
   }
 
-  // Execute deposit
+  // Execute deposit - convert WAD to USDC decimals (6)
+  const usdcAmount = amount / (10n ** 12n);
   const depositSpinner = new Spinner(`Depositing ${formatWad(amount)} USDC...`);
   depositSpinner.start();
 
@@ -81,7 +82,7 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,
       functionName: 'depositUsdc',
-      args: [amount],
+      args: [usdcAmount],
     });
 
     await actorManager.waitForTransactionReceipt(hash);
