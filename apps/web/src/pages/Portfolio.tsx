@@ -1,16 +1,18 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useReadContract, useReadContracts, useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits, parseUnits } from 'viem';
 import {
   Wallet, ShieldCheck, TrendingUp, Clock,
   Database, Zap, Lock,
   Activity, CheckCircle
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Tooltip } from '../components/ui/Tooltip';
 import { Badge } from '../components/ui/Badge';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
-import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets } from '../hooks';
+import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets, useInvalidateQueries } from '../hooks';
 import { useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
 import { usePortfolioIndexed, useMarketsIndexed } from '../hooks/indexer';
 import { calculateLMSRCost, LN2 } from '../hooks/useMarketStatsMath';
@@ -26,11 +28,12 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-const AMMPositionRow = ({ market, stage, price, onValueUpdate }: {
+const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { data: position, isLoading } = useAMMPositionDirect(market.address as `0x${string}`);
 
@@ -79,11 +82,19 @@ const AMMPositionRow = ({ market, stage, price, onValueUpdate }: {
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesShares > 0n || noShares > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
 
-const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate }: {
+const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   lpBalance?: bigint,
@@ -93,7 +104,8 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
   qYes?: bigint,
   qNo?: bigint,
   decimals: number,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string, lpBalance: bigint) => Promise<void>
 }) => {
   const valueUsd = useMemo(() => {
     if (!lpBalance || !lpSupply || lpSupply === 0n) return 0;
@@ -151,19 +163,29 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
   if (!lpBalance || lpBalance === 0n) return null;
 
   return (
-    <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
-      <div className="flex items-center gap-3">
-        <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-        {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
-        {stage === 'live' && <Badge variant="success">Live</Badge>}
-        {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
-        {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
-        {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+    <div className="flex flex-col p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
+          <div className="text-xs text-slate-500 font-mono">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
+        </div>
       </div>
-      <div className="text-right">
-        <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
-        <div className="text-xs text-slate-500 font-mono">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
-      </div>
+      {stage === 'finalized' && lpBalance && lpBalance > 0n && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address, lpBalance)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem LP Tokens
+        </button>
+      )}
     </div>
   );
 };
@@ -173,12 +195,13 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
 /**
  * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
-const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate }: {
+const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
 
@@ -226,6 +249,14 @@ const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate 
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesInternal > 0n || noInternal > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
@@ -291,6 +322,61 @@ export const Portfolio = () => {
   const ammEngineAddress = deployments?.contracts?.AMMEngine as `0x${string}`;
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
   const { address: userAddress } = useAccount();
+
+  const { writeContractAsync } = useWriteContract();
+  const invalidateV8Queries = useInvalidateQueries();
+  const queryClient = useQueryClient();
+
+  const handleRedeemAMM = async (marketAddr: string) => {
+    if (!deployments?.contracts?.AMMEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: deployments.contracts.AMMEngine as `0x${string}`,
+        abi: ABIS.AMMEngine,
+        functionName: 'settlePosition',
+        args: [marketAddr as `0x${string}`],
+      });
+      toast.success('AMM position redeemed!');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message}`);
+    }
+  };
+
+  const handleRedeemTickBook = async (marketAddr: string) => {
+    if (!deployments?.contracts?.TickBookVault || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: deployments.contracts.TickBookVault as `0x${string}`,
+        abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+        functionName: 'redeemResolved',
+        args: [marketAddr as `0x${string}`],
+      });
+      toast.success('TickBook position redeemed!');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message}`);
+    }
+  };
+
+  const handleRedeemLP = async (marketAddr: string, lpBalance: bigint) => {
+    if (!deployments?.contracts?.LaunchpadEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: deployments.contracts.LaunchpadEngine as `0x${string}`,
+        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'lpAmount', type: 'uint256' }], outputs: [{ name: 'usdcRedeemed', type: 'uint256' }], stateMutability: 'nonpayable' }],
+        functionName: 'redeemLP',
+        args: [marketAddr as `0x${string}`, lpBalance],
+      });
+      toast.success('LP tokens redeemed!');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message}`);
+    }
+  };
 
   // Indexer hooks (primary data source when available)
   const indexedPortfolio = usePortfolioIndexed(userAddress);
@@ -612,6 +698,7 @@ export const Portfolio = () => {
                         qNo={(batchData?.[baseIdx + 0]?.result as any)?.[1]}
                         decimals={decimals}
                         onValueUpdate={handleLpValueUpdate}
+                        onRedeem={handleRedeemLP}
                       />
                     );
                   })
@@ -647,6 +734,7 @@ export const Portfolio = () => {
                         stage={market.stage}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleAmmValueUpdate}
+                        onRedeem={handleRedeemAMM}
                       />
                     ))}
                   </>
@@ -752,6 +840,7 @@ export const Portfolio = () => {
                         userAddress={userAddress!}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleVaultSharesUpdate}
+                        onRedeem={handleRedeemTickBook}
                       />
                     ))}
                     {totalVaultSharesVal === 0 && !isLoadingBatch && (
