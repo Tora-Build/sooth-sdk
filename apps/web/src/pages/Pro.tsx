@@ -73,10 +73,12 @@ const CATEGORIES = [
   { id: 'others', label: 'Others' },
 ];
 
-// Stages for Pro - only graduated markets can use TickBook (no bonding, dismissed, or settled)
+// Stages for Pro - graduated markets (live, settled, finalized) can manage TickBook positions
 const STAGES = [
   { id: 'all', label: 'All' },
-  { id: 'live', label: 'Graduated' },
+  { id: 'live', label: 'Live' },
+  { id: 'settled', label: 'Settled' },
+  { id: 'finalized', label: 'Finalized' },
 ];
 
 // ============================================================================
@@ -117,11 +119,11 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   // V9.9.6: On-chain market discovery - only show graduated markets
   const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
 
-  // Filter to only graduated (live) markets for Pro trading
+  // Filter to graduated markets for Pro trading (includes settled/finalized for position management)
   const allMarkets = useMemo(() => {
-    // Show only graduated markets that are not settled, finalized, or dismissed
+    // Show graduated markets (live, settled, finalized) - exclude only dismissed
     const eligibleMarkets = onChainMarkets.filter(m =>
-      m.isGraduated && !m.isSettled && !m.isFinalized && !m.isDismissed
+      m.isGraduated && !m.isDismissed
     );
 
     return eligibleMarkets.map(m => {
@@ -537,12 +539,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     };
   }, [marketId, chainId]);
 
-  // CRITICAL: Use marketId directly as the address - don't require it to be in static config
-  const marketAddr = marketId as `0x${string}`;
-  const invalidateV8Queries = useInvalidateQueries();
+   // CRITICAL: Use marketId directly as the address - don't require it to be in static config
+   const marketAddr = marketId as `0x${string}`;
+   const invalidateV8Queries = useInvalidateQueries();
 
-  const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
-  const { market: truth } = useTruthMarketDirect(marketAddr);
+   // Get market stage from on-chain discovery for fallback settlement UI gating
+   const { markets: onChainMarkets } = useOnChainMarkets();
+   const currentMarketStage = useMemo(() => {
+     return onChainMarkets.find(m => m.address.toLowerCase() === marketAddr.toLowerCase())?.stage;
+   }, [onChainMarkets, marketAddr]);
+
+   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
+   const { market: truth } = useTruthMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
@@ -1059,6 +1067,133 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             Go to AMM Trading
           </Button>
         </div>
+      </div>
+    );
+  }
+
+   // Settled/Finalized market - show settlement UI instead of trading
+   if (truth?.isSettled === true || truth?.isFinalized === true || currentMarketStage === 'settled' || currentMarketStage === 'finalized') {
+    const winningOutcome = truth?.winningOutcome ?? 0;
+    const isFinalized = truth?.isFinalized ?? false;
+    const yesBalance = vault?.yesInternalWad ?? 0n;
+    const noBalance = vault?.noInternalWad ?? 0n;
+    const hasPosition = yesBalance > 0n || noBalance > 0n;
+
+    return (
+      <div className="space-y-6">
+        {!embedded && (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/pro')}
+              className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-400" />
+            </button>
+            <div className="flex-1">
+              <div className="text-sm text-white font-medium line-clamp-1">{truth?.question || launchpad?.name}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Market Header with Status Pill */}
+        <MarketDetailHeader
+          name={truth?.question || launchpad?.name || 'Market'}
+          symbol={staticMetadata?.symbol}
+          address={marketAddr}
+          creator={truth?.creator || launchpad?.creator || '0x0'}
+          adjudicator={truth?.adjudicator}
+          deadline={truth?.deadline}
+          isGraduated={launchpad?.isGraduated || false}
+          isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
+          isLive={truth?.isLive ?? false}
+          chainId={chainId}
+          isInTrialPeriod={launchpad?.isInTrialPeriod}
+          trialTimeRemaining={launchpad?.trialTimeRemaining}
+          isDismissed={launchpad?.isDismissed}
+          isSettled={truth?.isSettled ?? (currentMarketStage === 'settled')}
+          isFinalized={truth?.isFinalized ?? (currentMarketStage === 'finalized')}
+        />
+
+        <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Trophy className={`w-6 h-6 ${isFinalized ? 'text-emerald-400' : 'text-amber-400'}`} />
+                {isFinalized ? 'Market Finalized' : 'Market Settled'}
+              </h3>
+              <Badge variant={isFinalized ? "success" : "warning"}>
+                {isFinalized ? 'Redemption Open' : 'Awaiting Finalization'}
+              </Badge>
+            </div>
+
+            <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Winning Outcome</span>
+                <span className={`font-bold text-lg ${winningOutcome === 1 ? 'text-emerald-400' : winningOutcome === 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                  {winningOutcome === 1 ? 'YES ✓' : winningOutcome === 0 ? 'NO ✓' : 'INVALID'}
+                </span>
+              </div>
+
+              {hasPosition && (
+                <>
+                  <div className="border-t border-slate-700 pt-3 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Your YES Balance</span>
+                      <span className={winningOutcome === 1 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
+                        {(Number(yesBalance) / 1e18).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Your NO Balance</span>
+                      <span className={winningOutcome === 0 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
+                        {(Number(noBalance) / 1e18).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {isFinalized && hasPosition ? (
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={async () => {
+                  if (!contracts.TickBookVault || !writeContractAsync) return;
+                  try {
+                    await writeContractAsync({
+                      address: contracts.TickBookVault as `0x${string}`,
+                      abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+                      functionName: 'redeemResolved',
+                      args: [marketAddr],
+                    });
+                    invalidateV8Queries();
+                  } catch (e: any) {
+                    logger.trade.error('Redeem failed:', e);
+                  }
+                }}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Redeem Position
+              </Button>
+            ) : !isFinalized ? (
+              <div className="text-center py-3 bg-amber-500/10 rounded-lg">
+                <p className="text-amber-400 text-sm">Waiting for finalization</p>
+                <p className="text-slate-500 text-xs mt-1">Redemption available after adjudicator finalizes</p>
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <p className="text-slate-400 text-sm">No position to redeem</p>
+              </div>
+            )}
+
+            {userOrders && userOrders.length > 0 && (
+              <div className="border-t border-slate-700 pt-4">
+                <p className="text-slate-400 text-sm mb-2">You have {userOrders.length} order(s) - cancel or claim below</p>
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
     );
   }

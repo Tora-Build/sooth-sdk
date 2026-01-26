@@ -786,8 +786,8 @@ export const Operator = () => {
                       settings.isPaused ? 'bg-rose-500' : 'bg-slate-700'
                     }`}
                   >
-                    <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
-                      settings.isPaused ? 'translate-x-8' : 'translate-x-1'
+                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                      settings.isPaused ? 'translate-x-7' : 'translate-x-0'
                     }`} />
                   </button>
                 </div>

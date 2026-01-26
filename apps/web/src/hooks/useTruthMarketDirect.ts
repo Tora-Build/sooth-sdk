@@ -52,27 +52,29 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
       else if (isLive) status = "live";
       else status = "pending";
 
-      return {
-        address: marketAddress!,
-        isLive,
-        isSettled,
-        isFinalized,
-        winningOutcome,
-        startTime: startTimestamp,
-        deadline: deadlineTimestamp,
-        creator,
-        adjudicator,
-        guardian,
-        question,
-        tStar: tStar ? Number(tStar) : undefined,
-        state,
-        status,
-        timeRemaining: Math.max(0, deadlineTimestamp - now),
-        isExpired: status === "expired",
-        isPending: status === "pending",
-        isVetoed: state === 4,
-        hasWinner: isSettled && winningOutcome !== undefined,
-      };
+       const result = {
+         address: marketAddress!,
+         isLive,
+         isSettled,
+         isFinalized,
+         winningOutcome,
+         startTime: startTimestamp,
+         deadline: deadlineTimestamp,
+         creator,
+         adjudicator,
+         guardian,
+         question,
+         tStar: tStar ? Number(tStar) : undefined,
+         state,
+         status,
+         timeRemaining: Math.max(0, deadlineTimestamp - now),
+         isExpired: status === "expired",
+         isPending: status === "pending",
+         isVetoed: state === 4,
+         hasWinner: isSettled && winningOutcome !== undefined,
+       };
+       
+       return result;
     },
   });
 

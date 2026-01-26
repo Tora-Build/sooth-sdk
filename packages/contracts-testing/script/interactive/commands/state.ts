@@ -276,13 +276,14 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
     return { success: false, message: 'No market selected' };
   }
 
-  try {
-    const [truthMarket, yesToken, noToken, hook] = await publicClient.readContract({
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'getMarketInfo',
-      args: [marketKey],
-    }) as [string, string, string, string];
+   try {
+     const result = await publicClient.readContract({
+       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+       abi: ABIS.TickBookPoolManager,
+       functionName: 'getMarketInfo',
+       args: [marketKey],
+     }) as readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean];
+     const [truthMarket, yesToken, noToken, hasHook] = result;
 
     const active =
       truthMarket !== '0x0000000000000000000000000000000000000000' &&
@@ -295,7 +296,7 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
     console.log(`  TruthMarket:  ${truthMarket}`);
     console.log(`  YES Token:    ${yesToken}`);
     console.log(`  NO Token:     ${noToken}`);
-    console.log(`  Hook:         ${hook === '0x0000000000000000000000000000000000000000' ? dim('none') : hook}`);
+    console.log(`  Has Hook:     ${hasHook ? success('yes') : dim('no')}`);
     console.log(`  Active:       ${active ? success('yes') : warn('no')}`);
     console.log('');
 
@@ -359,34 +360,35 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
         const marker = isCurrent ? success('→') : ' ';
 
         try {
-          // V10.8.3: MarketState no longer has name/symbol - derive from address
-          const marketState = await publicClient.readContract({
-            address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
-            abi: [
-              {
-                name: 'markets',
-                type: 'function',
-                inputs: [{ type: 'address', name: 'market' }],
-                outputs: [
-                  { type: 'address', name: 'creator' },
-                  { type: 'uint256', name: 'bBase' },
-                  { type: 'uint256', name: 'bCurrent' },
-                  { type: 'uint256', name: 'creatorDeposit' },
-                  { type: 'uint256', name: 'feesAccrued' },
-                  { type: 'uint256', name: 'totalLPSupply' },
-                  { type: 'uint256', name: 'lpYieldPool' },
-                  { type: 'bool', name: 'isGraduated' },
-                  { type: 'uint64', name: 'createdAt' },
-                  { type: 'uint64', name: 'graduatedAt' },
-                ],
-                stateMutability: 'view',
-              },
-            ],
-            functionName: 'markets',
-            args: [addr as `0x${string}`],
-          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+          // V11: MarketState includes lpToken at index 1
+           const marketState = await publicClient.readContract({
+             address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+             abi: [
+               {
+                 name: 'markets',
+                 type: 'function',
+                 inputs: [{ type: 'address', name: 'market' }],
+                 outputs: [
+                   { type: 'address', name: 'creator' },
+                   { type: 'address', name: 'lpToken' },
+                   { type: 'uint256', name: 'bBase' },
+                   { type: 'uint256', name: 'bCurrent' },
+                   { type: 'uint256', name: 'creatorDeposit' },
+                   { type: 'uint256', name: 'feesAccrued' },
+                   { type: 'uint256', name: 'totalLPSupply' },
+                   { type: 'uint256', name: 'lpYieldPool' },
+                   { type: 'bool', name: 'isGraduated' },
+                   { type: 'uint64', name: 'createdAt' },
+                   { type: 'uint64', name: 'graduatedAt' },
+                 ],
+                 stateMutability: 'view',
+               },
+             ],
+             functionName: 'markets',
+             args: [addr as `0x${string}`],
+           }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
 
-          const [, bBase, , , , , , isGraduated] = marketState;
+           const [, , bBase, , , , , , isGraduated] = marketState;
           
           // Symbol derived from address (first 4 bytes = 8 hex chars)
           const symbol = addr.slice(2, 10).toUpperCase();
