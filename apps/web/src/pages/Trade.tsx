@@ -268,6 +268,12 @@ export const Trade = () => {
   const { market: truth, isLoading: isLoadingTruth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
+  console.log('[Trade.tsx] truth data:', { 
+    adjudicator: truth?.adjudicator, 
+    creator: truth?.creator,
+    hasData: !!truth 
+  });
+
   // Contract interaction
   const { writeContractAsync, isPending: isWritePending } = useWriteContract();
   const queryClient = useQueryClient();
