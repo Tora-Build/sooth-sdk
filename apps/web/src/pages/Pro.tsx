@@ -1315,26 +1315,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               />
             </div>
           </div>
-
-          {/* Your Orders & Positions Combined */}
-          {/* Debug: Data source = {ordersSource} */}
-          <UserOrdersPanel
-            orders={userOrders ?? []}
-            spotSells={spotSells ?? []}
-            marketKey={tickBook?.marketKey as `0x${string}`}
-            isLoading={isOrdersLoading}
-            onRefresh={() => invalidateV8Queries()}
-            contracts={contracts as any}
-            chainId={chainId}
-            viewOutcome={isYes ? 'yes' : 'no'}
-            yesShares={vault?.yesInternal}
-            noShares={vault?.noInternal}
-            onCancelSpotSell={cancelSpotSell}
-            pendingRefundsWad={pendingRefundsWad}
-          />
         </div>
 
-        {/* RIGHT COLUMN: Vault Card + Trading Panel (40%) */}
+        {/* RIGHT COLUMN: Vault Card + Trading Panel + Orders (40%) */}
         <div className="lg:col-span-4 space-y-4">
 
           {/* Vault Card - Above Trading Panel */}
@@ -1788,6 +1771,22 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </Button>
             </div>
           </div>
+
+          {/* Your Orders & Positions */}
+          <UserOrdersPanel
+            orders={userOrders ?? []}
+            spotSells={spotSells ?? []}
+            marketKey={tickBook?.marketKey as `0x${string}`}
+            isLoading={isOrdersLoading}
+            onRefresh={() => invalidateV8Queries()}
+            contracts={contracts as any}
+            chainId={chainId}
+            viewOutcome={isYes ? 'yes' : 'no'}
+            yesShares={vault?.yesInternal}
+            noShares={vault?.noInternal}
+            onCancelSpotSell={cancelSpotSell}
+            pendingRefundsWad={pendingRefundsWad}
+          />
 
         </div>
       </div>
