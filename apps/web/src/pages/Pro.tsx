@@ -1102,29 +1102,28 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           </div>
         )}
 
-        {/* Market Header with Status Pill */}
-        <MarketDetailHeader
-          name={truth?.question || launchpad?.name || 'Market'}
-          symbol={staticMetadata?.symbol}
-          address={marketAddr}
-          creator={truth?.creator || launchpad?.creator || '0x0'}
-          adjudicator={truth?.adjudicator}
-          deadline={truth?.deadline}
-          isGraduated={launchpad?.isGraduated || false}
-          isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
-          isLive={truth?.isLive ?? false}
-          chainId={chainId}
-          isInTrialPeriod={launchpad?.isInTrialPeriod}
-          trialTimeRemaining={launchpad?.trialTimeRemaining}
-          isDismissed={launchpad?.isDismissed}
-          isSettled={truth?.isSettled ?? (currentMarketStage === 'settled')}
-          isFinalized={truth?.isFinalized ?? (currentMarketStage === 'finalized')}
-        />
-
         {/* 60/40 Grid Layout - matches Trade page */}
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-          {/* LEFT COLUMN: Settlement Card (60%) */}
-          <div className="lg:col-span-6">
+          {/* LEFT COLUMN: Market Header + Settlement Card (60%) */}
+          <div className="lg:col-span-6 space-y-4">
+            <MarketDetailHeader
+              name={truth?.question || launchpad?.name || 'Market'}
+              symbol={staticMetadata?.symbol}
+              address={marketAddr}
+              creator={truth?.creator || launchpad?.creator || '0x0'}
+              adjudicator={truth?.adjudicator}
+              deadline={truth?.deadline}
+              isGraduated={launchpad?.isGraduated || false}
+              isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
+              isLive={truth?.isLive ?? false}
+              chainId={chainId}
+              isInTrialPeriod={launchpad?.isInTrialPeriod}
+              trialTimeRemaining={launchpad?.trialTimeRemaining}
+              isDismissed={launchpad?.isDismissed}
+              isSettled={truth?.isSettled ?? (currentMarketStage === 'settled')}
+              isFinalized={truth?.isFinalized ?? (currentMarketStage === 'finalized')}
+            />
+
             <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
