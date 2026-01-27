@@ -370,7 +370,7 @@ export const Trade = () => {
             {launchpad?.isDismissed ? (
               <DismissedMarketPanel address={selectedMarket.contractAddress as `0x${string}`} />
             ) : (truth?.isSettled === true || truth?.isFinalized === true || selectedMarket?.stage === 'settled' || selectedMarket?.stage === 'finalized') ? (
-              <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} />
+              <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} stage={selectedMarket?.stage} />
             ) : (
               <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
                 <SimpleTradingPanel
