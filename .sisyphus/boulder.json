@@ -1,0 +1,23 @@
+{
+  "active_plan": null,
+  "completed_plans": [
+    {
+      "plan_name": "portfolio-settlement-repair",
+      "plan_path": "/Users/danieltang/GitHub/sooth-alpha/.sisyphus/plans/portfolio-settlement-repair.md",
+      "started_at": "2026-01-26T18:49:41.331Z",
+      "completed_at": "2026-01-27T02:30:00.000Z",
+      "session_ids": [
+        "ses_4080da6beffeudqSdFOZ4sGTkB",
+        "ses_4044adb47ffeIIWyJ3brBVQNcA",
+        "ses_404473a5effeYI7vNz09OSO4dM"
+      ],
+      "tasks_completed": 5,
+      "commits": [
+        "fc38a316",
+        "6e2b2a40",
+        "ad17e977",
+        "da66373b"
+      ]
+    }
+  ]
+}
