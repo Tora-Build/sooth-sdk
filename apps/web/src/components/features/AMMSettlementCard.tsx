@@ -7,9 +7,13 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Trophy, TrendingUp, TrendingDown, CheckCircle, Wallet, AlertCircle, Clock } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
 import { useRef, useMemo } from 'react';
-import { useTruthMarketDirect, useAmmMarketDirect } from '../../hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
+import { useTruthMarketDirect, useAmmMarketDirect, useAMMPositionDirect, useInvalidateQueries } from '../../hooks';
+import { useDeployments } from '../../hooks/useDeployments';
+import { ABIS } from '../../config/abis';
 
 interface AMMSettlementCardProps {
   address: `0x${string}`;
@@ -31,6 +35,12 @@ export const AMMSettlementCard = ({ address, stage }: AMMSettlementCardProps) =>
    const { address: userAddress, isConnected } = useAccount();
    const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
    const { isLoading: ammLoading } = useAmmMarketDirect(address);
+   const { data: position } = useAMMPositionDirect(address);
+   
+   const { writeContractAsync, isPending } = useWriteContract();
+   const { contracts } = useDeployments();
+   const queryClient = useQueryClient();
+   const invalidateQueries = useInvalidateQueries();
 
     // Track initial load state to avoid flicker during polling refetches
     const initialLoadRef = useRef(true);
@@ -50,24 +60,39 @@ export const AMMSettlementCard = ({ address, stage }: AMMSettlementCardProps) =>
    const isFinalized = stage === 'finalized' || truthMarket?.isFinalized || false;
   const winningOutcome = truthMarket?.winningOutcome ?? 0;
   
-  // Mock user position - in production from AMMEngine.getPosition
-  const mockPosition = {
-    yesShares: 0n,
-    noShares: 0n,
-  };
+  const yesShares = position?.yesShares ?? 0n;
+  const noShares = position?.noShares ?? 0n;
   
   // Calculate payout based on winning outcome
   // Protocol encoding: 0=NO, 1=YES, 2=INVALID
   const redemptionValue = 1.0; // $1 per winning share
   const userPayout = winningOutcome === 1 
-    ? Number(mockPosition.yesShares) / 1e18 * redemptionValue
+    ? Number(yesShares) / 1e18 * redemptionValue
     : winningOutcome === 0
-    ? Number(mockPosition.noShares) / 1e18 * redemptionValue
+    ? Number(noShares) / 1e18 * redemptionValue
     : 0;
 
    const hasWinningPosition = 
-     (winningOutcome === 1 && mockPosition.yesShares > 0n) ||
-     (winningOutcome === 0 && mockPosition.noShares > 0n);
+     (winningOutcome === 1 && yesShares > 0n) ||
+     (winningOutcome === 0 && noShares > 0n);
+
+   const handleClaim = async () => {
+     if (!contracts?.AMMEngine) return;
+     try {
+       await writeContractAsync({
+         address: contracts.AMMEngine as `0x${string}`,
+         abi: ABIS.AMMEngine,
+         functionName: 'settlePosition',
+         args: [address],
+       });
+       toast.success('Payout claimed successfully');
+       invalidateQueries();
+       queryClient.invalidateQueries({ queryKey: ['v9'] });
+       queryClient.invalidateQueries({ queryKey: ['v10'] });
+     } catch (e: any) {
+       toast.error(`Claim failed: ${e.message || 'Unknown error'}`);
+     }
+   };
 
    if (isLoading) {
     return (
@@ -107,117 +132,160 @@ export const AMMSettlementCard = ({ address, stage }: AMMSettlementCardProps) =>
 
   return (
     <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
-      <div className="p-4 space-y-4">
+      <div className="p-5 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            {isFinalized ? (
-              <Trophy className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <Clock className="w-5 h-5 text-amber-400" />
-            )}
-            {isFinalized ? 'Market Finalized' : 'Market Settled'}
-          </h3>
+        <div className="flex items-center justify-between border-b border-slate-800/50 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              {isFinalized ? (
+                <Trophy className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <Clock className="w-5 h-5 text-amber-400" />
+              )}
+              {isFinalized ? 'Market Finalized' : 'Market Settled'}
+            </h3>
+            <p className="text-slate-400 text-xs mt-1">
+              {isFinalized 
+                ? "Trading has ended and outcomes are final." 
+                : "Trading has ended. Waiting for veto period."}
+            </p>
+          </div>
           {isFinalized ? (
-            <Badge variant="success" className="flex items-center gap-1">
+            <Badge variant="success" className="flex items-center gap-1 px-3 py-1">
               <CheckCircle className="w-3 h-3" />
-              Final
+              Finalized
             </Badge>
           ) : (
-            <Badge variant="warning" className="flex items-center gap-1">
+            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 px-3 py-1">
               <Clock className="w-3 h-3" />
-              Veto Period
+              Settled
             </Badge>
           )}
         </div>
 
-        {/* Outcome Display */}
-        <div className="bg-slate-800/50 rounded-lg p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-400">Winning Outcome</span>
+        {/* Winning Outcome & Payout Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Winning Outcome Box */}
+          <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+            <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Winning Outcome</span>
             <div className="flex items-center gap-2">
               {winningOutcome === 1 ? (
-                <>
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span className="font-bold text-emerald-400">YES ✓</span>
-                </>
+                <div className="flex items-center gap-2 bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20">
+                  <TrendingUp className="w-6 h-6 text-emerald-400" />
+                  <span className="text-2xl font-black text-emerald-400">YES</span>
+                </div>
               ) : winningOutcome === 0 ? (
-                <>
-                  <TrendingDown className="w-4 h-4 text-rose-400" />
-                  <span className="font-bold text-rose-400">NO ✓</span>
-                </>
+                <div className="flex items-center gap-2 bg-rose-500/10 px-4 py-2 rounded-lg border border-rose-500/20">
+                  <TrendingDown className="w-6 h-6 text-rose-400" />
+                  <span className="text-2xl font-black text-rose-400">NO</span>
+                </div>
               ) : (
-                <>
-                  <AlertCircle className="w-4 h-4 text-slate-400" />
-                  <span className="font-bold text-slate-400">INVALID</span>
-                </>
+                <div className="flex items-center gap-2 bg-slate-500/10 px-4 py-2 rounded-lg border border-slate-500/20">
+                  <AlertCircle className="w-6 h-6 text-slate-400" />
+                  <span className="text-2xl font-black text-slate-400">INVALID</span>
+                </div>
               )}
             </div>
           </div>
 
-          {/* User's Position */}
-          {mockPosition.yesShares > 0n && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Your YES Shares</span>
-              <span className={winningOutcome === 1 ? 'text-emerald-400' : 'text-slate-500 line-through'}>
-                {formatWad(mockPosition.yesShares)}
-              </span>
-            </div>
-          )}
-          
-          {mockPosition.noShares > 0n && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Your NO Shares</span>
-              <span className={winningOutcome === 0 ? 'text-emerald-400' : 'text-slate-500 line-through'}>
-                {formatWad(mockPosition.noShares)}
-              </span>
-            </div>
-          )}
-
-          {/* Payout Display */}
-          {hasWinningPosition && (
-            <div className="border-t border-slate-700 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-300 font-medium">Your Payout</span>
-                <span className="text-xl font-bold text-emerald-400">
+          {/* User Payout Box */}
+          <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+            <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Your Payout</span>
+            {hasWinningPosition ? (
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-mono font-bold text-emerald-400 tracking-tight">
                   {formatUSDC(userPayout)}
                 </span>
+                <span className="text-emerald-500/60 text-xs mt-1 font-medium">
+                  Ready to claim
+                </span>
               </div>
-            </div>
-          )}
+            ) : (yesShares > 0n || noShares > 0n) ? (
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-mono font-bold text-slate-600 tracking-tight">
+                  $0.00
+                </span>
+                <span className="text-slate-500 text-xs mt-1">
+                  Position lost
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center">
+                <span className="text-slate-400 text-sm italic">
+                  No position
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Claim Button or Veto Period Notice */}
-        {!isFinalized ? (
-          <div className="text-center py-3 bg-amber-500/10 rounded-lg">
-            <p className="text-amber-400 text-sm font-medium">Veto Period Active</p>
-            <p className="text-slate-500 text-xs mt-1">
-              Redemption will be available after the veto period ends
-            </p>
-          </div>
-        ) : hasWinningPosition ? (
-          <Button variant="primary" className="w-full">
-            <Wallet className="w-4 h-4 mr-2" />
-            Claim {formatUSDC(userPayout)} Payout
-          </Button>
-        ) : mockPosition.yesShares > 0n || mockPosition.noShares > 0n ? (
-          <div className="text-center py-2">
-            <p className="text-slate-400 text-sm">
-              Your position was on the losing side
-            </p>
-            <p className="text-slate-500 text-xs mt-1">
-              No payout available
-            </p>
-          </div>
-        ) : (
-          <div className="text-center py-2">
-            <p className="text-slate-400 text-sm">
-              You had no position in this market
-            </p>
+        {/* Position Details (Collapsed/Small) */}
+        {(yesShares > 0n || noShares > 0n) && (
+          <div className="bg-slate-950/30 rounded-lg p-3 text-sm border border-slate-800/30">
+            <div className="flex justify-between items-center text-slate-400 text-xs mb-2 uppercase tracking-wider font-bold">
+              <span>Your Position</span>
+              <span>Shares</span>
+            </div>
+            {yesShares > 0n && (
+              <div className="flex justify-between items-center py-1">
+                <span className={winningOutcome === 1 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>YES Outcome</span>
+                <span className="font-mono text-slate-300">{formatWad(yesShares)}</span>
+              </div>
+            )}
+            {noShares > 0n && (
+              <div className="flex justify-between items-center py-1">
+                <span className={winningOutcome === 0 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>NO Outcome</span>
+                <span className="font-mono text-slate-300">{formatWad(noShares)}</span>
+              </div>
+            )}
           </div>
         )}
+
+        {/* Action Area */}
+        <div className="pt-2">
+          {!isFinalized ? (
+            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+              <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+              <div>
+                <p className="text-amber-400 text-sm font-bold">Veto Period Active</p>
+                <p className="text-amber-400/70 text-xs mt-0.5">
+                  Payouts are locked until the veto period ends. Check back soon.
+                </p>
+              </div>
+            </div>
+          ) : hasWinningPosition ? (
+            <div className="space-y-3">
+              <Button 
+                variant="primary" 
+                className="w-full h-12 text-base font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all" 
+                onClick={handleClaim} 
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Processing Claim...
+                  </span>
+                ) : (
+                  <>
+                    <Wallet className="w-5 h-5 mr-2" />
+                    Claim {formatUSDC(userPayout)} Payout
+                  </>
+                )}
+              </Button>
+              <p className="text-center text-slate-500 text-xs">
+                Funds will be sent directly to your wallet
+              </p>
+            </div>
+          ) : (yesShares > 0n || noShares > 0n) ? (
+            <div className="text-center py-2">
+              <p className="text-slate-500 text-sm">
+                Better luck next time.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
     </Card>
   );
 };
-

@@ -2,6 +2,21 @@
 
 All notable changes to Sooth Protocol will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **AMMSettlementCard Mock Data (2026-01-27)**: Replaced hardcoded `mockPosition = { yesShares: 0n, noShares: 0n }` with real user position data from `useAMMPositionDirect` hook. Users can now see their AMM shares and claim payouts on finalized markets.
+- **LPHolders Null Return (2026-01-27)**: Fixed component returning null when stats unavailable on finalized markets. Added `useTruthMarketDirect` to check `isFinalized` status and render LP Leaderboard even without stats. LP Leaderboard now visible on finalized Trade page.
+
+### Changed
+- **Trade Page UI (2026-01-27)**: Improved AMMSettlementCard visual hierarchy with prominent status badges (Settled/Finalized), large payout display, clear winning outcome indicator, and full-width claim button with icon.
+- **Pro Page UI (2026-01-27)**: Standardized settlement card design matching AMMSettlementCard style. Added grid layout for Winning Outcome + Payout, status badges, and prominent redemption button.
+- **UserOrdersPanel Decision (2026-01-27)**: Decided to KEEP UserOrdersPanel in Pro finalized view. Reasoning: Open orders lock user collateral; market finalization does not auto-cancel orders due to gas constraints; users must manually cancel to retrieve funds and claim pending fills.
+
+### Verified
+- **Stage Detection (2026-01-27)**: Verified frontend stage detection logic is correct. Priority order `dismissed > finalized > settled > graduated > bonding` working as intended. User-reported "Bonding" badge issue is data/contract-level, not frontend.
+- **Portfolio Position Display (2026-01-27)**: Verified all Portfolio components (AMMPositionRow, LPPositionRow, TickBookInternalRow, LockedSharesRow) correctly display positions and redemption buttons on finalized markets. No code changes needed.
+
 ## [V11.1] - 2026-01-26
 
 ### Deployment
