@@ -13,6 +13,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
     enabled: !!marketAddress && !!chainId,
     chainId,
     read: async (client) => {
+      console.log('[useTruthMarketDirect] Starting read for:', marketAddress);
       const [
         isLive,
         isSettled,
