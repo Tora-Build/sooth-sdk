@@ -13,6 +13,7 @@ import { useTruthMarketDirect, useAmmMarketDirect } from '../../hooks';
 
 interface AMMSettlementCardProps {
   address: `0x${string}`;
+  stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
 }
 
 // Format USDC (6 decimals)
@@ -26,27 +27,27 @@ const formatWad = (value: bigint): string => {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-export const AMMSettlementCard = ({ address }: AMMSettlementCardProps) => {
+export const AMMSettlementCard = ({ address, stage }: AMMSettlementCardProps) => {
    const { address: userAddress, isConnected } = useAccount();
    const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(address);
    const { isLoading: ammLoading } = useAmmMarketDirect(address);
 
-   // Track initial load state to avoid flicker during polling refetches
-   const initialLoadRef = useRef(true);
-   const rawIsLoading = truthLoading || ammLoading;
-   
-   // Memoized loading state: only show skeleton on initial load, not on subsequent refetches
-   const isLoading = useMemo(() => {
-     if (rawIsLoading && initialLoadRef.current) {
-       return true; // Show skeleton on initial load
-     }
-     if (!rawIsLoading) {
-       initialLoadRef.current = false; // Mark initial load complete
-     }
-     return false; // Don't show skeleton on refetches
-   }, [rawIsLoading]);
-  const isSettled = truthMarket?.isSettled ?? false;
-  const isFinalized = truthMarket?.isFinalized ?? false;
+    // Track initial load state to avoid flicker during polling refetches
+    const initialLoadRef = useRef(true);
+    const rawIsLoading = truthLoading || ammLoading;
+    
+    // Memoized loading state: only show skeleton on initial load, not on subsequent refetches
+    const isLoading = useMemo(() => {
+      if (rawIsLoading && initialLoadRef.current) {
+        return true; // Show skeleton on initial load
+      }
+      if (!rawIsLoading) {
+        initialLoadRef.current = false; // Mark initial load complete
+      }
+      return false; // Don't show skeleton on refetches
+    }, [rawIsLoading]);
+   const isSettled = stage === 'settled' || stage === 'finalized' || truthMarket?.isSettled || false;
+   const isFinalized = stage === 'finalized' || truthMarket?.isFinalized || false;
   const winningOutcome = truthMarket?.winningOutcome ?? 0;
   
   // Mock user position - in production from AMMEngine.getPosition

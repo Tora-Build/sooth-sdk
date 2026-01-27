@@ -1215,41 +1215,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           />
         )}
 
-        {/* LP Redemption - only show if USER has LP tokens */}
-        {launchpad?.userLpBalance && launchpad.userLpBalance > 0n && (
-          <Card className="border-slate-700/50 bg-slate-900/50">
-            <div className="p-4 space-y-3">
-              <h4 className="text-sm font-medium text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-cyan-400" />
-                LP Token Redemption
-              </h4>
-              <p className="text-xs text-slate-400">
-                You have {(Number(launchpad.userLpBalance) / 1e18).toFixed(2)} LP tokens to redeem.
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={async () => {
-                  if (!contracts.LaunchpadEngine || !writeContractAsync) return;
-                  try {
-                    await writeContractAsync({
-                      address: contracts.LaunchpadEngine as `0x${string}`,
-                      abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'lpAmount', type: 'uint256' }], outputs: [{ name: 'usdcRedeemed', type: 'uint256' }], stateMutability: 'nonpayable' }],
-                      functionName: 'redeemLP',
-                      args: [marketAddr, launchpad.userLpBalance],
-                    });
-                    invalidateV8Queries();
-                  } catch (e: any) {
-                    logger.trade.error('LP redeem failed:', e);
-                  }
-                }}
-              >
-                Redeem LP Tokens
-              </Button>
-            </div>
-          </Card>
-        )}
+
       </div>
     );
   }
