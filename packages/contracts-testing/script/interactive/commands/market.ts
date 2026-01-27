@@ -34,6 +34,7 @@ const TruthMarketAbi = parseAbi([
   'function adjudicator() view returns (address)',
   'function isLive() view returns (bool)',
   'function isSettled() view returns (bool)',
+  'function isFinalized() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
   'function settle(uint8 outcome, uint64 tStar) external',
   'function finalize() external',
@@ -627,7 +628,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
   console.log('  ' + '─'.repeat(40));
 
   try {
-    const [question, startTime, deadline, creator, adjudicator, isLive, isSettled] = await Promise.all([
+    const [question, startTime, deadline, creator, adjudicator, isLive, isSettled, isFinalized] = await Promise.all([
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'question' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'startTime' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'deadline' }),
@@ -635,6 +636,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'adjudicator' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isLive' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isSettled' }),
+      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isFinalized' }),
     ]);
 
     const startDate = new Date(Number(startTime) * 1000);
@@ -646,7 +648,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
     console.log(`  Adjudicator: ${shortAddress(adjudicator as string)}`);
     console.log(`  Starts:     ${startDate.toISOString().slice(0, 10)}`);
     console.log(`  Deadline:   ${deadlineDate.toISOString().slice(0, 10)}`);
-    console.log(`  Status:     ${isActive ? success('LIVE') : isSettled ? dim('SETTLED') : warn('INACTIVE')}`);
+    console.log(`  Status:     ${isActive ? success('LIVE') : isFinalized ? success('FINALIZED') : isSettled ? dim('SETTLED') : warn('INACTIVE')}`);
 
     if (isSettled) {
       const winningOutcome = await publicClient.readContract({
