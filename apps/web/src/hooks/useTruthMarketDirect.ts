@@ -74,6 +74,13 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
          hasWinner: isSettled && winningOutcome !== undefined,
        };
        
+       console.log('[useTruthMarketDirect] Fetched data:', { 
+         market: marketAddress, 
+         adjudicator, 
+         creator,
+         isZeroAddress: adjudicator === '0x0000000000000000000000000000000000000000'
+       });
+       
        return result;
     },
   });
