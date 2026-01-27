@@ -1121,99 +1121,107 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           isFinalized={truth?.isFinalized ?? (currentMarketStage === 'finalized')}
         />
 
-        <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Trophy className={`w-6 h-6 ${isFinalized ? 'text-emerald-400' : 'text-amber-400'}`} />
-                {isFinalized ? 'Market Finalized' : 'Market Settled'}
-              </h3>
-              <Badge variant={isFinalized ? "success" : "warning"}>
-                {isFinalized ? 'Redemption Open' : 'Awaiting Finalization'}
-              </Badge>
-            </div>
+        {/* 60/40 Grid Layout - matches Trade page */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          {/* LEFT COLUMN: Settlement Card (60%) */}
+          <div className="lg:col-span-6">
+            <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Trophy className={`w-6 h-6 ${isFinalized ? 'text-emerald-400' : 'text-amber-400'}`} />
+                    {isFinalized ? 'Market Finalized' : 'Market Settled'}
+                  </h3>
+                  <Badge variant={isFinalized ? "success" : "warning"}>
+                    {isFinalized ? 'Redemption Open' : 'Awaiting Finalization'}
+                  </Badge>
+                </div>
 
-            <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Winning Outcome</span>
-                <span className={`font-bold text-lg ${winningOutcome === 1 ? 'text-emerald-400' : winningOutcome === 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                  {winningOutcome === 1 ? 'YES ✓' : winningOutcome === 0 ? 'NO ✓' : 'INVALID'}
-                </span>
-              </div>
-
-              {hasPosition && (
-                <>
-                  <div className="border-t border-slate-700 pt-3 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">Your YES Balance</span>
-                      <span className={winningOutcome === 1 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
-                        {(Number(yesBalance) / 1e18).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">Your NO Balance</span>
-                      <span className={winningOutcome === 0 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
-                        {(Number(noBalance) / 1e18).toFixed(2)}
-                      </span>
-                    </div>
+                <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Winning Outcome</span>
+                    <span className={`font-bold text-lg ${winningOutcome === 1 ? 'text-emerald-400' : winningOutcome === 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                      {winningOutcome === 1 ? 'YES ✓' : winningOutcome === 0 ? 'NO ✓' : 'INVALID'}
+                    </span>
                   </div>
-                </>
-              )}
-            </div>
 
-            {isFinalized && hasPosition ? (
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={async () => {
-                  if (!contracts.TickBookVault || !writeContractAsync) return;
-                  try {
-                    await writeContractAsync({
-                      address: contracts.TickBookVault as `0x${string}`,
-                      abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
-                      functionName: 'redeemResolved',
-                      args: [marketAddr],
-                    });
-                    invalidateV8Queries();
-                  } catch (e: any) {
-                    logger.trade.error('Redeem failed:', e);
-                  }
-                }}
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Redeem Position
-              </Button>
-            ) : !isFinalized ? (
-              <div className="text-center py-3 bg-amber-500/10 rounded-lg">
-                <p className="text-amber-400 text-sm">Waiting for finalization</p>
-                <p className="text-slate-500 text-xs mt-1">Redemption available after adjudicator finalizes</p>
-              </div>
-            ) : (
-              <div className="text-center py-3">
-                <p className="text-slate-400 text-sm">No position to redeem</p>
-              </div>
-            )}
+                  {hasPosition && (
+                    <>
+                      <div className="border-t border-slate-700 pt-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-400">Your YES Balance</span>
+                          <span className={winningOutcome === 1 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
+                            {(Number(yesBalance) / 1e18).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-400">Your NO Balance</span>
+                          <span className={winningOutcome === 0 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
+                            {(Number(noBalance) / 1e18).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
+                {isFinalized && hasPosition ? (
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={async () => {
+                      if (!contracts.TickBookVault || !writeContractAsync) return;
+                      try {
+                        await writeContractAsync({
+                          address: contracts.TickBookVault as `0x${string}`,
+                          abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+                          functionName: 'redeemResolved',
+                          args: [marketAddr],
+                        });
+                        invalidateV8Queries();
+                      } catch (e: any) {
+                        logger.trade.error('Redeem failed:', e);
+                      }
+                    }}
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Redeem Position
+                  </Button>
+                ) : !isFinalized ? (
+                  <div className="text-center py-3 bg-amber-500/10 rounded-lg">
+                    <p className="text-amber-400 text-sm">Waiting for finalization</p>
+                    <p className="text-slate-500 text-xs mt-1">Redemption available after adjudicator finalizes</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-3">
+                    <p className="text-slate-400 text-sm">No position to redeem</p>
+                  </div>
+                )}
+
+              </div>
+            </Card>
           </div>
-        </Card>
 
-        {/* Order Management - Cancel & Claim */}
-        {userOrders && userOrders.length > 0 && tickBook?.marketKey && (
-          <UserOrdersPanel
-            orders={userOrders}
-            spotSells={spotSells}
-            marketKey={tickBook.marketKey as `0x${string}`}
-            isLoading={isOrdersLoading}
-            onRefresh={invalidateV8Queries}
-            contracts={contracts as Record<string, string>}
-            chainId={chainId}
-            viewOutcome="yes"
-            yesShares={vault?.yesInternal}
-            noShares={vault?.noInternal}
-            onCancelSpotSell={cancelSpotSell}
-            pendingRefundsWad={pendingRefundsWad}
-          />
-        )}
+          {/* RIGHT COLUMN: Orders Panel (40%) */}
+          <div className="lg:col-span-4">
+            {userOrders && userOrders.length > 0 && tickBook?.marketKey && (
+              <UserOrdersPanel
+                orders={userOrders}
+                spotSells={spotSells}
+                marketKey={tickBook.marketKey as `0x${string}`}
+                isLoading={isOrdersLoading}
+                onRefresh={invalidateV8Queries}
+                contracts={contracts as Record<string, string>}
+                chainId={chainId}
+                viewOutcome="yes"
+                yesShares={vault?.yesInternal}
+                noShares={vault?.noInternal}
+                onCancelSpotSell={cancelSpotSell}
+                pendingRefundsWad={pendingRefundsWad}
+              />
+            )}
+          </div>
+        </div>
 
 
       </div>
@@ -1315,9 +1323,24 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               />
             </div>
           </div>
+
+          <UserOrdersPanel
+            orders={userOrders ?? []}
+            spotSells={spotSells ?? []}
+            marketKey={tickBook?.marketKey as `0x${string}`}
+            isLoading={isOrdersLoading}
+            onRefresh={() => invalidateV8Queries()}
+            contracts={contracts as any}
+            chainId={chainId}
+            viewOutcome={isYes ? 'yes' : 'no'}
+            yesShares={vault?.yesInternal}
+            noShares={vault?.noInternal}
+            onCancelSpotSell={cancelSpotSell}
+            pendingRefundsWad={pendingRefundsWad}
+          />
         </div>
 
-        {/* RIGHT COLUMN: Vault Card + Trading Panel + Orders (40%) */}
+        {/* RIGHT COLUMN: Vault Card + Trading Panel (40%) */}
         <div className="lg:col-span-4 space-y-4">
 
           {/* Vault Card - Above Trading Panel */}
@@ -1772,21 +1795,6 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           </div>
 
-          {/* Your Orders & Positions */}
-          <UserOrdersPanel
-            orders={userOrders ?? []}
-            spotSells={spotSells ?? []}
-            marketKey={tickBook?.marketKey as `0x${string}`}
-            isLoading={isOrdersLoading}
-            onRefresh={() => invalidateV8Queries()}
-            contracts={contracts as any}
-            chainId={chainId}
-            viewOutcome={isYes ? 'yes' : 'no'}
-            yesShares={vault?.yesInternal}
-            noShares={vault?.noInternal}
-            onCancelSpotSell={cancelSpotSell}
-            pendingRefundsWad={pendingRefundsWad}
-          />
 
         </div>
       </div>
