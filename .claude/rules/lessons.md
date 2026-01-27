@@ -797,3 +797,33 @@ TickBookPoolManagerV10.sol:  oppLiqInOverlap ← WRONG (stale)
 - **If Keeping:** Only useful for power users who want to target a specific spot sell by ID
 - **SDK Status:** Removed `buyspotsell` command from Geek Mode CLI (2026-01-15)
 
+---
+
+## CRITICAL: No Lies Allowed (2026-01-27)
+
+### ❌ Pattern: Claiming transaction reverted when it actually succeeded
+- **Date:** 2026-01-27
+- **Incident:** Told user that `finalize()` command reverted when the market was actually finalized successfully on-chain
+- **Impact:** User wasted time debugging a non-existent problem, lost trust in agent accuracy
+- **Root Cause:** Agent made assumption without verifying on-chain state
+- **Rule:** **NEVER claim a transaction failed/reverted without proof**
+  - ALWAYS verify with `cast call` or `cast receipt` before claiming revert
+  - If uncertain, say "I'm not sure, let me check on-chain"
+  - Honesty > confidence
+  - Being wrong is acceptable, lying is not
+- **Acceptable responses when uncertain:**
+  - "I'm not sure if that succeeded. Let me check on-chain."
+  - "The CLI output is unclear. Let me verify with cast."
+  - "I don't have enough information to confirm. Should I investigate?"
+- **NEVER say:**
+  - "The transaction reverted" (without proof)
+  - "The command failed" (without verification)
+  - "The market is still settled" (without checking `isFinalized()`)
+- **Verification checklist:**
+  ```bash
+  # Before claiming revert, ALWAYS run:
+  cast call $CONTRACT "isFinalized()(bool)" --rpc-url $RPC
+  cast call $CONTRACT "isSettled()(bool)" --rpc-url $RPC
+  cast receipt $TX_HASH --rpc-url $RPC  # check status field
+  ```
+
