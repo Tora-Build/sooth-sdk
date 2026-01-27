@@ -11,7 +11,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield, Trophy, XCircle
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield, Trophy, XCircle, CheckCircle, Clock
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
 import { logger } from '../lib/logger';
@@ -1125,78 +1125,145 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             />
 
             <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Trophy className={`w-6 h-6 ${isFinalized ? 'text-emerald-400' : 'text-amber-400'}`} />
-                    {isFinalized ? 'Market Finalized' : 'Market Settled'}
-                  </h3>
-                  <Badge variant={isFinalized ? "success" : "warning"}>
-                    {isFinalized ? 'Redemption Open' : 'Awaiting Finalization'}
-                  </Badge>
-                </div>
-
-                <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Winning Outcome</span>
-                    <span className={`font-bold text-lg ${winningOutcome === 1 ? 'text-emerald-400' : winningOutcome === 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                      {winningOutcome === 1 ? 'YES ✓' : winningOutcome === 0 ? 'NO ✓' : 'INVALID'}
-                    </span>
+              <div className="p-5 space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-800/50 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      {isFinalized ? (
+                        <Trophy className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-amber-400" />
+                      )}
+                      {isFinalized ? 'Market Finalized' : 'Market Settled'}
+                    </h3>
+                    <p className="text-slate-400 text-xs mt-1">
+                      {isFinalized 
+                        ? "Trading has ended and outcomes are final." 
+                        : "Trading has ended. Waiting for veto period."}
+                    </p>
                   </div>
-
-                  {hasPosition && (
-                    <>
-                      <div className="border-t border-slate-700 pt-3 space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">Your YES Balance</span>
-                          <span className={winningOutcome === 1 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
-                            {(Number(yesBalance) / 1e18).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">Your NO Balance</span>
-                          <span className={winningOutcome === 0 ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
-                            {(Number(noBalance) / 1e18).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </>
+                  {isFinalized ? (
+                    <Badge variant="success" className="flex items-center gap-1 px-3 py-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Finalized
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 px-3 py-1">
+                      <Clock className="w-3 h-3" />
+                      Settled
+                    </Badge>
                   )}
                 </div>
 
-                {isFinalized && hasPosition ? (
-                  <Button
-                    variant="primary"
-                    className="w-full"
-                    onClick={async () => {
-                      if (!contracts.TickBookVault || !writeContractAsync) return;
-                      try {
-                        await writeContractAsync({
-                          address: contracts.TickBookVault as `0x${string}`,
-                          abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
-                          functionName: 'redeemResolved',
-                          args: [marketAddr],
-                        });
-                        invalidateV8Queries();
-                      } catch (e: any) {
-                        logger.trade.error('Redeem failed:', e);
-                      }
-                    }}
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Redeem Position
-                  </Button>
-                ) : !isFinalized ? (
-                  <div className="text-center py-3 bg-amber-500/10 rounded-lg">
-                    <p className="text-amber-400 text-sm">Waiting for finalization</p>
-                    <p className="text-slate-500 text-xs mt-1">Redemption available after adjudicator finalizes</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Winning Outcome</span>
+                    <div className="flex items-center gap-2">
+                      {winningOutcome === 1 ? (
+                        <div className="flex items-center gap-2 bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20">
+                          <TrendingUp className="w-6 h-6 text-emerald-400" />
+                          <span className="text-2xl font-black text-emerald-400">YES</span>
+                        </div>
+                      ) : winningOutcome === 0 ? (
+                        <div className="flex items-center gap-2 bg-rose-500/10 px-4 py-2 rounded-lg border border-rose-500/20">
+                          <TrendingDown className="w-6 h-6 text-rose-400" />
+                          <span className="text-2xl font-black text-rose-400">NO</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-slate-500/10 px-4 py-2 rounded-lg border border-slate-500/20">
+                          <AlertCircle className="w-6 h-6 text-slate-400" />
+                          <span className="text-2xl font-black text-slate-400">INVALID</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-3">
-                    <p className="text-slate-400 text-sm">No position to redeem</p>
+
+                  <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Your Payout</span>
+                    {hasPosition ? (
+                      <div className="flex flex-col items-center">
+                        <span className={`text-3xl font-mono font-bold tracking-tight ${(winningOutcome === 1 ? Number(yesBalance) : winningOutcome === 0 ? Number(noBalance) : 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          ${(winningOutcome === 1 ? Number(yesBalance) / 1e18 : winningOutcome === 0 ? Number(noBalance) / 1e18 : 0).toFixed(2)}
+                        </span>
+                        <span className="text-slate-500 text-xs mt-1 font-medium">
+                          {(winningOutcome === 1 ? Number(yesBalance) : winningOutcome === 0 ? Number(noBalance) : 0) > 0 ? 'Ready to redeem' : 'Position lost'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-400 text-sm italic">No position</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {hasPosition && (
+                  <div className="bg-slate-950/30 rounded-lg p-3 text-sm border border-slate-800/30">
+                    <div className="flex justify-between items-center text-slate-400 text-xs mb-2 uppercase tracking-wider font-bold">
+                      <span>Your Position</span>
+                      <span>Shares</span>
+                    </div>
+                    {yesBalance > 0n && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className={winningOutcome === 1 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>YES Outcome</span>
+                        <span className="font-mono text-slate-300">{(Number(yesBalance) / 1e18).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {noBalance > 0n && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className={winningOutcome === 0 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>NO Outcome</span>
+                        <span className="font-mono text-slate-300">{(Number(noBalance) / 1e18).toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
+                <div className="pt-2">
+                  {isFinalized && hasPosition && (winningOutcome === 1 ? yesBalance : winningOutcome === 0 ? noBalance : 0n) > 0n ? (
+                    <div className="space-y-3">
+                      <Button
+                        variant="primary"
+                        className="w-full h-12 text-base font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all"
+                        onClick={async () => {
+                          if (!contracts.TickBookVault || !writeContractAsync) return;
+                          try {
+                            await writeContractAsync({
+                              address: contracts.TickBookVault as `0x${string}`,
+                              abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+                              functionName: 'redeemResolved',
+                              args: [marketAddr],
+                            });
+                            invalidateV8Queries();
+                          } catch (e: any) {
+                            logger.trade.error('Redeem failed:', e);
+                          }
+                        }}
+                      >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Redeem ${(winningOutcome === 1 ? Number(yesBalance) / 1e18 : winningOutcome === 0 ? Number(noBalance) / 1e18 : 0).toFixed(2)} Payout
+                      </Button>
+                      <p className="text-center text-slate-500 text-xs">
+                        Funds will be sent directly to your wallet
+                      </p>
+                    </div>
+                  ) : !isFinalized ? (
+                    <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                      <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                      <div>
+                        <p className="text-amber-400 text-sm font-bold">Veto Period Active</p>
+                        <p className="text-amber-400/70 text-xs mt-0.5">
+                          Redemption available after adjudicator finalizes.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-2">
+                      <p className="text-slate-500 text-sm">
+                        {hasPosition ? "Better luck next time." : "No position to redeem."}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
           </div>

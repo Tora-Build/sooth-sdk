@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V11.1  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-01-26
+> **Last Updated**: 2026-01-27
 
 ## V11 Features (Implemented)
 
@@ -17,15 +17,10 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **Trial Period Test Alignment (2026-01-25)** — Updated integration + invariant tests to respect the on-chain rule that dismissal is only allowed after the trial period ends. Full `forge test` passes again.
-- **Frontend Stage Filtering (2026-01-24)** — Added market lifecycle stage filtering to Trade and Pro pages. Properly distinguishes between `settled` (veto period active) and `finalized` (can redeem) stages. New stages: Bonding, Graduated, Settled, Finalized, Dismissed.
-- **CLI Checksum Complete Fix (2026-01-24)** — Fixed checksum to track ALL USDC locations. Added `vaultMarketCollateral` and `lpYieldPool` tracking. Checksum now passes with exact 0.00 USDC balance.
-- **V11 Testing on Base Sepolia (2026-01-23)** — V11 deployed to all 4 testnets. Active testing on Base Sepolia with CLI multi-actor scenarios.
-- **CLI Zero-Sum P&L Verification Fix (2026-01-23)** — Fixed `checksum` command showing -71.24 USDC imbalance. Added AMM position tracking (`AMMEngine.getPosition`) per actor.
-- **V11 CLI Multi-Actor Automation (2026-01-22)** — Added scenario auto-run flag (`--scenario`), new `market-lifecycle-multi-actor` scenario, keeper claim command, and actor roles.
-- **Protocol Guardian Implementation (2026-01-21)** — `ProtocolConfig` (guardian list + pause), adjudicator-only finalize, Launchpad auto-register for ValidatedAdjudicator.
+- **Finalized Markets UI Audit Complete (2026-01-27)** — Fixed all critical and high-priority issues with finalized market displays across Portfolio, Trade, and Pro pages. Completed 10/10 tasks from work plan.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
 - **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
 - **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
 - **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:

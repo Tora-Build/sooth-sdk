@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card } from '../ui/Card';
-import { useLaunchpadMarketDirect, useDirectRead, readContractSafe } from '../../hooks';
+import { useLaunchpadMarketDirect, useDirectRead, readContractSafe, useTruthMarketDirect } from '../../hooks';
 import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../hooks/useDeployments';
 import { ERC20_ABI, ABIS } from '../../config/abis';
@@ -74,30 +74,43 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     // 4. Math
     const stats = useMarketStatsMath(launchpad as any, ammState, decimals);
 
+    // 5. Truth Market State (for finalized check)
+    const { market: truthMarket } = useTruthMarketDirect(marketAddress);
+    const isFinalized = truthMarket?.isFinalized ?? false;
+
     // Hint state - must be before early return to satisfy Rules of Hooks
     const [showHint, setShowHint] = useState(false);
 
-    if (!launchpad || !stats) {
+    if (!launchpad) {
         return null;
     }
+
+    // If stats are missing (e.g. finalized market), only proceed if finalized
+    if (!stats && !isFinalized) {
+        return null;
+    }
+
+    // Safe stats accessors
+    const floorRate = stats?.floorRate ?? 0;
+    const ceilingRate = stats?.ceilingRate ?? 0;
 
     // User LP
     const hasUserLp = launchpad.userLpBalance !== undefined && launchpad.userLpBalance > 0n;
     const userLP = launchpad.userLpBalance ?? 0n;
     const userLpNum = Number(formatUnits(userLP, 18));
-    const userFloorVal = userLpNum * stats.floorRate;
-    const userCeilingVal = userLpNum * stats.ceilingRate;
+    const userFloorVal = userLpNum * floorRate;
+    const userCeilingVal = userLpNum * ceilingRate;
 
     // Creator LP - use actual fetched balance, not total supply
     const creatorLP = creatorLpBalance ?? 0n;
     const creatorLpNum = Number(formatUnits(creatorLP, 18));
-    const creatorFloorVal = creatorLpNum * stats.floorRate;
-    const creatorCeilingVal = creatorLpNum * stats.ceilingRate;
+    const creatorFloorVal = creatorLpNum * floorRate;
+    const creatorCeilingVal = creatorLpNum * ceilingRate;
 
     // Total LP for market floor/ceiling display
     const totalLpNum = Number(formatUnits(launchpad.lpSupply, 18));
-    const marketFloorVal = totalLpNum * stats.floorRate;
-    const marketCeilingVal = totalLpNum * stats.ceilingRate;
+    const marketFloorVal = totalLpNum * floorRate;
+    const marketCeilingVal = totalLpNum * ceilingRate;
 
     // Share percentages (now that all values are defined)
     const userSharePct = totalLpNum > 0 ? (userLpNum / totalLpNum) * 100 : 0;
@@ -174,7 +187,9 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         {isCreator && <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>}
                     </div>
                     <div className="text-right">
-                        <div className="font-mono text-emerald-400 font-bold">{fmtUsd(creatorFloorVal)}</div>
+                        <div className="font-mono text-emerald-400 font-bold">
+                            {stats ? fmtUsd(creatorFloorVal) : <span className="text-slate-500 text-xs">Finalized</span>}
+                        </div>
                     </div>
                 </div>
 
@@ -191,7 +206,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         )}
                     </div>
                     <div className="text-slate-500 font-mono">
-                        {fmtUsd(creatorCeilingVal)}
+                        {stats ? fmtUsd(creatorCeilingVal) : '-'}
                     </div>
                 </div>
             </div>
@@ -207,7 +222,9 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>
                         </div>
                         <div className="text-right">
-                            <div className="font-mono text-emerald-400 font-bold">{fmtUsd(userFloorVal)}</div>
+                            <div className="font-mono text-emerald-400 font-bold">
+                                {stats ? fmtUsd(userFloorVal) : <span className="text-slate-500 text-xs">Finalized</span>}
+                            </div>
                         </div>
                     </div>
 
@@ -224,7 +241,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             )}
                         </div>
                         <div className="text-slate-500 font-mono">
-                            {fmtUsd(userCeilingVal)}
+                            {stats ? fmtUsd(userCeilingVal) : '-'}
                         </div>
                     </div>
                 </div>
@@ -274,14 +291,22 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                     {/* Floor */}
                     <div>
                         <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
-                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">{fmtUsd(marketFloorVal)}</div>
-                        <div className="text-sm font-mono text-slate-400">{stats.floorRate.toFixed(3)}x</div>
+                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+                            {stats ? fmtUsd(marketFloorVal) : <span className="text-lg">Finalized</span>}
+                        </div>
+                        <div className="text-sm font-mono text-slate-400">
+                            {stats ? `${stats.floorRate.toFixed(3)}x` : '-'}
+                        </div>
                     </div>
                     {/* Ceiling */}
                     <div className="text-right">
                         <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
-                        <div className="text-2xl font-bold text-white tracking-tight">{fmtUsd(marketCeilingVal)}</div>
-                        <div className="text-sm font-mono text-slate-400">{stats.ceilingRate.toFixed(3)}x</div>
+                        <div className="text-2xl font-bold text-white tracking-tight">
+                            {stats ? fmtUsd(marketCeilingVal) : <span className="text-lg">-</span>}
+                        </div>
+                        <div className="text-sm font-mono text-slate-400">
+                            {stats ? `${stats.ceilingRate.toFixed(3)}x` : '-'}
+                        </div>
                     </div>
                 </div>
 
