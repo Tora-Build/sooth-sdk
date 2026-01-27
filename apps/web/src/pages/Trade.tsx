@@ -6,16 +6,20 @@
  * 
  * V9.9.6: Now uses on-chain market discovery via useOnChainMarkets hook
  */
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, Zap, Clock, ChevronLeft, ChevronRight, Loader2, BarChart3, Check, Trophy, XCircle } from 'lucide-react';
+import { Zap, Clock, ChevronLeft, ChevronRight, Loader2, BarChart3, Trophy, XCircle } from 'lucide-react';
+import { useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { useChainStore } from '../store/useChainStore';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { MarketHeader, GraduationProgress, MarketStats, LPHolders, AMMSettlementCard, DismissedMarketPanel } from '../components/features';
 import { SimpleTradingPanel } from '../components/features/SimpleTradingPanel';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
-import { useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets } from '../hooks';
+import { useTruthMarketDirect, useLaunchpadMarketDirect, useOnChainMarkets, useInvalidateQueries } from '../hooks';
+import { useDeployments } from '../hooks/useDeployments';
+import { toast } from 'react-hot-toast';
 import marketsConfig from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { cn } from '../lib/utils';
@@ -264,6 +268,29 @@ export const Trade = () => {
   const { market: truth, isLoading: isLoadingTruth } = useTruthMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(selectedMarket?.contractAddress as `0x${string}`);
 
+  // Contract interaction
+  const { writeContractAsync, isPending: isWritePending } = useWriteContract();
+  const queryClient = useQueryClient();
+  const { contracts } = useDeployments();
+  const invalidateQueries = useInvalidateQueries();
+
+  const handleRedeemLP = useCallback(async (marketAddr: string, lpBalance: bigint) => {
+    if (!contracts?.LaunchpadEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: contracts.LaunchpadEngine as `0x${string}`,
+        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
+        functionName: 'redeemLP',
+        args: [marketAddr as `0x${string}`, lpBalance],
+      });
+      toast.success('LP tokens redeemed successfully');
+      invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
+    }
+  }, [contracts, writeContractAsync, invalidateQueries, queryClient]);
+
   const handleSelectMarket = (market: typeof allMarkets[0]) => {
     setSelectedMarketAddress(market.contractAddress);
   };
@@ -370,7 +397,32 @@ export const Trade = () => {
             {launchpad?.isDismissed ? (
               <DismissedMarketPanel address={selectedMarket.contractAddress as `0x${string}`} />
             ) : (truth?.isSettled === true || truth?.isFinalized === true || selectedMarket?.stage === 'settled' || selectedMarket?.stage === 'finalized') ? (
-              <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} stage={selectedMarket?.stage} />
+              <>
+                <AMMSettlementCard address={selectedMarket.contractAddress as `0x${string}`} stage={selectedMarket?.stage} />
+                
+                {selectedMarket?.stage === 'finalized' && launchpad?.userLpBalance && launchpad.userLpBalance > 0n && (
+                  <Card className="border-slate-700/50 bg-slate-900/50">
+                    <div className="p-4 space-y-3">
+                      <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-cyan-400" />
+                        LP Token Redemption
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        You have {(Number(launchpad.userLpBalance) / 1e18).toFixed(2)} LP tokens to redeem.
+                      </p>
+                       <Button
+                         variant="secondary"
+                         size="sm"
+                         className="w-full"
+                         onClick={() => handleRedeemLP(selectedMarket.contractAddress, launchpad.userLpBalance)}
+                         disabled={isWritePending}
+                       >
+                         {isWritePending ? 'Redeeming...' : 'Redeem LP Tokens'}
+                       </Button>
+                    </div>
+                  </Card>
+                )}
+              </>
             ) : (
               <Card className="bg-slate-950/50 border-slate-800 p-0 overflow-hidden">
                 <SimpleTradingPanel
