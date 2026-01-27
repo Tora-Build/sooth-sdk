@@ -134,7 +134,7 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
                     <span className="font-mono">{truncate(creator)}</span>
                 </a>
 
-                {adjudicator && (
+                {adjudicator && adjudicator !== '0x0000000000000000000000000000000000000000' && (
                     <a href={getAddressExplorerUrl(chainId, adjudicator)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-slate-300 transition-colors" title="View adjudicator">
                         <Shield size={11} />
                         <span className="font-mono">{truncate(adjudicator)}</span>
