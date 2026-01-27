@@ -77,6 +77,13 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
 
     const status = getStatus();
 
+    // Debug logging
+    console.log('[MarketDetailHeader] Props:', { 
+        adjudicator, 
+        isZeroAddress: adjudicator === '0x0000000000000000000000000000000000000000',
+        willShow: adjudicator && adjudicator !== '0x0000000000000000000000000000000000000000'
+    });
+
     // Determine fee based on status
     const getFee = () => {
         if (isSettled || isFinalized) return '1%';
