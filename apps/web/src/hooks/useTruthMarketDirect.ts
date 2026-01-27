@@ -14,6 +14,29 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
     chainId,
     read: async (client) => {
       console.log('[useTruthMarketDirect] Starting read for:', marketAddress);
+      
+      let results;
+      try {
+        results = await Promise.all([
+        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isLive" }),
+        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isSettled" }),
+        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isFinalized" }),
+        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "winningOutcome" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "startTime" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "deadline" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "creator" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "adjudicator" }),
+        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "guardian" }),
+        readContractSafe<string>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "question" }),
+        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "tStar" }),
+        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "state" }),
+        ]);
+        console.log('[useTruthMarketDirect] Promise.all completed');
+      } catch (error) {
+        console.error('[useTruthMarketDirect] Promise.all failed:', error);
+        throw error;
+      }
+
       const [
         isLive,
         isSettled,
@@ -27,20 +50,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         question,
         tStar,
         state,
-      ] = await Promise.all([
-        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isLive" }),
-        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isSettled" }),
-        readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isFinalized" }),
-        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "winningOutcome" }),
-        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "startTime" }),
-        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "deadline" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "creator" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "adjudicator" }),
-        readContractSafe<Address>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "guardian" }),
-        readContractSafe<string>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "question" }),
-        readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "tStar" }),
-        readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "state" }),
-      ]);
+      ] = results;
 
       const now = Math.floor(Date.now() / 1000);
       const startTimestamp = Number(startTime);
