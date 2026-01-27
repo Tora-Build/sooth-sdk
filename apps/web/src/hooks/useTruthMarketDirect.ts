@@ -13,16 +13,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
     enabled: !!marketAddress && !!chainId,
     chainId,
     read: async (client) => {
-      console.log('[useTruthMarketDirect] Starting read for:', marketAddress, 'client:', !!client);
-      
-      if (!client) {
-        console.error('[useTruthMarketDirect] No client available!');
-        throw new Error('No RPC client');
-      }
-      
-      let results;
-      try {
-        results = await Promise.all([
+      const results = await Promise.all([
         readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isLive" }),
         readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isSettled" }),
         readContractSafe<boolean>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "isFinalized" }),
@@ -34,12 +25,7 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
         readContractSafe<string>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "question" }),
         readContractSafe<bigint>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "tStar" }),
         readContractSafe<number>(client, { address: marketAddress!, abi: ABIS.TruthMarket, functionName: "state" }),
-        ]);
-        console.log('[useTruthMarketDirect] Promise.all completed');
-      } catch (error) {
-        console.error('[useTruthMarketDirect] Promise.all failed:', error);
-        throw error;
-      }
+      ]);
 
       const [
         isLive,
@@ -86,13 +72,6 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
          isVetoed: state === 4,
          hasWinner: isSettled && winningOutcome !== undefined,
        };
-       
-       console.log('[useTruthMarketDirect] Fetched data:', { 
-         market: marketAddress, 
-         adjudicator, 
-         creator,
-         isZeroAddress: adjudicator === '0x0000000000000000000000000000000000000000'
-       });
        
        return result;
     },
