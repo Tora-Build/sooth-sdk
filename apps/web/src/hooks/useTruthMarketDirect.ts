@@ -13,7 +13,12 @@ export function useTruthMarketDirect(marketAddress: Address | undefined) {
     enabled: !!marketAddress && !!chainId,
     chainId,
     read: async (client) => {
-      console.log('[useTruthMarketDirect] Starting read for:', marketAddress);
+      console.log('[useTruthMarketDirect] Starting read for:', marketAddress, 'client:', !!client);
+      
+      if (!client) {
+        console.error('[useTruthMarketDirect] No client available!');
+        throw new Error('No RPC client');
+      }
       
       let results;
       try {
