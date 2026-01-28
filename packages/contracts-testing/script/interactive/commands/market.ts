@@ -542,24 +542,17 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         if (isMegaETH) {
           await sleep(2000);
         }
-        const [, , checkPercent] = await publicClient.readContract({
+        // Always check isGraduated flag directly - don't rely on percent
+        // (after graduation, getGraduationProgress may return 0% as fees reset)
+        const mktState = await publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
-          functionName: 'getGraduationProgress',
+          functionName: 'markets',
           args: [marketAddress],
-        }) as [bigint, bigint, bigint];
-        if (checkPercent >= 10000n) {
-          // Also check isGraduated flag
-          const mktState = await publicClient.readContract({
-            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-            abi: LaunchpadEngineAbi,
-            functionName: 'markets',
-            args: [marketAddress],
-          }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-          if (mktState[8]) {
-            console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
-            return { success: true, data: { tradesExecuted, totalGas } };
-          }
+        }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+        if (mktState[8]) {
+          console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
+          return { success: true, data: { tradesExecuted, totalGas } };
         }
         consecutiveFailures = 0; // Reset on success
       } catch (err) {

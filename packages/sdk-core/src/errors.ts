@@ -118,6 +118,14 @@ export function decodeError(errorData: string | Error): string {
   return decodeErrorHex(errorData);
 }
 
+export function isUnknownSelectorError(error: Error): boolean {
+  const msg = error.message;
+  const hexMatch = msg.match(/0x[a-fA-F0-9]{10,}/);
+  if (!hexMatch) return false;
+  const selector = hexMatch[0].slice(0, 10).toLowerCase();
+  return !ERROR_SELECTORS[selector];
+}
+
 export function isTransientError(error: Error): boolean {
   const msg = error.message.toLowerCase();
   return msg.includes('timeout') ||
@@ -130,7 +138,8 @@ export function isTransientError(error: Error): boolean {
     msg.includes('socket') ||
     msg.includes('rate limit') ||
     msg.includes('429') ||
-    msg.includes('returned no data ("0x")');
+    msg.includes('returned no data ("0x")') ||
+    isUnknownSelectorError(error);
 }
 
 export function isContractError(error: Error): boolean {
