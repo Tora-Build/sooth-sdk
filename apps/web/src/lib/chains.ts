@@ -26,18 +26,17 @@ export const baseSepolia = defineChain({
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://sepolia.base.org', 'https://base-sepolia-rpc.publicnode.com'] },
+    default: { http: ['https://sepolia.base.org'] },
   },
   blockExplorers: {
     default: { name: 'Basescan', url: 'https://sepolia.basescan.org' },
   },
-  /* 
   contracts: {
     multicall3: {
       address: '0xca11bde05977b3631167028862be2a173976ca11',
+      blockCreated: 5882,
     },
   },
-  */
   testnet: true,
 });
 
@@ -50,6 +49,12 @@ export const bnbTestnet = defineChain({
   },
   blockExplorers: {
     default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
   },
   testnet: true,
 });
@@ -121,55 +126,65 @@ export const allowedChains: AllowedChain[] = [
     },
   },
   */
-  // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
-  {
-    id: 10143,
-    type: 'evm',
-    name: 'Monad Testnet',
-    displayName: 'Monad',
-    shortName: 'Monad',
-    rpcUrl: 'https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/',
-    explorerUrl: 'https://testnet.monadvision.com',
-    icon: '🟣',
-    nativeCurrency: {
-      name: 'Monad',
-      symbol: 'MON',
-      decimals: 18,
-    },
-  },
-  // Arc Testnet - Circle-backed chain with native USDC
-  // Docs: https://docs.arc.network/arc/references/connect-to-arc
-  {
-    id: 5042002,
-    type: 'evm',
-    name: 'Arc Testnet',
-    displayName: 'Arc',
-    shortName: 'Arc',
-    rpcUrl: 'https://rpc.quicknode.testnet.arc.network',
-    explorerUrl: 'https://testnet.arcscan.app',
-    icon: '🔶',
-    nativeCurrency: {
-      name: 'USDC',
-      symbol: 'USDC',
-      decimals: 6,
-    },
-  },
-  // MegaETH Testnet - HIDDEN (RPC rate limiting)
-  // {
-  //   id: 6343,
-  //   type: 'evm',
-  //   name: 'MegaETH Testnet',
-  //   displayName: 'MegaETH',
-  //   shortName: 'Mega',
-  //   rpcUrl: 'https://timothy.megaeth.com/rpc',
-  //   explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
-  //   icon: '⚡',
-  //   nativeCurrency: {
-  //     name: 'Ether',
-  //     symbol: 'ETH',
-  //     decimals: 18,
-  //   },
-  // },
+   // V11.1: Disabled - single-chain focus
+   /*
+   // Monad Testnet - RPCs: https://docs.monad.xyz/developer-essentials/testnets
+   // Note: QuickNode/Foundation RPCs unreachable as of 2026-01
+   {
+     id: 10143,
+     type: 'evm',
+     name: 'Monad Testnet',
+     displayName: 'Monad',
+     shortName: 'Monad',
+     rpcUrl: 'https://rpc.ankr.com/monad_testnet',
+     explorerUrl: 'https://testnet.monadvision.com',
+     icon: '🟣',
+     nativeCurrency: {
+       name: 'Monad',
+       symbol: 'MON',
+       decimals: 18,
+     },
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   // MegaETH Testnet
+   {
+     id: 6343,
+     type: 'evm',
+     name: 'MegaETH Testnet',
+     displayName: 'MegaETH',
+     shortName: 'Mega',
+     rpcUrl: 'https://carrot.megaeth.com/rpc',
+     explorerUrl: 'https://megaeth-testnet-v2.blockscout.com',
+     icon: '⚡',
+     nativeCurrency: {
+       name: 'Ether',
+       symbol: 'ETH',
+       decimals: 18,
+     },
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   // Arc Testnet - Circle-backed chain with native USDC
+   // Docs: https://docs.arc.network/arc/references/connect-to-arc
+   {
+     id: 5042002,
+     type: 'evm',
+     name: 'Arc Testnet',
+     displayName: 'Arc',
+     shortName: 'Arc',
+     rpcUrl: 'https://rpc.testnet.arc.network',
+     explorerUrl: 'https://testnet.arcscan.app',
+     icon: '🔶',
+     nativeCurrency: {
+       name: 'USDC',
+       symbol: 'USDC',
+       decimals: 6,
+     },
+   },
+   */
 ];
 
 // Define MegaETH Testnet using viem
@@ -178,16 +193,23 @@ export const megaethTestnet = defineChain({
   name: 'MegaETH Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://timothy.megaeth.com/rpc'] },
+    default: { http: ['https://carrot.megaeth.com/rpc'] },
   },
   blockExplorers: {
     default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
   },
   testnet: true,
 });
 
 // Define Monad Testnet using viem
 // RPCs: https://docs.monad.xyz/developer-essentials/testnets
+// Note: QuickNode and Foundation RPCs are currently unreachable (2026-01)
 export const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
@@ -195,15 +217,18 @@ export const monadTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/',
-        'https://testnet-rpc.monad.xyz',
-        'https://rpc.ankr.com/monad_testnet',
-        'https://rpc-testnet.monadinfra.com',
+        'https://rpc.ankr.com/monad_testnet',  // Only reliable endpoint
       ]
     },
   },
   blockExplorers: {
     default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 334,
+    },
   },
   testnet: true,
 });
@@ -219,25 +244,31 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://rpc.quicknode.testnet.arc.network',
-        'https://rpc.drpc.testnet.arc.network',
         'https://rpc.blockdaemon.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.testnet.arc.network',
+        'https://rpc.quicknode.testnet.arc.network',
       ]
     },
   },
   blockExplorers: {
     default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
   },
+  contracts: {
+    multicall3: {
+      address: '0xca11bde05977b3631167028862be2a173976ca11',
+      blockCreated: 5882, // Placeholder
+    },
+  },
   testnet: true,
-  // Disable filter-based watching - use polling instead
-  contracts: {},
 });
 
 // EVM-only chains for wagmi
 export const evmChains = allowedChains.filter(c => c.type === 'evm');
 
-// Export wagmi chains array (includes Arc Testnet)
-export const wagmiChains: Chain[] = [baseSepolia, monadTestnet, arcTestnet];
+// Export wagmi chains array
+// V11.1: Single-chain focus - other chains disabled
+export const wagmiChains: Chain[] = [baseSepolia];
 
 // Helper to get chain by ID
 export function getChainById(chainId: number | string): AllowedChain | undefined {
@@ -255,6 +286,19 @@ export function isSolanaChain(chain: AllowedChain): boolean {
 
 // Default chain (Base Sepolia)
 export const DEFAULT_CHAIN_ID = 84532;
+
+export function getExplorerUrl(chainId: number): string {
+  const chain = getChainById(chainId);
+  return chain?.explorerUrl || 'https://sepolia.basescan.org';
+}
+
+export function getAddressExplorerUrl(chainId: number, address: string): string {
+  return `${getExplorerUrl(chainId)}/address/${address}`;
+}
+
+export function getTxExplorerUrl(chainId: number, txHash: string): string {
+  return `${getExplorerUrl(chainId)}/tx/${txHash}`;
+}
 
 /**
  * Get recommended refetch interval for a chain

@@ -12,7 +12,7 @@ interface ITruthMarket {
     // Events
     // ============================================
 
-    event MarketCreated(address indexed market, string question, uint64 deadline);
+    event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline);
     event MarketSettled(address indexed market, uint8 outcome, uint64 tStar);
     event MarketFinalized(address indexed market);
     event MarketVetoed(address indexed market, uint8 previousOutcome, uint64 previousTStar);
@@ -34,6 +34,13 @@ interface ITruthMarket {
      * @return True if market is settled
      */
     function isSettled() external view returns (bool);
+
+    /**
+     * @notice Check if market is fully finalized
+     * @dev Returns true if settlement is irreversible
+     * @return True if market is finalized
+     */
+    function isFinalized() external view returns (bool);
 
     /**
      * @notice Get winning outcome
@@ -74,6 +81,12 @@ interface ITruthMarket {
     function question() external view returns (string memory);
 
     /**
+     * @notice Get market start time
+     * @return Unix timestamp when trading can begin
+     */
+    function startTime() external view returns (uint64);
+
+    /**
      * @notice Get market deadline
      * @return Unix timestamp of market deadline
      */
@@ -84,4 +97,21 @@ interface ITruthMarket {
      * @return Address of market creator
      */
     function creator() external view returns (address);
+
+    // ============================================
+    // Settlement (Adjudicator Only)
+    // ============================================
+
+    /**
+     * @notice Settle market with outcome (adjudicator only)
+     * @param outcome Winning outcome (0=NO, 1=YES, 2=INVALID)
+     * @param tStar Retroactive truth-time (0 if not applicable)
+     */
+    function settle(uint8 outcome, uint64 tStar) external;
+
+    /**
+     * @notice Finalize settlement (irreversible)
+     * @dev Can be called by adjudicator after settlement
+     */
+    function finalize() external;
 }

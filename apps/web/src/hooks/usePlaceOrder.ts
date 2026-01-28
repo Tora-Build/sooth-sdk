@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, decodeEventLog } from 'viem';
-import { V996_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
+import { MONAD_TESTNET_CHAIN_ID } from '../lib/polling';
 import toast from 'react-hot-toast';
 
 type Address = `0x${string}`;
@@ -11,6 +12,7 @@ type Address = `0x${string}`;
 // Tick constants matching contract
 const MIN_TICK = 1;
 const MAX_TICK = 999;
+const MAX_SPOT_RANGE = 50; // V10.4: Max ticks for spot sell range
 
 /**
  * Result from placeOrder call
@@ -21,6 +23,11 @@ export interface PlaceOrderResult {
   filledCost: bigint;
   restingShares: bigint;
   txHash: `0x${string}`;
+  autoClaim?: {
+    ordersClaimed: bigint;
+    totalShares: bigint;
+    totalCollateralUsed: bigint;
+  };
 }
 
 /**
@@ -59,8 +66,24 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     tickUpper: number,
     maxCost: bigint
   ): Promise<PlaceOrderResult | null> => {
+    console.log('[usePlaceOrder] placeOrder called:', {
+      marketKey,
+      poolManagerAddress,
+      address,
+      outcome,
+      shares: shares.toString(),
+      tickLower,
+      tickUpper,
+      maxCost: maxCost.toString(),
+    });
+
     if (!marketKey || !poolManagerAddress || !address) {
-      toast.error('Missing market or wallet connection');
+      const missing = [];
+      if (!marketKey) missing.push('marketKey');
+      if (!poolManagerAddress) missing.push('poolManagerAddress');
+      if (!address) missing.push('wallet address');
+      toast.error(`Missing: ${missing.join(', ')}`);
+      console.error('[usePlaceOrder] Missing dependencies:', missing);
       return null;
     }
 
@@ -90,16 +113,28 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
         address
       });
 
+      let gasLimit: bigint | undefined;
+      const MAX_GAS_CAP = 30_000_000n;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
+
       // Simulate first to catch reverts
       if (publicClient) {
         try {
-          await publicClient.simulateContract({
+          const simulation = await publicClient.simulateContract({
             account: address,
             address: poolManagerAddress,
-            abi: V996_ABIS.TickBookPoolManager,
+            abi: ABIS.TickBookPoolManager,
             functionName: 'placeOrder',
             args,
           });
+
+          if (simulation.request.gas && (isMonad || isMegaETH)) {
+            // Monad/MegaETH benefit from explicit limits.
+            // Use 1.2x buffer but cap at 30M to prevent runaway estimates.
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
+          }
         } catch (simError: any) {
           const reason = simError.cause?.reason || simError.shortMessage || simError.message;
           throw new Error(`Simulation failed: ${reason}`);
@@ -108,9 +143,11 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'placeOrder',
         args,
+        // Apply gasLimit for Monad/MegaETH
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Confirming...', { id: toastId });
@@ -118,16 +155,68 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       if (publicClient) {
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-        // Parse OrderPlaced event from receipt
-        // TODO: Parse actual values from event logs
-        toast.success('Order placed!', { id: toastId });
+        let orderId = 0n;
+        let filledShares = 0n;
+        let filledCost = 0n;
+        let restingShares = shares;
+        let autoClaim: PlaceOrderResult['autoClaim'];
+
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
+
+          try {
+            const decoded = decodeEventLog({
+              abi: ABIS.TickBookPoolManager,
+              data: log.data,
+              topics: log.topics,
+            });
+
+            if (decoded.eventName === 'OrderPlaced') {
+              const args = decoded.args as unknown as {
+                orderId: bigint;
+                filledShares: bigint;
+                filledCost: bigint;
+                restingShares: bigint;
+              };
+
+              orderId = args.orderId;
+              filledShares = args.filledShares;
+              filledCost = args.filledCost;
+              restingShares = args.restingShares;
+            }
+
+            if (decoded.eventName === 'AutoClaimExecuted') {
+              const args = decoded.args as unknown as {
+                ordersClaimed: bigint;
+                totalShares: bigint;
+                totalCollateralUsed: bigint;
+              };
+
+              autoClaim = {
+                ordersClaimed: args.ordersClaimed,
+                totalShares: args.totalShares,
+                totalCollateralUsed: args.totalCollateralUsed,
+              };
+            }
+          } catch {
+            // Ignore non-matching logs
+          }
+        }
+
+        toast.success(
+          autoClaim && autoClaim.ordersClaimed > 0n
+            ? `Order placed (auto-claimed ${autoClaim.ordersClaimed.toString()} order${autoClaim.ordersClaimed === 1n ? '' : 's'})!`
+            : 'Order placed!',
+          { id: toastId }
+        );
 
         return {
-          orderId: 0n, // TODO: Parse from event
-          filledShares: 0n,
-          filledCost: 0n,
-          restingShares: shares,
+          orderId,
+          filledShares,
+          filledCost,
+          restingShares,
           txHash: hash,
+          autoClaim,
         };
       }
 
@@ -221,22 +310,34 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
    * Calculate max cost for a limit order at given price
    */
   const calculateMaxCost = useMemo(() => {
-    return (outcome: 0 | 1, shares: bigint, priceCents: number, slippageBps = 100): bigint => {
-      // For YES at price P: cost = P * shares
-      // For NO at price P: cost = (1-P) * shares
-      const priceWad = parseUnits(String(priceCents / 100), 18);
+    /**
+     * Calculate max cost for range orders matching contract's _calculateCollateral logic.
+     * 
+     * Contract uses: 
+     *   - YES: pHigh * shares (uses tickUpper + 1)
+     *   - NO: (1 - pLow) * shares (uses tickLower - 1)
+     * 
+     * @param outcome 0=NO, 1=YES
+     * @param shares Amount of shares
+     * @param priceLowCents Lower tick price in cents (for NO collateral calculation)
+     * @param priceHighCents Upper tick price in cents (for YES collateral calculation)
+     * @param slippageBps Slippage buffer in basis points (default 500 = 5%)
+     */
+    return (outcome: 0 | 1, shares: bigint, priceLowCents: number, priceHighCents: number, slippageBps = 500): bigint => {
       const WAD = parseUnits('1', 18);
 
       let baseCost: bigint;
       if (outcome === 1) {
-        // YES: cost = price * shares
-        baseCost = (priceWad * shares) / WAD;
+        // YES: collateral based on upper bound (tickUpper + 1 tick ≈ priceHigh + 0.1%)
+        const pHighWad = parseUnits(String(Math.min((priceHighCents + 1) / 100, 1)), 18);
+        baseCost = (pHighWad * shares) / WAD;
       } else {
-        // NO: cost = (1 - price) * shares
-        baseCost = ((WAD - priceWad) * shares) / WAD;
+        // NO: collateral based on lower bound (tickLower - 1 tick ≈ priceLow - 0.1%)
+        const pLowWad = parseUnits(String(Math.max((priceLowCents - 1) / 100, 0)), 18);
+        baseCost = ((WAD - pLowWad) * shares) / WAD;
       }
 
-      // Add slippage buffer
+      // Add slippage buffer (default 5% to be safe)
       return (baseCost * (10000n + BigInt(slippageBps))) / 10000n;
     };
   }, []);
@@ -278,15 +379,45 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
       if (tickLower > tickUpper) {
         throw new Error('priceLow cannot exceed priceHigh');
       }
+      // V10.4: Spot sell range capped at 50 ticks for gas optimization
+      const ticksInRange = tickUpper - tickLower + 1;
+      if (ticksInRange > MAX_SPOT_RANGE) {
+        throw new Error(`Spot sell range too wide: ${ticksInRange} ticks (max ${MAX_SPOT_RANGE}). Use a narrower price range.`);
+      }
 
       const args = [marketKey, outcome, shares, tickLower, tickUpper] as const;
+      const MAX_GAS_CAP = 30_000_000n;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
+
+      let gasLimit: bigint | undefined;
+      if (publicClient && (isMonad || isMegaETH)) {
+        try {
+          const simulation = await publicClient.simulateContract({
+            account: address,
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'placeSpotSell',
+            args,
+          });
+          if (simulation.request.gas) {
+            // Apply 1.2x buffer and 30M cap
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
+          }
+        } catch (simError: any) {
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message;
+          throw new Error(`Simulation failed: ${reason}`);
+        }
+      }
 
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'placeSpotSell',
         args,
         chainId,
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Waiting for confirmation...', { id: toastId });
@@ -304,7 +435,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V996_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });
@@ -347,12 +478,38 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
     const toastId = toast.loading('Cancelling spot sell...');
 
     try {
+      const args = [marketKey, sellId] as const;
+      const MAX_GAS_CAP = 30_000_000n;
+      const isMonad = chainId === MONAD_TESTNET_CHAIN_ID;
+      const isMegaETH = chainId === 6343;
+
+      let gasLimit: bigint | undefined;
+      if (publicClient && (isMonad || isMegaETH)) {
+        try {
+          const simulation = await publicClient.simulateContract({
+            account: address,
+            address: poolManagerAddress,
+            abi: ABIS.TickBookPoolManager,
+            functionName: 'cancelSpotSell',
+            args,
+          });
+          if (simulation.request.gas) {
+            const withBuffer = (simulation.request.gas * 120n) / 100n;
+            gasLimit = withBuffer > MAX_GAS_CAP ? MAX_GAS_CAP : withBuffer;
+          }
+        } catch (simError: any) {
+          const reason = simError.cause?.reason || simError.shortMessage || simError.message;
+          throw new Error(`Simulation failed: ${reason}`);
+        }
+      }
+
       const hash = await writeContractAsync({
         address: poolManagerAddress,
-        abi: V996_ABIS.TickBookPoolManager,
+        abi: ABIS.TickBookPoolManager,
         functionName: 'cancelSpotSell',
-        args: [marketKey, sellId],
+        args,
         chainId,
+        ...(gasLimit && { gas: gasLimit }),
       });
 
       toast.loading('Waiting for confirmation...', { id: toastId });
@@ -369,7 +526,7 @@ export function usePlaceOrder(marketKey: `0x${string}` | undefined) {
           if (log.address.toLowerCase() !== poolManagerAddress.toLowerCase()) continue;
           try {
             const decoded = decodeEventLog({
-              abi: V996_ABIS.TickBookPoolManager,
+              abi: ABIS.TickBookPoolManager,
               data: log.data,
               topics: log.topics,
             });

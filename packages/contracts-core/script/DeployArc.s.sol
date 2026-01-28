@@ -2,12 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
-import {TickBookPoolManagerV996} from "../src/TickBookPoolManagerV996.sol";
+import {TickBookPoolManager} from "../src/TickBookPoolManager.sol";
 import {TickBookVault} from "../src/TickBookVault.sol";
 import {AMMEngine} from "../src/AMMEngine.sol";
 import {Collateralizer} from "../src/Collateralizer.sol";
 import {LaunchpadEngine} from "../src/LaunchpadEngine.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
+import {ProtocolConfig} from "../src/ProtocolConfig.sol";
 
 /**
  * @title DeployArc
@@ -36,36 +37,41 @@ contract DeployArc is Script {
         MockUSDC mockUSDC = new MockUSDC("Mock USDC", "USDC");
         console.log("[1/6] MockUSDC:", address(mockUSDC));
 
-        // 2. Deploy Collateralizer
+        // 2. Deploy ProtocolConfig
+        ProtocolConfig protocolConfig = new ProtocolConfig(deployer);
+        console.log("[2/7] ProtocolConfig:", address(protocolConfig));
+
+        // 3. Deploy Collateralizer
         Collateralizer collateralizer = new Collateralizer(address(mockUSDC));
-        console.log("[2/6] Collateralizer:", address(collateralizer));
+        console.log("[3/7] Collateralizer:", address(collateralizer));
 
-        // 3. Deploy AMMEngine
-        AMMEngine ammEngine = new AMMEngine(address(mockUSDC), deployer);
-        console.log("[3/6] AMMEngine:", address(ammEngine));
+        // 4. Deploy AMMEngine
+        AMMEngine ammEngine = new AMMEngine(address(mockUSDC), address(protocolConfig), deployer);
+        console.log("[4/7] AMMEngine:", address(ammEngine));
 
-        // 4. Deploy TickBookVault
-        TickBookVault vault = new TickBookVault(address(mockUSDC), deployer);
-        console.log("[4/6] TickBookVault:", address(vault));
+        // 5. Deploy TickBookVault
+        TickBookVault vault = new TickBookVault(address(mockUSDC), address(protocolConfig), deployer);
+        console.log("[5/7] TickBookVault:", address(vault));
 
-        // 5. Deploy TickBookPoolManager V9.9.6
-        TickBookPoolManagerV996 poolManager = new TickBookPoolManagerV996(address(vault));
-        console.log("[5/6] TickBookPoolManager (V9.9.6):", address(poolManager));
+        // 6. Deploy TickBookPoolManager V10
+        TickBookPoolManager poolManager = new TickBookPoolManager(address(vault), address(protocolConfig));
+        console.log("[6/7] TickBookPoolManager (V10):", address(poolManager));
 
         // Link vault to pool manager
         vault.setTickBook(address(poolManager));
         console.log("      -> Vault linked to PoolManager");
 
-        // 6. Deploy LaunchpadEngine
+        // 7. Deploy LaunchpadEngine
         LaunchpadEngine launchpad = new LaunchpadEngine(
             address(mockUSDC),
             address(ammEngine),
             address(collateralizer),
             address(poolManager),
+            address(protocolConfig),
             deployer,  // treasury
             deployer   // owner
         );
-        console.log("[6/6] LaunchpadEngine:", address(launchpad));
+        console.log("[7/7] LaunchpadEngine:", address(launchpad));
 
         // Configure permissions
         ammEngine.setRouter(address(launchpad));
@@ -86,6 +92,7 @@ contract DeployArc is Script {
         console.log("");
         console.log("Contract Addresses:");
         console.log("  MockUSDC:             ", address(mockUSDC));
+        console.log("  ProtocolConfig:       ", address(protocolConfig));
         console.log("  Collateralizer:       ", address(collateralizer));
         console.log("  AMMEngine:            ", address(ammEngine));
         console.log("  TickBookVault:        ", address(vault));

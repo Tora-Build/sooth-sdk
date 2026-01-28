@@ -126,10 +126,10 @@ export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
           {/* Current Price */}
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Percent className="w-3.5 h-3.5 text-purple-400" />
+              <Percent className="w-3.5 h-3.5 text-cyan-400" />
               Current Price
             </div>
-            <div className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <div className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
               {formatPercent(yesPrice)}
             </div>
           </div>
@@ -148,7 +148,7 @@ export const AMMStatsCard = ({ address }: AMMStatsCardProps) => {
           {/* Current Fee */}
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span className="text-xs">💰</span>
+              <span className="text-xs">$</span>
               Current Fee
             </div>
             <div className={`text-lg font-bold ${isGraduated ? 'text-emerald-400' : 'text-orange-400'}`}>

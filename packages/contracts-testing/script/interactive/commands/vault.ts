@@ -5,7 +5,7 @@
 
 import type { CommandContext, CommandResult } from './types';
 import { ABIS, WAD, MAX_UINT256 } from '../config';
-import { formatWad, parseWad, shortTx, Spinner, success, error, dim, bold, info } from '../utils';
+import { formatWad, parseWad, shortTx, Spinner, success, error, dim, bold, info, readContractWithRpcFallback } from '../utils';
 
 /**
  * Deposit USDC to TickBookVault
@@ -27,12 +27,16 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
   const amount = parseWad(args[0]);
 
   // Check wallet balance first
-  const walletBalance = await publicClient.readContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
-    functionName: 'balanceOf',
-    args: [address],
-  }) as bigint;
+  const walletBalance = await readContractWithRpcFallback<bigint>(
+    ctx.config.chain,
+    ctx.config.rpc,
+    {
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [address],
+    },
+  );
 
   if (walletBalance < amount) {
     return {
@@ -68,7 +72,8 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
     }
   }
 
-  // Execute deposit
+  // Execute deposit - convert WAD to USDC decimals (6)
+  const usdcAmount = amount / (10n ** 12n);
   const depositSpinner = new Spinner(`Depositing ${formatWad(amount)} USDC...`);
   depositSpinner.start();
 
@@ -77,7 +82,7 @@ export async function deposit(ctx: CommandContext, args: string[]): Promise<Comm
       address: deployment.contracts.TickBookVault as `0x${string}`,
       abi: ABIS.TickBookVault,
       functionName: 'depositUsdc',
-      args: [amount],
+      args: [usdcAmount],
     });
 
     await actorManager.waitForTransactionReceipt(hash);

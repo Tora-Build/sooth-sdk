@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { toast } from 'react-hot-toast';
-import { V8_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
+import { getPollingInterval } from '../lib/polling';
 
 export interface ClaimUnlockedData {
     claim: (maxClaims?: number) => void;
@@ -18,6 +19,7 @@ export interface ClaimUnlockedData {
 export function useClaimUnlocked(
     ammEngineAddress: `0x${string}` | undefined
 ): ClaimUnlockedData {
+    const chainId = useChainId();
     const {
         data: hash,
         writeContract,
@@ -31,7 +33,7 @@ export function useClaimUnlocked(
         error: confirmError,
     } = useWaitForTransactionReceipt({
         hash,
-        pollingInterval: 1000,
+        pollingInterval: getPollingInterval(chainId, 'fast'),
     });
 
     const claim = (maxClaims: number = 50) => {
@@ -42,7 +44,7 @@ export function useClaimUnlocked(
 
         writeContract({
             address: ammEngineAddress,
-            abi: V8_ABIS.AMMEngine,
+            abi: ABIS.AMMEngine,
             functionName: 'claimUnlocked',
             args: [BigInt(maxClaims)],
         }, {

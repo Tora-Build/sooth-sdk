@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Multi-Chain V9 Core Deployment Script
+ * Multi-Chain V10 Core Deployment Script
  * 
- * Deploys V9 Singleton core contracts to multiple chains:
+ * Deploys V10 Singleton core contracts to multiple chains:
  * - Base Sepolia (testnet)
  * - Monad Testnet
  * - Arc Testnet
@@ -29,26 +29,39 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env file if present
-const envPath = path.join(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf-8');
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const eqIndex = trimmed.indexOf('=');
-      if (eqIndex > 0) {
-        const key = trimmed.slice(0, eqIndex);
-        const value = trimmed.slice(eqIndex + 1);
-        if (!process.env[key]) {
-          process.env[key] = value;
+
+const envPaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '../../.env'),
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.slice(0, eqIndex);
+          const value = trimmed.slice(eqIndex + 1);
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
         }
       }
     }
+    console.log(`📁 Loaded .env from ${envPath}`);
+    break;
   }
-  console.log('📁 Loaded .env file');
 }
+
 
 import {
   getChainConfig,
@@ -56,6 +69,8 @@ import {
   type ChainConfig,
   type DeploymentArtifact,
 } from './chainConfigs.js';
+
+const DEPLOYMENT_VERSION = 'V11.1';
 
 // ============================================
 // Artifact Loading
@@ -144,7 +159,7 @@ async function deployContract(
     throw new Error(`Contract deployment failed: ${contractName}`);
   }
 
-  console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress}`);
+  console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress} (block ${receipt.blockNumber})`);
   return receipt.contractAddress;
 }
 
@@ -154,6 +169,7 @@ async function deployContract(
 
 interface CoreContracts {
   mockUSDC: `0x${string}`;
+  protocolConfig: `0x${string}`;
   collateralizer: `0x${string}`;
   ammEngine: `0x${string}`;
   tickBookVault: `0x${string}`;
@@ -163,33 +179,37 @@ interface CoreContracts {
 }
 
 async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContracts> {
-  console.log(`\n[${ctx.chainName}] === Deploying Core V9 Contracts ===`);
+  console.log(`\n[${ctx.chainName}] === Deploying Core V10 Contracts ===`);
 
   // 1. MockUSDC
   const mockUSDC = await deployContract(ctx, 'MockUSDC', ['Mock USDC', 'USDC']);
 
-  // 2. Collateralizer
+  // 2. ProtocolConfig
+  const protocolConfig = await deployContract(ctx, 'ProtocolConfig', [ctx.deployer]);
+
+  // 3. Collateralizer
   const collateralizer = await deployContract(ctx, 'Collateralizer', [mockUSDC]);
 
-  // 3. AMMEngine
-  const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, ctx.deployer]);
+  // 4. AMMEngine
+  const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, protocolConfig, ctx.deployer]);
 
-  // 4. Singleton TickBook Components
-  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, ctx.deployer]);
-  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault]);
+  // 5. Singleton TickBook Components (V10 Unified Crossing)
+  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, protocolConfig, ctx.deployer]);
+  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault, protocolConfig]);
   const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
 
-  // 5. LaunchpadEngine
+  // 6. LaunchpadEngine
   const launchpadEngine = await deployContract(ctx, 'LaunchpadEngine', [
     mockUSDC,
     ammEngine,
     collateralizer,
     tickBookPoolManager,
+    protocolConfig,
     ctx.deployer, // Protocol Treasury
     ctx.deployer, // Initial owner
   ]);
 
-  // 6. Configure Engines (Link up permissions)
+  // 7. Configure Engines (Link up permissions)
   console.log(`\n[${ctx.chainName}] === Configuring Engines & Permissions ===`);
 
   console.log(`  [${ctx.chainName}] Linking Vault to PoolManager...`);
@@ -230,6 +250,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 
   return {
     mockUSDC,
+    protocolConfig,
     collateralizer,
     ammEngine,
     tickBookVault,
@@ -243,24 +264,57 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 // Full Chain Deployment
 // ============================================
 
+function safeRpcLabel(rpcUrl: string): string {
+  try {
+    return new URL(rpcUrl).origin;
+  } catch {
+    return rpcUrl;
+  }
+}
+
+async function createClientsWithFallback(opts: {
+  chain: Chain;
+  account: ReturnType<typeof privateKeyToAccount>;
+  rpcUrls: string[];
+}): Promise<{ rpcUrl: string; publicClient: any; walletClient: any }> {
+  let lastError: unknown;
+
+  for (const rpcUrl of opts.rpcUrls) {
+    const publicClient = createPublicClient({
+      chain: opts.chain,
+      transport: http(rpcUrl),
+    });
+
+    try {
+      await publicClient.getBalance({ address: opts.account.address });
+
+      const walletClient = createWalletClient({
+        account: opts.account,
+        chain: opts.chain,
+        transport: http(rpcUrl),
+      });
+
+      return { rpcUrl, publicClient, walletClient };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('No working RPC URL found');
+}
+
 async function deployToChain(chainName: string, privateKey: `0x${string}`): Promise<DeploymentArtifact> {
   const config = getChainConfig(chainName);
   const account = privateKeyToAccount(privateKey);
 
-  // Get the RPC URL from the chain config
-  const rpcUrl = config.chain.rpcUrls.default.http[0];
-  console.log(`[${chainName}] Using RPC: ${rpcUrl}`);
-
-  const publicClient = createPublicClient({
+  const rpcUrls = config.chain.rpcUrls.default.http;
+  const { rpcUrl, publicClient, walletClient } = await createClientsWithFallback({
     chain: config.chain,
-    transport: http(rpcUrl),
-  });
-
-  const walletClient = createWalletClient({
     account,
-    chain: config.chain,
-    transport: http(rpcUrl),
+    rpcUrls,
   });
+
+  console.log(`[${chainName}] Using RPC: ${safeRpcLabel(rpcUrl)}`);
 
   const ctx: DeploymentContext = {
     chainName,
@@ -271,7 +325,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[${chainName}] Starting V9 Core Deployment`);
+  console.log(`[${chainName}] Starting V10 Core Deployment`);
   console.log(`[${chainName}] Chain ID: ${config.chain.id}`);
   console.log(`[${chainName}] Deployer: ${account.address}`);
   console.log(`${'='.repeat(60)}`);
@@ -291,10 +345,12 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   const artifact: DeploymentArtifact = {
     chainId: config.chain.id,
     chainName,
+    version: DEPLOYMENT_VERSION,
     timestamp: new Date().toISOString(),
     deployer: account.address,
     contracts: {
       MockUSDC: core.mockUSDC,
+      ProtocolConfig: core.protocolConfig,
       Collateralizer: core.collateralizer,
       AMMEngine: core.ammEngine,
       TickBookVault: core.tickBookVault,
@@ -306,7 +362,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   // Save artifact
-  const artifactPath = path.join(__dirname, `../deployments/v9-${chainName}.json`);
+  const artifactPath = path.join(__dirname, `../deployments/${chainName}.json`);
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   console.log(`\n[${chainName}] ✓ Deployment artifact saved to: ${artifactPath}`);
 
@@ -322,7 +378,7 @@ async function main() {
   const args = process.argv.slice(2);
   let targetChains: string[] = getAllChainNames();
 
-  const chainsArg = args.find(a => a.startsWith('--chains='));
+  const chainsArg = args.find((a: string) => a.startsWith('--chains='));
   if (chainsArg) {
     targetChains = chainsArg.replace('--chains=', '').split(',');
   }
@@ -341,7 +397,7 @@ async function main() {
     : `0x${privateKey}` as `0x${string}`;
 
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║         SOOTH PROTOCOL V9 CORE CONTRACT DEPLOYMENT         ║');
+  console.log('║         SOOTH PROTOCOL V10 CORE CONTRACT DEPLOYMENT        ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
   console.log(`║ Target Chains: ${targetChains.join(', ').padEnd(44)}║`);
   console.log('╚════════════════════════════════════════════════════════════╝');
@@ -364,6 +420,7 @@ async function main() {
       const artifact = result.value;
       console.log(`\n✅ ${chainName} (Chain ID: ${artifact.chainId})`);
       console.log(`   MockUSDC: ${artifact.contracts.MockUSDC}`);
+      console.log(`   ProtocolConfig: ${artifact.contracts.ProtocolConfig}`);
       console.log(`   Collateralizer: ${artifact.contracts.Collateralizer}`);
       console.log(`   AMMEngine: ${artifact.contracts.AMMEngine}`);
       console.log(`   TickBookVault: ${artifact.contracts.TickBookVault}`);

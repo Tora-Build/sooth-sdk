@@ -108,10 +108,10 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono text-slate-300 truncate font-medium">{address.slice(0, 6)}...{address.slice(-4)}</span>
-            {isCreatorRow && <Badge className="text-[8px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1.5 h-4">Creator</Badge>}
+            {isCreatorRow && <Badge className="text-[8px] bg-cyan-500/20 text-cyan-400 border-cyan-500/50 py-0 px-1.5 h-4">Creator</Badge>}
             {isYou && <Badge className="text-[8px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50 py-0 px-1.5 h-4">You</Badge>}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
             <span className="text-slate-400">{parseFloat(formatUnits(balance, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP</span>
             <span className="opacity-30">•</span>
             <span className="text-emerald-500/70 font-bold">{share.toFixed(1)}%</span>
@@ -119,7 +119,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         </div>
         <div className="flex flex-col items-end text-right min-w-[100px]">
           <div className="text-[11px] font-mono font-bold text-emerald-400">{formatCurrency(parseFloat(formatUnits(netVal, ASSET_DECIMALS)))}</div>
-          <div className="text-[9px] font-mono text-slate-500 mt-0.5">{formatCurrency(parseFloat(formatUnits(ceilingVal, ASSET_DECIMALS)))}</div>
+          <div className="text-xs font-mono text-slate-500 mt-0.5">{formatCurrency(parseFloat(formatUnits(ceilingVal, ASSET_DECIMALS)))}</div>
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
           {t.holders || 'LP Holders'}
         </h3>
         <div className="flex items-center gap-2">
-          {hasUserPosition && !isLive && <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/50">Redeemable</Badge>}
+          {hasUserPosition && !isLive && <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/50">Redeemable</Badge>}
           <button onClick={() => setShowHelp(!showHelp)} className={`p-1 rounded transition-colors ${showHelp ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 hover:text-emerald-400'}`}><HelpCircle className="w-4 h-4" /></button>
         </div>
       </div>
@@ -146,7 +146,7 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
         </div>
       )}
 
-      <div className="flex items-center justify-between px-3 pb-2 mb-1 text-[10px] text-slate-500 font-bold uppercase tracking-widest border-b border-slate-800/50">
+      <div className="flex items-center justify-between px-3 pb-2 mb-1 text-xs text-slate-500 font-bold uppercase tracking-widest border-b border-slate-800/50">
         <span>LP Holder / Share</span>
         <div className="text-right"><span>{t.floor} / {t.ceiling}</span></div>
       </div>
@@ -174,21 +174,21 @@ export const LPLeaderboardCard: React.FC<LPLeaderboardCardProps> = ({
           <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
             <div className="flex items-center justify-between mb-3">
               <div className="flex flex-col">
-                <span className="text-[10px] text-emerald-500/70 font-black uppercase tracking-widest leading-none mb-1.5">{isUserCreator ? t.creatorFloor : t.yourFloor}</span>
+                <span className="text-xs text-emerald-500/70 font-black uppercase tracking-widest leading-none mb-1.5">{isUserCreator ? t.creatorFloor : t.yourFloor}</span>
                 <span className="font-mono font-bold text-emerald-400 text-xl leading-none">{formatCurrency(parseFloat(formatUnits(userLpNetValue, ASSET_DECIMALS)))}</span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1.5">{t.ceilingValue}</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-widest leading-none mb-1.5">{t.ceilingValue}</span>
                 <span className="font-mono font-bold text-slate-300 text-base leading-none">{formatCurrency(parseFloat(formatUnits(userLpCeilingValue, ASSET_DECIMALS)))}</span>
               </div>
             </div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-2 border-t border-slate-800/50">
+            <div className="flex items-center justify-between text-xs font-mono text-slate-500 pt-2 border-t border-slate-800/50">
               <span>Position: {parseFloat(formatUnits(userLpBalance || 0n, LP_TOKEN_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LP</span>
               <span className="text-emerald-500/50 font-bold">{userSharePercent.toFixed(1)}% Share</span>
             </div>
           </div>
           {!isLive && (
-            <Button onClick={() => redeemLP(userLpBalance!)} disabled={isRedeemLPPending} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] py-2.5 shadow-lg shadow-emerald-900/20">
+            <Button onClick={() => redeemLP(userLpBalance!)} disabled={isRedeemLPPending} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs py-2.5 shadow-lg shadow-emerald-900/20">
               {isRedeemLPPending ? 'Redeeming...' : `Redeem LP ${t.floor}`}
             </Button>
           )}

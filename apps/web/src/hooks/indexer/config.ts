@@ -22,8 +22,9 @@ const CACHE_TTL = 10000; // 10 seconds
 // Chain name mapping for status response
 const CHAIN_NAME_MAP: Record<number, string> = {
   84532: "baseSepolia",
-  10143: "monadTestnet", 
+  10143: "monadTestnet",
   5042002: "arcTestnet",
+  6343: "megaethTestnet",
 };
 
 interface ChainStatus {
@@ -44,48 +45,49 @@ interface IndexerStatus {
  */
 export async function checkChainReady(chainId: number): Promise<boolean> {
   if (!USE_INDEXER) return false;
-  
+
   // Check cache first
   const cached = chainReadinessCache.get(chainId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.ready;
   }
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), INDEXER_TIMEOUT);
-    
+
     const response = await fetch(`${INDEXER_URL}/status`, {
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       chainReadinessCache.set(chainId, { ready: false, timestamp: Date.now() });
       return false;
     }
-    
+
     const status: IndexerStatus = await response.json();
     const chainName = CHAIN_NAME_MAP[chainId];
-    
+
     if (!chainName || !status[chainName]) {
       chainReadinessCache.set(chainId, { ready: false, timestamp: Date.now() });
       return false;
     }
-    
+
     // Check if chain has indexed beyond start block (indicates sync progress)
     // We consider it "ready" if it has indexed at least 1000 blocks past start
     const chainStatus = status[chainName];
     const startBlocks: Record<number, number> = {
-      84532: 36_214_050,
-      10143: 5_639_241,
-      5042002: 20_402_000,
+      84532: 36_399_046,
+      10143: 6_558_931,
+      5042002: 21_983_342,
+      6343: 8_855_921,
     };
-    
+
     const startBlock = startBlocks[chainId] || 0;
     const isReady = chainStatus.block.number > startBlock + 1000;
-    
+
     chainReadinessCache.set(chainId, { ready: isReady, timestamp: Date.now() });
     return isReady;
   } catch {
@@ -100,15 +102,15 @@ export async function checkChainReady(chainId: number): Promise<boolean> {
  */
 export async function checkIndexerHealth(): Promise<boolean> {
   if (!USE_INDEXER) return false;
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), INDEXER_TIMEOUT);
-    
+
     const response = await fetch(`${INDEXER_URL}/ready`, {
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
     return response.ok;
   } catch {
@@ -121,17 +123,17 @@ export async function checkIndexerHealth(): Promise<boolean> {
  */
 export async function fetchFromIndexer<T>(path: string): Promise<T | null> {
   if (!USE_INDEXER) return null;
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), INDEXER_TIMEOUT);
-    
+
     const response = await fetch(`${INDEXER_URL}${path}`, {
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) return null;
     return await response.json();
   } catch {

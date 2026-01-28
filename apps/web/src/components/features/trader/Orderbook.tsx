@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { Card } from '../../ui/Card';
 import { cn } from '../../../lib/utils';
 import { RefreshCw, Trash2, User } from 'lucide-react';
+import { logger } from '../../../lib/logger';
 
 interface OrderbookProps {
   marketId: string;
@@ -29,9 +30,9 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
   if (!isSupported) {
     return (
-      <Card className="p-4 border-amber-500/20 bg-amber-500/5">
-        <h3 className="font-heading font-semibold text-sm text-amber-500 mb-2">Orderbook Not Available</h3>
-        <p className="text-xs text-amber-200/70">
+      <Card className="p-4 border-slate-500/20 bg-slate-500/5">
+        <h3 className="font-heading font-semibold text-sm text-slate-500 mb-2">Orderbook Not Available</h3>
+        <p className="text-xs text-slate-200/70">
           This market contract is outdated and does not support the orderbook feature. Please redeploy the markets to use this feature.
         </p>
       </Card>
@@ -82,7 +83,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         id: `agg-${o.displayPrice}` // aggregated ID
       }));
     } catch (e) {
-      console.error('Orderbook Aggregation Error', e);
+      logger.order.error('Orderbook Aggregation Error', e);
       return [];
     }
   };
@@ -104,7 +105,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
         {label}
       </h4>
       <div className="space-y-1">
-        <div className="grid grid-cols-2 text-[10px] text-slate-500 px-2 mb-1">
+        <div className="grid grid-cols-2 text-xs text-slate-500 px-2 mb-1">
           <span>Price</span>
           <span className="text-right">Amount</span>
         </div>
@@ -118,7 +119,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               key={order.id}
               className={cn(
                 "grid grid-cols-2 text-xs px-2 py-1.5 rounded transition-colors cursor-default",
-                order.maker.toLowerCase() === address?.toLowerCase() ? "bg-indigo-500/10 border border-indigo-500/30" : "hover:bg-slate-800/50"
+                order.maker.toLowerCase() === address?.toLowerCase() ? "bg-cyan-500/10 border border-cyan-500/30" : "hover:bg-slate-800/50"
               )}
             >
               <span className={cn("font-mono font-medium", colorClass)}>
@@ -136,7 +137,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
 
   const MyOrdersList = () => (
     <div className="space-y-2">
-      <div className="grid grid-cols-4 text-[10px] text-slate-500 px-2 mb-1">
+      <div className="grid grid-cols-4 text-xs text-slate-500 px-2 mb-1">
         <span>Side</span>
         <span>Price</span>
         <span className="text-right">Amount</span>
@@ -153,7 +154,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             className="grid grid-cols-4 items-center text-xs px-2 py-2 rounded bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
           >
             <span className={cn(
-              "font-bold text-[10px]",
+              "font-bold text-xs",
               order.typeLabel === 'BUY' ? "text-emerald-400" : "text-rose-400"
             )}>
               {order.typeLabel} {order.outcomeLabel}
@@ -211,9 +212,9 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             <button
               onClick={() => setViewMode('book')}
               className={cn(
-                "px-2 py-0.5 text-[10px] font-semibold rounded transition-all",
+                "px-2 py-0.5 text-xs font-semibold rounded transition-all",
                 viewMode === 'book'
-                  ? "bg-indigo-500/20 text-indigo-400"
+? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
               )}
             >
@@ -222,15 +223,15 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
             <button
               onClick={() => setViewMode('my-orders')}
               className={cn(
-                "px-2 py-0.5 text-[10px] font-semibold rounded transition-all flex items-center gap-1",
+                "px-2 py-0.5 text-xs font-semibold rounded transition-all flex items-center gap-1",
                 viewMode === 'my-orders'
-                  ? "bg-indigo-500/20 text-indigo-400"
+                   ? "bg-cyan-500/20 text-cyan-400"
                   : "text-slate-500 hover:text-slate-300"
               )}
             >
               My Orders
               {myOrders.length > 0 && (
-                <span className="bg-indigo-500 text-white text-[8px] px-1 rounded-full">
+                <span className="bg-cyan-500 text-white text-[8px] px-1 rounded-full">
                   {myOrders.length}
                 </span>
               )}
@@ -255,7 +256,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               <button
                 onClick={() => setSelectedOutcome(0)}
                 className={cn(
-                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  "px-3 py-1 text-xs font-semibold rounded transition-all",
                   selectedOutcome === 0
                     ? "bg-emerald-500/20 text-emerald-400"
                     : "text-slate-500 hover:text-slate-300"
@@ -266,7 +267,7 @@ export const Orderbook: React.FC<OrderbookProps> = ({ marketId, selectedOutcome:
               <button
                 onClick={() => setSelectedOutcome(1)}
                 className={cn(
-                  "px-3 py-1 text-[10px] font-semibold rounded transition-all",
+                  "px-3 py-1 text-xs font-semibold rounded transition-all",
                   selectedOutcome === 1
                     ? "bg-rose-500/20 text-rose-400"
                     : "text-slate-500 hover:text-slate-300"

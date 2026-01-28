@@ -1,0 +1,193 @@
+/**
+ * MarketHeader - Unified header for AMM and Pro pages
+ * 
+ * Features:
+ * - Title with expandable hint
+ * - Search input
+ * - Category filters
+ */
+import { useState } from 'react';
+import { Search, TrendingUp, BarChart3, HelpCircle, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '../../lib/utils';
+
+interface MarketHeaderProps {
+  title: string;
+  hint?: string;
+  subtitle?: string; // deprecated, use hint
+  search: string;
+  onSearchChange: (value: string) => void;
+  category: string;
+  onCategoryChange: (category: string) => void;
+  categories: { id: string; label: string; count?: number }[];
+  marketCount: number;
+  // Optional stage filter
+  stage?: string;
+  onStageChange?: (stage: string) => void;
+  stages?: { id: string; label: string; count?: number }[];
+}
+
+export const MarketHeader = ({
+  title,
+  hint,
+  subtitle,
+  search,
+  onSearchChange,
+  category,
+  onCategoryChange,
+  categories,
+  marketCount,
+  stage,
+  onStageChange,
+  stages,
+}: MarketHeaderProps) => {
+  const location = useLocation();
+  const isProPage = location.pathname.startsWith('/pro');
+  const isAmmPage = location.pathname.startsWith('/trade') || location.pathname === '/v8';
+  const [showHint, setShowHint] = useState(false);
+
+  const hintText = hint || subtitle;
+
+  return (
+    <div className="space-y-4">
+      {/* Title + Toggle */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Title with hint icon */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white tracking-tight">{title}</h1>
+          {hintText && (
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className={cn(
+                "p-1.5 rounded-lg transition-all",
+                showHint
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
+              )}
+              aria-label={showHint ? "Close help" : "Show help"}
+            >
+              {showHint ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
+
+        {/* Page Toggle */}
+        <div className="flex items-center gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800">
+          <Link
+            to="/trade"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              isAmmPage
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+            )}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Trade
+          </Link>
+          <Link
+            to="/pro"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              isProPage
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+            )}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Pro
+          </Link>
+        </div>
+      </div>
+
+      {/* Expandable Hint */}
+      {showHint && hintText && (
+        <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-400 leading-relaxed">
+          {hintText}
+        </div>
+      )}
+
+      {/* Controls Section */}
+      <div className="flex flex-col gap-4">
+        {/* Top Bar: Search & Stage Filters */}
+        <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+          {/* Search Input */}
+          <div className="relative w-full xl:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search markets..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+            />
+          </div>
+
+          {/* Stage Filter - Segmented Control Style */}
+          {stages && onStageChange && (
+            <div className="flex flex-wrap gap-1 p-1 bg-slate-900/50 rounded-xl border border-slate-800 w-full xl:w-auto overflow-x-auto">
+              {stages.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onStageChange(s.id)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center whitespace-nowrap",
+                    stage === s.id
+                      ? "bg-cyan-500/10 text-cyan-400 shadow-sm border border-cyan-500/20"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent"
+                  )}
+                >
+                  {s.label}
+                  {s.count !== undefined && s.count > 0 && (
+                    <span className={cn(
+                      "ml-1.5 px-1.5 py-0.5 rounded-full text-[10px]",
+                      stage === s.id ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-800 text-slate-500"
+                    )}>
+                      {s.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Bar: Categories & Results Count */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-800/50 pt-4">
+          {/* Category Pills */}
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => onCategoryChange(cat.id)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-full border transition-all flex items-center",
+                  category === cat.id
+                    ? "bg-slate-800 text-white border-slate-600 shadow-sm"
+                    : "bg-transparent text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-400"
+                )}
+              >
+                {cat.label}
+                {cat.count !== undefined && cat.count > 0 && (
+                  <span className={cn(
+                    "ml-1.5 text-[10px]",
+                    category === cat.id ? "text-slate-400" : "text-slate-600"
+                  )}>
+                    {cat.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Result Count */}
+          <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
+            {marketCount} result{marketCount !== 1 ? 's' : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MarketHeader;

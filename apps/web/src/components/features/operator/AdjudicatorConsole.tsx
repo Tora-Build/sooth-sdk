@@ -10,6 +10,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import toast from 'react-hot-toast';
+import { logger } from '../../../lib/logger';
 
 export function AdjudicatorConsole() {
   const { t } = useContent();
@@ -77,7 +78,7 @@ export function AdjudicatorConsole() {
       toast.success('Market resolved!', { id: toastId });
       refetchStates();
     } catch (error: any) {
-      console.error('Resolution error:', error);
+      logger.market.error('Resolution error:', error);
       toast.error(error.message?.split('\n')[0] || 'Resolution failed', { id: toastId });
     } finally {
       setResolving(prev => ({ ...prev, [marketAddress]: false }));
@@ -133,7 +134,7 @@ export function AdjudicatorConsole() {
                       <Input 
                         type="text" 
                         placeholder={Math.floor(Date.now() / 1000).toString()}
-                        className="w-32 h-8 bg-slate-900 font-mono text-[10px]"
+                        className="w-32 h-8 bg-slate-900 font-mono text-xs"
                         value={tStars[market.address] || ''}
                         onChange={(e) => setTStars(prev => ({ ...prev, [market.address]: e.target.value }))}
                       />

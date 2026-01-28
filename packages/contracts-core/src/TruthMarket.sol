@@ -2,17 +2,17 @@
 pragma solidity ^0.8.20;
 
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 
 /**
  * @title TruthMarket
  * @notice Canonical source of truth for market lifecycle and settlement
  * @dev All execution venues query this contract for market state
  *
- * Lifecycle: CREATED → LIVE → SETTLING → SETTLED → FINALIZED
- *   - CREATED: Market created but not activated
- *   - LIVE: Trading active (before deadline)
+ * Lifecycle: LIVE → SETTLING → SETTLED → FINALIZED
+ *   - LIVE: Trading active (between startTime and deadline)
  *   - SETTLING: Deadline passed, awaiting adjudicator resolution
- *   - SETTLED: Outcome determined, guardian can veto
+ *   - SETTLED: Outcome determined, guardian role can veto
  *   - FINALIZED: Settlement locked, redemption enabled
  */
 contract TruthMarket is ITruthMarket {
@@ -27,7 +27,6 @@ contract TruthMarket is ITruthMarket {
     // ============================================
 
     enum MarketState {
-        CREATED,    // Market created but not live
         LIVE,       // Trading active
         SETTLING,   // Deadline passed, awaiting resolution
         SETTLED,    // Outcome determined
@@ -40,13 +39,14 @@ contract TruthMarket is ITruthMarket {
 
     MarketState public state;
     string public override question;
+    uint64 public override startTime;
     uint64 public override deadline;
     address public override creator;
     uint8 public override winningOutcome;
     uint64 public override tStar;
 
     address public adjudicator;
-    address public guardian;
+    IProtocolConfig public protocolConfig;
 
     // ============================================
     // Constructor
@@ -54,42 +54,36 @@ contract TruthMarket is ITruthMarket {
 
     constructor(
         string memory _question,
+        uint64 _startTime,
         uint64 _deadline,
         address _adjudicator,
-        address _guardian
+        address _protocolConfig,
+        address _creator
     ) {
         require(_deadline > block.timestamp, "TruthMarket: deadline in past");
         require(_adjudicator != address(0), "TruthMarket: zero adjudicator");
-        require(_guardian != address(0), "TruthMarket: zero guardian");
+        require(_protocolConfig != address(0), "TruthMarket: zero protocol config");
+        require(_creator != address(0), "TruthMarket: zero creator");
+
+        uint64 normalizedStartTime = _startTime == 0 ? uint64(block.timestamp) : _startTime;
+        require(normalizedStartTime >= block.timestamp, "TruthMarket: start in past");
+        require(normalizedStartTime < _deadline, "TruthMarket: start after deadline");
 
         question = _question;
+        startTime = normalizedStartTime;
         deadline = _deadline;
-        creator = msg.sender;
+        creator = _creator;
         adjudicator = _adjudicator;
-        guardian = _guardian;
-        state = MarketState.CREATED;
+        protocolConfig = IProtocolConfig(_protocolConfig);
+        state = MarketState.LIVE;
+
+        emit MarketCreated(address(this), _question, normalizedStartTime, _deadline);
     }
 
     // ============================================
     // Lifecycle Management
     // ============================================
 
-    /**
-     * @notice Activate market for trading
-     * @dev Only creator can activate
-     */
-    function activate() external {
-        require(msg.sender == creator, "TruthMarket: not creator");
-        require(state == MarketState.CREATED, "TruthMarket: not created");
-        require(block.timestamp < deadline, "TruthMarket: past deadline");
-
-        state = MarketState.LIVE;
-
-        emit MarketActivated(address(this), block.timestamp);
-    }
-
-    /// @notice Emitted when market is activated for trading
-    event MarketActivated(address indexed market, uint256 activatedAt);
 
     /**
      * @notice Settle market with outcome
@@ -98,6 +92,7 @@ contract TruthMarket is ITruthMarket {
      */
     function settle(uint8 outcome, uint64 _tStar) external {
         require(msg.sender == adjudicator, "TruthMarket: not adjudicator");
+        require(block.timestamp >= startTime, "TruthMarket: before start");
         require(state == MarketState.LIVE || state == MarketState.SETTLING, "TruthMarket: not live");
         require(outcome <= 2, "TruthMarket: invalid outcome");
         
@@ -117,7 +112,7 @@ contract TruthMarket is ITruthMarket {
      * @notice Finalize settlement (irreversible)
      */
     function finalize() external {
-        require(msg.sender == adjudicator || msg.sender == guardian, "TruthMarket: not authorized");
+        require(msg.sender == adjudicator, "TruthMarket: not adjudicator");
         require(state == MarketState.SETTLED, "TruthMarket: not settled");
 
         state = MarketState.FINALIZED;
@@ -129,7 +124,7 @@ contract TruthMarket is ITruthMarket {
      * @dev Reverts market to SETTLING state for re-adjudication
      */
     function veto() external {
-        require(msg.sender == guardian, "TruthMarket: not guardian");
+        require(protocolConfig.isGuardian(msg.sender), "TruthMarket: not guardian");
         require(state == MarketState.SETTLED, "TruthMarket: not settled");
 
         uint8 previousOutcome = winningOutcome;
@@ -152,7 +147,7 @@ contract TruthMarket is ITruthMarket {
      *      After deadline, trading should stop even if settle() hasn't been called yet.
      */
     function isLive() external view override returns (bool) {
-        return state == MarketState.LIVE && block.timestamp < deadline;
+        return state == MarketState.LIVE && block.timestamp >= startTime && block.timestamp < deadline;
     }
 
     /**
@@ -175,7 +170,7 @@ contract TruthMarket is ITruthMarket {
      * @notice Check if market is fully finalized (irreversible)
      * @return True if market is finalized
      */
-    function isFinalized() external view returns (bool) {
+    function isFinalized() external view override returns (bool) {
         return state == MarketState.FINALIZED;
     }
 

@@ -2,42 +2,22 @@
 
 ## Overview
 
-Arc is a Circle-backed EVM chain designed for stablecoin-native applications. Key differentiator: **native USDC** at a predefined address instead of wrapped/bridged tokens.
+Arc is a Circle-backed EVM chain with **native USDC as the gas token**. Sub-second finality (~350ms), 3,000+ TPS with 20 validators.
 
 ## Network Details
 
 | Property | Value |
 |----------|-------|
-| **Chain ID** | `5041490` (0x4cef52) |
+| **Chain ID** | `5042002` |
 | **Network Name** | Arc Testnet |
-| **Native Currency** | ETH |
+| **Native Currency** | USDC (gas token) |
+| **RPC Endpoint** | https://rpc.testnet.arc.network |
 | **Block Explorer** | https://testnet.arcscan.app |
 | **Faucet** | https://faucet.circle.com |
 
-## RPC Endpoints
-
-| Provider | URL |
-|----------|-----|
-| Default | `https://rpc.testnet.arc.network` |
-| Blockdaemon | `https://rpc.blockdaemon.testnet.arc.network` |
-| dRPC | `https://rpc.drpc.testnet.arc.network` |
-| QuickNode | `https://rpc.quicknode.testnet.arc.network` |
-
-WebSocket endpoints also available (prefix with `wss://`).
-
 ## Gas Configuration
 
-⚠️ **IMPORTANT**: Arc requires `maxFeePerGas >= 160 Gwei`
-
-Transactions below this threshold will fail or remain pending.
-
-```typescript
-// Recommended gas settings
-const arcGasSettings = {
-  maxFeePerGas: 200_000_000_000n, // 200 Gwei (safe margin above 160 min)
-  maxPriorityFeePerGas: 1_000_000_000n, // 1 Gwei
-};
-```
+Arc uses USDC for gas fees, targeting ~$0.01 per transaction.
 
 ## Key Contract Addresses
 

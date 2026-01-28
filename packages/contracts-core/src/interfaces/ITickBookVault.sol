@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 /**
  * @title ITickBookVault
  * @notice Vault-native custody + internal ledger for TickBook (ADR-051)
@@ -24,6 +26,12 @@ interface ITickBookVault {
     event OutcomeUnlocked(address indexed market, address indexed user, uint8 outcome, uint256 sharesWad);
     event OutcomeTransferred(address indexed market, address indexed from, address indexed to, uint8 outcome, uint256 sharesWad);
     event RedeemedResolved(address indexed market, address indexed user, uint256 payoutWad, uint256 yesBurned, uint256 noBurned);
+
+    // ============================================
+    // USDC Token
+    // ============================================
+
+    function usdc() external view returns (IERC20);
 
     // ============================================
     // User USDC
@@ -62,7 +70,7 @@ interface ITickBookVault {
     function lockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external;
     function unlockOutcome(address market, address user, uint8 outcome, uint256 sharesWad) external;
     function getLockedOutcome(address market, address user, uint8 outcome) external view returns (uint256);
-    
+
     // Spot sell settlement (transfer shares, credit USDC)
     function transferLockedOutcome(address market, address from, address to, uint8 outcome, uint256 sharesWad) external;
     function creditUsdcAvailable(address user, uint256 amountWad) external;
@@ -79,5 +87,3 @@ interface ITickBookVault {
 
     function redeemResolved(address market) external returns (uint256 payoutWad);
 }
-
-

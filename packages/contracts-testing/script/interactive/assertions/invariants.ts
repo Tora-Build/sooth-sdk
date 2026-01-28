@@ -82,8 +82,7 @@ export async function checkNoOrderOverflow(ctx: CommandContext): Promise<Asserti
   const nextOrderId = await publicClient.readContract({
     address: deployment.contracts.TickBookPoolManager as `0x${string}`,
     abi: ABIS.TickBookPoolManager,
-    functionName: 'nextOrderId',
-    args: [marketKey],
+    functionName: 'getNextOrderId',
   }) as bigint;
 
   const overflowOrders: number[] = [];

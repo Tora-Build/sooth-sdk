@@ -7,6 +7,7 @@ import { useChainStore } from '../../store/useChainStore';
 import { cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import { Button } from './Button';
+import { logger } from '../../lib/logger';
 
 export const ChainSelector: React.FC = () => {
   const { isConnected } = useAccount();
@@ -33,7 +34,7 @@ export const ChainSelector: React.FC = () => {
         await switchChain({ chainId });
         toast.success(`Network: ${getChainById(chainId)?.name}`);
       } catch (error: any) {
-        console.error('Chain switch failed via wagmi, trying EIP-3085 fallback:', error);
+        logger.chain.error('Chain switch failed via wagmi, trying EIP-3085 fallback:', error);
         
         // Fallback: Try direct EIP-3085/3326 (for Phantom and wallets that need chain added)
         try {
@@ -49,7 +50,7 @@ export const ChainSelector: React.FC = () => {
             }
           }
         } catch (fallbackError: any) {
-          console.error('EIP-3085 fallback also failed:', fallbackError);
+          logger.chain.error('EIP-3085 fallback also failed:', fallbackError);
         }
         
         if (error.message?.includes('rejected')) {
@@ -113,13 +114,13 @@ export const ChainSelector: React.FC = () => {
         aria-label="Select network"
       >
         <span className="tabular-nums">{displayChain.displayName}</span>
-        {isSwitching && <span className="ml-1 text-[10px] text-slate-500">Switching…</span>}
+        {isSwitching && <span className="ml-1 text-xs text-slate-500">Switching…</span>}
         <ChevronDown size={14} className={cn("transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {/* Wrong Network Warning */}
       {isWrongNetwork && walletChain && (
-        <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-rose-950/90 border border-rose-500/30 rounded-lg shadow-xl z-[70] backdrop-blur-sm">
+        <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-rose-950/90 border border-rose-500/30 rounded-lg shadow-xl z-overlay backdrop-blur-sm">
           <div className="flex items-start gap-2 mb-2">
             <AlertCircle size={16} className="text-rose-400 mt-0.5 flex-shrink-0" />
             <div className="text-xs text-rose-200">
@@ -145,12 +146,12 @@ export const ChainSelector: React.FC = () => {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-[55]"
+            className="fixed inset-0 z-sticky"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Menu */}
-          <div className="absolute top-full right-0 mt-2 w-60 bg-slate-950/80 border border-slate-800/70 rounded-2xl shadow-2xl z-[70] overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-full right-0 mt-2 w-60 bg-slate-950/80 border border-slate-800/70 rounded-2xl shadow-2xl z-overlay overflow-hidden backdrop-blur-xl">
             <div className="p-2 border-b border-slate-800/70">
               <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold px-2">
                 Network
@@ -169,7 +170,7 @@ export const ChainSelector: React.FC = () => {
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
                       isSelected
-                        ? "bg-indigo-500/10 text-indigo-400 cursor-default"
+                        ? "bg-cyan-500/10 text-cyan-400 cursor-default"
                         : "text-slate-200 hover:bg-slate-900/60"
                     )}
                     role="option"

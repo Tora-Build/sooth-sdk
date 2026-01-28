@@ -1,5 +1,5 @@
 import { useReadContracts, useAccount, useChainId } from 'wagmi';
-import { V8_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { getPollingInterval, getStaleTime } from '../lib/polling';
 
 type Address = `0x${string}`;
@@ -11,7 +11,7 @@ export function useTokenBalances(tokens: Address[]) {
   const { data, isLoading, refetch } = useReadContracts({
     contracts: tokens.map(token => ({
       address: token,
-      abi: V8_ABIS.OutcomeToken, // Both OutcomeToken and ERC20 have balanceOf
+      abi: ABIS.OutcomeToken, // Both OutcomeToken and ERC20 have balanceOf
       functionName: 'balanceOf',
       args: address ? [address] : undefined,
     })),

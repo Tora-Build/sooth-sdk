@@ -81,4 +81,37 @@ export const AMMEngineAbi = [
       { name: "payout", type: "uint256", indexed: false },
     ],
   },
+  {
+    type: "event",
+    name: "RouterUpdated",
+    inputs: [
+      { name: "router", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "BalanceUsed",
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "newAvailableBalance", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "WalletPull",
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "LiquidityIncreased",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "deltaLiquidity", type: "uint256", indexed: false },
+      { name: "newLiquidity", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;

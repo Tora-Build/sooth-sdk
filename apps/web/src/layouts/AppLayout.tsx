@@ -1,12 +1,13 @@
 import { Outlet } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
-import { ActivityListenerV8 } from '../components/features/ActivityListenerV8';
+import { ActivityListener } from '../components/features/ActivityListener';
 
 import { useChainId, useAccount } from 'wagmi';
 import { useChainStore } from '../store/useChainStore';
 import { allowedChains } from '../lib/chains';
 import { useEffect } from 'react';
+import { logger } from '../lib/logger';
 
 export const AppLayout = () => {
   // Sync wallet chain with store
@@ -19,16 +20,16 @@ export const AppLayout = () => {
       // Only sync if the wallet chain is one of our allowed chains
       const isAllowed = allowedChains.some(c => c.id === walletChainId);
       if (isAllowed) {
-        console.log(`[AppLayout] Syncing selected chain to wallet: ${walletChainId}`);
+        logger.chain.log(`Syncing selected chain to wallet: ${walletChainId}`);
         setSelectedChain(walletChainId);
       }
     }
   }, [isConnected, walletChainId, selectedChainId, setSelectedChain]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-slate-300 font-mono selection:bg-cyan-500/30">
+    <div className="min-h-dvh flex flex-col pb-safe bg-background text-slate-300 font-mono selection:bg-cyan-500/30">
       <Navbar />
-      <ActivityListenerV8 />
+      <ActivityListener />
 
       <main className="flex-1 container mx-auto max-w-7xl px-4 py-8">
         <Outlet />

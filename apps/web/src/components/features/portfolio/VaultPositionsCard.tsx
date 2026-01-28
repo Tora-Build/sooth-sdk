@@ -68,10 +68,10 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                     <div className="flex items-center justify-between p-1 rounded bg-emerald-500/5 border border-emerald-500/10">
                         <div className="flex items-center gap-1">
                             <span className="text-[8px] font-black px-1 py-0 rounded bg-emerald-500 text-emerald-950">YES</span>
-                            <span className="text-[10px] text-white font-mono">{(pos.liquidYes + pos.lockedYes + pos.walletYes).toFixed(2)}</span>
+                            <span className="text-xs text-white font-mono">{(pos.liquidYes + pos.lockedYes + pos.walletYes).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <div className="text-[9px] font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes + pos.walletYes) * priceYes)}</div>
+                            <div className="text-xs font-bold text-emerald-400 font-mono">{formatCurrency((pos.liquidYes + pos.lockedYes + pos.walletYes) * priceYes)}</div>
                             <div className="flex gap-0.5 opacity-40">
                                 {pos.walletYes > 0 && <Wallet size={7} className="text-emerald-400" />}
                                 {pos.lockedYes > 0 && <Lock size={7} className="text-slate-400" />}
@@ -84,10 +84,10 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                     <div className="flex items-center justify-between p-1 rounded bg-rose-500/5 border border-rose-500/10">
                         <div className="flex items-center gap-1">
                             <span className="text-[8px] font-black px-1 py-0 rounded bg-rose-500 text-rose-950">NO</span>
-                            <span className="text-[10px] text-white font-mono">{(pos.liquidNo + pos.lockedNo + pos.walletNo).toFixed(2)}</span>
+                            <span className="text-xs text-white font-mono">{(pos.liquidNo + pos.lockedNo + pos.walletNo).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <div className="text-[9px] font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo + pos.walletNo) * priceNo)}</div>
+                            <div className="text-xs font-bold text-rose-400 font-mono">{formatCurrency((pos.liquidNo + pos.lockedNo + pos.walletNo) * priceNo)}</div>
                             <div className="flex gap-0.5 opacity-40">
                                 {pos.walletNo > 0 && <Wallet size={7} className="text-rose-400" />}
                                 {pos.lockedNo > 0 && <Lock size={7} className="text-slate-400" />}
@@ -104,7 +104,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                         onClick={handleRedeem}
                         disabled={isRedeeming}
                         variant="glow"
-                        className="col-span-2 w-full py-2 text-[10px] font-black uppercase tracking-widest border border-cyan-500/30 text-cyan-400 transition-all flex items-center justify-center gap-1.5"
+                        className="col-span-2 w-full py-2 text-xs font-black uppercase tracking-widest border border-cyan-500/30 text-cyan-400 transition-all flex items-center justify-center gap-1.5"
                     >
                         {isRedeeming ? <Loader2 size={10} className="animate-spin" /> : <Trophy size={10} />}
                         REDEEM WINNINGS
@@ -116,7 +116,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                             variant="secondary"
                             onClick={() => setModalMode('merge')}
                             disabled={pos.liquidYes < 0.001 || pos.liquidNo < 0.001}
-                            className="group py-2 text-[10px] font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
+                            className="group py-2 text-xs font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
                         >
                             <GitMerge size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> MERGE
                         </Button>
@@ -124,7 +124,7 @@ const PositionItem: React.FC<{ pos: ActivePosition; refetch: () => void }> = ({ 
                             size="sm"
                             variant="primary"
                             onClick={() => setModalMode('split')}
-                            className="group py-2 text-[10px] font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
+                            className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
                         >
                             <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> SPLIT
                         </Button>
@@ -152,7 +152,7 @@ export const VaultPositionsCard: React.FC = () => {
             icon={<ShieldCheck size={16} className="text-cyan-400" />}
             variant="cyan"
             badge={
-                <span className="text-[9px] font-bold text-cyan-400/60 uppercase tracking-widest">
+                <span className="text-xs font-bold text-cyan-400/60 uppercase tracking-widest">
                     {vaultPositions.length} margin positions
                 </span>
             }
@@ -161,7 +161,7 @@ export const VaultPositionsCard: React.FC = () => {
             emptyState={
                 <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
                     <Sparkles size={24} className="text-slate-600 mb-1" />
-                    <p className="text-[10px] font-mono">// no_vault_positions</p>
+                    <p className="text-xs font-mono">// no_vault_positions</p>
                 </div>
             }
         >

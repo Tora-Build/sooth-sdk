@@ -81,7 +81,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
   const riskLevel = safetyPercent > 50 ? 'low' : safetyPercent > 20 ? 'medium' : 'high';
   const riskConfig = {
     low: { color: 'text-emerald-400', bg: 'bg-emerald-500/20', label: '🟢 Low' },
-    medium: { color: 'text-amber-400', bg: 'bg-amber-500/20', label: '🟡 Medium' },
+    medium: { color: 'text-slate-400', bg: 'bg-slate-500/20', label: '🟡 Medium' },
     high: { color: 'text-rose-400', bg: 'bg-rose-500/20', label: '🔴 High' },
   };
 
@@ -93,10 +93,10 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
   return (
     <div className="space-y-4">
       {/* LP Position Card */}
-      <Card className="border-purple-500/30 bg-purple-500/5">
+      <Card className="border-cyan-500/30 bg-cyan-500/5">
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Coins className="w-5 h-5 text-purple-400" />
+            <Coins className="w-5 h-5 text-cyan-400" />
             <h3 className="font-semibold text-white">Your LP Position</h3>
           </div>
 
@@ -111,7 +111,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
             </div>
             <div>
               <p className="text-xs text-slate-500">Your Share</p>
-              <p className="font-mono text-lg text-purple-400">{share.toFixed(1)}%</p>
+              <p className="font-mono text-lg text-cyan-400">{share.toFixed(1)}%</p>
             </div>
           </div>
 
@@ -165,7 +165,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
               </div>
               <div className="flex-1 bg-slate-800/50 rounded p-2 text-center">
                 <p className="text-xs text-slate-500">LP Yield</p>
-                <p className="text-sm text-purple-400">30%</p>
+                <p className="text-sm text-cyan-400">30%</p>
               </div>
               <div className="flex-1 bg-slate-800/50 rounded p-2 text-center">
                 <p className="text-xs text-slate-500">Protocol</p>
@@ -181,11 +181,11 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-amber-400" />
+              <GraduationCap className="w-5 h-5 text-slate-400" />
               <h3 className="font-semibold text-white">Graduation Progress</h3>
             </div>
             <Badge variant={isGraduated ? 'success' : 'warning'}>
-              {isGraduated ? 'Graduated 🎓' : 'Bonding'}
+              {isGraduated ? 'Graduated ✓' : 'Bonding'}
             </Badge>
           </div>
 
@@ -201,8 +201,8 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
                   isGraduated 
                     ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' 
                     : graduationProgress > 75 
-                    ? 'bg-gradient-to-r from-amber-600 to-emerald-400'
-                    : 'bg-gradient-to-r from-amber-600 to-amber-400'
+                    ? 'bg-gradient-to-r from-slate-600 to-emerald-400'
+                    : 'bg-gradient-to-r from-slate-600 to-slate-400'
                 }`}
                 style={{ width: `${Math.min(100, graduationProgress)}%` }}
               />
@@ -247,7 +247,7 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
             </div>
             <div>
               <p className="text-xs text-slate-500">Current Exposure</p>
-              <p className="font-mono text-amber-400">{formatUSD(currentExposure)}</p>
+              <p className="font-mono text-slate-400">{formatUSD(currentExposure)}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Safety Buffer</p>
@@ -269,9 +269,9 @@ export const CreatorDashboard = ({ address }: CreatorDashboardProps) => {
                 <span className="font-mono text-sm text-rose-400">{qNo.toFixed(0)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <BarChart3 className="w-3 h-3 text-amber-400" />
+                <BarChart3 className="w-3 h-3 text-slate-400" />
                 <span className="text-xs text-slate-400">Imbalance:</span>
-                <span className="font-mono text-sm text-amber-400">{imbalancePercent.toFixed(0)}%</span>
+                <span className="font-mono text-sm text-slate-400">{imbalancePercent.toFixed(0)}%</span>
               </div>
             </div>
           </div>

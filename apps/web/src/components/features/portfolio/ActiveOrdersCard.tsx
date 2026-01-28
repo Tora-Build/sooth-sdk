@@ -16,7 +16,7 @@ const OrderItem: React.FC<{ order: ActiveOrder }> = ({ order }) => {
                     <h4 className="font-bold text-[11px] text-white truncate pr-2" title={order.marketName}>
                         {order.marketName}
                     </h4>
-                    <p className="text-[9px] text-slate-500 font-mono leading-none mt-0.5">
+                    <p className="text-xs text-slate-500 font-mono leading-none mt-0.5">
                         {formatDistanceToNow(order.timestamp, { addSuffix: true })}
                     </p>
                 </div>
@@ -36,17 +36,17 @@ const OrderItem: React.FC<{ order: ActiveOrder }> = ({ order }) => {
                         {order.outcome === 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                     </div>
                     <div>
-                        <div className="text-[10px] font-black text-white uppercase tracking-tight">
+                        <div className="text-xs font-black text-white uppercase tracking-tight">
                             {order.outcome === 0 ? 'YES' : 'NO'} @ {formatCurrency(order.price)}
                         </div>
-                        <div className="text-[9px] text-slate-500 font-mono leading-none">
+                        <div className="text-xs text-slate-500 font-mono leading-none">
                             Amt: {order.amount.toFixed(2)}
                         </div>
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">Collat</div>
-                    <div className="text-[10px] font-bold text-white font-mono leading-none">
+                    <div className="text-xs text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">Collat</div>
+                    <div className="text-xs font-bold text-white font-mono leading-none">
                         {formatCurrency(order.amount * (order.outcome === 0 ? order.price : (1 - order.price)))}
                     </div>
                 </div>
@@ -61,10 +61,10 @@ export const ActiveOrdersCard: React.FC = () => {
     return (
         <PortfolioCard
             title="Limit Orders"
-            icon={<Clock size={16} className="text-indigo-400" />}
-            variant="indigo"
+            icon={<Clock size={16} className="text-cyan-400" />}
+            variant="default"
             badge={
-                <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-widest">
+                <span className="text-xs font-bold text-cyan-400/60 uppercase tracking-widest">
                     {activeOrders.length} open
                 </span>
             }
@@ -72,7 +72,7 @@ export const ActiveOrdersCard: React.FC = () => {
             emptyState={
                 <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
                     <ListX size={24} className="text-slate-600 mb-1" />
-                    <p className="text-[10px] font-mono">// no_active_orders</p>
+                    <p className="text-xs font-mono">// no_active_orders</p>
                 </div>
             }
         >

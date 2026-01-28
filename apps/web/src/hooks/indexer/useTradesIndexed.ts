@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
 import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
+import { addJitter } from "../../lib/polling";
 
 interface IndexedTrade {
   id: string;
@@ -47,7 +48,7 @@ export function useTradesIndexed(
     enabled: USE_INDEXER && !!chainId,
     queryFn: () => checkChainReady(chainId),
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: addJitter(30_000),
   });
 
   const isChainReady = chainReadyQuery.data === true;
@@ -81,7 +82,7 @@ export function useTradesIndexed(
       });
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
   });
 
   return {

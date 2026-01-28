@@ -1,1 +1,1 @@
-../../.claude/commands/qa.md
+/Users/danieltang/.claude/skills/webapp-testing/SKILL.md

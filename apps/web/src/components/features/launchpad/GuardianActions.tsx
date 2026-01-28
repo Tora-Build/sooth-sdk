@@ -67,11 +67,11 @@ export const GuardianActions: React.FC<{
     if (!canForceGraduate && !canLiquidate) return null;
 
     return (
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-slate-500/30 bg-slate-500/5">
             <div className="p-6 space-y-4">
                 <div className="flex items-center gap-2">
-                    <AlertTriangle className="text-amber-400" size={20} />
-                    <h3 className="font-heading font-semibold text-amber-400">Guardian Actions</h3>
+                    <AlertTriangle className="text-slate-400" size={20} />
+                    <h3 className="font-heading font-semibold text-slate-400">Guardian Actions</h3>
                 </div>
 
                 {/* Force Graduate */}
@@ -80,7 +80,7 @@ export const GuardianActions: React.FC<{
                         <div className="flex items-center justify-between">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <GraduationCap className="text-amber-400" size={16} />
+                                    <GraduationCap className="text-slate-400" size={16} />
                                     <span className="font-medium text-white">Force Graduate</span>
                                 </div>
                                 <p className="text-sm text-slate-400">
@@ -95,7 +95,7 @@ export const GuardianActions: React.FC<{
                             <Button
                                 onClick={handleForceGraduate}
                                 disabled={isForceGraduatePending}
-                                className="bg-amber-600 hover:bg-amber-500"
+                                className="bg-slate-600 hover:bg-slate-500"
                             >
                                 {isForceGraduatePending ? 'Processing...' : 'Force Graduate'}
                             </Button>
@@ -105,7 +105,7 @@ export const GuardianActions: React.FC<{
 
                 {/* Liquidate */}
                 {canLiquidate && (
-                    <div className="space-y-3 pt-3 border-t border-amber-500/20">
+                    <div className="space-y-3 pt-3 border-t border-slate-500/20">
                         <div className="flex items-center justify-between">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">

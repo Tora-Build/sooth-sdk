@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useAccount, useWriteContract, useReadContracts, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useReadContracts, usePublicClient, useChainId } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { V9_ABIS, ERC20_ABI } from '../config/abis';
+import { ABIS, ERC20_ABI } from '../config/abis';
 import { useDeployments } from './useDeployments';
 import { useMarketStore } from '../store/useMarketStore';
 import { useActivityStore } from '../store/useActivityStore';
 import { useChainStore } from '../store/useChainStore';
+import { getPollingInterval } from '../lib/polling';
 import toast from 'react-hot-toast';
 
 /**
@@ -13,6 +14,7 @@ import toast from 'react-hot-toast';
  * V9 Architecture: TickBookVault (USDC/Shares) + TickBookPoolManager (Orders)
  */
 export function useTraderVault() {
+  const chainId = useChainId();
   const { address } = useAccount();
   const { mode } = useMarketStore();
   const { selectedChainId } = useChainStore();
@@ -30,15 +32,15 @@ export function useTraderVault() {
   // Read user balances and vault data
   const { data, refetch } = useReadContracts({
     contracts: [
-      { address: vaultAddress, abi: V9_ABIS.TickBookVault, functionName: 'availableUsdcWad', args: [address || '0x0000000000000000000000000000000000000000'], chainId: Number(selectedChainId) },
-      { address: vaultAddress, abi: V9_ABIS.TickBookVault, functionName: 'reservedUsdcWad', args: [address || '0x0000000000000000000000000000000000000000'], chainId: Number(selectedChainId) },
+      { address: vaultAddress, abi: ABIS.TickBookVault, functionName: 'availableUsdcWad', args: [address || '0x0000000000000000000000000000000000000000'], chainId: Number(selectedChainId) },
+      { address: vaultAddress, abi: ABIS.TickBookVault, functionName: 'reservedUsdcWad', args: [address || '0x0000000000000000000000000000000000000000'], chainId: Number(selectedChainId) },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'balanceOf', args: [address || '0x0000000000000000000000000000000000000000'], chainId: Number(selectedChainId) },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [address || '0x0000000000000000000000000000000000000000', vaultAddress], chainId: Number(selectedChainId) },
       { address: tokenAddress, abi: ERC20_ABI, functionName: 'decimals', chainId: Number(selectedChainId) },
     ],
     query: {
       enabled: !!address && !!vaultAddress,
-      refetchInterval: 10000,
+      refetchInterval: getPollingInterval(chainId, 'fast'),
     }
   });
 
@@ -103,7 +105,7 @@ export function useTraderVault() {
 
       const hash = await writeContractAsync({
         address: vaultAddress,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVault,
         functionName: 'depositUsdc',
         args: [amountBig],
       });
@@ -142,7 +144,7 @@ export function useTraderVault() {
 
       const hash = await writeContractAsync({
         address: vaultAddress,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVault,
         functionName: 'withdrawUsdc',
         args: [amountBig],
       });
@@ -178,7 +180,7 @@ export function useTraderVault() {
       if (!publicClient) throw new Error('Public Client not initialized');
       const hash = await writeContractAsync({
         address: vaultAddress,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVault,
         functionName: 'redeemResolved',
         args: [marketAddress as `0x${string}`],
       });

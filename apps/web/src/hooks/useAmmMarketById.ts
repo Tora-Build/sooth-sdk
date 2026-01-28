@@ -7,6 +7,7 @@ import marketsConfig from '../config/markets.json';
 import { Market } from '../types';
 import { useChainStore } from '../store/useChainStore';
 import { useMarketStore } from '../store/useMarketStore';
+import { getPollingInterval } from '../lib/polling';
 
 export function useAmmMarket(marketId: string) {
   return useEVMMarket(marketId);
@@ -50,7 +51,7 @@ function useEVMMarket(marketId: string) {
       // Removed walletChainId === selectedChainId to match PortfolioSummary behavior.
       // Fix: Don't fetch for demo markets (which have dummy addresses) even if mode is real
       enabled: mode === 'real' && !!marketAddress && (marketConfig as any)?.mode !== 'demo',
-      refetchInterval: 3000,
+      refetchInterval: getPollingInterval(walletChainId, 'fast'),
     }
   });
 

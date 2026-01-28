@@ -48,14 +48,14 @@ export const DynamicFeeDisplay = ({
           className={cn(
             'font-mono font-bold',
             isNetDiscount && 'text-emerald-400',
-            isNetPremium && 'text-amber-400',
+            isNetPremium && 'text-slate-400',
             !isNetDiscount && !isNetPremium && 'text-white'
           )}
         >
           {fee.feePercent}
         </span>
         {isNetDiscount && <TrendingDown size={10} className="text-emerald-400" />}
-        {isNetPremium && <TrendingUp size={10} className="text-amber-400" />}
+        {isNetPremium && <TrendingUp size={10} className="text-slate-400" />}
       </div>
     );
   }
@@ -69,8 +69,8 @@ export const DynamicFeeDisplay = ({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Zap size={12} className="text-indigo-400" />
-          <span className="text-[9px] text-slate-500 font-bold uppercase">
+          <Zap size={12} className="text-cyan-400" />
+          <span className="text-xs text-slate-500 font-bold uppercase">
             Dynamic Fee
           </span>
           <Tooltip
@@ -84,7 +84,7 @@ export const DynamicFeeDisplay = ({
           className={cn(
             'text-sm font-mono font-bold',
             isNetDiscount && 'text-emerald-400',
-            isNetPremium && 'text-amber-400',
+            isNetPremium && 'text-slate-400',
             !isNetDiscount && !isNetPremium && 'text-white'
           )}
         >
@@ -93,7 +93,7 @@ export const DynamicFeeDisplay = ({
       </div>
 
       {/* Breakdown */}
-      <div className="space-y-1 text-[10px]">
+      <div className="space-y-1 text-xs">
         <div className="flex justify-between">
           <span className="text-slate-600">Base Fee</span>
           <span className="font-mono text-slate-400">{fee.breakdown.base}</span>
@@ -113,11 +113,11 @@ export const DynamicFeeDisplay = ({
 
         {hasPremium && (
           <div className="flex justify-between">
-            <span className="text-amber-600 flex items-center gap-1">
+            <span className="text-slate-600 flex items-center gap-1">
               <TrendingUp size={8} />
               Volatility Premium
             </span>
-            <span className="font-mono text-amber-400">
+            <span className="font-mono text-slate-400">
               {fee.breakdown.premium}
             </span>
           </div>
@@ -129,7 +129,7 @@ export const DynamicFeeDisplay = ({
             className={cn(
               'font-mono font-bold',
               isNetDiscount && 'text-emerald-400',
-              isNetPremium && 'text-amber-400',
+              isNetPremium && 'text-slate-400',
               !isNetDiscount && !isNetPremium && 'text-white'
             )}
           >
@@ -149,9 +149,9 @@ export const DynamicFeeDisplay = ({
           </div>
         )}
         {isNetPremium && (
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-            <TrendingUp size={8} className="text-amber-400" />
-            <span className="text-[8px] text-amber-400 font-bold uppercase">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-500/10 border border-slate-500/20">
+            <TrendingUp size={8} className="text-slate-400" />
+            <span className="text-[8px] text-slate-400 font-bold uppercase">
               Premium Active
             </span>
           </div>

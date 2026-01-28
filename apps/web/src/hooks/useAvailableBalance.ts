@@ -1,6 +1,6 @@
 import { useReadContract, useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { V8_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import { getPollingInterval, getStaleTime } from '../lib/polling';
 
 export interface AvailableBalanceData {
@@ -25,7 +25,7 @@ export function useAvailableBalance(
 
     const { data, isLoading, error } = useReadContract({
         address: ammEngineAddress,
-        abi: V8_ABIS.AMMEngine,
+        abi: ABIS.AMMEngine,
         functionName: 'getBalances',
         args: address ? [address] : undefined,
         query: {

@@ -7,6 +7,10 @@ import { baseSepolia } from 'viem/chains';
 import type { Chain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env from monorepo root
 const envPaths = [
@@ -60,15 +64,26 @@ export const arcTestnet: Chain = {
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
-      http: [
-        'https://rpc.quicknode.testnet.arc.network',
-        'https://rpc.drpc.testnet.arc.network',
-        'https://rpc.blockdaemon.testnet.arc.network',
-      ],
+      http: ['https://rpc.testnet.arc.network'],
     },
   },
   blockExplorers: {
     default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+};
+
+export const megaethTestnet: Chain = {
+  id: 6343,
+  name: 'MegaETH Testnet',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['https://carrot.megaeth.com/rpc'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
   },
   testnet: true,
 };
@@ -83,31 +98,48 @@ export interface ChainConfig {
 }
 
 export const CHAINS: Record<string, ChainConfig> = {
-  baseSepolia: {
-    chain: baseSepolia,
-    rpc: 'https://sepolia.base.org',
-    deploymentFile: 'v9-baseSepolia.json',
-    confirmations: 1,
-    postTxWaitMs: 0,
-    aliases: ['base', 'base-sepolia', 'basesepolia'],
-  },
-  monadTestnet: {
-    chain: monadTestnet,
-    rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
-    deploymentFile: 'v9-monadTestnet.json',
-    confirmations: 1,
-    // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
-    postTxWaitMs: 8000,
-    aliases: ['monad', 'monad-testnet', 'monadtestnet'],
-  },
-  arcTestnet: {
-    chain: arcTestnet,
-    rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.quicknode.testnet.arc.network',
-    deploymentFile: 'v9-arcTestnet.json',
-    confirmations: 1,
-    postTxWaitMs: 2000,
-    aliases: ['arc', 'arc-testnet', 'arctestnet'],
-  },
+   baseSepolia: {
+     chain: baseSepolia,
+     rpc: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+     deploymentFile: 'baseSepolia.json',
+     confirmations: 1,
+     postTxWaitMs: 0,
+     aliases: ['base', 'base-sepolia', 'basesepolia'],
+   },
+   // V11.1: Disabled - single-chain focus
+   /*
+   monadTestnet: {
+     chain: monadTestnet,
+     rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
+     deploymentFile: 'monadTestnet.json',
+     confirmations: 1,
+     // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
+     postTxWaitMs: 8000,
+     aliases: ['monad', 'monad-testnet', 'monadtestnet'],
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   arcTestnet: {
+     chain: arcTestnet,
+     rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.testnet.arc.network',
+     deploymentFile: 'arcTestnet.json',
+     confirmations: 1,
+     postTxWaitMs: 2000,
+     aliases: ['arc', 'arc-testnet', 'arctestnet'],
+   },
+   */
+   // V11.1: Disabled - single-chain focus
+   /*
+   megaethTestnet: {
+     chain: megaethTestnet,
+     rpc: process.env.MEGAETH_TESTNET_RPC_URL || 'https://carrot.megaeth.com/rpc',
+     deploymentFile: 'megaethTestnet.json',
+     confirmations: 1,
+     postTxWaitMs: 2000,
+     aliases: ['megaeth', 'megaeth-testnet', 'megaethtestnet'],
+   },
+   */
 };
 
 function resolveChainKey(input: string): string {
@@ -194,7 +226,7 @@ export function createConfig(chainName: string): InteractiveConfig {
     chain: chainConfig.chain,
     rpc: chainConfig.rpc,
     deployment,
-    gasMultiplier: 1.5,
+    gasMultiplier: 1.2,
     confirmations: chainConfig.confirmations ?? 1,
     postTxWaitMs: chainConfig.postTxWaitMs ?? 0,
     defaultMarketIndex: 0,
@@ -209,6 +241,7 @@ export const ABIS = {
     { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
     { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
     { name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
+    { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
   ],
 
   TickBookVault: [
@@ -221,7 +254,7 @@ export const ABIS = {
   ],
 
   TickBookPoolManager: [
-    // V9.9.6-fix9l Unified Order API
+    // V10 Unified Crossing Architecture (spot-first + range)
     {
       name: 'placeOrder', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
@@ -261,12 +294,13 @@ export const ABIS = {
           { name: 'outcome', type: 'uint8' },
           { name: 'tickLower', type: 'uint16' },
           { name: 'tickUpper', type: 'uint16' },
-          { name: 'sharesTotal', type: 'uint128' },
-          { name: 'filledShares', type: 'uint128' },
-          { name: 'collateralDepositedWad', type: 'uint256' },
-          { name: 'fillGrowthInsideLastX128', type: 'uint256' },
           { name: 'active', type: 'bool' },
           { name: 'liquidityRemoved', type: 'bool' },
+          { name: 'sharesTotal', type: 'uint128' },
+          { name: 'liquidity', type: 'uint128' },
+          { name: 'collateralDepositedWad', type: 'uint128' },
+          { name: 'filledShares', type: 'uint128' },
+          { name: 'collateralUsedWad', type: 'uint128' },
         ]
       }], stateMutability: 'view'
     },
@@ -276,9 +310,9 @@ export const ABIS = {
     },
     {
       name: 'getMarketInfo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }],
-      outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }], stateMutability: 'view'
+      outputs: [{ type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'bool' }], stateMutability: 'view'
     },
-    // V9.9.7: Spot Sell
+    // V10: Spot Sell (unified crossing)
     {
       name: 'placeSpotSell', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
@@ -294,13 +328,12 @@ export const ABIS = {
         { type: 'uint256', name: 'sellId' },
       ], outputs: [{ type: 'uint256', name: 'sharesReturned' }], stateMutability: 'nonpayable'
     },
+
     {
-      name: 'buyFromSpotSell', type: 'function', inputs: [
+      name: 'claimSpotSellProceeds', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
         { type: 'uint256', name: 'sellId' },
-        { type: 'uint256', name: 'shares' },
-        { type: 'uint256', name: 'maxCost' },
-      ], outputs: [{ type: 'uint256', name: 'cost' }], stateMutability: 'nonpayable'
+      ], outputs: [{ type: 'uint256', name: 'proceeds' }], stateMutability: 'nonpayable'
     },
     {
       name: 'getUserSpotSells', type: 'function', inputs: [
@@ -325,12 +358,68 @@ export const ABIS = {
         ]
       }], stateMutability: 'view'
     },
-    // V9.9.7: Batch Cancel
+    {
+      name: 'getSpotSellLiquidity', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'uint16', name: 'tick' },
+      ], outputs: [{ type: 'uint128' }], stateMutability: 'view'
+    },
+    // V10: Unified tick liquidity view
+    {
+      name: 'getTickLiquidity', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'uint16', name: 'tick' },
+      ], outputs: [
+        { type: 'int128', name: 'rangeLiquidityNet' },
+        { type: 'uint128', name: 'rangeLiquidityGross' },
+        { type: 'uint128', name: 'spotLiquidity' },
+      ], stateMutability: 'view'
+    },
+    // Batch operations
     {
       name: 'batchCancelOrders', type: 'function', inputs: [
         { type: 'bytes32', name: 'marketKey' },
         { type: 'uint256[]', name: 'orderIds' },
       ], outputs: [{ type: 'uint256', name: 'totalCollateralReleased' }], stateMutability: 'nonpayable'
+    },
+    {
+      name: 'batchClaimFills', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256[]', name: 'orderIds' },
+      ], outputs: [
+        { type: 'uint256', name: 'totalFilledShares' },
+        { type: 'uint256', name: 'totalCollateralUsed' },
+      ], stateMutability: 'nonpayable'
+    },
+    // Keeper functions
+    {
+      name: 'claimSpotSellProceedsFor', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+        { type: 'uint256', name: 'sellId' },
+      ], outputs: [{ type: 'uint256', name: 'proceeds' }], stateMutability: 'nonpayable'
+    },
+    // State queries
+    {
+      name: 'getNextOrderId', type: 'function', inputs: [],
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'getNextSpotSellId', type: 'function', inputs: [],
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    // Refund management
+    {
+      name: 'getPendingRefunds', type: 'function', inputs: [
+        { type: 'address', name: 'user' },
+        { type: 'bytes32', name: 'marketKey' },
+      ], outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'claimPooledRefunds', type: 'function', inputs: [
+        { type: 'bytes32', name: 'marketKey' },
+      ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
     },
   ],
 
@@ -344,9 +433,11 @@ export const ABIS = {
       ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
     },
     {
+      // V11: lpToken added to markets struct (11 fields total)
       name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
       outputs: [
         { type: 'address', name: 'creator' },
+        { type: 'address', name: 'lpToken' },
         { type: 'uint256', name: 'bBase' },
         { type: 'uint256', name: 'bCurrent' },
         { type: 'uint256', name: 'creatorDeposit' },
@@ -356,8 +447,6 @@ export const ABIS = {
         { type: 'bool', name: 'isGraduated' },
         { type: 'uint64', name: 'createdAt' },
         { type: 'uint64', name: 'graduatedAt' },
-        { type: 'string', name: 'name' },
-        { type: 'string', name: 'symbol' },
       ], stateMutability: 'view'
     },
     {

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IAMMEngine} from "./interfaces/IAMMEngine.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -35,6 +36,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
     /// @notice USDC token address
     IERC20 public immutable usdc;
     uint8 private immutable usdcDecimals; // Cached for WAD ↔ token-decimals conversions
+    IProtocolConfig public immutable protocolConfig;
 
     /// @notice Authorized router (LaunchpadEngine) that can trade on behalf of users
     address public router;
@@ -65,10 +67,12 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
     // Constructor
     // ============================================
 
-    constructor(address _usdc, address _owner) Ownable(_owner) {
+    constructor(address _usdc, address _protocolConfig, address _owner) Ownable(_owner) {
         require(_usdc != address(0), "AMMEngine: zero usdc");
+        require(_protocolConfig != address(0), "AMMEngine: zero protocol config");
         usdc = IERC20(_usdc);
         usdcDecimals = IERC20Metadata(_usdc).decimals();
+        protocolConfig = IProtocolConfig(_protocolConfig);
     }
 
     // ============================================
@@ -106,6 +110,8 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
             liquidity: initialLiquidity,
             initialized: true
         });
+
+        emit MarketInitialized(market, initialLiquidity);
     }
 
     // ============================================
@@ -149,6 +155,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
         uint256 maxCostOrMinProceeds,
         uint256 fee
     ) internal returns (uint256 actualCost) {
+        require(!protocolConfig.isPaused(), "AMMEngine: paused");
         require(deltaShares != 0, "AMMEngine: zero delta");
         require(outcome <= 1, "AMMEngine: invalid outcome");
         require(ITruthMarket(market).isLive(), "AMMEngine: market not live");
@@ -573,7 +580,7 @@ contract AMMEngine is IAMMEngine, Ownable, ReentrancyGuard {
      *      INVALID returns 50% of total shares (both YES and NO)
      */
     function settlePosition(address market) external override nonReentrant returns (uint256 payout) {
-        require(ITruthMarket(market).isSettled(), "AMMEngine: not settled");
+        require(ITruthMarket(market).isFinalized(), "AMMEngine: not finalized");
 
         Position storage position = _positions[market][msg.sender];
         require(position.yesShares > 0 || position.noShares > 0, "AMMEngine: no position");

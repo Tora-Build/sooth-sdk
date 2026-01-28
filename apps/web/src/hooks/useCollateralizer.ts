@@ -1,9 +1,10 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch Collateralizer state for a market
@@ -25,7 +26,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getOutcomeTokens",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -33,7 +34,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -43,7 +44,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getTotalCollateral",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -51,7 +52,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!chainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -61,7 +62,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: collateralizerAddress,
-                abi: V8_ABIS.Collateralizer,
+                abi: ABIS.Collateralizer,
                 functionName: "getBalances",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
@@ -69,7 +70,7 @@ export function useCollateralizer(marketAddress: `0x${string}` | undefined) {
         ],
         query: {
             enabled: !!marketAddress && !!collateralizerAddress && !!chainId && !!userAddress,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -155,19 +156,19 @@ export function useOutcomeToken(tokenAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "name",
                 chainId,
             },
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "symbol",
                 chainId,
             },
             {
                 address: tokenAddress,
-                abi: V8_ABIS.OutcomeToken,
+                abi: ABIS.OutcomeToken,
                 functionName: "market",
                 chainId,
             },

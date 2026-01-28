@@ -1,9 +1,9 @@
-# Claude Code Instructions
+# Sooth Protocol
 
-Read `.agent/` for project context, workflows, and conventions:
+Prediction market protocol with LMSR AMM and orderbook trading.
 
-- `.agent/GUIDE.md` - Quick reference for workflows
-- `.agent/KNOWLEDGE.md` - Domain knowledge
-- `.agent/LESSONS_LEARNED.md` - Persistent agent memory
-- `.agent/UI_UX_PATTERNS.md` - Design patterns
-- `.agent/workflows/` - Available workflow commands
+@AGENTS.md
+@.claude/rules/knowledge.md
+@.claude/rules/lessons.md
+@.claude/rules/ui-patterns.md
+@.claude/rules/protected.md

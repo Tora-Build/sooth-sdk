@@ -129,15 +129,15 @@ export const SettlementPanel = ({ address }: SettlementPanelProps) => {
                 onClick={() => setSelectedOutcome('invalid')}
                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                   selectedOutcome === 'invalid'
-                    ? 'border-amber-500 bg-amber-500/20'
+                    ? 'border-slate-500 bg-slate-500/20'
                     : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
                 }`}
               >
                 <AlertTriangle className={`w-5 h-5 mx-auto mb-1 ${
-                  selectedOutcome === 'invalid' ? 'text-amber-400' : 'text-slate-500'
+                  selectedOutcome === 'invalid' ? 'text-slate-400' : 'text-slate-500'
                 }`} />
                 <span className={`font-bold ${
-                  selectedOutcome === 'invalid' ? 'text-amber-400' : 'text-slate-400'
+                  selectedOutcome === 'invalid' ? 'text-slate-400' : 'text-slate-400'
                 }`}>INVALID</span>
               </button>
             </div>
@@ -186,11 +186,11 @@ export const SettlementPanel = ({ address }: SettlementPanelProps) => {
           )}
 
           {/* Warning */}
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-200">
+          <div className="bg-slate-500/10 border border-slate-500/30 rounded-lg p-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+            <div className="text-sm text-slate-200">
               <p className="font-medium">Warning</p>
-              <p className="text-amber-200/70 text-xs mt-0.5">
+              <p className="text-slate-200/70 text-xs mt-0.5">
                 This action is irreversible unless vetoed by the guardian. Ensure the outcome is correct.
               </p>
             </div>
@@ -212,10 +212,10 @@ export const SettlementPanel = ({ address }: SettlementPanelProps) => {
       {/* Confirmation Modal */}
       {showConfirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <Card className="max-w-md w-full border-amber-500/30">
+          <Card className="max-w-md w-full border-slate-500/30">
             <div className="p-6 space-y-4">
               <div className="text-center">
-                <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+                <AlertTriangle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                 <h3 className="text-xl font-bold text-white">Confirm Settlement</h3>
               </div>
 
@@ -224,7 +224,7 @@ export const SettlementPanel = ({ address }: SettlementPanelProps) => {
                   <span className="text-slate-400">Outcome:</span>
                   <span className={`font-bold ${
                     selectedOutcome === 'yes' ? 'text-emerald-400' :
-                    selectedOutcome === 'no' ? 'text-rose-400' : 'text-amber-400'
+                    selectedOutcome === 'no' ? 'text-rose-400' : 'text-slate-400'
                   }`}>
                     {selectedOutcome?.toUpperCase()}
                   </span>

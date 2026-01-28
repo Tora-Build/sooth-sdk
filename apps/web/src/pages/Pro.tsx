@@ -8,21 +8,24 @@
  * - Shows only graduated markets
  * - Click to open trading terminal for selected market
  */
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Copy, Check
+  Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield, Trophy, XCircle, CheckCircle, Clock
 } from 'lucide-react';
 import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
+import { logger } from '../lib/logger';
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { MarketHeader } from '../components/features/v8/MarketHeader';
+import { Tooltip } from '../components/ui/Tooltip';
+import { MarketHeader } from '../components/features/MarketHeader';
 import { MarketDetailHeader } from '../components/features/launchpad/MarketDetailHeader';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import {
   useLaunchpadMarketDirect,
+  useTruthMarketDirect,
   useCollateralizerDirect,
   useTickBookDirect,
   useTickBookQuoteDirect,
@@ -34,16 +37,16 @@ import {
   useOnChainMarkets,
   RangeOrder
 } from '../hooks';
-import { useOrdersIndexed, useOrderbookIndexed, useTradesIndexed } from '../hooks/indexer';
-import { ClaimFillsButton } from '../components/features/ClaimFillsButton';
+import { usePendingRefunds } from '../hooks/usePendingRefunds';
+import { useOrdersIndexed, useOrderbookIndexed, useSpotSellsIndexed, type SpotSellOrderIndexed } from '../hooks/indexer';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, V9_ABIS, V996_ABIS } from '../config/abis';
+import { ABIS } from '../config/abis';
 import marketsConfig from '../config/markets.json';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
+import { LiquidityMap, UserOrdersPanel } from '../components/features/pro';
 
-// Type for static market config (for UI metadata fallback)
 interface StaticMarket {
   id: string;
   contractAddress: string;
@@ -57,945 +60,26 @@ interface StaticMarket {
 }
 const staticMarkets = (marketsConfig.markets || []) as StaticMarket[];
 
-// ============================================================================
-// Types
-// ============================================================================
 type OrderAction = 'buy_yes' | 'sell_yes' | 'buy_no' | 'sell_no';
 type OrderType = 'limit' | 'market';
+
+const MARKET_ORDER_ENABLED = false;
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
   { id: 'crypto', label: 'Crypto' },
-  { id: 'politics', label: 'Politics' },
-  { id: 'science', label: 'Science' },
   { id: 'sports', label: 'Sports' },
+  { id: 'cultures', label: 'Cultures' },
+  { id: 'others', label: 'Others' },
 ];
 
-// ============================================================================
-// Liquidity Map Component - Uses real orderbook data
-// ============================================================================
-interface TickData {
-  index: number;
-  price: number;
-  liquidityNet: bigint;
-  liquidityGross: bigint;
-}
-
-interface LiquidityMapProps {
-  tickBook: {
-    bids: TickData[];
-    asks: TickData[];
-    activeLiquidityNo?: bigint;
-    activeLiquidityYes?: bigint;
-  } | null;
-  allOrders?: Array<{
-    orderId: bigint;
-    outcome: number;
-    tickLower: number;
-    tickUpper: number;
-    sharesTotal: bigint;
-    liquidity: bigint;
-    filledShares: bigint;
-    pendingShares: bigint;
-    active: boolean;
-  }>;
-  currentProb: number;
-  ammProb: number;
-  isLoading: boolean;
-  viewOutcome: 'yes' | 'no';
-}
-
-const LiquidityMap = ({ tickBook, allOrders, currentProb, ammProb, isLoading, viewOutcome }: LiquidityMapProps) => {
-  // Build liquidity buckets for visualization (150 columns for slightly larger squares)
-  // TickBookV2 uses continuous range orders - show uniform liquidity across ranges
-  const { buckets, lowestBoundary, highestBoundary, totalLiquidity, maxLiquidity, hasYesLiq, hasNoLiq } = useMemo(() => {
-    const numBuckets = 150;
-    const buckets: { price: number; liquidity: bigint; side: 'yes' | 'no' | 'none' }[] = [];
-    const currentTickPercent = currentProb * 100;
-
-    // Initialize empty buckets
-    for (let i = 0; i < numBuckets; i++) {
-      buckets.push({
-        price: ((i + 1) * 100) / numBuckets, // 1.25% to 100%
-        liquidity: 0n,
-        side: 'none'
-      });
-    }
-
-    // Use active liquidity from market state
-    const activeLiqYes = tickBook?.activeLiquidityYes ?? 0n;
-    const activeLiqNo = tickBook?.activeLiquidityNo ?? 0n;
-
-    // Get boundary ticks
-    const bids = tickBook?.bids ?? [];
-    const asks = tickBook?.asks ?? [];
-
-    let lowestBoundary = 100;
-    let highestBoundary = 0;
-    let totalLiq = 0n;
-
-    for (const tick of bids) {
-      const tickPercent = tick.price * 100;
-      const startBucket = Math.max(0, Math.floor((tickPercent / 100) * numBuckets));
-      const endBucket = numBuckets - 1;
-      const rangeSize = Math.max(1, endBucket - startBucket + 1);
-      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      for (let b = startBucket; b <= endBucket; b++) {
-        buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'yes'; // Bids provide liquidity to SELLers
-      }
-      totalLiq += tick.liquidityGross;
-      lowestBoundary = Math.min(lowestBoundary, tickPercent);
-      highestBoundary = Math.max(highestBoundary, 100);
-    }
-
-    // Process asks (NO orders) - invert position for YES View consistency
-    for (const tick of asks) {
-      // asks represent NO orders. In YES View, invert to show "Sell YES" position.
-      // e.g., NO order at 54% YES = Sell YES at 46%
-      const rawTickPercent = tick.price * 100;
-      const tickPercent = 100 - rawTickPercent;
-
-      // For inverted asks, spread from 0% to the inverted tick position
-      const endBucket = Math.min(numBuckets - 1, Math.floor((tickPercent / 100) * numBuckets));
-      const startBucket = 0;
-      const rangeSize = Math.max(1, endBucket - startBucket + 1);
-      const liqPerBucket = tick.liquidityGross / BigInt(rangeSize);
-      for (let b = startBucket; b <= endBucket; b++) {
-        buckets[b].liquidity += liqPerBucket;
-        buckets[b].side = 'no'; // Sell YES = provides NO liquidity to takers
-      }
-      totalLiq += tick.liquidityGross;
-      lowestBoundary = Math.min(lowestBoundary, 0);
-      highestBoundary = Math.max(highestBoundary, tickPercent);
-    }
-
-    // Use all orders to populate the liquidity map (shows full orderbook depth)
-    if (totalLiq === 0n && allOrders && allOrders.length > 0) {
-      for (const order of allOrders) {
-        if (!order.active) continue;
-
-        // Convert ticks to percentages (tick 1-999 maps to 0.1%-99.9%)
-        const isYesOrder = order.outcome === 1;
-
-        // For NO orders (outcome=0), the tick represents where the NO order sits on the YES scale.
-        // In YES View, we want to show this as "Sell YES" at the inverted position.
-        // Example: NO order at tick 540 (54% YES) = Sell YES at 46% (100 - 54 = 46)
-        let lowPercent = order.tickLower / 10;
-        let highPercent = order.tickUpper / 10;
-
-        if (!isYesOrder) {
-          // Invert NO order positions for consistent display
-          const invLow = 100 - highPercent;
-          const invHigh = 100 - lowPercent;
-          lowPercent = invLow;
-          highPercent = invHigh;
-        }
-
-        const startBucket = Math.max(0, Math.floor((lowPercent / 100) * numBuckets));
-        const endBucket = Math.min(numBuckets - 1, Math.floor((highPercent / 100) * numBuckets));
-        const rangeSize = Math.max(1, endBucket - startBucket + 1);
-
-        // Use remaining liquidity (total - claimed - pending)
-        const totalFilled = order.filledShares + order.pendingShares;
-        const remainingLiq = order.sharesTotal > totalFilled
-          ? order.sharesTotal - totalFilled
-          : 0n;
-
-        // Skip 100% filled orders - they have no remaining liquidity
-        if (remainingLiq === 0n) continue;
-
-        const liqPerBucket = remainingLiq / BigInt(rangeSize);
-
-        for (let b = startBucket; b <= endBucket; b++) {
-          buckets[b].liquidity += liqPerBucket;
-          // NO orders in YES view represent "Sell YES" liquidity (red/ask side)
-          buckets[b].side = isYesOrder ? 'yes' : 'no';
-        }
-
-        totalLiq += remainingLiq;
-        lowestBoundary = Math.min(lowestBoundary, lowPercent);
-        highestBoundary = Math.max(highestBoundary, highPercent);
-      }
-    }
-
-    // Fallback: If we have active liquidity but couldn't match boundaries, spread across range
-    if (totalLiq === 0n && (activeLiqYes > 0n || activeLiqNo > 0n)) {
-      // Spread active liquidity across the entire range
-      const liqPerBucket = (activeLiqYes + activeLiqNo) / BigInt(numBuckets);
-      for (let b = 0; b < numBuckets; b++) {
-        buckets[b].liquidity = liqPerBucket;
-        buckets[b].side = activeLiqYes > activeLiqNo ? 'yes' : 'no';
-      }
-      totalLiq = activeLiqYes + activeLiqNo;
-      lowestBoundary = 0;
-      highestBoundary = 100;
-    }
-
-    // Find max liquidity for normalization
-    const rawMaxLiq = buckets.reduce((max, b) => b.liquidity > max ? b.liquidity : max, 0n);
-
-    // Minimal Y-axis scale (e.g., 50 shares) to prevent noise from looking significant
-    const minScale = parseUnits('50', 18);
-    const maxLiq = rawMaxLiq > minScale ? rawMaxLiq : minScale;
-
-    // Determine available liquidity range for display
-    const hasYesLiq = activeLiqYes > 0n || buckets.some(b => b.side === 'yes');
-    const hasNoLiq = activeLiqNo > 0n || buckets.some(b => b.side === 'no');
-
-    return {
-      buckets: buckets.map(b => ({
-        ...b,
-        normalized: maxLiq > 0n ? Number((b.liquidity * 100n) / maxLiq) / 100 : 0
-      })),
-      // Show range bounds instead of bid/ask
-      lowestBoundary,
-      highestBoundary,
-      totalLiquidity: totalLiq,
-      maxLiquidity: maxLiq,
-      hasYesLiq,
-      hasNoLiq,
-    };
-  }, [tickBook, allOrders, currentProb, ammProb]);
-
-  // Adjust for View Outcome (flip if NO)
-  const displayBuckets = useMemo(() => {
-    if (viewOutcome === 'yes') return buckets;
-    // Flip buckets for NO view
-    return [...buckets].reverse().map(b => ({
-      ...b,
-      price: 100 - b.price,
-      // Flip side logic: 
-      // YES view: 'yes' = Green (Buy YES), 'no' = Red (Buy NO)
-      // NO view: 'no' = Green (Buy NO), 'yes' = Red (Buy YES -> Sell NO)
-      // So no need to change string, just rendering color logic
-    }));
-  }, [buckets, viewOutcome]);
-
-  const displayProb = viewOutcome === 'yes' ? currentProb : (1 - currentProb);
-  const displayAmmProb = viewOutcome === 'yes' ? ammProb : (1 - ammProb);
-  const hasRealData = (tickBook?.bids?.length ?? 0) > 0 || (tickBook?.asks?.length ?? 0) > 0 || (allOrders?.filter(o => o.active)?.length ?? 0) > 0;
-
-  return (
-    <div className="relative">
-      {/* Price scale */}
-      <div className="flex justify-between text-[9px] text-slate-600 font-mono mb-1 px-1">
-        <span>0%</span>
-        <span>25%</span>
-        <span>50%</span>
-        <span>75%</span>
-        <span>100%</span>
-      </div>
-
-      {/* Pixel depth chart */}
-      <div className="relative h-32 flex items-end gap-0 bg-slate-950 rounded-lg p-2">
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
-          </div>
-        ) : !hasRealData ? (
-          // No liquidity - simple empty state
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-sm text-slate-500">No orders yet</span>
-          </div>
-        ) : (
-          null
-        )}
-
-        {/* Price Indicators (Light Bars) */}
-        {!isLoading && (
-          <>
-            {/* AMM Price Indicator - Slightly Grey 'Stealth' bar */}
-            <div
-              className="absolute top-0 bottom-0 w-[1px] bg-slate-400/60 z-10 pointer-events-none"
-              style={{ left: `${displayAmmProb * 100}%` }}
-            />
-            {/* TickBook Price Indicator - Yellow/Amber solid bar */}
-            <div
-              className="absolute top-0 bottom-0 w-[1.5px] bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-              style={{ left: `calc(${displayProb * 100}% - 0.75px)` }}
-            />
-          </>
-        )}
-
-
-
-        {/* Y-Axis Depth Scale */}
-        <div className="absolute left-0 top-2 bottom-3 flex flex-col justify-between items-end pr-1 border-r border-slate-800/50 pointer-events-none z-20 w-8">
-          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
-            {totalLiquidity > 0n ? parseFloat(formatUnits(maxLiquidity, 18)).toFixed(0) : '0'}
-            <div className="w-1.5 h-[1px] bg-slate-800" />
-          </div>
-          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
-            {(parseFloat(formatUnits(maxLiquidity, 18)) / 2).toFixed(0)}
-            <div className="w-1.5 h-[1px] bg-slate-800" />
-          </div>
-          <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
-            0
-            <div className="w-1.5 h-[1px] bg-slate-800" />
-          </div>
-        </div>
-
-        {!isLoading && hasRealData && (
-          <div className="flex-1 h-full flex items-end gap-[1px] pl-8">
-            {displayBuckets.map((bucket, col) => {
-              // Ensure even tiny liquidity shows at least one dimmed block
-              const blocks = bucket.liquidity > 0n ? Math.max(1, Math.ceil(bucket.normalized * 12)) : 0;
-              const hasLiquidity = bucket.liquidity > 0n;
-
-              const isYesLiq = bucket.side === 'yes';
-              const isNoLiq = bucket.side === 'no';
-
-              const isGreen = viewOutcome === 'yes' ? isYesLiq : isNoLiq;
-              const isRed = viewOutcome === 'yes' ? isNoLiq : isYesLiq;
-
-              return (
-                <div
-                  key={col}
-                  className={cn(
-                    "flex-1 flex flex-col justify-end gap-[2px] relative group h-full pb-1",
-                    hasLiquidity && "cursor-pointer"
-                  )}
-                >
-                  {/* Hover tooltip */}
-                  {hasLiquidity && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none">
-                      <div className="bg-slate-900 border-2 border-slate-700/50 rounded-xl px-3 py-2 text-center shadow-2xl backdrop-blur-md">
-                        <div className="font-mono font-bold text-white text-[10px] mb-1">{bucket.price.toFixed(1)}%</div>
-                        <div className={cn("text-[11px] font-bold whitespace-nowrap", isGreen ? "text-emerald-400" : "text-rose-400")}>
-                          {isGreen ? 'Buy' : 'Sell'} {(() => {
-                            const val = Number(formatUnits(bucket.liquidity, 18));
-                            if (val === 0 && bucket.liquidity > 0n) return '< 0.0001';
-                            if (val < 0.1) return val.toFixed(4);
-                            return val.toLocaleString(undefined, { maximumFractionDigits: 3 });
-                          })()} {viewOutcome.toUpperCase()}
-                        </div>
-                        <div className="text-[8px] text-slate-500 mt-1 uppercase tracking-tighter">
-                          {((bucket.liquidity * 100n) / (totalLiquidity || 1n)).toString()}% of Depth
-                        </div>
-                      </div>
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-slate-800" />
-                    </div>
-                  )}
-
-                  {/* Blocks with staggered entrance animation */}
-                  {hasLiquidity && [...Array(blocks)].map((_, blockIdx) => {
-                    const intensity = (blockIdx + 1) / blocks;
-                    // Staggered delay: column * 5ms + block * 30ms for cascade effect
-                    const animDelay = col * 5 + blockIdx * 30;
-                    return (
-                      <div
-                        key={blockIdx}
-                        className={cn(
-                          "w-full aspect-square rounded-[2px] transition-all duration-200",
-                          isGreen ? (intensity > 0.7 ? 'bg-emerald-400' : intensity > 0.4 ? 'bg-emerald-500' : 'bg-emerald-700')
-                            : isRed ? (intensity > 0.7 ? 'bg-rose-400' : intensity > 0.4 ? 'bg-rose-500' : 'bg-rose-700')
-                              : "bg-slate-800",
-                          "group-hover:ring-1 group-hover:ring-white/30",
-                          "group-hover:scale-110 hover:shadow-lg",
-                          isGreen && "group-hover:shadow-emerald-500/30",
-                          isRed && "group-hover:shadow-rose-500/30",
-                          "animate-[slideInUp_0.3s_ease-out_forwards]",
-                          "opacity-0" // Start hidden, animation reveals
-                        )}
-                        style={{
-                          animationDelay: `${animDelay}ms`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/50">
-        <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-[9px] text-slate-500 uppercase">Range Low</div>
-          <div className="text-sm font-mono font-bold text-slate-300">
-            {lowestBoundary === 100 && !hasRealData ? '—' : `${lowestBoundary.toFixed(1)}%`}
-          </div>
-        </div>
-        <div className="text-center p-2 rounded-lg bg-slate-900/30">
-          <div className="text-[9px] text-slate-500 uppercase">Range High</div>
-          <div className="text-sm font-mono font-bold text-slate-300">
-            {highestBoundary === 0 && !hasRealData ? '—' : `${highestBoundary.toFixed(1)}%`}
-          </div>
-        </div>
-        <div className="text-center p-2 rounded-lg bg-slate-950">
-          <div className="text-[9px] text-slate-500 uppercase">Total Liq</div>
-          <div className="text-sm font-mono font-bold text-white">
-            ${parseFloat(formatUnits(totalLiquidity, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// User Orders Panel - View, Cancel, Claim orders
-// ============================================================================
-interface UserOrdersPanelProps {
-  orders: RangeOrder[];
-  marketKey: `0x${string}` | undefined;
-  isLoading: boolean;
-  onRefresh: () => void;
-  contracts: Record<string, string>;
-  chainId: number;
-  viewOutcome: 'yes' | 'no';
-  yesShares?: bigint;
-  noShares?: bigint;
-}
-
-type OrderFilter = 'all' | 'open' | 'filled';
-type OrderSort = 'newest' | 'price' | 'fill' | 'created';
-
-const MAX_BATCH_SIZE = 20;
-
-const UserOrdersPanel = ({ orders, marketKey, isLoading, onRefresh, contracts, chainId, viewOutcome, yesShares, noShares }: UserOrdersPanelProps) => {
-  const { writeContractAsync } = useWriteContract();
-  const publicClient = usePublicClient();
-  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
-  const [filter, setFilter] = useState<OrderFilter>('all');
-  const [sortBy, setSortBy] = useState<OrderSort>('newest');
-
-  // Helper to calculate fill percent
-  const getFillPercent = (o: RangeOrder) => {
-    const totalFilled = o.filledShares + o.pendingShares;
-    const capped = totalFilled > o.sharesTotal ? o.sharesTotal : totalFilled;
-    return o.sharesTotal > 0n ? Number(capped * 100n / o.sharesTotal) : 0;
-  };
-
-  // Filter orders
-  const filteredOrders = orders.filter(o => {
-    if (!o.active) return false;
-    const fillPct = getFillPercent(o);
-    switch (filter) {
-      case 'open': return fillPct < 100;
-      case 'filled': return fillPct >= 100;
-      default: return true;
-    }
-  });
-
-  // Sort orders
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
-    switch (sortBy) {
-      case 'price': return a.tickLower - b.tickLower;
-      case 'fill': return getFillPercent(b) - getFillPercent(a);
-      case 'created':
-        // Sort by createdAt timestamp (newest first), fallback to orderId
-        if (a.createdAt && b.createdAt) return b.createdAt - a.createdAt;
-        return Number(b.orderId - a.orderId);
-      default: return Number(b.orderId - a.orderId); // newest first by orderId
-    }
-  });
-
-  // Fully filled orders for batch claim (capped at MAX_BATCH_SIZE)
-  const fullyFilledOrders = orders.filter(o => {
-    if (!o.active) return false;
-    return getFillPercent(o) >= 100;
-  }).slice(0, MAX_BATCH_SIZE);
-
-  // Open (not fully filled) orders for batch cancel
-  const openOrders = orders.filter(o => {
-    if (!o.active) return false;
-    return getFillPercent(o) < 100;
-  }).slice(0, MAX_BATCH_SIZE);
-
-  // Batch cancel handler
-  const handleBatchCancel = async () => {
-    if (!marketKey || openOrders.length === 0) return;
-    if (!contracts.TickBookPoolManager) {
-      toast.error('TickBookPoolManager not deployed');
-      return;
-    }
-    
-    setActionInProgress('batch-cancel');
-    const toastId = toast.loading(`Cancelling ${openOrders.length} order(s)...`);
-    
-    try {
-      const orderIds = openOrders.map(o => o.orderId);
-      console.log('[BatchCancel] Calling batchCancelOrders:', { marketKey, orderIds: orderIds.map(id => id.toString()) });
-      
-      const hash = await writeContractAsync({
-        address: contracts.TickBookPoolManager as `0x${string}`,
-        abi: V996_ABIS.TickBookPoolManager,
-        functionName: 'batchCancelOrders',
-        args: [marketKey, orderIds],
-        gas: BigInt(200000 + openOrders.length * 150000),
-      });
-      
-      toast.loading('Waiting for confirmation...', { id: toastId });
-      
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
-        if (receipt.status === 'reverted') {
-          toast.error('Transaction reverted', { id: toastId, duration: 5000 });
-          setActionInProgress(null);
-          return;
-        }
-      }
-      
-      toast.success(`Cancelled ${openOrders.length} order(s)`, { id: toastId, duration: 5000 });
-      onRefresh();
-    } catch (e: any) {
-      console.error('[BatchCancel] Error:', e);
-      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Batch cancel failed';
-      toast.error(msg, { id: toastId, duration: 5000 });
-    } finally {
-      setActionInProgress(null);
-    }
-  };
-
-  const handleCancelOrder = async (orderId: bigint) => {
-    if (!marketKey) return;
-    if (!contracts.TickBookPoolManager) {
-      toast.error('TickBookPoolManager not deployed');
-      return;
-    }
-    setActionInProgress(`cancel-${orderId.toString()}`);
-    const toastId = toast.loading('Cancelling order...');
-    try {
-      console.log('[Cancel] Calling cancelOrder:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
-      
-      let hash: `0x${string}`;
-      try {
-        hash = await writeContractAsync({
-          address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V996_ABIS.TickBookPoolManager,
-          functionName: 'cancelOrder',
-          args: [marketKey, orderId]
-        });
-      } catch (simError: any) {
-        console.error('[Cancel] Simulation/wallet error:', simError);
-        const simMsg = simError?.cause?.reason || simError?.shortMessage || simError?.message || 'Transaction failed';
-        toast.error(simMsg, { id: toastId, duration: 5000 });
-        setActionInProgress(null);
-        return;
-      }
-      console.log('[Cancel] TX submitted:', hash);
-
-      toast.loading('Waiting for confirmation...', { id: toastId });
-
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        console.log('[Cancel] TX receipt:', receipt.status, receipt);
-        if (receipt.status === 'reverted') {
-          toast.error('Transaction reverted on-chain', { id: toastId });
-          return;
-        }
-      }
-
-      toast.success(`Order cancelled! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
-      console.log('[Cancel] Success! Refreshing...');
-      onRefresh();
-    } catch (e: any) {
-      console.error('[Cancel] Error:', e);
-      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Cancel failed';
-      toast.error(msg, { id: toastId, duration: 5000 });
-    } finally {
-      setActionInProgress(null);
-    }
-  };
-
-  const handleClaimFills = async (orderId: bigint) => {
-    if (!marketKey) return;
-    if (!contracts.TickBookPoolManager) {
-      toast.error('TickBookPoolManager not deployed');
-      return;
-    }
-    
-    // Contract computes pending fills from accumulator - no frontend check needed
-    console.log('[Claim] Calling claimFills:', { marketKey, orderId: orderId.toString(), poolManager: contracts.TickBookPoolManager });
-    
-    setActionInProgress(`claim-${orderId.toString()}`);
-    const toastId = toast.loading('Claiming fills...');
-    try {
-      
-      let hash: `0x${string}`;
-      try {
-        hash = await writeContractAsync({
-          address: contracts.TickBookPoolManager as `0x${string}`,
-          abi: V996_ABIS.TickBookPoolManager,
-          functionName: 'claimFills',
-          args: [marketKey, orderId]
-        });
-      } catch (simError: any) {
-        console.error('[Claim] Simulation/wallet error:', simError);
-        const simMsg = simError?.cause?.reason || simError?.shortMessage || simError?.message || 'Transaction failed';
-        toast.error(simMsg, { id: toastId, duration: 5000 });
-        setActionInProgress(null);
-        return;
-      }
-      console.log('[Claim] TX submitted:', hash);
-
-      toast.loading('Waiting for confirmation...', { id: toastId });
-      console.log('[Claim] Waiting for receipt...');
-
-      if (publicClient) {
-        try {
-          const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
-          console.log('[Claim] TX receipt:', receipt.status, receipt);
-          if (receipt.status === 'reverted') {
-            toast.error('Transaction reverted on-chain', { id: toastId, duration: 5000 });
-            setActionInProgress(null);
-            return;
-          }
-        } catch (receiptError: any) {
-          console.error('[Claim] Receipt error:', receiptError);
-          toast.error(`Receipt error: ${receiptError?.message || 'Unknown'}`, { id: toastId, duration: 5000 });
-          setActionInProgress(null);
-          return;
-        }
-      } else {
-        console.warn('[Claim] No publicClient - cannot wait for receipt');
-      }
-
-      toast.success(`Fills claimed! TX: ${hash.slice(0, 10)}...`, { id: toastId, duration: 5000 });
-      console.log('[Claim] Success! Refreshing...');
-      onRefresh();
-    } catch (e: any) {
-      console.error('[Claim] Outer error:', e);
-      const msg = e?.cause?.reason || e?.shortMessage || e?.message || 'Claim failed';
-      toast.error(msg, { id: toastId, duration: 5000 });
-    } finally {
-      console.log('[Claim] Finally block - clearing action');
-      setActionInProgress(null);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            YOUR <span className={viewOutcome === 'yes' ? 'text-emerald-400' : 'text-rose-400'}>{viewOutcome === 'yes' ? 'YES' : 'NO'}</span> ORDERS
-          </span>
-        </div>
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          YOUR ORDERS <span className="text-slate-600">({sortedOrders.length})</span>
-        </span>
-        <div className="flex items-center gap-2">
-          {/* Batch Cancel Open Orders */}
-          <button
-            onClick={handleBatchCancel}
-            disabled={openOrders.length === 0 || actionInProgress === 'batch-cancel'}
-            className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all border',
-              openOrders.length === 0 || actionInProgress === 'batch-cancel'
-                ? 'bg-slate-800/50 text-slate-600 border-slate-700/50 cursor-not-allowed'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
-            )}
-          >
-            {actionInProgress === 'batch-cancel' ? <Loader2 size={10} className="animate-spin" /> : null}
-            Cancel All ({openOrders.length})
-          </button>
-          {/* Batch Claim Filled Orders */}
-          <ClaimFillsButton
-            marketKey={marketKey}
-            orderIds={fullyFilledOrders.map(o => o.orderId)}
-            compact
-            label={`Claim All (${fullyFilledOrders.length})`}
-            variant="filled"
-            disabled={fullyFilledOrders.length === 0}
-            onSuccess={onRefresh}
-          />
-          <button onClick={onRefresh} className="p-1 hover:bg-slate-800 rounded transition-colors" title="Refresh">
-            <RefreshCw className="w-4 h-4 text-slate-500" />
-          </button>
-        </div>
-      </div>
-
-      {/* Filter & Sort Row */}
-      <div className="flex items-center gap-2 mb-3 text-[10px]">
-        <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5">
-          {(['all', 'open', 'filled'] as OrderFilter[]).map((f) => {
-            // Calculate count for each filter
-            const count = orders.filter(o => {
-              if (!o.active) return false;
-              const fillPct = getFillPercent(o);
-              switch (f) {
-                case 'open': return fillPct < 100;
-                case 'filled': return fillPct >= 100;
-                default: return true;
-              }
-            }).length;
-            
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-2 py-1 rounded-md font-medium transition-colors capitalize",
-                  filter === f ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                {f} <span className="text-slate-600">({count})</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="text-slate-600">Sort:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as OrderSort)}
-            className="bg-slate-800/50 border-none rounded px-2 py-1 text-slate-300 text-[10px] focus:ring-0"
-          >
-            <option value="newest">Order ID</option>
-            <option value="created">Created</option>
-            <option value="price">Price</option>
-            <option value="fill">Fill %</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      {(yesShares !== undefined || noShares !== undefined) && (
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="py-1.5 px-2 rounded-lg bg-emerald-950/10 border border-emerald-900/20">
-            <div className="text-[9px] text-emerald-500/80 uppercase font-bold">YES</div>
-            <div className="text-sm font-mono font-bold text-white">
-              {parseFloat(formatUnits(yesShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </div>
-          </div>
-          <div className="py-1.5 px-2 rounded-lg bg-rose-950/10 border border-rose-900/20">
-            <div className="text-[9px] text-rose-500/80 uppercase font-bold">NO</div>
-            <div className="text-sm font-mono font-bold text-white">
-              {parseFloat(formatUnits(noShares ?? 0n, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {sortedOrders.length === 0 ? (
-        <div className="text-center py-8">
-          <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-          <p className="text-sm text-slate-500">No active orders</p>
-          <p className="text-xs text-slate-600">Place a limit order to get started</p>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {/* Header Row */}
-          <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800/50">
-            <span className="shrink-0 w-10">ID</span>
-            <span className="shrink-0 w-8">Side</span>
-            <span className="shrink-0 w-20">Price</span>
-            <span className="shrink-0 w-14">Size</span>
-            <span className="shrink-0 w-16">Fill</span>
-            <div className="flex-1" />
-            <span className="shrink-0 w-14 text-right">Action</span>
-          </div>
-          {sortedOrders.map((order) => {
-            const fillPercent = getFillPercent(order);
-            const isYesOrder = order.outcome === 1;
-            const isBuy = (viewOutcome === 'yes' && isYesOrder) || (viewOutcome === 'no' && !isYesOrder);
-            const orderId = order.orderId.toString();
-            const isFullyFilled = fillPercent >= 100;
-
-            // Calculate display price (always 1 decimal with ¢)
-            const lower = order.tickLower / 10;
-            const upper = order.tickUpper / 10;
-            let displayPrice = "";
-            if (viewOutcome === 'yes') {
-              if (isYesOrder) {
-                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
-              } else {
-                const invLow = 100 - upper;
-                const invHigh = 100 - lower;
-                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
-              }
-            } else {
-              if (!isYesOrder) {
-                displayPrice = lower === upper ? `${lower.toFixed(1)}¢` : `${lower.toFixed(1)}-${upper.toFixed(1)}¢`;
-              } else {
-                const invLow = 100 - upper;
-                const invHigh = 100 - lower;
-                displayPrice = invLow === invHigh ? `${invLow.toFixed(1)}¢` : `${invLow.toFixed(1)}-${invHigh.toFixed(1)}¢`;
-              }
-            }
-
-            return (
-              <div
-                key={orderId}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg border transition-all",
-                  isFullyFilled ? "bg-slate-900/30 border-slate-800/30 opacity-50" : "bg-slate-900/50 border-slate-800/50 hover:border-slate-700"
-                )}
-              >
-                {/* Order ID */}
-                <span className="shrink-0 w-10 text-[9px] font-mono text-slate-500">#{orderId}</span>
-
-                {/* Side Badge */}
-                <span className={cn(
-                  "shrink-0 w-8 py-0.5 rounded text-[8px] font-bold text-center uppercase",
-                  isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                )}>
-                  {isBuy ? 'Buy' : 'Sell'}
-                </span>
-
-                {/* Price */}
-                <span className="shrink-0 w-20 text-[11px] font-mono font-medium text-white">{displayPrice}</span>
-
-                {/* Size */}
-                <span className="shrink-0 w-14 text-[10px] font-mono text-slate-400">
-                  {parseFloat(formatUnits(order.sharesTotal, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </span>
-
-                {/* Fill Progress Bar */}
-                <div className="shrink-0 w-16 flex items-center gap-1">
-                  <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        fillPercent >= 100 ? "bg-emerald-500" :
-                        fillPercent > 0 ? "bg-amber-500" :
-                        "bg-slate-600"
-                      )}
-                      style={{ width: `${Math.min(fillPercent, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-400 w-7 text-right">{fillPercent}%</span>
-                </div>
-
-                {/* Spacer */}
-                <div className="flex-1" />
-
-                {/* Actions: Cancel for open, Claim for fully filled */}
-                <div className="shrink-0 w-14 flex items-center justify-end">
-                  {isFullyFilled ? (
-                    <button
-                      onClick={() => handleClaimFills(order.orderId)}
-                      disabled={actionInProgress === `claim-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center"
-                    >
-                      {actionInProgress === `claim-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleCancelOrder(order.orderId)}
-                      disabled={actionInProgress === `cancel-${orderId}`}
-                      className="h-5 px-2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-colors flex items-center justify-center"
-                      title="Cancel order (claims any pending fills)"
-                    >
-                      {actionInProgress === `cancel-${orderId}` ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancel'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ============================================================================
-// Recent Trades Panel - Shows market order history from indexer
-// ============================================================================
-import type { Trade } from '../hooks/indexer/useTradesIndexed';
-
-interface RecentTradesPanelProps {
-  trades: Trade[];
-  isLoading: boolean;
-  isChainReady: boolean;
-}
-
-const RecentTradesPanel = ({ trades, isLoading, isChainReady }: RecentTradesPanelProps) => {
-  if (!isChainReady) {
-    return (
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        </div>
-        <div className="text-center py-6">
-          <p className="text-xs text-slate-500">Indexer syncing...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        </div>
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RECENT TRADES</span>
-        <span className="text-[9px] text-slate-600 font-mono">{trades.length} trades</span>
-      </div>
-
-      {trades.length === 0 ? (
-        <div className="text-center py-6">
-          <TrendingUp className="w-6 h-6 text-slate-600 mx-auto mb-2" />
-          <p className="text-xs text-slate-500">No recent trades</p>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {/* Header */}
-          <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
-            <span>Time</span>
-            <span>Side</span>
-            <span className="text-right">Price</span>
-            <span className="text-right">Size</span>
-          </div>
-          {/* Trades */}
-          <div className="max-h-[200px] overflow-y-auto space-y-0.5">
-            {trades.map((trade) => {
-              const isBuy = trade.outcome === 1; // YES = buy
-              const time = new Date(Number(trade.timestamp) * 1000);
-              const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const pricePercent = (trade.avgPrice * 100).toFixed(1);
-              const size = parseFloat(formatUnits(trade.sharesFilled, 18));
-
-              return (
-                <div
-                  key={trade.id}
-                  className="grid grid-cols-4 gap-2 px-2 py-1.5 rounded text-xs font-mono hover:bg-slate-800/30 transition-colors"
-                >
-                  <span className="text-slate-400">{timeStr}</span>
-                  <span className={isBuy ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                    {isBuy ? 'YES' : 'NO'}
-                  </span>
-                  <span className="text-right text-slate-200">{pricePercent}%</span>
-                  <span className="text-right text-slate-400">
-                    {size >= 1000 ? `${(size / 1000).toFixed(1)}k` : size.toFixed(0)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+// Stages for Pro - graduated markets (live, settled, finalized) can manage TickBook positions
+const STAGES = [
+  { id: 'all', label: 'All' },
+  { id: 'live', label: 'Live' },
+  { id: 'settled', label: 'Settled' },
+  { id: 'finalized', label: 'Finalized' },
+];
 
 // ============================================================================
 // Main Component
@@ -1005,9 +89,15 @@ export const Pro = () => {
   const navigate = useNavigate();
   const { selectedChainId } = useChainStore();
   const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
+  const previousChainId = useRef<number | null>(null);
 
-  // If marketId is provided, show the trading terminal
-  // Otherwise, show the market list
+  useEffect(() => {
+    if (previousChainId.current !== null && previousChainId.current !== chainId && marketId) {
+      navigate('/pro');
+    }
+    previousChainId.current = chainId;
+  }, [chainId, marketId, navigate]);
+
   if (marketId) {
     return <ProTradingTerminal marketId={marketId} />;
   }
@@ -1021,6 +111,7 @@ export const Pro = () => {
 const ProMarketList = ({ chainId }: { chainId: number }) => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [stage, setStage] = useState('all');
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -1028,33 +119,42 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   // V9.9.6: On-chain market discovery - only show graduated markets
   const { markets: onChainMarkets, isLoading: isLoadingMarkets } = useOnChainMarkets();
 
-  // Filter to only graduated markets and merge with static config for UI metadata
+  // Filter to graduated markets for Pro trading (includes settled/finalized for position management)
   const allMarkets = useMemo(() => {
-    // Only show graduated markets for Pro trading
-    const graduatedOnChain = onChainMarkets.filter(m => m.isGraduated);
+    // Show graduated markets (live, settled, finalized) - exclude only dismissed
+    const eligibleMarkets = onChainMarkets.filter(m =>
+      m.isGraduated && !m.isDismissed
+    );
 
-    return graduatedOnChain.map(m => {
-      // Try to find UI metadata from static config
+    return eligibleMarkets.map(m => {
       const staticMarket = staticMarkets.find(
         s => s.contractAddress.toLowerCase() === m.address.toLowerCase()
       );
 
+      let localMeta: { category?: string; name?: string } | null = null;
+      try {
+        const stored = localStorage.getItem(`market_meta_${m.address.toLowerCase()}`);
+        if (stored) localMeta = JSON.parse(stored);
+      } catch { /* ignore */ }
+
       return {
         contractAddress: m.address,
-        name: staticMarket?.name || m.name || 'Unknown Market',
+        name: staticMarket?.name || localMeta?.name || m.name || 'Unknown Market',
         symbol: staticMarket?.symbol || m.symbol || '???',
-        category: (staticMarket as any)?.category || 'other',
+        category: (staticMarket as any)?.category || localMeta?.category || 'others',
         description: staticMarket?.description,
         imageUrl: staticMarket?.imageUrl,
-        // On-chain data
         isGraduated: m.isGraduated,
+        isSettled: m.isSettled,
+        isDismissed: m.isDismissed,
+        stage: m.stage,
         creator: m.creator,
         createdAt: m.createdAt,
       };
     });
   }, [onChainMarkets]);
 
-  // Filter by search and category
+  // Filter by search, category, and stage
   const filteredMarkets = useMemo(() => {
     return allMarkets.filter(m => {
       const matchesSearch = !search ||
@@ -1064,9 +164,11 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
       const matchesCategory = category === 'all' ||
         m.category?.toLowerCase() === category.toLowerCase();
 
-      return matchesSearch && matchesCategory;
+      const matchesStage = stage === 'all' || m.stage === stage;
+
+      return matchesSearch && matchesCategory && matchesStage;
     });
-  }, [allMarkets, search, category]);
+  }, [allMarkets, search, category, stage]);
 
   // Generate category counts
   const categoriesWithCounts = useMemo(() => {
@@ -1078,12 +180,31 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
     }));
   }, [allMarkets]);
 
+  // Generate stage counts
+  const stagesWithCounts = useMemo(() => {
+    return STAGES.map(s => ({
+      ...s,
+      count: s.id === 'all'
+        ? allMarkets.length
+        : allMarkets.filter(m => m.stage === s.id).length
+    }));
+  }, [allMarkets]);
+
   const totalMarketCount = filteredMarkets.length;
 
-  // Auto-select first market
+  useEffect(() => {
+    setSelectedMarketId(null);
+  }, [chainId]);
+
   React.useEffect(() => {
     if (!selectedMarketId && filteredMarkets.length > 0) {
       setSelectedMarketId(filteredMarkets[0].contractAddress);
+    }
+  }, [filteredMarkets, selectedMarketId]);
+
+  React.useEffect(() => {
+    if (selectedMarketId && !filteredMarkets.some(m => m.contractAddress === selectedMarketId)) {
+      setSelectedMarketId(null);
     }
   }, [filteredMarkets, selectedMarketId]);
 
@@ -1107,20 +228,23 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   return (
     <div className="space-y-6">
       <MarketHeader
-        title="Pro"
-        hint="Pro trading uses a continuous range orderbook (TickBookV2) with Uniswap V3-style liquidity. Place limit orders at any price from 0.1% to 99.9% with 0.1% tick precision. Range orders let you provide liquidity across a price range and earn from taker fills. Markets must graduate from AMM before Pro trading unlocks."
+        title="Pro Trading on TickBook"
+        hint="TickBook is an on-chain orderbook with 10,000 price ticks (0.01% to 99.99%). Place limit orders or provide concentrated liquidity across price ranges. Makers earn from taker fills with no fees. Available only for graduated markets."
         search={search}
         onSearchChange={setSearch}
         category={category}
         onCategoryChange={setCategory}
         categories={categoriesWithCounts}
+        stage={stage}
+        onStageChange={setStage}
+        stages={stagesWithCounts}
         marketCount={totalMarketCount}
       />
 
       {/* Horizontal Market Scroll */}
       {isLoadingMarkets ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+          <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
           <span className="ml-2 text-slate-400">Discovering markets...</span>
         </div>
       ) : filteredMarkets.length === 0 ? (
@@ -1152,6 +276,7 @@ interface GraduatedMarketsScrollProps {
     name: string;
     symbol: string;
     category?: string;
+    stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
   }>;
   selectedMarketId: string | null;
   onSelect: (market: any) => void;
@@ -1215,57 +340,62 @@ interface ProMarketChipProps {
     name: string;
     symbol: string;
     category?: string;
+    stage?: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
   };
   isSelected: boolean;
   onClick: () => void;
 }
 
 const ProMarketChip = ({ market, isSelected, onClick }: ProMarketChipProps) => {
-  // Markets are already confirmed graduated via on-chain discovery
-  const { tickBook, isLoading } = useTickBookDirect(market.contractAddress as `0x${string}`, undefined, undefined);
-
-  const currentTick = tickBook?.currentTick ?? 0;
-  const rawProb = tickBook?.probability ?? null;
-  const isMarketActive = tickBook?.isActive ?? false;
-  const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
-  const isValidPrice = isMarketActive && rawProb !== null && rawProb > 0;
+  const getStageDisplay = () => {
+    switch (market.stage) {
+      case 'dismissed':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-rose-400">
+            <XCircle className="w-3 h-3" />
+            <span>Dismissed</span>
+          </div>
+        );
+      case 'finalized':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <Trophy className="w-3 h-3" />
+            <span>Finalized</span>
+          </div>
+        );
+      case 'settled':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-amber-400">
+            <Trophy className="w-3 h-3" />
+            <span>Settled</span>
+          </div>
+        );
+      case 'live':
+      default:
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <BarChart3 className="w-3 h-3" />
+            <span>Graduated</span>
+          </div>
+        );
+    }
+  };
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-w-[200px]",
+        "flex-shrink-0 flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all w-[320px]",
         isSelected
-          ? "bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10"
+          ? "bg-slate-500/10 border-slate-500/50 shadow-lg shadow-slate-500/10"
           : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
       )}
     >
-      {/* Symbol badge - rounded-lg like AMM */}
-      <div className={cn(
-        "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-        isSelected
-          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
-          : "bg-slate-800 text-slate-400"
-      )}>
-        {market.symbol.slice(0, 2)}
-      </div>
-
-      {/* Name */}
       <div className="text-left min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-white text-sm truncate">{market.symbol}</span>
-          <BookOpen className="w-3 h-3 text-amber-400 flex-shrink-0" />
-        </div>
-        <div className="text-[10px] text-slate-500 truncate">{market.name.slice(0, 25)}</div>
+        <div className="text-xs text-white font-medium line-clamp-2 leading-tight">{market.name}</div>
       </div>
 
-      {/* Pro Price */}
-      <span className={cn(
-        "text-sm font-bold tabular-nums flex-shrink-0",
-        proPriceCents > 50 ? "text-emerald-400" : proPriceCents < 50 ? "text-rose-400" : "text-slate-400"
-      )}>
-        {isLoading ? '—' : isValidPrice ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-      </span>
+      {getStageDisplay()}
     </button>
   );
 };
@@ -1286,59 +416,39 @@ interface ProMarketCardProps {
 const ProMarketCard = ({ market, onClick }: ProMarketCardProps) => {
   const { launchpad, isLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const isGraduated = launchpad?.isGraduated;
+  const graduationProgress = launchpad?.graduationProgress ?? 0;
 
   return (
     <button
       onClick={onClick}
       disabled={!isGraduated && !isLoading}
       className={cn(
-        "w-full p-5 rounded-2xl border text-left transition-all",
+        "w-full p-4 rounded-xl border text-left transition-all",
         isGraduated
-          ? "bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer"
+          ? "bg-slate-900/80 border-slate-800 hover:border-slate-600 cursor-pointer"
           : "bg-slate-900/30 border-slate-800/30 cursor-not-allowed opacity-60"
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-            isGraduated
-              ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
-              : "bg-slate-800 text-slate-500"
-          )}>
-            {market.symbol.slice(0, 2)}
-          </div>
-          <div>
-            <div className="font-semibold text-white">{market.symbol}</div>
-            <div className="text-xs text-slate-500">{market.category || 'Uncategorized'}</div>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-white font-medium line-clamp-2">{market.name}</div>
         </div>
 
-        {/* Status Badge */}
-        {isLoading ? (
-          <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-[10px] font-medium">
-            Loading...
-          </span>
-        ) : isGraduated ? (
-          <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-medium flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            Graduated
-          </span>
-        ) : (
-          <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-medium">
-            Pre-Graduation
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isLoading ? (
+            <span className="text-xs text-slate-500">...</span>
+          ) : isGraduated ? (
+            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+              Graduated
+            </span>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-cyan-400">
+              <Zap className="w-3 h-3" />
+              <span className="font-mono">{graduationProgress.toFixed(0)}%</span>
+            </div>
+          )}
+        </div>
       </div>
-
-      <div className="text-sm text-slate-400 line-clamp-2 mb-3">{market.name}</div>
-
-      {!isGraduated && !isLoading && (
-        <div className="text-xs text-slate-500 flex items-center gap-1">
-          <Zap className="w-3 h-3" />
-          Trade on AMM first
-        </div>
-      )}
     </button>
   );
 };
@@ -1360,7 +470,7 @@ const EmptyState = ({ search }: { search?: string }) => (
         : 'Pro trading is available for graduated markets. Check the AMM for early-stage markets.'
       }
     </p>
-    <Link to="/v8" className="text-amber-400 hover:text-amber-300 text-sm font-medium">
+    <Link to="/v8" className="text-slate-400 hover:text-slate-300 text-sm font-medium">
       Browse AMM Markets →
     </Link>
   </div>
@@ -1409,9 +519,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const [useFloorPrice, setUseFloorPrice] = useState(false); // Toggle for floor price
   const [floorPrice, setFloorPrice] = useState('50'); // Default floor value when enabled
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showVaultPanel, setShowVaultPanel] = useState(false);
+
   const [vaultInput, setVaultInput] = useState('');
   const [marketKeyCopied, setMarketKeyCopied] = useState(false);
+
+  useEffect(() => {
+    if (!MARKET_ORDER_ENABLED && orderType === 'market') {
+      setOrderType('limit');
+    }
+  }, [orderType, setOrderType]);
 
   // Slider dragging state
   const trackRef = React.useRef<HTMLDivElement>(null);
@@ -1430,11 +546,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     };
   }, [marketId, chainId]);
 
-  // CRITICAL: Use marketId directly as the address - don't require it to be in static config
-  const marketAddr = marketId as `0x${string}`;
-  const invalidateV8Queries = useInvalidateQueries();
+   // CRITICAL: Use marketId directly as the address - don't require it to be in static config
+   const marketAddr = marketId as `0x${string}`;
+   const invalidateV8Queries = useInvalidateQueries();
 
-  const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
+   // Get market stage from on-chain discovery for fallback settlement UI gating
+   const { markets: onChainMarkets } = useOnChainMarkets();
+   const currentMarketStage = useMemo(() => {
+     return onChainMarkets.find(m => m.address.toLowerCase() === marketAddr.toLowerCase())?.stage;
+   }, [onChainMarkets, marketAddr]);
+
+   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(marketAddr);
+   const { market: truth } = useTruthMarketDirect(marketAddr);
   const { collateralizer, isLoading: isCollateralizerLoading } = useCollateralizerDirect(marketAddr);
   const { amm } = useAmmMarketDirect(marketAddr);
   const { tickBook, isLoading: isTickBookLoading } = useTickBookDirect(
@@ -1467,10 +590,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     tickBook?.marketKey as `0x${string}`
   );
 
-  // Fetch recent trades (indexer only)
-  const { trades, isLoading: isTradesLoading, isChainReady: isTradesChainReady } = useTradesIndexed(
-    tickBook?.marketKey as `0x${string}`,
-    20
+  const { spotSells, isLoading: isSpotSellsLoading } = useSpotSellsIndexed(
+    tickBook?.marketKey as `0x${string}`
+  );
+
+  const { pendingRefundsWad } = usePendingRefunds(
+    userAddress,
+    tickBook?.marketKey as `0x${string}`
   );
 
   const { balances } = useTokenBalances(useMemo(() => [
@@ -1479,7 +605,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
   const { data: usdcDecimals } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
-    abi: V8_ABIS.OutcomeToken,
+    abi: ABIS.OutcomeToken,
     functionName: 'decimals',
     query: { enabled: !!contracts.MockUSDC, staleTime: Infinity },
   });
@@ -1492,7 +618,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // Approval check
   const { data: vaultAllowance } = useReadContract({
     address: contracts.MockUSDC as `0x${string}`,
-    abi: V8_ABIS.OutcomeToken,
+    abi: ABIS.OutcomeToken,
     functionName: 'allowance',
     args: isConnected && contracts.TickBookVault ? [userAddress!, contracts.TickBookVault as `0x${string}`] : undefined,
     query: { enabled: !!isConnected && !!contracts.TickBookVault && !!contracts.MockUSDC }
@@ -1566,10 +692,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // currentTick === 1 means MIN_TICK (no Pro trades yet)
   const isProPriceValid = isMarketActive && rawProb !== null && rawProb > 0 && currentTick > 1;
   const proPriceCents = rawProb !== null ? rawProb * 100 : 0; // probability 0.5 = 50.0¢
-  
+
   // Debug log for troubleshooting
   if (tickBook) {
-    console.log(`[Pro] Market ${marketAddr} - currentTick: ${currentTick}, probability: ${rawProb}, isActive: ${isMarketActive}, isProPriceValid: ${isProPriceValid}`);
+    logger.market.log(`Market ${marketAddr} - currentTick: ${currentTick}, probability: ${rawProb}, isActive: ${isMarketActive}, isProPriceValid: ${isProPriceValid}`);
   }
   const rawBookProb = tickBook?.probability ?? null;
   const ammProb = amm?.yesProbability ?? 0.5;
@@ -1585,6 +711,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const amountNum = parseFloat(amount) || 0;
   const numTicks = priceMode === 'single' ? 1 : Math.max(1, Math.round((priceHighNum - priceLowNum) * 10) + 1);
   const avgPrice = priceMode === 'single' ? priceLowNum : (priceLowNum + priceHighNum) / 2;
+
+  // V10.4: Spot sell range limited to 50 ticks (5% price range) for gas optimization
+  const MAX_SPOT_RANGE = 50;
+  // When range is too wide for spot sell, we'll automatically use short sell instead
+  const spotRangeExceedsLimit = priceMode === 'range' && numTicks > MAX_SPOT_RANGE;
 
   // Calculate required collateral based on action
 
@@ -1605,14 +736,17 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     : true; // For sells, check if user has enough shares (handled separately)
 
   // Determine sell type for display purposes
+  // V10.4: If range > 50 ticks, force short sell (can't use spot sell for wide ranges)
   const sellType = useMemo(() => {
     if (isBuying || !amountNum) return null;
+    // Wide ranges always use short sell (buying opposite) due to V10.4 gas optimization
+    if (spotRangeExceedsLimit) return 'short';
     const shares = isYes ? (vault?.yesInternal ?? 0n) : (vault?.noInternal ?? 0n);
     const needed = parseUnits(amountNum.toFixed(18), 18);
     if (shares >= needed) return 'spot';
     if (shares > 0n && shares < needed) return 'hybrid';
     return 'short';
-  }, [isBuying, amountNum, isYes, vault?.yesInternal, vault?.noInternal]);
+  }, [isBuying, amountNum, isYes, vault?.yesInternal, vault?.noInternal, spotRangeExceedsLimit]);
 
   // Handlers - with proper transaction tracking
   const handleApprove = async () => {
@@ -1621,7 +755,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.MockUSDC as `0x${string}`,
-        abi: V8_ABIS.OutcomeToken,
+        abi: ABIS.OutcomeToken,
         functionName: 'approve',
         args: [contracts.TickBookVault as `0x${string}`, parseUnits('1000000000', decimals)]
       });
@@ -1636,7 +770,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Vault approved!</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -1645,7 +779,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     } catch (e: any) {
       const msg = e?.cause?.reason || e?.shortMessage || 'Approval failed';
       toast.error(msg, { id: toastId });
-      console.error(e);
+      logger.trade.error('Approval failed:', e);
     } finally {
       setIsSubmitting(false);
     }
@@ -1667,7 +801,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVaultPoolManager,
         functionName: 'depositUsdc',
         args: [depositWad]
       });
@@ -1683,7 +817,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Deposited ${depositAmt}</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -1692,7 +826,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     } catch (e: any) {
       const msg = e?.cause?.reason || e?.shortMessage || 'Deposit failed';
       toast.error(msg, { id: toastId });
-      console.error(e);
+      logger.trade.error('Deposit failed:', e);
     } finally {
       setIsSubmitting(false);
     }
@@ -1706,7 +840,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const hash = await writeContractAsync({
         address: contracts.TickBookVault as `0x${string}`,
-        abi: V9_ABIS.TickBookVault,
+        abi: ABIS.TickBookVaultPoolManager,
         functionName: 'withdrawUsdc',
         args: [parseUnits(vaultInput, 18)]
       });
@@ -1722,7 +856,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       toast.success(
         <div className="flex items-center gap-2">
           <span>Withdrew ${withdrawAmt}</span>
-          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-amber-400 hover:text-amber-300">
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>,
@@ -1731,7 +865,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     } catch (e: any) {
       const msg = e?.cause?.reason || e?.shortMessage || 'Withdrawal failed';
       toast.error(msg, { id: toastId });
-      console.error(e);
+      logger.trade.error('Withdrawal failed:', e);
     } finally {
       setIsSubmitting(false);
     }
@@ -1745,11 +879,16 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     setIsSubmitting(true);
     const amountBg = parseUnits(amount, 18);
 
-    console.log('[Pro handleTrade] amount:', amount, 'amountBg:', amountBg.toString(), 'marketKey:', tickBook.marketKey);
+    logger.trade.log('handleTrade amount:', amount, 'amountBg:', amountBg.toString(), 'marketKey:', tickBook.marketKey);
 
     // Determine outcome: outcome=1 credits YES, outcome=0 credits NO
     const outcome = (isYes ? 1 : 0) as 0 | 1;
-    const isMarketOrderType = orderType === 'market';
+    const isMarketOrderType = MARKET_ORDER_ENABLED && orderType === 'market';
+
+    if (!MARKET_ORDER_ENABLED && orderType === 'market') {
+      toast.error('Market orders are temporarily disabled');
+      return;
+    }
 
     try {
       let result: any;
@@ -1774,7 +913,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
           }
         } else {
           // V9.9.6: Use rangeOrder or limitOrder based on priceMode
-          const maxCost = calculateMaxCost(outcome, amountBg, priceHighNum, 1000); // 10% slippage
+          const maxCost = calculateMaxCost(outcome, amountBg, priceLowNum, priceHighNum);
           if (priceMode === 'single') {
             result = await limitOrder(outcome, amountBg, priceLowNum, maxCost);
           } else {
@@ -1787,15 +926,36 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         const userNoInternal = vault?.noInternal ?? 0n;
         const userHolding = isYes ? userYesInternal : userNoInternal;
 
-        const hasFullShares = userHolding >= amountBg;
-        const hasPartialShares = userHolding > 0n && userHolding < amountBg;
+        // V10.4: Wide ranges (>50 ticks) force short sell - can't use placeSpotSell
+        const hasFullShares = !spotRangeExceedsLimit && userHolding >= amountBg;
+        const hasPartialShares = !spotRangeExceedsLimit && userHolding > 0n && userHolding < amountBg;
 
         if (isMarketOrderType) {
-          if (hasFullShares || hasPartialShares) {
-            // SPOT SELL MARKET - Use full tick range (1-999)
+          if (hasFullShares) {
+            // PURE SPOT SELL MARKET - Use full tick range (1-999)
             const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
-            console.log('[Pro] SPOT SELL MARKET:', { isYes, outcome: spotSellOutcome, shares: amountBg.toString() });
+            logger.order.log('SPOT SELL MARKET:', { isYes, outcome: spotSellOutcome, shares: amountBg.toString() });
             const spotResult = await placeSpotSell(spotSellOutcome, amountBg, 0.1, 99.9);
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
+          } else if (hasPartialShares) {
+            // HYBRID SELL MARKET: Spot sell owned shares + short sell remainder
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
+            const shortSellAmount = amountBg - userHolding;
+            logger.order.log('HYBRID SELL MARKET:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
+
+            // Step 1: Spot sell owned shares
+            const spotResult = await placeSpotSell(spotSellOutcome, userHolding, 0.1, 99.9);
+
+            // Step 2: Short sell remainder (buy opposite)
+            if (shortSellAmount > 0n) {
+              const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
+              const shortCost = (finalCostWad * shortSellAmount * 110n) / (amountBg * 100n);
+              await marketOrder(oppositeOutcome, shortSellAmount, shortCost);
+            }
+
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }
@@ -1805,21 +965,51 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const finalCostWad = tbQuote?.estimatedCost ?? parseUnits(estimatedValue.toFixed(6), 18);
             const maxCost = (finalCostWad * 110n) / 100n;
-            console.log('[Pro] SHORT SELL MARKET:', { isYes, oppositeOutcome, maxCost: maxCost.toString() });
+            logger.order.log('SHORT SELL MARKET:', { isYes, oppositeOutcome, maxCost: maxCost.toString() });
             result = await marketOrder(oppositeOutcome, amountBg, maxCost);
           }
         } else {
           // LIMIT ORDERS for SELL
-          if (hasFullShares || hasPartialShares) {
-            // SPOT SELL LIMIT - Lock shares and place resting ask
+          if (hasFullShares) {
+            // PURE SPOT SELL LIMIT - Lock shares and place resting ask
             const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
-            console.log('[Pro] SPOT SELL LIMIT:', { isYes, outcome: spotSellOutcome, priceLow: priceLowNum, priceHigh: priceHighNum });
+            logger.order.log('SPOT SELL LIMIT:', { isYes, outcome: spotSellOutcome, priceLow: priceLowNum, priceHigh: priceHighNum });
             const spotResult = await placeSpotSell(
               spotSellOutcome,
               amountBg,
               priceLowNum,
               priceMode === 'single' ? priceLowNum : priceHighNum
             );
+            if (spotResult) {
+              result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
+            }
+          } else if (hasPartialShares) {
+            // HYBRID SELL LIMIT: Spot sell owned shares + short sell remainder
+            const spotSellOutcome = (isYes ? 1 : 0) as 0 | 1;
+            const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
+            const shortSellAmount = amountBg - userHolding;
+            const invertedPriceLow = 100 - priceHighNum;
+            const invertedPriceHigh = 100 - priceLowNum;
+            logger.order.log('HYBRID SELL LIMIT:', { isYes, spotAmount: userHolding.toString(), shortAmount: shortSellAmount.toString() });
+
+            // Step 1: Spot sell owned shares
+            const spotResult = await placeSpotSell(
+              spotSellOutcome,
+              userHolding,
+              priceLowNum,
+              priceMode === 'single' ? priceLowNum : priceHighNum
+            );
+
+            // Step 2: Short sell remainder (buy opposite at inverted price)
+            if (shortSellAmount > 0n) {
+              const maxCost = calculateMaxCost(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh);
+              if (priceMode === 'single') {
+                await limitOrder(oppositeOutcome, shortSellAmount, invertedPriceLow, maxCost);
+              } else {
+                await rangeOrder(oppositeOutcome, shortSellAmount, invertedPriceLow, invertedPriceHigh, maxCost);
+              }
+            }
+
             if (spotResult) {
               result = { orderId: spotResult.sellId, filledShares: 0n, filledCost: 0n, restingShares: amountBg, txHash: spotResult.txHash };
             }
@@ -1830,8 +1020,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             const oppositeOutcome = (isYes ? 0 : 1) as 0 | 1;
             const invertedPriceLow = 100 - priceHighNum;
             const invertedPriceHigh = 100 - priceLowNum;
-            const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceHigh, 1000);
-            console.log('[Pro] SHORT SELL:', { isYes, oppositeOutcome, invertedPriceLow, invertedPriceHigh, maxCost: maxCost.toString() });
+            const maxCost = calculateMaxCost(oppositeOutcome, amountBg, invertedPriceLow, invertedPriceHigh);
+            logger.order.log('SHORT SELL:', { isYes, oppositeOutcome, invertedPriceLow, invertedPriceHigh, maxCost: maxCost.toString() });
             if (priceMode === 'single') {
               result = await limitOrder(oppositeOutcome, amountBg, invertedPriceLow, maxCost);
             } else {
@@ -1848,7 +1038,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     } catch (e: any) {
       const msg = e?.cause?.reason || e?.shortMessage || 'Trade failed';
       toast.error(msg);
-      console.error(e);
+      logger.trade.error('Trade failed:', e);
     } finally {
       setIsSubmitting(false);
     }
@@ -1861,8 +1051,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   if (!launchpad?.isGraduated && !isReady && !isLoadingLaunchpad) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-amber-950/20 to-transparent border border-amber-900/30 text-center">
-          <Zap className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+        <div className="max-w-md w-full p-8 rounded-2xl bg-gradient-to-b from-slate-800/20 to-transparent border border-slate-700/30 text-center">
+          <Zap className="w-16 h-16 text-slate-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Pro Trading Locked</h2>
           <p className="text-slate-400 mb-6">This market hasn't graduated yet. Trade on the AMM first.</p>
 
@@ -1873,14 +1063,233 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 graduationThreshold={launchpad.graduationThreshold ?? 0n}
                 isGraduated={launchpad.isGraduated ?? false}
                 feesAccrued={launchpad.feesAccrued ?? 0n}
+                isInTrialPeriod={launchpad.isInTrialPeriod}
+                trialTimeRemaining={launchpad.trialTimeRemaining}
+                isDismissed={launchpad.isDismissed}
               />
             </div>
           )}
 
-          <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-amber-600 hover:bg-amber-500 text-white">
+          <Button onClick={() => navigate(`/trade/${marketAddr}`)} className="w-full bg-slate-600 hover:bg-slate-500 text-white">
             Go to AMM Trading
           </Button>
         </div>
+      </div>
+    );
+  }
+
+   // Settled/Finalized market - show settlement UI instead of trading
+   if (truth?.isSettled === true || truth?.isFinalized === true || currentMarketStage === 'settled' || currentMarketStage === 'finalized') {
+    const winningOutcome = truth?.winningOutcome ?? 0;
+    const isFinalized = truth?.isFinalized === true || currentMarketStage === 'finalized';
+    const yesBalance = vault?.yesInternal ?? 0n;
+    const noBalance = vault?.noInternal ?? 0n;
+    const hasPosition = yesBalance > 0n || noBalance > 0n;
+
+    return (
+      <div className="space-y-6">
+        {!embedded && (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/pro')}
+              className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-400" />
+            </button>
+            <div className="flex-1">
+              <div className="text-sm text-white font-medium line-clamp-1">{truth?.question || launchpad?.name}</div>
+            </div>
+          </div>
+        )}
+
+        {/* 60/40 Grid Layout - matches Trade page */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          {/* LEFT COLUMN: Market Header + Settlement Card (60%) */}
+          <div className="lg:col-span-6 space-y-4">
+            <MarketDetailHeader
+              name={truth?.question || launchpad?.name || 'Market'}
+              symbol={staticMetadata?.symbol}
+              address={marketAddr}
+              creator={truth?.creator || launchpad?.creator || '0x0'}
+              adjudicator={truth?.adjudicator}
+              deadline={truth?.deadline}
+              isGraduated={launchpad?.isGraduated || false}
+              isExpired={Boolean(truth?.deadline && (Date.now() / 1000 > truth.deadline))}
+              isLive={truth?.isLive ?? false}
+              chainId={chainId}
+              isInTrialPeriod={launchpad?.isInTrialPeriod}
+              trialTimeRemaining={launchpad?.trialTimeRemaining}
+              isDismissed={launchpad?.isDismissed}
+              isSettled={truth?.isSettled ?? (currentMarketStage === 'settled')}
+              isFinalized={truth?.isFinalized ?? (currentMarketStage === 'finalized')}
+            />
+
+            <Card className={isFinalized ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
+              <div className="p-5 space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-800/50 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      {isFinalized ? (
+                        <Trophy className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-amber-400" />
+                      )}
+                      {isFinalized ? 'Market Finalized' : 'Market Settled'}
+                    </h3>
+                    <p className="text-slate-400 text-xs mt-1">
+                      {isFinalized 
+                        ? "Trading has ended and outcomes are final." 
+                        : "Trading has ended. Waiting for veto period."}
+                    </p>
+                  </div>
+                  {isFinalized ? (
+                    <Badge variant="success" className="flex items-center gap-1 px-3 py-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Finalized
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 px-3 py-1">
+                      <Clock className="w-3 h-3" />
+                      Settled
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Winning Outcome</span>
+                    <div className="flex items-center gap-2">
+                      {winningOutcome === 1 ? (
+                        <div className="flex items-center gap-2 bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20">
+                          <TrendingUp className="w-6 h-6 text-emerald-400" />
+                          <span className="text-2xl font-black text-emerald-400">YES</span>
+                        </div>
+                      ) : winningOutcome === 0 ? (
+                        <div className="flex items-center gap-2 bg-rose-500/10 px-4 py-2 rounded-lg border border-rose-500/20">
+                          <TrendingDown className="w-6 h-6 text-rose-400" />
+                          <span className="text-2xl font-black text-rose-400">NO</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-slate-500/10 px-4 py-2 rounded-lg border border-slate-500/20">
+                          <AlertCircle className="w-6 h-6 text-slate-400" />
+                          <span className="text-2xl font-black text-slate-400">INVALID</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800/50 flex flex-col justify-center items-center text-center">
+                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Your Payout</span>
+                    {hasPosition ? (
+                      <div className="flex flex-col items-center">
+                        <span className={`text-3xl font-mono font-bold tracking-tight ${(winningOutcome === 1 ? Number(yesBalance) : winningOutcome === 0 ? Number(noBalance) : 0) > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          ${(winningOutcome === 1 ? Number(yesBalance) / 1e18 : winningOutcome === 0 ? Number(noBalance) / 1e18 : 0).toFixed(2)}
+                        </span>
+                        <span className="text-slate-500 text-xs mt-1 font-medium">
+                          {(winningOutcome === 1 ? Number(yesBalance) : winningOutcome === 0 ? Number(noBalance) : 0) > 0 ? 'Ready to redeem' : 'Position lost'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-slate-400 text-sm italic">No position</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {hasPosition && (
+                  <div className="bg-slate-950/30 rounded-lg p-3 text-sm border border-slate-800/30">
+                    <div className="flex justify-between items-center text-slate-400 text-xs mb-2 uppercase tracking-wider font-bold">
+                      <span>Your Position</span>
+                      <span>Shares</span>
+                    </div>
+                    {yesBalance > 0n && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className={winningOutcome === 1 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>YES Outcome</span>
+                        <span className="font-mono text-slate-300">{(Number(yesBalance) / 1e18).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {noBalance > 0n && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className={winningOutcome === 0 ? "text-emerald-400 font-bold" : "text-slate-500 line-through"}>NO Outcome</span>
+                        <span className="font-mono text-slate-300">{(Number(noBalance) / 1e18).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  {isFinalized && hasPosition && (winningOutcome === 1 ? yesBalance : winningOutcome === 0 ? noBalance : 0n) > 0n ? (
+                    <div className="space-y-3">
+                      <Button
+                        variant="primary"
+                        className="w-full h-12 text-base font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all"
+                        onClick={async () => {
+                          if (!contracts.TickBookVault || !writeContractAsync) return;
+                          try {
+                            await writeContractAsync({
+                              address: contracts.TickBookVault as `0x${string}`,
+                              abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+                              functionName: 'redeemResolved',
+                              args: [marketAddr],
+                            });
+                            invalidateV8Queries();
+                          } catch (e: any) {
+                            logger.trade.error('Redeem failed:', e);
+                          }
+                        }}
+                      >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Redeem ${(winningOutcome === 1 ? Number(yesBalance) / 1e18 : winningOutcome === 0 ? Number(noBalance) / 1e18 : 0).toFixed(2)} Payout
+                      </Button>
+                      <p className="text-center text-slate-500 text-xs">
+                        Funds will be sent directly to your wallet
+                      </p>
+                    </div>
+                  ) : !isFinalized ? (
+                    <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                      <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                      <div>
+                        <p className="text-amber-400 text-sm font-bold">Veto Period Active</p>
+                        <p className="text-amber-400/70 text-xs mt-0.5">
+                          Redemption available after adjudicator finalizes.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-2">
+                      <p className="text-slate-500 text-sm">
+                        {hasPosition ? "Better luck next time." : "No position to redeem."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN: Orders Panel (40%) */}
+          <div className="lg:col-span-4">
+            {userOrders && userOrders.length > 0 && tickBook?.marketKey && (
+              <UserOrdersPanel
+                orders={userOrders}
+                spotSells={spotSells}
+                marketKey={tickBook.marketKey as `0x${string}`}
+                isLoading={isOrdersLoading}
+                onRefresh={invalidateV8Queries}
+                contracts={contracts as Record<string, string>}
+                chainId={chainId}
+                viewOutcome="yes"
+                yesShares={vault?.yesInternal}
+                noShares={vault?.noInternal}
+                onCancelSpotSell={cancelSpotSell}
+                pendingRefundsWad={pendingRefundsWad}
+              />
+            )}
+          </div>
+        </div>
+
+
       </div>
     );
   }
@@ -1889,148 +1298,26 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     <div className="space-y-6">
       {/* Back button + Market Info (hidden when embedded) */}
       {!embedded && (
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/pro')}
-            className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-400" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm font-bold">
-              {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
-            </div>
-            <div>
-              <div className="font-semibold text-white">{staticMetadata?.symbol || launchpad?.symbol || 'Select Market'}</div>
-              <div className="text-xs text-slate-500">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 50)}</div>
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            {/* Pro Price */}
-            <div className={cn(
-              "text-center p-2 rounded-lg",
-              isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
-            )}>
-              <div className={cn("text-[9px] uppercase", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
-              <div className={cn("text-base font-mono font-bold", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
-                {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                {hasArb && <span className="ml-1">⚡</span>}
-              </div>
-            </div>
-            {/* AMM Price */}
-            <div className="text-center p-2 rounded-lg bg-slate-950">
-              <div className="text-[9px] text-slate-500 uppercase">AMM Price</div>
-              <div className="text-base font-mono font-bold text-slate-400">
-                {ammPriceCents.toFixed(1)}¢
-              </div>
-            </div>
-            {/* Diff */}
-            <div className={cn(
-              "text-center p-2 rounded-lg",
-              hasArb ? "bg-amber-500/10 border border-amber-500/30" : "bg-slate-950"
-            )}>
-              <div className={cn("text-[9px] uppercase", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
-              <div className={cn("text-base font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
-                {arbSpread.toFixed(1)}¢
-              </div>
-            </div>
-            <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
-              <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
+        <div className="space-y-3">
+          {/* Top row: Back button + Market Info */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/pro')}
+              className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-400" />
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Embedded Mode: Market Summary Card with prices (like Trade page's MarketDetailHeader) */}
-      {embedded && (
-        <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-          <div className="flex items-center justify-between">
-            {/* Market Info */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-lg font-bold text-white">
-                {(staticMetadata?.symbol || launchpad?.symbol || 'PR').slice(0, 2)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white text-lg">{staticMetadata?.symbol || launchpad?.symbol || 'Market'}</span>
-                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 text-[9px]">GRADUATED</Badge>
-                </div>
-                <div className="text-sm text-slate-400">{(staticMetadata?.name || launchpad?.name || '—').slice(0, 60)}</div>
-              </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-white font-medium line-clamp-1">{truth?.question || staticMetadata?.name || launchpad?.name || 'Select Market'}</div>
             </div>
-
-            {/* Price Comparison */}
-            <div className="flex items-center gap-4">
-              {/* Pro Price */}
-              <div className={cn(
-                "text-center px-3 py-1 rounded-lg",
-                isProPriceValid ? "bg-amber-500/10 border border-amber-500/30" : ""
-              )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", isProPriceValid ? "text-amber-500/70" : "text-slate-500")}>Pro Price</div>
-                <div className={cn("text-lg font-mono font-bold flex items-center gap-1", isProPriceValid ? "text-amber-400" : "text-slate-500")}>
-                  {isProPriceValid ? `${proPriceCents.toFixed(1)}¢` : 'N/A'}
-                  {hasArb && <Zap className="w-4 h-4" />}
-                </div>
-              </div>
-              {/* AMM Price */}
-              <div className="text-center px-3 py-1">
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">AMM Price</div>
-                <div className="text-lg font-mono font-bold text-slate-400">
-                  {ammPriceCents.toFixed(1)}¢
-                </div>
-              </div>
-              {/* Diff */}
-              <div className={cn(
-                "text-center px-3 py-1 rounded-lg",
-                hasArb ? "bg-amber-500/10 border border-amber-500/30" : ""
-              )}>
-                <div className={cn("text-[10px] uppercase tracking-wider font-medium", hasArb ? "text-amber-500/70" : "text-slate-500")}>Diff</div>
-                <div className={cn("text-lg font-mono font-bold", hasArb ? "text-amber-400" : "text-slate-500")}>
-                  {arbSpread.toFixed(1)}¢
-                </div>
-              </div>
-              {/* Refresh */}
-              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <BarChart3 className="w-4 h-4 text-emerald-400" />
+              <button onClick={() => invalidateV8Queries()} className="p-2 rounded-lg hover:bg-slate-800 transition-colors" title="Refresh">
                 <RefreshCw className={cn("w-4 h-4 text-slate-500", isTickBookLoading && "animate-spin")} />
               </button>
             </div>
           </div>
-
-          {/* Market Key Info (collapsible for pro users) */}
-          <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center gap-4 text-[10px] text-slate-500">
-            <button
-              onClick={() => {
-                if (tickBook?.marketKey) {
-                  navigator.clipboard.writeText(tickBook.marketKey);
-                  setMarketKeyCopied(true);
-                  toast.success('Market key copied!');
-                  setTimeout(() => setMarketKeyCopied(false), 2000);
-                }
-              }}
-              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-              title="Click to copy market key"
-            >
-              <span>Market Key:</span>
-              <code className="text-slate-400 font-mono group-hover:text-slate-300">{tickBook?.marketKey?.slice(0, 10)}...{tickBook?.marketKey?.slice(-8)}</code>
-              {marketKeyCopied ? (
-                <Check className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-              )}
-            </button>
-            <span>•</span>
-            <a
-              href={getAddressExplorerUrl(chainId, marketAddr)}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
-            >
-              <span>TruthMarket:</span>
-              <code className="text-slate-400 font-mono group-hover:text-slate-300">{marketAddr.slice(0, 6)}...{marketAddr.slice(-4)}</code>
-              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-            </a>
-          </div>
-        </Card>
+        </div>
       )}
 
       {/* Main Content Grid - 60/40 like Trade page */}
@@ -2038,11 +1325,52 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
         {/* LEFT COLUMN: Liquidity Map + Orders (60%) */}
         <div className="lg:col-span-6 space-y-4">
+          {/* Embedded Mode: Compact Market Summary */}
+          {embedded && (
+            <Card className="bg-slate-900/60 border-slate-700/50 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+                <Badge variant="success" className="px-2 py-0.5 text-xs">
+                  Graduated · 1% Fee
+                </Badge>
+
+                {truth?.deadline && truth.deadline > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={11} />
+                    <span className="font-mono">
+                      {truth.deadline > 4102444800
+                        ? 'No expiry'
+                        : new Date(truth.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+
+                <a href={getAddressExplorerUrl(chainId, marketAddr)} target="_blank" rel="noreferrer" title="View market on explorer">
+                  <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 hover:border-slate-500 transition-colors cursor-pointer">
+                    ${marketAddr.slice(2, 10).toUpperCase()}
+                  </Badge>
+                </a>
+
+                {truth?.creator && (
+                  <a href={getAddressExplorerUrl(chainId, truth.creator)} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-slate-300 transition-colors" title="View creator">
+                    <User size={11} />
+                    <span className="font-mono">{truth.creator.slice(0, 6)}...{truth.creator.slice(-4)}</span>
+                  </a>
+                )}
+
+                {truth?.adjudicator && (
+                  <a href={getAddressExplorerUrl(chainId, truth.adjudicator)} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-slate-300 transition-colors" title="View adjudicator">
+                    <Shield size={11} />
+                    <span className="font-mono">{truth.adjudicator.slice(0, 6)}...{truth.adjudicator.slice(-4)}</span>
+                  </a>
+                )}
+              </div>
+            </Card>
+          )}
           {/* Pixel Liquidity Map */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidity Map</span>
-              <div className="flex items-center gap-3 text-[10px]">
+              <div className="flex items-center gap-3 text-xs">
                 <span className="text-emerald-400">◀ {isYes ? 'YES' : 'NO'} Bids</span>
                 <span className="text-white font-bold">{isProPriceValid ? `${(isYes ? proPriceCents : 100 - proPriceCents).toFixed(1)}¢` : 'N/A'}</span>
                 <span className="text-rose-400">{isYes ? 'NO' : 'YES'} Asks ▶</span>
@@ -2053,18 +1381,18 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               <LiquidityMap
                 tickBook={tickBook as any}
                 allOrders={allOrders ?? []}
+                spotSells={spotSells ?? []}
                 currentProb={currentProb}
                 ammProb={ammProb}
-                isLoading={isTickBookLoading || isAllOrdersLoading}
+                isLoading={isTickBookLoading || isAllOrdersLoading || isSpotSellsLoading}
                 viewOutcome={isYes ? 'yes' : 'no'}
               />
             </div>
           </div>
 
-          {/* Your Orders & Positions Combined */}
-          {/* Debug: Data source = {ordersSource} */}
           <UserOrdersPanel
             orders={userOrders ?? []}
+            spotSells={spotSells ?? []}
             marketKey={tickBook?.marketKey as `0x${string}`}
             isLoading={isOrdersLoading}
             onRefresh={() => invalidateV8Queries()}
@@ -2073,18 +1401,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             viewOutcome={isYes ? 'yes' : 'no'}
             yesShares={vault?.yesInternal}
             noShares={vault?.noInternal}
-          />
-          {ordersSource && (
-            <div className="text-[9px] text-slate-600 text-right -mt-2">
-              Data: {ordersSource}
-            </div>
-          )}
-
-          {/* Recent Trades from Indexer */}
-          <RecentTradesPanel
-            trades={trades}
-            isLoading={isTradesLoading}
-            isChainReady={isTradesChainReady}
+            onCancelSpotSell={cancelSpotSell}
+            pendingRefundsWad={pendingRefundsWad}
           />
         </div>
 
@@ -2093,76 +1411,67 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
           {/* Vault Card - Above Trading Panel */}
           <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-bold text-white">Vault Balance</span>
-              </div>
-              <button
-                onClick={() => setShowVaultPanel(!showVaultPanel)}
-                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-              >
-                {showVaultPanel ? 'Hide' : 'Manage'} <ChevronDown className={cn("w-3 h-3 transition-transform", showVaultPanel && "rotate-180")} />
-              </button>
+            <div className="flex items-center gap-2 mb-3">
+              <Wallet className="w-4 h-4 text-slate-500" />
+              <span className="text-sm font-bold text-white">Vault Balance</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">Wallet</div>
-                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 uppercase">Wallet</div>
+                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">In Orders</div>
-                <div className="font-mono text-sm text-amber-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 uppercase">In Orders</div>
+                <div className="font-mono text-sm text-slate-400">${parseFloat(formatUnits(vaultReserved, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
               <div className="bg-slate-950/50 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500 uppercase">Available</div>
-                <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 uppercase">Available</div>
+                <div className="font-mono text-sm text-emerald-400">${parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
             </div>
 
-            {showVaultPanel && (
-              <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[120px]">
-                  <input
-                    type="number"
-                    placeholder="Amount"
-                    value={vaultInput}
-                    onChange={(e) => setVaultInput(e.target.value)}
-                    className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
-                      ? 'border-rose-500 focus:border-rose-500'
-                      : 'border-slate-700 focus:border-amber-500'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-amber-500 hover:text-amber-400"
+            <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[120px]">
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={vaultInput}
+                  onChange={(e) => setVaultInput(e.target.value)}
+                  className={`w-full px-3 py-2 pr-12 bg-slate-950 border rounded-lg text-sm font-mono focus:outline-none ${vaultInput && parseUnits(vaultInput || '0', decimals) > walletUsdc
+                    ? 'border-rose-500 focus:border-rose-500'
+                    : 'border-slate-700 focus:border-slate-500'
+                    }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setVaultInput(formatUnits(walletUsdc, decimals))}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-400"
+                >
+                  MAX
+                </button>
+              </div>
+              {needsApproval ? (
+                <Button onClick={handleApprove} disabled={isSubmitting} className="bg-slate-600 hover:bg-slate-500 text-white text-xs px-3">
+                  {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleDeposit}
+                    disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-3"
                   >
-                    MAX
-                  </button>
-                </div>
-                {needsApproval ? (
-                  <Button onClick={handleApprove} disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3">
-                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                    <ArrowDownRight className="w-3 h-3 mr-1" /> Deposit
                   </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={handleDeposit}
-                      disabled={!vaultInput || isSubmitting || parseUnits(vaultInput || '0', decimals) > walletUsdc}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3"
-                    >
-                      <ArrowUpRight className="w-3 h-3 mr-1" /> Deposit
-                    </Button>
-                    <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3">
-                      <ArrowDownRight className="w-3 h-3 mr-1" /> Withdraw
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
+                  <Button onClick={handleWithdraw} disabled={!vaultInput || isSubmitting} variant="ghost" className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 text-xs px-3 border-slate-600">
+                    <ArrowUpRight className="w-3 h-3 mr-1" /> Withdraw
+                  </Button>
+                </>
+              )}
+            </div>
           </Card>
+
 
           {/* Trading Panel */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
@@ -2200,7 +1509,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
                     className={cn(
-                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       isBuying
                         ? isYes
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2213,9 +1522,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
                     className={cn(
-                      "flex-1 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       !isBuying
-                        ? "bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
+                        ? "bg-slate-500/10 text-slate-400 border-slate-500/50 shadow-[0_0_20px_-5px_rgba(245,158,11,0.3)]"
                         : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
                     )}
                   >
@@ -2228,7 +1537,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   <button
                     onClick={() => setOrderType('limit')}
                     className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
+                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all border-2",
                       orderType === 'limit'
                         ? isYes
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2238,69 +1547,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   >
                     Limit
                   </button>
-                  <button
-                    onClick={() => setOrderType('market')}
-                    className={cn(
-                      "flex-1 px-4 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border-2",
-                      orderType === 'market'
-                        ? isYes
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/50 shadow-[0_0_20px_-5px_rgba(244,63,94,0.3)]"
-                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"
-                    )}
-                  >
-                    Market
-                  </button>
                 </div>
               </div>
-
-              {/* Floor Price Toggle (Market order only) */}
-              {orderType === 'market' && (
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={useFloorPrice}
-                      onChange={(e) => setUseFloorPrice(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500/50"
-                    />
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold group-hover:text-slate-300 transition-colors">
-                      Set Floor Price
-                    </span>
-                  </label>
-
-                  {useFloorPrice && (
-                    <div className="pl-7 space-y-1">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          max="99.9"
-                          value={floorPrice}
-                          onChange={(e) => setFloorPrice(e.target.value)}
-                          placeholder="50"
-                          className={cn(
-                            "w-full h-9 px-3 bg-slate-800/50 border rounded-lg text-sm font-mono transition-all",
-                            "border-slate-700 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 text-slate-200"
-                          )}
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">¢</span>
-                      </div>
-                      <div className="text-[9px] text-slate-600">
-                        Won't pay more than {floorPrice || '50'}¢ per share
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Price Input (Limit only) */}
               {orderType === 'limit' && (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center mb-1">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Price</div>
-                    <div className="text-[9px] text-slate-600 font-mono">0.1¢ — 99.9¢</div>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-bold">Price</div>
+                    <div className="text-xs text-slate-600 font-mono">0.1¢ — 99.9¢</div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-4">
@@ -2361,7 +1616,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                         }
                       }}
                       className={cn(
-                        "h-[48px] px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
+                        "h-[48px] px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center border-2",
                         priceMode === 'range'
                           ? isYes
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
@@ -2423,10 +1678,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                       )}
                     </div>
 
-                    <div className="text-center text-[10px] font-mono">
+                    <div className="text-center text-xs font-mono">
                       {priceMode === 'single'
                         ? <span className="text-slate-500">Tick <span className={cn(isYes ? "text-emerald-400" : "text-rose-400")}>{Math.round(priceLowNum * 10)}</span></span>
-                        : <span className="text-slate-500"><span className={cn("font-bold", isYes ? "text-emerald-400" : "text-rose-400")}>{numTicks}</span> ticks</span>
+                        : <span className={cn("text-slate-500", !isBuying && spotRangeExceedsLimit && "text-slate-500")}>
+                          <span className={cn("font-bold", (!isBuying && spotRangeExceedsLimit) ? "text-slate-400" : (isYes ? "text-emerald-400" : "text-rose-400"))}>{numTicks}</span>
+                          {(!isBuying && spotRangeExceedsLimit) ? <span> ticks <span className="text-slate-400">(short only)</span></span> : ' ticks'}
+                        </span>
                       }
                     </div>
                   </div>
@@ -2438,10 +1696,10 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {/* Amount Input */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider">
                     {orderType === 'market' && useFloorPrice ? 'Amount (USDC)' : 'Amount (Shares)'}
                   </label>
-                  <span className="text-[10px] text-slate-600 font-mono">
+                  <span className="text-xs text-slate-600 font-mono">
                     Max: {parseFloat(formatUnits(vaultAvailable, 18)).toLocaleString()}
                   </span>
                 </div>
@@ -2450,7 +1708,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-amber-500 focus:outline-none"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-slate-500 focus:outline-none"
                 />
                 {/* Quick amount buttons - USDC for market+floor, shares otherwise */}
                 <div className="flex gap-2 mt-2">
@@ -2473,7 +1731,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     <span className="text-slate-500">
                       {priceMode === 'single' ? 'Price' : 'Price Range'}
                     </span>
-                    <span className="font-mono text-amber-400">
+                    <span className="font-mono text-slate-400">
                       {priceMode === 'single'
                         ? `${priceLowNum.toFixed(1)}¢`
                         : `${priceLowNum.toFixed(1)}¢ – ${priceHighNum.toFixed(1)}¢`}
@@ -2519,7 +1777,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               {amount && isBuying && !hasEnoughBalance && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-rose-400 text-xs">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Insufficient vault balance. <button onClick={() => setShowVaultPanel(true)} className="underline">Deposit more</button></span>
+                  <span>Insufficient vault balance. Deposit more above.</span>
                 </div>
               )}
 
@@ -2531,27 +1789,40 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 const hasPartial = shares > 0n && shares < needed;
                 const hasNone = shares === 0n;
 
+                // V10.4: Wide ranges (>50 ticks) force short sell even if user has shares
+                if (spotRangeExceedsLimit) {
+                  const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-400 text-xs">
+                      <span>📉 Short Sell: Range too wide for spot ({numTicks} ticks &gt; 50). Buying {neededFmt} {isYes ? 'NO' : 'YES'} instead.</span>
+                    </div>
+                  );
+                }
+
                 if (hasAll) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   const sharesFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-emerald-400 text-xs">
-                      <span>📦 Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
+                      <Package className="w-3.5 h-3.5 shrink-0" />
+                      <span>Spot Sell: Selling {neededFmt} of your {sharesFmt} {isYes ? 'YES' : 'NO'} shares</span>
                     </div>
                   );
                 } else if (hasPartial) {
                   const spotFmt = parseFloat(formatUnits(shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   const shortFmt = parseFloat(formatUnits(needed - shares, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-950/30 border border-amber-900/30 text-amber-400 text-xs">
-                      <span>🔀 Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-slate-400 text-xs">
+                      <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+                      <span>Hybrid Sell: {spotFmt} spot + {shortFmt} short ({isYes ? 'NO' : 'YES'} buy)</span>
                     </div>
                   );
                 } else if (hasNone) {
                   const neededFmt = parseFloat(formatUnits(needed, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                   return (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-950/30 border border-blue-900/30 text-blue-400 text-xs">
-                      <span>📉 Short Sell: Buying {neededFmt} {isYes ? 'NO' : 'YES'} (equivalent to selling {isYes ? 'YES' : 'NO'})</span>
+                      <TrendingDown className="w-3.5 h-3.5 shrink-0" />
+                      <span>Short Sell: Buying {neededFmt} {isYes ? 'NO' : 'YES'} (equivalent to selling {isYes ? 'YES' : 'NO'})</span>
                     </div>
                   );
                 }
@@ -2566,7 +1837,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   "w-full py-4 text-lg font-bold uppercase tracking-wider rounded-xl transition-all",
                   action === 'buy_yes' && "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-600/25",
                   action === 'buy_no' && "bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25",
-                  (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-600/25",
+                  (action === 'sell_yes' || action === 'sell_no') && "bg-gradient-to-r from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 shadow-lg shadow-slate-600/25",
                   (!isConnected || !amount || isSubmitting || isTickBookLoading || isCollateralizerLoading || !tickBook?.isActive || (isBuying && !hasEnoughBalance)) && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -2589,6 +1860,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
               </Button>
             </div>
           </div>
+
+
         </div>
       </div>
     </div>

@@ -535,3 +535,103 @@ Add MarketRegistry to deployment order:
 | LaunchpadEngine upgrade required | Fresh deployment on testnets (alpha phase) |
 | Frontend coordination | Fallback logic for grandfathered markets |
 | Registry becomes SPOF | Simple stateless design, minimal logic |
+
+---
+
+## V10 Review Results (2026-01-05)
+
+**Status**: **SUPERSEDED** by V10 "Unified Crossing" Architecture (ADR-073).
+
+**Decision**:
+The team has decided **NOT** to implement a standalone `MarketRegistry` contract for V10. The architecture has evolved to use the Singleton `TickBookPoolManager` as the de-facto registry for all active trading markets, superseding the need for an external lookup contract.
+
+**Reasoning**:
+1.  **Singleton State**: V10 consolidates all orderbook state into the `TickBookPoolManager` singleton. This contract now serves as the "source of truth" for all graduated markets. Queries that would have gone to a registry (`isGraduated`, `marketKey`, `tokens`) can now be answered directly by `TickBookPoolManager.getMarketInfo()`.
+2.  **Atomicity**: The V10 graduation flow (`LaunchpadEngine.graduate()`) is now designed to be atomic with `TickBookPoolManager.registerPool()`. If registration fails, the graduation reverts, preventing the "half-graduated" state that ADR-067 aimed to fix.
+3.  **Simplified Discovery**:
+    *   **Bonding Phase**: `LaunchpadEngine` is the registry for ungraduated markets.
+    *   **Trading Phase**: `TickBookPoolManager` is the registry for graduated markets.
+    *   **Frontend**: The frontend simply queries these two singletons. Adding a third "Registry" contract would introduce unnecessary gas overhead and maintenance complexity without adding significant value over the current V10 design.
+
+**Next Steps**:
+*   Archive this ADR as historical context.
+*   Ensure `LaunchpadEngine` and `TickBookPoolManager` maintain rigid checks to prevent state drift.
+*   Frontend `useOnChainMarkets` hook should aggregate data from both Engines directly.
+
+---
+
+## Appendix A: Quantitative Evaluation of ADR-067 vs V10
+
+This appendix summarizes a quantitative view of ADR-067 (standalone `MarketRegistry` contract) compared to the final V10 "Unified Crossing" architecture that uses `LaunchpadEngine` and `TickBookPoolManager` as de-facto registries.
+
+### A.1 State Fragmentation
+
+| Aspect                              | V9 (pre-ADR) | ADR-067 (with registry) | V10 (final design) |
+|-------------------------------------|--------------|-------------------------|--------------------|
+| Contracts holding market phase bits | 4–5          | 1–2 (Registry + Truth)  | 2 (Launchpad, TickBookPM) |
+| Distinct lifecycle flags/booleans   | ~8–10        | ~3–4                    | ~5–7 (but structured by phase) |
+
+ADR-067 significantly reduces fragmentation relative to V9, but V10 achieves a similar consolidation effect by treating `TickBookPoolManager` as the singleton for all graduated markets without introducing an additional contract.
+
+### A.2 Frontend RPC Load
+
+Per-market status (graduated market) RPC profile:
+
+| Metric                          | V9 (current) | ADR-067 design | V10 (final)        |
+|---------------------------------|--------------|----------------|--------------------|
+| Typical RPC calls / market      | 4–5          | 1              | 2                  |
+| Distinct contracts hit          | 3–4          | 1              | 2                  |
+| Ad-hoc workarounds              | Yes          | No             | No (intended)      |
+
+ADR-067 offers ~75–80% reduction in per-market RPC calls (4–5 → 1). V10 still delivers a ~50–60% reduction by converging on two obvious singletons (bonding/trading) and hiding them behind hooks, with no extra registry contract.
+
+### A.3 Gas Impact (Write Path)
+
+Order-of-magnitude estimates per market (illustrative):
+
+| Operation                 | V9 (no registry) | ADR-067 (added) | Net Delta (ADR-067) |
+|---------------------------|------------------|-----------------|----------------------|
+| `createMarket`            | ~200k            | +60–80k         | +30–40%              |
+| `graduateMarket` (success)| ~200–250k        | +40–60k         | +20–25%              |
+
+Trading hot paths (`tradePositions`, `placeOrder`) are unaffected in both designs because the registry is not touched. V10 avoids the additional storage writes and calls entirely by not introducing a standalone registry.
+
+### A.4 Atomicity / Failure Risk
+
+Normalize an "invariant breakage" score where 0 = no realistic half-graduated state; 1 = realistic inconsistent state:
+
+| Scenario                                        | Score (lower is better) |
+|-------------------------------------------------|-------------------------|
+| V9: `isGraduated` before external registrations | ~0.6–0.7                |
+| ADR-067: registry update after external calls   | ~0.05–0.1               |
+| V10: atomic `graduate + registerPool`          | ~0.05–0.1               |
+
+Both ADR-067 and V10 reduce the likelihood and impact of half-graduated markets by roughly an order of magnitude versus V9. V10 achieves this without adding a third coordination contract.
+
+### A.5 Complexity Surface Area
+
+Incremental complexity units (very rough):
+
+| Metric                    | ADR-067 Plan   | V10 (final)           |
+|---------------------------|----------------|-----------------------|
+| New contracts             | +1             | 0                     |
+| New interfaces            | +1             | 0–1 (helpers only)    |
+| Extra deploy wiring       | +2–3 scripts   | +1–2 (already needed) |
+| Separate test suite       | +1 full suite  | Folded into existing  |
+
+For similar guarantees (atomic graduation and clean query surfaces), V10 adds roughly 50–70% less incremental complexity than an ADR-067 style registry.
+
+### A.6 Cost–Benefit Snapshot
+
+Assigning rough scores (1–10) for benefit (B) and cost (C):
+
+| Design      | Benefit B | Cost C | B/C Ratio |
+|------------|-----------|--------|-----------|
+| ADR-067    | 8         | 5–6    | ~1.3–1.6  |
+| V10 choice | 7–8       | 3–4    | ~2.0–2.6  |
+
+The V10 architecture captures most of the gains ADR-067 targeted (atomicity, clearer status, lower RPC noise) at significantly lower cost, yielding a better benefit-to-cost ratio.
+
+### A.7 Overall Assessment
+
+In a V9 context, a standalone `MarketRegistry` would be a strong improvement over distributed state. In V10, however, the architectural shift to a singleton `TickBookPoolManager` and atomic graduation means the marginal benefit of adding a separate registry is small relative to its gas, deployment, and maintenance costs. As a result, ADR-067 remains valuable as historical analysis and design exploration, but is not considered worth implementing in V10.

@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 
 type Address = `0x${string}`;
@@ -53,7 +53,7 @@ export function useDynamicFee(
       // Get the dynamic fee for this trade
       const fee = await readContractSafe<number>(client, {
         address: hookAddress!,
-        abi: V9_ABIS.DynamicFeeHook,
+        abi: ABIS.DynamicFeeHook,
         functionName: "getDynamicFee",
         args: [marketKey!, outcome, shares, baseFee],
       });
@@ -70,7 +70,7 @@ export function useDynamicFee(
         tickMovement: number;
       }>(client, {
         address: hookAddress!,
-        abi: V9_ABIS.DynamicFeeHook,
+        abi: ABIS.DynamicFeeHook,
         functionName: "feeConfigs",
         args: [marketKey!],
       });

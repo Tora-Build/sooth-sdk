@@ -4,10 +4,10 @@
  * Uses useAMMQuoteDirect for accurate LMSR cost/fee calculations
  */
 import { useState, useMemo, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Wallet, Loader2, ArrowRight, Unlock, Info, Rocket, Scale } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useDisconnect } from 'wagmi';
-import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries } from '../../hooks';
+import { useAmmMarketDirect, useAMMQuoteDirect, useLaunchpadMarketDirect, useAMMPositionDirect, useAvailableBalance, useInvalidateQueries, useTruthMarketDirect } from '../../hooks';
 import { useDeployments } from '../../hooks/useDeployments';
 import { ABIS, ERC20_ABI } from '../../config/abis';
 import { parseUnits, formatUnits } from 'viem';
@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils';
 import { useChainStore } from '../../store/useChainStore';
 import { marketConfigs } from '../../config';
 import { getChainById } from '../../lib/chains';
+import { logger } from '../../lib/logger';
 
 interface SimpleTradingPanelProps {
   address: `0x${string}`;
@@ -38,6 +39,8 @@ export const SimpleTradingPanel = ({
   const publicClient = usePublicClient({ chainId });
   const { amm, isLoading: isLoadingAmm } = useAmmMarketDirect(address);
   const { launchpad, isLoading: isLoadingLaunchpad } = useLaunchpadMarketDirect(address);
+  const { market: truth } = useTruthMarketDirect(address);
+  const marketIsSettled = truth?.isSettled === true || truth?.isFinalized === true || isSettled;
   const { contracts } = useDeployments();
   const ammEngineAddress = contracts.AMMEngine as `0x${string}` | undefined;
   const { available: spendableProceeds } = useAvailableBalance(ammEngineAddress);
@@ -219,17 +222,17 @@ export const SimpleTradingPanel = ({
   // Log transaction hash when it's set
   useEffect(() => {
     if (tradeTxHash) {
-      console.log('[Trade] Transaction hash received:', tradeTxHash);
+      logger.trade.log('Transaction hash received:', tradeTxHash);
     }
   }, [tradeTxHash]);
 
   // Log trade receipt status
   useEffect(() => {
     if (isTradeSuccess) {
-      console.log('[Trade] Transaction confirmed!');
+      logger.trade.log('Transaction confirmed!');
     }
     if (isTradeError) {
-      console.error('[Trade] Transaction failed:', tradeReceiptError);
+      logger.trade.error('Transaction failed:', tradeReceiptError);
     }
   }, [isTradeSuccess, isTradeError, tradeReceiptError]);
 
@@ -344,7 +347,7 @@ export const SimpleTradingPanel = ({
 
     // Approve a large amount in the token's actual decimals
     const approvalAmount = parseUnits('1000000', decimals);
-    console.log('[Approve] Amount:', approvalAmount.toString(), 'decimals:', decimals);
+    logger.trade.log('Approve amount:', approvalAmount.toString(), 'decimals:', decimals);
 
     approve({
       address: contracts.MockUSDC as `0x${string}`,
@@ -454,14 +457,14 @@ export const SimpleTradingPanel = ({
       setAmount(wadToSharesInput(best));
       setAmountError(null);
     } catch (e: any) {
-      console.error('[MAX] Failed to compute max buy', e);
+      logger.trade.error('Failed to compute max buy:', e);
       toast.error('Could not compute MAX right now.');
     }
   };
 
   // Execute trade
   const handleTrade = async () => {
-    console.log('[Trade] handleTrade called', {
+    logger.trade.log('handleTrade called', {
       launchpadEngine: contracts.LaunchpadEngine,
       deltaShares: quote.deltaShares?.toString(),
       sharesNum,
@@ -491,7 +494,7 @@ export const SimpleTradingPanel = ({
       ? (quote.cost * 105n) / 100n
       : (quote.cost * 95n) / 100n;
 
-    console.log('[Trade] Executing (V9):', {
+    logger.trade.log('Executing (V9):', {
       market: address,
       outcome: selectedOutcome,
       deltaShares: deltaShares.toString(),
@@ -510,15 +513,18 @@ export const SimpleTradingPanel = ({
       // 2. Contract automatically checks availableProceeds in AMMEngine
       // 3. Contract pulls ONLY needed remainder from wallet
       // 4. No need for manual 'depositAndTradeAMM'
-      // Dynamic gas estimation based on this trade's graduation impact:
-      // - Normal trades: 2M gas (safe for Monad)
-      // - Trades predicted to trigger graduation: 5M gas to cover token deploy + TickBook registration
-      const gasLimit = quote.willGraduate ? 5000000n : 2000000n;
+      // Dynamic gas estimation based on chain and graduation impact:
+      // - MegaETH (6343): 60M for graduation (code deposit = 10k gas/byte, ~44M storage gas)
+      // - Other chains: 5M graduation, 2M normal
+      const isMegaETH = chainId === 6343;
+      const gasLimit = quote.willGraduate 
+        ? (isMegaETH ? 60000000n : 5000000n)
+        : (isMegaETH ? 30000000n : 2000000n);
 
       // Simulate first to catch specific revert reasons
       if (publicClient) {
         try {
-          console.log('[Trade] Simulating tradePositions...', {
+          logger.trade.log('Simulating tradePositions...', {
             address: contracts.LaunchpadEngine,
             args: [address, selectedOutcome, deltaShares, limitCost]
           });
@@ -532,9 +538,9 @@ export const SimpleTradingPanel = ({
             // Use same gas limit for simulation to catch OOG
             gas: gasLimit,
           });
-          console.log('[Trade] Simulation successful');
+          logger.trade.log('Simulation successful');
         } catch (simError: any) {
-          console.error('[Trade] Simulation failed:', simError);
+          logger.trade.error('Simulation failed:', simError);
           const reason = simError.cause?.reason || simError.shortMessage || simError.message || 'Unknown revert reason';
           toast.error(`Simulation failed: ${reason}`);
           return; // Abort trade
@@ -549,29 +555,35 @@ export const SimpleTradingPanel = ({
         gas: gasLimit,
       }, {
         onSuccess: (hash) => {
-          console.log('[Trade] Transaction submitted! Hash:', hash);
+          logger.trade.log('Transaction submitted! Hash:', hash);
           const toastId = toast.loading(`Confirming ${tradeInfo.mode} ${tradeInfo.shares} ${tradeInfo.outcome}...`);
           setPendingTxHash(hash);
           setPendingToastId(toastId);
           setPendingTradeInfo(tradeInfo);
         },
         onError: (error: any) => {
-          console.error('[Trade] Error:', error);
+          logger.trade.error('Error:', error);
           const errorMsg = error?.cause?.shortMessage || error?.message || 'Transaction failed';
           toast.error(`Trade failed: ${errorMsg}`);
         },
       });
     } catch (err) {
-      console.error('[Trade] Unexpected error:', err);
+      logger.trade.error('Unexpected error:', err);
       toast.error('Unexpected error during trade');
     }
   };
 
-  if (isSettled) {
+  if (marketIsSettled) {
+    const winningOutcome = truth?.winningOutcome;
     return (
-      <div className="p-4 text-center">
-        <div className="text-slate-400 mb-2">⚖️ Market Settled</div>
-        <p className="text-sm text-slate-500">Trading is closed for this market.</p>
+      <div className="p-6 text-center space-y-4">
+        <div className="text-amber-400 mb-2 flex items-center justify-center gap-2">
+          <Scale className="w-5 h-5" /> Market {truth?.isFinalized ? 'Finalized' : 'Settled'}
+        </div>
+        <div className="text-2xl font-bold text-white">
+          Winner: {winningOutcome === 1 ? 'YES' : winningOutcome === 0 ? 'NO' : 'INVALID'}
+        </div>
+        <p className="text-sm text-slate-500">Trading is closed. {truth?.isFinalized ? 'You can now redeem positions.' : 'Awaiting finalization.'}</p>
       </div>
     );
   }
@@ -633,7 +645,7 @@ export const SimpleTradingPanel = ({
       <div className="p-5 space-y-4">
         {/* Initialization Warning */}
         {isInitStateLoading && (
-          <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-[10px] text-slate-400 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-800/40 border border-slate-700/40 text-xs text-slate-400 flex items-start gap-2">
             <Loader2 size={12} className="shrink-0 mt-0.5 animate-spin" />
             <span>Checking market initialization…</span>
           </div>
@@ -641,7 +653,7 @@ export const SimpleTradingPanel = ({
 
         {/* Phantom Guard */}
         {isConnected && isPhantomConnector && (
-          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
@@ -653,7 +665,7 @@ export const SimpleTradingPanel = ({
               <div className="pt-1">
                 <Button
                   onClick={handleConnect}
-                  className="h-7 px-2 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
+                  className="h-7 px-2 text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30"
                 >
                   Switch Wallet
                 </Button>
@@ -663,7 +675,7 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && (isWrongSelectedChain || isWrongWalletChain) && (
-          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-xs text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
@@ -681,7 +693,7 @@ export const SimpleTradingPanel = ({
                 {isWrongSelectedChain && expectedChainId ? (
                   <Button
                     onClick={() => setSelectedChain(expectedChainId)}
-                    className="h-7 px-2 text-[10px] bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/30"
+                    className="h-7 px-2 text-xs bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/30"
                   >
                     View {expectedChain?.shortName ?? `Chain ${expectedChainId}`}
                   </Button>
@@ -690,7 +702,7 @@ export const SimpleTradingPanel = ({
                   <Button
                     onClick={() => switchChain?.({ chainId: expectedChainId })}
                     disabled={isSwitchingChain}
-                    className="h-7 px-2 text-[10px] bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
+                    className="h-7 px-2 text-xs bg-slate-900/40 hover:bg-slate-900/60 border border-slate-700/50"
                   >
                     {isSwitchingChain ? 'Switching…' : `Switch wallet to ${expectedChain?.shortName ?? expectedChainId}`}
                   </Button>
@@ -701,11 +713,11 @@ export const SimpleTradingPanel = ({
         )}
 
         {!isInitStateLoading && isConnected && !canTrade && !isWrongSelectedChain && !isWrongWalletChain && (
-          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-[10px] text-slate-300 flex items-start gap-2">
+          <div className="p-2 rounded-lg bg-slate-500/10 border border-slate-500/20 text-xs text-slate-300 flex items-start gap-2">
             <AlertCircle size={12} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div>
-                Trading unavailable: {!isMarketCreated ? 'market not found' : 'AMM not yet initialized'}.
+                Trading unavailable: {!isMarketCreated ? 'market not found' : 'market not yet initialized'}.
               </div>
               <div className="text-slate-200/70">
                 The market may still be pending initialization or does not exist at this address.
@@ -717,7 +729,7 @@ export const SimpleTradingPanel = ({
         {/* Current Price Display - clean separate row */}
         <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
           <div className="flex items-center justify-between py-2 px-3">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Price</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Current Price</div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -746,8 +758,8 @@ export const SimpleTradingPanel = ({
           </div>
           {/* Issued Shares - compact row */}
           <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-800/50 bg-slate-900/30">
-            <div className="text-[9px] text-slate-600 uppercase tracking-wider">Pool Shares</div>
-            <div className="flex items-center gap-4 text-[10px] font-mono">
+            <div className="text-xs text-slate-600 uppercase tracking-wider">Pool Shares</div>
+            <div className="flex items-center gap-4 text-xs font-mono">
               <span className="text-emerald-500">
                 {isLoadingAmm ? '—' : `${(Number(amm?.qYes ?? 0n) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 })} YES`}
               </span>
@@ -790,11 +802,11 @@ export const SimpleTradingPanel = ({
         {/* Amount Input - Pro style */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Shares</label>
+            <label className="text-xs text-slate-500 uppercase tracking-wider">Shares</label>
             {isConnected && (
               <button
                 onClick={handleMax}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
+                className="text-xs text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
               >
                 MAX
               </button>
@@ -825,12 +837,12 @@ export const SimpleTradingPanel = ({
             </button>
           </div>
           {amountError && (
-            <div className="mt-1 text-[10px] text-rose-300">
+            <div className="mt-1 text-xs text-rose-300">
               {amountError}
             </div>
           )}
           {tradeMode === 'sell' && (
-            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+            <div className="mt-2 flex justify-between text-xs text-slate-500">
               <span>Position</span>
               <span className="font-mono text-slate-300 flex items-center gap-1">
                 {isLoadingPosition ? (
@@ -847,7 +859,7 @@ export const SimpleTradingPanel = ({
             </div>
           )}
           {tradeMode === 'buy' && (
-            <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+            <div className="mt-2 flex justify-between text-xs text-slate-500">
               <span>Buying power</span>
               <span className="font-mono text-slate-300">
                 ${(Number(buyingPowerWad) / 1e18).toFixed(2)}
@@ -941,12 +953,12 @@ export const SimpleTradingPanel = ({
 
               {/* Impact Warnings */}
               {Math.abs(quote.priceImpact) > 5 ? (
-                <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-[10px] text-rose-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-rose-950/30 border border-rose-900/30 text-xs text-rose-400 flex items-start gap-2">
                   <AlertCircle size={12} className="shrink-0 mt-0.5" />
                   <span><strong>High Impact!</strong> Consider trading in smaller sizes.</span>
                 </div>
               ) : Math.abs(quote.priceImpact) > 2 ? (
-                <div className="p-2 rounded-lg bg-slate-950/30 border border-slate-900/30 text-[10px] text-slate-400 flex items-start gap-2">
+                <div className="p-2 rounded-lg bg-slate-950/30 border border-slate-900/30 text-xs text-slate-400 flex items-start gap-2">
                   <AlertCircle size={12} className="shrink-0 mt-0.5" />
                   <span>Significant price impact. Check execution price.</span>
                 </div>
@@ -956,7 +968,7 @@ export const SimpleTradingPanel = ({
 
           {/* Spendable Proceeds Indicator */}
           {tradeMode === 'buy' && isQuoteValid && spendableProceeds > 0n && quote.cost > 0n && (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-[10px] text-emerald-400">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-900/30 text-xs text-emerald-400">
               <Unlock size={12} className="shrink-0" />
               <span>
                 Using up to <strong>${(Number(spendableProceeds) / 1e18).toFixed(2)}</strong> from spendable proceeds.
@@ -987,29 +999,11 @@ export const SimpleTradingPanel = ({
         {isConnected && sharesNum > 0 && !quote.isLoading && quote.error && (
           <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-900/30 text-xs text-rose-400 flex items-center gap-2">
             <AlertCircle size={14} className="shrink-0" />
-            <span>Quote failed for this size. Try a smaller amount.</span>
+            <span>{quote.error.message || 'Quote failed for this size. Try a smaller amount.'}</span>
           </div>
         )}
 
-        {/* Balance Summary */}
-        {isConnected && (
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Wallet USDC</span>
-              <span className="font-mono text-slate-200">
-                ${(Number(walletUsdcToken) / (10 ** decimals)).toFixed(2)}
-              </span>
-            </div>
-            {spendableProceeds > 0n && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Spendable Proceeds</span>
-                <span className="font-mono text-emerald-400">
-                  ${(Number(spendableProceeds) / 1e18).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Balance Warning */}
         {isConnected && tradeMode === 'buy' && !hasEnoughBuyingPower && sharesNum > 0 && (
@@ -1076,7 +1070,7 @@ export const SimpleTradingPanel = ({
               href="/faucet"
               className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
             >
-              <span className="text-[10px]">$</span>
+              <span className="text-xs">$</span>
               Need test USDC? Get from faucet →
             </a>
           </div>

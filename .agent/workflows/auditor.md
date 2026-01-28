@@ -1,1 +1,1 @@
-../../.claude/commands/auditor.md
+/Users/danieltang/.claude/skills/codebase-auditor/SKILL.md
