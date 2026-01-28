@@ -46,8 +46,8 @@ export const OrderbookDepth: React.FC<OrderbookDepthProps> = ({ bids, asks }) =>
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
-        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Market Depth</h4>
-        <div className="flex gap-4 text-[9px] font-mono">
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Market Depth</h4>
+        <div className="flex gap-4 text-xs font-mono">
           <span className="text-emerald-500">BIDS: {formatUnits(bids.reduce((acc, b) => acc + b.yesDepth, 0n), 18).split('.')[0]}</span>
           <span className="text-rose-500">ASKS: {formatUnits(asks.reduce((acc, a) => acc + a.noDepth, 0n), 18).split('.')[0]}</span>
         </div>

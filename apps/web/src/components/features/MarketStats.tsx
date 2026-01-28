@@ -3,10 +3,10 @@ import { Card } from '../ui/Card';
 import { useDirectRead, readContractSafe, useLaunchpadMarketDirect } from '../../hooks';
 import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../hooks/useDeployments';
-import { ERC20_ABI, V8_ABIS } from '../../config/abis';
+import { ERC20_ABI, ABIS } from '../../config/abis';
 import { formatUnits } from 'viem';
 import { useReadContract } from 'wagmi';
-import { BarChart3 } from 'lucide-react';
+import { Activity, Landmark, Scale, TrendingUp, Package, Anchor } from 'lucide-react';
 import { useChainStore } from '../../store/useChainStore';
 import { cn } from '../../lib/utils';
 
@@ -43,7 +43,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
             const [[qYes, qNo, price], ammEngineUsdcBalance] = await Promise.all([
                 readContractSafe<readonly [bigint, bigint, bigint]>(client, {
                     address: ammEngineAddress!,
-                    abi: V8_ABIS.AMMEngine,
+                    abi: ABIS.AMMEngine,
                     functionName: 'getMarketState',
                     args: [marketAddress],
                 }),
@@ -91,20 +91,20 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
         <Card className="bg-slate-950/50 border-slate-800 p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-cyan-500" />
+                    <Activity className="w-5 h-5 text-cyan-500" />
                     <h2 className="text-lg font-heading font-bold text-white">Market Stats</h2>
                 </div>
-                <div className="text-[10px] uppercase font-bold text-cyan-500/50 bg-cyan-950/30 px-2 py-1 rounded">
+                <div className="text-xs uppercase font-bold text-cyan-500/50 bg-cyan-950/30 px-2 py-1 rounded">
                     Pure AMM Accounting
                 </div>
             </div>
 
             <div className="space-y-4">
-                {/* 1. Cash Basis */}
-                <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
-                        <span className="text-slate-500 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
+                {/* 1. Cash Basis - Amber */}
+                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
+                    <div className="text-xs text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Landmark size={14} className="text-amber-400" /> Cash Basis Formula</span>
+                        <span className="text-amber-600/60 font-mono italic">MaxLoss + Yield + P&L = Cash</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -121,11 +121,11 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                     </div>
                 </div>
 
-                {/* 2. Equity Floor */}
-                <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
-                    <div className="text-[9px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
-                        <span className="text-cyan-600/60 font-mono italic">Cash - Liability = Floor</span>
+                {/* 2. Equity Floor - Emerald */}
+                <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 group hover:border-emerald-500/40 transition-colors">
+                    <div className="text-xs text-emerald-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Scale size={14} className="text-emerald-400" /> Equity Floor Formula</span>
+                        <span className="text-emerald-600/60 font-mono italic">Cash - Liability = Floor</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -134,49 +134,49 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                             <span className="text-rose-500/70" title="Max Liability (max(qY, qN))">{fmtUsd(stats.liability)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-cyan-400 font-mono ml-auto">{fmtUsd(stats.floor)}</div>
+                        <div className="text-lg font-bold text-emerald-400 font-mono ml-auto">{fmtUsd(stats.floor)}</div>
                     </div>
                 </div>
 
-                {/* 3. Valuation */}
-                <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
-                    <div className="text-[9px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
-                        <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
+                {/* 3. Valuation - Cyan */}
+                <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+                    <div className="text-xs text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1"><TrendingUp size={14} className="text-cyan-400" /> Valuation (ExRate)</span>
+                        <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className="text-slate-400">{fmtUsd(stats.floor)}</span>
+                            <span className="text-emerald-400/70">{fmtUsd(stats.floor)}</span>
                             <span className="text-slate-600">/</span>
                             <span className="text-slate-400" title="LP Supply">{fmtNum(stats.supply)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-purple-400 font-mono ml-auto">{stats.floorRate.toFixed(3)}x</div>
+                        <div className="text-lg font-bold text-cyan-400 font-mono ml-auto">{stats.floorRate.toFixed(3)}x</div>
                     </div>
                 </div>
 
-                {/* 4. TVL */}
-                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
-                    <div className="text-[9px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">📦 TVL Formula</span>
-                        <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
+                {/* 4. TVL - Violet */}
+                <div className="p-3 rounded-lg border border-violet-500/20 bg-violet-500/5 group hover:border-violet-500/40 transition-colors">
+                    <div className="text-xs text-violet-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Package size={14} className="text-violet-400" /> TVL Formula</span>
+                        <span className="text-violet-600/60 font-mono italic">Cash + Locked = TVL</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className="text-slate-400" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
+                            <span className="text-amber-400/70" title="Cash (MaxLoss + Yield + P&L)">{fmtUsd(stats.cash)}</span>
                             <span className="text-slate-600">+</span>
-                            <span className="text-amber-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
+                            <span className="text-slate-500/70" title="Locked (Spendable Proceeds)">{fmtUsd(stats.lockedProceeds)}</span>
                             <span className="text-slate-600">=</span>
                         </div>
-                        <div className="text-lg font-bold text-white font-mono ml-auto">{fmtUsd(stats.tvl)}</div>
+                        <div className="text-lg font-bold text-violet-400 font-mono ml-auto">{fmtUsd(stats.tvl)}</div>
                     </div>
                 </div>
 
-                {/* 5. Liquidity Anchor */}
-                <div className="p-3 rounded-lg border border-slate-800/50 bg-slate-900/40 group hover:border-slate-700/50 transition-colors">
-                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>
-                        <span className="text-slate-500 font-mono italic">b × ln(2) ≈ Supply</span>
+                {/* 5. Liquidity Anchor - Blue */}
+                <div className="p-3 rounded-lg border border-blue-500/20 bg-blue-500/5 group hover:border-blue-500/40 transition-colors">
+                    <div className="text-xs text-blue-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Anchor size={14} className="text-blue-400" /> Liquidity Anchor Formula</span>
+                        <span className="text-blue-600/60 font-mono italic">b × ln(2) ≈ Supply</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-mono text-[11px]">
@@ -185,7 +185,7 @@ export const MarketStats: React.FC<MarketStatsProps> = ({ marketAddress }) => {
                             <span className="text-slate-500">0.693</span>
                             <span className="text-slate-600">≈</span>
                         </div>
-                        <div className="text-lg font-bold text-slate-300 font-mono ml-auto">{fmtNum(stats.supply)}</div>
+                        <div className="text-lg font-bold text-blue-400 font-mono ml-auto">{fmtNum(stats.supply)}</div>
                     </div>
                 </div>
 

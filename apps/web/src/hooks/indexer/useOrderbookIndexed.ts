@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useChainStore } from "../../store/useChainStore";
 import { fetchFromIndexer, checkChainReady, USE_INDEXER } from "./config";
 import { useAllOrdersDirect, RangeOrder } from "../useAllOrdersDirect";
+import { addJitter } from "../../lib/polling";
 
 type Address = `0x${string}`;
 
@@ -31,6 +32,10 @@ interface IndexedOrder {
   filledShares: string;
   claimedShares: string;
   collateralUsed: string;
+  pendingShares: string;
+  pendingUsdc: string;
+  fillGrowthLastX128: string;
+  calculatedPendingFromGrowth: string;
 }
 
 interface OrderbookResponse {
@@ -45,17 +50,25 @@ export interface TickData {
 }
 
 function indexedToRangeOrder(o: IndexedOrder): RangeOrder {
+  const sharesTotal = BigInt(o.liquidity);
+  const claimedShares = BigInt(o.claimedShares);
+  const pendingShares = BigInt(o.pendingShares);
+  const totalFilled = claimedShares + pendingShares;
+  const restingShares = sharesTotal > totalFilled ? sharesTotal - totalFilled : 0n;
+  const ticksInRange = BigInt(Math.max(1, o.tickUpper - o.tickLower + 1));
+  const density = restingShares / ticksInRange;
+  
   return {
     orderId: BigInt(o.orderId),
     owner: o.owner as Address,
     outcome: o.outcome,
     tickLower: o.tickLower,
     tickUpper: o.tickUpper,
-    sharesTotal: BigInt(o.liquidity),
-    liquidity: BigInt(o.liquidity),
+    sharesTotal,
+    liquidity: density,
     collateralDepositedWad: BigInt(o.collateralReserved),
-    filledShares: BigInt(o.claimedShares),
-    pendingShares: BigInt(o.filledShares) - BigInt(o.claimedShares),
+    filledShares: claimedShares,
+    pendingShares: pendingShares,
     collateralUsedWad: BigInt(o.collateralUsed),
     active: o.status === "active",
   };
@@ -74,7 +87,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
     enabled: USE_INDEXER && !!chainId,
     queryFn: () => checkChainReady(chainId),
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: addJitter(30_000),
   });
 
   const isChainReady = chainReadyQuery.data === true;
@@ -103,7 +116,7 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
       };
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
     retry: false,
   });
 
@@ -119,15 +132,23 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
       return data.map(indexedToRangeOrder);
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: addJitter(10_000),
     retry: false,
   });
 
-  // Determine if we should use indexer
-  const useIndexer = isChainReady && indexerQuery.data !== null && indexerQuery.data !== undefined;
+  const indexerOrderbook = indexerQuery.data ?? null;
+  const indexedOrders = indexerOrdersQuery.data ?? [];
+  const indexerHasTicks =
+    (indexerOrderbook?.yes?.length ?? 0) + (indexerOrderbook?.no?.length ?? 0) > 0;
+  const indexerHasOrders = indexedOrders.length > 0;
 
-  // RPC fallback - ONLY enabled when indexer is NOT available
-  const rpcFallback = useAllOrdersDirect(useIndexer ? undefined : marketKey);
+  // Use indexer only if it actually has data. This prevents the UI from going blank
+  // when the indexer is running but hasn't indexed the market yet.
+  const useIndexer = USE_INDEXER && isChainReady && (indexerHasTicks || indexerHasOrders);
+
+  // We still need RPC orders if the indexer has no orders (LiquidityMap relies on ranges).
+  const needRpcOrders = !!marketKey && (!useIndexer || !indexerHasOrders);
+  const rpcFallback = useAllOrdersDirect(needRpcOrders ? marketKey : undefined);
 
   // Aggregate RPC orders into tick data
   const aggregateOrdersToTicks = (orders: RangeOrder[]): { yes: TickData[]; no: TickData[] } => {
@@ -158,14 +179,23 @@ export function useOrderbookIndexed(marketKey: `0x${string}` | undefined) {
   };
 
   const rpcAggregated = aggregateOrdersToTicks(rpcFallback.orders);
-  const filteredRpcOrders = rpcFallback.orders.filter(o => o.active);
-  const indexedOrders = indexerOrdersQuery.data ?? [];
+  const filteredRpcOrders = rpcFallback.orders.filter((o) => o.active);
+
+  // If indexer has orders but no tick aggregation, derive it from the indexed orders.
+  const derivedIndexerOrderbook = aggregateOrdersToTicks(indexedOrders);
+  const effectiveOrderbook = useIndexer
+    ? (indexerHasTicks ? indexerOrderbook : derivedIndexerOrderbook)
+    : rpcAggregated;
+
+  const effectiveOrders = indexerHasOrders ? indexedOrders : filteredRpcOrders;
 
   return {
-    orderbook: useIndexer ? indexerQuery.data : rpcAggregated,
-    orders: useIndexer ? indexedOrders : filteredRpcOrders,
-    isLoading: useIndexer ? (indexerQuery.isLoading || indexerOrdersQuery.isLoading) : rpcFallback.isLoading,
-    error: useIndexer ? indexerQuery.error : rpcFallback.error,
+    orderbook: effectiveOrderbook,
+    orders: effectiveOrders,
+    isLoading: useIndexer
+      ? (indexerQuery.isLoading || indexerOrdersQuery.isLoading || (needRpcOrders && rpcFallback.isLoading))
+      : rpcFallback.isLoading,
+    error: useIndexer ? (indexerQuery.error ?? indexerOrdersQuery.error) : rpcFallback.error,
     refetch: useIndexer ? indexerQuery.refetch : rpcFallback.refetch,
     source: useIndexer ? "indexer" : "rpc",
   };

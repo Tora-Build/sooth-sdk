@@ -2,12 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import type { Abi } from "viem";
 import { useCallback } from "react";
+import { getPollingInterval, getStaleTime } from "../lib/polling";
 
 type Address = `0x${string}`;
 
-// Sane defaults to avoid RPC rate limiting (429)
-const DEFAULT_REFETCH_INTERVAL = 15_000; // 15 seconds
-const DEFAULT_STALE_TIME = 5_000; // 5 seconds
+const DEFAULT_REFETCH_INTERVAL = 15_000;
+const DEFAULT_STALE_TIME = 5_000;
 
 export function useDirectRead<TData>(params: {
   queryKey: readonly unknown[];
@@ -20,14 +20,17 @@ export function useDirectRead<TData>(params: {
   const { queryKey, enabled, chainId, read, refetchInterval, staleTime } = params;
   const client = usePublicClient({ chainId });
 
+  const defaultRefetchInterval = chainId ? getPollingInterval(chainId, 'normal') : DEFAULT_REFETCH_INTERVAL;
+  const defaultStaleTime = chainId ? getStaleTime(chainId) : DEFAULT_STALE_TIME;
+
   return useQuery({
     queryKey,
     enabled: enabled && !!client,
     queryFn: async () => {
       return await read(client as NonNullable<typeof client>);
     },
-    refetchInterval: refetchInterval ?? DEFAULT_REFETCH_INTERVAL,
-    staleTime: staleTime ?? DEFAULT_STALE_TIME,
+    refetchInterval: refetchInterval ?? defaultRefetchInterval,
+    staleTime: staleTime ?? defaultStaleTime,
   });
 }
 

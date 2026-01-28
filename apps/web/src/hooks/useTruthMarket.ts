@@ -1,7 +1,8 @@
 import { useReadContracts } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch TruthMarket lifecycle state
@@ -19,50 +20,56 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "isLive",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "isSettled",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "winningOutcome",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
+                functionName: "startTime",
+                chainId,
+            },
+            {
+                address: marketAddress,
+                abi: ABIS.TruthMarket,
                 functionName: "deadline",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "creator",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "adjudicator",
                 chainId,
             },
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "guardian",
                 chainId,
             },
         ] as const,
         query: {
             enabled: !!marketAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -71,14 +78,14 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: marketAddress,
-                abi: V8_ABIS.TruthMarket,
+                abi: ABIS.TruthMarket,
                 functionName: "question",
                 chainId,
             },
         ],
         query: {
             enabled: !!marketAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -98,6 +105,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             isLiveResult,
             isSettledResult,
             winningOutcomeResult,
+            startTimeResult,
             deadlineResult,
             creatorResult,
             adjudicatorResult,
@@ -141,21 +149,23 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
                 ? (questionResult.result as string)
                 : "";
 
-        // Determine market status
+        const startTimestamp = Number(startTimeResult?.result ?? 0n);
+        const deadlineTimestamp = Number(deadline);
+        const now = Math.floor(Date.now() / 1000);
+
         let status: "live" | "settled" | "expired" | "pending";
         if (isSettled) {
             status = "settled";
+        } else if (now < startTimestamp) {
+            status = "pending";
+        } else if (now >= deadlineTimestamp) {
+            status = "expired";
         } else if (isLive) {
-            const now = Math.floor(Date.now() / 1000);
-            const deadlineTimestamp = Number(deadline);
-            status = now > deadlineTimestamp ? "expired" : "live";
+            status = "live";
         } else {
             status = "pending";
         }
 
-        // Calculate time remaining (if live)
-        const now = Math.floor(Date.now() / 1000);
-        const deadlineTimestamp = Number(deadline);
         const timeRemaining = Math.max(0, deadlineTimestamp - now);
 
         return {
@@ -163,6 +173,7 @@ export function useTruthMarket(marketAddress: `0x${string}` | undefined) {
             isLive,
             isSettled,
             winningOutcome,
+            startTime: startTimestamp,
             deadline: deadlineTimestamp,
             creator,
             adjudicator,

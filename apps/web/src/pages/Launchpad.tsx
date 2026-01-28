@@ -3,14 +3,14 @@ import { useAccount, useConfig, useReadContract, useWriteContract } from 'wagmi'
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import { parseUnits, formatUnits, Address, decodeEventLog } from 'viem';
 import {
-    Rocket, Scale, Shield, DollarSign,
+    Rocket, Scale, DollarSign,
     Activity, Check, Coins, BookOpen,
-    Loader2, ExternalLink
+    Loader2, ExternalLink, Bitcoin, Trophy, Theater, Zap, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { ABIS, ERC20_ABI } from '../config/abis';
-import { ADJUDICATOR_REGISTRY, GUARDIAN_REGISTRY } from '../config/registries';
+import { ADJUDICATOR_REGISTRY } from '../config/registries';
 import { useDeployments } from '../hooks/useDeployments';
 import { cn } from '../lib/utils';
 
@@ -22,10 +22,10 @@ import { PolymarketExplorer, PolymarketSelectData } from '../components/features
 import { Drawer } from '../components/ui/Drawer';
 
 const MARKET_CATEGORIES = [
-    { id: 'crypto', name: 'Crypto', icon: '₿', gradient: 'from-cyan-500 to-slate-500' },
-    { id: 'sports', name: 'Sports', icon: '⚽', gradient: 'from-emerald-500 to-teal-500' },
-    { id: 'cultures', name: 'Cultures', icon: '🎭', gradient: 'from-pink-500 to-rose-500' },
-    { id: 'others', name: 'Others', icon: '⚡', gradient: 'from-cyan-500 to-emerald-500' }
+    { id: 'crypto', name: 'Crypto', icon: Bitcoin, gradient: 'from-cyan-500 to-slate-500' },
+    { id: 'sports', name: 'Sports', icon: Trophy, gradient: 'from-emerald-500 to-teal-500' },
+    { id: 'cultures', name: 'Cultures', icon: Theater, gradient: 'from-pink-500 to-rose-500' },
+    { id: 'others', name: 'Others', icon: Zap, gradient: 'from-cyan-500 to-emerald-500' }
 ];
 
 
@@ -40,7 +40,7 @@ export const Launchpad = () => {
 
     const [question, setQuestion] = useState('');
     const [form, setForm] = useState({
-        category: 'crypto',
+        category: 'others',
         expirationMode: '7d',
         customExpiration: '',
         initialLiquidity: '693',
@@ -48,12 +48,10 @@ export const Launchpad = () => {
     });
 
     const [adjudicatorMode, setAdjudicatorMode] = useState<'registry' | 'custom'>('registry');
-    const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-zk-rule');
+    const [selectedAdjudicatorId, setSelectedAdjudicatorId] = useState('brevis-zktls');
     const [customAdjudicator, setCustomAdjudicator] = useState<string>('');
 
-    const [guardianMode, setGuardianMode] = useState<'registry' | 'custom'>('registry');
-    const [selectedGuardianId, setSelectedGuardianId] = useState('dao');
-    const [customGuardian, setCustomGuardian] = useState<string>('');
+    // Guardian is protocol-level (automatic) - no state needed
 
     const [mobileTab, setMobileTab] = useState<'create' | 'learn'>('create');
     const [showPolymarket, setShowPolymarket] = useState(false);
@@ -122,22 +120,16 @@ export const Launchpad = () => {
         }
     }, [adjudicatorMode, selectedAdjudicatorId, userAddress, customAdjudicator]);
 
-    useEffect(() => {
-        if (guardianMode === 'registry') {
-            const selected = GUARDIAN_REGISTRY.find(g => g.id === selectedGuardianId);
-            if (selected && selected.address !== 'SELF') {
-                setCustomGuardian(selected.address as string);
-            }
-        } else if (guardianMode === 'custom' && userAddress) {
-            const isRegistryAddress = GUARDIAN_REGISTRY.some(g => g.address === customGuardian);
-            if (!customGuardian || isRegistryAddress) {
-                setCustomGuardian(userAddress);
-            }
-        }
-    }, [guardianMode, selectedGuardianId, userAddress, customGuardian]);
+    // Guardian is now protocol-level - no useEffect needed
 
     const launchpadEngineAddress = deployments?.contracts['LaunchpadEngine'] as Address;
     const usdcAddress = deployments?.contracts['MockUSDC'] as Address;
+    const { data: protocolConfig } = useReadContract({
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'protocolConfig',
+        query: { enabled: !!launchpadEngineAddress }
+    });
 
     const { data: usdcDecimals } = useReadContract({
         address: usdcAddress,
@@ -167,8 +159,8 @@ export const Launchpad = () => {
         query: { enabled: !!usdcAddress && !!userAddress }
     });
     const usdcBalance = usdcBalanceData as bigint | undefined;
-    const formattedBalance = usdcBalance && usdcDecimals 
-        ? parseFloat(formatUnits(usdcBalance, usdcDecimals as number)) 
+    const formattedBalance = usdcBalance && usdcDecimals
+        ? parseFloat(formatUnits(usdcBalance, usdcDecimals as number))
         : 0;
 
     const getDeadline = () => {
@@ -195,8 +187,8 @@ export const Launchpad = () => {
             toast.error('Invalid Adjudicator address');
             return false;
         }
-        if (!customGuardian.startsWith('0x') || customGuardian.length !== 42) {
-            toast.error('Invalid Guardian address');
+        if (!protocolConfig) {
+            toast.error('ProtocolConfig not configured');
             return false;
         }
         if (depositAmount < 10) {
@@ -238,6 +230,10 @@ export const Launchpad = () => {
         try {
             const deadline = getDeadline();
 
+            const isMonad = config.state.chainId === 10143;
+            const isMegaETH = config.state.chainId === 6343;
+            const MAX_GAS_CAP = 30_000_000n;
+
             const createHash = await writeContractAsync({
                 abi: ABIS.LaunchpadEngine,
                 address: launchpadEngineAddress,
@@ -247,10 +243,14 @@ export const Launchpad = () => {
                     0n,
                     BigInt(deadline),
                     customAdjudicator as Address,
-                    customGuardian as Address,
+                    protocolConfig as Address,
                     bWei,
-                    'PRED'
-                ]
+                    0n,
+                    0n,
+                ],
+                // For Monad/MegaETH market creation, 30M is a safe upper bound.
+                // This covers complex contract initialization which can sometimes fail with default estimation.
+                ...(isMonad || isMegaETH ? { gas: MAX_GAS_CAP } : {})
             });
 
             const receipt = await waitForTransactionReceipt(config, { hash: createHash });
@@ -297,15 +297,15 @@ export const Launchpad = () => {
     };
 
     const needsApproval = allowance !== undefined && allowance < depositWei;
-    const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator && customGuardian;
+    const isFormValid = question.length >= 10 && form.initialLiquidity && customAdjudicator;
     const canProceed = isFormValid && !form.deployPending;
 
-    const particles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+    const particles = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
         id: i,
-        left: `${5 + (i * 8)}%`,
-        delay: `${i * 0.7}s`,
-        duration: `${8 + (i % 3) * 2}s`,
-        size: `${2 + (i % 3)}px`,
+        left: `${3 + (i * 7.4) % 94}%`,
+        delay: `${(i * 0.7) % 8}s`,
+        duration: `${8 + (i % 5) * 3}s`,
+        size: `${4 + (i % 4) * 3}px`,
     })), []);
 
     return (
@@ -381,7 +381,7 @@ export const Launchpad = () => {
                                     <button
                                         onClick={() => setShowPolymarket(true)}
                                         type="button"
-                                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+                                        className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
                                     >
                                         <ExternalLink className="w-3 h-3" />
                                         Browse Polymarket
@@ -399,22 +399,25 @@ export const Launchpad = () => {
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Category</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {MARKET_CATEGORIES.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setForm(p => ({ ...p, category: cat.id }))}
-                                            className={cn(
-                                                "p-3 rounded-xl font-semibold border transition-all flex items-center gap-2",
-                                                form.category === cat.id
-                                                    ? `bg-gradient-to-br ${cat.gradient} text-white border-transparent`
-                                                    : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
-                                            )}
-                                        >
-                                            <span className="text-lg">{cat.icon}</span>
-                                            <span className="text-sm">{cat.name}</span>
-                                            {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
-                                        </button>
-                                    ))}
+                                    {MARKET_CATEGORIES.map(cat => {
+                                        const IconComponent = cat.icon;
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setForm(p => ({ ...p, category: cat.id }))}
+                                                className={cn(
+                                                    "p-3 rounded-xl font-semibold border transition-all flex items-center gap-2",
+                                                    form.category === cat.id
+                                                        ? `bg-gradient-to-br ${cat.gradient} text-white border-transparent`
+                                                        : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                                                )}
+                                            >
+                                                <IconComponent className="w-5 h-5" />
+                                                <span className="text-sm">{cat.name}</span>
+                                                {form.category === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -449,7 +452,7 @@ export const Launchpad = () => {
                                             value={form.customExpiration}
                                             onChange={e => setForm(p => ({ ...p, customExpiration: e.target.value }))}
                                         />
-                                        <p className="text-[10px] text-white/40">All times are in UTC</p>
+                                        <p className="text-xs text-white/40">All times are in UTC</p>
                                     </div>
                                 )}
                                 {form.expirationMode === 'open' && (
@@ -475,18 +478,6 @@ export const Launchpad = () => {
                                 userAddress={userAddress}
                             />
 
-                            <AddressSelector
-                                label="Guardian"
-                                icon={Shield}
-                                options={GUARDIAN_REGISTRY}
-                                selectedMode={guardianMode}
-                                setSelectedMode={setGuardianMode}
-                                selectedRegistryId={selectedGuardianId}
-                                setSelectedRegistryId={setSelectedGuardianId}
-                                customAddress={customGuardian}
-                                setCustomAddress={setCustomGuardian}
-                                userAddress={userAddress}
-                            />
 
                             <div className="h-px bg-white/10" />
 
@@ -496,12 +487,7 @@ export const Launchpad = () => {
                                     <div className="text-right">
                                         <span className="text-white font-mono font-bold block">${depositAmount.toLocaleString()}</span>
                                         {userAddress && (
-                                            <span className={cn(
-                                                "text-xs font-mono transition-colors",
-                                                (usdcBalance !== undefined && depositWei > usdcBalance) 
-                                                    ? "text-red-400 font-bold" 
-                                                    : "text-white/40"
-                                            )}>
+                                            <span className="text-xs font-mono text-white/40">
                                                 Balance: ${formattedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         )}
@@ -535,6 +521,13 @@ export const Launchpad = () => {
                                             <span className="text-white/50">Graduation Vol</span>
                                             <span className="text-emerald-400 font-mono font-bold">
                                                 ${(depositAmount * 20).toLocaleString()}
+                                            </span>
+                                        </div>
+
+                                        <div className="pt-2 border-t border-white/5 flex items-start gap-2 text-[10px] text-white/40 leading-relaxed">
+                                            <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 mt-0.5" />
+                                            <span>
+                                                <span className="text-white font-bold">LMSR:</span> Max loss = Deposit. Max win = Deposit + Flywheel. Fee Yield is always yours.
                                             </span>
                                         </div>
                                     </div>

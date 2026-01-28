@@ -16,9 +16,12 @@
     "graduate": "bun run script/markets/graduate-market.ts",
     "interactive": "bun run script/interactive/interactive-test.ts",
     "interactive:base": "bun run script/interactive/interactive-test.ts --chain=baseSepolia",
-    "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet"
+    "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet",
+    "interactive:arc": "bun run script/interactive/interactive-test.ts --chain=arcTestnet",
+    "interactive:megaeth": "bun run script/interactive/interactive-test.ts --chain=megaethTestnet"
   },
   "dependencies": {
+    "@sooth/sdk-core": "workspace:*",
     "viem": "^2.21.0",
     "yaml": "^2.3.4"
   },

@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight, Shield, Clock, TrendingUp, Gauge, PenTool, Gamepad2, RefreshCcw, Swords } from 'lucide-react';
+import { Rocket, ArrowRight, Shield, Clock, BarChart3, Palette, Gamepad2, ArrowLeftRight, Swords, Twitter, Send } from 'lucide-react';
 
 export const Landing = () => {
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#020617]">
+    <div className="min-h-dvh flex flex-col relative overflow-hidden bg-[#020617]">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid opacity-[0.15]" />
 
       {/* Blueprint Snippets */}
-      <div className="absolute top-20 left-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block">
+      <div className="absolute top-20 left-10 opacity-5 font-mono text-xs text-cyan-400 pointer-events-none select-none hidden lg:block">
         <pre>{`// tickbook_matching.sol
 function match_orders(uint256 orderId) external {
     uint16 tick = bitmap.find_best_tick();
@@ -16,7 +16,7 @@ function match_orders(uint256 orderId) external {
     _execute_fill(tick, orderId);
 }`}</pre>
       </div>
-      <div className="absolute bottom-20 right-10 opacity-5 font-mono text-[10px] text-cyan-400 pointer-events-none select-none hidden lg:block text-right">
+      <div className="absolute bottom-20 right-10 opacity-5 font-mono text-xs text-cyan-400 pointer-events-none select-none hidden lg:block text-right">
         <pre>{`// zk_finality.proto
 message SettlementProof {
     bytes32 merkle_root = 1;
@@ -43,7 +43,7 @@ message SettlementProof {
               to="/create"
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-lg transition-all"
             >
-              <Zap className="w-4 h-4" />
+              <Rocket className="w-4 h-4" />
               Launch App
             </Link>
           </div>
@@ -55,22 +55,22 @@ message SettlementProof {
         <div className="max-w-4xl mx-auto text-center relative">
           {/* HUD Elements */}
           <div className="absolute -top-12 left-0 right-0 flex justify-between items-center px-4 opacity-20 pointer-events-none select-none">
-            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+            <div className="flex gap-4 font-mono text-xs text-slate-500">
               <span>TRUTH_ENGINE: [RUNNING]</span>
               <span>NETWORK: [BASE_SEPOLIA]</span>
             </div>
-            <div className="flex gap-4 font-mono text-[10px] text-slate-500">
+            <div className="flex gap-4 font-mono text-xs text-slate-500">
               <span>LATENCY: 40MS</span>
-              <span>SYNC_V10.8: OK</span>
+              <span>SYNC_V11.0: OK</span>
             </div>
           </div>
 
           {/* Badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
-            <Badge color="cyan">v10.8 Modular</Badge>
-            <Badge color="indigo">Base Sepolia</Badge>
-            <Badge color="purple">Monad Testnet</Badge>
-            <Badge color="emerald">Arc Testnet</Badge>
+            <Badge color="cyan">Base Sepolia</Badge>
+            <Badge color="cyan">Monad Testnet</Badge>
+            <Badge color="cyan">MegaETH Testnet</Badge>
+            <Badge color="cyan">Arc Testnet</Badge>
           </div>
 
           {/* Title - Fluid Typography */}
@@ -99,12 +99,12 @@ message SettlementProof {
               to="/create"
               className="group shimmer-swipe flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-black font-bold text-xl rounded-xl transition-all hover:shadow-2xl hover:shadow-cyan-500/30"
             >
-              <Zap className="w-6 h-6" />
+              <Rocket className="w-6 h-6" />
               Launch App
               <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              to="/about"
+              to="/learn"
               className="px-10 py-5 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-bold text-xl rounded-xl transition-all backdrop-blur-sm"
             >
               Learn
@@ -123,9 +123,9 @@ message SettlementProof {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { role: "Creator", icon: <PenTool className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "purple" },
+              { role: "Creator", icon: <Palette className="w-5 h-5" />, path: "/create", desc: "Monetize market-making expertise and community insight", color: "cyan" },
               { role: "Gaming Trader", icon: <Gamepad2 className="w-5 h-5" />, path: "/trade", desc: "Predict events and earn protocol stakeholder rewards", color: "emerald" },
-              { role: "Arbitrageur", icon: <RefreshCcw className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
+              { role: "Arbitrageur", icon: <ArrowLeftRight className="w-5 h-5" />, path: "/pro", desc: "Capture spreads and maintain cross-venue efficiency", color: "cyan" },
               { role: "PvP Trader", icon: <Swords className="w-5 h-5" />, path: "/pro", desc: "Pure conviction trading on the 10,000-tick CLOB", color: "indigo" }
             ].map((actor) => (
               <Link
@@ -159,10 +159,10 @@ message SettlementProof {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <FeatureCard
-              icon={<TrendingUp className="w-5 h-5" />}
+              icon={<Rocket className="w-5 h-5" />}
               title="Launchpad"
               description="Permissionless creation with creator economics and aligned incentives."
-              color="purple"
+              color="cyan"
             />
             <FeatureCard
               icon={<Shield className="w-5 h-5" />}
@@ -171,7 +171,7 @@ message SettlementProof {
               color="indigo"
             />
             <FeatureCard
-              icon={<Gauge className="w-5 h-5" />}
+              icon={<BarChart3 className="w-5 h-5" />}
               title="TickBook"
               description="On-chain CLOB with 10,000-tick depth and constant-time discovery."
               color="cyan"
@@ -191,13 +191,15 @@ message SettlementProof {
         <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-slate-500">
           <div className="font-mono flex items-center gap-2 uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            © 2025 Sooth Protocol | V10.8
+            © 2026 Sooth Protocol | V11.0
           </div>
-          <div className="flex items-center gap-8">
-            <a href="https://docs.sooth.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Docs</a>
-            <a href="https://github.com/sooth-protocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">GitHub</a>
-            <a href="https://discord.gg/sooth" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Discord</a>
-            <a href="https://x.com/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors font-medium">Twitter</a>
+          <div className="flex items-center gap-1">
+            <a href="https://t.me/soothprotocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="Telegram">
+              <Send size={20} />
+            </a>
+            <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center p-1" title="X (Twitter)">
+              <Twitter size={20} />
+            </a>
           </div>
         </div>
       </footer>
@@ -205,18 +207,17 @@ message SettlementProof {
   );
 };
 
-const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' | 'purple' }) => {
+const Badge = ({ children, color }: { children: React.ReactNode; color: 'cyan' | 'amber' | 'emerald' | 'indigo' }) => {
   const colors = {
     cyan: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
     amber: 'bg-slate-500/5 border-slate-500/10 text-slate-500/70',
     emerald: 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500/70',
     indigo: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
-    purple: 'bg-cyan-500/5 border-cyan-500/10 text-cyan-500/70',
   };
 
   return (
     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-sm border backdrop-blur-sm transition-all duration-300 hover:border-current/30 hover:text-white/90 ${colors[color]}`}>
-      <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em]">{children}</span>
+      <span className="text-xs font-mono font-bold uppercase tracking-[0.2em]">{children}</span>
     </div>
   );
 };
@@ -230,17 +231,15 @@ const FeatureCard = ({
   icon: React.ReactNode;
   title: string;
   description: string;
-  color: 'cyan' | 'purple' | 'indigo';
+  color: 'cyan' | 'indigo';
 }) => {
   const colors = {
     cyan: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
-    purple: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
     indigo: 'border-cyan-500/5 hover:border-cyan-500/20 shadow-cyan-500/2',
   };
 
   const iconColors = {
     cyan: 'text-cyan-500/50 group-hover:text-cyan-400',
-    purple: 'text-cyan-500/50 group-hover:text-cyan-400',
     indigo: 'text-cyan-500/50 group-hover:text-cyan-400',
   };
 

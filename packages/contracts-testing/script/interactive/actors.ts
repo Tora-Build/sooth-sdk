@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Actor Management System
  * Handles multiple test wallets for multi-user simulation
@@ -11,19 +12,24 @@ import {
   type WalletClient,
   type Account,
   type Chain,
+  type Transport,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { shortAddress, error, success, info } from './utils';
 
-export type ActorRole = 'maker' | 'taker' | 'arbitrageur' | 'keeper' | 'admin';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export type ActorRole = 'creator' | 'amm' | 'tickbook' | 'adjudicator' | 'keeper' | 'admin';
 
 export interface Actor {
   name: string;
   account: Account;
   role: ActorRole;
-  walletClient: WalletClient;
+  walletClient: WalletClient<Transport, Chain, Account>;
 }
 
 export interface ActorConfig {
@@ -39,10 +45,11 @@ export interface ActorManagerOptions {
 
 // Default actor configuration
 const DEFAULT_ACTORS: ActorConfig[] = [
-  { name: 'alice', envKey: 'PRIVATE_KEY_ALICE', role: 'maker' },
-  { name: 'bob', envKey: 'PRIVATE_KEY_BOB', role: 'taker' },
-  { name: 'charlie', envKey: 'PRIVATE_KEY_CHARLIE', role: 'arbitrageur' },
-  { name: 'keeper', envKey: 'PRIVATE_KEY_KEEPER', role: 'keeper' },
+  { name: 'alice', envKey: 'PRIVATE_KEY_ALICE', role: 'creator' },
+  { name: 'bob', envKey: 'PRIVATE_KEY_BOB', role: 'amm' },
+  { name: 'charlie', envKey: 'PRIVATE_KEY_CHARLIE', role: 'tickbook' },
+  { name: 'david', envKey: 'PRIVATE_KEY_DAVID', role: 'adjudicator' },
+  { name: 'ellen', envKey: 'PRIVATE_KEY_ELLEN', role: 'keeper' },
   { name: 'admin', envKey: 'PRIVATE_KEY', role: 'admin' }, // Fallback to default PRIVATE_KEY
 ];
 
@@ -153,6 +160,10 @@ export class ActorManager {
     }
 
     // Load each actor from environment
+    if (!process.env.PRIVATE_KEY_ELLEN && process.env.PRIVATE_KEY_KEEPER) {
+      process.env.PRIVATE_KEY_ELLEN = process.env.PRIVATE_KEY_KEEPER;
+    }
+
     for (const config of DEFAULT_ACTORS) {
       const privateKey = process.env[config.envKey];
       if (privateKey) {
@@ -164,9 +175,11 @@ export class ActorManager {
     // This allows "actor alice" to work even with a single key
     if (this.actors.size === 1 && this.actors.has('admin')) {
       const adminKey = process.env.PRIVATE_KEY!;
-      this.addActor('alice', adminKey, 'maker');
-      this.addActor('bob', adminKey, 'taker');
-      this.addActor('charlie', adminKey, 'arbitrageur');
+      this.addActor('alice', adminKey, 'creator');
+      this.addActor('bob', adminKey, 'amm');
+      this.addActor('charlie', adminKey, 'tickbook');
+      this.addActor('david', adminKey, 'adjudicator');
+      this.addActor('ellen', adminKey, 'keeper');
       // Set alice as default instead of admin for better UX
       this.currentActorName = 'alice';
     } else if (this.actors.size > 0) {
@@ -178,7 +191,7 @@ export class ActorManager {
   /**
    * Add an actor manually
    */
-  addActor(name: string, privateKey: string, role: ActorRole = 'taker'): void {
+  addActor(name: string, privateKey: string, role: ActorRole = 'amm'): void {
     // Ensure private key has 0x prefix
     const key = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
 
@@ -244,7 +257,7 @@ export class ActorManager {
   /**
    * Get current actor's wallet client
    */
-  currentWalletClient(): WalletClient | null {
+  currentWalletClient(): WalletClient<Transport, Chain, Account> | null {
     const actor = this.currentActor();
     return actor?.walletClient || null;
   }

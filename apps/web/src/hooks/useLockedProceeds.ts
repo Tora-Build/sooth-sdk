@@ -1,19 +1,20 @@
-import { useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { LAUNCHPAD_MARKET_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useAccount } from 'wagmi';
 import { useCallback } from 'react';
 import { useDeployments } from './useDeployments';
+import { getPollingInterval } from '../lib/polling';
 
 /**
  * Hook for managing locked proceeds in V6 Launchpad markets
  * Locked proceeds can be used for reinvestment or claimed after 24h
  */
 export function useLockedProceeds(marketAddress?: `0x${string}`) {
+    const chainId = useChainId();
     const { address: userAddress } = useAccount();
     const { config } = useDeployments();
     const traderVaultAddress = config?.contracts?.SoothTraderVault as `0x${string}` | undefined;
 
-    // Read locked proceeds data
     const { data: lockedData, refetch } = useReadContracts({
         contracts: [
             { address: marketAddress, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedProceeds', args: userAddress ? [userAddress] : undefined },
@@ -21,7 +22,7 @@ export function useLockedProceeds(marketAddress?: `0x${string}`) {
         ],
         query: {
             enabled: !!marketAddress && !!userAddress,
-            refetchInterval: 5000
+            refetchInterval: getPollingInterval(chainId, 'fast')
         }
     });
 

@@ -1,1 +1,1 @@
-../../.claude/commands/sop.md
+/Users/danieltang/.claude/skills/standard-ops/SKILL.md

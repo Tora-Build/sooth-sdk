@@ -102,24 +102,38 @@ interface ILaunchpadEngine {
     event FeeDistributionUpdated(uint16 bBaseBps, uint16 lpYieldBps, uint16 protocolBps);
     event GraduationMultiplierUpdated(uint16 multiplier);
 
+    // V11 Events
+    event MarketDismissed(address indexed market, address indexed creator, uint256 timestamp);
+    event RefundClaimed(address indexed market, address indexed user, uint256 amount);
+    event LPTokenCreated(address indexed market, address indexed lpToken);
+
     // ============================================
     // Market Creation
     // ============================================
 
     /**
      * @notice Create a new launchpad market
-     * @param market TruthMarket address
+     * @param question Market question
+     * @param startTime Trading start timestamp (0 = now)
+     * @param deadline Market deadline
+     * @param adjudicator Address that can settle the market
+     * @param guardian Address that can veto settlement
      * @param initialLiquidity Liquidity parameter b (WAD)
-     * @param name Market name (for TickBook tokens)
-     * @param symbol Market symbol (for TickBook tokens)
+     * @param adjudicatorAgentId ERC-8004 agent ID for validated adjudicator (0 to skip)
+     * @param adjudicatorMinValidators Min validators for validated adjudicator (0 to skip)
+     * @return market Address of deployed TruthMarket
      * @return lpTokens Initial LP tokens minted to creator
      */
     function createMarket(
-        address market,
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
         uint256 initialLiquidity,
-        string calldata name,
-        string calldata symbol
-    ) external returns (uint256 lpTokens);
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) external returns (address market, uint256 lpTokens);
 
     // ============================================
     // Trading
@@ -196,17 +210,6 @@ interface ILaunchpadEngine {
         );
 
     /**
-     * @notice Get LP token balance
-     * @param market Market address
-     * @param user User address
-     * @return LP token balance (WAD)
-     */
-    function getLPBalance(address market, address user)
-        external
-        view
-        returns (uint256);
-
-    /**
      * @notice Get graduation progress
      * @param market Market address
      * @return feesAccrued Total fees collected (USDC)
@@ -233,4 +236,22 @@ interface ILaunchpadEngine {
      * @return Number of markets created
      */
     function getMarketCount() external view returns (uint256);
+
+    // ============================================
+    // V11: Trial Period Functions
+    // ============================================
+
+    /**
+     * @notice Dismiss a market during trial period (creator only)
+     * @param market The market to dismiss
+     */
+    function dismissMarket(address market) external;
+
+    /**
+     * @notice Claim refund after market dismissal
+     * @param market The dismissed market
+     * @return refundAmount Amount refunded
+     */
+    function claimRefund(address market) external returns (uint256 refundAmount);
+
 }

@@ -1,1 +1,0 @@
-../../.claude/commands/frontend-dev.md

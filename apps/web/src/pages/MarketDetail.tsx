@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield, Landmark, Scale, TrendingUp, Package, Anchor } from 'lucide-react';
 import { useState } from 'react';
 import { useLaunchpadMarket } from '../hooks/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/useLaunchpadMarkets';
@@ -9,7 +9,8 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { OrderbookForm } from '../components/features/trader/OrderbookForm';
 import { formatUnits } from 'viem';
-import { useAccount, useReadContracts } from 'wagmi';
+import { useAccount, useReadContracts, useChainId } from 'wagmi';
+import { getAddressExplorerUrl } from '../lib/chains';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
 import { LaunchpadLockedProceeds } from '../components/features/trader/LaunchpadLockedProceeds';
@@ -19,6 +20,7 @@ import { PositionActionsModal } from '../components/features/portfolio/PositionA
 import { useTraderVault } from '../hooks/useTraderVault';
 import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import uiContent from '../config/ui-content.json';
+import { logger } from '../lib/logger';
 
 // Compact Market Info Card Component with Help Button
 const MarketInfoCard = ({
@@ -45,6 +47,7 @@ const MarketInfoCard = ({
   pureCeilingProp,
   isUnderwater,
   decimals,
+  chainId,
 }: {
   priceYes: number;
   priceNo: number;
@@ -69,6 +72,7 @@ const MarketInfoCard = ({
   pureCeilingProp?: bigint;
   isUnderwater?: boolean;
   decimals?: number;
+  chainId: number;
 }) => {
   const [showHelp, setShowHelp] = useState(false);
   const t = uiContent.lp;
@@ -123,12 +127,12 @@ const MarketInfoCard = ({
 
       {/* Education Panel (toggleable) */}
       {showHelp && (
-        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-[10px] text-slate-300 space-y-2">
-          <p>• 🏦 <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
-          <p>• ⚖️ <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
-          <p>• 📈 <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
-          <p>• 📦 <strong>TVL Formula</strong>: Reconciles AMM cash with users' locked proceeds (24h cooling) to show the total contract-level USDC holdings.</p>
-          <p>• ⚓ <strong>Liquidity Anchor</strong>: The fundamental LMSR relationship where LP supply is mathematically anchored to the depth parameter (b).</p>
+        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 mb-3 text-xs text-slate-300 space-y-2">
+          <p className="flex items-center gap-1">• <Landmark size={12} /> <strong>Cash Basis</strong>: Reconciles all physical USDC inflows (Seed + Fees) and trade performance (Swap P&L) into the current AMM Gross Cash.</p>
+          <p className="flex items-center gap-1">• <Scale size={12} /> <strong>Equity Floor</strong>: The guaranteed minimum value of the pool (Net), assuming the worst-case outcome occurs for the House.</p>
+          <p className="flex items-center gap-1">• <TrendingUp size={12} /> <strong>Valuation (ExRate)</strong>: The real-time price of 1 LP token, calculated by dividing total Net Equity by the token supply.</p>
+          <p className="flex items-center gap-1">• <Package size={12} /> <strong>TVL Formula</strong>: Reconciles AMM cash with users' locked proceeds (24h cooling) to show the total contract-level USDC holdings.</p>
+          <p className="flex items-center gap-1">• <Anchor size={12} /> <strong>Liquidity Anchor</strong>: The fundamental LMSR relationship where LP supply is mathematically anchored to the depth parameter (b).</p>
         </div>
       )}
 
@@ -145,7 +149,7 @@ const MarketInfoCard = ({
 
       {/* Formula-Style Accounting (Pure LP Ledger) */}
       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-800/50 mb-3">
-        <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
+        <div className="text-xs text-slate-500 uppercase tracking-widest mb-4 font-bold flex justify-between items-center">
           <span>AMM Isolated Ledger</span>
           <Badge className="text-[7px] bg-cyan-500/10 text-cyan-400 border-cyan-500/30 uppercase">Pure AMM Accounting</Badge>
       </div>
@@ -155,7 +159,7 @@ const MarketInfoCard = ({
           {/* 1. Cash Basis (Primary Input) */}
           <div className="p-2.5 rounded border border-slate-700/30 bg-slate-900/40 group hover:border-slate-600/50 transition-colors">
             <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">🏦 Cash Basis Formula</span>
+              <span className="flex items-center gap-1"><Landmark size={12} /> Cash Basis Formula</span>
               <span className="text-slate-500 font-mono italic">Seed + Fees + P&L = Gross</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -172,7 +176,7 @@ const MarketInfoCard = ({
           {/* 2. Equity Floor (Net Value) */}
           <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
             <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">⚖️ Equity Floor Formula</span>
+              <span className="flex items-center gap-1"><Scale size={12} /> Equity Floor Formula</span>
               <span className="text-cyan-600/60 font-mono italic">Gross - Liability = Floor</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -185,30 +189,30 @@ const MarketInfoCard = ({
           </div>
 
           {/* 3. Valuation (Unit Price) */}
-          <div className="p-2.5 rounded border border-purple-500/20 bg-purple-500/5 group hover:border-purple-500/40 transition-colors">
-            <div className="text-[8px] text-purple-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">📈 Valuation (ExRate)</span>
-              <span className="text-purple-600/60 font-mono italic">Equity / Supply = Rate</span>
+          <div className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5 group hover:border-cyan-500/40 transition-colors">
+            <div className="text-[8px] text-cyan-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1"><TrendingUp size={12} /> Valuation (ExRate)</span>
+              <span className="text-cyan-600/60 font-mono italic">Equity / Supply = Rate</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-cyan-400/70">({formatCurrency(tvl)})</span>
               <span className="text-slate-600">/</span>
               <span className="text-slate-400" title="LP Supply">({lpSupply.toLocaleString(undefined, { maximumFractionDigits: 1 })})</span>
               <span className="text-slate-600">=</span>
-              <span className="text-purple-400 font-bold ml-auto text-sm">{floorExRate.toFixed(3)}x</span>
+              <span className="text-cyan-400 font-bold ml-auto text-sm">{floorExRate.toFixed(3)}x</span>
             </div>
           </div>
 
           {/* 4. TVL Reconciliation (Physical) */}
-          <div className="p-2.5 rounded border border-amber-500/20 bg-amber-500/5 group hover:border-amber-500/40 transition-colors">
-            <div className="text-[8px] text-amber-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">📦 TVL Formula</span>
-              <span className="text-amber-600/60 font-mono italic">Cash + Locked = TVL</span>
+          <div className="p-2.5 rounded border border-slate-500/20 bg-slate-500/5 group hover:border-slate-500/40 transition-colors">
+            <div className="text-[8px] text-slate-400/70 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1"><Package size={12} /> TVL Formula</span>
+              <span className="text-slate-600/60 font-mono italic">Cash + Locked = TVL</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
               <span className="text-slate-400">({formatCurrency(ammCash)})</span>
               <span className="text-slate-600">+</span>
-              <span className="text-amber-500/70" title="Locked Proceeds">({formatCurrency(lockedTotal)})</span>
+              <span className="text-slate-500/70" title="Locked Proceeds">({formatCurrency(lockedTotal)})</span>
               <span className="text-slate-600">=</span>
               <span className="text-white font-bold ml-auto text-sm">{formatCurrency(ammCash + lockedTotal)}</span>
             </div>
@@ -217,7 +221,7 @@ const MarketInfoCard = ({
           {/* 5. Liquidity Anchor (Mathematical) */}
           <div className="p-2.5 rounded border border-slate-700/30 bg-slate-900/40 group hover:border-slate-600/50 transition-colors">
             <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1">⚓ Liquidity Anchor Formula</span>
+              <span className="flex items-center gap-1"><Anchor size={12} /> Liquidity Anchor Formula</span>
               <span className="text-slate-500 font-mono italic">b * ln(2) ≈ Supply</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
@@ -234,21 +238,21 @@ const MarketInfoCard = ({
       {/* Key Metrics - Integrated Grid */}
       <div className="grid grid-cols-1 gap-2 mb-3">
         {/* ExRate Range */}
-        <div className="p-3 rounded-lg bg-purple-500/5 text-center border border-purple-500/20 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="p-3 rounded-lg bg-cyan-500/5 text-center border border-cyan-500/20 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative z-10">
-            <div className="text-[9px] text-purple-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
+            <div className="text-xs text-cyan-400 mb-1.5 font-black uppercase tracking-widest flex items-center justify-center gap-2">
               <Zap size={10} /> LP ExRate Range <Zap size={10} />
             </div>
             <div className="flex items-center justify-center gap-4">
               <div className="flex flex-col items-center">
                 <span className="text-[8px] text-slate-500 uppercase font-bold">Floor</span>
-                <span className="font-mono font-bold text-purple-400 text-lg">{floorExRate.toFixed(3)}x</span>
+                <span className="font-mono font-bold text-cyan-400 text-lg">{floorExRate.toFixed(3)}x</span>
               </div>
-              <div className="h-8 w-px bg-purple-500/20" />
+              <div className="h-8 w-px bg-cyan-500/20" />
               <div className="flex flex-col items-center">
                 <span className="text-[8px] text-slate-500 uppercase font-bold">Ceiling</span>
-                <span className="font-mono font-bold text-purple-300 text-lg">{ceilingExRate.toFixed(3)}x</span>
+                <span className="font-mono font-bold text-cyan-300 text-lg">{ceilingExRate.toFixed(3)}x</span>
               </div>
             </div>
           </div>
@@ -262,10 +266,10 @@ const MarketInfoCard = ({
             <ArrowUpRight size={24} className="text-emerald-500" />
           </div>
           <div className="relative z-10">
-            <div className="text-[9px] text-emerald-500/70 font-black uppercase tracking-widest mb-1">YES Outcome</div>
+            <div className="text-xs text-emerald-500/70 font-black uppercase tracking-widest mb-1">YES Outcome</div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-emerald-400">{(priceYes * 100).toFixed(1)}%</span>
-              <span className="text-[10px] text-emerald-500/50 font-mono">
+              <span className="text-xs text-emerald-500/50 font-mono">
                 {parseFloat(formatUnits(qYes || 0n, WAD_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
               </span>
         </div>
@@ -276,9 +280,9 @@ const MarketInfoCard = ({
             <ArrowDownLeft size={24} className="text-rose-500" />
         </div>
           <div className="relative z-10 text-right">
-            <div className="text-[9px] text-rose-500/70 font-black uppercase tracking-widest mb-1">NO Outcome</div>
+            <div className="text-xs text-rose-500/70 font-black uppercase tracking-widest mb-1">NO Outcome</div>
             <div className="flex items-baseline gap-2 justify-end">
-              <span className="text-[10px] text-rose-500/50 font-mono">
+              <span className="text-xs text-rose-500/50 font-mono">
                 {parseFloat(formatUnits(qNo || 0n, WAD_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
               </span>
               <span className="text-xl font-bold text-rose-400">{(priceNo * 100).toFixed(1)}%</span>
@@ -295,7 +299,7 @@ const MarketInfoCard = ({
 
       {/* Settlement Simulation */}
       <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-800/50 mb-3">
-        <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-3 font-bold">LP Payout Simulation</div>
+        <div className="text-xs text-slate-500 uppercase tracking-widest mb-3 font-bold">LP Payout Simulation</div>
         <div className="grid grid-cols-3 gap-2">
           <div className="flex flex-col">
             <span className="text-[8px] text-emerald-500/60 uppercase font-bold mb-1">If YES Wins</span>
@@ -314,18 +318,18 @@ const MarketInfoCard = ({
 
       {/* Contract Addresses */}
       <div className="pt-2 border-t border-slate-800">
-        <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
-          <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+        <div className="text-xs text-slate-600 uppercase tracking-wider mb-2">Contracts</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <a href={getAddressExplorerUrl(chainId, address)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
             Market <span className="font-mono">{address.slice(0,6)}...{address.slice(-4)}</span>
           </a>
           {creator && (
-            <a href={`https://sepolia.basescan.org/address/${creator}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+            <a href={getAddressExplorerUrl(chainId, creator)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
               Creator <span className="font-mono">{creator.slice(0,6)}...{creator.slice(-4)}</span>
             </a>
           )}
           {outcomeToken && (
-            <a href={`https://sepolia.basescan.org/address/${outcomeToken}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
+            <a href={getAddressExplorerUrl(chainId, outcomeToken)} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400 transition-colors">
               Token <span className="font-mono">{outcomeToken.slice(0,6)}...{outcomeToken.slice(-4)}</span>
             </a>
           )}
@@ -435,7 +439,7 @@ const BondingProgressCard = ({
             disabled={isGraduatePending}
             className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-black font-bold shadow-lg shadow-cyan-500/25"
           >
-            {isGraduatePending ? 'Graduating...' : '🎓 Graduate Market'}
+            {isGraduatePending ? 'Graduating...' : 'Graduate Market'}
           </Button>
         )}
       </div>
@@ -444,7 +448,7 @@ const BondingProgressCard = ({
 };
 
 // Helper component for address display with copy functionality
-const AddressRow = ({ label, address, isCreator }: { label: string; address: string; isCreator?: boolean }) => {
+const AddressRow = ({ label, address, isCreator, chainId }: { label: string; address: string; isCreator?: boolean; chainId: number }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -458,14 +462,14 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{label}</span>
         {isCreator && (
-          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-amber-500/50 py-0 px-1">
+          <Badge className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/50 py-0 px-1">
             Creator
           </Badge>
         )}
       </div>
       <div className="flex items-center gap-2">
         <a
-          href={`https://sepolia.basescan.org/address/${address}`}
+          href={getAddressExplorerUrl(chainId, address)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors"
@@ -483,7 +487,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
           )}
         </button>
         <a
-          href={`https://sepolia.basescan.org/address/${address}`}
+          href={getAddressExplorerUrl(chainId, address)}
           target="_blank"
           rel="noopener noreferrer"
           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-700"
@@ -498,6 +502,7 @@ const AddressRow = ({ label, address, isCreator }: { label: string; address: str
 export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
+  const chainId = useChainId();
   const { refetch: refetchVault, availableBalance, decimals, vaultAddress: traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
   const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
   
@@ -534,7 +539,7 @@ export const MarketDetail = () => {
   } = marketData;
 
   // TODO: Graduate function should be added to useLaunchpadMarket hook
-  const graduate = async () => { console.warn('Graduate not implemented'); };
+  const graduate = async () => { logger.market.warn('Graduate not implemented'); };
   const isGraduatePending = false;
 
   const isGraduated = launchpad?.isGraduated ?? false;
@@ -660,26 +665,26 @@ export const MarketDetail = () => {
               {displayName}
             </h1>
             {isSettled ? (
-              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/50">
-                ⚖️ Settled
+              <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/50 flex items-center gap-1">
+                <Scale size={12} /> Settled
               </Badge>
             ) : isGraduated ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">
-                🎓 Graduated
+                ✓ Graduated
               </Badge>
             ) : isExpired ? (
               <Badge className="bg-red-500/20 text-red-400 border-red-500/50">
-                ⏰ Expired
+                Expired
               </Badge>
             ) : (
-              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
-                🔥 Bonding
+              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50 flex items-center gap-1">
+                <Zap size={12} /> Bonding
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-500">
             <a
-              href={`https://sepolia.basescan.org/address/${address}`}
+              href={getAddressExplorerUrl(chainId, address || '')}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-cyan-400 transition-colors font-mono"
@@ -737,13 +742,14 @@ export const MarketDetail = () => {
             pureCeilingProp={pureCeiling}
             isUnderwater={isUnderwater}
             decimals={marketDecimals || decimals}
+            chainId={chainId}
           />
 
           {/* Settlement Status Card */}
           {adjudicator && (
-            <Card className="p-6 border-amber-500/20 bg-amber-500/5">
+            <Card className="p-6 border-slate-500/20 bg-slate-500/5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                <div className="p-2 rounded-lg bg-slate-500/20 text-slate-400">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
@@ -787,12 +793,12 @@ export const MarketDetail = () => {
 
           {/* Inventory Management (Post-Graduation Only) */}
           {isGraduated && address && (
-            <Card className="p-4 border-indigo-500/20 bg-indigo-950/10">
+            <Card className="p-4 border-cyan-500/20 bg-cyan-950/10">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[10px] text-indigo-400 font-black uppercase tracking-widest flex items-center gap-2">
+                <div className="text-xs text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
                   <GitMerge size={12} /> Inventory Management
                 </div>
-                <div className="text-[9px] text-slate-500 font-medium">
+                <div className="text-xs text-slate-500 font-medium">
                   Direct mint/burn sets for this market
                 </div>
               </div>
@@ -819,7 +825,7 @@ export const MarketDetail = () => {
                   variant="secondary"
                   onClick={() => setModalMode('merge')}
                   disabled={mergeableAmount <= 0}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
+                  className="group py-2 text-xs font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
                 >
                   <GitMerge size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Merge {mergeableAmount > 0 ? `(${mergeableAmount.toFixed(0)})` : ''}
                 </Button>
@@ -829,7 +835,7 @@ export const MarketDetail = () => {
                   variant="primary"
                   onClick={() => setModalMode('split')}
                   disabled={usdcAvailable <= 0}
-                  className="group py-2 text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 border-none text-white disabled:opacity-50"
+                  className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white disabled:opacity-50"
                 >
                   <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Split
                 </Button>
@@ -842,10 +848,10 @@ export const MarketDetail = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-purple-400" />
+                  <BookOpen className="w-5 h-5 text-cyan-400" />
                   Orderbook Trading
                 </h3>
-                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">
+                <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/50">
                   Limit Orders
                 </Badge>
               </div>
@@ -857,7 +863,7 @@ export const MarketDetail = () => {
 
         {/* Right: LP Position + Trading Panel */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-4 will-change-transform">
+          <div className="sticky top-24 space-y-4 ">
             {/* LP Leaderboard Card */}
             <LPLeaderboardCard
               marketAddress={address as `0x${string}`}

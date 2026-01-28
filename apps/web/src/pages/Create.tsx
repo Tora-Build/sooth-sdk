@@ -4,16 +4,16 @@
  * Unified dashboard for market creators and adjudicators to manage market lifecycle.
  * Features: My Markets, Pending Settlements, Create New Market wizard
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   PlusCircle, Coins, Scale, GraduationCap, Clock,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  ExternalLink, ChevronRight, Calendar, DollarSign, Loader2
+  ExternalLink, ChevronRight, Calendar, DollarSign, Loader2,
+  XCircle, RefreshCw
 } from 'lucide-react';
-import { useAccount, useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract, useConfig } from 'wagmi';
-import { maxUint256 } from 'viem';
-import { deployContract } from 'wagmi/actions';
+import { useAccount, useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { maxUint256, decodeEventLog } from 'viem';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -23,11 +23,11 @@ import { SettlementPanel } from '../components/features/SettlementPanel';
 import { GraduationProgress } from '../components/features/launchpad/GraduationProgress';
 import { useTruthMarketDirect, useLaunchpadMarketDirect, useAmmMarketDirect } from '../hooks';
 import { useDeployments } from '../hooks/useDeployments';
-import { V8_ABIS, ERC20_ABI } from '../config/abis';
-import { TRUTH_MARKET_BYTECODE } from '../config/bytecode';
+import { ABIS, ERC20_ABI } from '../config/abis';
 import marketsConfigRaw from '../config/markets.json';
 import uiContent from '../config/ui-content.json';
 import { MarketConfig, MarketsConfigJson } from '../types';
+import { logger } from '../lib/logger';
 
 const marketsConfig = marketsConfigRaw as MarketsConfigJson;
 import toast from 'react-hot-toast';
@@ -46,7 +46,7 @@ interface CreatorMarketCardProps {
 
 const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddress, isCreator, isAdjudicator }) => {
   const { market: truthMarket, isLoading: truthLoading } = useTruthMarketDirect(market.contractAddress as `0x${string}`);
-  const { launchpad, isLoading: launchpadLoading } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
+  const { launchpad, isLoading: launchpadLoading, dismissMarket, isPending } = useLaunchpadMarketDirect(market.contractAddress as `0x${string}`);
   const { amm } = useAmmMarketDirect(market.contractAddress as `0x${string}`);
 
   const isLoading = truthLoading || launchpadLoading;
@@ -60,18 +60,51 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
   const isSettled = truthMarket?.isSettled ?? false;
   const isLive = truthMarket?.isLive ?? true;
 
+  // V11: Trial period status
+  const isInTrialPeriod = launchpad?.isInTrialPeriod ?? false;
+  const trialEnded = launchpad?.trialEnded ?? false;
+  const isDismissed = launchpad?.isDismissed ?? false;
+  const canDismiss = launchpad?.canDismiss ?? false;
+  const trialTimeRemaining = launchpad?.trialTimeRemaining ?? 0;
+
+  // Format trial time remaining
+  const formatTimeRemaining = (seconds: number) => {
+    if (seconds <= 0) return 'Ended';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    if (days > 0) return `${days}d ${hours}h`;
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+
+  // Handle dismiss
+  const handleDismiss = () => {
+    if (!canDismiss || !isCreator) return;
+    if (window.confirm('Are you sure you want to dismiss this market? Traders will be able to claim refunds.')) {
+      dismissMarket();
+      toast('Dismissing market...');
+    }
+  };
+
   // Status
-  let status: 'live' | 'graduated' | 'settling' | 'settled' = 'live';
+  let status: 'live' | 'graduated' | 'settling' | 'settled' | 'dismissed' | 'trial' = 'live';
   let statusColor = 'bg-emerald-500';
-  if (isSettled) {
+  if (isDismissed) {
+    status = 'dismissed';
+    statusColor = 'bg-rose-500';
+  } else if (isSettled) {
     status = 'settled';
     statusColor = 'bg-slate-500';
   } else if (!isLive) {
     status = 'settling';
-    statusColor = 'bg-amber-500';
+    statusColor = 'bg-slate-500';
   } else if (isGraduated) {
     status = 'graduated';
-    statusColor = 'bg-indigo-500';
+    statusColor = 'bg-cyan-500';
+  } else if (isInTrialPeriod) {
+    status = 'trial';
+    statusColor = 'bg-amber-500';
   }
 
   if (isLoading) {
@@ -95,7 +128,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-white">{market.symbol}</h3>
               {isCreator && (
-                <Badge variant="outline" className="text-purple-400 border-purple-400/30">
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30">
                   Creator
                 </Badge>
               )}
@@ -115,23 +148,68 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="bg-slate-800/50 rounded-lg p-2">
-            <p className="text-[10px] text-slate-500 uppercase">LP Tokens</p>
+            <p className="text-xs text-slate-500 uppercase">LP Tokens</p>
             <p className="text-sm font-mono text-white">{lpTokens.toFixed(0)}</p>
           </div>
           <div className="bg-slate-800/50 rounded-lg p-2">
-            <p className="text-[10px] text-slate-500 uppercase">Fees</p>
+            <p className="text-xs text-slate-500 uppercase">Fees</p>
             <p className="text-sm font-mono text-emerald-400">${feesAccrued.toFixed(2)}</p>
           </div>
           <div className="bg-slate-800/50 rounded-lg p-2">
-            <p className="text-[10px] text-slate-500 uppercase">Price</p>
+            <p className="text-xs text-slate-500 uppercase">Price</p>
             <p className="text-sm font-mono text-white">
               {((amm?.yesProbability ?? 0.5) * 100).toFixed(0)}%
             </p>
           </div>
         </div>
 
+        {/* V11: Trial Period Info */}
+        {isInTrialPeriod && !isDismissed && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-amber-300 font-medium">Trial Period</span>
+              </div>
+              <span className="text-xs font-mono text-amber-400">{formatTimeRemaining(trialTimeRemaining)} left</span>
+            </div>
+          </div>
+        )}
+
+        {/* V11: Trial Ended - Can Dismiss */}
+        {trialEnded && canDismiss && isCreator && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs text-rose-300">Trial ended, not graduated</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDismiss}
+                disabled={isPending}
+                className="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300"
+              >
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3 mr-1" />}
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* V11: Dismissed State */}
+        {isDismissed && (
+          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-2">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-slate-400" />
+              <span className="text-xs text-slate-400">Market dismissed - traders can claim refunds</span>
+            </div>
+          </div>
+        )}
+
         {/* Graduation Progress */}
-        {!isSettled && (
+        {!isSettled && !isDismissed && (
           <div>
             <div className="flex justify-between text-xs text-slate-400 mb-1">
               <span>Graduation</span>
@@ -139,7 +217,7 @@ const CreatorMarketCard: React.FC<CreatorMarketCardProps> = ({ market, userAddre
             </div>
             <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all"
+                className="h-full bg-gradient-to-r from-slate-500 to-emerald-500 transition-all"
                 style={{ width: `${isGraduated ? 100 : Math.min(100, graduationProgress)}%` }}
               />
             </div>
@@ -270,18 +348,19 @@ const WizardStep: React.FC<WizardStepProps> = ({ step, currentStep, title, child
 export const Create = () => {
   const { address: userAddress, isConnected } = useAccount();
   const chainId = useChainId();
-  const config = useConfig();
   const navigate = useNavigate();
   const deployments = useDeployments();
 
   const [activeTab, setActiveTab] = useState<Tab>('markets');
   const [wizardStep, setWizardStep] = useState(1);
+  // Brevis Optimistic Adjudicator (default)
+  const BREVIS_OPTIMISTIC_ADJUDICATOR = '0xB60F9c524d8bb90CE3905a906ffE6b915ce347C2';
+
   const [wizardData, setWizardData] = useState({
     question: '',
     deadline: '',
     liquidity: '1000',
-    adjudicator: '',
-    guardian: '',
+    adjudicator: BREVIS_OPTIMISTIC_ADJUDICATOR,
   });
 
   // Deployment state
@@ -303,22 +382,33 @@ export const Create = () => {
   });
 
   // Approve USDC
-  const { writeContract: writeApprove, data: approveTxHash, isPending: isApprovePending } = useWriteContract();
+  const { writeContract: writeApprove, data: approveTxHash } = useWriteContract();
   const { isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({ hash: approveTxHash });
 
   // Create market
-  const { writeContract: writeCreate, data: createTxHash, isPending: isCreatePending } = useWriteContract();
-  const { isSuccess: isCreateConfirmed } = useWaitForTransactionReceipt({ hash: createTxHash });
+  const { writeContract: writeCreate, data: createTxHash } = useWriteContract();
+  const { isSuccess: isCreateConfirmed, data: createReceipt } = useWaitForTransactionReceipt({ hash: createTxHash });
+  const { data: protocolConfig } = useReadContract({
+    address: launchpadEngineAddress,
+    abi: ABIS.LaunchpadEngine,
+    functionName: 'protocolConfig',
+    query: { enabled: !!launchpadEngineAddress }
+  });
 
   // Calculate deposit based on liquidity (b)
-  const depositAmount = Math.floor(parseInt(wizardData.liquidity) * 0.693);
+  const depositAmount = Math.floor((parseInt(wizardData.liquidity, 10) || 0) * 0.693);
   const depositAmountWei = BigInt(depositAmount) * 10n ** 18n;
   const isApproved = typeof allowance === 'bigint' && allowance >= depositAmountWei;
+  const isDepositValid = depositAmount >= 10;
 
   // Handle deploy market
   const handleDeployMarket = useCallback(async () => {
     if (!wizardData.question || !wizardData.deadline || !launchpadEngineAddress) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+    if (!isDepositValid) {
+      toast.error('Minimum deposit is $10 USDC');
       return;
     }
 
@@ -338,43 +428,34 @@ export const Create = () => {
         return; // Will continue after approval confirmed
       }
 
-      // Step 2: Deploy TruthMarket
-      setDeploymentStep('deploying');
-      toast('Deploying TruthMarket contract...');
+      setDeploymentStep('creating');
+      toast('Creating market...');
 
       const deadline = Math.floor(new Date(wizardData.deadline).getTime() / 1000);
       const adjudicatorAddr = (wizardData.adjudicator || userAddress!) as `0x${string}`;
-      const guardianAddr = (wizardData.guardian || userAddress!) as `0x${string}`;
-
-      const truthMarketAddr = await deployContract(config, {
-        abi: V8_ABIS.TruthMarket,
-        bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
-        args: [wizardData.question, BigInt(deadline), adjudicatorAddr, guardianAddr],
-      });
-
-      toast.success(`TruthMarket deployed: ${truthMarketAddr.slice(0, 10)}...`);
-
-      // Step 3: Create in LaunchpadEngine
-      setDeploymentStep('creating');
-      toast('Initializing in LaunchpadEngine...');
+      const guardianAddr = protocolConfig as `0x${string}` | undefined;
+      if (!guardianAddr) {
+        toast.error('ProtocolConfig not configured');
+        setDeploymentStep('error');
+        setIsDeploying(false);
+        return;
+      }
 
       const liquidityWei = BigInt(wizardData.liquidity) * 10n ** 18n;
       writeCreate({
         address: launchpadEngineAddress,
-        abi: V8_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: 'createMarket',
-        args: [truthMarketAddr, liquidityWei, wizardData.question.slice(0, 50), wizardData.question.slice(0, 10).toUpperCase().replace(/[^A-Z0-9]/g, '')],
+        args: [wizardData.question, 0n, BigInt(deadline), adjudicatorAddr, guardianAddr, liquidityWei, 0n, 0n],
       });
 
-      setDeployedMarketAddress(truthMarketAddr);
-
     } catch (err: any) {
-      console.error('Deployment failed:', err);
+      logger.launchpad.error('Deployment failed:', err);
       toast.error(err.message || 'Deployment failed');
       setDeploymentStep('error');
       setIsDeploying(false);
     }
-  }, [wizardData, launchpadEngineAddress, usdcAddress, userAddress, isApproved, config, writeApprove, writeCreate]);
+  }, [wizardData, launchpadEngineAddress, protocolConfig, usdcAddress, userAddress, isApproved, isDepositValid, writeApprove, writeCreate]);
 
   // Continue deployment after approval
   const handleContinueAfterApproval = useCallback(async () => {
@@ -383,12 +464,37 @@ export const Create = () => {
     handleDeployMarket();
   }, [refetchAllowance, handleDeployMarket]);
 
-  // Handle successful create
-  if (isCreateConfirmed && deployedMarketAddress && deploymentStep === 'creating') {
-    setDeploymentStep('done');
-    setIsDeploying(false);
-    toast.success('Market created successfully!');
-  }
+  useEffect(() => {
+    if (!createReceipt || deploymentStep !== 'creating') return;
+
+    let marketAddress: `0x${string}` | null = null;
+    for (const log of createReceipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: ABIS.TruthMarket,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (decoded.eventName === 'MarketCreated' && decoded.args) {
+          marketAddress = (decoded.args as unknown as { market: `0x${string}` }).market;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (marketAddress) {
+      setDeployedMarketAddress(marketAddress);
+      setDeploymentStep('done');
+      setIsDeploying(false);
+      toast.success('Market created successfully!');
+    } else if (isCreateConfirmed) {
+      setDeploymentStep('error');
+      setIsDeploying(false);
+      toast.error('MarketCreated event not found');
+    }
+  }, [createReceipt, deploymentStep, isCreateConfirmed]);
 
   // Filter V8 markets for current chain
   const v8Markets = useMemo(() => {
@@ -402,12 +508,12 @@ export const Create = () => {
     contracts: v8Markets.flatMap(m => [
       {
         address: m.contractAddress as `0x${string}`,
-        abi: V8_ABIS.TruthMarket,
+        abi: ABIS.TruthMarket,
         functionName: 'creator',
       },
       {
         address: m.contractAddress as `0x${string}`,
-        abi: V8_ABIS.TruthMarket,
+        abi: ABIS.TruthMarket,
         functionName: 'adjudicator',
       },
     ]),
@@ -460,9 +566,9 @@ export const Create = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Card className="max-w-md text-center p-8">
-          <Coins className="w-12 h-12 mx-auto text-purple-400 mb-4" />
+          <Coins className="w-12 h-12 mx-auto text-cyan-400 mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">{content.connectWallet.title}</h2>
           <p className="text-slate-400 mb-6">
             {content.connectWallet.description}
@@ -474,7 +580,7 @@ export const Create = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-6">
@@ -483,13 +589,13 @@ export const Create = () => {
         </div>
 
         {/* Role Indicator */}
-        <Card className="mb-6 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
+        <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/20">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-purple-400" />
+                <Coins className="w-5 h-5 text-cyan-400" />
                 <span className="text-white font-medium">{content.roles.creator}</span>
-                <Badge variant="outline" className="text-purple-400">
+                <Badge variant="outline" className="text-cyan-400">
                   {roleCount.creator} markets
                 </Badge>
               </div>
@@ -515,7 +621,7 @@ export const Create = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-indigo-500 text-white'
+                  ? 'border-cyan-500 text-white'
                   : 'border-transparent text-slate-400 hover:text-slate-300'
                 }`}
             >
@@ -606,7 +712,7 @@ export const Create = () => {
                         step === wizardStep ? 'current' : 'pending'
                       }`} />
                     {step < 4 && (
-                      <div className={`w-16 h-0.5 ${step < wizardStep ? 'bg-indigo-500' : 'bg-slate-700'
+                      <div className={`w-16 h-0.5 ${step < wizardStep ? 'bg-cyan-500' : 'bg-slate-700'
                         }`} />
                     )}
                   </div>
@@ -668,11 +774,11 @@ export const Create = () => {
                         key={b}
                         onClick={() => setWizardData(prev => ({ ...prev, liquidity: b }))}
                         className={`p-4 rounded-xl border-2 text-center transition-all ${isSelected
-                            ? 'border-indigo-500 bg-indigo-500/20'
+                            ? 'border-cyan-500 bg-cyan-500/20'
                             : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
                           }`}
                       >
-                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-indigo-400' : 'text-slate-500'
+                        <DollarSign className={`w-6 h-6 mx-auto mb-2 ${isSelected ? 'text-cyan-400' : 'text-slate-500'
                           }`} />
                         <p className={`font-bold text-lg ${isSelected ? 'text-white' : 'text-slate-400'
                           }`}>
@@ -702,9 +808,9 @@ export const Create = () => {
                           setWizardData(prev => ({ ...prev, liquidity: String(b || 100) }));
                         }}
                         placeholder="Enter deposit"
-                        min="7"
+                        min="10"
                         max="700000"
-                        className="w-full pl-7 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full pl-7 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
                       />
                     </div>
                     <span className="text-slate-500 text-sm whitespace-nowrap">
@@ -713,9 +819,9 @@ export const Create = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 inline mr-2" />
-                  <span className="text-amber-200">
+                <div className="mt-4 p-3 rounded-lg bg-slate-500/10 border border-slate-500/20 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-slate-400 inline mr-2" />
+                  <span className="text-slate-300">
                     Deposit = Max loss: <strong>${Math.floor(parseInt(wizardData.liquidity || '0') * 0.693).toLocaleString()}</strong>
                     <span className="text-slate-400 ml-2">• Liquidity depth (b): ${parseInt(wizardData.liquidity || '0').toLocaleString()}</span>
                   </span>
@@ -735,28 +841,19 @@ export const Create = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="0x..."
+                      placeholder={BREVIS_OPTIMISTIC_ADJUDICATOR}
                       value={wizardData.adjudicator}
                       onChange={(e) => setWizardData(prev => ({ ...prev, adjudicator: e.target.value }))}
                       className="input-field font-mono text-sm"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {content.wizard.r.adjDesc}
+                      Default: Brevis Optimistic Adjudicator. {content.wizard.r.adjDesc}
                     </p>
                   </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">
-                      {content.wizard.r.guardLabel}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="0x..."
-                      value={wizardData.guardian}
-                      onChange={(e) => setWizardData(prev => ({ ...prev, guardian: e.target.value }))}
-                      className="input-field font-mono text-sm"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {content.wizard.r.guardDesc}
+                  {/* Guardian is now protocol-level (ProtocolConfig), not per-market */}
+                  <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p className="text-xs text-slate-400">
+                      <span className="text-slate-300 font-medium">Guardian:</span> Protocol-level (automatic)
                     </p>
                   </div>
                 </div>
@@ -791,23 +888,22 @@ export const Create = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Guardian</span>
-                    <span className="text-white font-mono text-sm">
-                      {wizardData.guardian ? `${wizardData.guardian.slice(0, 6)}...${wizardData.guardian.slice(-4)}` : 'Not set'}
-                    </span>
+                    <span className="text-slate-300 text-sm">Protocol-level (automatic)</span>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm text-indigo-200">
+                <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-sm text-cyan-200">
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   {content.wizard.review.transactionDesc}
                 </div>
 
                 {/* Validation warnings */}
-                {(!wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress) && (
+                {(!wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress || !isDepositValid) && (
                   <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300">
                     <AlertTriangle className="w-4 h-4 inline mr-2" />
                     {!wizardData.question && <span className="block">• Question is required</span>}
                     {!wizardData.deadline && <span className="block">• Deadline is required</span>}
+                    {!isDepositValid && <span className="block">• Minimum deposit is $10</span>}
                     {!launchpadEngineAddress && <span className="block">• LaunchpadEngine not deployed on this chain</span>}
                     {!usdcAddress && <span className="block">• USDC not configured for this chain</span>}
                   </div>
@@ -852,24 +948,23 @@ export const Create = () => {
                   <Button
                     variant="primary"
                     onClick={handleDeployMarket}
-                    disabled={isDeploying || !wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress}
+                    disabled={isDeploying || !wizardData.question || !wizardData.deadline || !launchpadEngineAddress || !usdcAddress || !isDepositValid}
                   >
                     {isDeploying ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         {deploymentStep === 'approve' ? 'Approving USDC...' :
-                          deploymentStep === 'deploying' ? 'Deploying TruthMarket...' :
-                            deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
+                          deploymentStep === 'creating' ? 'Creating Market...' : 'Processing...'}
                       </>
                     ) : !isApproved ? (
                       <>
                         <DollarSign className="w-4 h-4 mr-2" />
-                        Approve & Deploy (${depositAmount} USDC)
+                        Approve USDC (${depositAmount} USDC)
                       </>
                     ) : (
                       <>
                         <PlusCircle className="w-4 h-4 mr-2" />
-                        Deploy Market (${depositAmount} USDC)
+                        Create Market (${depositAmount} USDC)
                       </>
                     )}
                   </Button>
@@ -884,4 +979,3 @@ export const Create = () => {
 };
 
 export default Create;
-

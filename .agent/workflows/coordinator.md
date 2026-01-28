@@ -1,1 +1,1 @@
-../../.claude/commands/coordinator.md
+/Users/danieltang/.claude/skills/coordinator/SKILL.md

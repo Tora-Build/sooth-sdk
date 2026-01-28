@@ -116,7 +116,7 @@ export const TickMap: React.FC<TickMapProps> = ({
 
   return (
     <div className="relative group" ref={containerRef}>
-      <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute -inset-2 bg-gradient-to-r from-cyan-500/10 to-cyan-500/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
       <canvas
         ref={canvasRef}
         width={400}
@@ -127,7 +127,7 @@ export const TickMap: React.FC<TickMapProps> = ({
       />
       
       {/* Legend */}
-      <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+      <div className="mt-4 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_5px_#10b981]" />
           <span>Bids</span>

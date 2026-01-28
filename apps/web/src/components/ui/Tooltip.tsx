@@ -98,14 +98,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
       {showIcon && (
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          className="inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           aria-label="Help"
           onMouseEnter={show}
           onMouseLeave={hide}
           onFocus={show}
           onBlur={hide}
         >
-          <HelpCircle className="w-3.5 h-3.5 text-slate-500 hover:text-indigo-300 transition-colors" />
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500 hover:text-cyan-300 transition-colors" />
         </button>
       )}
 
@@ -134,7 +134,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           {learnMore && (
             <Link
               to={learnMore}
-              className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="inline-flex items-center gap-1 mt-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
             >
               Learn
               <ExternalLink className="w-3 h-3" />

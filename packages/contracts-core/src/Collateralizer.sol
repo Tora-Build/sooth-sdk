@@ -59,16 +59,15 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
      * @inheritdoc ICollateralizer
      */
     function registerMarket(
-        address market,
-        string calldata name,
-        string calldata symbol
+        address market
     ) external override returns (address yesToken, address noToken) {
         require(market != address(0), "Collateralizer: zero market");
         require(!_marketTokens[market].registered, "Collateralizer: already registered");
 
-        // Deploy YES and NO tokens
+        string memory symbol = _addressToSymbol(market);
+
         OutcomeToken yes = new OutcomeToken(
-            string.concat(name, " - YES"),
+            string.concat(symbol, "-YES"),
             string.concat(symbol, "-YES"),
             address(this),
             market,
@@ -76,14 +75,13 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
         );
 
         OutcomeToken no = new OutcomeToken(
-            string.concat(name, " - NO"),
+            string.concat(symbol, "-NO"),
             string.concat(symbol, "-NO"),
             address(this),
             market,
             0 // NO = 0
         );
 
-        // Store tokens
         _marketTokens[market] = MarketTokens({
             yesToken: yes,
             noToken: no,
@@ -91,6 +89,17 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
         });
 
         return (address(yes), address(no));
+    }
+
+    function _addressToSymbol(address addr) internal pure returns (string memory) {
+        bytes4 fingerprint = bytes4(bytes20(addr));
+        bytes memory hexChars = "0123456789ABCDEF";
+        bytes memory result = new bytes(8);
+        for (uint256 i = 0; i < 4; i++) {
+            result[i * 2] = hexChars[uint8(fingerprint[i] >> 4)];
+            result[i * 2 + 1] = hexChars[uint8(fingerprint[i] & 0x0f)];
+        }
+        return string(result);
     }
 
     // ============================================
@@ -132,7 +141,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
     }
 
     // ============================================
-    // Redemption (Post-Settlement)
+    // Redemption (Post-Finalization)
     // ============================================
 
     /**
@@ -147,7 +156,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
         returns (uint256 usdcAmount)
     {
         require(amount > 0, "Collateralizer: zero amount");
-        require(isMarketSettled(market), "Collateralizer: not settled");
+        require(ITruthMarket(market).isFinalized(), "Collateralizer: not finalized");
 
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);
@@ -195,7 +204,7 @@ contract Collateralizer is ICollateralizer, ReentrancyGuard {
     ) external override nonReentrant returns (uint256 usdcAmount) {
         require(amount > 0, "Collateralizer: zero amount");
         require(outcome <= 1, "Collateralizer: invalid outcome");
-        require(isMarketSettled(market), "Collateralizer: not settled");
+        require(ITruthMarket(market).isFinalized(), "Collateralizer: not finalized");
 
         MarketTokens memory tokens = _getTokens(market);
         ITruthMarket truthMarket = ITruthMarket(market);

@@ -46,7 +46,7 @@ export const WalletSummaryCard: React.FC = () => {
         {/* Header: Overview */}
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <div className="text-[10px] text-emerald-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
+            <div className="text-xs text-emerald-400/80 uppercase tracking-widest font-bold flex items-center gap-1.5">
               Wallet & Liquidity
               <button
                 onClick={handleRefresh}
@@ -56,7 +56,7 @@ export const WalletSummaryCard: React.FC = () => {
                 <RefreshCw size={10} />
               </button>
             </div>
-            <div className="text-[9px] text-slate-500 font-medium flex items-center gap-1" title="Connected Status">
+            <div className="text-xs text-slate-500 font-medium flex items-center gap-1" title="Connected Status">
               <Zap size={9} className="text-emerald-500" />
               Direct
             </div>
@@ -69,7 +69,7 @@ export const WalletSummaryCard: React.FC = () => {
             </div>
 
             {/* Sub-header or minor info */}
-            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+            <div className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
               Direct Assets • Self-Custody
             </div>
           </div>
@@ -80,7 +80,7 @@ export const WalletSummaryCard: React.FC = () => {
 
           {/* LP Value */}
           <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/10 backdrop-blur-md">
-            <div className="text-[9px] text-blue-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+            <div className="text-xs text-blue-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
               <Zap size={9} /> LP Value
             </div>
             <div className="text-base font-mono font-bold text-blue-400 leading-none">
@@ -89,11 +89,11 @@ export const WalletSummaryCard: React.FC = () => {
           </div>
 
           {/* Pending Unlocks */}
-          <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10 backdrop-blur-md">
-            <div className="text-[9px] text-amber-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+          <div className="p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 backdrop-blur-md">
+            <div className="text-xs text-slate-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
               <Clock size={9} /> Pending Unlocks
             </div>
-            <div className="text-base font-mono font-bold text-amber-400 leading-none">
+            <div className="text-base font-mono font-bold text-slate-400 leading-none">
               {lockedFormatted}
             </div>
           </div>

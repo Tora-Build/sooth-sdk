@@ -1,1 +1,1 @@
-../../.claude/commands/frontend-dev.md
+/Users/danieltang/.claude/skills/frontend-dev/SKILL.md

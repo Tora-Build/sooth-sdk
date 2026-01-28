@@ -81,12 +81,12 @@ export const VaultBalanceCard = ({
     return (
       <div className={cn('flex items-center gap-4 text-xs', className)}>
         <div className="flex items-center gap-1.5">
-          <Wallet size={12} className="text-amber-400" />
+          <Wallet size={12} className="text-slate-400" />
           <span className="text-slate-500">Wallet:</span>
           <span className="font-mono text-white">${walletFormatted}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Database size={12} className="text-indigo-400" />
+          <Database size={12} className="text-cyan-400" />
           <span className="text-slate-500">Vault:</span>
           <span className="font-mono text-white">${vaultFormatted}</span>
         </div>
@@ -98,12 +98,12 @@ export const VaultBalanceCard = ({
     <Card className={cn('p-4 bg-slate-950/50 border-slate-800', className)}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Zap size={14} className="text-amber-400" />
+          <Zap size={14} className="text-cyan-400" />
           <span className="text-xs font-bold text-white uppercase tracking-wider">
             Trading Power
           </span>
         </div>
-        <span className="text-lg font-mono font-bold text-amber-400">
+        <span className="text-lg font-mono font-bold text-cyan-400">
           ${totalPower.toFixed(2)}
         </span>
       </div>
@@ -112,8 +112,8 @@ export const VaultBalanceCard = ({
         {/* Wallet Balance */}
         <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800/50">
           <div className="flex items-center gap-1.5 mb-1">
-            <Wallet size={12} className="text-amber-400" />
-            <span className="text-[9px] text-slate-500 font-bold uppercase">
+            <Wallet size={12} className="text-slate-400" />
+            <span className="text-xs text-slate-500 font-bold uppercase">
               Wallet
             </span>
           </div>
@@ -125,8 +125,8 @@ export const VaultBalanceCard = ({
         {/* Vault Available */}
         <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800/50">
           <div className="flex items-center gap-1.5 mb-1">
-            <Database size={12} className="text-indigo-400" />
-            <span className="text-[9px] text-slate-500 font-bold uppercase">
+            <Database size={12} className="text-cyan-400" />
+            <span className="text-xs text-slate-500 font-bold uppercase">
               Vault Available
             </span>
           </div>
@@ -138,13 +138,13 @@ export const VaultBalanceCard = ({
 
       {/* Reserved Margin (if any) */}
       {reservedWad > 0n && (
-        <div className="mt-3 p-2 rounded-lg bg-indigo-950/20 border border-indigo-500/10">
+        <div className="mt-3 p-2 rounded-lg bg-cyan-950/20 border border-cyan-500/10">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5">
-              <Lock size={10} className="text-indigo-400" />
+              <Lock size={10} className="text-cyan-400" />
               <span className="text-slate-500">Reserved in Orders</span>
             </div>
-            <span className="font-mono text-indigo-300">${reservedFormatted}</span>
+            <span className="font-mono text-cyan-300">${reservedFormatted}</span>
           </div>
         </div>
       )}
@@ -152,22 +152,22 @@ export const VaultBalanceCard = ({
       {/* Market-specific internal shares */}
       {marketAddress && vault && (vault.yesInternal > 0n || vault.noInternal > 0n) && (
         <div className="mt-3 pt-3 border-t border-slate-800/50">
-          <div className="text-[9px] text-slate-500 font-bold uppercase mb-2">
+          <div className="text-xs text-slate-500 font-bold uppercase mb-2">
             Internal Shares (This Market)
           </div>
           <div className="flex gap-2">
             {vault.yesInternal > 0n && (
               <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-                <span className="text-[10px] font-mono text-emerald-500">YES</span>
-                <span className="text-[10px] font-mono font-bold text-white">
+                <span className="text-xs font-mono text-emerald-500">YES</span>
+                <span className="text-xs font-mono font-bold text-white">
                   {Number(formatUnits(vault.yesInternal, 18)).toFixed(1)}
                 </span>
               </div>
             )}
             {vault.noInternal > 0n && (
               <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-                <span className="text-[10px] font-mono text-rose-500">NO</span>
-                <span className="text-[10px] font-mono font-bold text-white">
+                <span className="text-xs font-mono text-rose-500">NO</span>
+                <span className="text-xs font-mono font-bold text-white">
                   {Number(formatUnits(vault.noInternal, 18)).toFixed(1)}
                 </span>
               </div>

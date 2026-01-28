@@ -22,24 +22,27 @@ const CHAIN_POLLING_MULTIPLIERS: Record<number, number> = {
   [MONAD_TESTNET_CHAIN_ID]: 3,      // Monad: 3x slower (25 rps limit)
 };
 
-// Base polling intervals (ms)
 const BASE_INTERVALS = {
-  FAST: 5000,      // Balance checks, claimable amounts
-  NORMAL: 15000,   // Lock queue, token balances
-  SLOW: 30000,     // Market state, LP positions
-  VERY_SLOW: 60000, // Static data, parameters
+  FAST: 10000,
+  NORMAL: 15000,
+  SLOW: 30000,
+  VERY_SLOW: 60000,
 };
 
-/**
- * Get polling interval adjusted for chain rate limits
- */
+const JITTER_RATIO = 0.2;
+
+export function addJitter(interval: number): number {
+  const jitter = interval * JITTER_RATIO * Math.random();
+  return Math.floor(interval + jitter);
+}
+
 export function getPollingInterval(
   chainId: number | undefined,
   speed: 'fast' | 'normal' | 'slow' | 'very_slow' = 'normal'
 ): number {
   const baseInterval = BASE_INTERVALS[speed.toUpperCase() as keyof typeof BASE_INTERVALS] || BASE_INTERVALS.NORMAL;
   const multiplier = chainId ? (CHAIN_POLLING_MULTIPLIERS[chainId] ?? 1) : 1;
-  return baseInterval * multiplier;
+  return addJitter(baseInterval * multiplier);
 }
 
 /**

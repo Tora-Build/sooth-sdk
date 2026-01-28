@@ -1,16 +1,16 @@
 /**
- * Learn Page - Actor-Centric Onboarding
+ * About Page (formerly Learn) - Actor-Centric Onboarding
  * 
  * Based on Sooth Whitepaper (Dec 2025)
  * Refactored to focus on Actor-Driven Design and the 3 Pillars of Decentralization.
  */
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  BookOpen, ChevronRight, ChevronLeft, CheckCircle, 
+import {
+  BookOpen, ChevronRight, ChevronLeft, CheckCircle,
   TrendingUp, TrendingDown, DollarSign, Clock, Lock,
-  Zap, GraduationCap, Rocket, Scale, BarChart3, 
-  Users, Target, RefreshCw, Sword, Info
+  GraduationCap, Rocket, Shield, BarChart3,
+  Users, Palette, Gamepad2, ArrowLeftRight, Swords, Info, RefreshCw
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -33,13 +33,13 @@ const PillarCard: React.FC<{
   innovation: string;
 }> = ({ icon: Icon, title, description, innovation }) => (
   <Card className="p-4 border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-colors h-full">
-    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4">
-      <Icon className="w-6 h-6 text-indigo-400" />
+    <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4">
+      <Icon className="w-6 h-6 text-cyan-400" />
     </div>
     <h3 className="font-bold text-white mb-2">{title}</h3>
     <p className="text-sm text-slate-400 mb-4">{description}</p>
     <div className="pt-3 border-t border-slate-700/50">
-      <p className="text-[10px] uppercase tracking-wider text-indigo-400 font-bold mb-1">Innovation</p>
+      <p className="text-xs uppercase tracking-wider text-cyan-400 font-bold mb-1">Innovation</p>
       <p className="text-xs text-slate-300">{innovation}</p>
     </div>
   </Card>
@@ -52,14 +52,14 @@ const ActorCard: React.FC<{
   colorClass: string;
   onClick?: () => void;
 }> = ({ icon: Icon, title, motivation, colorClass, onClick }) => (
-  <button 
+  <button
     onClick={onClick}
-    className={`w-full text-left p-4 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all hover:-translate-y-1 focus-ring group`}
+    className={`w-full h-full text-left p-4 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all hover:-translate-y-1 focus-ring group flex flex-col items-start`}
   >
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 transition-colors ${colorClass}`}>
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors shrink-0 ${colorClass}`}>
       <Icon className="w-5 h-5" />
     </div>
-    <h3 className="font-bold text-white group-hover:text-indigo-400 transition-colors">{title}</h3>
+    <h3 className="font-bold text-white group-hover:text-cyan-400 transition-colors">{title}</h3>
     <p className="text-xs text-slate-400 mt-1 leading-relaxed">{motivation}</p>
   </button>
 );
@@ -138,7 +138,7 @@ const LMSRCurve: React.FC = () => {
               {shares > 0 ? 'Buying' : 'Selling'} {Math.abs(shares)} shares
             </span>
             <span className="text-emerald-400 font-mono font-bold">
-              {shares > 0 ? 'Impact' : 'Recovery'}: +{(Math.abs(shares)/10).toFixed(1)}%
+              {shares > 0 ? 'Impact' : 'Recovery'}: +{(Math.abs(shares) / 10).toFixed(1)}%
             </span>
           </div>
         </div>
@@ -169,34 +169,28 @@ const SandboxTradingPanel: React.FC<{
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => setSelectedOutcome('yes')}
-          className={`p-4 rounded-xl border-2 transition-all focus-ring ${
-            selectedOutcome === 'yes'
-              ? 'border-emerald-500 bg-emerald-500/20 shadow-lg shadow-emerald-500/10'
-              : 'border-slate-700 bg-slate-800/50 hover:border-emerald-500/50 hover:-translate-y-0.5'
-          }`}
+          className={`p-4 rounded-xl border-2 transition-all focus-ring ${selectedOutcome === 'yes'
+            ? 'border-emerald-500 bg-emerald-500/20 shadow-lg shadow-emerald-500/10'
+            : 'border-slate-700 bg-slate-800/50 hover:border-emerald-500/50 hover:-translate-y-0.5'
+            }`}
         >
-          <TrendingUp className={`w-6 h-6 mx-auto mb-2 transition-transform ${
-            selectedOutcome === 'yes' ? 'text-emerald-400 scale-110' : 'text-slate-500'
-          }`} />
-          <p className={`font-bold ${
-            selectedOutcome === 'yes' ? 'text-emerald-400' : 'text-slate-400'
-          }`}>YES</p>
+          <TrendingUp className={`w-6 h-6 mx-auto mb-2 transition-transform ${selectedOutcome === 'yes' ? 'text-emerald-400 scale-110' : 'text-slate-500'
+            }`} />
+          <p className={`font-bold ${selectedOutcome === 'yes' ? 'text-emerald-400' : 'text-slate-400'
+            }`}>YES</p>
           <p className="text-2xl font-bold mt-1 text-white tabular-nums">62%</p>
         </button>
         <button
           onClick={() => setSelectedOutcome('no')}
-          className={`p-4 rounded-xl border-2 transition-all focus-ring ${
-            selectedOutcome === 'no'
-              ? 'border-rose-500 bg-rose-500/20 shadow-lg shadow-rose-500/10'
-              : 'border-slate-700 bg-slate-800/50 hover:border-rose-500/50 hover:-translate-y-0.5'
-          }`}
+          className={`p-4 rounded-xl border-2 transition-all focus-ring ${selectedOutcome === 'no'
+            ? 'border-rose-500 bg-rose-500/20 shadow-lg shadow-rose-500/10'
+            : 'border-slate-700 bg-slate-800/50 hover:border-rose-500/50 hover:-translate-y-0.5'
+            }`}
         >
-          <TrendingDown className={`w-6 h-6 mx-auto mb-2 transition-transform ${
-            selectedOutcome === 'no' ? 'text-rose-400 scale-110' : 'text-slate-500'
-          }`} />
-          <p className={`font-bold ${
-            selectedOutcome === 'no' ? 'text-rose-400' : 'text-slate-400'
-          }`}>NO</p>
+          <TrendingDown className={`w-6 h-6 mx-auto mb-2 transition-transform ${selectedOutcome === 'no' ? 'text-rose-400 scale-110' : 'text-slate-500'
+            }`} />
+          <p className={`font-bold ${selectedOutcome === 'no' ? 'text-rose-400' : 'text-slate-400'
+            }`}>NO</p>
           <p className="text-2xl font-bold mt-1 text-white tabular-nums">38%</p>
         </button>
       </div>
@@ -272,14 +266,14 @@ export const Learn = () => {
   const step = STEPS[currentStep];
 
   return (
-    <div className="min-h-screen pb-12">
+    <div className="min-h-dvh pb-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-indigo-400" />
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-cyan-400" />
               </div>
               <h1 className="text-3xl font-bold text-white tracking-tight">
                 {content.header.title}
@@ -306,17 +300,15 @@ export const Learn = () => {
               <div key={s.id} className="flex flex-col items-center">
                 <button
                   onClick={() => setCurrentStep(i)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    i < currentStep ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' :
-                    i === currentStep ? 'bg-slate-900 border-2 border-indigo-500 text-indigo-400 scale-110' :
-                    'bg-slate-900 border-2 border-slate-700 text-slate-500'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${i < currentStep ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' :
+                    i === currentStep ? 'bg-slate-900 border-2 border-cyan-500 text-cyan-400 scale-110' :
+                      'bg-slate-900 border-2 border-slate-700 text-slate-500'
+                    }`}
                 >
                   {i < currentStep ? <CheckCircle className="w-6 h-6" /> : i + 1}
                 </button>
-                <span className={`text-[10px] uppercase tracking-widest mt-3 font-bold ${
-                  i === currentStep ? 'text-indigo-400' : 'text-slate-500'
-                }`}>
+                <span className={`text-xs uppercase tracking-widest mt-3 font-bold ${i === currentStep ? 'text-cyan-400' : 'text-slate-500'
+                  }`}>
                   {s.id}
                 </span>
               </div>
@@ -326,16 +318,16 @@ export const Learn = () => {
 
         {/* Content Container */}
         <div className="grid lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Main Tutorial Card */}
           <div className="lg:col-span-8">
             <Card className="p-8 border-slate-700/50 min-h-[500px] flex flex-col">
-              
+
               {/* Step 1: Decentralization Thesis */}
               {currentStep === 0 && (
                 <div className="space-y-8 animate-fade-in flex-1">
                   <div>
-                    <Badge variant="outline" className="mb-4 text-indigo-400 border-indigo-400/30">{step.badge}</Badge>
+                    <Badge variant="outline" className="mb-4 text-cyan-400 border-cyan-400/30">{step.badge}</Badge>
                     <h2 className="text-3xl font-bold text-white mb-4">{step.title}</h2>
                     <p className="text-slate-400 leading-relaxed">
                       {step.description.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} className="text-white">{part}</strong> : part)}
@@ -343,21 +335,21 @@ export const Learn = () => {
                   </div>
 
                   <div className="grid sm:grid-cols-3 gap-4">
-                    <PillarCard 
-                      icon={Rocket} 
-                      title={content.pillars.launchpad.title} 
+                    <PillarCard
+                      icon={Rocket}
+                      title={content.pillars.launchpad.title}
                       description={content.pillars.launchpad.description}
                       innovation={content.pillars.launchpad.innovation}
                     />
-                    <PillarCard 
-                      icon={Scale} 
-                      title={content.pillars.zkRules.title} 
+                    <PillarCard
+icon={Shield}
+              title={content.pillars.zkRules.title}
                       description={content.pillars.zkRules.description}
                       innovation={content.pillars.zkRules.innovation}
                     />
-                    <PillarCard 
-                      icon={BarChart3} 
-                      title={content.pillars.tickBook.title} 
+                    <PillarCard
+                      icon={BarChart3}
+                      title={content.pillars.tickBook.title}
                       description={content.pillars.tickBook.description}
                       innovation={content.pillars.tickBook.innovation}
                     />
@@ -365,7 +357,7 @@ export const Learn = () => {
 
                   <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-800">
                     <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                      <Sword className="w-4 h-4 text-indigo-400" />
+                      <Swords className="w-4 h-4 text-cyan-400" />
                       {content.advantage.title}
                     </h4>
                     <div className="overflow-x-auto">
@@ -425,7 +417,7 @@ export const Learn = () => {
                         {content.creator.example.text.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} className="text-white">{part}</strong> : part)}
                       </p>
                       <div className="p-3 rounded-lg bg-slate-900/60 text-center">
-                        <span className="text-slate-500 text-[10px] uppercase block mb-1">{content.creator.example.pnlLabel}</span>
+                        <span className="text-slate-500 text-xs uppercase block mb-1">{content.creator.example.pnlLabel}</span>
                         <span className="text-2xl font-bold text-emerald-400">{content.creator.example.pnlValue}</span>
                       </div>
                     </div>
@@ -436,9 +428,9 @@ export const Learn = () => {
                     <div className="grid grid-cols-4 gap-2">
                       {content.creator.tiers.map((t, i) => (
                         <div key={i} className="text-center p-3 rounded-xl border border-slate-800 bg-slate-900/40">
-                          <p className="text-[10px] text-slate-500 mb-1">{t.tier}</p>
+                          <p className="text-xs text-slate-500 mb-1">{t.tier}</p>
                           <p className="text-sm font-bold text-white">{t.b}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">Deposit: {t.dep}</p>
+                          <p className="text-xs text-slate-400 mt-1">Deposit: {t.dep}</p>
                         </div>
                       ))}
                     </div>
@@ -473,7 +465,7 @@ export const Learn = () => {
                           ))}
                         </div>
                       </div>
-                      
+
                       <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800">
                         <h4 className="text-sm font-bold text-white mb-4">{content.gaming.pricingTitle}</h4>
                         <LMSRCurve />
@@ -485,11 +477,11 @@ export const Learn = () => {
                         <h4 className="text-sm font-bold text-white mb-4">{content.gaming.practiceTitle}</h4>
                         <SandboxTradingPanel onTrade={handleSandboxTrade} />
                       </div>
-                      
-                      <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                        <Lock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+
+                      <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-500/5 border border-slate-500/20">
+                        <Lock className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-xs font-bold text-amber-500 mb-1 uppercase tracking-widest">{content.gaming.sellLock.title}</p>
+                          <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">{content.gaming.sellLock.title}</p>
                           <p className="text-[11px] text-slate-400 leading-relaxed">
                             {content.gaming.sellLock.description}
                           </p>
@@ -504,7 +496,7 @@ export const Learn = () => {
               {currentStep === 3 && (
                 <div className="space-y-8 animate-fade-in flex-1">
                   <div>
-                    <Badge variant="outline" className="mb-4 text-purple-400 border-purple-400/30">{step.badge}</Badge>
+                    <Badge variant="outline" className="mb-4 text-cyan-400 border-cyan-400/30">{step.badge}</Badge>
                     <h2 className="text-3xl font-bold text-white mb-4">{step.title}</h2>
                     <p className="text-slate-400">
                       {step.description.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} className="text-white">{part}</strong> : part)}
@@ -516,27 +508,27 @@ export const Learn = () => {
                     <div className="grid md:grid-cols-2 gap-0 border border-slate-700/50 rounded-xl overflow-hidden">
                       <div className="p-6 border-b md:border-b-0 md:border-r border-slate-700/50">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🐢</div>
+                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center"><TrendingUp className="w-4 h-4 text-slate-400" /></div>
                           <h5 className="font-bold text-white">{content.pro.amm.title}</h5>
                         </div>
                         <ul className="space-y-3 text-xs text-slate-400">
                           {content.pro.amm.items.map((item, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{item[0]}</span> 
-                              <span className={cn("text-white", item[1].includes('24h') && "text-amber-400")}>{item[1]}</span>
+                              <span>{item[0]}</span>
+                              <span className={cn("text-white", item[1].includes('24h') && "text-slate-400")}>{item[1]}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
-                      <div className="p-6 bg-indigo-500/5">
+                      <div className="p-6 bg-cyan-500/5">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">⚡</div>
-                          <h5 className="font-bold text-white text-indigo-400">{content.pro.tickBook.title}</h5>
+                          <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center"><BarChart3 className="w-4 h-4 text-cyan-400" /></div>
+                          <h5 className="font-bold text-white text-cyan-400">{content.pro.tickBook.title}</h5>
                         </div>
                         <ul className="space-y-3 text-xs text-slate-400">
                           {content.pro.tickBook.items.map((item, i) => (
                             <li key={i} className="flex justify-between">
-                              <span>{item[0]}</span> 
+                              <span>{item[0]}</span>
                               <span className={cn("text-white", (item[1].includes('Instant') || item[1].includes('ERC20')) && "font-bold text-emerald-400")}>{item[1]}</span>
                             </li>
                           ))}
@@ -548,21 +540,21 @@ export const Learn = () => {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
                       <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <RefreshCw className="w-4 h-4 text-indigo-400" />
+                        <ArrowLeftRight className="w-4 h-4 text-cyan-400" />
                         {content.pro.arb.title}
                       </h4>
                       <p className="text-xs text-slate-400 leading-relaxed mb-4">
                         {content.pro.arb.description}
                       </p>
-                      <div className="p-4 rounded-lg bg-slate-900 font-mono text-[10px] text-slate-300">
-                        AMM Price: 62% <br/>
-                        TickBook Ask: 58% <br/>
+                      <div className="p-4 rounded-lg bg-slate-900 font-mono text-xs text-slate-300">
+                        AMM Price: 62% <br />
+                        TickBook Ask: 58% <br />
                         <span className="text-emerald-400">→ Arb: +4¢ per share</span>
                       </div>
                     </div>
                     <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
                       <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <Sword className="w-4 h-4 text-rose-400" />
+                        <Swords className="w-4 h-4 text-rose-400" />
                         {content.pro.pvp.title}
                       </h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
@@ -571,22 +563,22 @@ export const Learn = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-xl border border-slate-800 bg-indigo-500/5">
-                    <h4 className="text-sm font-bold text-indigo-400 mb-4 uppercase tracking-widest">{content.pro.evolutionTitle}</h4>
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 px-4">
+                  <div className="p-5 rounded-xl border border-slate-800 bg-cyan-500/5">
+                    <h4 className="text-sm font-bold text-cyan-400 mb-4 uppercase tracking-widest">{content.pro.evolutionTitle}</h4>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-4">
                       {content.pro.evolutionStages.map((s, i) => (
                         <React.Fragment key={i}>
-                          <span className={i === 0 ? "text-indigo-300" : ""}>{s}</span>
+                          <span className={i === 0 ? "text-cyan-300" : ""}>{s}</span>
                           {i < content.pro.evolutionStages.length - 1 && <ChevronRight className="w-4 h-4" />}
                         </React.Fragment>
                       ))}
                     </div>
                     <div className="grid grid-cols-3 gap-4 mt-2 h-2 rounded-full bg-slate-800 overflow-hidden">
-                      <div className="bg-indigo-500/30" />
-                      <div className="bg-indigo-500/60" />
-                      <div className="bg-indigo-500" />
+                      <div className="bg-cyan-500/30" />
+                      <div className="bg-cyan-500/60" />
+                      <div className="bg-cyan-500" />
                     </div>
-                    <div className="grid grid-cols-3 gap-4 mt-4 text-[10px] text-slate-400 text-center">
+                    <div className="grid grid-cols-3 gap-4 mt-4 text-xs text-slate-400 text-center">
                       {content.pro.evolutionStates.map((s, i) => (
                         <div key={i} className={i === 2 ? "text-white" : ""}>{s}</div>
                       ))}
@@ -599,8 +591,8 @@ export const Learn = () => {
               {currentStep === 4 && (
                 <div className="space-y-12 animate-fade-in flex-1 flex flex-col items-center justify-center text-center">
                   <div className="max-w-xl mx-auto space-y-4">
-                    <div className="w-20 h-20 rounded-2xl bg-indigo-500/10 flex items-center justify-center mx-auto mb-6">
-                      <GraduationCap className="w-10 h-10 text-indigo-400" />
+                    <div className="w-20 h-20 rounded-2xl bg-cyan-500/10 flex items-center justify-center mx-auto mb-6">
+                      <GraduationCap className="w-10 h-10 text-cyan-400" />
                     </div>
                     <h2 className="text-4xl font-bold text-white">{content.ready.title}</h2>
                     <p className="text-slate-400 text-lg">
@@ -608,44 +600,23 @@ export const Learn = () => {
                     </p>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-4xl auto-rows-fr">
                     {content.ready.actors.map((actor, i) => (
-                      <ActorCard 
+                      <ActorCard
                         key={i}
-                        icon={[Rocket, Target, RefreshCw, Sword][i]} 
-                        title={actor.title} 
-                        motivation={actor.motivation} 
-                        colorClass={["bg-cyan-500/10 text-cyan-400", "bg-emerald-500/10 text-emerald-400", "bg-purple-500/10 text-purple-400", "bg-rose-500/10 text-rose-400"][i]}
+                        icon={[Palette, Gamepad2, ArrowLeftRight, Swords][i]}
+                        title={actor.title}
+                        motivation={actor.motivation}
+                        colorClass={["bg-cyan-500/10 text-cyan-400", "bg-emerald-500/10 text-emerald-400", "bg-blue-500/10 text-blue-400", "bg-rose-500/10 text-rose-400"][i]}
                         onClick={() => window.location.href = ['/create', '/trade', '/pro', '/pro'][i]}
                       />
                     ))}
-                  </div>
-
-                  <div className="pt-8 border-t border-slate-800 w-full max-w-2xl">
-                    <div className="flex items-center gap-3 justify-center mb-6">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Protocol is live on Base Sepolia</span>
-                    </div>
-                    <div className="grid sm:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">V10.8</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Architecture</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">0%</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Platform Fees</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white">∞</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Open-End Markets</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
 
               {/* Navigation */}
-              <div className="mt-auto pt-8 flex justify-between border-t border-slate-800">
+              <div className="mt-auto pt-8 flex justify-between">
                 <Button
                   variant="secondary"
                   size="lg"
@@ -661,7 +632,7 @@ export const Learn = () => {
                   <Button
                     variant="primary"
                     size="lg"
-                    className="rounded-xl px-8 bg-indigo-600 hover:bg-indigo-500"
+                    className="rounded-xl px-8 bg-cyan-600 hover:bg-cyan-500"
                     onClick={() => setCurrentStep(prev => prev + 1)}
                   >
                     Next Step
@@ -670,8 +641,8 @@ export const Learn = () => {
                 ) : (
                   <Link to="/trade">
                     <Button variant="primary" size="lg" className="rounded-xl px-8 bg-emerald-600 hover:bg-emerald-500">
+                      <Rocket className="w-4 h-4 mr-2" />
                       Launch App
-                      <Zap className="w-4 h-4 ml-2" />
                     </Button>
                   </Link>
                 )}
@@ -682,11 +653,11 @@ export const Learn = () => {
           {/* Right Sidebar - Whitepaper Snip/Notes */}
           <div className="lg:col-span-4 space-y-6">
             <Card className="p-6 bg-slate-900/60 border-slate-800">
-              <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Info className="w-3 h-3" />
                 {content.context.title}
               </h3>
-              
+
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
                   <p className="text-[11px] text-slate-400 italic leading-relaxed">
@@ -695,13 +666,13 @@ export const Learn = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase">{content.context.mechanismsTitle}</h4>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase">{content.context.mechanismsTitle}</h4>
                   {content.context.mechanisms.map((m, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1" />
                       <div>
                         <span className="text-[11px] font-bold text-white block">{m.label}</span>
-                        <span className="text-[10px] text-slate-500">{m.desc}</span>
+                        <span className="text-xs text-slate-500">{m.desc}</span>
                       </div>
                     </div>
                   ))}
@@ -709,9 +680,9 @@ export const Learn = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-indigo-500/10 border-indigo-500/20">
+            <Card className="p-6 bg-cyan-500/10 border-cyan-500/20">
               <h3 className="text-xs font-bold text-white mb-3">Pro Tip</h3>
-              <p className="text-xs text-indigo-200/80 leading-relaxed">
+              <p className="text-xs text-cyan-200/80 leading-relaxed">
                 {content.proTip}
               </p>
             </Card>
@@ -719,12 +690,10 @@ export const Learn = () => {
         </div>
 
         {/* Footer info */}
-        <p className="text-center text-[10px] text-slate-500 mt-8 uppercase tracking-[0.2em]">
+        <p className="text-center text-xs text-slate-500 mt-8 uppercase tracking-[0.2em]">
           Sooth Protocol Tutorial • Step {currentStep + 1} of {STEPS.length}
         </p>
       </div>
     </div>
   );
 };
-
-export default Learn;

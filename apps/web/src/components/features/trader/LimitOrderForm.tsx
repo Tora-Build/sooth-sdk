@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { ERC20_ABI } from '../../../config/abis';
 import { useDeployments } from '../../../hooks/useDeployments';
+import { logger } from '../../../lib/logger';
 
 interface LimitOrderFormProps {
   marketId: string;
@@ -148,7 +149,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       try {
         await placeOrder(outcome, price, amount, true);
       } catch (e) {
-        console.error('Buy Order Error', e);
+        logger.order.error('Buy Order Error', e);
       }
     } else {
       // Sell Side - Route to correct function based on sell type
@@ -164,7 +165,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
           await placeOrder(outcome, price, amount, false);
         }
       } catch (e) {
-        console.error('Sell Order Error', e);
+        logger.order.error('Sell Order Error', e);
       }
     }
   };
@@ -266,11 +267,11 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
     } else if (isHybridSell) {
       // Partial coverage
       badgeText = `⚠️ Hybrid Sell: ${sharesToSpotSell.toFixed(0)} shares from orderbook + ${sharesToShortSell.toFixed(0)} short sold (requires ${((1 - priceNum) * sharesToShortSell).toFixed(2)} USDC collateral).`;
-      badgeColor = "text-amber-400 bg-amber-500/10";
+      badgeColor = "text-slate-400 bg-slate-500/10";
     } else if (sharesToShortSell > 0) {
       // Full short sell
       badgeText = `⚠️ Short Sell: Requires ${totalCost.toFixed(2)} USDC collateral (${((1 - priceNum) * 100).toFixed(0)}% of ${amountNum} shares).`;
-      badgeColor = "text-amber-400 bg-amber-500/10";
+      badgeColor = "text-slate-400 bg-slate-500/10";
     }
   }
 
@@ -311,7 +312,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div>
           <div className="text-xs text-slate-500">{t('trading.marketPrice')}</div>
           <div className="text-lg font-bold text-white font-mono">
-            {(currentMarketPrice ?? 0.5).toFixed(4)} <span className="text-sm text-indigo-400">{t('common.usdc')}</span>
+            {(currentMarketPrice ?? 0.5).toFixed(4)} <span className="text-sm text-cyan-400">{t('common.usdc')}</span>
           </div>
         </div>
         <div className="text-right">
@@ -320,7 +321,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             {currentHandicap?.toFixed(4) || '—'} <span className="text-sm text-emerald-600/70">{t('common.usdc')}</span>
           </div>
         </div>
-        <div className="col-span-2 flex justify-between pt-2 border-t border-slate-800/50 text-[10px] text-slate-500 font-mono">
+        <div className="col-span-2 flex justify-between pt-2 border-t border-slate-800/50 text-xs text-slate-500 font-mono">
           <span>LQ: ${ammLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           <span>Depth: {orderbookDepth} offers</span>
         </div>
@@ -363,7 +364,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
               : 'border-slate-700/50 bg-emerald-500/5 hover:border-emerald-500/50'
           )}
         >
-          <div className="text-[10px] text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.yes')}</div>
+          <div className="text-xs text-emerald-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.yes')}</div>
           <div className="text-sm font-medium text-white tabular-nums">
             {((market?.priceYes ?? 0.5) * 100).toFixed(1)}%
           </div>
@@ -377,7 +378,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
               : 'border-slate-700/50 bg-rose-500/5 hover:border-rose-500/50'
           )}
         >
-          <div className="text-[10px] text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.no')}</div>
+          <div className="text-xs text-rose-400 uppercase tracking-wider mb-0.5 font-bold">{t('common.no')}</div>
           <div className="text-sm font-medium text-white tabular-nums">
             {((1 - (market?.priceYes ?? 0.5)) * 100).toFixed(1)}%
           </div>
@@ -392,7 +393,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         </div>
         <div className="relative h-12">
           <button
-            onMouseDown={startPriceDec} onMouseUp={stopPriceDec} onMouseLeave={stopPriceDec}
+            onMouseDown={startPriceDec} onMouseUp={stopPriceDec} onMouseLeave={stopPriceDec} aria-label="Decrease price"
             onTouchStart={startPriceDec} onTouchEnd={stopPriceDec}
             className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
@@ -403,11 +404,11 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
             type="number"
             value={price}
             onChange={(e) => handlePriceChange(e.target.value)}
-            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-indigo-500"
+            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-cyan-500"
             min="0.01" max="0.99" step="0.01"
           />
           <button
-            onMouseDown={startPriceInc} onMouseUp={stopPriceInc} onMouseLeave={stopPriceInc}
+            onMouseDown={startPriceInc} onMouseUp={stopPriceInc} onMouseLeave={stopPriceInc} aria-label="Increase price"
             onTouchStart={startPriceInc} onTouchEnd={stopPriceInc}
             className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
@@ -426,7 +427,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="text-xs text-slate-500 mb-1">{t('trading.shares')}</div>
         <div className="relative h-12">
           <button
-            onMouseDown={startDecrement} onMouseUp={stopDecrement} onMouseLeave={stopDecrement}
+            onMouseDown={startDecrement} onMouseUp={stopDecrement} onMouseLeave={stopDecrement} aria-label="Decrease quantity"
             onTouchStart={startDecrement} onTouchEnd={stopDecrement}
             className="absolute left-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-l-lg z-10 select-none"
             type="button"
@@ -443,11 +444,11 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
                 setAmount(val);
               }
             }}
-            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-indigo-500"
+            className="w-full h-full bg-slate-950/50 border border-slate-800 rounded-lg px-14 text-lg font-mono text-center text-white focus:outline-none focus:border-cyan-500"
             min="1" step="1"
           />
           <button
-            onMouseDown={startIncrement} onMouseUp={stopIncrement} onMouseLeave={stopIncrement}
+            onMouseDown={startIncrement} onMouseUp={stopIncrement} onMouseLeave={stopIncrement} aria-label="Increase quantity"
             onTouchStart={startIncrement} onTouchEnd={stopIncrement}
             className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800/50 rounded-r-lg z-10 select-none"
             type="button"
@@ -460,12 +461,12 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
         <div className="flex flex-col items-end mt-1.5 gap-0.5">
           {/* Context-aware Max Display */}
           <div
-            className="text-[10px] text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
+            className="text-xs text-slate-500 flex items-center gap-1 cursor-pointer hover:text-slate-300 transition-colors"
             onClick={() => setAmount(orderType === 'buy' ? Math.floor(buyMax).toString() : userTokenShares.toString())}
             title={orderType === 'buy' ? "Max affordable with USDC" : "Max shares you own"}
           >
             <span>Max:</span>
-            <span className={cn("font-mono font-bold", orderType === 'buy' ? "text-indigo-400" : "text-emerald-400")}>
+            <span className={cn("font-mono font-bold", orderType === 'buy' ? "text-cyan-400" : "text-emerald-400")}>
               {orderType === 'buy' ? buyMax.toLocaleString(undefined, { maximumFractionDigits: 0 }) : userTokenShares.toFixed(2)}
             </span>
           </div>
@@ -503,7 +504,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
       </Button>
 
       {/* Footer */}
-      <div className="text-center text-[10px] text-slate-600">
+      <div className="text-center text-xs text-slate-600">
         {badgeText}
       </div>
     </div>

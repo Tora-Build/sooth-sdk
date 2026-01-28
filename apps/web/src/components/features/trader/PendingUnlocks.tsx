@@ -38,7 +38,7 @@ const LockEntryItem: React.FC<{ entry: LockEntry, decimals: number }> = ({ entry
           <div className="text-[11px] font-mono font-bold text-white flex items-center gap-1.5">
             {formatUSD(entry.amount)}
             {entry.marketName && (
-              <span className="text-[9px] font-mono text-slate-500 font-normal truncate max-w-[80px]">
+              <span className="text-xs font-mono text-slate-500 font-normal truncate max-w-[80px]">
                 ({entry.marketName})
               </span>
             )}
@@ -54,8 +54,8 @@ const LockEntryItem: React.FC<{ entry: LockEntry, decimals: number }> = ({ entry
       
       <div className="text-right">
         <div className={cn(
-          "text-[10px] font-bold",
-          entry.isClaimable ? "text-emerald-400" : "text-amber-400/80"
+          "text-xs font-bold",
+          entry.isClaimable ? "text-emerald-400" : "text-slate-400/80"
         )}>
           {entry.isClaimable ? 'Ready' : formatTime(entry.timeRemaining)}
         </div>
@@ -92,20 +92,20 @@ export const PendingUnlocks: React.FC = () => {
         emptyState={
             <div className="py-6 text-center flex flex-col items-center justify-center opacity-40">
                 <Lock size={24} className="text-slate-600 mb-1" />
-                <p className="text-[10px] font-mono">// no_pending_unlocks</p>
+                <p className="text-xs font-mono">// no_pending_unlocks</p>
             </div>
         }
     >
         <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 mb-2">
-            <p className="text-[9px] text-emerald-400/60 font-mono leading-tight">
-                Funds from AMM sells are held for 24h to ensure settlement finality.
+            <p className="text-xs text-emerald-400/60 font-mono leading-tight">
+                Funds from sells are held for 24h to ensure settlement finality.
             </p>
         </div>
         {hasClaimable && (
             <button
                 onClick={claim}
                 disabled={isClaiming || mode === 'demo'}
-                className="w-full py-2 rounded-lg bg-emerald-500 text-slate-900 font-black text-[10px] hover:bg-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 uppercase tracking-widest mb-2"
+                className="w-full py-2 rounded-lg bg-emerald-500 text-slate-900 font-black text-xs hover:bg-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 uppercase tracking-widest mb-2"
             >
                 <TrendingUp size={12} />
                 {isClaiming ? 'Claiming...' : `Claim All`}
@@ -115,9 +115,9 @@ export const PendingUnlocks: React.FC = () => {
             <LockEntryItem key={idx} entry={entry} decimals={decimals} />
         ))}
         {mode === 'demo' && entries.length > 0 && (
-            <div className="p-2 rounded bg-amber-500/5 border border-amber-500/10 text-center">
-                <p className="text-[9px] text-amber-400/60 font-mono italic">
-                    💡 Demo Mode: Proceeds from AMM sells unlock after 24h
+            <div className="p-2 rounded bg-slate-500/5 border border-slate-500/10 text-center">
+                <p className="text-xs text-slate-400/60 font-mono italic">
+                    💡 Demo Mode: Proceeds from sells unlock after 24h
                 </p>
             </div>
         )}

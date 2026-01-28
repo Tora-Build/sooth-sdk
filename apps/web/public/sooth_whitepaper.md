@@ -564,7 +564,7 @@ Live on **Base Sepolia**:
 | **AMMEngine** | `0x35089e985E23D01b4D2E453E775D570649624E8E` |
 | **TickBook** | `0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF` |
 
-**Sample Markets:** BTC TWAP > $100k · UN Alien Confirmation · ETH > $5k
+**Sample Markets:** UN Alien Confirmation · BTC ATH 2026 (Chainlink TWAP) · Lakers NBA Championship
 
 ---
 

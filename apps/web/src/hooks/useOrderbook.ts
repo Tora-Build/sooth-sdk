@@ -1,4 +1,4 @@
-import { usePublicClient, useAccount, useReadContracts } from 'wagmi';
+import { usePublicClient, useAccount, useReadContracts, useChainId } from 'wagmi';
 import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
 import { useAmmMarket } from './useAmmMarket';
 import { useAmmMarketByAddress } from './useAmmMarketByAddress';
@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { formatUnits } from 'viem';
 import marketsConfig from '../config/markets.json';
 import { useChainStore } from '../store/useChainStore';
+import { getPollingInterval } from '../lib/polling';
 
 /**
  * V3 Unified Orderbook Order
@@ -31,6 +32,7 @@ export interface OrderbookState {
 }
 
 export function useOrderbook(marketId: string) {
+  const chainId = useChainId();
   const { selectedChainId } = useChainStore();
   // Detect if marketId is an address (0x...) or a config ID
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
@@ -76,7 +78,7 @@ export function useOrderbook(marketId: string) {
     ],
     query: {
       enabled: !!address && !!contractAddress && !!traderVaultAddress,
-      refetchInterval: 5000
+      refetchInterval: getPollingInterval(chainId, 'fast')
     }
   });
 

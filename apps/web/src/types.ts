@@ -1,122 +1,226 @@
-export type MarketStatus = 'trading' | 'cooldown' | 'settling' | 'clearing' | 'settled' | 'paused';
+/**
+ * Core Protocol Types for Sooth Protocol V10
+ * 
+ * These types represent on-chain data structures and should match
+ * the Solidity contracts exactly.
+ */
 
-export interface MarketsConfigJson {
-  version: string;
-  markets: MarketConfig[];
-}
+// =============================================================================
+// OUTCOME TYPES
+// =============================================================================
 
-export type AdjudicatorKind = string;
+/** Protocol-wide outcome encoding (matches TruthMarket.sol) */
+export const OUTCOME = {
+  NO: 0,
+  YES: 1,
+  INVALID: 2,
+} as const;
 
-export interface MarketConfig {
-  id: string;
-  id_numeric?: number;
-  chainId?: number;
-  version?: string;
-  name: string;
-  symbol?: string;
-  description?: string;
+export type OutcomeType = typeof OUTCOME[keyof typeof OUTCOME];
+
+// =============================================================================
+// MARKET TYPES
+// =============================================================================
+
+/** Market lifecycle states (matches TruthMarket.sol) */
+export type MarketState = 'CREATED' | 'ACTIVE' | 'SETTLING' | 'SETTLED';
+
+/** TruthMarket on-chain data */
+export interface TruthMarket {
+  address: `0x${string}`;
   question: string;
-  adjudicatorKind: string;
-  adjudicatorLabel?: string;
-  openEnded: boolean;
-  contractAddress: string;
-  outcomeTokenAddress?: string;
-  yesToken?: string;
-  noToken?: string;
-  adjudicatorId: string;
-  eventId: string;
-  initialStatus?: MarketStatus;
-  initialYes?: number;
-  mode: 'real' | 'demo';
+  creator: `0x${string}`;
+  adjudicator: `0x${string}`;
+  guardian: `0x${string}`;
+  deadline: bigint;
+  startTime: bigint;
+  state: MarketState;
+  winningOutcome: OutcomeType;
+  isSettled: boolean;
+  isLive: boolean;
 }
 
-export interface Market {
-  id: string;
-  id_numeric?: number;
-  chainId?: number; // Chain ID for real markets
-  name: string;
-  question: string;
-  adjudicatorKind: string;
-  adjudicatorLabel: string;
-  openEnded: boolean;
-  contractAddress: string;
-  outcomeTokenAddress?: string; // V4 only
-  adjudicatorId: string;
-  eventId: string;
-  initialStatus?: MarketStatus;
-  initialYes?: number;
-  status: MarketStatus;
-
-  // Pricing (LMSR)
-  priceYes: number | undefined;
-  priceNo: number | undefined;
-  qYes: bigint;
-  qNo: bigint;
-  bParam: bigint;
-
-  // Risk Management
-  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
-
-  // User Position
-  userYesShares: number; // Liquid in Vault (Orderbook Ready)
-  userNoShares: number;  // Liquid in Vault (Orderbook Ready)
-  
-  // Wallet Position (ERC1155) - AMM Ready
-  userYesWallet?: number;
-  userNoWallet?: number;
-
-  // Locked Shares (AMM legacy)
-  userYesLocked?: number;
-  userNoLocked?: number;
-  unlockTime?: number;
-
-  userYesOutcomeTokens: number; // Integer (ERC1155) - Legacy field
-  userNoOutcomeTokens: number; // Integer (ERC1155) - Legacy field
-  userAvgEntryYes: number | null;
-  userAvgEntryNo: number | null;
-
-  // Settlement
-  winningOutcome?: 'YES' | 'NO';
-  adjudicatorProofUploaded?: boolean;
-
-  // Demo Mode Only
-  virtualYesStake?: number;
-  virtualNoStake?: number;
-  mode: 'real' | 'demo';
-  // V4 Dynamic Fee
-  fee?: number; // Fee rate, e.g. 0.005 for 0.5%
+/** LaunchpadEngine market state (matches MarketState struct) */
+export interface LaunchpadMarketState {
+  market: `0x${string}`;
+  creator: `0x${string}`;
+  creatorDeposit: bigint;
+  feesAccrued: bigint;
+  lpTotalSupply: bigint;
+  createdAt: bigint;
+  graduatedAt: bigint;
+  isGraduated: boolean;
 }
 
-export interface PoolConfig {
-  id: string;
-  label: string;
-  token: string;
-  adjudicatorKind: string;
-  mode: 'real' | 'demo';
+// =============================================================================
+// ORDER TYPES
+// =============================================================================
+
+/** Range order (matches TickBookPoolManager.RangeOrder struct) */
+export interface RangeOrder {
+  id: bigint;
+  owner: `0x${string}`;
+  outcome: OutcomeType;
+  tickLower: number;
+  tickUpper: number;
+  sharesTotal: bigint;
+  filledShares: bigint;
+  claimedShares: bigint;
+  collateralWad: bigint;
+  active: boolean;
+  liquidityRemoved: boolean;
 }
 
-export interface Pool {
-  id: string;
-  label: string;
-  token: string;
-  adjudicatorKind: string;
-  tvl: number;
-  locked: number;
-  userLpBalance: number;
-  apy: number;
-  mode: 'real' | 'demo';
+/** Order with computed tick info (UI helper) */
+export interface OrderWithTicks extends RangeOrder {
+  priceLow: number;
+  priceHigh: number;
+  avgPrice: number;
+  remainingShares: bigint;
+  fillPercent: number;
 }
 
-export interface ProtocolConfig {
-  name: string;
-  version: string;
+/** Spot sell order (matches TickBookPoolManager.SpotSell struct) */
+export interface SpotSellOrder {
+  id: bigint;
+  owner: `0x${string}`;
+  outcome: OutcomeType;
+  tickLower: number;
+  tickUpper: number;
+  sharesOffered: bigint;
+  active: boolean;
+  proceedsWad: bigint;
 }
 
-export interface TradeQuote {
-  price: number;
-  priceImpact: number;
-  fee: number;
-  totalCost: number;
-  minReceived?: number; // For sells
+// =============================================================================
+// POSITION TYPES
+// =============================================================================
+
+/** User position in AMM (pre-graduation) */
+export interface AMMPosition {
+  yesShares: bigint;
+  noShares: bigint;
 }
 
+/** User position in TickBookVault (post-graduation) */
+export interface VaultPosition {
+  availableUsdc: bigint;
+  reservedUsdc: bigint;
+  yesShares: bigint;
+  noShares: bigint;
+}
+
+/** LP position in LaunchpadEngine */
+export interface LPPosition {
+  lpTokens: bigint;
+  depositedUsdc: bigint;
+  currentValue: bigint;
+}
+
+// =============================================================================
+// PRICE & LIQUIDITY TYPES
+// =============================================================================
+
+/** Tick represents a price level (1-999 = 0.1% to 99.9%) */
+export type Tick = number;
+
+/** Convert tick to price percentage (0.1 to 99.9) */
+export function tickToPrice(tick: Tick): number {
+  return tick / 10;
+}
+
+/** Convert price percentage to tick */
+export function priceToTick(price: number): Tick {
+  return Math.round(price * 10);
+}
+
+/** Liquidity bucket for orderbook visualization */
+export interface LiquidityBucket {
+  low: number;
+  high: number;
+  yesLiquidity: bigint;
+  noLiquidity: bigint;
+  totalLiquidity: bigint;
+  dominantSide: 'yes' | 'no' | 'neutral';
+}
+
+// =============================================================================
+// TRANSACTION TYPES
+// =============================================================================
+
+/** Trade direction */
+export type TradeDirection = 'buy' | 'sell';
+
+/** Order type for UI */
+export type OrderType = 'market' | 'limit' | 'range';
+
+/** Trade parameters */
+export interface TradeParams {
+  market: `0x${string}`;
+  outcome: OutcomeType;
+  shares: bigint;
+  maxCost: bigint;
+  tickLower?: Tick;
+  tickUpper?: Tick;
+}
+
+// =============================================================================
+// WAD MATH HELPERS
+// =============================================================================
+
+/** 1e18 - standard WAD precision */
+export const WAD = 10n ** 18n;
+
+/** 1e6 - USDC precision */
+export const USDC_DECIMALS = 6;
+
+/** Convert WAD to USDC (divide by 1e12) */
+export function wadToUsdc(wad: bigint): bigint {
+  return wad / 10n ** 12n;
+}
+
+/** Convert USDC to WAD (multiply by 1e12) */
+export function usdcToWad(usdc: bigint): bigint {
+  return usdc * 10n ** 12n;
+}
+
+/** Format WAD as display number */
+export function formatWad(wad: bigint, decimals = 2): string {
+  const num = Number(wad) / 1e18;
+  return num.toFixed(decimals);
+}
+
+/** Format USDC as display number */
+export function formatUsdc(usdc: bigint, decimals = 2): string {
+  const num = Number(usdc) / 1e6;
+  return num.toFixed(decimals);
+}
+
+// =============================================================================
+// CONTRACT ADDRESSES TYPE
+// =============================================================================
+
+/** Deployed contract addresses for a chain */
+export interface DeployedContracts {
+  LaunchpadEngine: `0x${string}`;
+  TickBookPoolManager: `0x${string}`;
+  TickBookVault: `0x${string}`;
+  AMMEngine: `0x${string}`;
+  Collateralizer: `0x${string}`;
+  MockUSDC: `0x${string}`;
+}
+
+// =============================================================================
+// CHAIN TYPES
+// =============================================================================
+
+/** Supported chain IDs */
+export type SupportedChainId = 84532 | 10143 | 6343 | 5042002;
+
+/** Chain names */
+export const CHAIN_NAMES: Record<SupportedChainId, string> = {
+  84532: 'Base Sepolia',
+  10143: 'Monad Testnet',
+  6343: 'MegaETH Testnet',
+  5042002: 'Arc Testnet',
+};

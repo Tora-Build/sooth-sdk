@@ -61,7 +61,7 @@ const CountdownTimer: React.FC<{ deadline: number }> = ({ deadline }) => {
   });
 
   return (
-    <span className={isUrgent ? 'countdown-urgent' : 'text-amber-400'}>
+    <span className={isUrgent ? 'countdown-urgent' : 'text-slate-400'}>
       {timeLeft}
     </span>
   );
@@ -102,7 +102,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
   }
 
   return (
-    <Card className="border-amber-500/30 bg-amber-500/5">
+    <Card className="border-slate-500/30 bg-slate-500/5">
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -117,7 +117,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-400">Settled Outcome:</span>
             <span className={`font-bold ${winningOutcome === 1 ? 'text-emerald-400' :
-                winningOutcome === 2 ? 'text-rose-400' : 'text-amber-400'
+                winningOutcome === 2 ? 'text-rose-400' : 'text-slate-400'
               }`}>
               {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
             </span>
@@ -133,7 +133,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
         {/* Veto Window Progress */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="flex items-center gap-2 text-amber-400">
+            <span className="flex items-center gap-2 text-slate-400">
               <Clock className="w-4 h-4" />
               Veto Window
             </span>
@@ -141,7 +141,7 @@ const VetoCard: React.FC<VetoCardProps> = ({ market, userAddress }) => {
           </div>
           <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all"
+              className="h-full bg-gradient-to-r from-slate-600 to-slate-400 transition-all"
               style={{ width: `${vetoProgress}%` }}
             />
           </div>
@@ -261,6 +261,10 @@ export const Gov = () => {
     lpShare: '30',
     protocolShare: '20',
     gradMultiplier: '2',
+    // V11 settings
+    isPaused: false,
+    trialPeriodDays: '7',
+    guardianAddress: '0x0000000000000000000000000000000000000000',
   });
 
   // Count guardian roles
@@ -282,7 +286,7 @@ export const Gov = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Card className="max-w-md text-center p-8">
           <Shield className="w-12 h-12 mx-auto text-rose-400 mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Connect Wallet</h2>
@@ -296,7 +300,7 @@ export const Gov = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-6">
@@ -397,7 +401,7 @@ export const Gov = () => {
 
             {/* Info note */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-sm text-slate-400">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0" />
               <span>Only showing settled markets. Rows with no data indicate markets that are still live or pending.</span>
             </div>
 
@@ -440,7 +444,7 @@ export const Gov = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">Protocol Settings</h2>
-              <Badge variant="outline" className="text-amber-400 border-amber-500/30">
+              <Badge variant="outline" className="text-slate-400 border-slate-500/30">
                 Owner Only
               </Badge>
             </div>
@@ -513,7 +517,7 @@ export const Gov = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm text-purple-400 mb-2">
+                    <label className="block text-sm text-cyan-400 mb-2">
                       LP Yield
                     </label>
                     <div className="relative">
@@ -584,6 +588,113 @@ export const Gov = () => {
                   <p className="text-xs text-slate-500 mt-1">
                     Markets graduate when b reaches {settings.gradMultiplier}× initial deposit
                   </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* V11: Protocol Status */}
+            <Card className={settings.isPaused ? 'border-rose-500/50 bg-rose-500/5' : ''}>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <AlertTriangle className={`w-4 h-4 ${settings.isPaused ? 'text-rose-400' : 'text-slate-400'}`} />
+                  Protocol Status (V11)
+                </h3>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm text-slate-400">
+                      Pause Protocol
+                    </label>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Emergency stop all trading protocol-wide
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSettings(s => ({ ...s, isPaused: !s.isPaused }))}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      settings.isPaused ? 'bg-rose-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                        settings.isPaused ? 'translate-x-7' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {settings.isPaused && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
+                    ⚠️ Protocol is PAUSED. All trading is halted.
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* V11: Trial Period Settings */}
+            <Card>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-cyan-400" />
+                  Trial Period Settings (V11)
+                </h3>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Trial Period Duration
+                  </label>
+                  <div className="relative w-48">
+                    <input
+                      type="number"
+                      value={settings.trialPeriodDays}
+                      onChange={(e) => setSettings(s => ({ ...s, trialPeriodDays: e.target.value }))}
+                      className="input-field pr-12"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">days</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    New markets can be dismissed by creator within this period
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-sm text-slate-300">
+                  <p className="font-medium text-cyan-400 mb-1">Trial Period Protection</p>
+                  <ul className="text-xs text-slate-400 space-y-1">
+                    <li>• Creators can dismiss markets during trial</li>
+                    <li>• Traders' locked costs are fully refundable</li>
+                    <li>• Trial ends on graduation or time expiry</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+
+            {/* V11: Guardian Settings */}
+            <Card>
+              <div className="p-4 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-rose-400" />
+                  Guardian Settings (V11)
+                </h3>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Guardian Address
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.guardianAddress}
+                    onChange={(e) => setSettings(s => ({ ...s, guardianAddress: e.target.value }))}
+                    className="input-field font-mono text-xs w-full"
+                    placeholder="0x..."
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Can veto settlements during finalization window
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Shield className="w-3 h-3" />
+                  <span>Guardian is typically a multisig or DAO</span>
                 </div>
               </div>
             </Card>

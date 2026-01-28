@@ -1,17 +1,21 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useReadContract, useReadContracts, useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits, parseUnits } from 'viem';
 import {
   Wallet, ShieldCheck, TrendingUp, Clock,
   Database, Zap, Lock,
   Activity, CheckCircle
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Tooltip } from '../components/ui/Tooltip';
+import { Badge } from '../components/ui/Badge';
 import { useChainStore } from '../store/useChainStore';
 import { useDeployments } from '../hooks/useDeployments';
-import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets } from '../hooks';
+import { useAvailableBalance, useLockQueue, useTokenBalances, useOnChainMarkets, useInvalidateQueries } from '../hooks';
 import { useAMMPositionDirect, useTickBookVaultDirect } from '../hooks';
 import { usePortfolioIndexed, useMarketsIndexed } from '../hooks/indexer';
+import { calculateLMSRCost, LN2 } from '../hooks/useMarketStatsMath';
 import { Card } from '../components/ui/Card';
 import { ERC20_ABI, ABIS } from '../config/abis';
 import type { OnChainMarket } from '../hooks/useOnChainMarkets';
@@ -19,15 +23,17 @@ import type { OnChainMarket } from '../hooks/useOnChainMarkets';
 // --- Components ---
 
 const EmptyState = ({ message }: { message: string }) => (
-  <div className="p-10 text-center text-slate-600 font-mono text-[10px] opacity-40 uppercase tracking-[0.2em] leading-relaxed">
+  <div className="p-10 text-center text-slate-600 font-mono text-xs opacity-40 uppercase tracking-[0.2em] leading-relaxed">
     {message}
   </div>
 );
 
-const AMMPositionRow = ({ market, price, onValueUpdate }: {
+const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { data: position, isLoading } = useAMMPositionDirect(market.address as `0x${string}`);
 
@@ -52,42 +58,101 @@ const AMMPositionRow = ({ market, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Internal</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
         {yesShares > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesShares, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesShares, 18)).toFixed(1)}</span>
           </div>
         )}
         {noShares > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noShares, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noShares, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesShares > 0n || noShares > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
 
-const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onValueUpdate }: {
+const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   lpBalance?: bigint,
   lpSupply?: bigint,
   floorValue?: bigint,
+  bCurrent?: bigint,
+  qYes?: bigint,
+  qNo?: bigint,
   decimals: number,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string, lpBalance: bigint) => Promise<void>
 }) => {
   const valueUsd = useMemo(() => {
-    if (!lpBalance || !lpSupply || lpSupply === 0n || !floorValue) return 0;
+    if (!lpBalance || !lpSupply || lpSupply === 0n) return 0;
     const userLpNum = Number(formatUnits(lpBalance, 18));
     const totalLpNum = Number(formatUnits(lpSupply, 18));
-    const floorRate = Number(formatUnits(floorValue, decimals)) / totalLpNum;
-    return userLpNum * floorRate;
-  }, [lpBalance, lpSupply, floorValue, decimals]);
+
+    // 1. Try to use direct floorValue from contract (works for un-graduated markets)
+    if (floorValue && floorValue > 0n) {
+      const rate = Number(formatUnits(floorValue, decimals)) / totalLpNum;
+      return userLpNum * rate;
+    }
+
+    // 2. For graduated markets, calculate Floor = Cash - Liability via LMSR formula
+    // This aligns with LPHolders / useMarketStatsMath logic
+    if (bCurrent && bCurrent > 0n && qYes !== undefined && qNo !== undefined) {
+      // Calculate Cash = MaxLoss + P&L (ignoring yield for now as it's small)
+      // MaxLoss = b * ln(2)
+      // P&L = C(q) - C(0)
+
+      const currentCost = calculateLMSRCost(qYes, qNo, bCurrent);
+      const initialCost = calculateLMSRCost(0n, 0n, bCurrent);
+      const pnl = currentCost - initialCost;
+
+      const bNum = Number(formatUnits(bCurrent, 18));
+      const maxLoss = bNum * LN2;
+      const cash = maxLoss + pnl;
+
+      // Liability = max(qYes, qNo) in USDC terms (assuming 1 share = 1 USDC payout)
+      const qYesNum = Number(formatUnits(qYes, 18));
+      const qNoNum = Number(formatUnits(qNo, 18));
+      const liability = Math.max(qYesNum, qNoNum);
+
+      // Floor = Cash - Liability
+      const floor = Math.max(0, cash - liability);
+      const rate = floor / totalLpNum;
+      return userLpNum * rate;
+    }
+
+    // 3. Fallback: Estimate Floor as Cash (b * ln(2)) if AMM state missing
+    if (bCurrent && bCurrent > 0n) {
+      const bNum = Number(formatUnits(bCurrent, 18));
+      const cash = bNum * LN2;
+      return userLpNum * (cash / totalLpNum);
+    }
+
+    return 0;
+  }, [lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals]);
 
   useEffect(() => {
     if (onValueUpdate) {
@@ -98,18 +163,29 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onVa
   if (!lpBalance || lpBalance === 0n) return null;
 
   return (
-    <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
-      <div className="flex items-center gap-3">
-        <TrendingUp className="w-4 h-4 text-cyan-400" />
-        <div>
+    <div className="flex flex-col p-3 bg-slate-900/40 rounded border border-slate-800/50 mb-2">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
           <div className="text-xs font-bold text-white uppercase tracking-wider">{market.name}</div>
-          <div className="text-[10px] font-mono text-cyan-500/80">LIQUIDITY POOL</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
+          <div className="text-xs text-slate-500 font-mono">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
         </div>
       </div>
-      <div className="text-right">
-        <div className="text-sm font-mono font-bold text-white">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
-        <div className="text-[10px] text-slate-500 font-mono">${valueUsd.toFixed(2)}</div>
-      </div>
+      {stage === 'finalized' && lpBalance && lpBalance > 0n && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address, lpBalance)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem LP Tokens
+        </button>
+      )}
     </div>
   );
 };
@@ -119,11 +195,13 @@ const LPPositionRow = ({ market, lpBalance, lpSupply, floorValue, decimals, onVa
 /**
  * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
-const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
+const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
 
@@ -147,32 +225,49 @@ const TickBookInternalRow = ({ market, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name} Position</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
       <div className="flex gap-2">
         {yesInternal > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesInternal, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesInternal, 18)).toFixed(1)}</span>
           </div>
         )}
         {noInternal > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noInternal, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noInternal, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesInternal > 0n || noInternal > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
 
-const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
+const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
+  stage: OnChainMarket['stage'],
   userAddress: `0x${string}`,
   price?: bigint,
-  onValueUpdate?: (marketAddr: string, value: number) => void
+  onValueUpdate?: (marketAddr: string, value: number) => void,
+  onRedeem?: (marketAddr: string) => Promise<void>
 }) => {
   const { vault, isLoading } = useTickBookVaultDirect(userAddress, market.address as `0x${string}`);
   const yesLocked = vault?.yesLocked ?? 0n;
@@ -193,24 +288,39 @@ const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
   return (
     <div className="bg-slate-900/40 rounded-lg p-3 border border-amber-500/10 hover:border-amber-500/30 transition-colors mb-2">
       <div className="flex justify-between items-start mb-2">
-        <div className="text-[10px] font-bold text-white uppercase tracking-tight">{market.name}</div>
-        <div className="text-[10px] font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold text-white uppercase tracking-tight">{market.name}</div>
+          {stage === 'bonding' && <Badge variant="indigo">Bonding</Badge>}
+          {stage === 'live' && <Badge variant="success">Live</Badge>}
+          {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
+          {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
+          {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+        </div>
+        <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
-      <div className="text-[9px] text-amber-500/70 mb-2 uppercase tracking-wider">Locked for Spot Sell</div>
+
       <div className="flex gap-2">
         {yesLocked > 0n && (
           <div className="flex-1 flex justify-between items-center bg-emerald-950/10 rounded px-2 py-1 border border-emerald-900/20">
-            <span className="text-[10px] font-mono text-emerald-500">YES</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(yesLocked, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-emerald-500">YES</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(yesLocked, 18)).toFixed(1)}</span>
           </div>
         )}
         {noLocked > 0n && (
           <div className="flex-1 flex justify-between items-center bg-rose-950/10 rounded px-2 py-1 border border-rose-900/20">
-            <span className="text-[10px] font-mono text-rose-500">NO</span>
-            <span className="text-[10px] font-mono font-bold text-white">{parseFloat(formatUnits(noLocked, 18)).toFixed(1)}</span>
+            <span className="text-xs font-mono text-rose-500">NO</span>
+            <span className="text-xs font-mono font-bold text-white">{parseFloat(formatUnits(noLocked, 18)).toFixed(1)}</span>
           </div>
         )}
       </div>
+      {stage === 'finalized' && (yesLocked > 0n || noLocked > 0n) && onRedeem && (
+        <button
+          onClick={() => onRedeem(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded border border-emerald-500/30 transition-colors"
+        >
+          Redeem Position
+        </button>
+      )}
     </div>
   );
 };
@@ -218,9 +328,65 @@ const LockedSharesRow = ({ market, userAddress, price, onValueUpdate }: {
 export const Portfolio = () => {
   useChainStore();
   const deployments = useDeployments();
-  const ammEngineAddress = deployments?.contracts?.AMMEngine as `0x${string}`;
-  const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
+  const contracts = deployments?.contracts;
+  const ammEngineAddress = contracts?.AMMEngine as `0x${string}`;
+  const launchpadEngineAddress = contracts?.LaunchpadEngine as `0x${string}`;
   const { address: userAddress } = useAccount();
+
+  const { writeContractAsync } = useWriteContract();
+  const invalidateV8Queries = useInvalidateQueries();
+  const queryClient = useQueryClient();
+
+  const handleRedeemAMM = useCallback(async (marketAddr: string) => {
+    if (!contracts?.AMMEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: contracts.AMMEngine as `0x${string}`,
+        abi: ABIS.AMMEngine,
+        functionName: 'settlePosition',
+        args: [marketAddr as `0x${string}`],
+      });
+      toast.success('AMM position redeemed successfully');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
+    }
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
+
+  const handleRedeemTickBook = useCallback(async (marketAddr: string) => {
+    if (!contracts?.TickBookVault || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: contracts.TickBookVault as `0x${string}`,
+        abi: [{ name: 'redeemResolved', type: 'function', inputs: [{ name: 'market', type: 'address' }], outputs: [{ name: 'payoutWad', type: 'uint256' }], stateMutability: 'nonpayable' }],
+        functionName: 'redeemResolved',
+        args: [marketAddr as `0x${string}`],
+      });
+      toast.success('TickBook position redeemed successfully');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
+    }
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
+
+  const handleRedeemLP = useCallback(async (marketAddr: string, lpBalance: bigint) => {
+    if (!contracts?.LaunchpadEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: contracts.LaunchpadEngine as `0x${string}`,
+        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
+        functionName: 'redeemLP',
+        args: [marketAddr as `0x${string}`, lpBalance],
+      });
+      toast.success('LP tokens redeemed successfully');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: any) {
+      toast.error(`Redemption failed: ${e.message || 'Unknown error'}`);
+    }
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
 
   // Indexer hooks (primary data source when available)
   const indexedPortfolio = usePortfolioIndexed(userAddress);
@@ -234,11 +400,11 @@ export const Portfolio = () => {
   const rpcLockQueue = useLockQueue(ammEngineAddress);
   const queue = useIndexer
     ? indexedPortfolio.lockEntries.map(e => ({
-        amount: BigInt(e.amountWad),
-        expiryDate: new Date(Number(e.unlockTime) * 1000),
-        isUnlocked: Date.now() >= Number(e.unlockTime) * 1000,
-        timeUntilUnlock: Math.max(0, Number(e.unlockTime) * 1000 - Date.now()),
-      }))
+      amount: BigInt(e.amountWad),
+      expiryDate: new Date(Number(e.unlockTime) * 1000),
+      isUnlocked: Date.now() >= Number(e.unlockTime) * 1000,
+      timeUntilUnlock: Math.max(0, Number(e.unlockTime) * 1000 - Date.now()),
+    }))
     : rpcLockQueue.entries;
   const queueTotal = useIndexer
     ? indexedPortfolio.lockEntries.reduce((acc, e) => acc + BigInt(e.amountWad), 0n)
@@ -253,23 +419,14 @@ export const Portfolio = () => {
   const proReservedFormatted = formatUnits(proReservedWad, 18);
   const isLoadingProVault = rpcVault.isLoading;
 
-  // 4. Markets Data for Aggregation - prefer indexer
+  // 4. Markets Data for Aggregation - prefer indexer for addresses, RPC for names
+  // The indexer doesn't store market names, so we always use RPC for name/symbol
   const rpcMarkets = useOnChainMarkets();
   const onChainMarkets: OnChainMarket[] = useMemo(() => {
-    if (useIndexer && indexedMarkets.markets.length > 0) {
-      return indexedMarkets.markets.map(m => ({
-        address: m.address as `0x${string}`,
-        name: `Market ${m.address.slice(0, 8)}`,
-        symbol: m.address.slice(0, 6).toUpperCase(),
-        creator: m.creator as `0x${string}`,
-        isGraduated: m.isGraduated,
-        createdAt: BigInt(m.createdAt),
-        bBase: BigInt(m.initialLiquidity),
-        bCurrent: BigInt(m.initialLiquidity),
-      }));
-    }
+    // Always prefer RPC markets since they include the full name from contract
+    // Indexer is still used for other portfolio data (positions, LP balances, etc.)
     return rpcMarkets.markets;
-  }, [useIndexer, indexedMarkets.markets, rpcMarkets.markets]);
+  }, [rpcMarkets.markets]);
 
   const [lpValues, setLpValues] = useState<Record<string, number>>({});
   const [ammValues, setAmmValues] = useState<Record<string, number>>({});
@@ -314,7 +471,7 @@ export const Portfolio = () => {
     contracts: onChainMarkets.flatMap(m => [
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getMarketState', args: [m.address] },
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getPosition', args: [m.address, userAddress] },
-      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getLPBalance', args: [m.address, userAddress] },
+      { address: m.lpToken, abi: ERC20_ABI, functionName: 'balanceOf', args: [userAddress] },
       { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.address] }
     ]),
     query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && onChainMarkets.length > 0 }
@@ -368,7 +525,7 @@ export const Portfolio = () => {
 
   // Account Aggregates
   const selfCustodyTotal = parseFloat(walletUsdcFormatted) + totalLpVal + totalAmmVal + parseFloat(queueTotalFormatted);
-  const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal;
+  const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal + totalLockedSharesVal;
 
   // Helper to extract specific market price from batch
   const getMarketPrice = (marketAddr: string) => {
@@ -378,7 +535,7 @@ export const Portfolio = () => {
   };
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-dvh pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Account Summaries */}
@@ -392,7 +549,7 @@ export const Portfolio = () => {
               </div>
               <div>
                 <Tooltip
-                  content="Your personal self-custody account. Includes USDC held directly in your wallet, Liquidity Provider (LP) shares in AMM pools, and outcome tokens (Owned Shares) acquired via bonding curves or AMM swaps. You have full control over these assets."
+                  content="Self-custody assets you control directly: wallet USDC, LP shares from AMM pools, and outcome tokens from trading."
                   position="right"
                   showIcon={true}
                 >
@@ -415,7 +572,7 @@ export const Portfolio = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <TrendingUp className="w-2.5 h-2.5" /> LP Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -423,7 +580,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <ShieldCheck className="w-2.5 h-2.5" /> Owned Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -431,7 +588,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Clock className="w-2.5 h-2.5" /> Pending Exits
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -439,7 +596,7 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Wallet className="w-2.5 h-2.5" /> USDC
                   </div>
                   <div className="font-mono text-slate-400 font-bold text-sm">
@@ -458,7 +615,7 @@ export const Portfolio = () => {
               </div>
               <div>
                 <Tooltip
-                  content="The protocol-managed execution vault for professional trading. Includes USDC reserved as margin for active limit orders, unused USDC available for new trades, and outcome tokens settled within the TickBook V2 engine. This vault isolates and executes orders efficiently."
+                  content="Protocol-managed vault for orderbook trading: available USDC, collateral backing active orders, and settled outcome tokens."
                   position="right"
                   showIcon={true}
                 >
@@ -482,7 +639,7 @@ export const Portfolio = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Activity className="w-2.5 h-2.5" /> Owned Shares
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
@@ -490,15 +647,15 @@ export const Portfolio = () => {
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
-                    <Lock className="w-2.5 h-2.5" /> Active Margin
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                    <Lock className="w-2.5 h-2.5" /> Active Collateral
                   </div>
                   <div className="font-mono text-white font-bold text-sm">
-                    ${parseFloat(proReservedFormatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${totalActiveCollateral.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="bg-slate-900/40 rounded p-2.5 border border-slate-800/50">
-                  <div className="text-[9px] text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
+                  <div className="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1 uppercase">
                     <Database className="w-2.5 h-2.5" /> Unused USDC
                   </div>
                   <div className="font-mono text-slate-400 font-bold text-sm">
@@ -518,7 +675,7 @@ export const Portfolio = () => {
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
                 <Zap className="w-3 h-3 text-emerald-500" />
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">AMM & Bonding Curve Details</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">AMM & Bonding Curve Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
@@ -542,11 +699,16 @@ export const Portfolio = () => {
                       <LPPositionRow
                         key={market.address}
                         market={market}
+                        stage={market.stage}
                         lpBalance={batchData?.[baseIdx + 2]?.result as bigint}
                         lpSupply={(batchData?.[baseIdx + 3]?.result as any)?.[3]}
                         floorValue={(batchData?.[baseIdx + 3]?.result as any)?.[5]}
+                        bCurrent={(batchData?.[baseIdx + 3]?.result as any)?.[2]}
+                        qYes={(batchData?.[baseIdx + 0]?.result as any)?.[0]}
+                        qNo={(batchData?.[baseIdx + 0]?.result as any)?.[1]}
                         decimals={decimals}
                         onValueUpdate={handleLpValueUpdate}
+                        onRedeem={handleRedeemLP}
                       />
                     );
                   })
@@ -579,8 +741,10 @@ export const Portfolio = () => {
                       <AMMPositionRow
                         key={`amm-${market.address}`}
                         market={market}
+                        stage={market.stage}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleAmmValueUpdate}
+                        onRedeem={handleRedeemAMM}
                       />
                     ))}
                   </>
@@ -619,9 +783,9 @@ export const Portfolio = () => {
                             <span className="text-sm font-mono font-bold text-white tracking-tight">
                               {parseFloat(formatUnits(item.amount, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">USDC</span>
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">USDC</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight">
+                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight">
                             {isUnlocked ? (
                               <span className="text-emerald-500 flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" /> Ready to Claim
@@ -634,7 +798,7 @@ export const Portfolio = () => {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded font-black uppercase tracking-widest ${isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'}`}>
                             {isUnlocked ? 'Liquid' : 'Locked'}
                           </span>
                           {!isUnlocked && (
@@ -659,7 +823,7 @@ export const Portfolio = () => {
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
                 <Activity className="w-3 h-3 text-cyan-500" />
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pro Trading Details</h3>
               </div>
               <div className="h-px flex-1 bg-slate-800/50 mx-4" />
             </div>
@@ -682,9 +846,11 @@ export const Portfolio = () => {
                       <TickBookInternalRow
                         key={market.address}
                         market={market}
+                        stage={market.stage}
                         userAddress={userAddress!}
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleVaultSharesUpdate}
+                        onRedeem={handleRedeemTickBook}
                       />
                     ))}
                     {totalVaultSharesVal === 0 && !isLoadingBatch && (
@@ -715,7 +881,7 @@ export const Portfolio = () => {
                       <Database className="w-4 h-4 text-slate-400" />
                       <div>
                         <div className="text-xs font-bold text-white uppercase tracking-wider">Reserved USDC</div>
-                        <div className="text-[10px] font-mono text-slate-500/80">For Range Buy Orders</div>
+                        <div className="text-xs font-mono text-slate-500/80">For Range Buy Orders</div>
                       </div>
                     </div>
                     <div className="text-sm font-mono font-bold text-white">
@@ -727,9 +893,11 @@ export const Portfolio = () => {
                   <LockedSharesRow
                     key={market.address}
                     market={market}
+                    stage={market.stage}
                     userAddress={userAddress!}
                     price={getMarketPrice(market.address)}
                     onValueUpdate={handleLockedSharesUpdate}
+                    onRedeem={handleRedeemTickBook}
                   />
                 ))}
                 {proReservedWad === 0n && totalLockedSharesVal === 0 && (
@@ -746,20 +914,20 @@ export const Portfolio = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Security Model</h4>
-                  <p className="text-[10px] text-slate-500 uppercase">Architecture Version: V10.8 Atomic Creation</p>
+                  <p className="text-xs text-slate-500 uppercase">Architecture Version: V11.0 Trial Period Protection</p>
                 </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sooth V10.8 uses atomic market creation with spot-first price discovery. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) in a single transaction. The TickBook orderbook provides deep liquidity with range orders and spot sells crossing at best available prices.
+                Sooth V11.0 features trial period protection for new markets. Creators can dismiss markets within 7 days, and traders' costs are fully refundable. Markets are created via Launchpad Engine (`{launchpadEngineAddress?.slice(0, 6)}...`) with atomic creation. The TickBook orderbook provides deep liquidity with spot-first crossing.
               </p>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[9px] text-slate-500 uppercase font-bold">{onChainMarkets.length} Active Markets</span>
+                  <span className="text-xs text-slate-500 uppercase font-bold">{onChainMarkets.length} Active Markets</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-cyan-500" />
-                  <span className="text-[9px] text-slate-500 uppercase font-bold">Pro Hardened</span>
+                  <span className="text-xs text-slate-500 uppercase font-bold">Pro Hardened</span>
                 </div>
               </div>
             </div>

@@ -9,6 +9,8 @@ export interface LaunchpadMarketIndexed {
   address: string;
   chainId: number;
   creator: string;
+  name: string | null; // Market question (from TruthMarket)
+  symbol: string | null; // Market symbol
   initialLiquidity: string;
   deposit: string;
   totalLPSupply: string;

@@ -1,83 +1,95 @@
-# V8 Implementation - Modular Prediction Market Protocol
+# V11 Implementation - Unified Prediction Market Protocol
 
-**Status**: ✅ Production-Ready  
-**Build**: ✅ All Tests Passing (30/30)  
-**Date**: 2025-12-23
+**Status**: Production Alpha  
+**Build**: All Tests Passing (237/237)  
+**Version**: V11.0  
+**Date**: 2026-01-23
 
----
+## V11 Features
 
-## 📦 Core Contracts
-
-### **Market Lifecycle**
-- `TruthMarket.sol` - Canonical lifecycle & settlement authority (5.4 KB)
-
-### **Trading Venues**
-- `AMMEngine.sol` - LMSR position domain with 24h locks (9.1 KB)
-- `TickBook.sol` - 10,000-tick orderbook with bitmap discovery (13.8 KB)
-
-### **Token Management**
-- `Collateralizer.sol` - Split/merge/redeem (1 USDC = 1 YES + 1 NO) (8.5 KB)
-- `OutcomeToken.sol` - ERC20 YES/NO tokens (2.5 KB)
-
-### **Math Libraries**
-- `libraries/LMSRMath.sol` - LMSR pricing with log-sum-exp (7.2 KB)
-- `libraries/TickBitmap.sol` - O(1) tick discovery (6.4 KB)
-- `libraries/TickMath.sol` - Probability & swap math (5.1 KB)
+| Feature | Contract | Description |
+|---------|----------|-------------|
+| Trial Period | `LaunchpadEngine` | 7-day trial with dismissMarket/claimRefund |
+| ERC20 LP Token | `LaunchpadLPToken` | Transferable pre-settlement, locked post-settlement |
+| Validated Adjudicator | `ValidatedAdjudicator` | TEE attestation-based settlement |
+| Protocol Config | `ProtocolConfig` | Guardian list + global pause |
+| Adjudicator-only finalize | `TruthMarket` | Guardians can veto but not finalize |
 
 ---
 
-## 🏗️ Architecture
+## Core Contracts
+
+### Market Lifecycle
+- `TruthMarket.sol` - Canonical lifecycle & settlement authority
+
+### Trading Infrastructure
+- `LaunchpadEngine.sol` - Creator economics, fee distribution, graduation mechanics
+- `AMMEngine.sol` - LMSR position domain for pre-graduation markets
+- `TickBookPoolManager.sol` - Unified orderbook with spot-first crossing (V10)
+- `TickBookVault.sol` - USDC + outcome token custody
+
+### Token Management
+- `Collateralizer.sol` - Split/merge/redeem (1 USDC = 1 YES + 1 NO)
+- `OutcomeToken.sol` - ERC20 YES/NO tokens
+
+### Libraries
+- `libraries/LMSRMath.sol` - LMSR pricing with log-sum-exp
+- `libraries/TickBitmap.sol` - O(1) tick discovery
+- `libraries/TickMath.sol` - Probability & swap math
+
+---
+
+## Architecture (V10 Unified Crossing)
 
 ```
-┌─────────────────────────────────────────┐
-│         TruthMarket (Lifecycle)         │
-│  • Market creation & activation         │
-│  • Settlement authority                 │
-│  • T* retroactive truth-time            │
-│  • Guardian veto mechanism              │
-└─────────────────────────────────────────┘
-              ↓ queries
-┌─────────────────────────────────────────┐
-│      Trading Venues (Isolated)          │
-├─────────────────────────────────────────┤
-│  AMMEngine          │  TickBook         │
-│  • LMSR pricing     │  • 10,000 ticks   │
-│  • Position ledger  │  • Bitmap search  │
-│  • 24h sell locks   │  • Concentrated LP│
-│  • T* settlement    │  • 0.2% taker fee │
-└─────────────────────────────────────────┘
-              ↓ uses
-┌─────────────────────────────────────────┐
-│         Token Management                │
-├─────────────────────────────────────────┤
-│  Collateralizer                         │
-│  • Split: 1 USDC → 1 YES + 1 NO        │
-│  • Merge: 1 YES + 1 NO → 1 USDC        │
-│  • Redeem: Winning tokens → USDC       │
-│  • OutcomeToken (ERC20)                 │
-└─────────────────────────────────────────┘
+                    TruthMarket (Lifecycle + Settlement)
+                            ↑ queries
+                    LaunchpadEngine (Creator Economics)
+                    ├── createMarket()
+                    ├── registerMarket()
+                    └── graduate()
+                            ↓ delegates
+    ┌───────────────────────┴───────────────────────┐
+    │                                               │
+AMMEngine                              TickBookPoolManager
+(Pre-graduation LMSR)                  (Post-graduation Orderbook)
+    │                                               │
+    │                                               ↓
+    │                                       TickBookVault
+    │                                       (USDC + Token Custody)
+    │                                               │
+    └───────────────────────┬───────────────────────┘
+                            ↓
+                    Collateralizer
+                    (Split/Merge/Redeem)
 ```
+
+### Data Flow
+
+1. **Market Creation**: User deposits via LaunchpadEngine → deploys TruthMarket
+2. **Pre-Graduation**: Trading via AMMEngine (LMSR pricing, 5% fee)
+3. **Graduation**: When fees accumulate, market graduates to orderbook
+4. **Post-Graduation**: Trading via TickBookPoolManager (1% fee)
+5. **Settlement**: TruthMarket resolves → Collateralizer redeems winning tokens
 
 ---
 
-## 💡 Key Design Decisions
+## Key Design Decisions
 
-### **No Built-in Custody**
-V8 does **not** include a custody layer. Users manage their own USDC via:
-- **EOA wallets** (MetaMask, etc.)
-- **Smart accounts** (Safe, Biconomy, ZeroDev)
-- **Account abstraction** (ERC-4337)
-- **Multisig** (Gnosis Safe)
+### Unified Crossing (V10)
+V10 introduces unified crossing where `placeOrder()` natively crosses both:
+- **Spot Sells** - Direct token sales at market price
+- **Range Orders** - Concentrated liquidity across tick ranges
 
-**Why?** Maximum flexibility and composability. Users choose their preferred custody solution.
+Priority: Spot fills first (better price), then range liquidity.
 
-### **Domain Isolation**
-AMM and TickBook are **completely isolated**:
-- **AMM**: Non-transferable positions, retroactive settlement
-- **TickBook**: Transferable ERC20 tokens, instant settlement
-- **No bridge**: Arbitrage via USDC round-trip
+### Vault-Based Custody
+Unlike V8's isolated domains, V10 uses `TickBookVault` for unified custody:
+- USDC deposits/withdrawals
+- Outcome token tracking (internal shares, not ERC20)
+- Atomic settlement on order fills
 
-### **Pull-Based Lifecycle**
+### Pull-Based Lifecycle
 All contracts query `TruthMarket.isLive()` and `isSettled()`:
 - No callbacks or hooks
 - No centralized coordinator
@@ -85,189 +97,196 @@ All contracts query `TruthMarket.isLive()` and `isSettled()`:
 
 ---
 
-## ✨ Features
+## Features
 
-### **AMM Engine**
-- ✅ LMSR continuous pricing (log-sum-exp)
-- ✅ WAD precision (1e18)
-- ✅ 24-hour sell lock (prevents informed trading)
-- ✅ Non-transferable positions
-- ✅ Direct USDC transfers (no vault dependency)
-- ⚠️ T* retroactive settlement (placeholder)
+### LaunchpadEngine
+- Creator deposits (100 USDC default)
+- Fee accumulation toward graduation (5% bonding fee)
+- Automatic graduation when threshold reached
+- Symbol auto-derived from market address
 
-### **TickBook**
-- ✅ 10,000 linear probability ticks (1bp precision)
-- ✅ Two-level bitmap (O(1) tick discovery)
-- ✅ Multi-tick swap execution
-- ✅ Concentrated liquidity
-- ✅ 0.2% taker fee, 0% maker fee
-- ✅ Constant product formula
+### AMMEngine
+- LMSR continuous pricing (log-sum-exp)
+- WAD precision (1e18)
+- Non-transferable positions
+- Pre-graduation only (routed via LaunchpadEngine)
+- MarketInitialized event on first trade
 
-### **Collateralizer**
-- ✅ Split: 1 USDC → 1 YES + 1 NO
-- ✅ Merge: 1 YES + 1 NO → 1 USDC
-- ✅ Redeem: Winning tokens → USDC
-- ✅ Non-binary outcomes (INVALID = 50/50)
-- ✅ ERC20 outcome tokens
+### TickBookPoolManager
+- 1000 linear probability ticks (0.1% precision)
+- Two-level bitmap (O(1) tick discovery)
+- Unified spot + range crossing
+- Batch operations (claim, cancel)
+- Gas-optimized with unchecked arithmetic
 
-### **TruthMarket**
-- ✅ Lifecycle management (CREATED → LIVE → SETTLED)
-- ✅ Adjudicator-based settlement
-- ✅ YES/NO/INVALID outcomes
-- ✅ T* (retroactive truth-time) support
-- ✅ Guardian veto mechanism
+### TickBookVault
+- USDC reserve/release for order collateral
+- Outcome share credit/lock/unlock/transfer
+- Fee handling
+- Redemption (YES wins, NO wins, INVALID)
+- Access control (onlyTickBook modifier)
 
----
+### Collateralizer
+- Split: 1 USDC to 1 YES + 1 NO
+- Merge: 1 YES + 1 NO to 1 USDC
+- Redeem: Winning tokens to USDC
+- Non-binary outcomes (INVALID = 50/50)
 
-## 🧪 Testing
-
-**Status**: ✅ **100% Pass Rate (30/30 tests)**
-
-### Unit Tests
-- `Collateralizer.t.sol` - 9/9 passing
-- `TruthMarket.t.sol` - 15/15 passing
-
-### Integration Tests
-- `V8Integration.t.sol` - 6/6 passing
-  - Full lifecycle (YES/NO/INVALID)
-  - Multi-user trading
-  - Guardian veto & resettle
-  - Collateral conservation invariant
-
-### Fuzz Tests
-- 768 runs across critical paths
-- Deposit/withdraw, split/merge, T* values
+### TruthMarket
+- Lifecycle: CREATED -> LIVE -> SETTLED
+- Adjudicator-based settlement
+- YES/NO/INVALID outcomes
+- Guardian veto mechanism
 
 ---
 
-## 📊 Statistics
+## Testing
 
-| Metric | Value |
-|--------|-------|
-| **Contracts** | 8 files |
-| **Libraries** | 3 files |
-| **Interfaces** | 5 files |
-| **Total Lines** | ~2,500 |
-| **Total Size** | ~58 KB |
-| **Tests** | 30 (100% passing) |
-| **Build** | ✅ Clean (0 errors) |
+**Status**: 124/124 tests passing
 
----
+### Test Categories
+| Category | Count | Description |
+|----------|-------|-------------|
+| Unit Tests | 34 | TickBookVault isolated testing |
+| Integration | 45 | Full market lifecycle |
+| Crossing | 25 | Unified order execution |
+| Invariants | 10 | Property-based fuzzing |
+| Fork Tests | 10 | Live network validation |
 
-## 🚀 Usage Example
+### Running Tests
+```bash
+# All tests
+cd packages/contracts-testing && forge test
 
-```solidity
-// 1. Users split USDC into outcome tokens
-usdc.approve(address(collateralizer), 1000e18);
-collateralizer.split(market, 1000e18);
-// Now user has 1000 YES + 1000 NO tokens
+# Single file
+forge test --match-path test/unit/TickBookVault.t.sol
 
-// 2. Provide liquidity to TickBook
-yesToken.approve(address(tickBook), 500e18);
-noToken.approve(address(tickBook), 500e18);
-tickBook.addLiquidity(marketKey, 5000, 500e18); // At 50% tick
+# With traces
+forge test --match-test test_PlaceOrder -vvvv
 
-// 3. Trade on TickBook
-noToken.approve(address(tickBook), 100e18);
-uint256 yesReceived = tickBook.swap(marketKey, true, 100e18, 6000);
-
-// 4. After settlement, redeem winning tokens
-yesToken.approve(address(collateralizer), yesBalance);
-uint256 payout = collateralizer.redeem(market, yesBalance);
+# Invariant tests
+forge test --match-contract Invariants
 ```
 
 ---
 
-## 🔒 Security Considerations
+## Current Deployments (V10.9)
 
-### **Implemented**
-- ✅ Pull-based lifecycle (no reentrancy)
-- ✅ SafeERC20 for all transfers
-- ✅ Access control (adjudicator, guardian)
-- ✅ Overflow protection (Solidity 0.8.20)
-- ✅ Input validation throughout
+### Base Sepolia (chainId: 84532)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x83fcdc807e9ddc8ea823f7d43c8d0623374a2883` |
+| TickBookPoolManager | `0xb94c45ed45575b48927a21601724db57dd74a94f` |
+| TickBookVault | `0x94a243ee73e3306a35642f23a92b78a5a8bdd0ee` |
+| AMMEngine | `0xe19c027a9407dc0eddae2d908e263d79aaf0bbe2` |
+| Collateralizer | `0x258883fb64afe22517db08f4c6e886f4967205b9` |
 
-### **Not Implemented**
-- ⚠️ Emergency pause mechanism
-- ⚠️ Rate limiting
-- ⚠️ MEV protection
-- ⚠️ Formal verification
-- ⚠️ External audit
+### Monad Testnet (chainId: 10143)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
+| TickBookPoolManager | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
+| TickBookVault | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
+| AMMEngine | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
+| Collateralizer | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
+
+### MegaETH Testnet (chainId: 6343)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
+| TickBookPoolManager | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
+| TickBookVault | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
+| AMMEngine | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
+| Collateralizer | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
+
+### Arc Testnet (chainId: 5042002)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x625b4b2997232380126f0aecd84867086f89b27e` |
+| TickBookPoolManager | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
+| TickBookVault | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
+| AMMEngine | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
+| Collateralizer | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
 
 ---
 
-## 📝 File Structure
+## File Structure
 
 ```
-contracts/
+src/
 ├── TruthMarket.sol
+├── LaunchpadEngine.sol
 ├── AMMEngine.sol
-├── TickBook.sol
+├── TickBookPoolManager.sol
+├── TickBookVault.sol
 ├── Collateralizer.sol
 ├── OutcomeToken.sol
 ├── interfaces/
 │   ├── ITruthMarket.sol
+│   ├── ILaunchpadEngine.sol
 │   ├── IAMMEngine.sol
-│   ├── ITickBook.sol
-│   ├── ICollateralizer.sol
-│   └── README.md
+│   ├── ITickBookPoolManager.sol
+│   ├── ITickBookVault.sol
+│   └── ICollateralizer.sol
 └── libraries/
     ├── LMSRMath.sol
     ├── TickBitmap.sol
     └── TickMath.sol
-
-test/v8/
-├── Collateralizer.t.sol
-├── TruthMarket.t.sol
-└── V8Integration.t.sol
 ```
 
 ---
 
-## 🎯 Production Readiness
+## Security Considerations
 
-### **Ready Now**
-- ✅ Core architecture implemented
-- ✅ All tests passing
-- ✅ Clean build
-- ✅ Comprehensive documentation
+### Implemented
+- Pull-based lifecycle (no reentrancy risk)
+- SafeERC20 for all transfers
+- Access control (adjudicator, guardian, onlyTickBook)
+- Overflow protection (Solidity 0.8.30)
+- Input validation throughout
+- Gas-optimized unchecked arithmetic (safe contexts only)
 
-### **Before Mainnet**
-1. External audit (Certora/Trail of Bits)
-2. Implement T* Merkle proof verification
-3. Add emergency pause
-4. Gas optimization
-5. Testnet deployment & validation
-6. Economic simulation
+### Not Implemented
+- Emergency pause mechanism
+- Rate limiting
+- MEV protection
+- Formal verification
+- External audit (planned)
 
 ---
 
-## 🤝 Smart Account Integration
+## Usage Example
 
-V8 is designed to work with **any custody solution**:
-
-### **Recommended Partners**
-- **Safe (Gnosis)**: Multisig, modular
-- **Biconomy**: Gasless transactions, session keys
-- **ZeroDev**: Kernel-based, plugins
-- **Alchemy**: Modular accounts
-
-### **Integration Pattern**
 ```solidity
-// Users approve from their smart account
-smartAccount.execute({
-    target: address(usdc),
-    data: abi.encodeCall(usdc.approve, (collateralizer, amount))
-});
+// 1. Create market via LaunchpadEngine
+usdc.approve(address(launchpad), 100e6);
+address market = launchpad.createMarket(
+    "Will ETH hit $5000?",
+    "crypto",
+    adjudicator,
+    endTime,
+    100e6  // creator deposit
+);
 
-// Then interact with protocol
-smartAccount.execute({
-    target: address(collateralizer),
-    data: abi.encodeCall(collateralizer.split, (market, amount))
-});
+// 2. Trade on AMM (pre-graduation)
+usdc.approve(address(launchpad), 50e6);
+launchpad.ammBuy(market, 1, 50e6); // Buy YES
+
+// 3. After graduation, trade on orderbook
+vault.depositUSDC(100e6);
+poolManager.placeOrder(
+    marketKey,
+    0,     // YES outcome
+    500,   // tick (50% probability)
+    550,   // upper tick
+    100e18 // shares
+);
+
+// 4. After settlement, redeem winning tokens
+collateralizer.redeem(market, winningBalance);
 ```
 
 ---
 
-**Built with ❤️ for the Sooth Protocol**  
-**V8: Modular, Flexible, Production-Ready**
+**Built for Sooth Protocol**  
+**V10: Unified Crossing, Aligned Incentives**

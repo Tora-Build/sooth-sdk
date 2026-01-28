@@ -1,1 +1,1 @@
-../../.claude/commands/fullstack-dev.md
+/Users/danieltang/.claude/skills/fullstack-development/SKILL.md

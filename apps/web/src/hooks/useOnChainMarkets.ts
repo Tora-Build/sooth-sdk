@@ -1,7 +1,9 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
+import { DEFAULT_CHAIN_ID } from "../lib/chains";
+import { getPollingInterval } from "../lib/polling";
 
 type Address = `0x${string}`;
 
@@ -10,10 +12,16 @@ export interface OnChainMarket {
   name: string;
   symbol: string;
   creator: Address;
+  lpToken: Address;
   isGraduated: boolean;
+  isSettled: boolean;
+  isFinalized: boolean;
+  isDismissed: boolean;
   createdAt: bigint;
   bBase: bigint;
   bCurrent: bigint;
+  // Computed stage for filtering
+  stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
 }
 
 /**
@@ -25,22 +33,28 @@ export interface OnChainMarket {
  */
 export function useOnChainMarkets() {
   const { selectedChainId } = useChainStore();
-  const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
+  const parsedChainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
+  const chainId = Number.isFinite(parsedChainId) ? parsedChainId : DEFAULT_CHAIN_ID;
   const deployments = useDeployments();
   const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as Address | undefined;
 
   const query = useDirectRead({
-    queryKey: ["v9", "onChainMarkets", chainId, launchpadEngineAddress],
-    enabled: !!chainId && !!launchpadEngineAddress,
+    queryKey: ["v10", "onChainMarkets", chainId, launchpadEngineAddress],
+    enabled: !!chainId && !!launchpadEngineAddress && !isNaN(chainId),
     chainId,
-    refetchInterval: 30_000, // 30 seconds - markets don't change often
+    refetchInterval: getPollingInterval(chainId, 'slow'),
     staleTime: 15_000,
     read: async (client) => {
+      if (!launchpadEngineAddress) return [];
+
       // Get all market addresses
       const marketAddresses = await readContractSafe<readonly Address[]>(client, {
-        address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
         functionName: "getMarkets",
+      }).catch(err => {
+        console.error("Failed to fetch market addresses:", err);
+        return [] as readonly Address[];
       });
 
       if (!marketAddresses || marketAddresses.length === 0) {
@@ -53,13 +67,14 @@ export function useOnChainMarkets() {
 
       for (let i = 0; i < marketAddresses.length; i += CHUNK_SIZE) {
         const chunk = marketAddresses.slice(i, i + CHUNK_SIZE);
-        
+
         const chunkResults = await Promise.all(
           chunk.map(async (marketAddress) => {
             try {
               const marketsMapping = await readContractSafe<
                 readonly [
                   Address, // creator
+                  Address, // lpToken
                   bigint,  // bBase
                   bigint,  // bCurrent
                   bigint,  // creatorDeposit
@@ -68,19 +83,20 @@ export function useOnChainMarkets() {
                   bigint,  // lpYieldPool
                   boolean, // isGraduated
                   bigint,  // createdAt (uint64)
-                  bigint,  // graduatedAt (uint64)
-                  string,  // name
-                  string   // symbol
+                  bigint   // graduatedAt (uint64)
                 ]
               >(client, {
                 address: launchpadEngineAddress!,
-                abi: V9_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: [marketAddress],
               });
 
+              if (!marketsMapping) return null;
+
               const [
                 creator,
+                lpToken,
                 bBase,
                 bCurrent,
                 _creatorDeposit,
@@ -89,20 +105,78 @@ export function useOnChainMarkets() {
                 _lpYieldPool,
                 isGraduated,
                 createdAt,
-                _graduatedAt,
-                name,
-                symbol,
+                _graduatedAt
               ] = marketsMapping;
+
+              const symbol = marketAddress.slice(2, 10).toUpperCase();
+
+              // Fetch question, isSettled, isFinalized, and trial state in parallel
+              let question = symbol;
+              let isSettled = false;
+              let isFinalized = false;
+              let isDismissed = false;
+
+              try {
+                const [q, settled, finalized, trialState] = await Promise.all([
+                  readContractSafe<string>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "question",
+                  }).catch(() => null),
+                  readContractSafe<boolean>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "isSettled",
+                  }).catch(() => false),
+                  readContractSafe<boolean>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "isFinalized",
+                  }).catch(() => false),
+                  readContractSafe<readonly [bigint, boolean, bigint]>(client, {
+                    address: launchpadEngineAddress!,
+                    abi: ABIS.LaunchpadEngine,
+                    functionName: "trialStates",
+                    args: [marketAddress],
+                  }).catch(() => null),
+                ]);
+
+                if (q) question = q;
+                isSettled = settled ?? false;
+                isFinalized = finalized ?? false;
+                if (trialState) {
+                  isDismissed = trialState[1]; // [trialEndTime, isDismissed, totalLockedCost]
+                }
+              } catch {}
+
+              // Compute stage (order matters: finalized > settled > live > bonding)
+              let stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
+              if (isDismissed) {
+                stage = 'dismissed';
+              } else if (isFinalized) {
+                stage = 'finalized';
+              } else if (isSettled) {
+                stage = 'settled';
+              } else if (isGraduated) {
+                stage = 'live';
+              } else {
+                stage = 'bonding';
+              }
 
               return {
                 address: marketAddress,
-                name,
+                name: question,
                 symbol,
                 creator,
+                lpToken,
                 isGraduated,
+                isSettled,
+                isFinalized,
+                isDismissed,
                 createdAt,
                 bBase,
                 bCurrent,
+                stage,
               } as OnChainMarket;
             } catch (error) {
               console.warn(`Failed to fetch market ${marketAddress}:`, error);
@@ -110,10 +184,10 @@ export function useOnChainMarkets() {
             }
           })
         );
-        
+
         // Add valid results from this chunk
         marketDetails.push(...chunkResults.filter((m): m is OnChainMarket => m !== null));
-        
+
         // Small delay between chunks to be nice to the RPC
         if (i + CHUNK_SIZE < marketAddresses.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -146,12 +220,12 @@ export function useOnChainMarketCount() {
     queryKey: ["v9", "onChainMarketCount", chainId, launchpadEngineAddress],
     enabled: !!chainId && !!launchpadEngineAddress,
     chainId,
-    refetchInterval: 30_000,
+    refetchInterval: getPollingInterval(chainId, 'slow'),
     staleTime: 15_000,
     read: async (client) => {
       const count = await readContractSafe<bigint>(client, {
         address: launchpadEngineAddress!,
-        abi: V9_ABIS.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
         functionName: "getMarketCount",
       });
       return Number(count);

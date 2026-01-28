@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Card } from '../ui/Card';
-import { useLaunchpadMarketDirect, useDirectRead, readContractSafe } from '../../hooks';
+import { useLaunchpadMarketDirect, useDirectRead, readContractSafe, useTruthMarketDirect } from '../../hooks';
 import { useMarketStatsMath } from '../../hooks/useMarketStatsMath';
 import { useDeployments } from '../../hooks/useDeployments';
-import { ERC20_ABI, V8_ABIS } from '../../config/abis';
+import { ERC20_ABI, ABIS } from '../../config/abis';
 import { formatUnits } from 'viem';
 import { CircleDollarSign, HelpCircle } from 'lucide-react';
 import { useChainStore } from '../../store/useChainStore';
@@ -32,15 +32,15 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     // 1.5. Fetch creator's actual LP balance
     const launchpadEngineAddress = deployments?.contracts?.LaunchpadEngine as `0x${string}`;
     const { data: creatorLpBalance } = useDirectRead({
-        queryKey: ['v8', 'creatorLpBalance', chainId, launchpadEngineAddress, marketAddress, launchpad?.creator],
-        enabled: !!marketAddress && !!chainId && !!launchpadEngineAddress && !!launchpad?.creator,
+        queryKey: ['v8', 'creatorLpBalance', chainId, launchpad?.lpToken, launchpad?.creator],
+        enabled: !!marketAddress && !!chainId && !!launchpad?.lpToken && !!launchpad?.creator,
         chainId,
         read: async (client) => {
             const balance = await readContractSafe<bigint>(client, {
-                address: launchpadEngineAddress!,
-                abi: V8_ABIS.LaunchpadEngine,
-                functionName: 'getLPBalance',
-                args: [marketAddress, launchpad!.creator as `0x${string}`],
+                address: launchpad!.lpToken as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: 'balanceOf',
+                args: [launchpad!.creator as `0x${string}`],
             });
             return balance ?? 0n;
         },
@@ -63,7 +63,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
         read: async (client) => {
             const [qYes, qNo, price] = await readContractSafe<readonly [bigint, bigint, bigint]>(client, {
                 address: ammEngineAddress!,
-                abi: V8_ABIS.AMMEngine,
+                abi: ABIS.AMMEngine,
                 functionName: 'getMarketState',
                 args: [marketAddress],
             });
@@ -74,30 +74,43 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
     // 4. Math
     const stats = useMarketStatsMath(launchpad as any, ammState, decimals);
 
+    // 5. Truth Market State (for finalized check)
+    const { market: truthMarket } = useTruthMarketDirect(marketAddress);
+    const isFinalized = truthMarket?.isFinalized ?? false;
+
     // Hint state - must be before early return to satisfy Rules of Hooks
     const [showHint, setShowHint] = useState(false);
 
-    if (!launchpad || !stats) {
+    if (!launchpad) {
         return null;
     }
+
+    // If stats are missing (e.g. finalized market), only proceed if finalized
+    if (!stats && !isFinalized) {
+        return null;
+    }
+
+    // Safe stats accessors
+    const floorRate = stats?.floorRate ?? 0;
+    const ceilingRate = stats?.ceilingRate ?? 0;
 
     // User LP
     const hasUserLp = launchpad.userLpBalance !== undefined && launchpad.userLpBalance > 0n;
     const userLP = launchpad.userLpBalance ?? 0n;
     const userLpNum = Number(formatUnits(userLP, 18));
-    const userFloorVal = userLpNum * stats.floorRate;
-    const userCeilingVal = userLpNum * stats.ceilingRate;
+    const userFloorVal = userLpNum * floorRate;
+    const userCeilingVal = userLpNum * ceilingRate;
 
     // Creator LP - use actual fetched balance, not total supply
     const creatorLP = creatorLpBalance ?? 0n;
     const creatorLpNum = Number(formatUnits(creatorLP, 18));
-    const creatorFloorVal = creatorLpNum * stats.floorRate;
-    const creatorCeilingVal = creatorLpNum * stats.ceilingRate;
+    const creatorFloorVal = creatorLpNum * floorRate;
+    const creatorCeilingVal = creatorLpNum * ceilingRate;
 
     // Total LP for market floor/ceiling display
     const totalLpNum = Number(formatUnits(launchpad.lpSupply, 18));
-    const marketFloorVal = totalLpNum * stats.floorRate;
-    const marketCeilingVal = totalLpNum * stats.ceilingRate;
+    const marketFloorVal = totalLpNum * floorRate;
+    const marketCeilingVal = totalLpNum * ceilingRate;
 
     // Share percentages (now that all values are defined)
     const userSharePct = totalLpNum > 0 ? (userLpNum / totalLpNum) * 100 : 0;
@@ -142,13 +155,14 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         onMouseLeave={() => setShowHint(false)}
                         onClick={() => setShowHint(!showHint)}
                         className="p-1 rounded-full text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
+                        aria-label="Show hint"
                     >
                         <HelpCircle className="w-3.5 h-3.5" />
                     </button>
 
                     {showHint && (
                         <div className="absolute right-0 top-full mt-2 z-50 w-72 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
-                            <p className="text-[10px] text-slate-300 leading-relaxed">
+                            <p className="text-xs text-slate-300 leading-relaxed">
                                 {isGraduated ? GRADUATED_HINT : BONDING_HINT}
                             </p>
                         </div>
@@ -157,7 +171,7 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
             </div>
 
             {/* Header Row */}
-            <div className="flex justify-between text-[10px] uppercase font-bold text-slate-500 tracking-wider px-2">
+            <div className="flex justify-between text-xs uppercase font-bold text-slate-500 tracking-wider px-2">
                 <div>LP Holder / Share</div>
                 <div>Floor / Ceiling</div>
             </div>
@@ -169,11 +183,13 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         <span className="font-mono text-white text-sm">
                             {launchpad.creator.slice(0, 6)}...{launchpad.creator.slice(-4)}
                         </span>
-                        <Badge variant="warning" className="text-[10px] h-5 py-0">Creator</Badge>
-                        {isCreator && <Badge variant="success" className="text-[10px] h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>}
+                        <Badge variant="warning" className="text-xs h-5 py-0">Creator</Badge>
+                        {isCreator && <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>}
                     </div>
                     <div className="text-right">
-                        <div className="font-mono text-emerald-400 font-bold">{fmtUsd(creatorFloorVal)}</div>
+                        <div className="font-mono text-emerald-400 font-bold">
+                            {stats ? fmtUsd(creatorFloorVal) : <span className="text-slate-500 text-xs">Finalized</span>}
+                        </div>
                     </div>
                 </div>
 
@@ -185,12 +201,12 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                         {creatorYieldShare > 0 && (
                             <>
                                 <span className="text-slate-600">•</span>
-                                <span className="text-amber-500">+{fmtUsd(creatorYieldShare)} yield</span>
+                                <span className="text-slate-500">+{fmtUsd(creatorYieldShare)} yield</span>
                             </>
                         )}
                     </div>
                     <div className="text-slate-500 font-mono">
-                        {fmtUsd(creatorCeilingVal)}
+                        {stats ? fmtUsd(creatorCeilingVal) : '-'}
                     </div>
                 </div>
             </div>
@@ -203,10 +219,12 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             <span className="font-mono text-white text-sm">
                                 {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Unknown'}
                             </span>
-                            <Badge variant="success" className="text-[10px] h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>
+                            <Badge variant="success" className="text-xs h-5 py-0 bg-emerald-950 text-emerald-400 border-emerald-900">You</Badge>
                         </div>
                         <div className="text-right">
-                            <div className="font-mono text-emerald-400 font-bold">{fmtUsd(userFloorVal)}</div>
+                            <div className="font-mono text-emerald-400 font-bold">
+                                {stats ? fmtUsd(userFloorVal) : <span className="text-slate-500 text-xs">Finalized</span>}
+                            </div>
                         </div>
                     </div>
 
@@ -218,31 +236,31 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                             {userYieldShare > 0 && (
                                 <>
                                     <span className="text-slate-600">•</span>
-                                    <span className="text-amber-500">+{fmtUsd(userYieldShare)} yield</span>
+                                    <span className="text-slate-500">+{fmtUsd(userYieldShare)} yield</span>
                                 </>
                             )}
                         </div>
                         <div className="text-slate-500 font-mono">
-                            {fmtUsd(userCeilingVal)}
+                            {stats ? fmtUsd(userCeilingVal) : '-'}
                         </div>
                     </div>
                 </div>
             )}
 
             {/* LP Yield Pool */}
-            <div className="bg-gradient-to-r from-amber-950/30 to-slate-900/30 rounded-lg p-4 border border-amber-900/30">
+            <div className="bg-gradient-to-r from-slate-950/30 to-slate-900/30 rounded-lg p-4 border border-slate-800/30">
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">LP Yield Pool</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">LP Yield Pool</span>
                         {!isGraduated && (
-                            <span className="text-[9px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">
                                 Accrues post-grad
                             </span>
                         )}
                     </div>
                     <span className={cn(
                         "text-lg font-bold font-mono",
-                        lpYieldPoolNum > 0 ? "text-amber-400" : "text-slate-600"
+                        lpYieldPoolNum > 0 ? "text-slate-400" : "text-slate-600"
                     )}>
                         {fmtUsd(lpYieldPoolNum)}
                     </span>
@@ -250,16 +268,16 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
 
                 {/* User's yield share */}
                 {(hasUserLp || isCreator) && lpYieldPoolNum > 0 && (
-                    <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-900/20">
+                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800/20">
                         <span className="text-slate-400">Your share ({(isCreator ? creatorSharePct : userSharePct).toFixed(1)}%)</span>
-                        <span className="text-amber-400 font-mono font-bold">
+                        <span className="text-slate-400 font-mono font-bold">
                             {fmtUsd(isCreator ? creatorYieldShare : userYieldShare)}
                         </span>
                     </div>
                 )}
 
                 {lpYieldPoolNum === 0 && (
-                    <div className="text-[10px] text-slate-500 italic">
+                    <div className="text-xs text-slate-500 italic">
                         {isGraduated
                             ? 'No yield accrued yet — yield accumulates from post-graduation trading fees.'
                             : 'Yield pool is empty during bonding. LP yield accrues only after graduation.'}
@@ -272,15 +290,23 @@ export const LPHolders: React.FC<LPHoldersProps> = ({ marketAddress }) => {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     {/* Floor */}
                     <div>
-                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
-                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">{fmtUsd(marketFloorVal)}</div>
-                        <div className="text-sm font-mono text-slate-400">{stats.floorRate.toFixed(3)}x</div>
+                        <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Floor</div>
+                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+                            {stats ? fmtUsd(marketFloorVal) : <span className="text-lg">Finalized</span>}
+                        </div>
+                        <div className="text-sm font-mono text-slate-400">
+                            {stats ? `${stats.floorRate.toFixed(3)}x` : '-'}
+                        </div>
                     </div>
                     {/* Ceiling */}
                     <div className="text-right">
-                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
-                        <div className="text-2xl font-bold text-white tracking-tight">{fmtUsd(marketCeilingVal)}</div>
-                        <div className="text-sm font-mono text-slate-400">{stats.ceilingRate.toFixed(3)}x</div>
+                        <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Ceiling</div>
+                        <div className="text-2xl font-bold text-white tracking-tight">
+                            {stats ? fmtUsd(marketCeilingVal) : <span className="text-lg">-</span>}
+                        </div>
+                        <div className="text-sm font-mono text-slate-400">
+                            {stats ? `${stats.ceilingRate.toFixed(3)}x` : '-'}
+                        </div>
                     </div>
                 </div>
 

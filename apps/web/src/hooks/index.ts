@@ -102,7 +102,3 @@ export { useOrderbookTrade } from "./useOrderbookTrade";
 // ============================================================
 export { useAmmMarket as useAmmMarketById } from "./useAmmMarketById";
 export { useAmmMarketByAddress } from "./useAmmMarketByAddress";
-
-// Backward compatibility aliases (deprecated - use new names)
-export { useDirectRead as useV8DirectRead } from "./useDirectRead";
-export { useInvalidateQueries as useInvalidateV8Queries } from "./useDirectRead";

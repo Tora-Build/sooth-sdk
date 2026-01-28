@@ -1,9 +1,10 @@
-import { useReadContracts } from "wagmi";
+import { useReadContracts, useReadContract } from "wagmi";
 import { useMemo } from "react";
-import { V8_ABIS } from "../config/abis";
+import { ABIS, ERC20_ABI } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch creator's LP position and earnings for a market
@@ -25,7 +26,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             // Full market struct from mapping `markets(market)`
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -33,33 +34,58 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             // Graduation progress (feesAccrued, threshold, progressBps)
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
-                chainId,
-            },
-            // Creator's LP balance (for share/yield computations)
-            {
-                address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
-                functionName: "getLPBalance",
-                args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
             },
         ],
         query: {
             enabled: !!marketAddress && !!launchpadEngineAddress && !!userAddress && !!selectedChainId,
-            refetchInterval: 30000,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
 
     const { data, isLoading, error, refetch } = read;
 
+    const lpTokenAddress = useMemo(() => {
+        const marketsResult = data?.[0];
+        if (!marketsResult || marketsResult.status !== "success") return undefined;
+        const marketState = marketsResult.result as readonly [
+            `0x${string}`,
+            `0x${string}`,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint
+        ];
+        const lpToken = marketState[1];
+        if (lpToken === "0x0000000000000000000000000000000000000000") return undefined;
+        return lpToken;
+    }, [data]);
+
+    const lpBalanceRead = useReadContract({
+        address: lpTokenAddress,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: userAddress ? [userAddress] : undefined,
+        query: {
+            enabled: !!lpTokenAddress && !!userAddress,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
+            staleTime: 10000,
+        },
+    });
+
     const creatorData = useMemo(() => {
         if (!data || !marketAddress || !userAddress) return null;
 
-        const [marketsResult, graduationProgressResult, lpBalanceResult] = data;
+        const [marketsResult, graduationProgressResult] = data;
 
         // Check if critical reads failed
         if (
@@ -70,8 +96,9 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
         }
 
         // Parse markets(market) tuple:
-        // (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
+        // (creator, lpToken, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
         const marketState = marketsResult.result as readonly [
+            `0x${string}`,
             `0x${string}`,
             bigint,
             bigint,
@@ -86,6 +113,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
 
         const [
             creator,
+            _lpToken,
             bBase,
             bCurrent,
             creatorDeposit,
@@ -129,10 +157,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             };
         }
 
-        const lpBalance =
-            lpBalanceResult.status === "success"
-                ? (lpBalanceResult.result as bigint)
-                : 0n;
+        const lpBalance = typeof lpBalanceRead.data === "bigint" ? lpBalanceRead.data : 0n;
 
         const lpBalanceBn = asBigInt(lpBalance);
 
@@ -175,7 +200,7 @@ export function useCreatorPosition(marketAddress: `0x${string}` | undefined) {
             hasClaimableYield: claimableYield > 0n,
             hasEarnings: totalEarnings > 0n,
         };
-    }, [data, marketAddress, userAddress]);
+    }, [data, lpBalanceRead.data, marketAddress, userAddress]);
 
     return {
         position: creatorData,
@@ -204,7 +229,7 @@ export function useIsCreator(marketAddress: `0x${string}` | undefined) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
@@ -224,7 +249,19 @@ export function useIsCreator(marketAddress: `0x${string}` | undefined) {
 
         if (marketStateResult.status === "failure") return false;
 
-        const marketState = marketStateResult.result as readonly [`0x${string}`, bigint, bigint, bigint, bigint];
+        const marketState = marketStateResult.result as readonly [
+            `0x${string}`,
+            `0x${string}`,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+            bigint
+        ];
         const [creator] = marketState;
 
         return creator.toLowerCase() === userAddress.toLowerCase();

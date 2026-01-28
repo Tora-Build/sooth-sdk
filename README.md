@@ -2,8 +2,54 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V9.9.6  
+**Current Version**: V11.1 (Trial Period, ERC20 LP, ValidatedAdjudicator)  
+**Codebase**: V11 | **Deployed**: V11.1 (Base Sepolia testing)  
 **Status**: Alpha (breaking changes allowed)
+
+## Active Deployments
+
+### Base Sepolia (chainId: 84532) - V11.1 (Active Testing)
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x3cfa2113c919c916e8334d245b157de937e76836` |
+| TickBookPoolManager | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
+| TickBookVault | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
+| AMMEngine | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
+| Collateralizer | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
+| ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
+| MockUSDC | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
+
+> **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
+
+### Monad Testnet (chainId: 10143) - V10.9
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
+| TickBookPoolManager | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
+| TickBookVault | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
+| AMMEngine | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
+| Collateralizer | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
+| MockUSDC | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
+
+### MegaETH Testnet (chainId: 6343) - V10.9
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
+| TickBookPoolManager | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
+| TickBookVault | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
+| AMMEngine | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
+| Collateralizer | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
+| MockUSDC | `0x57bda4319c306a68054f25017183030752f97d63` |
+
+### Arc Testnet (chainId: 5042002) - V10.9
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0x625b4b2997232380126f0aecd84867086f89b27e` |
+| TickBookPoolManager | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
+| TickBookVault | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
+| AMMEngine | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
+| Collateralizer | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
+| MockUSDC | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
 
 ## Structure
 
@@ -12,11 +58,11 @@ sooth-alpha/
 ├── apps/
 │   └── web/                      # Frontend dApp (Vite + React 18)
 ├── packages/
-│   ├── contracts-core/           # Solidity smart contracts (Foundry)
-│   ├── contracts-testing/        # Contract tests & deployment scripts
-│   └── indexer/                  # Ponder indexer for orderbook data
+│   ├── contracts-core/           # Solidity smart contracts (Foundry) - Audit scope
+│   ├── contracts-testing/        # Contract tests, CLI & deployment scripts
+│   ├── indexer/                  # Ponder indexer for orderbook data
+│   └── keeper/                   # Arbitrage keeper bot for TickBook
 ├── .agent/                       # Agent workflows and knowledge base
-├── start-all.sh                  # Dev environment launcher
 ├── package.json                  # pnpm workspace root
 ├── pnpm-workspace.yaml
 └── turbo.json                    # Build pipeline
@@ -29,6 +75,7 @@ sooth-alpha/
 - **Node.js** 18+
 - **pnpm** 9+ (`npm install -g pnpm`)
 - **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`)
+- **Bun** (for deployment scripts: `curl -fsSL https://bun.sh/install | bash`)
 
 ### Setup
 
@@ -42,58 +89,60 @@ pnpm build
 
 ### Development
 
-**Start Everything (Recommended):**
-
 ```bash
-# Start web + indexer together
-pnpm dev:all
+# Start web + indexer (parallel)
+pnpm dev
 
-# Or with process management (logs, PID tracking)
-./start-all.sh
-```
-
-**Individual Services:**
-
-```bash
-# Frontend only
-pnpm dev:web
-# → http://localhost:5173
-
-# Indexer only
-pnpm dev:indexer
-# → http://localhost:42069
-```
-
-**Service Management:**
-
-```bash
-# Check status
-./start-all.sh --status
-
-# Stop all
-./start-all.sh --stop
+# Or individually
+pnpm dev:web        # → http://localhost:5173
+pnpm dev:indexer    # → http://localhost:42069
 ```
 
 **Contracts:**
 
 ```bash
-cd packages/contracts-core
-forge build
-forge test
+# Build
+pnpm build
+
+# Test
+pnpm test:contracts
+
+# Deploy
+pnpm deploy:contracts
 ```
 
-## Architecture (V8 Modular)
+**Interactive CLI:**
 
-V8 is a modular stack with clear domain separation:
+```bash
+pnpm dev:cli:base      # Base Sepolia
+pnpm dev:cli:monad     # Monad Testnet
+pnpm dev:cli:arc       # Arc Testnet
+pnpm dev:cli:megaeth   # MegaETH Testnet
+```
+
+**Keeper Bot:**
+
+```bash
+PRIVATE_KEY=0x... pnpm dev:keeper:base
+PRIVATE_KEY=0x... pnpm dev:keeper:monad
+PRIVATE_KEY=0x... pnpm dev:keeper:arc
+PRIVATE_KEY=0x... pnpm dev:keeper:megaeth
+```
+
+## Architecture (V10 Unified Crossing)
+
+V10 introduces unified crossing where `placeOrder` natively crosses both Spot Sells and Range Orders:
 
 ```
 TruthMarket (lifecycle + settlement)
   ↑ (queried by)
-LaunchpadEngine (creator economics, governance params)
+LaunchpadEngine (creator economics, graduation mechanics)
   ↓ (delegates to)
-AMMEngine (LMSR positions + 24h sell locks)
-TickBook (orderbook venue)
-Collateralizer (split/merge/redeem)
+AMMEngine (LMSR positions for pre-graduation)
+TickBookPoolManager (unified orderbook: spot + range liquidity)
+  ↓ (manages)
+TickBookVault (USDC + outcome token custody)
+Collateralizer (split/merge/redeem for graduated markets)
 ```
 
 ### Key Concepts
@@ -101,9 +150,10 @@ Collateralizer (split/merge/redeem)
 | Concept | Description |
 |---------|-------------|
 | **TruthMarket** | Canonical lifecycle + settlement authority |
-| **LaunchpadEngine** | Creator deposit + LP accounting + fee distribution + graduation mechanics |
-| **AMMEngine** | Pure LMSR trading logic + 24h sell lock mechanics |
-| **TickBook** | Orderbook venue (separate domain from AMM) |
+| **LaunchpadEngine** | Creator deposit + fee distribution + graduation |
+| **AMMEngine** | LMSR trading logic for pre-graduation markets |
+| **TickBookPoolManager** | V10 unified orderbook (spot-first, then range crossing) |
+| **TickBookVault** | User fund custody (USDC + outcome tokens) |
 | **Collateralizer** | Token split/merge/redeem operations |
 
 ## Packages
@@ -112,27 +162,28 @@ Collateralizer (split/merge/redeem)
 
 Vite + React 18 dApp with:
 
-- Wagmi v2 for Web3 connectivity
+- Wagmi v2 + Viem for Web3 connectivity
 - Zustand for state management
-- Tailwind CSS for styling
+- CSS variables for theming
 
-### `packages/contracts-evm`
+### `packages/contracts-core`
 
-Foundry project containing:
+Foundry project containing the **audit scope**:
 
-- `TruthMarket` — Lifecycle + settlement authority
-- `LaunchpadEngine` — Creator economics wrapper (governance-controlled)
-- `AMMEngine` — Pure trading logic (LMSR)
-- `TickBook` — Orderbook venue
+- `TickBookPoolManager` — V10 unified orderbook with spot-first crossing
+- `TickBookVault` — User fund custody
+- `LaunchpadEngine` — Market creation + graduation
+- `AMMEngine` — LMSR trading (pre-graduation)
 - `Collateralizer` — Token management
-- `OutcomeToken` — Outcome token contract
+- `TruthMarket` — Lifecycle + settlement
 
-## Active Deployments
+### `packages/contracts-testing`
 
-Deployment addresses change frequently in alpha.
+Testing & deployment tools:
 
-- **Source of truth (frontend config)**: `apps/web/src/config/deployments.json` + `apps/web/src/config/markets.json`
-- **Current status / known issues**: `STATUS.md`
+- Forge test suites (79 tests)
+- Interactive CLI for on-chain testing
+- Deployment scripts (multi-chain)
 
 ## Agent Workflows
 
@@ -144,37 +195,33 @@ This repo supports **scoped agent contexts** for different developer roles:
 | Frontend Dev | `/frontend-dev` | React dApp                 |
 | Full-Stack   | `/fullstack-dev`| Cross-package features     |
 | Librarian    | `/librarian`    | Docs & cleanup             |
+| Preflight    | `/preflight`    | Session startup checklist  |
 
 Run `/preflight` at session start to load context.
 
 ## Scripts
 
-| Script                  | Description                         |
-| ----------------------- | ----------------------------------- |
-| `./start-all.sh`        | Start all dev services              |
-| `./start-all.sh --stop` | Stop all services                   |
-| `./start-all.sh --status` | Check service status              |
-| `pnpm dev:all`          | Start web + indexer (parallel)      |
-| `pnpm dev:web`          | Start web only                      |
-| `pnpm dev:indexer`      | Start indexer only                  |
-
-## Documentation
-
-- [Web Specs Index (V8)](./apps/web/docs/specs/README.md)
-- [EVM Docs Root](./packages/contracts-evm/docs/README.md)
-- [V8 Modular Architecture (research)](./packages/contracts-evm/docs/research/V8/V8_MODULAR_ARCHITECTURE.md)
-- [V8 Launchpad Architecture (research)](./packages/contracts-evm/docs/research/V8/V8_LAUNCHPAD_ARCHITECTURE.md)
-- [Deployment (V8)](./packages/contracts-evm/docs/V8_DEPLOYMENT_GUIDE.md)
-- [Money Flow Diagram](./packages/contracts-evm/docs/core/MONEY_FLOW_DIAGRAM.md)
-
-Historical docs are kept under per-package `_archive/` folders:
-
-- [Web archives](./apps/web/docs/_archive/README.md)
-- [EVM archives](./packages/contracts-evm/docs/_archive/README.md)
+| Script | Description |
+|--------|-------------|
+| `pnpm dev` | Start web + indexer (parallel) |
+| `pnpm dev:web` | Start web only |
+| `pnpm dev:indexer` | Start indexer only |
+| `pnpm build` | Build all packages |
+| `pnpm test` | Run all tests |
+| `pnpm test:contracts` | Run forge tests |
+| `pnpm deploy:contracts` | Deploy contracts |
+| `pnpm dev:cli:base` | Interactive CLI (Base Sepolia) |
+| `pnpm dev:cli:monad` | Interactive CLI (Monad Testnet) |
+| `pnpm dev:cli:arc` | Interactive CLI (Arc Testnet) |
+| `pnpm dev:cli:megaeth` | Interactive CLI (MegaETH Testnet) |
+| `pnpm dev:keeper:base` | Keeper bot (Base Sepolia) |
+| `pnpm dev:keeper:monad` | Keeper bot (Monad Testnet) |
+| `pnpm dev:keeper:arc` | Keeper bot (Arc Testnet) |
+| `pnpm dev:keeper:megaeth` | Keeper bot (MegaETH Testnet) |
 
 ## Key Files
 
-- `STATUS.md` — Current project state
+- `STATUS.md` — Current project state & deployments
 - `CHANGELOG.md` — Release history
 - `DECISIONS.md` — Architecture decisions (ADRs)
 - `.agent/KNOWLEDGE.md` — Protocol facts and formulas

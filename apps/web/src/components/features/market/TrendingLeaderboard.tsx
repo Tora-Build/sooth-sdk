@@ -31,7 +31,7 @@ export const TrendingLeaderboard = ({ markets }: TrendingLeaderboardProps) => {
           <Flame className="w-4 h-4 text-fuchsia-400" />
           Trending Now
         </h2>
-        <Badge className="text-[9px] bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/50 animate-pulse">
+        <Badge className="text-xs bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/50 animate-pulse">
           LIVE
         </Badge>
       </div>
@@ -47,9 +47,9 @@ export const TrendingLeaderboard = ({ markets }: TrendingLeaderboardProps) => {
 
 const TrendingCard = ({ market, rank }: { market: Market; rank: number }) => {
   const rankColors = {
-    1: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+    1: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
     2: 'text-slate-300 border-slate-500/30 bg-slate-500/10',
-    3: 'text-amber-600 border-amber-600/30 bg-amber-600/10',
+    3: 'text-slate-400 border-slate-400/30 bg-slate-400/10',
   };
 
   return (

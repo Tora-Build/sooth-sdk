@@ -276,13 +276,14 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
     return { success: false, message: 'No market selected' };
   }
 
-  try {
-    const [truthMarket, yesToken, noToken, hook] = await publicClient.readContract({
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'getMarketInfo',
-      args: [marketKey],
-    }) as [string, string, string, string];
+   try {
+     const result = await publicClient.readContract({
+       address: deployment.contracts.TickBookPoolManager as `0x${string}`,
+       abi: ABIS.TickBookPoolManager,
+       functionName: 'getMarketInfo',
+       args: [marketKey],
+     }) as readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean];
+     const [truthMarket, yesToken, noToken, hasHook] = result;
 
     const active =
       truthMarket !== '0x0000000000000000000000000000000000000000' &&
@@ -295,7 +296,7 @@ export async function marketinfo(ctx: CommandContext, args: string[]): Promise<C
     console.log(`  TruthMarket:  ${truthMarket}`);
     console.log(`  YES Token:    ${yesToken}`);
     console.log(`  NO Token:     ${noToken}`);
-    console.log(`  Hook:         ${hook === '0x0000000000000000000000000000000000000000' ? dim('none') : hook}`);
+    console.log(`  Has Hook:     ${hasHook ? success('yes') : dim('no')}`);
     console.log(`  Active:       ${active ? success('yes') : warn('no')}`);
     console.log('');
 
@@ -359,41 +360,62 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
         const marker = isCurrent ? success('→') : ' ';
 
         try {
-          const marketState = await publicClient.readContract({
-            address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
-            abi: [
-              {
-                name: 'markets',
-                type: 'function',
-                inputs: [{ type: 'address', name: 'market' }],
-                outputs: [
-                  { type: 'address', name: 'creator' },
-                  { type: 'uint256', name: 'bBase' },
-                  { type: 'uint256', name: 'bCurrent' },
-                  { type: 'uint256', name: 'creatorDeposit' },
-                  { type: 'uint256', name: 'feesAccrued' },
-                  { type: 'uint256', name: 'totalLPSupply' },
-                  { type: 'uint256', name: 'lpYieldPool' },
-                  { type: 'bool', name: 'isGraduated' },
-                  { type: 'uint64', name: 'createdAt' },
-                  { type: 'uint64', name: 'graduatedAt' },
-                  { type: 'string', name: 'name' },
-                  { type: 'string', name: 'symbol' },
-                ],
-                stateMutability: 'view',
-              },
-            ],
-            functionName: 'markets',
-            args: [addr as `0x${string}`],
-          }) as [string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint, string, string];
+          // V11: MarketState includes lpToken at index 1
+           const marketState = await publicClient.readContract({
+             address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+             abi: [
+               {
+                 name: 'markets',
+                 type: 'function',
+                 inputs: [{ type: 'address', name: 'market' }],
+                 outputs: [
+                   { type: 'address', name: 'creator' },
+                   { type: 'address', name: 'lpToken' },
+                   { type: 'uint256', name: 'bBase' },
+                   { type: 'uint256', name: 'bCurrent' },
+                   { type: 'uint256', name: 'creatorDeposit' },
+                   { type: 'uint256', name: 'feesAccrued' },
+                   { type: 'uint256', name: 'totalLPSupply' },
+                   { type: 'uint256', name: 'lpYieldPool' },
+                   { type: 'bool', name: 'isGraduated' },
+                   { type: 'uint64', name: 'createdAt' },
+                   { type: 'uint64', name: 'graduatedAt' },
+                 ],
+                 stateMutability: 'view',
+               },
+             ],
+             functionName: 'markets',
+             args: [addr as `0x${string}`],
+           }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
 
-          const [, bBase, , , , , , isGraduated, , , name, symbol] = marketState;
+           const [, , bBase, , , , , , isGraduated] = marketState;
+          
+          // Symbol derived from address (first 4 bytes = 8 hex chars)
+          const symbol = addr.slice(2, 10).toUpperCase();
+          
+          // Try to fetch actual name from TruthMarket.question()
+          let name = symbol;
+          try {
+            const question = await publicClient.readContract({
+              address: addr as `0x${string}`,
+              abi: [
+                {
+                  name: 'question',
+                  type: 'function',
+                  inputs: [],
+                  outputs: [{ type: 'string', name: '' }],
+                  stateMutability: 'view',
+                },
+              ],
+              functionName: 'question',
+            }) as string;
+            if (question) name = question.length > 40 ? question.slice(0, 37) + '...' : question;
+          } catch {}
           const bDisplay = (Number(bBase) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-          // Get graduation progress
-          let statusStr: string;
+          let pctStr = '?';
           if (isGraduated) {
-            statusStr = success('✓ graduated');
+            pctStr = '✓';
           } else {
             try {
               const progress = await publicClient.readContract({
@@ -415,15 +437,15 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
                 args: [addr as `0x${string}`],
               }) as [bigint, bigint, bigint];
               const pctBps = Number(progress[2]);
-              const pct = (pctBps / 100).toFixed(0); // Convert bps to %
-              statusStr = pctBps >= 10000 ? warn('ready!') : dim(`${pct}%`);
-            } catch {
-              statusStr = dim('○');
-            }
+              pctStr = pctBps >= 10000 ? 'ready!' : `${(pctBps / 100).toFixed(0)}%`;
+            } catch {}
           }
-          console.log(`  ${marker} ${i}: ${name || 'Unnamed'} [${symbol}] ${statusStr} b=${bDisplay} (${shortAddress(addr)})`);
+          const nameDisplay = (name || 'Unnamed').slice(0, 55);
+          console.log(`  ${marker} ${i}: ${nameDisplay}`);
+          console.log(`     ${dim(`[${symbol}]  ${pctStr.padEnd(6)}  b=${bDisplay.padStart(6)}  ${shortAddress(addr)}`)}`);
         } catch {
-          console.log(`  ${marker} ${i}: ${dim('(error fetching)')} (${shortAddress(addr)})`);
+          console.log(`  ${marker} ${i}: ${dim('(error fetching)')}`);
+          console.log(`     ${dim(`${shortAddress(addr)}`)}`);
         }
       }
     }
@@ -435,7 +457,9 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
       deployment.markets.forEach((m, i) => {
         const isCurrent = m.address.toLowerCase() === marketAddress?.toLowerCase();
         const marker = isCurrent ? success('→') : ' ';
-        console.log(`  ${marker} ${i}: ${m.name || 'Unnamed'} (${shortAddress(m.address)})`);
+        const nameDisplay = (m.name || 'Unnamed').padEnd(50).slice(0, 50);
+        console.log(`  ${marker} ${i}: ${nameDisplay}`);
+        console.log(`     ${dim(shortAddress(m.address))}`);
       });
     }
   }
@@ -451,9 +475,10 @@ export async function markets(ctx: CommandContext, args: string[]): Promise<Comm
 export async function setmarket(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   // This is handled in the main REPL, but we provide help here
   if (args.length < 1) {
-    console.log('\n  Usage: setmarket <address|index>');
+    console.log('\n  Usage: setmarket <address|index|latest>');
     console.log('  Example: setmarket 0x1234...');
     console.log('  Example: setmarket 0  (first market in deployment)');
+    console.log('  Example: setmarket latest  (most recent on-chain)');
 
     // Show available markets
     if (ctx.deployment.markets.length > 0) {

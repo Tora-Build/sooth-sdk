@@ -1,12 +1,11 @@
-import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract, useConfig } from "wagmi";
+import { useReadContracts, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { useMemo, useCallback, useEffect } from "react";
-import { V8_ABIS, ERC20_ABI } from "../config/abis";
+import { ABIS, ERC20_ABI } from "../config/abis";
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
 import { useAccount } from "wagmi";
 import { maxUint256 } from "viem";
-import { deployContract } from "wagmi/actions";
-import { TRUTH_MARKET_BYTECODE } from "../config/bytecode";
+import { getPollingInterval } from "../lib/polling";
 
 /**
  * Hook to fetch LaunchpadEngine state for a market and handle market operations
@@ -19,7 +18,6 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const { address: userAddress } = useAccount();
     const deployments = useDeployments();
     const chainId = typeof selectedChainId === "number" ? selectedChainId : Number(selectedChainId);
-    const config = useConfig();
 
     const launchpadEngineAddress = deployments?.contracts
         ?.LaunchpadEngine as `0x${string}` | undefined;
@@ -59,52 +57,91 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         query: { enabled: !!userAddress && !!usdcAddress }
     });
 
+    const { data: protocolConfig } = useReadContract({
+        address: launchpadEngineAddress,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'protocolConfig',
+        query: { enabled: !!launchpadEngineAddress },
+    });
+
     // Market reads (lightweight mapping state + graduation)
     const readMarket = useReadContracts({
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getMarketState",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "markets",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "getGraduationProgress",
                 args: marketAddress ? [marketAddress] : undefined,
                 chainId,
             },
-        ],
-        query: {
-            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
-            refetchInterval: 30000,
-            staleTime: 10000,
-        },
-    });
-
-    // LP Balance (separate optional read)
-    const readLpBalance = useReadContracts({
-        contracts: [
+            // V11: Trial period state
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
-                functionName: "getLPBalance",
+                abi: ABIS.LaunchpadEngine,
+                functionName: "trialStates",
+                args: marketAddress ? [marketAddress] : undefined,
+                chainId,
+            },
+            // V11: User's locked cost for refund
+            {
+                address: launchpadEngineAddress,
+                abi: ABIS.LaunchpadEngine,
+                functionName: "userLockedCost",
                 args: marketAddress && userAddress ? [marketAddress, userAddress] : undefined,
                 chainId,
             },
         ],
         query: {
-            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId && !!userAddress,
-            refetchInterval: 30000,
+            enabled: !!marketAddress && !!launchpadEngineAddress && !!selectedChainId,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
+            staleTime: 10000,
+        },
+    });
+
+    const lpTokenAddress = useMemo(() => {
+        const marketsMappingResult = (readMarket.data as any[] | undefined)?.[1];
+        if (marketsMappingResult?.status !== "success") return undefined;
+        const marketState = marketsMappingResult.result as readonly [
+            `0x${string}`, // creator
+            `0x${string}`, // lpToken
+            bigint,        // bBase
+            bigint,        // bCurrent
+            bigint,        // creatorDeposit
+            bigint,        // feesAccrued
+            bigint,        // totalLPSupply
+            bigint,        // lpYieldPool
+            boolean,       // isGraduated
+            bigint,        // createdAt
+            bigint         // graduatedAt
+        ];
+        const lpToken = marketState[1];
+        if (lpToken === "0x0000000000000000000000000000000000000000") return undefined;
+        return lpToken;
+    }, [readMarket.data]);
+
+    // LP Balance (separate optional read)
+    const readLpBalance = useReadContract({
+        address: lpTokenAddress,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: userAddress ? [userAddress] : undefined,
+        query: {
+            enabled: !!lpTokenAddress && !!userAddress,
+            refetchInterval: getPollingInterval(chainId, 'slow'),
             staleTime: 10000,
         },
     });
@@ -114,19 +151,19 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         contracts: [
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "preGradFeeBps",
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "postGradFeeBps",
                 chainId,
             },
             {
                 address: launchpadEngineAddress,
-                abi: V8_ABIS.LaunchpadEngine,
+                abi: ABIS.LaunchpadEngine,
                 functionName: "graduationMultiplier",
                 chainId,
             },
@@ -143,7 +180,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     const dataLpBalance = readLpBalance.data;
     const isLoading = readMarket.isLoading;
     const error = readMarket.error || readParams.error;
-    
+
     const refetch = useCallback(async () => {
         await Promise.all([readMarket.refetch(), readParams.refetch(), readLpBalance.refetch(), refetchAllowance()]);
     }, [readMarket, readParams, readLpBalance, refetchAllowance]);
@@ -156,33 +193,32 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
     // WRITE FUNCTIONS
     // -------------------------------------------------------------------------
 
-    const deployTruthMarket = useCallback(async (
-        question: string,
-        deadline: number,
-        adjudicator: `0x${string}`,
-        guardian: `0x${string}`
-    ) => {
-        return await deployContract(config, {
-            abi: V8_ABIS.TruthMarket,
-            bytecode: TRUTH_MARKET_BYTECODE as `0x${string}`,
-            args: [question, BigInt(deadline), adjudicator, guardian],
-        });
-    }, [config]);
-
     const createMarket = useCallback((
-        truthMarketAddr: `0x${string}`,
+        question: string,
+        startTime: bigint,
+        deadline: bigint,
+        adjudicator: `0x${string}`,
         initialLiquidity: bigint,
-        name: string,
-        symbol: string
+        adjudicatorAgentId: bigint = 0n,
+        adjudicatorMinValidators: bigint = 0n
     ) => {
-        if (!launchpadEngineAddress) return;
+        if (!launchpadEngineAddress || !protocolConfig) return;
         writeContract({
             address: launchpadEngineAddress,
-            abi: V8_ABIS.LaunchpadEngine,
+            abi: ABIS.LaunchpadEngine,
             functionName: "createMarket",
-            args: [truthMarketAddr, initialLiquidity, name, symbol],
+            args: [
+                question,
+                startTime,
+                deadline,
+                adjudicator,
+                protocolConfig as `0x${string}`,
+                initialLiquidity,
+                adjudicatorAgentId,
+                adjudicatorMinValidators,
+            ],
         });
-    }, [launchpadEngineAddress, writeContract]);
+    }, [launchpadEngineAddress, protocolConfig, writeContract]);
 
     const approveUSDC = useCallback(() => {
         if (!usdcAddress || !launchpadEngineAddress) return;
@@ -198,9 +234,31 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         if (!launchpadEngineAddress || !marketAddress) return;
         writeContract({
             address: launchpadEngineAddress,
-            abi: V8_ABIS.LaunchpadEngine,
+            abi: ABIS.LaunchpadEngine,
             functionName: 'redeemLP',
             args: [marketAddress, amount]
+        });
+    }, [launchpadEngineAddress, marketAddress, writeContract]);
+
+    // V11: Dismiss market (creator only, after trial ends, if not graduated)
+    const dismissMarket = useCallback(() => {
+        if (!launchpadEngineAddress || !marketAddress) return;
+        writeContract({
+            address: launchpadEngineAddress,
+            abi: ABIS.LaunchpadEngine,
+            functionName: 'dismissMarket',
+            args: [marketAddress]
+        });
+    }, [launchpadEngineAddress, marketAddress, writeContract]);
+
+    // V11: Claim refund (after dismissal)
+    const claimRefund = useCallback(() => {
+        if (!launchpadEngineAddress || !marketAddress) return;
+        writeContract({
+            address: launchpadEngineAddress,
+            abi: ABIS.LaunchpadEngine,
+            functionName: 'claimRefund',
+            args: [marketAddress]
         });
     }, [launchpadEngineAddress, marketAddress, writeContract]);
 
@@ -211,7 +269,9 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         const marketStateDetailedResult = marketResults[0];
         const marketsMappingResult = marketResults[1];
         const graduationProgressResult = marketResults[2];
-        const lpBalanceResult = (dataLpBalance as any[] | undefined)?.[0];
+        const trialStateResult = marketResults[3];
+        const userLockedCostResult = marketResults[4];
+        const lpBalanceResult = dataLpBalance;
 
         const preGradFeeResult = (dataParams as any[] | undefined)?.[0];
         const postGradFeeResult = (dataParams as any[] | undefined)?.[1];
@@ -240,38 +300,65 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             floorValue,
         ] = detailedState;
 
-        // markets(market) -> (creator, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt)
+        // markets(market) -> V11: includes lpToken
         const marketState = marketsMappingResult.result as readonly [
-            `0x${string}`,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            boolean,
-            bigint,
-            bigint
+            `0x${string}`, // creator
+            `0x${string}`, // lpToken
+            bigint,        // bBase
+            bigint,        // bCurrent
+            bigint,        // creatorDeposit
+            bigint,        // feesAccrued
+            bigint,        // totalLPSupply
+            bigint,        // lpYieldPool
+            boolean,       // isGraduated
+            bigint,        // createdAt (uint64)
+            bigint         // graduatedAt (uint64)
         ];
         const [
-            _c, _bB, _bC,
+            _c,
+            _lpToken,
+            _bB,
+            _bC,
             creatorDeposit,
             feesAccruedFromMarket,
             _tLS,
             lpYieldPool,
-            _iG,
-            _cA,
-            _gA
         ] = marketState;
+
+        // V10.8.3: Symbol derived from market address (first 4 bytes = 8 hex chars)
+        const symbol = marketAddress.slice(2, 10).toUpperCase();
+        const name = symbol;
 
         // getGraduationProgress(market) -> (feesAccrued, threshold, progressBps)
         const graduationProgressTuple = graduationProgressResult.result as readonly [bigint, bigint, bigint];
         const [feesAccrued, graduationThreshold, progressBps] = graduationProgressTuple;
 
-        const userLpBalance =
-            lpBalanceResult?.status === "success"
-                ? (lpBalanceResult.result as bigint)
-                : 0n;
+        // V11: Parse trial state
+        let trialEndTime = 0n;
+        let isDismissed = false;
+        let totalLockedCost = 0n;
+        if (trialStateResult?.status === "success") {
+            const trialTuple = trialStateResult.result as readonly [bigint, boolean, bigint];
+            [trialEndTime, isDismissed, totalLockedCost] = trialTuple;
+        }
+
+        // V11: User's locked cost
+        const userLockedCostValue = userLockedCostResult?.status === "success"
+            ? (userLockedCostResult.result as bigint)
+            : 0n;
+
+        // V11: Trial period calculations
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        const isInTrialPeriod = now < trialEndTime && !isDismissed;
+        const trialEnded = now >= trialEndTime;
+        // Can dismiss: trial ended, not dismissed, not graduated
+        const canDismiss = trialEnded && !isDismissed && !isGraduated;
+        // Can claim refund: dismissed and has locked cost
+        const canClaimRefund = isDismissed && userLockedCostValue > 0n;
+        // Trial time remaining in seconds
+        const trialTimeRemaining = trialEndTime > now ? Number(trialEndTime - now) : 0;
+
+        const userLpBalance = typeof lpBalanceResult === "bigint" ? lpBalanceResult : 0n;
         const preGradFeeBps =
             preGradFeeResult?.status === "success"
                 ? (preGradFeeResult.result as bigint)
@@ -294,6 +381,8 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         return {
             address: marketAddress,
             creator,
+            name,
+            symbol,
             initialBBase: bBase,
             currentBBase: bCurrent,
             feesAccrued: feesAccrued ?? feesAccruedFromMarket,
@@ -313,6 +402,16 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
             canGraduate: progressBps >= 10000n && !isGraduated,
             hasLpTokens: userLpBalance > 0n,
             hasAccruedFees: (feesAccrued ?? feesAccruedFromMarket) > 0n,
+            // V11: Trial period data
+            trialEndTime: Number(trialEndTime),
+            isDismissed,
+            totalLockedCost,
+            userLockedCost: userLockedCostValue,
+            isInTrialPeriod,
+            trialEnded,
+            canDismiss,
+            canClaimRefund,
+            trialTimeRemaining,
         };
     }, [dataMarket, dataParams, dataLpBalance, marketAddress]);
 
@@ -321,10 +420,12 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         isLoading,
         error,
         refetch,
-        deployTruthMarket,
         createMarket,
         approveUSDC,
         redeemLP,
+        // V11: Trial period actions
+        dismissMarket,
+        claimRefund,
         isPending,
         isApprovePending,
         isConfirmed,
@@ -332,7 +433,7 @@ export function useLaunchpadMarket(marketAddress?: `0x${string}`) {
         writeError,
         allowance,
         usdcBalance,
-        deployedMarketAddress: marketAddress || txHash // Fallback to txHash if deploying
+        deployedMarketAddress: marketAddress
     };
 }
 

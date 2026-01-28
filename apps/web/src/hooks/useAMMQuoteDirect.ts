@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V9_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead } from "./useDirectRead";
 import { useLaunchpadMarketDirect } from "./useLaunchpadMarketDirect";
 import { useAmmMarketDirect } from "./useAmmMarketDirect";
@@ -69,6 +69,16 @@ export function useAMMQuoteDirect(
     }
   }, [sharesInput]);
 
+  // LMSR overflow guard: exp() overflows when qYes/b or qNo/b > 50
+  // Cap order size to ~45x liquidity (overflow at 50x, leave 10% buffer)
+  const maxSafeShares = useMemo(() => {
+    const liquidity = amm.amm?.liquidity ?? 0n;
+    if (liquidity <= 0n) return 0n;
+    return (liquidity * 45n) / 1n;
+  }, [amm.amm?.liquidity]);
+
+  const isOrderTooLarge = sharesWad > 0n && maxSafeShares > 0n && sharesWad > maxSafeShares;
+
   const sharesFormatted = useMemo(() => {
     if (sharesWad <= 0n) return "0";
     const raw = formatUnits(sharesWad, 18);
@@ -83,13 +93,13 @@ export function useAMMQuoteDirect(
 
   const { data: quoteData, isLoading: quoteLoading, error } = useDirectRead<readonly [bigint, bigint]>({
     queryKey: ['v9-amm-quote', marketAddress, outcome, deltaShares.toString(), chainId],
-    enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n && isAmmInitialized,
+    enabled: !!marketAddress && !!ammEngineAddress && !!chainId && sharesWad > 0n && isAmmInitialized && !isOrderTooLarge,
     chainId,
     read: async (client) => {
       // getPositionQuote(market, outcome, deltaShares) returns (uint256 cost, uint256 newPrice)
       const result = await client.readContract({
         address: ammEngineAddress!,
-        abi: V9_ABIS.AMMEngine,
+        abi: ABIS.AMMEngine,
         functionName: 'getPositionQuote',
         args: [marketAddress!, outcome, deltaShares]
       }) as readonly [bigint, bigint];
@@ -99,6 +109,30 @@ export function useAMMQuoteDirect(
 
   const quote = useMemo(() => {
     const loading = isLoadingLaunchpad || isLoadingAmm || quoteLoading;
+    
+    if (isOrderTooLarge) {
+      const maxShares = maxSafeShares > 0n ? Number(maxSafeShares / BigInt(1e18)).toLocaleString() : '?';
+      return {
+        deltaShares: 0n,
+        isBuy,
+        outcome,
+        cost: 0n,
+        fee: 0n,
+        feeRate: 500,
+        netCost: 0n,
+        newYesPrice: amm.amm?.yesProbability ?? 0.5,
+        newNoPrice: amm.amm?.noProbability ?? 0.5,
+        priceImpact: 0,
+        willGraduate: false,
+        nearGradAfterTrade: false,
+        costFormatted: '$0.00',
+        feeFormatted: '$0.00',
+        sharesFormatted,
+        isLoading: false,
+        error: new Error(`Order too large for liquidity. Max: ~${maxShares} shares`),
+      };
+    }
+    
     if (!quoteData || !marketAddress || sharesWad <= 0n) {
       return {
         deltaShares: sharesWad > 0n ? deltaShares : 0n,
@@ -193,7 +227,7 @@ export function useAMMQuoteDirect(
       isLoading: false,
       error: null,
     };
-  }, [quoteData, marketAddress, launchpad.launchpad, amm.amm, sharesWad, deltaShares, sharesFormatted, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm]);
+  }, [quoteData, marketAddress, launchpad.launchpad, amm.amm, sharesWad, deltaShares, sharesFormatted, outcome, isBuy, quoteLoading, error, isLoadingLaunchpad, isLoadingAmm, isOrderTooLarge, maxSafeShares]);
 
   return quote;
 }

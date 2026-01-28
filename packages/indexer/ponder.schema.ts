@@ -6,6 +6,8 @@ export const launchpadMarket = onchainTable(
     address: t.hex().primaryKey(),
     chainId: t.integer().notNull(),
     creator: t.hex().notNull(),
+    name: t.text(), // Market question (from TruthMarket.MarketCreated)
+    symbol: t.text(), // Market symbol
     initialLiquidity: t.bigint().notNull(),
     deposit: t.bigint().notNull(),
     totalLPSupply: t.bigint().notNull(),
@@ -13,6 +15,10 @@ export const launchpadMarket = onchainTable(
     createdAt: t.bigint().notNull(),
     graduatedAt: t.bigint(),
     blockNumber: t.bigint().notNull(),
+    // V11 fields
+    lpToken: t.hex(), // ERC20 LP token address (V11)
+    trialEndTime: t.bigint(), // Trial period end timestamp (V11)
+    isDismissed: t.boolean(), // Market dismissed during trial (V11)
   }),
   (table) => ({
     creatorIdx: index().on(table.creator),
@@ -143,6 +149,8 @@ export const order = onchainTable(
     createdAt: t.bigint().notNull(),
     updatedAt: t.bigint().notNull(),
     blockNumber: t.bigint().notNull(),
+    // Fill growth snapshot at order creation (for accurate pending fill calculation)
+    fillGrowthLastX128: t.bigint().notNull(),
   }),
   (table) => ({
     marketIdx: index().on(table.marketKey),
@@ -317,5 +325,126 @@ export const spotSellFill = onchainTable(
   (table) => ({
     sellIdx: index().on(table.sellId),
     marketIdx: index().on(table.marketKey),
+  })
+);
+
+/**
+ * V10: Unified crossing events - spot-first + range crossing
+ */
+export const unifiedCrossing = onchainTable(
+  "unified_crossing",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    newOrderId: t.bigint().notNull(),
+    newOutcome: t.integer().notNull(),
+    spotFilled: t.bigint().notNull(),
+    rangeFilled: t.bigint().notNull(),
+    spotCost: t.bigint().notNull(),
+    rangeCost: t.bigint().notNull(),
+    crossTick: t.integer().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    orderIdx: index().on(table.newOrderId),
+  })
+);
+
+/**
+ * Fill growth state per market-outcome (replicates contract's fill growth accumulator)
+ */
+export const fillGrowthState = onchainTable(
+  "fill_growth_state",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    outcome: t.integer().notNull(),
+    totalLiquidity: t.bigint().notNull(),
+    fillGrowthX128: t.bigint().notNull(),
+    updatedAt: t.bigint().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+  })
+);
+
+/**
+ * V11: Trial period state per market
+ */
+export const trialState = onchainTable(
+  "trial_state",
+  (t) => ({
+    id: t.text().primaryKey(), // market address
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    trialEndTime: t.bigint().notNull(),
+    isDismissed: t.boolean().notNull(),
+    totalLockedCost: t.bigint().notNull(),
+    dismissedAt: t.bigint(),
+    blockNumber: t.bigint().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.market),
+    chainIdx: index().on(table.chainId),
+  })
+);
+
+/**
+ * V11: Refund claims after market dismissal
+ */
+export const refundClaim = onchainTable(
+  "refund_claim",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    user: t.hex().notNull(),
+    amount: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.market),
+    userIdx: index().on(table.user),
+  })
+);
+
+/**
+ * V11: Market veto events (guardian vetoed settlement)
+ */
+export const marketVeto = onchainTable(
+  "market_veto",
+  (t) => ({
+    id: t.text().primaryKey(), // txHash-logIndex
+    chainId: t.integer().notNull(),
+    market: t.hex().notNull(),
+    previousOutcome: t.integer().notNull(),
+    previousTStar: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.market),
+  })
+);
+
+/**
+ * V11: Protocol pause state
+ */
+export const protocolState = onchainTable(
+  "protocol_state",
+  (t) => ({
+    id: t.text().primaryKey(), // chainId
+    chainId: t.integer().notNull(),
+    isPaused: t.boolean().notNull(),
+    updatedAt: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
   })
 );

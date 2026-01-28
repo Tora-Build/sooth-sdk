@@ -43,11 +43,11 @@ export const ActivityLog: React.FC = () => {
       case 'liquidity':
       case 'deposit':
       case 'withdraw':
-      case 'claim': return <Coins size={14} className="text-amber-400" />;
+      case 'claim': return <Coins size={14} className="text-slate-400" />;
       case 'settle':
-      case 'settlement_root': return <Landmark size={14} className="text-indigo-400" />;
+      case 'settlement_root': return <Landmark size={14} className="text-cyan-400" />;
       case 'dispute': return <AlertCircle size={14} className="text-rose-400" />;
-      case 'admin': return <Shield size={14} className="text-purple-400" />;
+      case 'admin': return <Shield size={14} className="text-cyan-400" />;
       default: return <History size={14} className="text-slate-400" />;
     }
   };
@@ -59,11 +59,11 @@ export const ActivityLog: React.FC = () => {
       case 'liquidity':
       case 'deposit':
       case 'withdraw':
-      case 'claim': return 'bg-amber-500/10 border-amber-500/20';
+      case 'claim': return 'bg-slate-500/10 border-slate-500/20';
       case 'settle':
-      case 'settlement_root': return 'bg-indigo-500/10 border-indigo-500/20';
+      case 'settlement_root': return 'bg-cyan-500/10 border-cyan-500/20';
       case 'dispute': return 'bg-rose-500/10 border-rose-500/20';
-      case 'admin': return 'bg-purple-500/10 border-purple-500/20';
+      case 'admin': return 'bg-cyan-500/10 border-cyan-500/20';
       default: return 'bg-slate-500/10 border-slate-500/20';
     }
   };
@@ -73,7 +73,7 @@ export const ActivityLog: React.FC = () => {
       {/* Header */}
       <div className="p-4 border-b border-slate-800/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <History size={18} className="text-indigo-400" />
+          <History size={18} className="text-cyan-400" />
           <h3 className="font-bold text-white text-sm">Activity Log</h3>
         </div>
         
@@ -81,7 +81,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('all')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'all' ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -90,7 +90,7 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('trade')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
               filter === 'trade' ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -99,8 +99,8 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('liquidity')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
-              filter === 'liquidity' ? "bg-amber-500/20 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
+              filter === 'liquidity' ? "bg-slate-500/20 text-slate-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
             LP
@@ -108,8 +108,8 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('settle')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
-              filter === 'settle' ? "bg-indigo-500/20 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
+              filter === 'settle' ? "bg-cyan-500/20 text-cyan-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
             SETTLE
@@ -117,8 +117,8 @@ export const ActivityLog: React.FC = () => {
           <button
             onClick={() => setFilter('system')}
             className={cn(
-              "px-2 py-1 text-[10px] font-bold rounded-md transition-all whitespace-nowrap",
-              filter === 'system' ? "bg-purple-500/20 text-purple-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
+              "px-2 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap",
+              filter === 'system' ? "bg-cyan-500/20 text-cyan-400 shadow-sm" : "text-slate-500 hover:text-slate-300"
             )}
           >
             SYSTEM
@@ -148,10 +148,10 @@ export const ActivityLog: React.FC = () => {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] text-slate-500 font-mono truncate mr-2">
+                      <span className="text-xs text-slate-500 font-mono truncate mr-2">
                         {item.market}
                       </span>
-                      <span className="text-[10px] text-slate-600 tabular-nums whitespace-nowrap">
+                      <span className="text-xs text-slate-600 tabular-nums whitespace-nowrap">
                         {formatDistanceToNow(item.timestamp, { addSuffix: true })}
                       </span>
                     </div>
@@ -166,11 +166,11 @@ export const ActivityLog: React.FC = () => {
                           href={`${explorerUrl}/tx/${item.hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                          className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
                         >
                           View Transaction <ExternalLink size={8} />
                         </a>
-                        <span className="text-[9px] text-slate-700 font-mono">
+                        <span className="text-xs text-slate-700 font-mono">
                           {item.hash.slice(0, 10)}...
                         </span>
                       </div>
@@ -185,7 +185,7 @@ export const ActivityLog: React.FC = () => {
 
       {/* Footer */}
       <div className="p-3 bg-slate-950/30 border-t border-slate-800/50 text-center">
-        <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">
+        <p className="text-xs text-slate-600 font-medium uppercase tracking-widest">
           End of Log
         </p>
       </div>

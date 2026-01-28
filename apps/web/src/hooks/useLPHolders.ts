@@ -1,7 +1,8 @@
-import { usePublicClient, useReadContracts } from 'wagmi';
+import { usePublicClient, useReadContracts, useChainId } from 'wagmi';
 import { useMemo, useState, useEffect } from 'react';
 import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/abis';
 import { parseAbiItem, getAddress } from 'viem';
+import { getPollingInterval } from '../lib/polling';
 
 export interface LPHolder {
     address: `0x${string}`;
@@ -13,6 +14,7 @@ export interface LPHolder {
  * Uses Transfer events to find holders, then queries their current balances
  */
 export function useLPHolders(marketAddress?: `0x${string}`, creatorAddress?: `0x${string}`) {
+    const chainId = useChainId();
     const publicClient = usePublicClient();
     const [holderAddresses, setHolderAddresses] = useState<`0x${string}`[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -81,7 +83,7 @@ export function useLPHolders(marketAddress?: `0x${string}`, creatorAddress?: `0x
         contracts: balanceContracts,
         query: {
             enabled: balanceContracts.length > 0,
-            refetchInterval: 10000,
+            refetchInterval: getPollingInterval(chainId, 'fast'),
         }
     });
 

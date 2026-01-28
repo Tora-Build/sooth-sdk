@@ -93,10 +93,10 @@ export const GuardianPanel = ({ address }: GuardianPanelProps) => {
                   </>
                 ) : (
                   <>
-                    <div className="p-2 rounded-lg bg-amber-500/20">
-                      <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <div className="p-2 rounded-lg bg-slate-500/20">
+                      <AlertTriangle className="w-5 h-5 text-slate-400" />
                     </div>
-                    <span className="text-xl font-bold text-amber-400">INVALID</span>
+                    <span className="text-xl font-bold text-slate-400">INVALID</span>
                   </>
                 )}
               </div>
@@ -112,12 +112,12 @@ export const GuardianPanel = ({ address }: GuardianPanelProps) => {
             </div>
 
             {/* Veto Section */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-3">
+            <div className="bg-slate-500/10 border border-slate-500/30 rounded-lg p-4 space-y-3">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-200">Emergency Veto</p>
-                  <p className="text-amber-200/70 text-xs mt-1">
+                  <p className="font-medium text-slate-200">Emergency Veto</p>
+                  <p className="text-slate-200/70 text-xs mt-1">
                     Only use if the settlement is provably incorrect. This will revert the market 
                     to SETTLING state and allow the adjudicator to re-settle.
                   </p>
@@ -174,7 +174,7 @@ export const GuardianPanel = ({ address }: GuardianPanelProps) => {
                   Are you absolutely sure the settlement is incorrect?
                 </p>
                 
-                <p className="text-center text-sm text-amber-400 bg-amber-500/10 p-3 rounded-lg">
+                <p className="text-center text-sm text-slate-400 bg-slate-500/10 p-3 rounded-lg">
                   This will revert the market to SETTLING state and allow the adjudicator to re-settle.
                 </p>
 
@@ -228,7 +228,7 @@ export const GuardianPanel = ({ address }: GuardianPanelProps) => {
                     <span className="text-slate-400">Final Outcome:</span>
                     <span className={`font-bold ${
                       winningOutcome === 1 ? 'text-emerald-400' :
-                      winningOutcome === 2 ? 'text-rose-400' : 'text-amber-400'
+                      winningOutcome === 2 ? 'text-rose-400' : 'text-slate-400'
                     }`}>
                       {winningOutcome === 1 ? 'YES' : winningOutcome === 2 ? 'NO' : 'INVALID'}
                     </span>

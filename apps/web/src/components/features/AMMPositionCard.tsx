@@ -114,7 +114,7 @@ export const AMMPositionCard = ({ address }: AMMPositionCardProps) => {
     <Card>
       <div className="p-4 space-y-4">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-purple-400" />
+          <Wallet className="w-5 h-5 text-cyan-400" />
           My Position
         </h3>
 
@@ -171,11 +171,11 @@ export const AMMPositionCard = ({ address }: AMMPositionCardProps) => {
 
         {/* Locked Proceeds */}
         {hasLockedProceeds && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-2">
+          <div className="bg-slate-500/10 border border-slate-500/30 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-amber-400" />
-                <span className="text-amber-200 font-medium">Locked Proceeds</span>
+                <Lock className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-200 font-medium">Locked Proceeds</span>
               </div>
               <Badge variant={isExpired ? 'success' : 'warning'}>
                 {isExpired ? (

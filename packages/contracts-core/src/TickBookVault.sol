@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {DecimalMath} from "./libraries/DecimalMath.sol";
 
 /**
@@ -23,6 +24,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
 
     IERC20 public immutable usdc;
     uint8 private immutable usdcDecimals;
+    IProtocolConfig public immutable protocolConfig;
 
     /// @notice Authorized TickBook matching engine
     address public tickBook;
@@ -44,10 +46,17 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _usdc, address _owner) Ownable(_owner) {
+    modifier whenNotPaused() {
+        require(!protocolConfig.isPaused(), "TickBookVault: paused");
+        _;
+    }
+
+    constructor(address _usdc, address _protocolConfig, address _owner) Ownable(_owner) {
         require(_usdc != address(0), "TickBookVault: zero usdc");
+        require(_protocolConfig != address(0), "TickBookVault: zero protocol config");
         usdc = IERC20(_usdc);
         usdcDecimals = IERC20Metadata(_usdc).decimals();
+        protocolConfig = IProtocolConfig(_protocolConfig);
     }
 
     // ============================================
@@ -78,7 +87,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     // User USDC
     // ============================================
 
-    function depositUsdc(uint256 amountAsset) external nonReentrant {
+    function depositUsdc(uint256 amountAsset) external nonReentrant whenNotPaused {
         require(amountAsset > 0, "TickBookVault: zero amount");
         usdc.safeTransferFrom(msg.sender, address(this), amountAsset);
         uint256 wadAmount = _usdcToWad(amountAsset);
@@ -304,7 +313,7 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
     function redeemResolved(address market) external nonReentrant returns (uint256 payoutWad) {
         require(market != address(0), "TickBookVault: zero market");
         ITruthMarket tm = ITruthMarket(market);
-        require(tm.isSettled(), "TickBookVault: not settled");
+        require(tm.isFinalized(), "TickBookVault: not finalized");
 
         uint256 yesBal = _yesInternalWad[market][msg.sender];
         uint256 noBal = _noInternalWad[market][msg.sender];
@@ -342,5 +351,3 @@ contract TickBookVault is ITickBookVault, Ownable, ReentrancyGuard {
         return DecimalMath.fromWad(wadAmount, usdcDecimals);
     }
 }
-
-

@@ -1,6 +1,6 @@
 import { useChainStore } from "../store/useChainStore";
 import { useDeployments } from "./useDeployments";
-import { V8_ABIS } from "../config/abis";
+import { ABIS } from "../config/abis";
 import { useDirectRead, readContractSafe } from "./useDirectRead";
 import { parseUnits } from "viem";
 
@@ -28,7 +28,7 @@ export function useTickBookQuoteDirect(
         read: async (client) => {
             const result = await readContractSafe<readonly [bigint, bigint, number]>(client, {
                 address: tickBookAddress!,
-                abi: V8_ABIS.TickBook,
+                abi: ABIS.TickBook,
                 functionName: "getQuote",
                 args: [marketKey!, outcome, sharesWad],
             });

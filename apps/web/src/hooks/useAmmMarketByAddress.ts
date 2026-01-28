@@ -8,6 +8,7 @@ import { MARKET_V4_ABI, TRADER_VAULT_V4_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUT
 import { useDeployments } from './useDeployments';
 import { useChainStore } from '../store/useChainStore';
 import { Market } from '../types';
+import * as polling from '../lib/polling';
 
 export interface DynamicMarketData {
     address: `0x${string}`;
@@ -84,8 +85,7 @@ export function useAmmMarketByAddress(marketAddress?: `0x${string}`, marketMeta?
         ],
         query: {
             enabled: !!marketAddress && !!outcomeTokenAddr && !!traderVaultAddress,
-            // MegaETH RPCs are rate-limited; avoid aggressive polling that can break tx sends in wallets.
-            refetchInterval: chainId === 4326 ? 20000 : 5000,
+            refetchInterval: polling.getPollingInterval(chainId, 'fast'),
         }
     });
 

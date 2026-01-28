@@ -1,1 +1,1 @@
-../../.claude/commands/researcher.md
+/Users/danieltang/.claude/skills/research-assistant/SKILL.md

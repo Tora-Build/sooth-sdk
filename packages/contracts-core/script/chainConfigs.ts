@@ -35,6 +35,19 @@ export const megaethFrontier = defineChain({
   testnet: false, // Frontier is mainnet beta
 });
 
+export const megaethTestnet = defineChain({
+  id: 6343,
+  name: 'MegaETH Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://megaeth-testnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+  },
+  testnet: true,
+});
+
 // Monad RPCs: https://docs.monad.xyz/developer-essentials/testnets
 // Using private QuickNode RPC for faster state propagation
 export const monadTestnet = defineChain({
@@ -57,13 +70,26 @@ export const monadTestnet = defineChain({
 
 // Arc Testnet: Circle-backed chain with native USDC as gas token
 // Sub-second finality (~350ms), 3000+ TPS
+const arcRpcCandidates = (process.env.ARC_TESTNET_RPC_URL ?? '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.drpc.testnet.arc.network'],
+      http:
+        arcRpcCandidates.length > 0
+          ? arcRpcCandidates
+          : [
+            'https://rpc.testnet.arc.network',
+            'https://rpc.blockdaemon.testnet.arc.network',
+            'https://rpc.drpc.testnet.arc.network',
+            'https://rpc.quicknode.testnet.arc.network',
+          ],
     },
   },
   blockExplorers: {
@@ -125,6 +151,19 @@ export const chainConfigs: Record<string, ChainConfig> = {
     faucetEnabled: true,
   },
 
+  megaethTestnet: {
+    chain: megaethTestnet,
+    gasSettings: {
+      gasPrice: 10_000_000n,
+    },
+    deploymentConfig: {
+      confirmations: 1,
+      retryAttempts: 3,
+      retryDelay: 1000,
+    },
+    faucetEnabled: true,
+  },
+
   monadTestnet: {
     chain: monadTestnet,
     gasSettings: {
@@ -148,7 +187,7 @@ export const chainConfigs: Record<string, ChainConfig> = {
     gasSettings: {
       // Arc has stable fee design: minFeePerGas >= 160 Gwei required
       // See: https://docs.arc.network/arc/references/gas-and-fees
-      maxFeePerGas: 200_000_000_000n, // 200 gwei (above 160 min)
+      maxFeePerGas: 180_000_000_000n, // 180 gwei (above 160 min)
       maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
     },
     deploymentConfig: {

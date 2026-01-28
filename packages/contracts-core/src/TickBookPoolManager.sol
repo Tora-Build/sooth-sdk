@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {ITickBookVault} from "./interfaces/ITickBookVault.sol";
 import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
 import {TickMath} from "./libraries/TickMath.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -136,6 +137,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // ============================================
 
     ITickBookVault public immutable vault;
+    IProtocolConfig public immutable protocolConfig;
 
     // Markets (singleton pattern)
     mapping(bytes32 => Market) private _markets;
@@ -208,6 +210,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         bytes32 indexed marketKey,
         uint256 indexed orderId,
         uint256 collateralReleased
+    );
+
+    event RangeOrderClosed(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed orderId
     );
 
     event TickCrossed(bytes32 indexed marketKey, uint16 tick, int128 liquidityDelta);
@@ -293,6 +301,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 proceeds
     );
 
+    event SpotSellClosed(
+        address indexed owner,
+        bytes32 indexed marketKey,
+        uint256 indexed sellId
+    );
+
     event UserOrderRemoved(bytes32 indexed marketKey, address indexed user, uint256 orderId);
     event UserSpotSellRemoved(bytes32 indexed marketKey, address indexed user, uint256 sellId);
     event SpotSellIdRemovedAtTick(bytes32 indexed marketKey, uint8 outcome, uint16 tick, uint256 sellId);
@@ -305,17 +319,28 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // ============================================
 
     modifier onlyRegistrar() {
-        if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
+        _onlyRegistrar();
         _;
+    }
+
+    function _onlyRegistrar() internal view {
+        if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
     }
 
     // ============================================
     // Constructor
     // ============================================
 
-    constructor(address _vault) Ownable(msg.sender) {
+    constructor(address _vault, address _protocolConfig) Ownable(msg.sender) {
         if (_vault == address(0)) revert ZeroAddress();
+        if (_protocolConfig == address(0)) revert ZeroAddress();
         vault = ITickBookVault(_vault);
+        protocolConfig = IProtocolConfig(_protocolConfig);
+    }
+
+    modifier whenNotPaused() {
+        require(!protocolConfig.isPaused(), "TickBook: paused");
+        _;
     }
 
     // ============================================
@@ -340,6 +365,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         makerFeeBps = _makerFee;
         emit FeesUpdated(_takerFee, _makerFee);
     }
+
 
     // ============================================
     // Market Registration
@@ -435,7 +461,27 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint16 tickLower,
         uint16 tickUpper,
         uint256 maxCost
-    ) external nonReentrant returns (
+    ) external nonReentrant whenNotPaused returns (
+        uint256 orderId,
+        uint256 filledShares,
+        uint256 filledCost,
+        uint256 restingShares
+    ) {
+        return _placeOrderInternal(marketKey, outcome, shares, tickLower, tickUpper, maxCost, msg.sender);
+    }
+
+    /**
+     * @dev Internal order placement logic (shared by placeOrder)
+     */
+    function _placeOrderInternal(
+        bytes32 marketKey,
+        uint8 outcome,
+        uint256 shares,
+        uint16 tickLower,
+        uint16 tickUpper,
+        uint256 maxCost,
+        address trader
+    ) internal returns (
         uint256 orderId,
         uint256 filledShares,
         uint256 filledCost,
@@ -450,14 +496,14 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (tickLower > tickUpper) revert InvalidTickRange();
 
         // Auto-claim ONLY 100% filled orders (max 20 for gas safety)
-        _autoClaimUserOrders(marketKey, msg.sender);
+        _autoClaimUserOrders(marketKey, trader);
 
         // Also auto-release pooled refunds to available balance
-        uint256 pooled = _pendingRefunds[msg.sender][marketKey];
+        uint256 pooled = _pendingRefunds[trader][marketKey];
         if (pooled > 0) {
-            _pendingRefunds[msg.sender][marketKey] = 0;
-            vault.refundMarketToAvailable(m.truthMarket, msg.sender, pooled);
-            emit PendingRefundsCleared(msg.sender, marketKey, pooled);
+            _pendingRefunds[trader][marketKey] = 0;
+            vault.refundMarketToAvailable(m.truthMarket, trader, pooled);
+            emit PendingRefundsCleared(trader, marketKey, pooled);
         }
 
         orderId = ++_nextOrderId;
@@ -473,7 +519,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         if (collateral > maxCost) revert SlippageExceeded();
 
         _orders[marketKey][orderId] = RangeOrder({
-            owner: msg.sender,
+            owner: trader,
             outcome: outcome,
             tickLower: tickLower,
             tickUpper: tickUpper,
@@ -485,7 +531,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             filledShares: 0,
             collateralUsedWad: 0
         });
-        _userOrders[marketKey][msg.sender].push(orderId);
+        _userOrders[marketKey][trader].push(orderId);
 
         _fillGrowthLastX128[marketKey][orderId] = _fillGrowthGlobalX128[marketKey][outcome];
         _collateralUsedGrowthLastX128[marketKey][orderId] = _collateralUsedGrowthGlobalX128[marketKey][outcome];
@@ -494,19 +540,18 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         _updateTickBoundaries(marketKey, outcome, tickLower, tickUpper, int128(uint128(density)), true);
         _updateActiveLiquidity(marketKey, outcome, tickLower, tickUpper, uint128(density), true);
 
-        vault.spendAvailableToMarket(msg.sender, m.truthMarket, collateral);
+        vault.spendAvailableToMarket(trader, m.truthMarket, collateral);
+
+        emit OrderPlaced(
+            trader, marketKey, orderId, outcome, tickLower, tickUpper,
+            shares, 0, 0, shares
+        );
 
         // V10: Try unified crossing (spot first, then range)
         CrossingResult memory result = _crossUnified(marketKey, orderId);
         filledShares = result.totalFilled;
         filledCost = result.newOrderCost;
-
         restingShares = shares - filledShares;
-
-        emit OrderPlaced(
-            msg.sender, marketKey, orderId, outcome, tickLower, tickUpper,
-            shares, filledShares, filledCost, restingShares
-        );
     }
 
     function _autoClaimUserOrders(bytes32 marketKey, address user)
@@ -530,7 +575,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 continue;
             }
             
-            if (order.filledShares >= order.sharesTotal) {
+            (uint256 pendingShares, ) = _getPendingFillsInternal(marketKey, orderId);
+
+            uint256 totalFilled = uint256(order.filledShares) + pendingShares;
+            uint256 capped = totalFilled > uint256(order.sharesTotal) ? uint256(order.sharesTotal) : totalFilled;
+            uint256 unfilled = uint256(order.sharesTotal) > capped ? uint256(order.sharesTotal) - capped : 0;
+
+            if (unfilled < DUST_THRESHOLD) {
                 (uint256 filled, uint256 used) = _claimInternal(marketKey, orderId);
                 totalClaimedShares += filled;
                 totalCollateralUsed += used;
@@ -552,8 +603,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         nonReentrant
         returns (uint256 totalCollateralReleased)
     {
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        for (uint256 i = 0; i < orderIds.length;) {
             totalCollateralReleased += _cancelInternal(marketKey, orderIds[i]);
+            unchecked { ++i; }
         }
     }
 
@@ -593,6 +645,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     function claimFills(bytes32 marketKey, uint256 orderId)
         external
+        nonReentrant
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
         RangeOrder storage order = _orders[marketKey][orderId];
@@ -602,6 +655,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     function claimFillsFor(bytes32 marketKey, uint256 orderId)
         external
+        nonReentrant
         returns (uint256 filledShares, uint256 collateralUsedWad)
     {
         return _claimInternal(marketKey, orderId);
@@ -609,16 +663,18 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
     function batchClaimFills(bytes32 marketKey, uint256[] calldata orderIds)
         external
+        nonReentrant
         returns (uint256 totalFilledShares, uint256 totalCollateralUsed)
     {
-        for (uint256 i = 0; i < orderIds.length; i++) {
+        for (uint256 i = 0; i < orderIds.length;) {
             (uint256 filled, uint256 used) = _claimInternal(marketKey, orderIds[i]);
             totalFilledShares += filled;
             totalCollateralUsed += used;
+            unchecked { ++i; }
         }
     }
 
-    function claimPooledRefunds(bytes32 marketKey) external returns (uint256 refund) {
+    function claimPooledRefunds(bytes32 marketKey) external nonReentrant returns (uint256 refund) {
         refund = _pendingRefunds[msg.sender][marketKey];
         if (refund > 0) {
             _pendingRefunds[msg.sender][marketKey] = 0;
@@ -643,8 +699,6 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         Market memory m = _markets[marketKey];
 
         uint8 out = order.outcome;
-        uint256 totalLiq = _totalLiquidity[marketKey][out];
-        if (totalLiq == 0) return (0, 0);
 
         uint256 globalFillGrowth = _fillGrowthGlobalX128[marketKey][out];
         uint256 lastFillGrowth = _fillGrowthLastX128[marketKey][orderId];
@@ -682,20 +736,28 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         uint256 unfilled = order.sharesTotal > order.filledShares ? order.sharesTotal - order.filledShares : 0;
         bool shouldRemoveLiquidity = unfilled < DUST_THRESHOLD;
-        
+
         if (shouldRemoveLiquidity && !order.liquidityRemoved) {
             _updateTickBoundaries(marketKey, order.outcome, order.tickLower, order.tickUpper, -int128(order.liquidity), false);
             _updateActiveLiquidity(marketKey, order.outcome, order.tickLower, order.tickUpper, order.liquidity, false);
             _safeSubTotalLiquidity(marketKey, order.outcome, order.sharesTotal);
             order.liquidityRemoved = true;
-            uint256 refund = order.collateralDepositedWad > order.collateralUsedWad 
-                ? order.collateralDepositedWad - order.collateralUsedWad : 0;
+
+            uint256 refund = order.collateralDepositedWad > order.collateralUsedWad
+                ? order.collateralDepositedWad - order.collateralUsedWad
+                : 0;
+
             if (refund > 0) {
-                _pendingRefunds[owner][marketKey] += refund;
+                order.collateralDepositedWad = order.collateralUsedWad;
+                vault.refundMarketToAvailable(m.truthMarket, owner, refund);
             }
         }
 
         emit FillsClaimed(owner, marketKey, orderId, filledShares, collateralUsedWad);
+
+        if (shouldRemoveLiquidity) {
+            _closeRangeOrder(marketKey, orderId);
+        }
     }
 
     // ============================================
@@ -718,7 +780,7 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         uint256 shares,
         uint16 tickLower,
         uint16 tickUpper
-    ) external nonReentrant returns (uint256 sellId) {
+    ) external nonReentrant whenNotPaused returns (uint256 sellId) {
         Market memory m = _markets[marketKey];
         if (!m.isActive) revert MarketNotActive();
         if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
@@ -778,10 +840,13 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
 
         sharesReturned = order.sharesTotal - order.sharesFilled;
 
-        // V10: Remove from unified tick liquidity + spot bitmap
-        // RFC-001: Also remove from tick-indexed arrays
+        // V10.9: Calculate density from UNFILLED shares only (fixes dust bug)
+        // The original placement distributed (sharesTotal / ticksInRange) per tick.
+        // Each fill reduced by (fillAmount / ticksInRange). On cancel, we remove
+        // liquidity proportional to the remaining unfilled shares.
         uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
-        uint128 density = uint128(order.sharesTotal / ticksInRange);
+        uint256 unfilledShares = order.sharesTotal - order.sharesFilled;
+        uint128 density = uint128(unfilledShares / ticksInRange);
         for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
             TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
             if (tick.spotLiquidity >= density) {
@@ -789,11 +854,9 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             } else {
                 tick.spotLiquidity = 0;
             }
-            // Clear spot bitmap if no more spot liquidity
             if (tick.spotLiquidity == 0) {
                 _spotBitmaps[marketKey][order.outcome].clearBit(t);
             }
-            // RFC-001: Remove from tick index
             _removeFromSpotSellIdsAtTick(marketKey, order.outcome, t, sellId);
         }
 
@@ -834,6 +897,62 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         }
     }
 
+    /// @notice Permissionless claim of spot sell proceeds (for keeper bots)
+    /// @dev Credits proceeds to order.owner, not msg.sender
+    /// @param marketKey The market key
+    /// @param sellId The spot sell order ID
+    /// @return proceeds Amount of USDC credited to owner
+    function claimSpotSellProceedsFor(bytes32 marketKey, uint256 sellId)
+        external
+        nonReentrant
+        returns (uint256 proceeds)
+    {
+        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
+        address owner = order.owner;
+
+        proceeds = order.proceedsWad;
+        order.proceedsWad = 0;
+
+        if (proceeds > 0) {
+            vault.creditUsdcAvailable(owner, proceeds);
+        }
+
+        if (order.sharesFilled >= order.sharesTotal) {
+            order.active = false;
+            _removeFromUserSpotSells(marketKey, owner, sellId);
+        }
+    }
+
+    /// @notice Batch claim spot sell proceeds (for keeper bots)
+    /// @param marketKey The market key
+    /// @param sellIds Array of spot sell order IDs
+    /// @return totalProceeds Total USDC credited across all orders
+    function batchClaimSpotSellProceedsFor(bytes32 marketKey, uint256[] calldata sellIds)
+        external
+        nonReentrant
+        returns (uint256 totalProceeds)
+    {
+        for (uint256 i = 0; i < sellIds.length;) {
+            SpotSellOrder storage order = _spotSellOrders[marketKey][sellIds[i]];
+            address owner = order.owner;
+
+            uint256 proceeds = order.proceedsWad;
+            order.proceedsWad = 0;
+
+            if (proceeds > 0) {
+                vault.creditUsdcAvailable(owner, proceeds);
+                totalProceeds += proceeds;
+            }
+
+            if (order.sharesFilled >= order.sharesTotal) {
+                order.active = false;
+                _removeFromUserSpotSells(marketKey, owner, sellIds[i]);
+            }
+
+            unchecked { ++i; }
+        }
+    }
+
     function getSpotSellOrder(bytes32 marketKey, uint256 sellId)
         external
         view
@@ -859,78 +978,20 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         return _tickLiquidity[marketKey][outcome][tick].spotLiquidity;
     }
 
-    function buyFromSpotSell(
-        bytes32 marketKey,
-        uint256 sellId,
-        uint256 shares,
-        uint256 maxCost
-    ) external nonReentrant returns (uint256 cost) {
-        SpotSellOrder storage order = _spotSellOrders[marketKey][sellId];
-        if (!order.active) revert SpotSellNotActive();
-        
-        Market memory m = _markets[marketKey];
-        if (!m.isActive) revert MarketNotActive();
-        if (!ITruthMarket(m.truthMarket).isLive()) revert MarketNotLive();
 
-        uint256 available = order.sharesTotal - order.sharesFilled;
-        if (shares > available) revert InsufficientShares();
-        if (shares == 0) revert ZeroAmount();
-
-        uint256 priceLow = TickMath.tickToProbability(order.tickLower);
-        uint256 priceHigh = TickMath.tickToProbability(order.tickUpper);
-        uint256 avgPrice = (priceLow + priceHigh) / 2;
-        
-        cost = (avgPrice * shares) / WAD;
-        if (cost > maxCost) revert SlippageExceeded();
-
-        uint256 fee = (cost * takerFeeBps) / 10000;
-        uint256 totalCost = cost + fee;
-
-        vault.spendAvailableToMarket(msg.sender, m.truthMarket, totalCost);
-        vault.transferLockedOutcome(m.truthMarket, order.owner, msg.sender, order.outcome, shares);
-
-        order.sharesFilled += uint128(shares);
-        order.proceedsWad += uint128(cost);
-
-        // V10: Remove from unified tick liquidity
-        uint256 ticksInRange = uint256(order.tickUpper) - uint256(order.tickLower) + 1;
-        uint128 densityReduction = uint128(shares / ticksInRange);
-        for (uint16 t = order.tickLower; t <= order.tickUpper; t++) {
-            TickLiquidity storage tick = _tickLiquidity[marketKey][order.outcome][t];
-            if (tick.spotLiquidity >= densityReduction) {
-                tick.spotLiquidity -= densityReduction;
-            } else {
-                tick.spotLiquidity = 0;
-            }
-            if (tick.spotLiquidity == 0) {
-                _spotBitmaps[marketKey][order.outcome].clearBit(t);
-            }
-        }
-
-        if (fee > 0 && feeRecipient != address(0)) {
-            vault.transferFee(m.truthMarket, feeRecipient, fee);
-        }
-
-        if (order.sharesFilled >= order.sharesTotal) {
-            order.active = false;
-            _removeFromUserSpotSells(marketKey, order.owner, sellId);
-            if (order.proceedsWad > 0) {
-                vault.creditUsdcAvailable(order.owner, order.proceedsWad);
-                order.proceedsWad = 0;
-            }
-        }
-
-        emit SpotSellFilled(marketKey, sellId, shares, cost);
-    }
 
     function _removeFromUserSpotSells(bytes32 marketKey, address user, uint256 sellId) internal {
-        _removeFromArray(_userSpotSells[marketKey][user], sellId);
-        emit UserSpotSellRemoved(marketKey, user, sellId);
+        bool removed = _removeFromArray(_userSpotSells[marketKey][user], sellId);
+        if (removed) {
+            emit UserSpotSellRemoved(marketKey, user, sellId);
+        }
     }
 
     function _removeFromSpotSellIdsAtTick(bytes32 marketKey, uint8 outcome, uint16 tick, uint256 sellId) internal {
-        _removeFromArray(_spotSellIdsAtTick[marketKey][outcome][tick], sellId);
-        emit SpotSellIdRemovedAtTick(marketKey, outcome, tick, sellId);
+        bool removed = _removeFromArray(_spotSellIdsAtTick[marketKey][outcome][tick], sellId);
+        if (removed) {
+            emit SpotSellIdRemovedAtTick(marketKey, outcome, tick, sellId);
+        }
     }
 
     /// @dev RFC-001: Remove sellId from all ticks in its range
@@ -945,21 +1006,43 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
     // ============================================
 
     /// @dev Generic swap-and-pop removal from uint256 array (O(n) search, O(1) removal)
-    function _removeFromArray(uint256[] storage arr, uint256 value) internal {
+    function _removeFromArray(uint256[] storage arr, uint256 value) internal returns (bool removed) {
         uint256 len = arr.length;
         for (uint256 i = 0; i < len; ) {
             if (arr[i] == value) {
                 arr[i] = arr[len - 1];
                 arr.pop();
-                return;
+                return true;
             }
             unchecked { ++i; }
         }
+        return false;
     }
 
     function _removeFromUserOrders(bytes32 marketKey, address user, uint256 orderId) internal {
-        _removeFromArray(_userOrders[marketKey][user], orderId);
-        emit UserOrderRemoved(marketKey, user, orderId);
+        bool removed = _removeFromArray(_userOrders[marketKey][user], orderId);
+        if (removed) {
+            emit UserOrderRemoved(marketKey, user, orderId);
+        }
+    }
+
+    function _freezeRangeOrderGrowth(bytes32 marketKey, uint256 orderId, uint8 outcome) internal {
+        _fillGrowthLastX128[marketKey][orderId] = _fillGrowthGlobalX128[marketKey][outcome];
+        _collateralUsedGrowthLastX128[marketKey][orderId] = _collateralUsedGrowthGlobalX128[marketKey][outcome];
+    }
+
+    function _closeRangeOrder(bytes32 marketKey, uint256 orderId) internal {
+        RangeOrder storage order = _orders[marketKey][orderId];
+        if (!order.active) return;
+
+        address owner = order.owner;
+        uint8 outcome = order.outcome;
+
+        order.active = false;
+        _removeFromUserOrders(marketKey, owner, orderId);
+        _freezeRangeOrderGrowth(marketKey, orderId, outcome);
+
+        emit RangeOrderClosed(owner, marketKey, orderId);
     }
 
     function _getPoolKey(PoolKey calldata key) internal pure returns (bytes32) {
@@ -1190,17 +1273,25 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         // Check if new order is effectively filled (dust or 100%)
         uint256 newUnfilled = newOrder.sharesTotal > newOrder.filledShares ? newOrder.sharesTotal - newOrder.filledShares : 0;
         bool shouldRemoveLiquidity = newUnfilled < DUST_THRESHOLD;
-        
+
         if (shouldRemoveLiquidity && !newOrder.liquidityRemoved) {
             _updateTickBoundaries(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, -int128(newOrder.liquidity), false);
             _updateActiveLiquidity(marketKey, newOrder.outcome, newOrder.tickLower, newOrder.tickUpper, newOrder.liquidity, false);
             _safeSubTotalLiquidity(marketKey, newOrder.outcome, newOrder.sharesTotal);
             newOrder.liquidityRemoved = true;
-            uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad 
-                ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad : 0;
+
+            uint256 refund = newOrder.collateralDepositedWad > newOrder.collateralUsedWad
+                ? newOrder.collateralDepositedWad - newOrder.collateralUsedWad
+                : 0;
+
             if (refund > 0) {
+                newOrder.collateralDepositedWad = newOrder.collateralUsedWad;
                 _pendingRefunds[newOrder.owner][marketKey] += refund;
             }
+        }
+
+        if (shouldRemoveLiquidity) {
+            _closeRangeOrder(marketKey, newOrderId);
         }
 
         // Update active liquidity for opposite side
@@ -1261,12 +1352,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
             // 1. NO range orders (at high NO ticks = low YES asking price)
             // 2. YES spot sells (direct YES share sellers)
             uint16 highestNoRange = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
-            uint16 highestYesSpot = _spotBitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
+            uint16 lowestYesSpot = _spotBitmaps[marketKey][1].findNextUp(0);
             
             // For NO range: higher NO tick = seller accepts lower YES price
-            // For YES spot: tick IS the asking price directly
+            // For YES spot: LOWER tick = lower asking price = cheaper for buyer
             uint16 cheapestFromRange = highestNoRange <= MAX_TICK ? 1000 - highestNoRange : MAX_TICK + 1;
-            uint16 cheapestFromSpot = highestYesSpot <= MAX_TICK ? highestYesSpot : MAX_TICK + 1;
+            uint16 cheapestFromSpot = lowestYesSpot <= MAX_TICK ? lowestYesSpot : MAX_TICK + 1;
             
             uint16 cheapestSellerPrice = cheapestFromRange < cheapestFromSpot ? cheapestFromRange : cheapestFromSpot;
             if (cheapestSellerPrice > MAX_TICK || cheapestSellerPrice > tickUpper) return (0, 0, false);
@@ -1336,11 +1427,10 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
         
         // RFC-001: Iterate through ticks in overlap range instead of all historical IDs
         for (uint16 t = iterLow; t <= iterHigh && remaining > 0; t++) {
-            uint256[] storage sellIds = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
-            uint256 len = sellIds.length;
-            
-            for (uint256 i = 0; i < len && remaining > 0; i++) {
-                uint256 sellId = sellIds[i];
+            uint256[] storage sellIdsAtTick = _spotSellIdsAtTick[marketKey][sellerOutcome][t];
+            for (uint256 i = sellIdsAtTick.length; i > 0 && remaining > 0; ) {
+                unchecked { --i; }
+                uint256 sellId = sellIdsAtTick[i];
                 SpotSellOrder storage spotOrder = _spotSellOrders[marketKey][sellId];
                 
                 if (!spotOrder.active) continue;
@@ -1388,12 +1478,12 @@ contract TickBookPoolManager is ReentrancyGuard, Ownable {
                 if (spotOrder.sharesFilled >= spotOrder.sharesTotal) {
                     spotOrder.active = false;
                     _removeFromUserSpotSells(marketKey, spotOrder.owner, sellId);
-                    // RFC-001: Remove from all tick arrays
                     _removeSpotSellFromAllTicks(marketKey, sellerOutcome, spotOrder.tickLower, spotOrder.tickUpper, sellId);
                     if (spotOrder.proceedsWad > 0) {
                         vault.creditUsdcAvailable(spotOrder.owner, spotOrder.proceedsWad);
                         spotOrder.proceedsWad = 0;
                     }
+                    emit SpotSellClosed(spotOrder.owner, marketKey, sellId);
                 }
                 
                 emit SpotSellFilled(marketKey, sellId, toFill, cost);

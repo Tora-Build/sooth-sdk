@@ -3,23 +3,18 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import {LaunchpadEngine} from "@core/LaunchpadEngine.sol";
-import {Collateralizer} from "@core/Collateralizer.sol";
-import {TruthMarket} from "@core/TruthMarket.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title 2_CreateMarket
  * @notice STEP 2: Create a new prediction market with full initialization
- * @dev This script does EVERYTHING needed to create a working market:
- *      1. Deploy TruthMarket contract
- *      2. Activate the market
- *      3. Register with Collateralizer (creates tokens)
- *      4. Initialize in LaunchpadEngine (creates AMM pool with liquidity)
+ * @dev This script creates a market in one transaction:
+ *      1. LaunchpadEngine.createMarket deploys TruthMarket
+ *      2. AMM is initialized and LP tokens minted
  *
  * REQUIREMENTS:
  *      - USDC balance >= initialLiquidity * ln(2) ≈ initialLiquidity * 0.693
  *      - LAUNCHPAD_ENGINE environment variable set
- *      - COLLATERALIZER environment variable set
  *
  * EXAMPLE:
  *      export LAUNCHPAD_ENGINE=0x...
@@ -27,7 +22,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *      forge script script/2_CreateMarket.s.sol --rpc-url $RPC --broadcast
  */
 contract CreateMarket is Script {
-    address constant USDC = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
+    address USDC;
+    // Base Sepolia default
+    address constant DEFAULT_USDC = 0x0C31bbB6dA82ba97fBAfBe3425ee8757a4d724e3;
 
     // Market configuration - EDIT THESE
     string constant QUESTION = "Will UN confirm alien life by 2026?";
@@ -37,11 +34,13 @@ contract CreateMarket is Script {
     uint256 constant INITIAL_LIQUIDITY = 500 * 1e18; // 500 WAD
 
     function run() external {
+        USDC = vm.envOr("USDC", DEFAULT_USDC);
+
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
         address launchpadAddr = vm.envAddress("LAUNCHPAD_ENGINE");
-        address collateralizerAddr = vm.envAddress("COLLATERALIZER");
+        address protocolConfig = vm.envAddress("PROTOCOL_CONFIG");
 
         console.log("========================================");
         console.log("  STEP 2: CREATE MARKET");
@@ -63,33 +62,23 @@ contract CreateMarket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // STEP 1: Deploy TruthMarket
+        uint64 startTime = uint64(block.timestamp);
         uint64 deadline = uint64(block.timestamp + (DEADLINE_DAYS * 1 days));
-        TruthMarket market = new TruthMarket(
-            QUESTION,
-            deadline,
-            deployer,  // adjudicator
-            deployer   // guardian
-        );
-        console.log("[1/4] TruthMarket deployed:", address(market));
 
-        // STEP 2: Activate market
-        market.activate();
-        console.log("[2/4] Market activated");
-
-        // STEP 3: Register with Collateralizer (creates tokens)
-        Collateralizer collat = Collateralizer(collateralizerAddr);
-        (address yesToken, address noToken) = collat.registerMarket(address(market), NAME, SYMBOL);
-        console.log("[3/4] Market registered with Collateralizer");
-        console.log("      YES token:", yesToken);
-        console.log("      NO token:", noToken);
-
-        // STEP 4: Initialize in LaunchpadEngine (creates AMM pool)
         LaunchpadEngine launchpad = LaunchpadEngine(launchpadAddr);
         IERC20(USDC).approve(address(launchpad), type(uint256).max);
 
-        uint256 lpTokens = launchpad.createMarket(address(market), INITIAL_LIQUIDITY, NAME, SYMBOL);
-        console.log("[4/4] Market initialized in LaunchpadEngine");
+        (address market, uint256 lpTokens) = launchpad.createMarket(
+            QUESTION,
+            startTime,
+            deadline,
+            deployer,
+            protocolConfig,
+            INITIAL_LIQUIDITY,
+            0,
+            0
+        );
+        console.log("[1/1] Market created:", market);
         console.log("      LP tokens received:", lpTokens);
         console.log("      USDC deposited:", depositUsdc);
 
@@ -101,9 +90,7 @@ contract CreateMarket is Script {
         console.log("========================================");
         console.log("");
         console.log("Market Details:");
-        console.log("  Address:    ", address(market));
-        console.log("  YES Token:  ", yesToken);
-        console.log("  NO Token:   ", noToken);
+        console.log("  Address:    ", market);
         console.log("  Deadline:   ", deadline);
         console.log("  LP Tokens:  ", lpTokens);
         console.log("");
@@ -113,9 +100,7 @@ contract CreateMarket is Script {
         console.log("{");
         console.log('  "id": "', SYMBOL, '-base",');
         console.log('  "chainId": 84532,');
-        console.log('  "address": "', vm.toString(address(market)), '",');
-        console.log('  "yesToken": "', vm.toString(yesToken), '",');
-        console.log('  "noToken": "', vm.toString(noToken), '",');
+        console.log('  "address": "', vm.toString(market), '",');
         console.log('  "name": "', NAME, '",');
         console.log('  "symbol": "', SYMBOL, '"');
         console.log("}");

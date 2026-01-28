@@ -1,5 +1,161 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-082: Adjudicator Trust & Guardian Role (Forward Compatibility)
+- **Date**: 2026-01-21
+- **Status**: Accepted
+- **Context**:
+  - Creators need permissionless choice of adjudicator.
+  - Adjudicator trust should be signaled by standalone registries (Sooth DAO or third parties), not enforced by protocol.
+  - Per-market guardian selection adds friction; guardian should be protocol-level.
+  - Protocol owner should delegate daily ops to guardians but retain emergency override.
+- **Decision**:
+  1. Creators choose any adjudicator address (permissionless).
+  2. Adjudicator registries remain standalone/off-chain trust signals; Launchpad does not enforce registry checks.
+  3. Remove per-market guardian selection; guardian is a protocol-level role list (EOA/multisig), not creator-controlled.
+  4. Global pause authority is delegated to guardians; protocol owner retains emergency override.
+  5. Finalization is adjudicator-only; guardians do not finalize.
+  6. Retroactive settlement (tStar) is deferred; `settle()` records outcome/tStar and `finalize()` is the future hook for retroactive adjustments.
+  7. `ValidatedAdjudicator.registerMarket` should be auto-called during market creation with per-market config (Launchpad-only), so no deployer ops are required.
+- **Consequences**:
+- UI/indexers can display registry trust without constraining creation.
+- Guardian/veto/finalize authority is consistent across all markets in a protocol instance.
+- Daily operations move to guardians; owner acts only in emergencies.
+- Retroactive settlement remains doc-only; finalize is the planned integration point.
+
+## ADR-083: Canonical Filenames (Remove Versioned Code Paths)
+- **Date**: 2026-01-21
+- **Status**: Accepted
+- **Context**:
+  - Repo rules prohibit versioned filenames/folders (e.g., `LaunchpadEngineV11.sol`, `test/v11/`).
+  - Current V11 code introduces versioned names that risk divergence and deployment mistakes.
+- **Decision**:
+  1. Rename versioned contract files to canonical names (e.g., `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`).
+  2. Move tests from `test/v11/` into feature-based, non-versioned paths and rename files to canonical names.
+  3. Preserve history via Git; avoid parallel versioned copies in active code.
+  4. All new V11 changes must land in canonical filenames; any remaining `*V11*` files are migration debt to remove before release.
+- **Consequences**:
+  - Imports, deploy scripts, and tests must be updated to the canonical paths.
+  - Legacy behavior should be tracked in Git history or archived in a `legacy/` folder if needed.
+
+## ADR-081: V11 Adjudicator & Agent Policy Clarifications
+- **Date**: 2026-01-20
+- **Status**: Accepted
+- **Context**:
+  - Some markets resolve based on real-world events without a fixed date, so settlement must be allowed before expiration.
+  - Agent-gated markets are not planned for V11; incentives are limited to fee discounts for registered market makers.
+  - Adjudicator roadmap prioritizes ZK verification (Brevis) over TEE for the first implementation.
+- **Decision**:
+  1. Allow adjudicator settlement before market expiration when the truth event resolves (deadline remains the fallback expiration).
+  2. Do not enable agent-gated markets in V11; trading remains open to all users.
+  3. Limit agent incentives to TickBook fee discounts for registered market makers.
+  4. Keep multi-validator adjudicator interfaces as-is; first target adjudicator is ZK/Brevis (TEE deferred).
+  5. Launchpad `tradeWithAgent` is deferred/removed to reduce code size; no Launchpad fee discounts.
+- **Consequences**:
+  - UI/docs should not assume settlement only after deadline.
+  - Agent gating flags should default off; enforcement is not required beyond TickBook discounts.
+  - ValidatedAdjudicator remains as a reference; ZK adjudicator integration is the next path.
+
+## ADR-080: V11 ERC-8004 Integration & Trial Period System
+- **Date**: 2026-01-20
+- **Status**: Implemented (Branch: v11)
+- **Context**:
+  - V10 lacked creator protection mechanisms for new markets (no "undo" option if market doesn't gain traction)
+  - AI agents needed first-class support for trading with reputation-based incentives
+  - Market settlement required trustless verification via TEE attestations
+  - LP tokens were internal accounting only, limiting DeFi composability
+- **Decision**: Implement V11 in two phases:
+
+  **Phase 1: Trial Period & LP Tokens**
+  1. **Trial Period System**: New markets have a configurable trial window during which:
+     - User costs are tracked via `lockedCost[market][user]`
+     - P&L tracked via `trialBalance[market][user]`
+     - Creator can call `dismissMarket()` to abort
+     - Users can call `claimRefund()` to recover locked costs
+  2. **LaunchpadLPToken (ERC20)**:
+     - Settlement-locked transfers (freely tradable pre-settlement, locked post-settlement)
+     - Enables LP tokens as collateral, staking, or secondary market trading
+     - `transfersUnlocked()` = `!ITruthMarket(market).isSettled()`
+  3. **Permit Support (Deferred)**: `placeOrderWithPermit()` removed from TickBookPoolManager to stay under the EVM code size limit; revisit via module or alternate approval flow.
+
+  **Phase 2: ERC-8004 Trustless Agents**
+  1. **ERC-8004 Interfaces**:
+     - `IIdentityRegistry`: Agent identity and wallet management
+     - `IReputationRegistry`: Reputation scores and fee discount queries
+     - `IValidationRegistry`: TEE attestation storage and verification
+  2. **Standard Adjudicator Interface** (`IAdjudicator.sol`):
+     - `settle(market, outcome, tStar, resolutionData)`: Generic settlement
+     - `canSettle(market)`: Query settlement authorization
+     - `adjudicatorType()`: Returns type ("tee", "manual", "oracle", "dao")
+     - `IValidatedAdjudicator` extends with multi-attestation support
+  3. **ValidatedAdjudicator**: TEE-validated settlement (implements `IValidatedAdjudicator`)
+     - Requires valid attestation from registered agent before `settle()`
+     - Multi-validator support for high-value markets
+     - Configurable attestation window and minimum score
+  3. **Agent Trading (Deferred)**:
+     - Launchpad `tradeWithAgent(agentId)` removed to reduce code size (no Launchpad discounts)
+     - `placeOrderWithAgent(agentId)` removed from TickBookPoolManager to stay under the EVM code size limit
+     - Agent-gated markets: deferred; trading remains permissionless
+- **Rationale**:
+  - **Creator Protection**: Trial period reduces risk of launching markets that fail to attract volume
+  - **DeFi Composability**: ERC20 LP tokens enable yield farming, collateralization, and DEX trading
+  - **Agent Adoption**: Reputation-weighted fees incentivize quality agent behavior
+  - **Trust Minimization**: TEE attestations provide cryptographic proof of correct settlement
+  - **Capital Efficiency**: Permit removes approval transaction requirement
+- **Consequences**:
+  - **New Contract**: `LaunchpadEngine.sol` (canonical V11 implementation) replaces the prior LaunchpadEngine for new deployments
+  - **Interface Extension**: `ILaunchpadEngine.sol` and `ITruthMarket.sol` expanded
+  - **ERC-8004 Dependency**: Requires external registry contracts (can be mocked for testing)
+  - **Migration Path**: Existing V10 markets continue to work; V11 features for new markets only
+- **Files Added**:
+  - `packages/contracts-core/src/interfaces/IERC8004.sol`
+  - `packages/contracts-core/src/interfaces/IAdjudicator.sol`
+  - `packages/contracts-core/src/LaunchpadLPToken.sol`
+  - `packages/contracts-core/src/ValidatedAdjudicator.sol`
+  - `packages/contracts-core/src/LaunchpadEngine.sol`
+- **Test Coverage**: 126 tests passing (100%)
+
+---
+
+## ADR-079: ERC20 Token Isolation & Pro Page Split/Merge Removal
+- **Date**: 2026-01-15
+- **Status**: Accepted
+- **Context**:
+  - The `Collateralizer` contract provides `split()`/`merge()` functions to mint ERC20 Outcome Tokens (YES/NO) from USDC.
+  - The `TickBookVault` (which powers the Pro page orderbook) uses **internal virtual shares** (`_yesInternalWad`) for gas-efficient matching.
+  - There is currently **no bridge** to deposit ERC20 Outcome Tokens into the Vault (`depositOutcome` does not exist).
+  - The `SplitMergePanel` on the Pro page allowed users to mint ERC20 tokens, but users were then confused because they could not trade these tokens on the orderbook.
+- **Decision**:
+  1. **Disable Split/Merge UI**: Removed `<SplitMergePanel />` from the Pro trading page.
+  2. **Isolate ERC20s**: Acknowledge that ERC20 Outcome Tokens are currently "wallet-only" assets (for holding/transferring/AMMs) and are **incompatible** with the TickBook orderbook.
+  3. **Preserve Code**: Retained `SplitMergePanel.tsx` in the codebase (with integer formatting fixes) for future AMM integration or if a Vault Bridge is implemented.
+- **Rationale**:
+  - **Reduce Confusion**: Prevents users from locking capital into tokens they cannot trade.
+  - **Honest UI**: The Pro interface should only show actions that are relevant to the orderbook (Deposit/Withdraw USDC, Trade Internal Shares).
+- **Consequences**:
+  - **Feature Gap**: Users cannot purely "mint and hold" via the Pro UI anymore (must use CLI or future specialized UI).
+  - **Refactor Opportunity**: Future work could implement `TickBookVault.depositOutcome()` to bridge the two systems.
+- **Files Changed**:
+  - `apps/web/src/pages/Pro.tsx`
+  - `STATUS.md`
+
+
+## ADR-078: MegaETH Platform Stability & Gas Limit Handling
+- **Date**: 2026-01-14
+- **Status**: Accepted
+- **Context**:
+  - Market creation on MegaETH Testnet consistently reverted or timed out.
+  - Root cause 1: Hardcoded gas limit (2.5M) was insufficient for MegaETH (requires ~28M).
+  - Root cause 2: Clock drift between local machine and MegaETH sequencer caused "deadline in past" reverts.
+  - Root cause 3: CLI trading commands only supported orderbook-based markets, not pre-graduation Launchpad markets.
+- **Decision**:
+  1. **Dynamic Gas Estimation**: Removed hardcoded gas limits in `createmarket` and increased `MAX_GAS` cap to 30M in `estimateGas` helper.
+  2. **On-Chain Deadlines**: Calculate market deadlines using the `block.timestamp` fetched from the RPC instead of local system time.
+  3. **Unified CLI Trading**: Updated `market` command to route trades to `LaunchpadEngine.tradePositions` when a market key is not available but a market address is selected.
+- **Consequences**:
+  - Successful market creation on MegaETH Testnet.
+  - Improved CLI reliability across chains with different gas pricing and clock characteristics.
+  - Seamless transition from pre-graduation (AMM) to post-graduation (Orderbook) trading in the CLI.
+
 ## ADR-077: Event Instrumentation for Indexer Completeness
 - **Date**: 2026-01-12
 - **Status**: Accepted

@@ -1,17 +1,65 @@
 # Project Status
 
+> **Codebase Version**: V11.1  
+> **Active Testing**: Base Sepolia  
+> **Last Updated**: 2026-01-27
+
+## V11 Features (Implemented)
+
+| Feature | Contract | Status |
+|---------|----------|--------|
+| Trial Period (7 days) | `LaunchpadEngine` | ✅ Implemented |
+| ERC20 LP Token | `LaunchpadLPToken` | ✅ Implemented |
+| Validated Adjudicator | `ValidatedAdjudicator` | ✅ Implemented |
+| Protocol Config (guardian + pause) | `ProtocolConfig` | ✅ Implemented |
+| Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
+
+**Tests**: 266 passing (unit, integration, invariant, fuzz)
+
 ## Current Focus
-- **V10.8 Redeploy + Event Instrumentation (2026-01-12)** — Base Sepolia + Monad redeployed with expanded event coverage for indexer correctness.
-- **Portfolio Indexer Integration** — New indexer schema/endpoints + frontend hooks with RPC fallback.
-- **Arc Deployment Pending** — Arc Testnet deploy failed at gas estimation; will retry after RPC update.
+- **Finalized Markets UI Audit Complete (2026-01-27)** — Fixed all critical and high-priority issues with finalized market displays across Portfolio, Trade, and Pro pages. Completed 10/10 tasks from work plan.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks. Arc deploy failed at gas estimate.
-- **2026-01-12** — **Event Coverage Expansion**: Added new events across TickBookVault, AMMEngine, LaunchpadEngine, and TickBookPoolManager to support comprehensive indexing.
-- **2026-01-12** — **Portfolio Indexer Integration**: Added indexer schema + API endpoints; frontend hooks now prefer indexer with RPC fallback.
-- **2026-01-12** — **PR #39 Integration**: Adopted DecimalMath refactor across contracts-core.
-- **2026-01-11** — **RPC Endpoint Fixes**: Fixed Monad and Arc RPC endpoints across frontend and CLI configs.
-- **2026-01-09** — **Frontend Indexer Sync Indicator**: Added `useIndexerStatus` hook polling Ponder `/status` endpoint. Footer shows green dot + block height when synced, red when offline.
+- **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
+- **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
+- **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
+- **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:
+  - `useOnChainMarkets.ts`: Reads `isFinalized` from TruthMarket for each market
+  - `useTruthMarketDirect.ts`: Added `isFinalized` to market data
+  - `AMMSettlementCard.tsx`: Shows different UI for settled (amber, "Veto Period Active") vs finalized (emerald, claim button enabled)
+  - `DismissedMarketPanel.tsx`: New component for V11 trial period refund claims
+  - `Trade.tsx` / `Pro.tsx`: Stage filter dropdown with counts per stage
+  - Pro page excludes settled/finalized/dismissed markets (only tradeable markets)
+- **2026-01-24** — **CLI Checksum Complete Fix**: Added `vaultMarketCollateral` (TickBookVault) and `lpYieldPool` (LaunchpadEngine) tracking to `checksum` command. Previous -1.27 USDC discrepancy was due to missing tracking of these contract-held funds. Checksum now shows "Potential Stuck USDC" section when `vaultMarketCollateral > 0` or `lpYieldPool > 0`. The `market-lifecycle-multi-actor` scenario now passes with exact 0.00 USDC balance.
+- **2026-01-23** — **CLI Zero-Sum P&L Fix**: Added AMM position tracking to `snapshot` and `checksum` commands. Previously missing `AMMEngine.getPosition()` data caused -71.24 USDC discrepancy after `market-lifecycle-multi-actor` scenario. Now tracks `ammYes`/`ammNo` per actor and includes in total value calculations.
+- **2026-01-22** — **CLI Multi-Actor Automation**: Added `market-lifecycle-multi-actor` scenario, `--scenario` auto-run flag, scenario failure enforcement, `setmarket created` flow, keeper `claimspotsellfor` command, and actor role mapping (alice/bob/charlie/david/ellen). Updated README help strings.
+- **2026-01-21** — **Protocol Guardian + Pause Wiring**: Added `ProtocolConfig` (guardian list + pause), shifted guardian checks to protocol-level, adjudicator-only finalize, Launchpad auto-register with per-market adjudicator config, and updated frontend + scripts to new `createMarket` signature. Ported `validate-spot-crossing.ts` to V11 flow (launchpad → graduation → TickBook).
+- **2026-01-21** — **TickBookPoolManager Size + Crossing Fix**: Removed `placeOrderWithPermit`, `placeOrderWithAgent`, and `clearDustLiquidity` from TickBookPoolManager to stay under EVM code size. Fixed spot-sell crossing iteration to avoid OOB when multiple sells share ticks; updated ABIs.
+- **2026-01-21** — **V11 Architecture Decisions**: Added ADR-082 (adjudicator trust: permissionless choice, off-chain registry, protocol-level guardian, adjudicator-only finalize, tStar deferred with finalize hook, auto-register via Launchpad) and ADR-083 (canonical filenames: rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature paths). Updated CLI actor testing tool plan with Protocol Owner actor, Action Purpose table, and guardian/pause flows.
+- **2026-01-20** — **V11 Implementation**: Implemented ERC-8004 Trustless Agents interfaces and Trial Period mechanics. Created `IERC8004.sol` (Identity, Reputation, Validation registries), `LaunchpadLPToken.sol` (ERC20 with settlement-locked transfers), `ValidatedAdjudicator.sol` (TEE attestation-based settlement), `LaunchpadEngineV11.sol` (trial period + adjudicator readiness). TickBook permit/agent order functions later deferred for code size. All 132 V11 tests pass.
+- **2026-01-20** — **V11 Policy Alignment**: Disabled agent-gated markets and Launchpad fee discounts; `tradeWithAgent` deferred/removed to reduce code size. TickBook keeps agent attribution hooks only. Batched `forge test` runs passed.
+- **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
+- **2026-01-16** — **Indexer Stability Fixes**: Diagnosed "PGlite is closed" errors caused by corrupted WASM database under multi-chain load. Fixed MegaETH RPC URL (`timothy` → `carrot.megaeth.com`). Added `RangeOrderPlaced` handler for V10.8.1 backward compatibility. Added missing ABI events (TickBookVault, AMMEngine). Migrated local dev to PostgreSQL.
+- **2026-01-16** — **Trade/Pro UI Polish**: Fixed market chip cards - now show 2 lines for long questions, smaller font (`text-xs`), fixed width (`w-[320px]`/`w-[280px]`).
+- **2026-01-16** — **CLI V10.8.3 Compatibility Fix**: Fixed internal CLI and web SDK to work with V10.8.3 contracts. Updated inline ABIs (removed name/symbol from MarketState). CLI now fetches market names from `TruthMarket.question()`. Unified two-line market display format. Removed debug messages and auto-select market feature.
+- **2026-01-16** — **V10.8.3 Symbol Simplification**: Removed `symbol` param from `createMarket()`, `name`/`symbol` from `MarketState` struct. Symbol now auto-derived from market address (first 4 bytes). Deployed to all 4 testnets. Updated frontend ABIs, SDK, CLI, and indexer.
+- **2026-01-16** — **V10.8.2 Contract Optimization**: Removed `buyFromSpotSell()` function from TickBookPoolManager. V10 unified crossing already handles spot fills automatically (spot-first priority via `placeOrder`). Removed CLI `buyspotsell` command and ABI entries.
+- **2026-01-16** — **Indexer Event Enhancement**: Added `symbol` field to `LaunchpadEngine.MarketCreated` event. Added `LaunchpadEngine:MarketCreated` and `LaunchpadEngine:MarketGraduated` handlers to indexer. Market symbols now captured in `launchpad_market` table.
+- **2026-01-16** — **Trade/Pro UI Cleanup**: Removed "Bonding Fee: 5%" badge from GraduationProgress (returns null for graduated markets). Added fee info to MarketDetailHeader status badge (`Graduated · 1% Fee` or `Bonding · 5% Fee`). Moved market header card into Pro left panel only. Updated LiquidityMap stats.
+- **2026-01-16** — **SDK Streaming Progress**: Added progress callbacks to `createmarket`, `graduate`, `registermarket` commands. Geek page shows streaming step updates (`[1/4] Checking USDC...`).
+- **2026-01-16** — **Geek Mode CLI**: Added `/geek` page with browser-based CLI. Features: WebTerminal with streaming output, local wallet (create/enable/disable/clear), simulate command with detailed order output (like internal CLI), market persistence. Created `@sooth/sdk-core` shared package unifying utilities between internal CLI and web SDK.
+- **2026-01-15** — **Pro UI Refinement**: Removed the Split/Merge panel from `Pro.tsx`. The feature was creating confusion because the generated ERC20 tokens cannot be traded on the Vault-based orderbook (no bridge exists). The panel code remains in the codebase (`SplitMergePanel.tsx`) with integer formatting fixes applied for future use.
+- **2026-01-14** — **MegaETH Graduation Gas Fix**: Fixed graduation tx failures on MegaETH. MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Updated CLI and frontend to use 60M gas for graduation trades on MegaETH. Also switched to official MegaETH RPC (`carrot.megaeth.com/rpc`).
+- **2026-01-14** — **MegaETH Stability Fixes**: Debugged and resolved market creation reverts on MegaETH. Root cause was a 28M gas requirement (vs 2.5M cap) and local clock drift. Updated CLI to use block timestamp for deadlines and enabled AMM trading in CLI.
+- **2026-01-13** — **Portfolio Market Name Fix**: Fixed bug where Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question. Root cause: when indexer was ready, code used placeholder names. Fix: always use RPC data for market names (LaunchpadEngine.markets() returns full question).
+- **2026-01-13** — **Indexer Schema Update**: Added `name` and `symbol` fields to `launchpadMarket` table. Handler initializes to null; future work to populate via TruthMarket factory pattern or contract event change.
+- **2026-01-13** — **Interactive CLI RPC Fallback**: `createmarket`/wallet balance reads now retry `readContract` across fallback Monad RPC endpoints when a node returns empty call data (viem: `returned no data ("0x")`).
+- **2026-01-13** — **Indexer Arc Backfill Reliability**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier (avoids `eth_getLogs` 10-block range 400s).
+- **2026-01-12** — **Mobile UI Polish**: Fixed Pro page header vertical text bug (market question displayed one char per line on mobile). Fixed orders list Cancel button cutoff with horizontal scroll wrapper (`min-w-[480px]`). Applied same fix to Spot Sells section.
+- **2026-01-12** — **UI Rules Consolidation**: Created global `~/.claude/skills/ui-rules/SKILL.md` with technical constraints (z-index scale, min text size, safe-area insets). Simplified `frontend-dev.md` to creative philosophy only. Added deep ocean bubble animation to Launchpad, aria-labels to icon buttons, text-balance/text-pretty to headings/paragraphs.
+- **2026-01-12** — **Arc V10.8 Deployment + Full Sync**: Deployed V10.8 to Arc Testnet using stable RPC (`rpc.testnet.arc.network`). Synced addresses to indexer (`ponder.config.ts`), CLI (`config.ts`), README, and frontend. All 3 testnets now on V10.8.
+- **2026-01-12** — **Trade/Pro Category & Title Fixes**: Fixed category filter switching bug (stale market display), aligned categories with Launchpad (`crypto, sports, cultures, others`), fixed truncated market titles by using `TruthMarket.question` instead of `LaunchpadEngine.markets.name` (contract truncates to 50 chars).
+- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks.
 - **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
 - **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
 - **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P\u0026L Simulator in drawer, mobile Create/Learn tab selector.
@@ -36,15 +84,23 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **Arc Testnet Redeploy** — Deployment failed at gas estimation on `rpc.testnet.arc.network`. RPC updated in script; retry needed.
-- **Update .env RPC URLs** — User's `.env` file contains stale Arc RPC URL (`rpc.testnet.arc.network`). Should update to `rpc.drpc.testnet.arc.network`.
-- **Indexing Reset** — Reset indexer DB and reindex once Arc redeploy succeeds.
+- **ADR-083 Refactor** — Rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature-based paths per canonical filename policy.
+- **claimSpotSellProceedsFor** — Add permissionless spot sell claim for keeper parity (see cli-actor-testing-tool.md).
+- **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
+- **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
+## Recently Completed
+- ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
+- ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
+
 ## Known Issues
+- **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
+- **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
 - **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
 - **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
+- **Isolated ERC20 Tokens** — The `Collateralizer` (Split/Merge) produces ERC20 tokens, but the `TickBookVault` (Pro Trading) uses internal shares. There is no deposit/withdraw bridge, so Split/Merge tokens cannot be traded on the Pro orderbook.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -108,41 +164,48 @@
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V10.8
+### Base Sepolia (chainId: 84532) — V11.1 (Active Testing)
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0x9d17f81207fc377bbd8a73b27ad38eeb23be4388` |
-| **Collateralizer** | `0xd7a7d7829776456527198cfd0da1e6c4dae70817` |
-| **AMMEngine** | `0x67118b2ff01bbadce643c87d86f7228bb2f846b8` |
-| **TickBookVault** | `0xad72ba21563237ebdfbe310c052f87acb7cab0f2` |
-| **LaunchpadEngine** | `0x06b0316239559ec7dd8d5299726d7ec6bb3b3d2d` |
-| **MockUSDC** | `0xe35ff7794ca0f3ec55937e3806560684fdcdb74d` |
+| **LaunchpadEngine** | `0x3cfa2113c919c916e8334d245b157de937e76836` |
+| **TickBookPoolManager** | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
+| **TickBookVault** | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
+| **AMMEngine** | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
+| **Collateralizer** | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
+| **ProtocolConfig** | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
+| **MockUSDC** | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
 
-**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
+> **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
 
-### Arc Testnet (chainId: 5042002) — V10.8
+### Arc Testnet (chainId: 5042002) — V10.9
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xf17e44c3ebcc7383b3a786a5d48783c2a5220c8e` |
-| **Collateralizer** | `0x3fba88351d0f51dafe6a2462c24f3c58f2af16aa` |
-| **AMMEngine** | `0xc6a1a4540af68cb20aea0e68a202c0f221f599b4` |
-| **TickBookVault** | `0x11e4e0f62745a26b0433b44b0f36cceaf4b6dde7` |
-| **LaunchpadEngine** | `0xa610975cc06de01456a36bd27390d12d5e4b6629` |
-| **MockUSDC** | `0x72bc95f1b88d102eee3e7d7937be11ce58a3d7a2` |
+| **LaunchpadEngine** | `0x625b4b2997232380126f0aecd84867086f89b27e` |
+| **TickBookPoolManager** | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
+| **TickBookVault** | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
+| **AMMEngine** | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
+| **Collateralizer** | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
+| **MockUSDC** | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
 
-**Note:** V10.8 deployment (2026-01-11). Atomic market creation and $10 min deposit. Arc uses USDC as native gas token.
-
-### Monad Testnet (chainId: 10143) — V10.8
+### Monad Testnet (chainId: 10143) — V10.9
 | Contract | Address |
 |----------|---------|
-| **TickBookPoolManager** | `0xd4090b703e171bca15dce1cce2da4c8e14ff44c1` |
-| **Collateralizer** | `0x75a373de062a25178366e8fecb588547bfdfb589` |
-| **AMMEngine** | `0xaa314e2370587f80b25b217ae97358e8be46d143` |
-| **TickBookVault** | `0x656c7092038334a66928644df2bec755f85c32c8` |
-| **LaunchpadEngine** | `0xa93305a91705b095ddeb3c82f7988b1acdf1f012` |
-| **MockUSDC** | `0x374af5c5d64245a7c779c8d92f9e3c1058fb1315` |
+| **LaunchpadEngine** | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
+| **TickBookPoolManager** | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
+| **TickBookVault** | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
+| **AMMEngine** | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
+| **Collateralizer** | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
+| **MockUSDC** | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
 
-**Note:** V10.8 redeploy (2026-01-12). Added event coverage for indexer.
+### MegaETH Testnet (chainId: 6343) — V10.9
+| Contract | Address |
+|----------|---------|
+| **LaunchpadEngine** | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
+| **TickBookPoolManager** | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
+| **TickBookVault** | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
+| **AMMEngine** | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
+| **Collateralizer** | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
+| **MockUSDC** | `0x57bda4319c306a68054f25017183030752f97d63` |
 
 
 ---
@@ -314,4 +377,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-12*
+*Last updated: 2026-01-26 (V11.1 fresh deployment to Base Sepolia)*
