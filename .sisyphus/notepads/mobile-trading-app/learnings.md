@@ -1,31 +1,38 @@
-# Learnings
+# Learnings - Mobile Trading App
 
-## Task 2: SDK-Core Extraction
+## Task 3: Expo Project Setup + Privy Auth (2026-01-30)
 
-### ABI Handling
-- Web app's `abis/` directory has a MIX of raw JSON arrays (AMMEngine, LaunchpadEngine, TickBookPoolManager, TickBookVault, TruthMarket) and **Foundry artifacts** (Collateralizer, DynamicFeeHook, ITickBookHooks, OutcomeToken, TickBook, TickBookVaultPoolManager) that have `{abi, bytecode, ...}` structure
-- Must extract `.abi` field from Foundry artifacts when converting to `as const` exports
-- The web's `getAbi()` helper handled this dynamically; sdk-core does it at build time
+### Privy Expo SDK API (v0.63.3)
+- `usePrivy()` returns `{ user, isReady, error, logout }` — NO `authenticated` property
+- Auth check is `user !== null` (user is `User | null`)
+- `User` type (from `@privy-io/api-types`) has `linked_accounts` array, NOT `.email` property
+- Email is found via: `user.linked_accounts.find(a => a.type === 'email')`
+- Config uses `embedded.ethereum.createOnLogin` NOT `embeddedWallets.createOnLogin`
+- `CreateOnLogin` type: `'off' | 'users-without-wallets' | 'all-users'`
 
-### Module Resolution
-- sdk-core uses `moduleResolution: "bundler"` — this works with Vite/web but NOT with Node.js direct imports (needs `.js` extensions for NodeNext)
-- For mobile (Expo), bundler resolution should work fine since Metro handles it
-- Runtime verification uses `tsx` which handles bundler-style imports
+### pnpm Workspace + Expo
+- `npx expo install` fails in pnpm workspace (tries to use npm internally)
+- Use `pnpm add` directly instead of `npx expo install`
+- Expo SDK 54 template uses React 19.1.0 and RN 0.81.5
 
-### Collateralizer API
-- `getBalances(market, user)` — arg order is (market, user), NOT (user, market)
-- No `availableBalance`/`lockedBalance` functions; the Collateralizer tracks outcome tokens per market
+### Privy Peer Dependencies
+- `permissionless` must be `^0.2.47` (not 0.3.x)
+- `react-native-passkeys` must be `^0.3.0` (not 0.4.x)
+- `react-native-qrcode-styled` must be pinned to `0.3.3`
 
-### TickBookPoolManager API  
-- No `getCurrentTick` function; use `getMarketState(marketKey)` which returns `(tick, liqNo, liqYes, prob)`
+### viem Dual Version Issue
+- `@privy-io/js-sdk-core` brings its own viem dependency
+- This causes type incompatibility with the app's viem when using explicit type annotations
+- Workaround: avoid explicit `PublicClient`/`WalletClient` type annotations, use `ReturnType<typeof createPublicClient>` or `any` for cached singletons
 
-### LMSR Outcome Mapping
-- LMSR internal: outcomeIndex 0 = qYes modification, 1 = qNo modification
-- Contract encoding: 0 = NO, 1 = YES
-- So contract YES (1) → LMSR index 0, contract NO (0) → LMSR index 1
-- `getQuoteForOutcome()` handles this mapping correctly
+### Expo Router Setup
+- `package.json` must have `"main": "expo-router/entry"`
+- `app.json` needs `"plugins": ["expo-router"]` and a `"scheme"` for OAuth redirects
+- Delete `App.tsx` and `index.ts` from template — expo-router uses `app/` directory
+- File structure: `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `app/login.tsx`, etc.
 
-### Deployment Config
-- 4 chains supported: baseSepolia (84532), monadTestnet (10143), megaethTestnet (6343), arcTestnet (5042002)
-- Version: V11.1
-- TickBook address = TickBookPoolManager address (same contract)
+### No iOS Simulator
+- Current environment has Xcode but no simulator runtimes
+- Metro bundler starts successfully (`npx expo start`)
+- `npx expo start --ios` fails with "No iOS devices available in Simulator.app"
+- Dev builds require `npx expo run:ios` with simulator or physical device
