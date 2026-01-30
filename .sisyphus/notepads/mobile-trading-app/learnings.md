@@ -117,3 +117,116 @@
 ### Route Params
 - `useLocalSearchParams<{ market?: string }>()` for receiving market address
 - Handle missing params gracefully with placeholder UI
+
+## Task 7: UI Polish & Edge Case Handling (2026-01-30)
+
+### Haptic Feedback (expo-haptics)
+- **Installation**: `pnpm add expo-haptics` (v15.0.8)
+- **Pattern**: `await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)`
+- **Triggers**: Trade button, preset buttons (1/5/10/25), mint USDC button
+- **Note**: Works on iOS and Android with native vibration feedback
+- **Async**: Safe to await but doesn't block UI
+
+### Skeleton Shimmer Loading Animation
+- **Component**: `Skeleton.tsx` - Reusable with animated gradient
+- **Pattern**: 
+  ```typescript
+  const shimmer = useRef(new Animated.Value(0)).current;
+  Animated.loop(Animated.sequence([
+    Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+    Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+  ])).start();
+  ```
+- **Used in**: MarketCard, PositionCard, Markets screen loading state
+- **Key**: `useNativeDriver: true` for 60fps performance
+- **Type Fix**: Cast animated style to `ViewStyle` to satisfy TypeScript strict mode
+
+### Transaction Pending Overlay
+- **Pattern**: Modal with spinner + "Confirming on Base..." message
+- **Behavior**: Shows during `isSubmitting`, dismisses on success/error
+- **Styling**: Dark overlay (rgba(0,0,0,0.7)) with centered content card
+- **UX**: Prevents user interaction while transaction pending
+
+### Keyboard Avoidance
+- **Pattern**: `KeyboardAvoidingView` with platform-specific behavior
+  - iOS: `behavior="padding"`
+  - Android: `behavior="height"`
+- **Result**: Buy button stays visible when numeric keyboard open
+- **Wraps**: Entire TradePanel ScrollView
+
+### Error Messages with Emoji
+- **Function**: `getErrorMessage(error)` - Parses error and returns friendly message
+- **Patterns**:
+  - "insufficient" → "💰 Insufficient balance. Get more USDC or reduce amount."
+  - "reverted" → "⚠️ Transaction reverted. Check slippage or try again."
+  - "network" → "🔌 Network error. Check your connection."
+  - "user rejected" → "❌ Transaction rejected by user."
+- **Applied to**: Mint USDC, trade execution, all error alerts
+
+### First-Time User Tooltip
+- **Storage**: AsyncStorage (`@react-native-async-storage/async-storage@2.2.0`)
+- **Key**: `trade_tooltip_shown` (boolean flag)
+- **Content**: "💡 Enter the number of shares, not USDC amount"
+- **Behavior**: Shows once on first trade screen visit, dismissible with tap
+- **Styling**: Cyan left border, dark background, positioned at bottom
+- **Pattern**: 
+  ```typescript
+  useEffect(() => {
+    const shown = await AsyncStorage.getItem('trade_tooltip_shown');
+    if (!shown) {
+      setShowTooltip(true);
+      await AsyncStorage.setItem('trade_tooltip_shown', 'true');
+    }
+  }, []);
+  ```
+
+### Market Settled Transition Banner
+- **Detection**: Checks if market graduated AND probability is 0 or 1
+- **Message**: "🏁 Market settled! View results in Portfolio"
+- **Styling**: Purple background (#8b5cf6), positioned at top
+- **UX**: Gracefully informs user market no longer tradeable
+
+### Improved Loading States
+- **Markets Screen**: Skeleton stack showing 2 placeholder cards during load
+- **Error State**: Added "Try Again" button that calls `refetch()`
+- **Visual Feedback**: Better distinction between loading, error, empty states
+
+### Improved Empty States
+- **Portfolio Screen**: 
+  - Emoji (🎯) for visual interest
+  - Larger, clearer typography
+  - "Go to Markets" button for navigation
+  - Better spacing and visual hierarchy
+
+### Dependencies Added
+- `expo-haptics@15.0.8` - Haptic feedback
+- `@react-native-async-storage/async-storage@2.2.0` - Tooltip tracking
+
+### Files Modified
+1. `apps/mobile/src/components/Skeleton.tsx` - NEW
+2. `apps/mobile/src/components/MarketCard.tsx` - Added skeleton loading
+3. `apps/mobile/src/components/PositionCard.tsx` - Added skeleton loading
+4. `apps/mobile/src/components/TradePanel.tsx` - Haptics, keyboard, overlay, errors
+5. `apps/mobile/app/(tabs)/trade.tsx` - Tooltip, settled banner
+6. `apps/mobile/app/(tabs)/index.tsx` - Improved loading/error states
+7. `apps/mobile/app/(tabs)/portfolio.tsx` - Improved empty state
+
+### TypeScript Compliance
+- All files pass `npx tsc --noEmit` without errors
+- Fixed Skeleton component type issue by casting animated style to `ViewStyle`
+- Strict mode enabled throughout
+
+### Edge Cases Handled
+1. **Market settled while viewing** → Banner shows, inputs disabled gracefully
+2. **Network error during trade** → Specific error message with emoji
+3. **Insufficient balance** → Clear message with amount needed
+4. **User rejects transaction** → Friendly dismissal message
+5. **First-time user** → Non-intrusive tooltip on first visit
+6. **Loading states** → Skeleton shimmer provides visual feedback
+7. **Empty portfolio** → CTA button to navigate to markets
+
+### Performance Notes
+- Skeleton animations use `useNativeDriver: true` for 60fps performance
+- Haptic feedback is async but doesn't block UI
+- AsyncStorage check is non-blocking (useEffect)
+- Modal overlay doesn't re-render during transaction

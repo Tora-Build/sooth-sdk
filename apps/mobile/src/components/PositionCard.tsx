@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { formatUnits } from 'viem';
+import { Skeleton } from './Skeleton';
 import type { Position } from '../hooks/usePositions';
 
 interface PositionCardProps {
@@ -51,6 +52,25 @@ export function PositionCard({
   };
 
   const stageStyle = stageColors[position.stage] || stageColors.bonding;
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleSection}>
+            <Skeleton width={150} height={16} borderRadius={6} />
+            <Skeleton width={80} height={20} borderRadius={6} />
+          </View>
+          <Skeleton width={80} height={20} borderRadius={6} />
+        </View>
+        <View style={styles.sharesContainer}>
+          <Skeleton width="100%" height={60} borderRadius={8} />
+          <Skeleton width="100%" height={60} borderRadius={8} />
+        </View>
+        <Skeleton width="100%" height={40} borderRadius={8} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
