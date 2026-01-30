@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePositions } from '../../src/hooks/usePositions';
@@ -17,6 +18,7 @@ import { PositionCard } from '../../src/components/PositionCard';
 import type { Address } from 'viem';
 
 export default function PortfolioScreen() {
+  const router = useRouter();
   const { logout, user } = usePrivy();
   const { wallets } = useEmbeddedEthereumWallet();
   const queryClient = useQueryClient();
@@ -117,12 +119,19 @@ export default function PortfolioScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#10b981" />
             </View>
-          ) : positions.length === 0 ? (
+           ) : positions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No positions found</Text>
+              <Text style={styles.emptyStateEmoji}>🎯</Text>
+              <Text style={styles.emptyStateText}>No Positions Yet</Text>
               <Text style={styles.emptyStateSubtext}>
                 Start trading to see your positions here
               </Text>
+              <TouchableOpacity
+                style={styles.emptyStateButton}
+                onPress={() => router.push('/(tabs)')}
+              >
+                <Text style={styles.emptyStateButtonText}>Go to Markets</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <FlatList
@@ -237,18 +246,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyState: {
-    paddingVertical: 40,
+    paddingVertical: 60,
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyStateEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#f1f5f9',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptyStateSubtext: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#94a3b8',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyStateButton: {
+    backgroundColor: '#06b6d4',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
   },
   logoutButton: {
     marginHorizontal: 16,

@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPublicClient } from '../../src/lib/client';
 import { getDeployment, ABIS } from '@sooth/sdk-core';
 import { TradePanel } from '../../src/components/TradePanel';
@@ -67,8 +68,24 @@ function useMarketContext(marketAddress: Address | undefined) {
 export default function TradeScreen() {
   const params = useLocalSearchParams<{ market?: string }>();
   const marketAddress = params.market as Address | undefined;
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const { data: market, isLoading, error } = useMarketContext(marketAddress);
+
+  useEffect(() => {
+    const checkTooltip = async () => {
+      try {
+        const shown = await AsyncStorage.getItem('trade_tooltip_shown');
+        if (!shown) {
+          setShowTooltip(true);
+          await AsyncStorage.setItem('trade_tooltip_shown', 'true');
+        }
+      } catch (err) {
+        console.error('Failed to check tooltip:', err);
+      }
+    };
+    checkTooltip();
+  }, []);
 
   if (!marketAddress) {
     return (
@@ -101,13 +118,36 @@ export default function TradeScreen() {
     );
   }
 
+  const isSettled = market.isGraduated && (market.yesProbability === 0 || market.yesProbability === 1);
+
   return (
-    <TradePanel
-      marketAddress={market.address}
-      question={market.question}
-      yesProbability={market.yesProbability}
-      isGraduated={market.isGraduated}
-    />
+    <View style={{ flex: 1 }}>
+      {isSettled && (
+        <View style={styles.settledBanner}>
+          <Text style={styles.settledText}>
+            🏁 Market settled! View results in Portfolio
+          </Text>
+        </View>
+      )}
+      <TradePanel
+        marketAddress={market.address}
+        question={market.question}
+        yesProbability={market.yesProbability}
+        isGraduated={market.isGraduated}
+      />
+      {showTooltip && (
+        <View style={styles.tooltipContainer}>
+          <View style={styles.tooltip}>
+            <Text style={styles.tooltipText}>
+              💡 Enter the number of shares, not USDC amount
+            </Text>
+            <TouchableOpacity onPress={() => setShowTooltip(false)}>
+              <Text style={styles.tooltipDismiss}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -146,5 +186,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ef4444',
     marginTop: 8,
+  },
+  settledBanner: {
+    backgroundColor: '#8b5cf6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  settledText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  tooltip: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#06b6d4',
+    gap: 12,
+  },
+  tooltipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  tooltipDismiss: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#06b6d4',
+    textAlign: 'right',
   },
 });

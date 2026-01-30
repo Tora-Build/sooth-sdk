@@ -8,7 +8,11 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { getDeployment, ABIS, computeMarketKey } from '@sooth/sdk-core';
 import { useAMMQuote } from '../hooks/useAMMQuote';
@@ -24,6 +28,28 @@ type Address = `0x${string}`;
 
 const CHAIN_ID = 84532;
 const SHARE_PRESETS = [1, 5, 10, 25];
+
+/**
+ * Get user-friendly error message with emoji
+ */
+function getErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+
+  if (msg.toLowerCase().includes('insufficient')) {
+    return '💰 Insufficient balance. Get more USDC or reduce amount.';
+  }
+  if (msg.toLowerCase().includes('reverted')) {
+    return '⚠️ Transaction reverted. Check slippage or try again.';
+  }
+  if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('rpc')) {
+    return '🔌 Network error. Check your connection.';
+  }
+  if (msg.toLowerCase().includes('user rejected')) {
+    return '❌ Transaction rejected by user.';
+  }
+
+  return `⚠️ ${msg}`;
+}
 
 interface TradePanelProps {
   marketAddress: Address;
@@ -54,7 +80,8 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const yesPct = Math.round(yesProbability * 100);
   const noPct = 100 - yesPct;
 
-  const handlePreset = useCallback((amount: number) => {
+  const handlePreset = useCallback(async (amount: number) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSharesInput(amount.toString());
   }, []);
 
@@ -63,14 +90,15 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       Alert.alert('Error', 'Connect wallet first');
       return;
     }
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSubmitting(true);
     try {
       await mintTestnetUSDC(wallet, userAddress);
       refetchBalance();
       Alert.alert('Success', 'Minted 1,000 testnet USDC!');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Mint failed';
-      Alert.alert('Error', message);
+      const message = getErrorMessage(err);
+      Alert.alert('Mint Failed', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -157,10 +185,11 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       return;
     }
     if (!isGraduated && balance < quote.limitCost) {
-      Alert.alert('Insufficient Balance', 'You need more USDC. Tap "Get testnet USDC" below.');
+      Alert.alert('💰 Insufficient Balance', 'You need more USDC. Tap "Get testnet USDC" below.');
       return;
     }
 
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSubmitting(true);
     try {
       if (isGraduated) {
@@ -170,10 +199,10 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       }
       refetchBalance();
       setSharesInput('');
-      Alert.alert('Success', `Bought ${sharesInput} ${selectedOutcome === 1 ? 'YES' : 'NO'} shares!`);
+      Alert.alert('✅ Success', `Bought ${sharesInput} ${selectedOutcome === 1 ? 'YES' : 'NO'} shares!`);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Trade failed';
-      Alert.alert('Trade Failed', message);
+      const message = getErrorMessage(err);
+      Alert.alert('⚠️ Trade Failed', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -185,7 +214,11 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const outcomeLabel = selectedOutcome === 1 ? 'YES' : 'NO';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+    >
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.question} numberOfLines={3}>{question}</Text>
 
       {/* Current Prices */}
@@ -327,7 +360,19 @@ export const TradePanel: React.FC<TradePanelProps> = ({
           This market is graduated — orders go through the TickBook orderbook.
         </Text>
       )}
-    </ScrollView>
+      </ScrollView>
+
+      {isSubmitting && (
+        <Modal transparent animationType="fade">
+          <View style={styles.overlay}>
+            <View style={styles.overlayContent}>
+              <ActivityIndicator size="large" color="#06b6d4" />
+              <Text style={styles.overlayText}>Confirming on Base...</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </KeyboardAvoidingView>
   );
 };
 
@@ -512,5 +557,23 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     marginTop: 4,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    gap: 16,
+  },
+  overlayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f8fafc',
   },
 });

@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useMarkets } from '../../src/hooks/useMarkets';
 import { MarketCard } from '../../src/components/MarketCard';
+import { Skeleton } from '../../src/components/Skeleton';
 import type { Market } from '../../src/hooks/useMarkets';
 
 export default function MarketsScreen() {
@@ -10,7 +11,7 @@ export default function MarketsScreen() {
   const { user } = usePrivy();
   const { wallets } = useEmbeddedEthereumWallet();
   const wallet = wallets[0];
-  const { data: markets = [], isLoading, error } = useMarkets();
+  const { data: markets = [], isLoading, error, refetch } = useMarkets();
 
   const handleTrade = (marketAddress: `0x${string}`) => {
     router.push({
@@ -21,7 +22,7 @@ export default function MarketsScreen() {
 
   const renderMarket = ({ item }: { item: Market }) => (
     <View style={styles.cardWrapper}>
-      <MarketCard market={item} onTrade={handleTrade} />
+      <MarketCard market={item} onTrade={handleTrade} isLoading={false} />
     </View>
   );
 
@@ -35,7 +36,10 @@ export default function MarketsScreen() {
 
   const renderLoading = () => (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#06b6d4" />
+      <View style={styles.skeletonStack}>
+        <Skeleton width="100%" height={200} borderRadius={24} />
+        <Skeleton width="100%" height={200} borderRadius={24} />
+      </View>
       <Text style={styles.loadingText}>Loading markets...</Text>
     </View>
   );
@@ -45,6 +49,9 @@ export default function MarketsScreen() {
       <Text style={styles.errorEmoji}>⚠️</Text>
       <Text style={styles.errorTitle}>Failed to Load Markets</Text>
       <Text style={styles.errorSubtitle}>{error?.message || 'Unknown error'}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+        <Text style={styles.retryText}>Try Again</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -131,6 +138,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  skeletonStack: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 24,
   },
   loadingText: {
     marginTop: 12,
@@ -180,5 +193,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ef4444',
     textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#06b6d4',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
   },
 });

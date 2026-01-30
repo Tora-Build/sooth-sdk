@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Skeleton } from './Skeleton';
 
 export interface Market {
   address: `0x${string}`;
@@ -14,6 +15,7 @@ export interface Market {
 interface MarketCardProps {
   market: Market;
   onTrade: (marketAddress: `0x${string}`) => void;
+  isLoading?: boolean;
 }
 
 /**
@@ -99,7 +101,22 @@ function getOutcomeLabel(outcome: number | null | undefined): string {
   return '';
 }
 
-export const MarketCard: React.FC<MarketCardProps> = ({ market, onTrade }) => {
+export const MarketCard: React.FC<MarketCardProps> = ({ market, onTrade, isLoading = false }) => {
+  if (isLoading) {
+    return (
+      <View style={styles.cardContainer}>
+        <View style={styles.skeletonGradient}>
+          <View style={styles.skeletonContent}>
+            <Skeleton width={80} height={24} borderRadius={12} />
+            <Skeleton width="100%" height={100} borderRadius={8} />
+            <Skeleton width={120} height={48} borderRadius={8} />
+            <Skeleton width="100%" height={44} borderRadius={12} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const color1 = hashToHSL(market.question);
   const color2 = hashToHSL(market.question + 'offset');
   const gradientStart = hslToRgb(color1);
@@ -173,6 +190,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  skeletonGradient: {
+    width: '100%',
+    height: '90%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+    padding: 24,
+    backgroundColor: '#1e293b',
+  },
+  skeletonContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    gap: 16,
   },
   gradient: {
     width: '100%',
