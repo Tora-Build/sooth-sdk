@@ -1,4 +1,4 @@
-[
+export const TickBookPoolManagerABI = [
   {
     "type": "constructor",
     "inputs": [
@@ -1996,4 +1996,4 @@
     "name": "ZeroValue",
     "inputs": []
   }
-]
+] as const;

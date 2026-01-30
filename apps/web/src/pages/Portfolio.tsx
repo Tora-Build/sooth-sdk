@@ -28,21 +28,22 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem }: {
+const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem, onClaimRefund }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   price?: bigint,
   onValueUpdate?: (marketAddr: string, value: number) => void,
-  onRedeem?: (marketAddr: string) => Promise<void>
+  onRedeem?: (marketAddr: string) => Promise<void>,
+  onClaimRefund?: (marketAddr: string) => Promise<void>
 }) => {
   const { data: position, isLoading } = useAMMPositionDirect(market.address as `0x${string}`);
 
   const yesShares = position?.yesShares ?? 0n;
   const noShares = position?.noShares ?? 0n;
 
-  // Estimate value based on current AMM price
-  const priceYes = price ? Number(formatUnits(price, 18)) : 0.5;
-  const priceNo = 1 - priceYes;
+  const settlement = getSettlementPrices(stage, market.winningOutcome);
+  const priceYes = settlement ? settlement.yesPrice : (price ? Number(formatUnits(price, 18)) : 0.5);
+  const priceNo = settlement ? settlement.noPrice : (1 - priceYes);
   const valueUsd = (Number(formatUnits(yesShares, 18)) * priceYes) + (Number(formatUnits(noShares, 18)) * priceNo);
 
   useEffect(() => {
@@ -65,6 +66,7 @@ const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem }: {
           {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
           {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
           {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+
         </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
@@ -90,11 +92,19 @@ const AMMPositionRow = ({ market, stage, price, onValueUpdate, onRedeem }: {
           Redeem Position
         </button>
       )}
+      {stage === 'dismissed' && onClaimRefund && (
+        <button
+          onClick={() => onClaimRefund(market.address)}
+          className="mt-2 w-full px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold rounded border border-amber-500/30 transition-colors"
+        >
+          Claim Refund
+        </button>
+      )}
     </div>
   );
 };
 
-const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, onValueUpdate, onRedeem }: {
+const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurrent, qYes, qNo, decimals, graduationPct, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
   stage: OnChainMarket['stage'],
   lpBalance?: bigint,
@@ -104,6 +114,7 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
   qYes?: bigint,
   qNo?: bigint,
   decimals: number,
+  graduationPct?: number,
   onValueUpdate?: (marketAddr: string, value: number) => void,
   onRedeem?: (marketAddr: string, lpBalance: bigint) => Promise<void>
 }) => {
@@ -172,12 +183,21 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
           {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
           {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
           {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+
         </div>
         <div className="text-right">
           <div className="text-sm font-mono font-bold text-white">${valueUsd.toFixed(2)}</div>
           <div className="text-xs text-slate-500 font-mono">{parseFloat(formatUnits(lpBalance, 18)).toFixed(2)} LP</div>
         </div>
       </div>
+      {stage === 'bonding' && graduationPct !== undefined && (
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex-1 bg-slate-800/50 rounded-full h-1.5">
+            <div className="bg-indigo-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, graduationPct)}%` }} />
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono shrink-0">{graduationPct.toFixed(1)}%</span>
+        </div>
+      )}
       {stage === 'finalized' && lpBalance && lpBalance > 0n && onRedeem && (
         <button
           onClick={() => onRedeem(market.address, lpBalance)}
@@ -190,10 +210,7 @@ const LPPositionRow = ({ market, stage, lpBalance, lpSupply, floorValue, bCurren
   );
 };
 
-
-
-/**
- * TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
+/* TickBookInternalRow - Displays fills/outcomes earned inside the TickBookVault
  */
 const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate, onRedeem }: {
   market: OnChainMarket,
@@ -208,9 +225,9 @@ const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate,
   const yesInternal = vault?.yesInternal ?? 0n;
   const noInternal = vault?.noInternal ?? 0n;
 
-  // Outcome: YES=1, NO=0 (V8.13.0 unified semantics)
-  const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
-  const noPriceNum = 1 - yesPriceNum;
+  const settlement = getSettlementPrices(stage, market.winningOutcome);
+  const yesPriceNum = settlement ? settlement.yesPrice : (price ? Number(price) / 1e18 : 0.5);
+  const noPriceNum = settlement ? settlement.noPrice : (1 - yesPriceNum);
 
   const valueUsd = (Number(yesInternal) / 1e18 * yesPriceNum) + (Number(noInternal) / 1e18 * noPriceNum);
 
@@ -232,6 +249,7 @@ const TickBookInternalRow = ({ market, stage, userAddress, price, onValueUpdate,
           {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
           {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
           {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+
         </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
@@ -273,8 +291,9 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate, onR
   const yesLocked = vault?.yesLocked ?? 0n;
   const noLocked = vault?.noLocked ?? 0n;
 
-  const yesPriceNum = price ? Number(price) / 1e18 : 0.5;
-  const noPriceNum = 1 - yesPriceNum;
+  const settlement = getSettlementPrices(stage, market.winningOutcome);
+  const yesPriceNum = settlement ? settlement.yesPrice : (price ? Number(price) / 1e18 : 0.5);
+  const noPriceNum = settlement ? settlement.noPrice : (1 - yesPriceNum);
   const valueUsd = (Number(yesLocked) / 1e18 * yesPriceNum) + (Number(noLocked) / 1e18 * noPriceNum);
 
   useEffect(() => {
@@ -295,6 +314,7 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate, onR
           {stage === 'settled' && <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20">Settled</Badge>}
           {stage === 'finalized' && <Badge variant="success">Finalized</Badge>}
           {stage === 'dismissed' && <Badge variant="danger">Dismissed</Badge>}
+
         </div>
         <div className="text-xs font-mono text-slate-500">${valueUsd.toFixed(2)}</div>
       </div>
@@ -324,6 +344,16 @@ const LockedSharesRow = ({ market, stage, userAddress, price, onValueUpdate, onR
     </div>
   );
 };
+
+function getSettlementPrices(stage: OnChainMarket['stage'], winningOutcome: number | null): { yesPrice: number; noPrice: number } | null {
+  if (stage !== 'settled' && stage !== 'finalized') return null;
+  if (winningOutcome === 1) return { yesPrice: 1.0, noPrice: 0.0 };
+  if (winningOutcome === 0) return { yesPrice: 0.0, noPrice: 1.0 };
+  if (winningOutcome === 2) return { yesPrice: 0.5, noPrice: 0.5 };
+  return null;
+}
+
+
 
 export const Portfolio = () => {
   useChainStore();
@@ -371,14 +401,33 @@ export const Portfolio = () => {
     }
   }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
 
+  const handleClaimRefund = useCallback(async (marketAddr: string) => {
+    if (!contracts?.LaunchpadEngine || !writeContractAsync) return;
+    try {
+      await writeContractAsync({
+        address: contracts.LaunchpadEngine as `0x${string}`,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'claimRefund',
+        args: [marketAddr as `0x${string}`],
+      });
+      toast.success('Refund claimed successfully');
+      invalidateV8Queries();
+      queryClient.invalidateQueries({ queryKey: ['v10'] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      toast.error(`Refund failed: ${msg}`);
+    }
+  }, [contracts, writeContractAsync, invalidateV8Queries, queryClient]);
+
   const handleRedeemLP = useCallback(async (marketAddr: string, lpBalance: bigint) => {
     if (!contracts?.LaunchpadEngine || !writeContractAsync) return;
     try {
       await writeContractAsync({
         address: contracts.LaunchpadEngine as `0x${string}`,
-        abi: [{ name: 'redeemLP', type: 'function', inputs: [{ name: 'market', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
+        abi: ABIS.LaunchpadEngine,
         functionName: 'redeemLP',
         args: [marketAddr as `0x${string}`, lpBalance],
+
       });
       toast.success('LP tokens redeemed successfully');
       invalidateV8Queries();
@@ -472,7 +521,8 @@ export const Portfolio = () => {
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getMarketState', args: [m.address] },
       { address: ammEngineAddress, abi: ABIS.AMMEngine, functionName: 'getPosition', args: [m.address, userAddress] },
       { address: m.lpToken, abi: ERC20_ABI, functionName: 'balanceOf', args: [userAddress] },
-      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.address] }
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getMarketState', args: [m.address] },
+      { address: launchpadEngineAddress, abi: ABIS.LaunchpadEngine, functionName: 'getGraduationProgress', args: [m.address] },
     ]),
     query: { enabled: !!userAddress && !!ammEngineAddress && !!launchpadEngineAddress && onChainMarkets.length > 0 }
   });
@@ -485,16 +535,24 @@ export const Portfolio = () => {
     let hasAnyLpBalance = false;
 
     for (let i = 0; i < onChainMarkets.length; i++) {
-      const baseIdx = i * 4;
+      const baseIdx = i * 5;
       const priceResult = batchData[baseIdx]?.result as readonly [bigint, bigint, bigint];
       const sharesResult = batchData[baseIdx + 1]?.result as readonly [bigint, bigint];
       const lpBalResult = batchData[baseIdx + 2]?.result as bigint;
       const lpStateResult = batchData[baseIdx + 3]?.result as any;
 
-      // Price is the 3rd element in getMarketState return
-      const price = priceResult?.[2] ?? parseUnits('0.5', 18);
-      const priceYes = Number(formatUnits(price, 18));
-      const priceNo = 1 - priceYes;
+      const market = onChainMarkets[i];
+      const settlement = getSettlementPrices(market.stage, market.winningOutcome);
+      let priceYes: number;
+      let priceNo: number;
+      if (settlement) {
+        priceYes = settlement.yesPrice;
+        priceNo = settlement.noPrice;
+      } else {
+        const price = priceResult?.[2] ?? parseUnits('0.5', 18);
+        priceYes = Number(formatUnits(price, 18));
+        priceNo = 1 - priceYes;
+      }
 
       if (sharesResult && Array.isArray(sharesResult)) {
         const yesShares = Number(formatUnits(sharesResult[0] || 0n, 18));
@@ -528,10 +586,14 @@ export const Portfolio = () => {
   const proVaultTotal = parseFloat(proAvailableFormatted) + parseFloat(proReservedFormatted) + totalVaultSharesVal + totalLockedSharesVal;
 
   // Helper to extract specific market price from batch
-  const getMarketPrice = (marketAddr: string) => {
-    const idx = onChainMarkets.findIndex(m => m.address === marketAddr);
+  const getMarketPrice = (marketAddr: string): bigint | undefined => {
+    const market = onChainMarkets.find(m => m.address === marketAddr);
+    if (!market) return undefined;
+    const settlement = getSettlementPrices(market.stage, market.winningOutcome);
+    if (settlement) return parseUnits(settlement.yesPrice.toString(), 18);
+    const idx = onChainMarkets.indexOf(market);
     if (idx === -1 || !batchData) return undefined;
-    return (batchData[idx * 4]?.result as any)?.[2];
+    return (batchData[idx * 5]?.result as readonly [bigint, bigint, bigint] | undefined)?.[2];
   };
 
   return (
@@ -694,7 +756,9 @@ export const Portfolio = () => {
               <div className="p-4">
                 {onChainMarkets.length > 0 ? (
                   onChainMarkets.map((market, i) => {
-                    const baseIdx = i * 4;
+                    const baseIdx = i * 5;
+                    const gradResult = batchData?.[baseIdx + 4]?.result as readonly [bigint, bigint, bigint] | undefined;
+                    const gradPct = gradResult ? Number(gradResult[2]) / 100 : undefined;
                     return (
                       <LPPositionRow
                         key={market.address}
@@ -707,6 +771,7 @@ export const Portfolio = () => {
                         qYes={(batchData?.[baseIdx + 0]?.result as any)?.[0]}
                         qNo={(batchData?.[baseIdx + 0]?.result as any)?.[1]}
                         decimals={decimals}
+                        graduationPct={gradPct}
                         onValueUpdate={handleLpValueUpdate}
                         onRedeem={handleRedeemLP}
                       />
@@ -745,6 +810,7 @@ export const Portfolio = () => {
                         price={getMarketPrice(market.address)}
                         onValueUpdate={handleAmmValueUpdate}
                         onRedeem={handleRedeemAMM}
+                        onClaimRefund={handleClaimRefund}
                       />
                     ))}
                   </>

@@ -1,4 +1,4 @@
-[
+export const AMMEngineABI = [
   {
     "type": "constructor",
     "inputs": [
@@ -775,4 +775,4 @@
       }
     ]
   }
-]
+] as const;
