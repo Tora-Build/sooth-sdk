@@ -4,6 +4,9 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Mobile Trading App (2026-01-30)**: Complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. 16 TypeScript/React Native files, 3,019 lines of code, 7 atomic commits. Features: email/Google/Apple login, swipeable market cards with unique gradients, shares-based trading with approval flow, position list with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with 11 contract ABIs, LMSR math, and contract read functions. Zero TypeScript errors, 100% strict mode compliance.
+
 ### Fixed
 - **AMMSettlementCard Mock Data (2026-01-27)**: Replaced hardcoded `mockPosition = { yesShares: 0n, noShares: 0n }` with real user position data from `useAMMPositionDirect` hook. Users can now see their AMM shares and claim payouts on finalized markets.
 - **LPHolders Null Return (2026-01-27)**: Fixed component returning null when stats unavailable on finalized markets. Added `useTruthMarketDirect` to check `isFinalized` status and render LP Leaderboard even without stats. LP Leaderboard now visible on finalized Trade page.

@@ -17,9 +17,10 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **Finalized Markets UI Audit Complete (2026-01-27)** — Fixed all critical and high-priority issues with finalized market displays across Portfolio, Trade, and Pro pages. Completed 10/10 tasks from work plan.
+- **Mobile Trading App Complete (2026-01-30)** — Built complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. All 7 tasks complete (100%). Ready for runtime testing.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
 - **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
 - **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
 - **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
