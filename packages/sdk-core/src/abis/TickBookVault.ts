@@ -1,4 +1,4 @@
-[
+export const TickBookVaultABI = [
   {
     "type": "constructor",
     "inputs": [
@@ -898,4 +898,4 @@
       }
     ]
   }
-]
+] as const;

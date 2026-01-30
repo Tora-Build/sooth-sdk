@@ -1,4 +1,4 @@
-[
+export const LaunchpadEngineABI = [
   {
     "type": "constructor",
     "inputs": [
@@ -1348,4 +1348,4 @@
       }
     ]
   }
-]
+] as const;

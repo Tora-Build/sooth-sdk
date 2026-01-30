@@ -17,10 +17,11 @@ export interface OnChainMarket {
   isSettled: boolean;
   isFinalized: boolean;
   isDismissed: boolean;
+  winningOutcome: number | null; // 0=NO, 1=YES, 2=INVALID, null=not settled
   createdAt: bigint;
   bBase: bigint;
   bCurrent: bigint;
-  // Computed stage for filtering
+  creatorDeposit: bigint;
   stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
 }
 
@@ -99,7 +100,7 @@ export function useOnChainMarkets() {
                 lpToken,
                 bBase,
                 bCurrent,
-                _creatorDeposit,
+                creatorDeposit,
                 _feesAccrued,
                 _totalLPSupply,
                 _lpYieldPool,
@@ -115,9 +116,10 @@ export function useOnChainMarkets() {
               let isSettled = false;
               let isFinalized = false;
               let isDismissed = false;
+              let winningOutcome: number | null = null;
 
               try {
-                const [q, settled, finalized, trialState] = await Promise.all([
+                const [q, settled, finalized, trialState, winOutcome] = await Promise.all([
                   readContractSafe<string>(client, {
                     address: marketAddress as Address,
                     abi: ABIS.TruthMarket,
@@ -139,13 +141,21 @@ export function useOnChainMarkets() {
                     functionName: "trialStates",
                     args: [marketAddress],
                   }).catch(() => null),
+                  readContractSafe<number>(client, {
+                    address: marketAddress as Address,
+                    abi: ABIS.TruthMarket,
+                    functionName: "winningOutcome",
+                  }).catch(() => null),
                 ]);
 
                 if (q) question = q;
                 isSettled = settled ?? false;
                 isFinalized = finalized ?? false;
                 if (trialState) {
-                  isDismissed = trialState[1]; // [trialEndTime, isDismissed, totalLockedCost]
+                  isDismissed = trialState[1];
+                }
+                if ((settled || finalized) && winOutcome !== null) {
+                  winningOutcome = Number(winOutcome);
                 }
               } catch {}
 
@@ -173,9 +183,11 @@ export function useOnChainMarkets() {
                 isSettled,
                 isFinalized,
                 isDismissed,
+                winningOutcome,
                 createdAt,
                 bBase,
                 bCurrent,
+                creatorDeposit,
                 stage,
               } as OnChainMarket;
             } catch (error) {

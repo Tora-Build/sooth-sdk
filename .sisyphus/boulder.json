@@ -1,5 +1,8 @@
 {
-  "active_plan": null,
+  "active_plan": "/Users/danieltang/GitHub/sooth-alpha/.sisyphus/plans/mobile-trading-app.md",
+  "started_at": "2026-01-30T14:52:15.580Z",
+  "session_ids": ["ses_3f76c1464ffeten5lNt76HL3nK"],
+  "plan_name": "mobile-trading-app",
   "completed_plans": [
     {
       "plan_name": "portfolio-settlement-repair",

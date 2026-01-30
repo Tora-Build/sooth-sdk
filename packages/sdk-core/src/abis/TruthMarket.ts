@@ -1,4 +1,4 @@
-[
+export const TruthMarketABI = [
   {
     "type": "constructor",
     "inputs": [
@@ -349,4 +349,4 @@
     ],
     "anonymous": false
   }
-]
+] as const;
