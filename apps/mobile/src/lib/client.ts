@@ -23,9 +23,10 @@ export function getPublicClient() {
  * Creates a viem WalletClient from a Privy embedded wallet.
  * Usage: const wallet = wallets[0]; const client = await getWalletClient(wallet);
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getWalletClient(privyWallet: {
   address: string;
-  getProvider: () => Promise<{ request: (...args: unknown[]) => Promise<unknown> }>;
+  getProvider: () => Promise<any>;
 }) {
   const provider = await privyWallet.getProvider();
   return createWalletClient({
