@@ -1143,3 +1143,44 @@ Set up EAS development build:
 ### Next Action
 User runs: `eas build --profile development --platform ios`
 
+
+## [2026-02-01 - BLOCKER] Runtime Testing Requires Physical iPhone
+
+### Problem
+11 remaining tasks require runtime testing on physical iPhone with EAS development build.
+
+### Why This Is a Hard Blocker
+- Cannot use Expo Go (NitroModules error)
+- Cannot use iOS Simulator (EAS builds require physical device)
+- Cannot automate (wallet interactions require real wallet app)
+- Cannot simulate (touch gestures, network requests, contract interactions)
+
+### What's Complete
+- ✅ All code (3,064 lines, 18 files)
+- ✅ All static verification (TypeScript, Expo export)
+- ✅ All configuration (EAS, WalletConnect, environment)
+- ✅ All documentation (54 files, 675-line README)
+
+### What's Blocked
+- ❌ App launch on device
+- ❌ Wallet connection flow
+- ❌ Market discovery testing
+- ❌ Trading flow testing
+- ❌ Portfolio testing
+
+### User Action Required
+1. Run: `eas build --profile development --platform ios`
+2. Install on iPhone (via TestFlight or .ipa)
+3. Run: `npx expo start --dev-client`
+4. Test all features
+5. Report results
+
+### Status
+⛔ BLOCKED - Cannot proceed without user
+
+### Evidence
+- Expo export: ✅ SUCCESS (9.04 MB, 3672 modules)
+- TypeScript: ✅ 0 errors
+- Build: ✅ All packages build successfully
+- Runtime: ❌ Requires physical device
+
