@@ -1,0 +1,28 @@
+diff --git a/dist/browser/runtime/webcrypto.js b/dist/browser/runtime/webcrypto.js
+index f9e1e915390c4ebf7cf0581f4b183cae253ae402..42092921e54473abc7fdfc6c1e23ba7de551d660 100644
+--- a/dist/browser/runtime/webcrypto.js
++++ b/dist/browser/runtime/webcrypto.js
+@@ -1,2 +1,22 @@
+-export default crypto;
++// React Native compatible version - lazy evaluation
++let _crypto;
++function getCrypto() {
++  if (!_crypto) {
++    _crypto = globalThis.crypto || global.crypto;
++    if (!_crypto) {
++      throw new Error('crypto is not available. Make sure react-native-quick-crypto is installed and initialized.');
++    }
++  }
++  return _crypto;
++}
++
++export default new Proxy({}, {
++  get(target, prop) {
++    return getCrypto()[prop];
++  },
++  has(target, prop) {
++    return prop in getCrypto();
++  }
++});
++
+ export const isCryptoKey = (key) => key instanceof CryptoKey;

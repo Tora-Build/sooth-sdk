@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm run --parallel dev:web dev:indexer",
     "dev:web": "pnpm --filter ./apps/web dev",
+    "dev:mobile": "pnpm --filter ./apps/mobile start",
     "dev:indexer": "pnpm --filter ./packages/indexer dev",
     "build": "turbo run build",
     "test": "turbo run test",
@@ -20,7 +21,10 @@
     "dev:keeper:megaeth": "pnpm --filter @sooth/keeper keeper:megaeth"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "turbo": "^2.0.0",
     "viem": "^2.44.2"
+  },
+  "pnpm": {
   }
 }
