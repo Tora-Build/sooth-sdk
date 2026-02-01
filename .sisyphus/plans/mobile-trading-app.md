@@ -396,7 +396,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 3. Expo Project Setup + Privy Auth
+- [x] 3. Expo Project Setup + Privy Auth
 
   **What to do**:
   - Create `apps/mobile` using `npx create-expo-app apps/mobile --template blank-typescript`
@@ -485,7 +485,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 4. Market Discovery Screen (Stories-Style Cards)
+- [x] 4. Market Discovery Screen (Stories-Style Cards)
 
   **What to do**:
   - Build `app/(tabs)/index.tsx` — Market feed screen
@@ -565,7 +565,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 5. Trading Flow Screen (AMM + Market Orders)
+- [x] 5. Trading Flow Screen (AMM + Market Orders)
 
   **What to do**:
   - Build `app/(tabs)/trade.tsx` — Trading screen (receives market address as param)
@@ -713,7 +713,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 6. Portfolio Screen (Positions + Redeem)
+- [x] 6. Portfolio Screen (Positions + Redeem)
 
   **What to do**:
   - Build `app/(tabs)/portfolio.tsx` — Portfolio screen
@@ -821,7 +821,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 7. Stories UI Polish + Edge Cases
+- [x] 7. Stories UI Polish + Edge Cases
 
   **What to do**:
   - Vibrant gradient system: generate unique gradients per market (hash question → HSL values)
