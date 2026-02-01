@@ -120,13 +120,15 @@ export async function checkAllowance(
 /**
  * Approve USDC spending (max approval)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function approveUSDC(
-  privyWallet: Parameters<typeof getWalletClient>[0],
+  provider: any,
+  userAddress: Address,
   spender: Address
 ): Promise<void> {
   const deployment = getDeployment(CHAIN_ID);
   if (!deployment) throw new Error('No deployment found');
-  const walletClient = await getWalletClient(privyWallet);
+  const walletClient = getWalletClient(provider, userAddress);
   await walletClient.writeContract({
     address: deployment.contracts.MockUSDC as Address,
     abi: MockUsdcABI,
@@ -138,13 +140,14 @@ export async function approveUSDC(
 /**
  * Mint testnet USDC (1000 USDC)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function mintTestnetUSDC(
-  privyWallet: Parameters<typeof getWalletClient>[0],
+  provider: any,
   recipient: Address
 ): Promise<void> {
   const deployment = getDeployment(CHAIN_ID);
   if (!deployment) throw new Error('No deployment found');
-  const walletClient = await getWalletClient(privyWallet);
+  const walletClient = getWalletClient(provider, recipient);
   await walletClient.writeContract({
     address: deployment.contracts.MockUSDC as Address,
     abi: MockUsdcABI,

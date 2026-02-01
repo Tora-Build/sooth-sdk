@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useAppKit, useAccount } from '@reown/appkit-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePositions } from '../../src/hooks/usePositions';
 import { useUSDCBalance } from '../../src/hooks/useUSDCBalance';
@@ -19,13 +19,12 @@ import type { Address } from 'viem';
 
 export default function PortfolioScreen() {
   const router = useRouter();
-  const { logout, user } = usePrivy();
-  const { wallets } = useEmbeddedEthereumWallet();
+  const { disconnect } = useAppKit();
+  const { address } = useAccount();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const userAddress = wallets[0]?.address as Address | undefined;
-  const emailAccount = user?.linked_accounts?.find((a) => a.type === 'email');
+  const userAddress = address as Address | undefined;
 
   const { data: positions = [], isLoading: isLoadingPositions } = usePositions();
   const { balance: usdcBalance = 0n, isLoading: isLoadingBalance } = useUSDCBalance(userAddress);
@@ -54,7 +53,7 @@ export default function PortfolioScreen() {
         console.error('Redeem failed:', error);
       }
     },
-    [userAddress, positions, queryClient]
+    [userAddress, queryClient]
   );
 
   const handleClaimRefund = useCallback(
@@ -84,8 +83,10 @@ export default function PortfolioScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Portfolio</Text>
-          {emailAccount && 'address' in emailAccount && (
-            <Text style={styles.email}>{(emailAccount.address as string).slice(0, 12)}...</Text>
+          {userAddress && (
+            <Text style={styles.email}>
+              {userAddress.slice(0, 6)}...{userAddress.slice(-4)}
+            </Text>
           )}
         </View>
 
@@ -152,9 +153,9 @@ export default function PortfolioScreen() {
           )}
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Log Out</Text>
+        {/* Disconnect Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={() => disconnect()}>
+          <Text style={styles.logoutText}>Disconnect Wallet</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

@@ -13,7 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useAccount, useProvider } from '@reown/appkit-react-native';
 import { getDeployment, ABIS, computeMarketKey } from '@sooth/sdk-core';
 import { useAMMQuote } from '../hooks/useAMMQuote';
 import {
@@ -68,9 +68,9 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   const [sharesInput, setSharesInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { wallets } = useEmbeddedEthereumWallet();
-  const wallet = wallets?.[0];
-  const userAddress = wallet?.address as Address | undefined;
+  const { address } = useAccount();
+  const { provider } = useProvider();
+  const userAddress = address as Address | undefined;
 
   const { balance, balanceFormatted, refetch: refetchBalance } = useUSDCBalance(userAddress);
   const quote = useAMMQuote(marketAddress, sharesInput, selectedOutcome, yesProbability);
@@ -86,14 +86,14 @@ export const TradePanel: React.FC<TradePanelProps> = ({
   }, []);
 
   const handleMintUSDC = useCallback(async () => {
-    if (!wallet || !userAddress) {
+    if (!provider || !userAddress) {
       Alert.alert('Error', 'Connect wallet first');
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSubmitting(true);
     try {
-      await mintTestnetUSDC(wallet, userAddress);
+      await mintTestnetUSDC(provider, userAddress);
       refetchBalance();
       Alert.alert('Success', 'Minted 1,000 testnet USDC!');
     } catch (err: unknown) {
@@ -102,17 +102,17 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [wallet, userAddress, refetchBalance]);
+  }, [provider, userAddress, refetchBalance]);
 
   const executeAMMTrade = useCallback(async () => {
-    if (!wallet || !userAddress || !deployment) return;
+    if (!provider || !userAddress || !deployment) return;
 
     const launchpadEngine = deployment.contracts.LaunchpadEngine as Address;
-    const walletClient = await getWalletClient(wallet);
+    const walletClient = getWalletClient(provider, userAddress);
 
     const allowance = await checkAllowance(userAddress, launchpadEngine);
     if (allowance < quote.limitCost) {
-      await approveUSDC(wallet, launchpadEngine);
+      await approveUSDC(provider, userAddress, launchpadEngine);
     }
 
     await walletClient.writeContract({
@@ -121,13 +121,13 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       functionName: 'tradePositions',
       args: [marketAddress, selectedOutcome, quote.deltaShares, quote.limitCost],
     });
-  }, [wallet, userAddress, deployment, marketAddress, selectedOutcome, quote]);
+  }, [provider, userAddress, deployment, marketAddress, selectedOutcome, quote]);
 
   const executeTickBookOrder = useCallback(async () => {
-    if (!wallet || !userAddress || !deployment) return;
+    if (!provider || !userAddress || !deployment) return;
 
     const client = getPublicClient();
-    const walletClient = await getWalletClient(wallet);
+    const walletClient = getWalletClient(provider, userAddress);
     const collateralizer = deployment.contracts.Collateralizer as Address;
     const tickBookVault = deployment.contracts.TickBookVault as Address;
     const tickBookPoolManager = deployment.contracts.TickBookPoolManager as Address;
@@ -147,7 +147,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
     const maxCost = (quote.deltaShares * 120n) / 100n;
 
     if (allowance < maxCost) {
-      await approveUSDC(wallet, tickBookVault);
+      await approveUSDC(provider, userAddress, tickBookVault);
     }
 
     const availableBalance = await client.readContract({
@@ -173,10 +173,10 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       functionName: 'placeOrder',
       args: [marketKey, selectedOutcome, quote.deltaShares, 1, 999, maxCost],
     });
-  }, [wallet, userAddress, deployment, marketAddress, selectedOutcome, quote]);
+  }, [provider, userAddress, deployment, marketAddress, selectedOutcome, quote]);
 
   const handleTrade = useCallback(async () => {
-    if (!wallet || !userAddress || !deployment) {
+    if (!provider || !userAddress || !deployment) {
       Alert.alert('Error', 'Connect wallet first');
       return;
     }
@@ -207,7 +207,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({
       setIsSubmitting(false);
     }
   }, [
-    wallet, userAddress, deployment, quote, balance, isGraduated,
+    provider, userAddress, deployment, quote, balance, isGraduated,
     sharesInput, selectedOutcome, executeAMMTrade, executeTickBookOrder, refetchBalance,
   ]);
 
