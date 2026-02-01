@@ -1,5 +1,5 @@
 import type { PublicClient, Address } from 'viem';
-import { TickBookPoolManagerABI } from '../abis/TickBookPoolManager';
+import { TickBookPoolManagerABI } from '../abis/TickBookPoolManager.js';
 
 export interface TickBookMarketState {
   tick: number;

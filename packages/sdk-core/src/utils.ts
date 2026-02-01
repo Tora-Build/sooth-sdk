@@ -1,6 +1,6 @@
 import { formatUnits, parseUnits, keccak256, encodeAbiParameters, parseAbiParameters, type Address } from 'viem';
-import { WAD } from './types';
-import type { OutputLine, OutputLineType } from './types';
+import { WAD } from './types.js';
+import type { OutputLine, OutputLineType } from './types.js';
 
 export function formatWad(value: bigint, decimals = 2): string {
   const formatted = formatUnits(value, 18);

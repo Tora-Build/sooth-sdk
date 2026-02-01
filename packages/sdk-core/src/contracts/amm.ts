@@ -1,5 +1,5 @@
 import type { PublicClient, Address } from 'viem';
-import { AMMEngineABI } from '../abis/AMMEngine';
+import { AMMEngineABI } from '../abis/AMMEngine.js';
 
 export interface AmmMarketState {
   address: Address;
