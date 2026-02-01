@@ -1,6 +1,6 @@
 import type { PublicClient, Address } from 'viem';
-import { LaunchpadEngineABI } from '../abis/LaunchpadEngine';
-import { TruthMarketABI } from '../abis/TruthMarket';
+import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
+import { TruthMarketABI } from '../abis/TruthMarket.js';
 
 export interface SdkMarket {
   address: Address;

@@ -1,5 +1,5 @@
 import type { PublicClient, Address } from 'viem';
-import { CollateralizerABI } from '../abis/Collateralizer';
+import { CollateralizerABI } from '../abis/Collateralizer.js';
 
 export interface PortfolioBalances {
   yesShares: bigint;
