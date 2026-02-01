@@ -8,19 +8,25 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAppKit, useAccount } from '@reown/appkit-react-native';
+import { useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { getDeployment, ABIS } from '@sooth/sdk-core';
+import { getWalletClient } from '../../src/lib/client';
 import { usePositions } from '../../src/hooks/usePositions';
 import { useUSDCBalance } from '../../src/hooks/useUSDCBalance';
 import { PositionCard } from '../../src/components/PositionCard';
 import type { Address } from 'viem';
 
+const CHAIN_ID = 84532;
+
 export default function PortfolioScreen() {
   const router = useRouter();
   const { disconnect } = useAppKit();
   const { address } = useAccount();
+  const { provider } = useProvider();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -43,31 +49,97 @@ export default function PortfolioScreen() {
   }, [queryClient]);
 
   const handleRedeem = useCallback(
-    async (marketAddress: string, positionType: 'amm' | 'tickbook' | 'lp') => {
-      if (!userAddress) return;
+    async (marketAddress: string, positionType: 'amm' | 'tickbook' | 'lp', lpBalance?: bigint) => {
+      if (!userAddress || !provider) {
+        Alert.alert('Error', 'Wallet not connected');
+        return;
+      }
 
       try {
-        console.log(`Redeeming ${positionType} position for market ${marketAddress}`);
+        const deployment = getDeployment(CHAIN_ID);
+        if (!deployment) {
+          Alert.alert('Error', 'Deployment not found');
+          return;
+        }
+
+        const walletClient = getWalletClient(provider, userAddress);
+        const market = marketAddress as Address;
+
+        if (positionType === 'amm') {
+          // AMM: AMMEngine.settlePosition(market)
+          await walletClient.writeContract({
+            address: deployment.contracts.AMMEngine as Address,
+            abi: ABIS.AMMEngine,
+            functionName: 'settlePosition',
+            args: [market],
+          });
+        } else if (positionType === 'tickbook') {
+          // TickBook: TickBookVault.redeemResolved(market)
+          await walletClient.writeContract({
+            address: deployment.contracts.TickBookVault as Address,
+            abi: ABIS.TickBookVault,
+            functionName: 'redeemResolved',
+            args: [market],
+          });
+        } else if (positionType === 'lp') {
+          // LP: LaunchpadEngine.redeemLP(market, lpBalance)
+          if (!lpBalance) {
+            Alert.alert('Error', 'LP balance required');
+            return;
+          }
+          await walletClient.writeContract({
+            address: deployment.contracts.LaunchpadEngine as Address,
+            abi: ABIS.LaunchpadEngine,
+            functionName: 'redeemLP',
+            args: [market, lpBalance],
+          });
+        }
+
+        Alert.alert('✅ Success', `${positionType.toUpperCase()} position redeemed!`);
         await queryClient.refetchQueries({ queryKey: ['positions'] });
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        Alert.alert('❌ Redeem Failed', message);
         console.error('Redeem failed:', error);
       }
     },
-    [userAddress, queryClient]
+    [userAddress, provider, queryClient]
   );
 
   const handleClaimRefund = useCallback(
     async (marketAddress: string) => {
-      if (!userAddress) return;
+      if (!userAddress || !provider) {
+        Alert.alert('Error', 'Wallet not connected');
+        return;
+      }
 
       try {
-        console.log(`Claiming refund for market ${marketAddress}`);
+        const deployment = getDeployment(CHAIN_ID);
+        if (!deployment) {
+          Alert.alert('Error', 'Deployment not found');
+          return;
+        }
+
+        const walletClient = getWalletClient(provider, userAddress);
+        const market = marketAddress as Address;
+
+        // LaunchpadEngine.claimRefund(market)
+        await walletClient.writeContract({
+          address: deployment.contracts.LaunchpadEngine as Address,
+          abi: ABIS.LaunchpadEngine,
+          functionName: 'claimRefund',
+          args: [market],
+        });
+
+        Alert.alert('✅ Success', 'Refund claimed successfully!');
         await queryClient.refetchQueries({ queryKey: ['positions'] });
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        Alert.alert('❌ Claim Refund Failed', message);
         console.error('Claim refund failed:', error);
       }
     },
-    [userAddress, queryClient]
+    [userAddress, provider, queryClient]
   );
 
   const isLoading = isLoadingPositions || isLoadingBalance;
