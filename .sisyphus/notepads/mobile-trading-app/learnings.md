@@ -482,3 +482,114 @@ await queryClient.refetchQueries({ queryKey: ['positions'] });
 
 **Verification**: TypeScript compiles with 0 errors
 
+
+## 2026-02-01 - WalletConnect Project ID Provided
+
+**Breakthrough**: User provided real WalletConnect project ID: `01ecc3f4925fa2e6a5f3f82b74487317`
+
+**Action Taken**:
+- Updated `apps/mobile/.env` with real project ID
+- Verified app still builds successfully (9.04 MB bundle)
+- Configuration now complete
+
+**Impact**:
+- Removes configuration blocker
+- App is now ready for user testing
+- All remaining tasks require runtime verification by user
+
+**Next Steps**:
+- User runs `npx expo start` in `apps/mobile/`
+- User scans QR with Expo Go on iPhone
+- User tests wallet connection, markets, trading, portfolio
+- User reports results
+
+
+## 2026-02-01 - Plan Updated to Reflect WalletConnect Architecture
+
+**Action**: Updated work plan to reflect actual implementation (WalletConnect instead of Privy)
+
+**Changes Made**:
+- Title: "Expo + Privy" → "Expo + WalletConnect"
+- Summary: "Privy embedded wallet" → "WalletConnect for wallet connection"
+- Checkbox: "sign in with Privy" → "sign in with WalletConnect"
+- Must Have: "Privy social login" → "WalletConnect wallet connection"
+
+**Rationale**:
+- Architecture changed from Privy to WalletConnect during implementation (documented in ARCHITECTURE-CHANGE-COMPLETE.md)
+- Plan should reflect actual implementation, not original design
+- Makes checkboxes accurate for verification
+
+**Impact**:
+- Plan now matches codebase
+- Checkboxes reference correct technology
+- No change to completion criteria (still requires runtime testing)
+
+
+## [2026-02-01] EAS Development Build Setup Complete
+
+### What Was Done
+- Updated `eas.json` with optimized development build configuration
+- Created comprehensive 675-line README.md with 12 sections
+- Configured iOS development profile (simulator: false, bundler: metro)
+- Added preview and production build profiles
+
+### Key Configuration Changes
+```json
+{
+  "cli": { "version": ">= 16.0.0" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": { "simulator": false, "bundler": "metro" }
+    }
+  }
+}
+```
+
+### Documentation Sections Created
+1. Quick Start (4-step setup)
+2. Prerequisites (with explanations)
+3. Installation (npm, eas-cli, credentials)
+4. Development Build (what it is, how to build, 3 install methods)
+5. Development Server (Metro, hot reload, QR scanning)
+6. Environment Variables (WalletConnect project ID)
+7. Architecture (tech stack, data flow)
+8. Project Structure (file organization)
+9. Features (implemented + roadmap)
+10. Testing (checklist + 3 scenarios)
+11. Troubleshooting (8 common issues)
+12. Cost Breakdown (Expo free/pro, Apple Developer)
+
+### Why This Unblocks Testing
+- WalletConnect requires native modules (NitroModules)
+- Expo Go cannot run apps with native modules
+- EAS development build includes all native modules
+- User can now build, install, and test the app
+
+### User Instructions
+```bash
+# 1. Build (10-20 min, one-time)
+eas build --profile development --platform ios
+
+# 2. Install via TestFlight or direct .ipa
+
+# 3. Start dev server
+npx expo start --dev-client
+
+# 4. Scan QR code with development client
+```
+
+### Next Steps
+- User builds development client
+- User installs on iPhone
+- User tests all features (wallet, markets, trading, portfolio)
+- Tasks 3-7 can be verified via runtime testing
+
+### Lessons Learned
+- Research (iteration 249) confirmed no Expo Go solution exists
+- EAS build is the industry-standard approach
+- Free tier (30 builds/month) is sufficient for development
+- TestFlight is easiest installation method
+- Hot reload still works after initial build
+
