@@ -925,7 +925,7 @@ Wave 5 (After all screens):
 - [ ] AMM buy trade executes successfully on Base Sepolia
 - [ ] Market order executes on TickBook for graduated markets
 - [ ] Portfolio shows positions with correct values
-- [ ] Finalized position can be redeemed (redeem is gated on `stage === 'finalized'`, NOT `settled`). If no finalized market exists on Base Sepolia at test time, verify UI gating + tx path implementation (conditional external dependency).
+- [x] Finalized position can be redeemed (redeem is gated on `stage === 'finalized'`, NOT `settled`). If no finalized market exists on Base Sepolia at test time, verify UI gating + tx path implementation (conditional external dependency).
 - [x] No BigInt serialization crashes
 - [x] Portrait orientation locked
 - [x] All guardrails respected (no limit orders, no LP, no multi-chain, no search)
