@@ -78,7 +78,7 @@ Ship a functional mobile trading app that lets users discover prediction markets
 - [ ] User can view market cards and swipe between them
 - [ ] User can execute an AMM buy on Base Sepolia
 - [ ] User can view positions in portfolio
-- [ ] User can redeem finalized positions (redeem button only shown for `stage === 'finalized'`)
+- [x] User can redeem finalized positions (redeem button only shown for `stage === 'finalized'`)
 
 ### Must Have
 - Privy social login (at least email + one social provider)
