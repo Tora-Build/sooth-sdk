@@ -71,8 +71,8 @@ Ship a functional mobile trading app that lets users discover prediction markets
   - Portfolio (positions, values, redeem)
 
 ### Definition of Done
-- [ ] `cd packages/sdk-core && pnpm build` succeeds
-- [ ] `cd apps/web && pnpm build` succeeds (no regressions from extraction)
+- [x] `cd packages/sdk-core && pnpm build` succeeds
+- [x] `cd apps/web && pnpm build` succeeds (no regressions from extraction)
 - [ ] `cd apps/mobile && npx expo start` launches iOS simulator
 - [ ] User can sign in with Privy (social login)
 - [ ] User can view market cards and swipe between them
@@ -162,7 +162,7 @@ Wave 5 (After all screens):
 
 ## TODOs
 
-- [ ] 1. Validation Spike: Privy + viem + BigInt in Expo
+- [x] 1. Validation Spike: Privy + viem + BigInt in Expo
 
   **What to do**:
   - Create minimal Expo project (throwaway, in `/tmp/sooth-spike` or similar)
@@ -233,7 +233,7 @@ Wave 5 (After all screens):
 
 ---
 
-- [ ] 2. Extend `@sooth/sdk-core` with ABIs, Contract Functions, Math, and Deployments
+- [x] 2. Extend `@sooth/sdk-core` with ABIs, Contract Functions, Math, and Deployments
 
   **What to do**:
   - **ABI migration sequence** (must follow this exact order):
@@ -917,8 +917,8 @@ Wave 5 (After all screens):
 ## Success Criteria
 
 ### Final Checklist
-- [ ] `cd packages/sdk-core && pnpm build` — PASS
-- [ ] `cd apps/web && pnpm build` — PASS (no regressions)
+- [x] `cd packages/sdk-core && pnpm build` — PASS
+- [x] `cd apps/web && pnpm build` — PASS (no regressions)
 - [ ] `cd apps/mobile && npx expo start --ios` — launches
 - [ ] Privy social login works (email at minimum)
 - [ ] Markets display as swipeable full-screen cards
@@ -926,6 +926,6 @@ Wave 5 (After all screens):
 - [ ] Market order executes on TickBook for graduated markets
 - [ ] Portfolio shows positions with correct values
 - [ ] Finalized position can be redeemed (redeem is gated on `stage === 'finalized'`, NOT `settled`). If no finalized market exists on Base Sepolia at test time, verify UI gating + tx path implementation (conditional external dependency).
-- [ ] No BigInt serialization crashes
-- [ ] Portrait orientation locked
-- [ ] All guardrails respected (no limit orders, no LP, no multi-chain, no search)
+- [x] No BigInt serialization crashes
+- [x] Portrait orientation locked
+- [x] All guardrails respected (no limit orders, no LP, no multi-chain, no search)
