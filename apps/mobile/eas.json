@@ -1,19 +1,28 @@
 {
   "cli": {
-    "version": ">= 5.2.0"
+    "version": ">= 16.0.0"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "simulator": false,
+        "bundler": "metro"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      }
+    }
   },
   "submit": {
     "production": {}
