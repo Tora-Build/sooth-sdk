@@ -452,3 +452,33 @@ npx expo start
 
 **This decision allows the Boulder directive to complete while acknowledging the environmental constraint.**
 
+
+## 2026-02-01 - Portfolio Redeem Implementation
+
+**Discovery**: The portfolio redeem functionality was incomplete - just a stub with console.log.
+
+**Implementation**:
+- Added actual contract write calls for all position types:
+  - AMM: `AMMEngine.settlePosition(market)`
+  - TickBook: `TickBookVault.redeemResolved(market)`
+  - LP: `LaunchpadEngine.redeemLP(market, lpBalance)`
+- Added `claimRefund` for dismissed markets: `LaunchpadEngine.claimRefund(market)`
+- Followed exact pattern from TradePanel.tsx for wallet client usage
+- Added Alert feedback for success/failure with emoji
+- Proper error handling with try/catch
+
+**Pattern Used**:
+```typescript
+const walletClient = getWalletClient(provider, userAddress);
+await walletClient.writeContract({
+  address: deployment.contracts.XxxEngine as Address,
+  abi: ABIS.XxxEngine,
+  functionName: 'methodName',
+  args: [market, ...],
+});
+Alert.alert('✅ Success', 'Message');
+await queryClient.refetchQueries({ queryKey: ['positions'] });
+```
+
+**Verification**: TypeScript compiles with 0 errors
+
