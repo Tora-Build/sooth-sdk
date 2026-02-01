@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useAccount } from '@reown/appkit-react-native';
 import { getPublicClient } from '../lib/client';
 import { getDeployment, ABIS } from '@sooth/sdk-core';
 import { formatUnits } from 'viem';
@@ -24,6 +24,7 @@ const CHUNK_SIZE = 5;
 
 async function readContractSafe<T>(
   client: ReturnType<typeof getPublicClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config: any
 ): Promise<T | null> {
   try {
@@ -59,10 +60,10 @@ function calculatePositionValue(
 }
 
 export function usePositions() {
-  const { wallets } = useEmbeddedEthereumWallet();
+  const { address } = useAccount();
   const { data: markets = [] } = useMarkets();
 
-  const userAddress = wallets[0]?.address as Address | undefined;
+  const userAddress = address as Address | undefined;
 
   return useQuery({
     queryKey: ['positions', userAddress, BASE_SEPOLIA_CHAIN_ID],

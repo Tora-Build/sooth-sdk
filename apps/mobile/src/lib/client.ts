@@ -20,17 +20,13 @@ export function getPublicClient() {
 }
 
 /**
- * Creates a viem WalletClient from a Privy embedded wallet.
- * Usage: const wallet = wallets[0]; const client = await getWalletClient(wallet);
+ * Creates a viem WalletClient from a WalletConnect/AppKit provider.
+ * Usage: const client = getWalletClient(provider, address);
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getWalletClient(privyWallet: {
-  address: string;
-  getProvider: () => Promise<any>;
-}) {
-  const provider = await privyWallet.getProvider();
+export function getWalletClient(provider: any, address: `0x${string}`) {
   return createWalletClient({
-    account: privyWallet.address as `0x${string}`,
+    account: address,
     chain: baseSepolia,
     transport: custom(provider),
   });

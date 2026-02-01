@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useAccount } from '@reown/appkit-react-native';
 import { useMarkets } from '../../src/hooks/useMarkets';
 import { MarketCard } from '../../src/components/MarketCard';
 import { Skeleton } from '../../src/components/Skeleton';
@@ -8,9 +8,7 @@ import type { Market } from '../../src/hooks/useMarkets';
 
 export default function MarketsScreen() {
   const router = useRouter();
-  const { user } = usePrivy();
-  const { wallets } = useEmbeddedEthereumWallet();
-  const wallet = wallets[0];
+  const { address } = useAccount();
   const { data: markets = [], isLoading, error, refetch } = useMarkets();
 
   const handleTrade = (marketAddress: `0x${string}`) => {
@@ -60,9 +58,9 @@ export default function MarketsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Markets</Text>
-        {wallet && (
+        {address && (
           <Text style={styles.wallet}>
-            {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+            {address.slice(0, 6)}...{address.slice(-4)}
           </Text>
         )}
       </View>
