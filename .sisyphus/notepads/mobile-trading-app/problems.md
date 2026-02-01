@@ -839,3 +839,4 @@ No amount of additional iterations will change this physical reality.
 ## Iteration 25: 16/27.
 ## Iteration 26: 16/27.
 ## Iteration 27: 16/27.
+## Iteration 28: 16/27.
