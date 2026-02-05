@@ -19,17 +19,18 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 | ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
 | MockUSDC | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
 
-> **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
+> **Note:** V11.1 deployed to Base Sepolia and Monad Testnet. MegaETH and Arc remain at V10.9.
 
-### Monad Testnet (chainId: 10143) - V10.9
+### Monad Testnet (chainId: 10143) - V11.1
 | Contract | Address |
 |----------|---------|
-| LaunchpadEngine | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
-| TickBookPoolManager | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
-| TickBookVault | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
-| AMMEngine | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
-| Collateralizer | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
-| MockUSDC | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
+| LaunchpadEngine | `0x744724aa5b389644f31dfcfbb67786b581602084` |
+| TickBookPoolManager | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
+| TickBookVault | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
+| AMMEngine | `0x67147bc54df45ce43cb88b735043c496047596a7` |
+| Collateralizer | `0x57992a707c285971a22dffc3106118331b5e632f` |
+| ProtocolConfig | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
+| MockUSDC | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
 
 ### MegaETH Testnet (chainId: 6343) - V10.9
 | Contract | Address |

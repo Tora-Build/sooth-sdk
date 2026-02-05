@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V11.1  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2026-02-04
 
 ## V11 Features (Implemented)
 
@@ -17,9 +17,10 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **Mobile Trading App Complete (2026-01-30)** — Built complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. All 7 tasks complete (100%). Ready for runtime testing.
+- **Mobile Trading App Debugging (2026-02-04)** — Wallet connect + return flow unstable. Base/Coinbase deep link fails (LINKING_ERROR), Uniswap returns but app stays on login. Investigating AppKit storage corruption and wallet link schemes. Dev build reinstalled to device; Metro on `192.168.1.19:8082`.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
 - **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
 - **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
 - **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
@@ -96,6 +97,7 @@
 - ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
 
 ## Known Issues
+- **Mobile Wallet Connect** — AppKit reports CONNECT_SUCCESS but `useAccount` stays disconnected; LINKING_ERROR on mobile wallet deep links (Base/Coinbase). Uniswap wallet opens but app doesn’t return to authenticated state.
 - **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
 - **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
@@ -188,15 +190,16 @@
 | **Collateralizer** | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
 | **MockUSDC** | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
 
-### Monad Testnet (chainId: 10143) — V10.9
+### Monad Testnet (chainId: 10143) — V11.1
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
-| **TickBookPoolManager** | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
-| **TickBookVault** | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
-| **AMMEngine** | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
-| **Collateralizer** | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
-| **MockUSDC** | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
+| **LaunchpadEngine** | `0x744724aa5b389644f31dfcfbb67786b581602084` |
+| **TickBookPoolManager** | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
+| **TickBookVault** | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
+| **AMMEngine** | `0x67147bc54df45ce43cb88b735043c496047596a7` |
+| **Collateralizer** | `0x57992a707c285971a22dffc3106118331b5e632f` |
+| **ProtocolConfig** | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
+| **MockUSDC** | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
 
 ### MegaETH Testnet (chainId: 6343) — V10.9
 | Contract | Address |

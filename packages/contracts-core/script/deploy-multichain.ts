@@ -383,10 +383,10 @@ async function main() {
     targetChains = chainsArg.replace('--chains=', '').split(',');
   }
 
-  // Get private key
-  const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined;
+  // Get private key (try PRIVATE_KEY first, then PRIVATE_KEY_ALICE)
+  const privateKey = (process.env.PRIVATE_KEY || process.env.PRIVATE_KEY_ALICE) as `0x${string}` | undefined;
   if (!privateKey) {
-    console.error('ERROR: PRIVATE_KEY environment variable required');
+    console.error('ERROR: PRIVATE_KEY or PRIVATE_KEY_ALICE environment variable required');
     console.error('Usage: PRIVATE_KEY=0x... bun run script/deploy-multichain.ts [--chains=baseSepolia,monadTestnet]');
     process.exit(1);
   }
