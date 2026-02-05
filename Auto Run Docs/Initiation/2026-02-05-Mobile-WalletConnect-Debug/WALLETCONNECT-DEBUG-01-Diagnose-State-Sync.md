@@ -75,3 +75,9 @@ This phase creates a comprehensive diagnostic instrument to trace exactly where 
   > - `apps/mobile/app/_layout.tsx` - Instrumented with event and state change logging
   >
   > **To complete:** User must run the app on a physical device, connect a wallet, and paste the Metro console output into `DEBUG-LOG-CAPTURE.md`.
+  >
+  > **Verification (2026-02-05):** Agent confirmed all instrumentation files are properly integrated:
+  > - `debugLog` imported and used in: `_layout.tsx`, `appkit.ts`
+  > - `DebugBanner` imported at line 21 and rendered at line 275 in `_layout.tsx`
+  > - Log categories available: APPKIT, WAGMI, AUTH, STORAGE, DEEPLINK
+  > - **STATUS: BLOCKED on manual user testing - no further agent work possible**
