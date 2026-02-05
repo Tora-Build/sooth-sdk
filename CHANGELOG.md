@@ -5,13 +5,16 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Mobile Debugging (2026-02-04)**: Added AppKit event logging, wallet storage reset flow, and boot markers to confirm the active JS bundle on device.
 - **Mobile Trading App (2026-01-30)**: Complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. 16 TypeScript/React Native files, 3,019 lines of code, 7 atomic commits. Features: email/Google/Apple login, swipeable market cards with unique gradients, shares-based trading with approval flow, position list with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with 11 contract ABIs, LMSR math, and contract read functions. Zero TypeScript errors, 100% strict mode compliance.
 
 ### Fixed
+- **Mobile WalletConnect Storage (2026-02-04)**: Added safe JSON parsing and fallback handling for AppKit/WC storage to avoid invalid array/object shapes that break connection state.
 - **AMMSettlementCard Mock Data (2026-01-27)**: Replaced hardcoded `mockPosition = { yesShares: 0n, noShares: 0n }` with real user position data from `useAMMPositionDirect` hook. Users can now see their AMM shares and claim payouts on finalized markets.
 - **LPHolders Null Return (2026-01-27)**: Fixed component returning null when stats unavailable on finalized markets. Added `useTruthMarketDirect` to check `isFinalized` status and render LP Leaderboard even without stats. LP Leaderboard now visible on finalized Trade page.
 
 ### Changed
+- **Metro Polyfills (2026-02-04)**: Added Node 18 polyfills for `URL.canParse` and `Array.prototype.toReversed` to keep Metro running.
 - **Trade Page UI (2026-01-27)**: Improved AMMSettlementCard visual hierarchy with prominent status badges (Settled/Finalized), large payout display, clear winning outcome indicator, and full-width claim button with icon.
 - **Pro Page UI (2026-01-27)**: Standardized settlement card design matching AMMSettlementCard style. Added grid layout for Winning Outcome + Payout, status badges, and prominent redemption button.
 - **UserOrdersPanel Decision (2026-01-27)**: Decided to KEEP UserOrdersPanel in Pro finalized view. Reasoning: Open orders lock user collateral; market finalization does not auto-cancel orders due to gas constraints; users must manually cancel to retrieve funds and claim pending fills.

@@ -32,26 +32,25 @@ const baseRpcUrls = Array.from(
   ),
 );
 
+const monadRpcEnv = process.env.MONAD_TESTNET_RPC_URL
+  ?? process.env.PONDER_RPC_URL_MONAD_TESTNET
+  ?? "";
+const monadRpcUrls = monadRpcEnv
+  ? [monadRpcEnv, "https://testnet-rpc.monad.xyz"]
+  : ["https://testnet-rpc.monad.xyz"];
+
 export default createConfig({
-  // V11.1 deployment - 2026-01-26 (Base Sepolia)
-  // Other chains remain at V10.x per STATUS.md
-  // Note: Use DATABASE_SCHEMA env var on Render to set schema (e.g., sooth_v11)
-  // to avoid migration conflicts when contract addresses change
   chains: {
     baseSepolia: {
       id: 84532,
       rpc: baseRpcUrls,
     },
-    // V11.1: Disabled - single-chain focus
-    /*
     monadTestnet: {
       id: 10143,
-      rpc: process.env.MONAD_TESTNET_RPC_URL
-        ?? "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/",
+      rpc: monadRpcUrls,
       pollingInterval: 500,
       ethGetLogsBlockRange: 1_000,
     },
-    */
     // V11.1: Disabled - single-chain focus
     /*
     arcTestnet: {
@@ -79,13 +78,10 @@ export default createConfig({
           address: "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
           startBlock: 36814637,
         },
-        // V11.1: Disabled - single-chain focus
-        /*
         monadTestnet: {
-          address: "0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e",
-          startBlock: 7_500_000,
+          address: "0xcc8fbc38af3510c9b28941298b5bdd481a7698b4",
+          startBlock: 10_842_400,
         },
-        */
         // V11.1: Disabled - single-chain focus
         /*
         arcTestnet: {
@@ -109,13 +105,10 @@ export default createConfig({
           address: "0x3cfa2113c919c916e8334d245b157de937e76836",
           startBlock: 36814637,
         },
-        // V11.1: Disabled - single-chain focus
-        /*
         monadTestnet: {
-          address: "0x3ae688354f831a6b37025e3f19744bd857005cca",
-          startBlock: 7_500_000,
+          address: "0x744724aa5b389644f31dfcfbb67786b581602084",
+          startBlock: 10_842_400,
         },
-        */
         // V11.1: Disabled - single-chain focus
         /*
         arcTestnet: {
@@ -139,13 +132,10 @@ export default createConfig({
           address: "0x667c100f8f5667177fce0e9566ffe1403fc7c6f7",
           startBlock: 36814637,
         },
-        // V11.1: Disabled - single-chain focus
-        /*
         monadTestnet: {
-          address: "0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9",
-          startBlock: 7_500_000,
+          address: "0x93c9ee74896f1f7854a35003d92c9e7b54c0f296",
+          startBlock: 10_842_400,
         },
-        */
         // V11.1: Disabled - single-chain focus
         /*
         arcTestnet: {
@@ -169,13 +159,10 @@ export default createConfig({
           address: "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",
           startBlock: 36814637,
         },
-        // V11.1: Disabled - single-chain focus
-        /*
         monadTestnet: {
-          address: "0x8f3e3e0309f0730c62b3fdc68bff2291308537bd",
-          startBlock: 7_500_000,
+          address: "0x67147bc54df45ce43cb88b735043c496047596a7",
+          startBlock: 10_842_400,
         },
-        */
         // V11.1: Disabled - single-chain focus
         /*
         arcTestnet: {
