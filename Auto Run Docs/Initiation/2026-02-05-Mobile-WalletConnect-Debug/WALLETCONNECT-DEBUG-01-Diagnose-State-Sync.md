@@ -18,11 +18,16 @@ This phase creates a comprehensive diagnostic instrument to trace exactly where 
   - Helper functions: `getRecentLogs()`, `getLastLog()`, `clearLogs()`
   - Value truncation for readability and security (masks keys/secrets)
 
-- [ ] Instrument the AppKit initialization in `apps/mobile/src/lib/appkit.ts`:
+- [x] Instrument the AppKit initialization in `apps/mobile/src/lib/appkit.ts`:
   - Import the debug utility
   - Log every storage operation (getItem, setItem, removeItem) with key names and truncated values
   - Log AppKit instance creation with all config options
   - Log the project ID (masked, first 4 chars only for security)
+
+  **Completed 2026-02-05:** Already implemented - the `appkit.ts` file already contains:
+  - `debugLog` import and usage for all storage operations (getKeys, getEntries, getItem, setItem, removeItem)
+  - AppKit instance creation logging with masked projectId (`slice(0,4) + '****'`), network count, debug mode, wallet IDs, and redirect URI
+  - All storage operations log key names and truncated values (50 chars max)
 
 - [ ] Add comprehensive event tracing in `apps/mobile/app/_layout.tsx`:
   - Log every AppKit event subscription trigger with full event payload
