@@ -1,14 +1,38 @@
-import { useState } from 'react';
-import { Search as SearchIcon, TrendingUp, Zap, Globe, Cpu, DollarSign } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search as SearchIcon, TrendingUp, Zap, Globe, Cpu, DollarSign, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMarkets } from '../hooks/useMarkets';
 
 const CATEGORIES = [
-  { id: 'crypto', label: 'Crypto', icon: DollarSign, color: 'text-amber-400' },
-  { id: 'tech', label: 'Tech', icon: Cpu, color: 'text-cyan-400' },
-  { id: 'politics', label: 'Politics', icon: Globe, color: 'text-indigo-400' },
-  { id: 'sports', label: 'Sports', icon: Zap, color: 'text-emerald-400' },
-];
+  {
+    id: 'crypto',
+    label: 'Crypto',
+    icon: DollarSign,
+    color: 'text-amber-400',
+    keywords: ['bitcoin', 'btc', 'eth', 'ethereum', 'crypto', 'token', 'defi', 'nft', 'solana', 'monad', 'memecoin'],
+  },
+  {
+    id: 'tech',
+    label: 'Tech',
+    icon: Cpu,
+    color: 'text-cyan-400',
+    keywords: ['ai', 'gpt', 'apple', 'google', 'microsoft', 'openai', 'tech', 'software', 'chip', 'nvidia'],
+  },
+  {
+    id: 'politics',
+    label: 'Politics',
+    icon: Globe,
+    color: 'text-indigo-400',
+    keywords: ['trump', 'biden', 'election', 'senate', 'congress', 'vote', 'president', 'war', 'fed', 'reserve'],
+  },
+  {
+    id: 'sports',
+    label: 'Sports',
+    icon: Zap,
+    color: 'text-emerald-400',
+    keywords: ['nba', 'nfl', 'mlb', 'soccer', 'football', 'basketball', 'championship', 'super bowl', 'world cup'],
+  },
+] as const;
 
 const TRENDING = [
   'Bitcoin $100k',
@@ -18,14 +42,42 @@ const TRENDING = [
   'Trump 2024',
 ];
 
+function matchesCategory(question: string, keywords: readonly string[]): boolean {
+  const lowerQuestion = question.toLowerCase();
+  return keywords.some((kw) => lowerQuestion.includes(kw));
+}
+
 export function Search() {
   const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const navigate = useNavigate();
   const { data: markets } = useMarkets();
 
-  const filteredMarkets = markets?.filter((m) =>
-    m.question.toLowerCase().includes(query.toLowerCase())
-  );
+  const filteredMarkets = useMemo(() => {
+    if (!markets) return [];
+
+    return markets.filter((m) => {
+      const matchesQuery = query
+        ? m.question.toLowerCase().includes(query.toLowerCase())
+        : true;
+
+      const matchesCat = activeCategory
+        ? matchesCategory(m.question, CATEGORIES.find((c) => c.id === activeCategory)?.keywords ?? [])
+        : true;
+
+      return matchesQuery && matchesCat;
+    });
+  }, [markets, query, activeCategory]);
+
+  const handleCategoryClick = (categoryId: string) => {
+    setActiveCategory((prev) => (prev === categoryId ? null : categoryId));
+    setQuery('');
+  };
+
+  const clearFilters = () => {
+    setQuery('');
+    setActiveCategory(null);
+  };
 
   return (
     <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
@@ -44,12 +96,24 @@ export function Search() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-32">
-        {query ? (
+        {(query || activeCategory) ? (
           <div className="space-y-3">
-            <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest mb-4">
-              Results
-            </p>
-            {filteredMarkets && filteredMarkets.length > 0 ? (
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest">
+                {activeCategory
+                  ? `${CATEGORIES.find((c) => c.id === activeCategory)?.label} Markets`
+                  : 'Results'}
+                {filteredMarkets.length > 0 && ` (${filteredMarkets.length})`}
+              </p>
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full glass-panel text-xs text-white/60 hover:text-white"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            </div>
+            {filteredMarkets.length > 0 ? (
               filteredMarkets.map((market) => (
                 <button
                   key={market.address}
@@ -76,6 +140,7 @@ export function Search() {
                 {CATEGORIES.map(({ id, label, icon: Icon, color }) => (
                   <button
                     key={id}
+                    onClick={() => handleCategoryClick(id)}
                     className="p-5 rounded-2xl glass-panel flex items-center gap-3 hover:bg-white/5 transition-colors"
                   >
                     <Icon className={`w-6 h-6 ${color}`} />

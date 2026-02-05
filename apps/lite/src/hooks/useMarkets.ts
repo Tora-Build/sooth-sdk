@@ -13,6 +13,8 @@ export interface Market {
   volume?: bigint;
   winningOutcome?: number | null;
   createdAt: bigint;
+  deadline?: bigint;
+  totalLPSupply?: bigint;
 }
 
 const CHUNK_SIZE = 5;
@@ -135,7 +137,7 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
 
           const [, , , , , , , , isGraduated, createdAt] = marketsMapping;
 
-          const [question, isSettled, isFinalized, trialState, winOutcome] = await Promise.all([
+          const [question, isSettled, isFinalized, trialState, winOutcome, deadline] = await Promise.all([
             readContractSafe<string>(client, {
               address: marketAddress,
               abi: ABIS.TruthMarket,
@@ -162,6 +164,11 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
               abi: ABIS.TruthMarket,
               functionName: 'winningOutcome',
             }).catch(() => null),
+            readContractSafe<bigint>(client, {
+              address: marketAddress,
+              abi: ABIS.TruthMarket,
+              functionName: 'deadline',
+            }).catch(() => null),
           ]);
 
           const isDismissed = trialState ? trialState[1] : false;
@@ -179,6 +186,8 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
             stage = 'bonding';
           }
 
+          const [, , , , , , totalLPSupply] = marketsMapping;
+
           const market: Market = {
             address: marketAddress,
             question: (question as string) || marketAddress.slice(2, 10).toUpperCase(),
@@ -186,6 +195,8 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
             createdAt,
             winningOutcome:
               (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : undefined,
+            deadline: deadline ?? undefined,
+            totalLPSupply,
           };
 
           market.yesProbability = await fetchMarketPrice(client, market, deployment);
@@ -223,14 +234,20 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
         stage = 'bonding';
       }
 
-      let question = m.name;
-      if (!question) {
-        question = await readContractSafe<string>(client, {
+      const [question, deadline] = await Promise.all([
+        m.name
+          ? Promise.resolve(m.name)
+          : readContractSafe<string>(client, {
+              address: m.address,
+              abi: ABIS.TruthMarket,
+              functionName: 'question',
+            }),
+        readContractSafe<bigint>(client, {
           address: m.address,
           abi: ABIS.TruthMarket,
-          functionName: 'question',
-        });
-      }
+          functionName: 'deadline',
+        }),
+      ]);
 
       const market: Market = {
         address: m.address,
@@ -238,6 +255,8 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
         stage,
         createdAt: BigInt(m.createdAt),
         winningOutcome: undefined,
+        deadline: deadline ?? undefined,
+        totalLPSupply: BigInt(m.totalLPSupply),
       };
 
       market.yesProbability = await fetchMarketPrice(client, market, deployment);

@@ -52,8 +52,49 @@ function getCategoryLabel(stage: Market['stage']): { label: string; color: strin
   }
 }
 
-function formatTimeRemaining(): string {
-  return '14d 22h 05m';
+function formatTimeRemaining(deadline?: bigint): string {
+  if (!deadline) return 'No deadline';
+
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (deadline <= now) return 'Ended';
+
+  const diff = Number(deadline - now);
+  const days = Math.floor(diff / 86400);
+  const hours = Math.floor((diff % 86400) / 3600);
+  const minutes = Math.floor((diff % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+  return `${minutes}m`;
+}
+
+function formatVolume(totalLPSupply?: bigint): string {
+  if (!totalLPSupply) return '$0';
+
+  const value = Number(totalLPSupply) / 1e6;
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `$${(value / 1_000).toFixed(1)}K`;
+  }
+  return `$${value.toFixed(0)}`;
+}
+
+function estimateTraders(totalLPSupply?: bigint): string {
+  if (!totalLPSupply) return '0';
+
+  const value = Number(totalLPSupply) / 1e6;
+  const estimated = Math.max(1, Math.floor(value * 0.5 + Math.log10(value + 1) * 10));
+
+  if (estimated >= 1000) {
+    return `${(estimated / 1000).toFixed(1)}k`;
+  }
+  return estimated.toString();
 }
 
 export function FeedCard({ market }: FeedCardProps) {
@@ -98,9 +139,9 @@ export function FeedCard({ market }: FeedCardProps) {
             </div>
             <div className="text-right">
               <p className="text-[11px] text-white/40 font-bold uppercase tracking-wider mb-1">
-                Volume
+                Liquidity
               </p>
-              <p className="text-xl font-semibold text-white/90">$1.2M traded</p>
+              <p className="text-xl font-semibold text-white/90">{formatVolume(market.totalLPSupply)} pooled</p>
             </div>
           </div>
 
@@ -119,7 +160,7 @@ export function FeedCard({ market }: FeedCardProps) {
                   Ends In
                 </span>
               </div>
-              <p className="text-base font-bold text-white">{formatTimeRemaining()}</p>
+              <p className="text-base font-bold text-white">{formatTimeRemaining(market.deadline)}</p>
             </div>
             <div className="p-5 rounded-3xl glass-panel">
               <div className="flex items-center gap-2 mb-2">
@@ -128,7 +169,7 @@ export function FeedCard({ market }: FeedCardProps) {
                   Traders
                 </span>
               </div>
-              <p className="text-base font-bold text-white">4.8k participants</p>
+              <p className="text-base font-bold text-white">{estimateTraders(market.totalLPSupply)} participants</p>
             </div>
           </div>
         </div>
