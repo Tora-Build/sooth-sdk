@@ -57,7 +57,7 @@ This phase creates a comprehensive diagnostic instrument to trace exactly where 
   - Subscribes to `subscribeToLogs()` for real-time updates
   - Added to `_layout.tsx` at line 275 alongside AppKitStatusBanner
 
-- [ ] Run the app and trigger a wallet connection to capture the diagnostic output:
+- [ ] **[MANUAL USER ACTION REQUIRED]** Run the app and trigger a wallet connection to capture the diagnostic output:
   - Run `cd apps/mobile && npx expo start --dev-client`
   - Open app on device
   - Tap "Connect Wallet"
@@ -66,3 +66,12 @@ This phase creates a comprehensive diagnostic instrument to trace exactly where 
   - Return to app
   - Document the exact console output sequence in `apps/mobile/DEBUG-LOG-CAPTURE.md`
   - Note the specific point where `CONNECT_SUCCESS` fires but `useAccount.isConnected` stays false
+
+  > **Agent Note (2026-02-05):** This task requires physical device testing and manual interaction with wallet apps. All diagnostic instrumentation is complete and ready:
+  > - `apps/mobile/src/lib/debug.ts` - Logging utility with timestamped structured logging
+  > - `apps/mobile/src/components/DebugBanner.tsx` - Real-time state display banner
+  > - `apps/mobile/DEBUG-LOG-CAPTURE.md` - Template ready for log capture
+  > - `apps/mobile/src/lib/appkit.ts` - Instrumented with storage and init logging
+  > - `apps/mobile/app/_layout.tsx` - Instrumented with event and state change logging
+  >
+  > **To complete:** User must run the app on a physical device, connect a wallet, and paste the Metro console output into `DEBUG-LOG-CAPTURE.md`.
