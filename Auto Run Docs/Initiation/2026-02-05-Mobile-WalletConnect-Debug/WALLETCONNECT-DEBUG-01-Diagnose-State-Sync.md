@@ -29,19 +29,33 @@ This phase creates a comprehensive diagnostic instrument to trace exactly where 
   - AppKit instance creation logging with masked projectId (`slice(0,4) + '****'`), network count, debug mode, wallet IDs, and redirect URI
   - All storage operations log key names and truncated values (50 chars max)
 
-- [ ] Add comprehensive event tracing in `apps/mobile/app/_layout.tsx`:
+- [x] Add comprehensive event tracing in `apps/mobile/app/_layout.tsx`:
   - Log every AppKit event subscription trigger with full event payload
   - Log when `eventConnected` context state changes (before and after values)
   - Log when `AuthGate` receives new values for `isConnected`, `eventConnected`, `address`
   - Log navigation decisions (why routing to tabs vs login)
   - Add a `useEffect` that logs `useAccount()` return value on every render
 
-- [ ] Create a visible debug banner component for runtime inspection:
+  **Completed 2026-02-05:** Already implemented in `apps/mobile/app/_layout.tsx`:
+  - `AppKitStatusBanner` subscribes to all AppKit events (MODAL_OPEN, MODAL_CLOSE, CONNECT_ERROR, SELECT_WALLET, CONNECT_SUCCESS, DISCONNECT_SUCCESS, SOCIAL_LOGIN_ERROR, SWITCH_NETWORK) with full payload logging
+  - `AuthGate` tracks `prevIsConnected` and `prevEventConnected` refs to log before/after values on change
+  - `AuthGate` logs `isConnected`, `eventConnected`, `address` on every evaluation
+  - Navigation decisions logged with reason strings ('actuallyConnected=true, not in (tabs)', etc.)
+  - `useEffect` logs `useAccount()` return value on every render with render count
+
+- [x] Create a visible debug banner component for runtime inspection:
   - Create `apps/mobile/src/components/DebugBanner.tsx`
   - Show current state: `isConnected`, `eventConnected`, `address` (truncated), last event received
   - Make it a small floating banner at bottom of screen (only in __DEV__ mode)
   - Update in real-time as state changes
   - Add to `_layout.tsx` alongside AppKitStatusBanner
+
+  **Completed 2026-02-05:** Already implemented as `apps/mobile/src/components/DebugBanner.tsx`:
+  - Shows compact row with wagmi/event connection indicators (colored dots), truncated address
+  - Expandable on tap to show Chain ID, isConnected, eventConnected, full address, last event details
+  - Positioned at bottom: 90 (above tab bar), only rendered in `__DEV__` mode
+  - Subscribes to `subscribeToLogs()` for real-time updates
+  - Added to `_layout.tsx` at line 275 alongside AppKitStatusBanner
 
 - [ ] Run the app and trigger a wallet connection to capture the diagnostic output:
   - Run `cd apps/mobile && npx expo start --dev-client`
