@@ -76,6 +76,7 @@ export function Profile() {
           <button
             onClick={handleCopy}
             className="p-2.5 rounded-2xl glass-panel hover:bg-[#444] transition-colors border border-[#444]"
+            aria-label={copied ? "Address copied" : "Copy wallet address"}
           >
             {copied ? (
               <Check className="w-4 h-4 text-[#00d4aa]" />
@@ -91,13 +92,12 @@ export function Profile() {
           <button
             onClick={handleFaucet}
             disabled={isPending}
-            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-              isSuccess
+            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${isSuccess
                 ? 'bg-[#00d4aa]/20 text-[#00d4aa] border border-[#00d4aa]/30'
                 : hasNoBalance
-                ? 'bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b]'
-                : 'glass-panel text-[#888] hover:text-white border border-[#444]'
-            }`}
+                  ? 'bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b]'
+                  : 'glass-panel text-[#888] hover:text-white border border-[#444]'
+              }`}
           >
             {isPending ? (
               <>

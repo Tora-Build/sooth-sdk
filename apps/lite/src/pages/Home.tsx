@@ -30,12 +30,13 @@ export function Home() {
         <button
           onClick={() => open()}
           className="h-10 flex items-center justify-center pointer-events-auto active:scale-90 transition-transform"
+          aria-label={isConnected ? "Open wallet profile" : "Connect wallet"}
         >
           <Wallet className={`w-6 h-6 ${isConnected ? 'text-[#00d4aa]' : 'text-[#888]'}`} />
         </button>
       </header>
 
-      <main 
+      <main
         ref={containerRef}
         className="flex-1 overflow-y-auto snap-container"
       >

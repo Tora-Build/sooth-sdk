@@ -131,14 +131,14 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
         <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" />
         <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1a1b] rounded-t-[32px] outline-none border-t border-[#333] max-h-[95vh] flex flex-col">
           <div className="mx-auto w-12 h-1.5 rounded-full bg-[#333] mt-3 mb-2 shrink-0" />
-          
-          <div className="sticky top-0 bg-[#1a1a1b] z-10 px-6 py-4 border-b border-[#333] shrink-0">
-            <h2 className="text-lg font-bold text-white truncate w-full">
+
+          <div className="sticky top-0 bg-[#1a1a1b] z-10 px-6 py-3 border-b border-[#333] shrink-0">
+            <h2 className="text-base font-bold text-white truncate w-full">
               {parseTextWithLinks(market.question)}
             </h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {isConnected && usdcBalanceRaw === 0n && (
               <button
                 onClick={handleFaucetClick}
@@ -151,15 +151,14 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
               </button>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { haptics.light(); setOutcome(1); }}
                 disabled={isTrading}
-                className={`p-4 rounded-2xl border-2 transition-all ${
-                  outcome === 1
-                    ? 'bg-[#00d4aa]/20 border-[#00d4aa]'
-                    : 'bg-[#2d2d2e] border-[#444] hover:border-[#00d4aa]'
-                } ${isTrading ? 'opacity-50' : ''}`}
+                className={`p-3 rounded-2xl border-2 transition-all ${outcome === 1
+                  ? 'bg-[#00d4aa]/20 border-[#00d4aa]'
+                  : 'bg-[#2d2d2e] border-[#444] hover:border-[#00d4aa]'
+                  } ${isTrading ? 'opacity-50' : ''}`}
               >
                 <div className={`text-xs font-bold uppercase tracking-wide ${outcome === 1 ? 'text-[#00d4aa]' : 'text-[#888]'}`}>
                   Yes
@@ -172,11 +171,10 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
               <button
                 onClick={() => { haptics.light(); setOutcome(0); }}
                 disabled={isTrading}
-                className={`p-4 rounded-2xl border-2 transition-all ${
-                  outcome === 0
-                    ? 'bg-[#e01b24]/20 border-[#e01b24]'
-                    : 'bg-[#2d2d2e] border-[#444] hover:border-[#e01b24]'
-                } ${isTrading ? 'opacity-50' : ''}`}
+                className={`p-3 rounded-2xl border-2 transition-all ${outcome === 0
+                  ? 'bg-[#e01b24]/20 border-[#e01b24]'
+                  : 'bg-[#2d2d2e] border-[#444] hover:border-[#e01b24]'
+                  } ${isTrading ? 'opacity-50' : ''}`}
               >
                 <div className={`text-xs font-bold uppercase tracking-wide ${outcome === 0 ? 'text-[#e01b24]' : 'text-[#888]'}`}>
                   No
@@ -200,7 +198,8 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                   onTouchStart={() => startHold(false)}
                   onTouchEnd={stopHold}
                   disabled={isTrading || parseInt(amount || '0') <= 1}
-                  className="px-5 py-4 text-[#888] hover:text-white hover:bg-[#444] disabled:opacity-30 transition-all active:bg-[#555]"
+                  className="px-5 py-3 text-[#888] hover:text-white hover:bg-[#444] disabled:opacity-30 transition-all active:bg-[#555]"
+                  aria-label="Decrease amount"
                 >
                   <Minus className="w-6 h-6" />
                 </button>
@@ -209,8 +208,9 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   disabled={isTrading}
-                  className="flex-1 py-4 bg-transparent text-white text-2xl font-bold font-mono text-center focus:outline-none disabled:opacity-50 min-w-0"
+                  className="flex-1 py-3 bg-transparent text-white text-2xl font-bold font-mono text-center focus:outline-none disabled:opacity-50 min-w-0"
                   placeholder="0"
+                  aria-label="Trade amount in shares"
                 />
                 <button
                   onMouseDown={() => startHold(true)}
@@ -219,7 +219,8 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                   onTouchStart={() => startHold(true)}
                   onTouchEnd={stopHold}
                   disabled={isTrading}
-                  className="px-5 py-4 text-[#888] hover:text-white hover:bg-[#444] disabled:opacity-30 transition-all active:bg-[#555]"
+                  className="px-5 py-3 text-[#888] hover:text-white hover:bg-[#444] disabled:opacity-30 transition-all active:bg-[#555]"
+                  aria-label="Increase amount"
                 >
                   <Plus className="w-6 h-6" />
                 </button>
@@ -227,24 +228,24 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
             </div>
 
             <div className="bg-[#2d2d2e] rounded-2xl border border-[#444] overflow-hidden">
-              <div className="bg-[#1a1a1b] px-4 py-2.5 border-b border-[#444] flex items-center justify-between">
+              <div className="bg-[#1a1a1b] px-4 py-2 border-b border-[#444] flex items-center justify-between">
                 <span className="text-[#888] text-xs font-bold uppercase tracking-wide">Order Summary</span>
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${
-                  market.stage === 'bonding' 
-                    ? 'bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30' 
-                    : 'bg-[#00d4aa]/20 text-[#00d4aa] border-[#00d4aa]/40'
-                }`}>
-                  {market.stage === 'bonding' ? 'Bonding' : 'Graduated'}
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${market.stage === 'bonding' ? 'bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30' :
+                  (market.stage === 'live' || market.stage === 'finalized') ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/40' :
+                    market.stage === 'settled' ? 'bg-[#ffd700]/10 text-[#ffd700] border-[#ffd700]/30' :
+                      'bg-[#e01b24]/10 text-[#e01b24] border-[#e01b24]/30'
+                  }`}>
+                  {market.stage === 'live' ? 'Graduated' : market.stage}
                 </span>
               </div>
-              <div className="p-4 space-y-2">
+              <div className="p-3 space-y-1.5">
                 {isConnected && (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-[#888]">Balance</span>
                       <span className="text-[#00d4aa] font-mono font-bold">{usdcBalance} USDC</span>
                     </div>
-                    <div className="h-px bg-[#444] my-1" />
+                    <div className="h-px bg-[#444] my-0.5" />
                   </>
                 )}
                 <div className="flex justify-between text-sm">
@@ -255,15 +256,19 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                       : '0.0'}¢
                   </span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between text-sm items-center">
                     <span className="text-[#888] flex items-center gap-1.5">
                       Fee ({quote.feeRateBps / 100}%)
                       {market.stage === 'bonding' && (
                         <>
                           <span className="text-[#00d4aa]"> → LP</span>
-                          <button onClick={() => setShowHint(!showHint)} className="focus:outline-none flex items-center">
-                            <Info className="w-3.5 h-3.5 text-[#00d4aa]/70 hover:text-[#00d4aa]" />
+                          <button
+                            onClick={() => setShowHint(!showHint)}
+                            className="focus:outline-none flex items-center ml-1"
+                            aria-label="Fee information"
+                          >
+                            <Info className="w-4 h-4 text-[#00d4aa]/70 hover:text-[#00d4aa]" />
                           </button>
                         </>
                       )}
@@ -271,7 +276,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                     <span className="text-[#7c7c7c] font-mono">{quote.feeFormatted}</span>
                   </div>
                   {showHint && (
-                    <p className="text-[11px] text-[#00d4aa]/90 leading-relaxed bg-[#00d4aa]/5 p-3 rounded-2xl border border-[#00d4aa]/20 animate-in fade-in zoom-in-95 duration-200">
+                    <p className="text-[11px] text-[#00d4aa]/90 leading-relaxed bg-[#00d4aa]/5 p-2 rounded-2xl border border-[#00d4aa]/20 animate-in fade-in zoom-in-95 duration-200">
                       Trading fees earn you LP tokens during bonding. After graduation, LP holders earn from fees.
                     </p>
                   )}
@@ -284,7 +289,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                       : '--'}
                   </span>
                 </div>
-                <div className="h-px bg-[#444] my-1" />
+                <div className="h-px bg-[#444] my-0.5" />
                 <div className="flex justify-between items-center">
                   <span className="text-white font-bold">Total</span>
                   <span className="text-white font-bold font-mono text-xl">${quote.costFormatted}</span>
@@ -309,19 +314,18 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
             </a>
           </div>
 
-          <div className="p-6 bg-[#1a1a1b] border-t border-[#333] shrink-0" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+          <div className="p-4 bg-[#1a1a1b] border-t border-[#333] shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             <button
               onClick={handleBuy}
               disabled={isTrading || (isConnected && quote.deltaShares <= 0n)}
-              className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 active:scale-95 hover:scale-[1.02] hover:shadow-lg ${
-                status === 'success'
-                  ? 'bg-[#00d4aa] text-[#1a1a1b] hover:shadow-[#00d4aa]/20'
-                  : status === 'error'
+              className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 active:scale-95 hover:scale-[1.02] hover:shadow-lg ${status === 'success'
+                ? 'bg-[#00d4aa] text-[#1a1a1b] hover:shadow-[#00d4aa]/20'
+                : status === 'error'
                   ? 'bg-[#e01b24] text-white hover:shadow-[#e01b24]/20'
                   : outcome === 1
-                  ? 'bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b] hover:shadow-[#00d4aa]/20'
-                  : 'bg-gradient-to-r from-[#e01b24] to-[#ff6b35] text-white hover:shadow-[#e01b24]/20'
-              } disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none`}
+                    ? 'bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b] hover:shadow-[#00d4aa]/20'
+                    : 'bg-gradient-to-r from-[#e01b24] to-[#ff6b35] text-white hover:shadow-[#e01b24]/20'
+                } disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none`}
             >
               {isTrading && <Loader2 className="w-5 h-5 animate-spin" />}
               {status === 'success' && <CheckCircle className="w-5 h-5" />}

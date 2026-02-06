@@ -43,9 +43,9 @@ function formatCount(count: number): string {
 
 const STAGE_CONFIG = {
   bonding: { label: 'Bonding', bg: 'bg-[#00d4aa]/10', text: 'text-[#00d4aa]', border: 'border-[#00d4aa]/30' },
-  live: { label: 'Graduated', bg: 'bg-[#00d4aa]/20', text: 'text-[#00d4aa]', border: 'border-[#00d4aa]/40' },
+  live: { label: 'Graduated', bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/40' },
   settled: { label: 'Settled', bg: 'bg-[#ffd700]/10', text: 'text-[#ffd700]', border: 'border-[#ffd700]/30' },
-  finalized: { label: 'Finalized', bg: 'bg-[#00d4aa]/20', text: 'text-[#00d4aa]', border: 'border-[#00d4aa]/40' },
+  finalized: { label: 'Finalized', bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/40' },
   dismissed: { label: 'Dismissed', bg: 'bg-[#e01b24]/10', text: 'text-[#e01b24]', border: 'border-[#e01b24]/30' },
 } as const;
 
@@ -93,7 +93,7 @@ export function FeedCard({ market }: FeedCardProps) {
     const success = await share(
       'Sooth Lite',
       `${market.question} - ${yesPercent}% YES`,
-      `${window.location.origin}/trade/${market.address}`
+      `${window.location.origin}/?marketId=${market.address}`
     );
     if (success) {
       haptics.success();
@@ -111,113 +111,113 @@ export function FeedCard({ market }: FeedCardProps) {
 
   return (
     <>
-    <section className="snap-card relative px-6 pt-14">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <img src={imageUrl} alt="" className="w-full h-2/3 object-cover opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1b]/40 via-[#1a1a1b]/80 to-[#1a1a1b]" />
-      </div>
-
-      {(() => {
-        const stageInfo = STAGE_CONFIG[market.stage];
-        return (
-          <div className="absolute top-4 left-6 z-40 h-10 flex items-center">
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
-              {stageInfo.label}
-            </span>
-          </div>
-        );
-      })()}
-
-      <h1 className="relative font-heading text-[32px] leading-tight font-normal text-white tracking-tight">
-        {parseTextWithLinks(market.question)}
-      </h1>
-
-      <div className="absolute left-1/2 top-[45%] -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
-        <span className="text-[10px] uppercase tracking-widest text-[#888] font-medium">Swipe</span>
-        <div className="flex flex-col items-center animate-bounce">
-          <ChevronDown className="w-6 h-6 text-[#888]" />
-          <ChevronDown className="w-6 h-6 text-[#888] -mt-4" />
+      <section className="snap-card relative px-6 pt-14">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img src={imageUrl} alt="" className="w-full h-2/3 object-cover opacity-20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1b]/40 via-[#1a1a1b]/80 to-[#1a1a1b]" />
         </div>
-      </div>
 
-      <div className="absolute bottom-52 left-0 right-0 px-6 space-y-4 z-10">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Odds</p>
-            <p className="text-2xl font-bold text-[#00d4aa]">{yesPercent}% YES</p>
+        {(() => {
+          const stageInfo = STAGE_CONFIG[market.stage];
+          return (
+            <div className="absolute top-4 left-6 z-40 h-10 flex items-center">
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
+                {stageInfo.label}
+              </span>
+            </div>
+          );
+        })()}
+
+        <h1 className="relative font-heading text-[32px] leading-tight font-normal text-white tracking-tight">
+          {parseTextWithLinks(market.question)}
+        </h1>
+
+        <div className="absolute left-1/2 top-[45%] -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
+          <span className="text-[10px] uppercase tracking-widest text-[#888] font-medium">Swipe</span>
+          <div className="flex flex-col items-center animate-bounce">
+            <ChevronDown className="w-6 h-6 text-[#888]" />
+            <ChevronDown className="w-6 h-6 text-[#888] -mt-4" />
           </div>
-          <div className="text-right">
-            <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Pool</p>
-            <p className="text-lg font-semibold text-white">{formatVolume(market.totalLPSupply)}</p>
+        </div>
+
+        <div className="absolute bottom-52 left-0 right-0 px-6 space-y-4 z-10">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Odds</p>
+              <p className="text-2xl font-bold text-[#00d4aa]">{yesPercent}% YES</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Pool</p>
+              <p className="text-lg font-semibold text-white">{formatVolume(market.totalLPSupply)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Ends</p>
+              <div className="flex items-center gap-1 text-white">
+                <Clock className="w-3.5 h-3.5 text-[#888]" />
+                <span className="text-lg font-semibold">{formatTimeRemaining(market.deadline)}</span>
+              </div>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Ends</p>
-            <div className="flex items-center gap-1 text-white">
-              <Clock className="w-3.5 h-3.5 text-[#888]" />
-              <span className="text-lg font-semibold">{formatTimeRemaining(market.deadline)}</span>
+
+          <div className="h-2.5 w-full bg-[#2d2d2e] rounded-full overflow-hidden border border-[#444]">
+            <div
+              className="h-full bg-gradient-to-r from-[#00d4aa] to-[#00b894] rounded-full transition-all duration-500"
+              style={{ width: `${probability * 100}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="absolute bottom-28 left-0 right-0 px-4 z-20">
+          <div className="max-w-md mx-auto bg-[#1a1a1b] border border-[#333] rounded-2xl p-2 shadow-lg shadow-black/50 flex gap-2 items-center">
+            <button
+              onClick={handleYes}
+              className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b] font-bold text-sm active:scale-95 transition-all"
+            >
+              YES {yesPercent}¢
+            </button>
+            <button
+              onClick={handleNo}
+              className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#e01b24] to-[#ff6b35] text-white font-bold text-sm active:scale-95 transition-all"
+            >
+              NO {noPercent}¢
+            </button>
+
+            <div className="relative flex flex-col items-center">
+              {showActions && (
+                <div className="absolute bottom-14 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <button onClick={handleShare} className="group" aria-label="Share market">
+                    <div className={`w-10 h-10 rounded-lg glass-panel flex items-center justify-center transition-all group-active:scale-90 ${shareSuccess ? 'text-[#00d4aa] bg-[#00d4aa]/20' : 'text-[#888]'}`}>
+                      {shareSuccess ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                    </div>
+                  </button>
+                  <button onClick={handleLike} className="group relative" aria-label={isLiked ? "Unlike market" : "Like market"}>
+                    <div className={`w-10 h-10 rounded-lg glass-panel flex items-center justify-center transition-all group-active:scale-90 ${isLiked ? 'text-[#e01b24] bg-[#e01b24]/20' : 'text-[#888]'}`}>
+                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                    </div>
+                    {likeCount > 0 && (
+                      <span className={`absolute -right-1 -top-1 text-[9px] font-bold px-1 rounded ${isLiked ? 'text-[#e01b24]' : 'text-[#888]'}`}>
+                        {formatCount(likeCount)}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+              <button onClick={toggleActions} className="group" aria-label="More actions">
+                <div className={`w-12 h-12 rounded-xl glass-panel flex items-center justify-center transition-all group-active:scale-90 ${showActions ? 'text-[#00d4aa] bg-[#00d4aa]/20' : 'text-[#888]'}`}>
+                  <MoreHorizontal className={`w-5 h-5 transition-transform ${showActions ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
             </div>
           </div>
         </div>
-
-        <div className="h-2.5 w-full bg-[#2d2d2e] rounded-full overflow-hidden border border-[#444]">
-          <div
-            className="h-full bg-gradient-to-r from-[#00d4aa] to-[#00b894] rounded-full transition-all duration-500"
-            style={{ width: `${probability * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="absolute bottom-28 left-0 right-0 px-4 z-20">
-        <div className="max-w-md mx-auto bg-[#1a1a1b] border border-[#333] rounded-2xl p-2 shadow-lg shadow-black/50 flex gap-2 items-center">
-          <button
-            onClick={handleYes}
-            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b] font-bold text-sm active:scale-95 transition-all"
-          >
-            YES {yesPercent}¢
-          </button>
-          <button
-            onClick={handleNo}
-            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#e01b24] to-[#ff6b35] text-white font-bold text-sm active:scale-95 transition-all"
-          >
-            NO {noPercent}¢
-          </button>
-          
-          <div className="relative flex flex-col items-center">
-            {showActions && (
-              <div className="absolute bottom-14 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                <button onClick={handleShare} className="group">
-                  <div className={`w-10 h-10 rounded-lg glass-panel flex items-center justify-center transition-all group-active:scale-90 ${shareSuccess ? 'text-[#00d4aa] bg-[#00d4aa]/20' : 'text-[#888]'}`}>
-                    {shareSuccess ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-                  </div>
-                </button>
-                <button onClick={handleLike} className="group relative">
-                  <div className={`w-10 h-10 rounded-lg glass-panel flex items-center justify-center transition-all group-active:scale-90 ${isLiked ? 'text-[#e01b24] bg-[#e01b24]/20' : 'text-[#888]'}`}>
-                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                  </div>
-                  {likeCount > 0 && (
-                    <span className={`absolute -right-1 -top-1 text-[9px] font-bold px-1 rounded ${isLiked ? 'text-[#e01b24]' : 'text-[#888]'}`}>
-                      {formatCount(likeCount)}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
-            <button onClick={toggleActions} className="group">
-              <div className={`w-12 h-12 rounded-xl glass-panel flex items-center justify-center transition-all group-active:scale-90 ${showActions ? 'text-[#00d4aa] bg-[#00d4aa]/20' : 'text-[#888]'}`}>
-                <MoreHorizontal className={`w-5 h-5 transition-transform ${showActions ? 'rotate-90' : ''}`} />
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-    <TradeModal
-      market={market}
-      initialOutcome={selectedOutcome}
-      isOpen={isModalOpen}
-      onClose={handleCloseModal}
-      onNavigateToProfile={handleNavigateToProfile}
-    />
+      </section>
+      <TradeModal
+        market={market}
+        initialOutcome={selectedOutcome}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onNavigateToProfile={handleNavigateToProfile}
+      />
     </>
   );
 }
