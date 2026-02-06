@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search as SearchIcon, TrendingUp, Zap, Globe, Cpu, DollarSign, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMarkets } from '../hooks/useMarkets';
+import { parseTextWithLinks } from '../lib/utils';
 
 const CATEGORIES = [
   {
@@ -80,17 +81,17 @@ export function Search() {
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
+    <div className="h-full w-full flex flex-col bg-mesh text-white">
       <header className="shrink-0 pt-4 px-6 pb-4">
-        <h1 className="text-2xl font-bold font-heading text-white mb-4">Discover</h1>
+        <h1 className="text-xl font-bold font-heading text-white mb-4">Discover</h1>
         <div className="relative">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#888]" />
           <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search markets..."
-            className="w-full pl-12 pr-4 py-4 rounded-2xl glass-panel border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search markets..."
+          className="w-full pl-12 pr-4 py-4 rounded-2xl glass-panel border border-[#444] text-white placeholder-white/30 focus:outline-none focus:border-[#00d4aa]/50"
           />
         </div>
       </header>
@@ -99,7 +100,7 @@ export function Search() {
         {(query || activeCategory) ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest">
+              <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest">
                 {activeCategory
                   ? `${CATEGORIES.find((c) => c.id === activeCategory)?.label} Markets`
                   : 'Results'}
@@ -107,33 +108,35 @@ export function Search() {
               </p>
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full glass-panel text-xs text-white/60 hover:text-white"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg glass-panel text-xs text-[#888] hover:text-white border border-[#444]"
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
                 Clear
               </button>
             </div>
             {filteredMarkets.length > 0 ? (
-              filteredMarkets.map((market) => (
-                <button
-                  key={market.address}
-                  onClick={() => navigate(`/trade/${market.address}`)}
-                  className="w-full p-4 rounded-2xl glass-panel text-left hover:bg-white/5 transition-colors"
-                >
-                  <p className="text-white font-medium line-clamp-2">{market.question}</p>
-                  <p className="text-cyan-400 text-sm font-bold mt-2">
-                    {Math.round((market.yesProbability ?? 0.5) * 100)}% YES
-                  </p>
-                </button>
-              ))
+              <div className="space-y-3">
+                {filteredMarkets.map((market) => (
+                  <button
+                    key={market.address}
+                    onClick={() => navigate(`/?marketId=${market.address}`)}
+                    className="w-full p-4 rounded-2xl glass-panel text-left hover:bg-[#444] transition-colors border border-[#444]"
+                  >
+                    <div className="text-white font-normal line-clamp-2">{parseTextWithLinks(market.question)}</div>
+                    <p className="text-[#00d4aa] text-sm font-bold mt-2">
+                      {Math.round((market.yesProbability ?? 0.5) * 100)}% YES
+                    </p>
+                  </button>
+                ))}
+              </div>
             ) : (
-              <p className="text-white/40 text-center py-8">No markets found</p>
+              <p className="text-[#888] text-center py-12">No markets found</p>
             )}
           </div>
         ) : (
           <>
             <div className="mb-8">
-              <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest mb-4">
+              <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest mb-4">
                 Categories
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -141,7 +144,7 @@ export function Search() {
                   <button
                     key={id}
                     onClick={() => handleCategoryClick(id)}
-                    className="p-5 rounded-2xl glass-panel flex items-center gap-3 hover:bg-white/5 transition-colors"
+                    className="p-5 rounded-2xl glass-panel flex items-center gap-3 hover:bg-[#444] transition-colors border border-[#444]"
                   >
                     <Icon className={`w-6 h-6 ${color}`} />
                     <span className="text-white font-semibold">{label}</span>
@@ -152,8 +155,8 @@ export function Search() {
 
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-fuchsia-400" />
-                <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest">
+                <TrendingUp className="w-4 h-4 text-[#ffd700]" />
+                <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest">
                   Trending
                 </p>
               </div>
@@ -162,7 +165,7 @@ export function Search() {
                   <button
                     key={term}
                     onClick={() => setQuery(term)}
-                    className="px-4 py-2 rounded-full glass-panel text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                    className="px-4 py-2 rounded-lg glass-panel text-sm text-[#888] hover:text-white border border-[#444] transition-colors"
                   >
                     {term}
                   </button>
