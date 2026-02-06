@@ -1,8 +1,8 @@
-# Sooth Mobile Trading App (Expo + Privy)
+# Sooth Mobile Trading App (Expo + WalletConnect)
 
 ## TL;DR
 
-> **Quick Summary**: Build a consumer-oriented mobile prediction market trading app using Expo (iOS-first) with Privy embedded wallet. Extract shared contract logic from the web app into `@sooth/sdk-core`, then build an Instagram Stories-inspired mobile UI for market discovery, AMM trading, simplified TickBook market orders, and basic portfolio.
+> **Quick Summary**: Build a consumer-oriented mobile prediction market trading app using Expo (iOS-first) with WalletConnect for wallet connection. Extract shared contract logic from the web app into `@sooth/sdk-core`, then build an Instagram Stories-inspired mobile UI for market discovery, AMM trading, simplified TickBook market orders, and basic portfolio.
 >
 > **Deliverables**:
 > - Extended `packages/sdk-core` with ABIs, contract read functions, and LMSR math
@@ -74,14 +74,14 @@ Ship a functional mobile trading app that lets users discover prediction markets
 - [x] `cd packages/sdk-core && pnpm build` succeeds
 - [x] `cd apps/web && pnpm build` succeeds (no regressions from extraction)
 - [ ] `cd apps/mobile && npx expo start` launches iOS simulator
-- [ ] User can sign in with Privy (social login)
+- [ ] User can sign in with WalletConnect (wallet connection)
 - [ ] User can view market cards and swipe between them
 - [ ] User can execute an AMM buy on Base Sepolia
 - [ ] User can view positions in portfolio
 - [x] User can redeem finalized positions (redeem button only shown for `stage === 'finalized'`)
 
 ### Must Have
-- Privy social login (at least email + one social provider)
+- WalletConnect wallet connection (MetaMask, Rainbow, Trust, etc.)
 - Market card display with question, price, volume
 - AMM buy/sell execution with amount input
 - Market order execution on TickBook
@@ -920,7 +920,7 @@ Wave 5 (After all screens):
 - [x] `cd packages/sdk-core && pnpm build` — PASS
 - [x] `cd apps/web && pnpm build` — PASS (no regressions)
 - [ ] `cd apps/mobile && npx expo start --ios` — launches
-- [ ] Privy social login works (email at minimum)
+- [ ] WalletConnect wallet connection works (MetaMask/Rainbow/etc.)
 - [ ] Markets display as swipeable full-screen cards
 - [ ] AMM buy trade executes successfully on Base Sepolia
 - [ ] Market order executes on TickBook for graduated markets

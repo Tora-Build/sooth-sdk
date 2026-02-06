@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle, AlertCircle, ExternalLink, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, AlertCircle, ExternalLink, Clock, Users, Coins } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
@@ -48,7 +48,7 @@ export function Trade() {
   const { address, isConnected } = useAccount();
   const { open: openWallet } = useAppKit();
   const { data: markets } = useMarkets();
-  const { balanceFormatted: usdcBalance } = useUSDCBalance(address);
+  const { balance: usdcBalanceRaw, balanceFormatted: usdcBalance } = useUSDCBalance(address);
   const { status, error, executeTrade, reset } = useAMMTrade();
 
   const initialOutcome = searchParams.get('outcome') === '0' ? 0 : 1;
@@ -116,34 +116,34 @@ export function Trade() {
   }
 
   const probability = market.yesProbability ?? 0.5;
-  const yesPercent = Math.round(probability * 100);
-  const noPercent = 100 - yesPercent;
+  const yesPercent = (probability * 100).toFixed(1);
+  const noPercent = (100 - probability * 100).toFixed(1);
   const imageUrl = getMarketImage(market.question, market.address);
 
   return (
-    <div className="h-full w-full flex flex-col bg-mesh">
-      <div className="relative h-48 overflow-hidden">
-        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060b19]/60 via-transparent to-[#060b19]" />
-
-        <header className="absolute top-0 left-0 right-0 flex items-center gap-3 px-4 pt-14 pb-4">
-          <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-full glass-panel bounce-button">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div className="flex-1" />
-          <a
-            href={`https://testnet.monadexplorer.com/address/${market.address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-full glass-panel bounce-button"
-          >
-            <ExternalLink className="w-4 h-4 text-white" />
-          </a>
-        </header>
+    <div className="h-full w-full flex flex-col bg-mesh relative">
+      <div className="absolute inset-x-0 top-0 h-72 overflow-hidden pointer-events-none">
+        <img src={imageUrl} alt="" className="w-full h-full object-cover opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#060b19]/80 to-[#060b19]" />
       </div>
 
-      <div className="flex-1 overflow-y-auto -mt-8 relative z-10">
-        <div className="bg-[#060b19] rounded-t-3xl min-h-full">
+      <header className="relative z-20 flex items-center gap-3 px-4 pt-4 pb-4">
+        <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-full glass-panel bounce-button">
+          <ArrowLeft className="w-5 h-5 text-white" />
+        </button>
+        <div className="flex-1" />
+        <a
+          href={`https://testnet.monadexplorer.com/address/${market.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 rounded-full glass-panel bounce-button"
+        >
+          <ExternalLink className="w-4 h-4 text-white" />
+        </a>
+      </header>
+
+      <div className="flex-1 overflow-y-auto relative z-10">
+        <div className="min-h-full">
           <div className="p-5 space-y-5">
             <h1 className="text-xl font-bold text-white leading-tight font-heading">
               {parseTextWithLinks(market.question)}
@@ -171,6 +171,18 @@ export function Trade() {
                 <span className="text-white/40 text-sm font-medium">Your Balance</span>
                 <span className="text-white font-mono font-bold">{usdcBalance} USDC</span>
               </div>
+            )}
+
+            {isConnected && usdcBalanceRaw === 0n && (
+              <button
+                onClick={() => navigate('/profile')}
+                className="w-full p-4 bg-amber-500/20 border border-amber-500/40 rounded-2xl flex items-center gap-3 active:scale-95 transition-transform"
+              >
+                <Coins className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="text-sm font-semibold text-amber-200 text-left">
+                  You need USDC to trade. Tap here to get free test tokens!
+                </span>
+              </button>
             )}
 
             <div className="grid grid-cols-2 gap-3">

@@ -1,0 +1,22 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="48" fill="#060b19" />
+  
+  <defs>
+    <linearGradient id="diamond-gradient" x1="20" y1="100" x2="180" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#D946EF" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <path d="M100 30L165 100L100 170L35 100Z" fill="url(#diamond-gradient)" opacity="0.3" />
+  <path d="M100 30L165 100L100 170L35 100Z" stroke="url(#diamond-gradient)" stroke-width="3" fill="none" filter="url(#glow)" />
+  
+  <circle cx="100" cy="100" r="8" fill="white" filter="url(#glow)" />
+</svg>

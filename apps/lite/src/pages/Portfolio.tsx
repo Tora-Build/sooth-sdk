@@ -67,8 +67,8 @@ export function Portfolio() {
   if (!isConnected) {
     return (
       <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
-        <header className="shrink-0 pt-14 px-6 pb-4">
-          <h1 className="text-2xl font-bold font-heading text-white">Vault</h1>
+        <header className="shrink-0 pt-4 px-6 pb-4">
+          <h1 className="text-2xl font-bold font-heading text-white">Portfolio</h1>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center px-6 pb-32">
           <div className="w-20 h-20 rounded-3xl glass-panel flex items-center justify-center mb-6">
@@ -91,8 +91,8 @@ export function Portfolio() {
 
   return (
     <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
-      <header className="shrink-0 pt-14 px-6 pb-4">
-        <h1 className="text-2xl font-bold font-heading text-white mb-4">Vault</h1>
+      <header className="shrink-0 pt-4 px-6 pb-4">
+        <h1 className="text-2xl font-bold font-heading text-white mb-4">Portfolio</h1>
 
         <div className="p-6 rounded-3xl glass-panel">
           <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest mb-2">
