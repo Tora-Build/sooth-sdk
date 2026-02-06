@@ -47,7 +47,7 @@ export function useFaucet() {
         functionName: 'decimals',
       });
 
-      const mintAmount = parseUnits('1000', decimals);
+      const mintAmount = parseUnits('100000', decimals);
 
       const hash = await walletClient.writeContract({
         address: mockUsdcAddress,
