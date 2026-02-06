@@ -107,7 +107,7 @@ export function Profile() {
             ) : isSuccess ? (
               <>
                 <Check className="w-4 h-4" />
-                +1,000 USDC Added!
+                +100,000 USDC Added!
               </>
             ) : (
               <>

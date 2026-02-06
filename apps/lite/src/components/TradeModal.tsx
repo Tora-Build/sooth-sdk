@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Loader2, CheckCircle, AlertCircle, ExternalLink, Coins, Minus, Plus } from 'lucide-react';
+import { X, Loader2, CheckCircle, AlertCircle, ExternalLink, Coins, Minus, Plus, Info } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { useAMMQuote, useAMMTrade, useUSDCBalance } from '../hooks';
@@ -25,6 +25,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
 
   const [outcome, setOutcome] = useState<Outcome>(initialOutcome);
   const [amount, setAmount] = useState('10');
+  const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
     setOutcome(initialOutcome);
@@ -126,13 +127,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
       
       <div className="relative w-full max-w-lg bg-[#1a1a1b] border-t-4 border-[#00d4aa] rounded-t-3xl animate-in slide-in-from-bottom duration-300 max-h-[95vh] overflow-y-auto">
         <div className="sticky top-0 bg-[#1a1a1b] z-10 px-4 py-3 flex items-center justify-between border-b border-[#333]">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00d4aa] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00d4aa]"></span>
-            </span>
-            <h2 className="text-base font-bold text-white truncate">{market.question}</h2>
-          </div>
+          <h2 className="text-base font-bold text-white truncate min-w-0 flex-1 mr-2">{market.question}</h2>
           <button
             onClick={handleClose}
             className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors shrink-0"
@@ -152,12 +147,6 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                 Need USDC? Tap for free test tokens!
               </span>
             </button>
-          )}
-
-          {market.stage === 'bonding' && (
-            <p className="text-[10px] text-[#00d4aa]/70 text-center leading-relaxed">
-              Trading fees earn you LP tokens during bonding. After graduation, LP holders earn from fees.
-            </p>
           )}
 
           <div className="grid grid-cols-2 gap-2">
@@ -236,8 +225,15 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
           </div>
 
           <div className="bg-[#2d2d2e] rounded-lg border border-[#444] overflow-hidden">
-            <div className="bg-[#1a1a1b] px-3 py-2 border-b border-[#444]">
+            <div className="bg-[#1a1a1b] px-3 py-2 border-b border-[#444] flex items-center justify-between">
               <span className="text-[#888] text-xs font-bold uppercase tracking-wide">Order Summary</span>
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${
+                market.stage === 'bonding' 
+                  ? 'bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30' 
+                  : 'bg-[#00d4aa]/20 text-[#00d4aa] border-[#00d4aa]/40'
+              }`}>
+                {market.stage === 'bonding' ? 'Bonding' : 'Graduated'}
+              </span>
             </div>
             <div className="p-3 space-y-1.5">
               {isConnected && (
@@ -257,15 +253,32 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
                     : '0.0'}¢
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#888]">Fee ({quote.feeRateBps / 100}%)</span>
-                <span className="text-[#7c7c7c] font-mono">{quote.feeFormatted}</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-sm items-center">
+                  <span className="text-[#888] flex items-center gap-1">
+                    Fee ({quote.feeRateBps / 100}%)
+                    {market.stage === 'bonding' && (
+                      <>
+                        <span className="text-[#00d4aa]"> → LP</span>
+                        <button onClick={() => setShowHint(!showHint)} className="focus:outline-none">
+                          <Info className="w-3.5 h-3.5 text-[#00d4aa]/70 hover:text-[#00d4aa]" />
+                        </button>
+                      </>
+                    )}
+                  </span>
+                  <span className="text-[#7c7c7c] font-mono">{quote.feeFormatted}</span>
+                </div>
+                {showHint && (
+                  <p className="text-[10px] text-[#00d4aa]/80 leading-relaxed bg-[#00d4aa]/5 p-2 rounded border border-[#00d4aa]/20 animate-in fade-in zoom-in-95 duration-200">
+                    Trading fees earn you LP tokens during bonding. After graduation, LP holders earn from fees.
+                  </p>
+                )}
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#888]">Potential Return</span>
                 <span className="text-[#00d4aa] font-mono font-bold">
                   {parseFloat(amount || '0') > 0
-                    ? `+$${(parseFloat(amount) - parseFloat(quote.costFormatted.replace(/,/g, ''))).toFixed(2)}`
+                    ? `+${(parseFloat(amount) - parseFloat(quote.costFormatted.replace(/,/g, ''))).toFixed(2)}`
                     : '--'}
                 </span>
               </div>
@@ -282,12 +295,6 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
               <AlertCircle className="w-4 h-4 text-[#e01b24] flex-shrink-0 mt-0.5" />
               <p className="text-[#e01b24] text-sm font-medium">{error}</p>
             </div>
-          )}
-
-          {market.stage === 'bonding' && (
-            <p className="text-[10px] text-[#00d4aa]/70 text-center leading-relaxed">
-              Trading fees earn you LP tokens during bonding. After graduation, LP holders earn from fees.
-            </p>
           )}
 
           <a
