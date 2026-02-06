@@ -1,55 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, Clock, ExternalLink, Check, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { Heart, Share2, Clock, Check, MoreHorizontal, ChevronDown } from 'lucide-react';
 import type { Market } from '../hooks/useMarkets';
 import { useLikes, useShare } from '../hooks/useSocial';
 import { useHaptics } from '../hooks/useHaptics';
 import { getMarketImage } from '../lib/images';
+import { parseTextWithLinks } from '../lib/utils';
 import { TradeModal } from './TradeModal';
 
 interface FeedCardProps {
   market: Market;
-}
-
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
-
-function parseTextWithLinks(text: string): React.ReactNode[] {
-  const parts = text.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      URL_REGEX.lastIndex = 0;
-      let displayText: string;
-      let isMoltbook = false;
-      try {
-        const url = new URL(part);
-        displayText = url.hostname.replace('www.', '');
-        isMoltbook = url.hostname.includes('moltbook.com');
-      } catch {
-        displayText = 'link';
-      }
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1.5 text-[#00d4aa] hover:text-[#00b894] underline underline-offset-2"
-        >
-          {isMoltbook ? (
-            <img 
-              src="https://moltbook.com/moltbook-mascot.png" 
-              alt="Moltbook" 
-              className="w-5 h-5 inline-block"
-            />
-          ) : null}
-          {displayText}
-          <ExternalLink className="w-4 h-4" />
-        </a>
-      );
-    }
-    return part;
-  });
 }
 
 function formatTimeRemaining(deadline?: bigint): string {
@@ -160,15 +120,15 @@ export function FeedCard({ market }: FeedCardProps) {
       {(() => {
         const stageInfo = STAGE_CONFIG[market.stage];
         return (
-          <div className="absolute top-4 left-6 z-40">
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
+          <div className="absolute top-4 left-6 z-40 h-10 flex items-center">
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
               {stageInfo.label}
             </span>
           </div>
         );
       })()}
 
-      <h1 className="relative font-heading text-[32px] leading-tight font-bold text-white tracking-tight">
+      <h1 className="relative font-heading text-[32px] leading-tight font-normal text-white tracking-tight">
         {parseTextWithLinks(market.question)}
       </h1>
 

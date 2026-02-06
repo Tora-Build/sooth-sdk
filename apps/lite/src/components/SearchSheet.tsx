@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Drawer } from 'vaul';
 import { Search, X, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { parseTextWithLinks } from '../lib/utils';
 import type { Market } from '../hooks/useMarkets';
 
 interface SearchSheetProps {
@@ -22,7 +23,7 @@ export function SearchSheet({ markets }: SearchSheetProps) {
   const handleSelect = (market: Market) => {
     setOpen(false);
     setQuery('');
-    navigate(`/trade/${market.address}`);
+    navigate(`/?marketId=${market.address}`);
   };
 
   return (
@@ -46,7 +47,7 @@ export function SearchSheet({ markets }: SearchSheetProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search markets..."
-                className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-black/50 border border-white/10 text-white placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-colors"
+                className="w-full pl-12 pr-10 py-3.5 rounded-xl bg-black/50 border border-[#444] text-white placeholder:text-[#888] focus:outline-none focus:border-[#00d4aa]/50 transition-colors"
               />
               {query && (
                 <button
@@ -79,19 +80,19 @@ export function SearchSheet({ markets }: SearchSheetProps) {
                     <button
                       key={market.address}
                       onClick={() => handleSelect(market)}
-                      className="w-full p-4 rounded-2xl bg-black/30 border border-white/5 text-left transition-all active:scale-[0.98] active:bg-white/5"
+                      className="w-full p-4 rounded-xl glass-panel border border-[#444] text-left transition-all active:scale-[0.98] hover:bg-[#444]"
                     >
-                      <p className="text-white font-medium line-clamp-2 mb-3 leading-snug">
-                        {market.question}
-                      </p>
+                      <div className="text-white font-normal line-clamp-2 mb-3 leading-snug">
+                        {parseTextWithLinks(market.question)}
+                      </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="text-yes text-sm font-bold tabular-nums">
+                          <span className="text-[#00d4aa] text-sm font-bold tabular-nums">
                             {yesPercent}¢
                           </span>
-                          <span className="text-text-muted text-xs">YES</span>
+                          <span className="text-[#888] text-xs">YES</span>
                         </div>
-                        <span className="text-text-muted text-xs uppercase tracking-wide">
+                        <span className="text-[#888] text-xs uppercase tracking-wide">
                           {market.stage}
                         </span>
                       </div>

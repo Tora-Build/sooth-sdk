@@ -1,6 +1,8 @@
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
 import { BarChart3, Wallet } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
 import { FeedCard } from '../components/FeedCard';
 
@@ -8,6 +10,18 @@ export function Home() {
   const { open } = useAppKit();
   const { isConnected } = useAccount();
   const { data: markets, isLoading, error } = useMarkets();
+  const [searchParams] = useSearchParams();
+  const marketIdParam = searchParams.get('marketId');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (marketIdParam && markets && containerRef.current) {
+      const element = document.getElementById(`market-${marketIdParam}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'auto' });
+      }
+    }
+  }, [marketIdParam, markets]);
 
   return (
     <div className="h-screen w-full flex flex-col bg-mesh text-white overflow-hidden relative">
@@ -15,13 +29,16 @@ export function Home() {
         <div />
         <button
           onClick={() => open()}
-          className="w-10 h-10 flex items-center justify-center rounded-lg glass-panel pointer-events-auto active:scale-90 transition-transform"
+          className="h-10 flex items-center justify-center pointer-events-auto active:scale-90 transition-transform"
         >
-          <Wallet className={`w-5 h-5 ${isConnected ? 'text-[#00d4aa]' : 'text-[#888]'}`} />
+          <Wallet className={`w-6 h-6 ${isConnected ? 'text-[#00d4aa]' : 'text-[#888]'}`} />
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto snap-container">
+      <main 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto snap-container"
+      >
         {isLoading ? (
           <div className="h-screen flex items-center justify-center">
             <div className="w-10 h-10 border-2 border-[#00d4aa] border-t-transparent rounded-full animate-spin" />
@@ -38,7 +55,11 @@ export function Home() {
             <p className="text-[#888] text-sm">Check back soon for prediction markets</p>
           </div>
         ) : (
-          markets.map((market) => <FeedCard key={market.address} market={market} />)
+          markets.map((market) => (
+            <div key={market.address} id={`market-${market.address}`} className="snap-card">
+              <FeedCard market={market} />
+            </div>
+          ))
         )}
       </main>
     </div>
