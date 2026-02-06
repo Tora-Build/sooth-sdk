@@ -18,36 +18,44 @@ function PositionCard({ position, onClick }: { position: Position; onClick: () =
   return (
     <button
       onClick={onClick}
-      className="w-full p-4 rounded-2xl glass-panel text-left hover:bg-white/5 transition-colors"
+      className="w-full p-4 rounded-lg glass-panel text-left hover:bg-[#444] transition-colors"
     >
       <p className="text-white font-medium line-clamp-2 mb-3">{position.market.question}</p>
-      <div className="flex items-center justify-between">
-        <div className="flex gap-4">
-          {position.yesShares > 0n && (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span className="text-sm text-cyan-400 font-bold">
-                {formatShares(position.yesShares)} YES
-              </span>
-            </div>
-          )}
-          {position.noShares > 0n && (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-fuchsia-400" />
-              <span className="text-sm text-fuchsia-400 font-bold">
-                {formatShares(position.noShares)} NO
-              </span>
-            </div>
-          )}
-        </div>
+       <div className="flex items-center justify-between">
+         <div className="flex gap-4">
+           {position.yesShares > 0n && (
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-[#00d4aa]" />
+               <span className="text-sm text-[#00d4aa] font-bold">
+                 {formatShares(position.yesShares)} YES
+               </span>
+             </div>
+           )}
+           {position.noShares > 0n && (
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-[#e01b24]" />
+               <span className="text-sm text-[#e01b24] font-bold">
+                 {formatShares(position.noShares)} NO
+               </span>
+             </div>
+           )}
+           {position.lpBalance > 0n && (
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-[#ffd700]" />
+               <span className="text-sm text-[#ffd700] font-bold">
+                 {formatShares(position.lpBalance)} LP
+               </span>
+             </div>
+           )}
+         </div>
         <div className="text-right">
-          <p className="text-[10px] text-white/40 uppercase">Value</p>
+          <p className="text-[10px] text-[#888] uppercase">Value</p>
           <p className="text-sm font-bold text-white">${position.valueUsd.toFixed(2)}</p>
         </div>
       </div>
-      <div className="mt-3 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+      <div className="mt-3 h-1.5 w-full bg-[#2d2d2e] rounded-full overflow-hidden border border-[#444]">
         <div
-          className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full"
+          className="h-full bg-gradient-to-r from-[#00d4aa] to-[#00b894] rounded-full"
           style={{ width: `${yesPercent}%` }}
         />
       </div>
@@ -66,21 +74,21 @@ export function Portfolio() {
 
   if (!isConnected) {
     return (
-      <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
+      <div className="h-full w-full flex flex-col bg-mesh text-white">
         <header className="shrink-0 pt-4 px-6 pb-4">
           <h1 className="text-2xl font-bold font-heading text-white">Portfolio</h1>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center px-6 pb-32">
-          <div className="w-20 h-20 rounded-3xl glass-panel flex items-center justify-center mb-6">
-            <Wallet className="w-10 h-10 text-cyan-400" />
+          <div className="w-20 h-20 rounded-lg glass-panel flex items-center justify-center mb-6">
+            <Wallet className="w-10 h-10 text-[#00d4aa]" />
           </div>
           <p className="text-white font-bold text-lg mb-2">Connect Your Wallet</p>
-          <p className="text-white/40 text-sm text-center mb-6">
+          <p className="text-[#888] text-sm text-center mb-6">
             Connect to view your positions and balance
           </p>
           <button
             onClick={() => open()}
-            className="px-8 py-4 rounded-2xl bg-cyan-500 text-white font-bold neon-cyan active:scale-95 transition-all"
+            className="px-8 py-4 rounded-lg bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#1a1a1b] font-bold neon-teal active:scale-95 transition-all"
           >
             Connect Wallet
           </button>
@@ -90,34 +98,38 @@ export function Portfolio() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-mesh text-slate-100">
+    <div className="h-full w-full flex flex-col bg-mesh text-white">
       <header className="shrink-0 pt-4 px-6 pb-4">
         <h1 className="text-2xl font-bold font-heading text-white mb-4">Portfolio</h1>
 
-        <div className="p-6 rounded-3xl glass-panel">
-          <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest mb-2">
-            Total Balance
-          </p>
-          <p className="text-4xl font-bold text-white font-mono mb-4">
-            ${balanceFormatted || '0.00'}
-          </p>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-cyan-400" />
+        <div className="rounded-lg glass-panel overflow-hidden">
+          <div className="bg-[#1a1a1b] px-4 py-2 border-b border-[#444]">
+            <p className="text-[11px] text-[#888] uppercase font-bold tracking-widest">
+              Total Balance
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-4xl font-bold text-[#00d4aa] font-mono mb-4">
+              ${balanceFormatted || '0.00'}
+            </p>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#00d4aa]/20 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-[#00d4aa]" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#888] uppercase">Positions</p>
+                  <p className="text-sm font-bold text-[#00d4aa]">${totalPositionValue.toFixed(2)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] text-white/40 uppercase">Positions</p>
-                <p className="text-sm font-bold text-cyan-400">${totalPositionValue.toFixed(2)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-fuchsia-500/20 flex items-center justify-center">
-                <PieChart className="w-4 h-4 text-fuchsia-400" />
-              </div>
-              <div>
-                <p className="text-[10px] text-white/40 uppercase">Markets</p>
-                <p className="text-sm font-bold text-fuchsia-400">{positions?.length ?? 0}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#e01b24]/20 flex items-center justify-center">
+                  <PieChart className="w-4 h-4 text-[#e01b24]" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#888] uppercase">Markets</p>
+                  <p className="text-sm font-bold text-[#e01b24]">{positions?.length ?? 0}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -126,18 +138,18 @@ export function Portfolio() {
 
       <main className="flex-1 overflow-y-auto px-6 pb-32">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-[11px] text-white/40 uppercase font-bold tracking-widest">
+          <p className="text-[11px] text-[#888] uppercase font-bold tracking-widest">
             Your Positions
           </p>
           {positions && positions.length > 0 && (
-            <p className="text-sm text-white/60">{positions.length} active</p>
+            <p className="text-sm text-[#888]">{positions.length} active</p>
           )}
         </div>
 
         {isLoadingPositions ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mb-4" />
-            <p className="text-white/40">Loading positions...</p>
+            <Loader2 className="w-8 h-8 text-[#00d4aa] animate-spin mb-4" />
+            <p className="text-[#888]">Loading positions...</p>
           </div>
         ) : positions && positions.length > 0 ? (
           <div className="space-y-3">
@@ -151,11 +163,11 @@ export function Portfolio() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="w-16 h-16 rounded-2xl glass-panel flex items-center justify-center mb-4">
-              <PieChart className="w-8 h-8 text-white/20" />
+            <div className="w-16 h-16 rounded-lg glass-panel flex items-center justify-center mb-4">
+              <PieChart className="w-8 h-8 text-[#444]" />
             </div>
-            <p className="text-white/40 text-center">No positions yet</p>
-            <p className="text-white/30 text-sm text-center mt-1">
+            <p className="text-[#888] text-center">No positions yet</p>
+            <p className="text-[#555] text-sm text-center mt-1">
               Start trading to see your positions here
             </p>
           </div>
