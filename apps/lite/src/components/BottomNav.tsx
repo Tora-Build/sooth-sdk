@@ -16,37 +16,39 @@ const NAV_ITEMS: NavItem[] = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-nav px-6 pt-2 pb-3">
-      <div className="flex items-center justify-between max-w-lg mx-auto">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className="flex flex-col items-center gap-1 group transition-all bounce-button"
-          >
-            {({ isActive }) => (
-              <>
-                <div
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all group-active:scale-90 ${
-                    isActive
-                      ? 'bg-white/10 text-cyan-400 border border-white/20 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
-                      : 'text-white/40 group-hover:bg-white/5 group-hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span
-                  className={`text-[10px] font-bold tracking-wider ${
-                    isActive ? 'text-cyan-400' : 'text-white/40 group-hover:text-white'
-                  }`}
-                >
-                  {label}
-                </span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
-    </nav>
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <nav className="max-w-md mx-auto bg-[#1a1a1b] border border-[#333] rounded-2xl px-4 py-2 shadow-lg shadow-black/50">
+        <div className="flex items-center justify-between">
+          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className="flex flex-col items-center gap-0.5 group transition-all bounce-button px-3 py-1"
+            >
+              {({ isActive }) => (
+                <>
+                  <div
+                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all group-active:scale-90 ${
+                      isActive
+                        ? 'bg-[#00d4aa]/20 text-[#00d4aa]'
+                        : 'text-[#888] group-hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span
+                    className={`text-[9px] font-bold tracking-wider ${
+                      isActive ? 'text-[#00d4aa]' : 'text-[#888] group-hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+    </div>
   );
 }

@@ -101,6 +101,11 @@ const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadlin
     name: 'Lakers 2026 Championship',
     deadline: '2026-07-01',
   },
+  btc75k: {
+    question: '@SoothSayer predicts: Will BTC hit $75,000 by February 20, 2026? Source: https://www.moltbook.com/post/5ac527fd-26d4-467e-b56e-cf298ff88ee8',
+    name: 'BTC $75K by Feb 2026',
+    deadline: '2026-02-20',
+  },
 };
 
 /**
