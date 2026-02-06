@@ -7,8 +7,6 @@ import { getPublicClient } from '../lib/client';
 
 type Address = `0x${string}`;
 
-const MINT_AMOUNT = parseUnits('1000', 6);
-
 const MOCK_USDC_ABI = [
   {
     name: 'mint',
@@ -19,6 +17,13 @@ const MOCK_USDC_ABI = [
       { name: 'amount', type: 'uint256' },
     ],
     outputs: [],
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
   },
 ] as const;
 
@@ -34,14 +39,23 @@ export function useFaucet() {
         throw new Error('Wallet not connected');
       }
 
+      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      
+      const decimals = await client.readContract({
+        address: mockUsdcAddress,
+        abi: MOCK_USDC_ABI,
+        functionName: 'decimals',
+      });
+
+      const mintAmount = parseUnits('1000', decimals);
+
       const hash = await walletClient.writeContract({
         address: mockUsdcAddress,
         abi: MOCK_USDC_ABI,
         functionName: 'mint',
-        args: [address, MINT_AMOUNT],
+        args: [address, mintAmount],
       });
 
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
       await client.waitForTransactionReceipt({ hash });
 
       return hash;

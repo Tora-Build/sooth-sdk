@@ -98,29 +98,25 @@ export interface ChainConfig {
 }
 
 export const CHAINS: Record<string, ChainConfig> = {
-   baseSepolia: {
-     chain: baseSepolia,
-     rpc: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
-     deploymentFile: 'baseSepolia.json',
-     confirmations: 1,
-     postTxWaitMs: 0,
-     aliases: ['base', 'base-sepolia', 'basesepolia'],
-   },
-   // V11.1: Disabled - single-chain focus
-   /*
-   monadTestnet: {
-     chain: monadTestnet,
-     rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
-     deploymentFile: 'monadTestnet.json',
-     confirmations: 1,
-     // Monad testnet RPCs can have noticeable state propagation delay even after TX confirmation.
-     postTxWaitMs: 8000,
-     aliases: ['monad', 'monad-testnet', 'monadtestnet'],
-   },
-   */
-   // V11.1: Disabled - single-chain focus
-   /*
-   arcTestnet: {
+  baseSepolia: {
+    chain: baseSepolia,
+    rpc: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+    deploymentFile: 'baseSepolia.json',
+    confirmations: 1,
+    postTxWaitMs: 0,
+    aliases: ['base', 'base-sepolia', 'basesepolia'],
+  },
+  monadTestnet: {
+    chain: monadTestnet,
+    rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
+    deploymentFile: 'monadTestnet.json',
+    confirmations: 1,
+    postTxWaitMs: 8000,
+    aliases: ['monad', 'monad-testnet', 'monadtestnet'],
+  },
+  // V11.1: Disabled - single-chain focus
+  /*
+  arcTestnet: {
      chain: arcTestnet,
      rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.testnet.arc.network',
      deploymentFile: 'arcTestnet.json',

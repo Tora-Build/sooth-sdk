@@ -28,6 +28,13 @@ const ERC20_ABI = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
 ] as const;
 
 export type TradeStatus = 'idle' | 'checking' | 'approving' | 'trading' | 'success' | 'error';
@@ -82,19 +89,28 @@ export function useAMMTrade(): UseAMMTradeResult {
         setStatus('checking');
         setError(null);
 
-        const allowance = (await client.readContract({
-          address: mockUSDC,
-          abi: ERC20_ABI,
-          functionName: 'allowance',
-          args: [userAddress, launchpadEngine],
-        })) as bigint;
+        const [allowance, decimals] = await Promise.all([
+          client.readContract({
+            address: mockUSDC,
+            abi: ERC20_ABI,
+            functionName: 'allowance',
+            args: [userAddress, launchpadEngine],
+          }) as Promise<bigint>,
+          client.readContract({
+            address: mockUSDC,
+            abi: ERC20_ABI,
+            functionName: 'decimals',
+          }) as Promise<number>,
+        ]);
 
-        const maxCostUsdc = maxCostWad / BigInt(1e12);
+        const maxCostInTokenDecimals = decimals === 18 
+          ? maxCostWad 
+          : maxCostWad / BigInt(10 ** (18 - decimals));
 
-        if (allowance < maxCostUsdc) {
+        if (allowance < maxCostInTokenDecimals) {
           setStatus('approving');
 
-          const approveAmount = parseUnits('1000000', 6);
+          const approveAmount = parseUnits('1000000', decimals);
           const approveTx = await writeContractAsync({
             address: mockUSDC,
             abi: ERC20_ABI,

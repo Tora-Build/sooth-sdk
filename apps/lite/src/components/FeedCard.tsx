@@ -157,6 +157,17 @@ export function FeedCard({ market }: FeedCardProps) {
         <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1b]/40 via-[#1a1a1b]/80 to-[#1a1a1b]" />
       </div>
 
+      {(() => {
+        const stageInfo = STAGE_CONFIG[market.stage];
+        return (
+          <div className="absolute top-4 left-6 z-40">
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
+              {stageInfo.label}
+            </span>
+          </div>
+        );
+      })()}
+
       <h1 className="relative font-heading text-[32px] leading-tight font-bold text-white tracking-tight">
         {parseTextWithLinks(market.question)}
       </h1>
@@ -170,14 +181,6 @@ export function FeedCard({ market }: FeedCardProps) {
       </div>
 
       <div className="absolute bottom-52 left-0 right-0 px-6 space-y-4 z-10">
-        {(() => {
-          const stageInfo = STAGE_CONFIG[market.stage];
-          return (
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
-              {stageInfo.label}
-            </span>
-          );
-        })()}
         <div className="flex items-end justify-between">
           <div>
             <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mb-1">Odds</p>
