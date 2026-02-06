@@ -135,9 +135,9 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
             args: [marketAddress],
           });
 
-           if (!marketsMapping) return null;
+          if (!marketsMapping) return null;
 
-           const [, lpToken, , , , , totalLPSupply, , isGraduated, createdAt] = marketsMapping;
+          const [, lpToken, , , , , totalLPSupply, , isGraduated, createdAt] = marketsMapping;
 
           const [question, isSettled, isFinalized, trialState, winOutcome, deadline] = await Promise.all([
             readContractSafe<string>(client, {
@@ -173,32 +173,32 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
             }).catch(() => null),
           ]);
 
-           const isDismissed = trialState ? trialState[1] : false;
+          const isDismissed = trialState ? trialState[1] : false;
 
-           let stage: Market['stage'];
-           if (isDismissed) {
-             stage = 'dismissed';
-           } else if (isFinalized) {
-             stage = 'finalized';
-           } else if (isSettled) {
-             stage = 'settled';
-           } else if (isGraduated) {
-             stage = 'live';
-           } else {
-             stage = 'bonding';
-           }
+          let stage: Market['stage'];
+          if (isDismissed) {
+            stage = 'dismissed';
+          } else if (isFinalized) {
+            stage = 'finalized';
+          } else if (isSettled) {
+            stage = 'settled';
+          } else if (isGraduated) {
+            stage = 'live';
+          } else {
+            stage = 'bonding';
+          }
 
-           const market: Market = {
-             address: marketAddress,
-             question: (question as string) || marketAddress.slice(2, 10).toUpperCase(),
-             stage,
-             createdAt,
-             winningOutcome:
-               (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : undefined,
-             deadline: deadline ?? undefined,
-             totalLPSupply,
-             lpToken: lpToken as Address,
-           };
+          const market: Market = {
+            address: marketAddress,
+            question: (question as string) || marketAddress.slice(2, 10).toUpperCase(),
+            stage,
+            createdAt,
+            winningOutcome:
+              (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : undefined,
+            deadline: deadline ?? undefined,
+            totalLPSupply,
+            lpToken: lpToken as Address,
+          };
 
           market.yesProbability = await fetchMarketPrice(client, market, deployment);
 
@@ -226,40 +226,59 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
 
   const marketsWithData = await Promise.all(
     indexerMarkets.map(async (m) => {
+      const [question, deadline, isSettled, isFinalized, winOutcome] = await Promise.all([
+        m.name
+          ? Promise.resolve(m.name)
+          : readContractSafe<string>(client, {
+            address: m.address,
+            abi: ABIS.TruthMarket,
+            functionName: 'question',
+          }),
+        readContractSafe<bigint>(client, {
+          address: m.address,
+          abi: ABIS.TruthMarket,
+          functionName: 'deadline',
+        }),
+        readContractSafe<boolean>(client, {
+          address: m.address,
+          abi: ABIS.TruthMarket,
+          functionName: 'isSettled',
+        }),
+        readContractSafe<boolean>(client, {
+          address: m.address,
+          abi: ABIS.TruthMarket,
+          functionName: 'isFinalized',
+        }),
+        readContractSafe<number>(client, {
+          address: m.address,
+          abi: ABIS.TruthMarket,
+          functionName: 'winningOutcome',
+        }),
+      ]);
+
       let stage: Market['stage'];
       if (m.isDismissed) {
         stage = 'dismissed';
+      } else if (isFinalized) {
+        stage = 'finalized';
+      } else if (isSettled) {
+        stage = 'settled';
       } else if (m.isGraduated) {
         stage = 'live';
       } else {
         stage = 'bonding';
       }
 
-      const [question, deadline] = await Promise.all([
-        m.name
-          ? Promise.resolve(m.name)
-          : readContractSafe<string>(client, {
-              address: m.address,
-              abi: ABIS.TruthMarket,
-              functionName: 'question',
-            }),
-        readContractSafe<bigint>(client, {
-          address: m.address,
-          abi: ABIS.TruthMarket,
-          functionName: 'deadline',
-        }),
-      ]);
-
-       const market: Market = {
-         address: m.address,
-         question: question || m.symbol || m.address.slice(2, 10).toUpperCase(),
-         stage,
-         createdAt: BigInt(m.createdAt),
-         winningOutcome: undefined,
-         deadline: deadline ?? undefined,
-         totalLPSupply: BigInt(m.totalLPSupply),
-         lpToken: undefined,
-       };
+      const market: Market = {
+        address: m.address,
+        question: question || m.symbol || m.address.slice(2, 10).toUpperCase(),
+        stage,
+        createdAt: BigInt(m.createdAt),
+        winningOutcome: (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : undefined,
+        deadline: deadline ?? undefined,
+        totalLPSupply: BigInt(m.totalLPSupply),
+        lpToken: undefined,
+      };
 
       market.yesProbability = await fetchMarketPrice(client, market, deployment);
       return market;

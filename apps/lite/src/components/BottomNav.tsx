@@ -28,18 +28,16 @@ export function BottomNav() {
               {({ isActive }) => (
                 <>
                   <div
-                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all group-active:scale-90 ${
-                      isActive
+                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all group-active:scale-90 ${isActive
                         ? 'bg-[#00d4aa]/20 text-[#00d4aa]'
                         : 'text-[#888] group-hover:text-white'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
                   <span
-                    className={`text-[9px] font-bold tracking-wider ${
-                      isActive ? 'text-[#00d4aa]' : 'text-[#888] group-hover:text-white'
-                    }`}
+                    className={`text-[11px] font-bold tracking-wider ${isActive ? 'text-[#00d4aa]' : 'text-[#888] group-hover:text-white'
+                      }`}
                   >
                     {label}
                   </span>

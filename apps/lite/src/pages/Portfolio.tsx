@@ -20,35 +20,36 @@ function PositionCard({ position, onClick }: { position: Position; onClick: () =
     <button
       onClick={onClick}
       className="w-full p-4 rounded-2xl glass-panel text-left hover:bg-[#444] transition-colors border border-[#444]"
+      aria-label={`View details for your position in: ${position.market.question}`}
     >
       <div className="text-white font-normal line-clamp-2 mb-3">{parseTextWithLinks(position.market.question)}</div>
-       <div className="flex items-center justify-between">
-         <div className="flex gap-4">
-           {position.yesShares > 0n && (
-             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-[#00d4aa]" />
-               <span className="text-sm text-[#00d4aa] font-bold">
-                 {formatShares(position.yesShares)} YES
-               </span>
-             </div>
-           )}
-           {position.noShares > 0n && (
-             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-[#e01b24]" />
-               <span className="text-sm text-[#e01b24] font-bold">
-                 {formatShares(position.noShares)} NO
-               </span>
-             </div>
-           )}
-           {position.lpBalance > 0n && (
-             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-[#ffd700]" />
-               <span className="text-sm text-[#ffd700] font-bold">
-                 {formatShares(position.lpBalance)} LP
-               </span>
-             </div>
-           )}
-         </div>
+      <div className="flex items-center justify-between">
+        <div className="flex gap-4">
+          {position.yesShares > 0n && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#00d4aa]" />
+              <span className="text-sm text-[#00d4aa] font-bold">
+                {formatShares(position.yesShares)} YES
+              </span>
+            </div>
+          )}
+          {position.noShares > 0n && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#e01b24]" />
+              <span className="text-sm text-[#e01b24] font-bold">
+                {formatShares(position.noShares)} NO
+              </span>
+            </div>
+          )}
+          {position.lpBalance > 0n && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#ffd700]" />
+              <span className="text-sm text-[#ffd700] font-bold">
+                {formatShares(position.lpBalance)} LP
+              </span>
+            </div>
+          )}
+        </div>
         <div className="text-right">
           <p className="text-[10px] text-[#888] uppercase">Value</p>
           <p className="text-sm font-bold text-white">${position.valueUsd.toFixed(2)}</p>
@@ -158,7 +159,7 @@ export function Portfolio() {
               <PositionCard
                 key={position.market.address}
                 position={position}
-                onClick={() => navigate(`/trade/${position.market.address}`)}
+                onClick={() => navigate(`/?marketId=${position.market.address}`)}
               />
             ))}
           </div>

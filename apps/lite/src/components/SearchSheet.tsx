@@ -29,7 +29,10 @@ export function SearchSheet({ markets }: SearchSheetProps) {
   return (
     <Drawer.Root open={open} onOpenChange={setOpen}>
       <Drawer.Trigger asChild>
-        <button className="fixed bottom-24 right-5 z-50 w-12 h-12 rounded-full glass glass-border flex items-center justify-center transition-all active:scale-90">
+        <button
+          className="fixed bottom-24 right-5 z-50 w-12 h-12 rounded-full glass glass-border flex items-center justify-center transition-all active:scale-90"
+          aria-label="Open search"
+        >
           <Search className="w-5 h-5 text-white" />
         </button>
       </Drawer.Trigger>
@@ -53,6 +56,7 @@ export function SearchSheet({ markets }: SearchSheetProps) {
                 <button
                   onClick={() => setQuery('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/10"
+                  aria-label="Clear search query"
                 >
                   <X className="w-3.5 h-3.5 text-white" />
                 </button>
@@ -92,8 +96,12 @@ export function SearchSheet({ markets }: SearchSheetProps) {
                           </span>
                           <span className="text-[#888] text-xs">YES</span>
                         </div>
-                        <span className="text-[#888] text-xs uppercase tracking-wide">
-                          {market.stage}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${market.stage === 'bonding' ? 'bg-[#00d4aa]/10 text-[#00d4aa] border-[#00d4aa]/30' :
+                          (market.stage === 'live' || market.stage === 'finalized') ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' :
+                            market.stage === 'settled' ? 'bg-[#ffd700]/10 text-[#ffd700] border-[#ffd700]/30' :
+                              'bg-[#e01b24]/10 text-[#e01b24] border-[#e01b24]/30'
+                          }`}>
+                          {market.stage === 'live' ? 'Graduated' : market.stage}
                         </span>
                       </div>
                     </button>
