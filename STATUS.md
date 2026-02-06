@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V11.1  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-02-04
+> **Last Updated**: 2026-02-06
 
 ## V11 Features (Implemented)
 
@@ -17,7 +17,7 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **Mobile Trading App Debugging (2026-02-04)** — Wallet connect + return flow unstable. Base/Coinbase deep link fails (LINKING_ERROR), Uniswap returns but app stays on login. Investigating AppKit storage corruption and wallet link schemes. Dev build reinstalled to device; Metro on `192.168.1.19:8082`.
+- **Sooth Lite PWA Polish (2026-02-06)** — Mobile-first PWA for Monad hackathon. TikTok-style vertical snap-scroll feed. Completed: UI cleanup, faucet integration, background images, branding updates, decimal precision fixes. Testing on Monad Testnet.
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.

@@ -25,7 +25,8 @@ async function readContractSafe<T>(
 ): Promise<T | null> {
   try {
     return (await client.readContract(config)) as T;
-  } catch {
+  } catch (e) {
+    console.warn(`Contract read failed: ${config.functionName}`, e);
     return null;
   }
 }
