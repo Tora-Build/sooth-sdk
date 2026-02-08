@@ -42,7 +42,7 @@ export function PhoneFrame({ children }: PhoneFrameProps) {
           </div>
 
           {/* App Content — transform creates new stacking context so fixed children stay inside */}
-          <div className="w-full h-full overflow-hidden phone-frame-content pt-10" style={{ transform: 'translateZ(0)' }}>
+          <div className="w-full h-full overflow-hidden phone-frame-content pt-14" style={{ transform: 'translateZ(0)' }}>
             {children}
           </div>
         </div>
