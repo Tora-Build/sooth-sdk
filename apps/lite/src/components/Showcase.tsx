@@ -60,9 +60,13 @@ export function Showcase({ children }: ShowcaseProps) {
 
           {/* Header */}
           <div className="text-center mb-10">
-            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4">
-              The prediction market plugin for{' '}
+            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4 lowercase">
+              the prediction market{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#836ef9] via-[#00d4aa] to-cyan-400">
+                plugin
+              </span>{' '}
+              for{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-cyan-400 to-[#836ef9]">
                 agents
               </span>
             </h1>
