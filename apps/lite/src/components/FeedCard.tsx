@@ -10,6 +10,7 @@ import { TradeModal } from './TradeModal';
 
 interface FeedCardProps {
   market: Market;
+  isSelected?: boolean;
 }
 
 function formatTimeRemaining(deadline?: bigint): string {
@@ -49,7 +50,7 @@ const STAGE_CONFIG = {
   dismissed: { label: 'Dismissed', bg: 'bg-[#e01b24]/10', text: 'text-[#e01b24]', border: 'border-[#e01b24]/30' },
 } as const;
 
-export function FeedCard({ market }: FeedCardProps) {
+export function FeedCard({ market, isSelected }: FeedCardProps) {
   const navigate = useNavigate();
   const probability = market.yesProbability ?? 0.5;
   const yesPercent = (probability * 100).toFixed(1);
@@ -111,7 +112,7 @@ export function FeedCard({ market }: FeedCardProps) {
 
   return (
     <>
-      <section className="snap-card relative px-6 pt-14">
+      <section className={`snap-card relative px-6 pt-14 transition-all duration-1000 ${isSelected ? 'animate-highlight' : ''}`}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <img src={imageUrl} alt="" className="w-full h-2/3 object-cover opacity-20" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1b]/40 via-[#1a1a1b]/80 to-[#1a1a1b]" />

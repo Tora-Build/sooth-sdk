@@ -52,7 +52,8 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
     market.address,
     amount,
     outcome,
-    market.yesProbability ?? 0.5
+    market.yesProbability ?? 0.5,
+    market.stage !== 'bonding' // isGraduated: true for live, settled, finalized stages
   );
 
   const handleBuy = async () => {
@@ -129,13 +130,16 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
     <Drawer.Root open={isOpen} onOpenChange={(open) => !open && handleClose()} shouldScaleBackground={false}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1a1b] rounded-t-[32px] outline-none border-t border-[#333] max-h-[95vh] flex flex-col">
+        <Drawer.Content
+          className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1a1b] rounded-t-[32px] outline-none border-t border-[#333] max-h-[95vh] flex flex-col"
+          aria-describedby={undefined}
+        >
           <div className="mx-auto w-12 h-1.5 rounded-full bg-[#333] mt-3 mb-2 shrink-0" />
 
           <div className="sticky top-0 bg-[#1a1a1b] z-10 px-6 py-3 border-b border-[#333] shrink-0">
-            <h2 className="text-base font-bold text-white truncate w-full">
+            <Drawer.Title className="text-base font-bold text-white truncate w-full">
               {parseTextWithLinks(market.question)}
-            </h2>
+            </Drawer.Title>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">

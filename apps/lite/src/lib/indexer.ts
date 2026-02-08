@@ -21,6 +21,16 @@ export interface IndexerLaunchpadMarket {
   lpToken: `0x${string}` | null;
   trialEndTime: string | null;
   isDismissed: boolean | null;
+  // Settlement fields (from TruthMarket contract)
+  deadline: string | null;
+  isSettled: boolean | null;
+  isFinalized: boolean | null;
+  winningOutcome: number | null;
+  // Reserve tracking (for computing price)
+  yesReserves: string | null;
+  noReserves: string | null;
+  // Price tracking (computed from reserves)
+  yesProbability: number | null;
 }
 
 /**
@@ -45,7 +55,7 @@ export async function fetchOrderbookFromIndexer(marketKey: string) {
 
 export async function checkIndexerHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${INDEXER_URL}/api-health`, { 
+    const response = await fetch(`${INDEXER_URL}/api-health`, {
       method: 'GET',
       signal: AbortSignal.timeout(2000),
     });
