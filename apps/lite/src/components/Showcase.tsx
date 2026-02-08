@@ -88,13 +88,10 @@ export function Showcase({ children }: ShowcaseProps) {
 
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#836ef9]/10 border border-[#836ef9]/20 text-[#836ef9] text-xs font-mono mb-4">
-              <Bot className="w-3 h-3" />
-              Prediction Market Plugin for AI Agents
-            </div>
             <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4">
+              The prediction market plugin for{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-emerald-400 to-cyan-400">
-                SoothSayer
+                AI agents
               </span>
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
