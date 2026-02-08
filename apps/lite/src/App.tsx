@@ -1,4 +1,4 @@
-import { Routes, Route, MemoryRouter } from 'react-router-dom';
+import { Routes, Route, MemoryRouter, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Search } from './pages/Search';
 import { Portfolio } from './pages/Portfolio';
@@ -60,6 +60,7 @@ function DesktopApp() {
         <Route path="/aap" element={<AAP />} />
         <Route path="/skill" element={<SkillPage />} />
         <Route path="/adjudicator" element={<AdjudicatorPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );
