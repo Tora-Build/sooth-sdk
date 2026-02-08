@@ -76,7 +76,7 @@ export function Showcase({ children }: ShowcaseProps) {
           <div className="grid lg:grid-cols-[auto_minmax(0,560px)] gap-12 items-start justify-center">
 
             {/* Left: Phone */}
-            <div className="flex justify-center lg:justify-start lg:sticky lg:top-8">
+            <div className="flex justify-center lg:justify-start lg:sticky lg:top-20">
               <PhoneFrame>
                 {children}
               </PhoneFrame>
