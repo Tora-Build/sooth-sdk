@@ -1,0 +1,12 @@
+[build]
+  command = "cd ../.. && pnpm install && pnpm --filter @sooth/sdk-core build && cd apps/web && pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_MONAD_RPC_URL = "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
