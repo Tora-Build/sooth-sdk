@@ -5,6 +5,7 @@ import { Portfolio } from './pages/Portfolio';
 import { Profile } from './pages/Profile';
 import { BottomNav } from './components/BottomNav';
 import { Showcase } from './components/Showcase';
+import { ShowcaseContext } from './hooks/useShowcase';
 import { useIsMobile } from './hooks/useIsMobile';
 
 function AppContent() {
@@ -25,12 +26,18 @@ export default function App() {
   const isMobile = useIsMobile();
 
   if (isMobile) {
-    return <AppContent />;
+    return (
+      <ShowcaseContext.Provider value={false}>
+        <AppContent />
+      </ShowcaseContext.Provider>
+    );
   }
 
   return (
-    <Showcase>
-      <AppContent />
-    </Showcase>
+    <ShowcaseContext.Provider value={true}>
+      <Showcase>
+        <AppContent />
+      </Showcase>
+    </ShowcaseContext.Provider>
   );
 }
