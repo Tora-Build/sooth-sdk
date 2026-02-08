@@ -29,12 +29,7 @@ function MobileApp() {
 function PhoneContent() {
   return (
     <div className="h-full w-full bg-mesh">
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/portfolio" element={<Portfolio />} />
-        <Route path="/profile" element={<Profile />} />
-      </Routes>
+      <Home />
       <BottomNav />
     </div>
   );
