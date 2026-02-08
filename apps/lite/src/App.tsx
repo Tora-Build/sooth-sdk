@@ -1,4 +1,5 @@
-import { Routes, Route, MemoryRouter, Navigate } from 'react-router-dom';
+import { useState, createContext, useContext } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Search } from './pages/Search';
 import { Portfolio } from './pages/Portfolio';
@@ -11,6 +12,9 @@ import { Showcase } from './components/Showcase';
 import { DesktopNav } from './components/DesktopNav';
 import { ShowcaseContext } from './hooks/useShowcase';
 import { useIsMobile } from './hooks/useIsMobile';
+
+// Phone simulator uses its own routing context (not react-router)
+const PhoneRouteContext = createContext<{ route: string; setRoute: (r: string) => void }>({ route: '/', setRoute: () => {} });
 
 function MobileApp() {
   return (
@@ -26,19 +30,26 @@ function MobileApp() {
   );
 }
 
+export { PhoneRouteContext };
+
+const PHONE_PAGES: Record<string, () => JSX.Element> = {
+  '/': Home,
+  '/search': Search,
+  '/portfolio': Portfolio,
+  '/profile': Profile,
+};
+
 function PhoneContent() {
+  const [route, setRoute] = useState('/');
+  const Page = PHONE_PAGES[route] || Home;
+
   return (
-    <MemoryRouter>
+    <PhoneRouteContext.Provider value={{ route, setRoute }}>
       <div className="h-full w-full bg-mesh">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/profile" element={<Profile />} />
-        </Routes>
+        <Page />
         <BottomNav />
       </div>
-    </MemoryRouter>
+    </PhoneRouteContext.Provider>
   );
 }
 
