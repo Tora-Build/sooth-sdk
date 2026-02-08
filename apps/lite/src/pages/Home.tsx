@@ -4,6 +4,7 @@ import { BarChart3, Wallet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
+import { useShowcase } from '../hooks/useShowcase';
 import { FeedCard } from '../components/FeedCard';
 
 export function Home() {
@@ -13,6 +14,7 @@ export function Home() {
   const [searchParams] = useSearchParams();
   const marketIdParam = searchParams.get('marketId');
   const containerRef = useRef<HTMLDivElement>(null);
+  const inShowcase = useShowcase();
 
   useEffect(() => {
     if (marketIdParam && markets && containerRef.current) {
@@ -24,7 +26,7 @@ export function Home() {
   }, [marketIdParam, markets]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-mesh text-white overflow-hidden relative">
+    <div className={`${inShowcase ? 'h-full' : 'h-screen'} w-full flex flex-col bg-mesh text-white overflow-hidden relative`}>
       <header className="shrink-0 pt-4 px-6 flex items-center justify-between absolute top-0 w-full z-50 pointer-events-none">
         <div />
         <button

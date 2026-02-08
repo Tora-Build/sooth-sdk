@@ -123,6 +123,21 @@
     height: 100vh;
   }
 
+  /*
+   * Phone frame on desktop: snap cards fill the frame, not the viewport.
+   * The phone-frame-content div has explicit height from PhoneFrame (780-16=764px).
+   */
+  @media (min-width: 768px) {
+    .phone-frame-content,
+    .phone-frame-content > div {
+      height: 100%;
+    }
+
+    .phone-frame-content .snap-card {
+      height: 100%;
+    }
+  }
+
   .glass-panel {
     background: #2d2d2e;
     border: 1px solid #444;

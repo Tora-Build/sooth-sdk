@@ -40,7 +40,7 @@ export function PhoneFrame({ children }: PhoneFrameProps) {
           </div>
 
           {/* App Content */}
-          <div className="w-full h-full overflow-hidden">
+          <div className="w-full h-full overflow-hidden phone-frame-content">
             {children}
           </div>
 
