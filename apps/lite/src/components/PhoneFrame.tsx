@@ -26,20 +26,20 @@ export function PhoneFrame({ children }: PhoneFrameProps) {
 
         {/* Screen */}
         <div className="rounded-[42px] overflow-hidden w-[360px] h-[780px] border-[8px] border-black shadow-2xl bg-[#1a1a1b] relative">
-          {/* Status Bar — no fake time, icons higher */}
-          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm z-10 flex items-start justify-end px-7 pt-1.5">
+          {/* Status Bar — signal & battery, right side, above Dynamic Island z-level */}
+          <div className="absolute top-0 left-0 right-0 h-10 z-30 flex items-center justify-end px-6 pt-3">
             <div className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
               </svg>
-              <div className="w-5 h-2.5 border border-white rounded-sm">
-                <div className="w-3 h-full bg-[#00d4aa] rounded-sm" />
+              <div className="w-4 h-2 border border-white/80 rounded-sm">
+                <div className="w-2.5 h-full bg-[#00d4aa] rounded-sm" />
               </div>
             </div>
           </div>
 
           {/* App Content — transform creates new stacking context so fixed children stay inside */}
-          <div className="w-full h-full overflow-hidden phone-frame-content pt-8" style={{ transform: 'translateZ(0)' }}>
+          <div className="w-full h-full overflow-hidden phone-frame-content pt-10" style={{ transform: 'translateZ(0)' }}>
             {children}
           </div>
 

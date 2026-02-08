@@ -33,10 +33,10 @@ export function BottomNav() {
                         : 'text-[#888] group-hover:text-white'
                       }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-[18px] h-[18px]" />
                   </div>
                   <span
-                    className={`text-[9px] font-bold tracking-wider ${isActive ? 'text-[#00d4aa]' : 'text-[#888] group-hover:text-white'
+                    className={`text-[10px] font-bold tracking-wider ${isActive ? 'text-[#00d4aa]' : 'text-[#888] group-hover:text-white'
                       }`}
                   >
                     {label}
