@@ -122,7 +122,7 @@ export function Showcase({ children }: ShowcaseProps) {
           </div>
 
           {/* Two-Column Layout */}
-          <div className="grid lg:grid-cols-[auto_1fr] gap-12 items-start">
+          <div className="grid lg:grid-cols-[auto_minmax(0,560px)] gap-12 items-start justify-center">
 
             {/* Left: Phone */}
             <div className="flex justify-center lg:justify-start lg:sticky lg:top-8">
@@ -132,7 +132,7 @@ export function Showcase({ children }: ShowcaseProps) {
             </div>
 
             {/* Right: Info Panel */}
-            <div className="space-y-6 lg:pt-0 lg:max-w-xl">
+            <div className="space-y-6 lg:pt-0">
 
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-4">
