@@ -20,15 +20,15 @@ function calculatePendingFills(
   globalFillGrowth: bigint
 ): bigint {
   if (globalFillGrowth <= orderFillGrowthLast) return 0n;
-  
+
   const delta = globalFillGrowth - orderFillGrowthLast;
   let pending = (delta * orderSharesTotal) / Q128;
-  
+
   const maxFillable = orderSharesTotal - orderCrossingFilled - orderClaimedShares;
   if (pending > maxFillable) {
     pending = maxFillable;
   }
-  
+
   return pending > 0n ? pending : 0n;
 }
 
@@ -370,9 +370,9 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
   if (existingOrder) {
     const newClaimedShares = existingOrder.claimedShares + filledShares;
     const newCollateralUsed = existingOrder.collateralUsed + collateralUsedWad;
-    
-    const newPendingShares = existingOrder.pendingShares > filledShares 
-      ? existingOrder.pendingShares - filledShares 
+
+    const newPendingShares = existingOrder.pendingShares > filledShares
+      ? existingOrder.pendingShares - filledShares
       : 0n;
     const newPendingUsdc = existingOrder.pendingUsdc > collateralUsedWad
       ? existingOrder.pendingUsdc - collateralUsedWad
@@ -401,7 +401,7 @@ ponder.on("TickBookPoolManager:FillsClaimed", async ({ event, context }) => {
           const newTotalLiquidity = fillGrowth.totalLiquidity > remainingLiquidity
             ? fillGrowth.totalLiquidity - remainingLiquidity
             : 0n;
-          
+
           await context.db.update(schema.fillGrowthState, { id: fgId }).set({
             totalLiquidity: newTotalLiquidity,
             updatedAt: event.block.timestamp,
@@ -751,6 +751,31 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
   // Symbol is derived from market address (first 4 bytes = 8 hex chars)
   const derivedSymbol = market.slice(2, 10).toUpperCase();
 
+  // Fetch question and deadline from TruthMarket contract
+  let marketQuestion: string | null = null;
+  let marketDeadline: bigint | null = null;
+  try {
+    const truthMarketAbi = [
+      { type: "function", name: "question", inputs: [], outputs: [{ name: "", type: "string" }], stateMutability: "view" },
+      { type: "function", name: "deadline", inputs: [], outputs: [{ name: "", type: "uint64" }], stateMutability: "view" },
+    ] as const;
+
+    [marketQuestion, marketDeadline] = await Promise.all([
+      context.client.readContract({
+        address: market,
+        abi: truthMarketAbi,
+        functionName: "question",
+      }),
+      context.client.readContract({
+        address: market,
+        abi: truthMarketAbi,
+        functionName: "deadline",
+      }),
+    ]);
+  } catch (e) {
+    console.warn(`Failed to read TruthMarket data for ${market}:`, e);
+  }
+
   // Create launchpad market record
   await context.db
     .insert(schema.launchpadMarket)
@@ -758,7 +783,7 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
       address: market,
       chainId: context.chain.id,
       creator,
-      name: null,
+      name: marketQuestion,
       symbol: derivedSymbol,
       initialLiquidity,
       deposit,
@@ -770,6 +795,15 @@ ponder.on("LaunchpadEngine:MarketCreated", async ({ event, context }) => {
       lpToken: null, // Will be set by LPTokenCreated event
       trialEndTime,
       isDismissed: false,
+      // Settlement fields (new market, not settled yet)
+      deadline: marketDeadline,
+      isSettled: false,
+      isFinalized: false,
+      winningOutcome: null,
+      // Initial reserves are equal (both = initialLiquidity), giving 50/50 price
+      yesReserves: initialLiquidity,
+      noReserves: initialLiquidity,
+      yesProbability: 0.5,
     })
     .onConflictDoNothing();
 
@@ -854,7 +888,59 @@ ponder.on("LaunchpadEngine:PositionTraded", async ({ event, context }) => {
     });
   }
 
-  // 2. Update trial state locked costs (only for buys during trial)
+  // 2. Update reserves and compute price
+  // AMM constant product: when buying YES shares, YES reserves decrease, NO reserves increase
+  // When selling YES shares, YES reserves increase, NO reserves decrease
+  const launchpadMarket = await context.db.find(schema.launchpadMarket, { address: market });
+  if (launchpadMarket && launchpadMarket.yesReserves && launchpadMarket.noReserves) {
+    const isBuy = deltaShares > 0n;
+    const absDelta = isBuy ? deltaShares : -deltaShares;
+
+    let newYesReserves = launchpadMarket.yesReserves;
+    let newNoReserves = launchpadMarket.noReserves;
+
+    if (outcome === 1) {
+      // Trading YES tokens
+      if (isBuy) {
+        // Buying YES: YES reserves decrease, we add liquidity (cost) to NO side
+        newYesReserves = newYesReserves - absDelta;
+        newNoReserves = newNoReserves + absDelta;
+      } else {
+        // Selling YES: YES reserves increase
+        newYesReserves = newYesReserves + absDelta;
+        newNoReserves = newNoReserves - absDelta;
+      }
+    } else {
+      // Trading NO tokens (outcome === 0)
+      if (isBuy) {
+        // Buying NO: NO reserves decrease
+        newNoReserves = newNoReserves - absDelta;
+        newYesReserves = newYesReserves + absDelta;
+      } else {
+        // Selling NO: NO reserves increase
+        newNoReserves = newNoReserves + absDelta;
+        newYesReserves = newYesReserves - absDelta;
+      }
+    }
+
+    // Ensure reserves don't go negative
+    if (newYesReserves < 0n) newYesReserves = 0n;
+    if (newNoReserves < 0n) newNoReserves = 0n;
+
+    // Compute price: YES price = noReserves / (yesReserves + noReserves)
+    const totalReserves = newYesReserves + newNoReserves;
+    const yesProbability = totalReserves > 0n
+      ? Number(newNoReserves) / Number(totalReserves)
+      : 0.5;
+
+    await context.db.update(schema.launchpadMarket, { address: market }).set({
+      yesReserves: newYesReserves,
+      noReserves: newNoReserves,
+      yesProbability,
+    });
+  }
+
+  // 3. Update trial state locked costs (only for buys during trial)
   if (deltaShares <= 0n) return;
 
   const trialId = market.toLowerCase();

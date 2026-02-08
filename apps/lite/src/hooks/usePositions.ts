@@ -1,18 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
-import { getPublicClient } from '../lib/client';
-import { getDeployment, ABIS } from '@sooth/sdk-core';
 import type { Address } from 'viem';
 import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
 import { useMarkets, type Market } from './useMarkets';
+import { checkIndexerHealth } from '../lib/indexer';
 
-const ERC20_BALANCE_ABI = [{ 
-  name: 'balanceOf', 
-  type: 'function', 
-  stateMutability: 'view', 
-  inputs: [{ name: 'account', type: 'address' }], 
-  outputs: [{ name: '', type: 'uint256' }] 
-}] as const;
+const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:42069';
 
 export interface Position {
   market: Market;
@@ -23,62 +16,82 @@ export interface Position {
   lpBalance: bigint;
 }
 
-async function fetchPositions(
+interface IndexerAMMPosition {
+  id: string;
+  chainId: number;
+  market: string;
+  user: string;
+  yesShares: string;
+  noShares: string;
+  updatedAt: string;
+}
+
+interface IndexerLPBalance {
+  id: string;
+  chainId: number;
+  market: string;
+  user: string;
+  balance: string;
+}
+
+async function fetchPositionsFromIndexer(
   markets: Market[],
   userAddress: Address
 ): Promise<Position[]> {
-  const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  // Fetch AMM positions and LP balances from indexer in parallel
+  const [ammResponse, lpResponse] = await Promise.all([
+    fetch(`${INDEXER_URL}/amm-positions/${MONAD_TESTNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
+    fetch(`${INDEXER_URL}/lp-balances/${MONAD_TESTNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
+  ]);
 
-  if (!deployment) return [];
+  if (!ammResponse.ok || !lpResponse.ok) {
+    throw new Error('Failed to fetch positions from indexer');
+  }
 
-  const ammEngine = deployment.contracts.AMMEngine as Address;
+  const ammPositions: IndexerAMMPosition[] = await ammResponse.json();
+  const lpBalances: IndexerLPBalance[] = await lpResponse.json();
+
+  // Create lookup maps for O(1) access
+  const marketMap = new Map(markets.map((m) => [m.address.toLowerCase(), m]));
+  const ammMap = new Map(ammPositions.map((p) => [p.market.toLowerCase(), p]));
+  const lpMap = new Map(lpBalances.map((lp) => [lp.market.toLowerCase(), lp]));
 
   const positions: Position[] = [];
 
-  for (const market of markets) {
-    // Query all stages - AMM positions persist through graduation and settlement
-    // Dismissed markets have no positions to show
+  // Collect all market addresses that have positions
+  const marketAddresses = new Set([
+    ...ammPositions.map((p) => p.market.toLowerCase()),
+    ...lpBalances.map((lp) => lp.market.toLowerCase()),
+  ]);
+
+  for (const marketAddr of marketAddresses) {
+    const market = marketMap.get(marketAddr);
+    if (!market) continue;
+
+    // Skip dismissed markets
     if (market.stage === 'dismissed') continue;
 
-     try {
-       const result = await client.readContract({
-         address: ammEngine,
-         abi: ABIS.AMMEngine,
-         functionName: 'getPosition',
-         args: [market.address, userAddress],
-       });
+    const ammPos = ammMap.get(marketAddr);
+    const lpBal = lpMap.get(marketAddr);
 
-       const [yesShares, noShares] = result as readonly [bigint, bigint];
+    const yesShares = ammPos ? BigInt(ammPos.yesShares) : 0n;
+    const noShares = ammPos ? BigInt(ammPos.noShares) : 0n;
+    const lpBalance = lpBal ? BigInt(lpBal.balance) : 0n;
 
-       let lpBalance = 0n;
-       if (market.lpToken && market.lpToken !== '0x0000000000000000000000000000000000000000') {
-         try {
-           lpBalance = await client.readContract({
-             address: market.lpToken,
-             abi: ERC20_BALANCE_ABI,
-             functionName: 'balanceOf',
-             args: [userAddress],
-           }) as bigint;
-         } catch {}
-       }
+    // Only include if there are actual positions
+    if (yesShares > 0n || noShares > 0n || lpBalance > 0n) {
+      const yesValue = Number(yesShares) / 1e18 * (market.yesProbability ?? 0.5);
+      const noValue = Number(noShares) / 1e18 * (1 - (market.yesProbability ?? 0.5));
 
-       if (yesShares > 0n || noShares > 0n || lpBalance > 0n) {
-         const yesValue = Number(yesShares) / 1e18 * (market.yesProbability ?? 0.5);
-         const noValue = Number(noShares) / 1e18 * (1 - (market.yesProbability ?? 0.5));
-
-         positions.push({
-           market,
-           yesShares,
-           noShares,
-           totalShares: yesShares + noShares,
-           valueUsd: yesValue + noValue,
-           lpBalance,
-         });
-       }
-     } catch {
-       continue;
-     }
+      positions.push({
+        market,
+        yesShares,
+        noShares,
+        totalShares: yesShares + noShares,
+        valueUsd: yesValue + noValue,
+        lpBalance,
+      });
+    }
   }
 
   return positions;
@@ -90,9 +103,18 @@ export function usePositions() {
 
   return useQuery({
     queryKey: ['positions', MONAD_TESTNET_CHAIN_ID, address, markets?.map((m) => m.address)],
-    queryFn: () => fetchPositions(markets ?? [], address as Address),
+    queryFn: async () => {
+      // Check if indexer is healthy
+      const indexerHealthy = await checkIndexerHealth();
+      if (!indexerHealthy) {
+        console.warn('Indexer not available, returning empty positions');
+        return [];
+      }
+      return fetchPositionsFromIndexer(markets ?? [], address as Address);
+    },
     enabled: !!address && !!markets && markets.length > 0,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 }
+

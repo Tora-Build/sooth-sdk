@@ -6,3 +6,4 @@ export { usePositions, type Position } from './usePositions';
 export { useLikes, useShare, useComments } from './useSocial';
 export { useHaptics } from './useHaptics';
 export { useFaucet } from './useFaucet';
+export { useIndexerHealth } from './useIndexerHealth';

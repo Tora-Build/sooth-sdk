@@ -25,9 +25,13 @@ async function readContractSafe<T>(
   config: Parameters<ReturnType<typeof getPublicClient>['readContract']>[0]
 ): Promise<T | null> {
   try {
-    return (await client.readContract(config)) as T;
+    const result = (await client.readContract(config)) as T;
+    if (config.functionName === 'question') {
+      console.log(`[DEBUG] question read for ${config.address}:`, result);
+    }
+    return result;
   } catch (e) {
-    console.warn(`Contract read failed: ${config.functionName}`, e);
+    console.warn(`Contract read failed: ${config.functionName} on ${config.address}`, e);
     return null;
   }
 }
@@ -144,33 +148,33 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
               address: marketAddress,
               abi: ABIS.TruthMarket,
               functionName: 'question',
-            }).catch(() => marketAddress.slice(2, 10).toUpperCase()),
+            }),
             readContractSafe<boolean>(client, {
               address: marketAddress,
               abi: ABIS.TruthMarket,
               functionName: 'isSettled',
-            }).catch(() => false),
+            }),
             readContractSafe<boolean>(client, {
               address: marketAddress,
               abi: ABIS.TruthMarket,
               functionName: 'isFinalized',
-            }).catch(() => false),
+            }),
             readContractSafe<readonly [bigint, boolean, bigint]>(client, {
               address: launchpadEngine,
               abi: ABIS.LaunchpadEngine,
               functionName: 'trialStates',
               args: [marketAddress],
-            }).catch(() => null),
+            }),
             readContractSafe<number>(client, {
               address: marketAddress,
               abi: ABIS.TruthMarket,
               functionName: 'winningOutcome',
-            }).catch(() => null),
+            }),
             readContractSafe<bigint>(client, {
               address: marketAddress,
               abi: ABIS.TruthMarket,
               functionName: 'deadline',
-            }).catch(() => null),
+            }),
           ]);
 
           const isDismissed = trialState ? trialState[1] : false;
@@ -221,71 +225,50 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
 
 async function fetchMarketsFromIndexer(): Promise<Market[]> {
   const indexerMarkets = await fetchLaunchpadMarketsFromIndexer();
-  const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  if (indexerMarkets.length === 0) return [];
 
-  const marketsWithData = await Promise.all(
-    indexerMarkets.map(async (m) => {
-      const [question, deadline, isSettled, isFinalized, winOutcome] = await Promise.all([
-        m.name
-          ? Promise.resolve(m.name)
-          : readContractSafe<string>(client, {
-            address: m.address,
-            abi: ABIS.TruthMarket,
-            functionName: 'question',
-          }),
-        readContractSafe<bigint>(client, {
-          address: m.address,
-          abi: ABIS.TruthMarket,
-          functionName: 'deadline',
-        }),
-        readContractSafe<boolean>(client, {
-          address: m.address,
-          abi: ABIS.TruthMarket,
-          functionName: 'isSettled',
-        }),
-        readContractSafe<boolean>(client, {
-          address: m.address,
-          abi: ABIS.TruthMarket,
-          functionName: 'isFinalized',
-        }),
-        readContractSafe<number>(client, {
-          address: m.address,
-          abi: ABIS.TruthMarket,
-          functionName: 'winningOutcome',
-        }),
-      ]);
+  // All data comes from indexer - ZERO RPC calls
+  return indexerMarkets.map((m) => {
+    const question = m.name || m.symbol || m.address.slice(2, 10).toUpperCase();
+    const isSettled = m.isSettled ?? false;
+    const isFinalized = m.isFinalized ?? false;
+    const winOutcome = m.winningOutcome;
 
-      let stage: Market['stage'];
-      if (m.isDismissed) {
-        stage = 'dismissed';
-      } else if (isFinalized) {
-        stage = 'finalized';
-      } else if (isSettled) {
-        stage = 'settled';
-      } else if (m.isGraduated) {
-        stage = 'live';
-      } else {
-        stage = 'bonding';
-      }
+    let stage: Market['stage'];
+    if (m.isDismissed) {
+      stage = 'dismissed';
+    } else if (isFinalized) {
+      stage = 'finalized';
+    } else if (isSettled) {
+      stage = 'settled';
+    } else if (m.isGraduated) {
+      stage = 'live';
+    } else {
+      stage = 'bonding';
+    }
 
-      const market: Market = {
-        address: m.address,
-        question: question || m.symbol || m.address.slice(2, 10).toUpperCase(),
-        stage,
-        createdAt: BigInt(m.createdAt),
-        winningOutcome: (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : undefined,
-        deadline: deadline ?? undefined,
-        totalLPSupply: BigInt(m.totalLPSupply),
-        lpToken: undefined,
-      };
+    // Use indexer's yesProbability directly
+    let yesProbability = m.yesProbability ?? undefined;
 
-      market.yesProbability = await fetchMarketPrice(client, market, deployment);
-      return market;
-    })
-  );
+    // For settled/finalized, override with outcome-based price
+    if (stage === 'settled' || stage === 'finalized') {
+      if (winOutcome === 1) yesProbability = 1.0;
+      else if (winOutcome === 0) yesProbability = 0.0;
+      else if (winOutcome === 2) yesProbability = 0.5;
+    }
 
-  return marketsWithData;
+    return {
+      address: m.address,
+      question,
+      stage,
+      createdAt: BigInt(m.createdAt),
+      winningOutcome: (isSettled || isFinalized) && winOutcome != null ? winOutcome : undefined,
+      deadline: m.deadline ? BigInt(m.deadline) : undefined,
+      totalLPSupply: BigInt(m.totalLPSupply),
+      lpToken: undefined,
+      yesProbability,
+    };
+  });
 }
 
 export function useMarkets() {

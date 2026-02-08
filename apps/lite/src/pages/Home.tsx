@@ -58,7 +58,7 @@ export function Home() {
         ) : (
           markets.map((market) => (
             <div key={market.address} id={`market-${market.address}`} className="snap-card">
-              <FeedCard market={market} />
+              <FeedCard market={market} isSelected={market.address === marketIdParam} />
             </div>
           ))
         )}

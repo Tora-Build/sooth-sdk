@@ -5,10 +5,18 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Indexer Reserve Tracking (2026-02-08)**: Added `yesReserves` and `noReserves` fields to indexer schema for AMM price calculation without RPC calls. `PositionTraded` handler now computes `yesProbability` locally: `noReserves / (yesReserves + noReserves)`.
+- **Indexer Health Hook (2026-02-08)**: New `useIndexerHealth` hook in Sooth Lite to track indexer availability. Profile page now shows indexer status indicator.
 - **Mobile Debugging (2026-02-04)**: Added AppKit event logging, wallet storage reset flow, and boot markers to confirm the active JS bundle on device.
 - **Mobile Trading App (2026-01-30)**: Complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. 16 TypeScript/React Native files, 3,019 lines of code, 7 atomic commits. Features: email/Google/Apple login, swipeable market cards with unique gradients, shares-based trading with approval flow, position list with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with 11 contract ABIs, LMSR math, and contract read functions. Zero TypeScript errors, 100% strict mode compliance.
 
 ### Fixed
+- **RPC 429 Rate Limiting Eliminated (2026-02-08)**: Comprehensive RPC call reduction across Sooth Lite frontend:
+  - `usePositions`: Refactored from N×2 RPC calls (per market) to 2 indexer endpoint calls (`/amm-positions`, `/lp-balances`)
+  - `useAMMQuote`: Fee rate query now only runs when user enters shares (was running on every render), cache extended to 5 minutes, `isGraduated` passed from market data to avoid extra RPC read
+  - `useMarkets`: Now uses indexer exclusively with health check fallback
+  - **Result**: Zero 429 errors in console
+- **TradeModal Accessibility (2026-02-08)**: Fixed vaul drawer accessibility warnings by adding `Drawer.Title` and `aria-describedby={undefined}`.
 - **Mobile WalletConnect Storage (2026-02-04)**: Added safe JSON parsing and fallback handling for AppKit/WC storage to avoid invalid array/object shapes that break connection state.
 - **AMMSettlementCard Mock Data (2026-01-27)**: Replaced hardcoded `mockPosition = { yesShares: 0n, noShares: 0n }` with real user position data from `useAMMPositionDirect` hook. Users can now see their AMM shares and claim payouts on finalized markets.
 - **LPHolders Null Return (2026-01-27)**: Fixed component returning null when stats unavailable on finalized markets. Added `useTruthMarketDirect` to check `isFinalized` status and render LP Leaderboard even without stats. LP Leaderboard now visible on finalized Trade page.

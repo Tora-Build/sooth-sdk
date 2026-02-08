@@ -39,11 +39,18 @@ const EMPTY_QUOTE: AMMQuoteResult = {
   error: null,
 };
 
+/**
+ * Hook to get AMM quote for buying/selling shares
+ * 
+ * IMPORTANT: Pass isGraduated from market data to avoid extra RPC calls.
+ * The quote will only be fetched when sharesInput is non-empty.
+ */
 export function useAMMQuote(
   marketAddress: Address | undefined,
   sharesInput: string,
   outcome: 0 | 1,
-  currentYesPrice: number
+  currentYesPrice: number,
+  isGraduated: boolean = false // Pass from market data to avoid RPC call
 ): AMMQuoteResult {
   const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
   const ammEngine = deployment?.contracts.AMMEngine as Address | undefined;
@@ -59,19 +66,13 @@ export function useAMMQuote(
     }
   }, [sharesInput]);
 
+  // Only fetch fee rate when user has actually entered shares
+  // Use the passed isGraduated flag to avoid an extra RPC call
   const { data: feeRateBps } = useQuery({
-    queryKey: ['fee-rate-bps', marketAddress, MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['fee-rate-bps', isGraduated, MONAD_TESTNET_CHAIN_ID],
     queryFn: async () => {
-      if (!launchpadEngine || !marketAddress) return 500n;
+      if (!launchpadEngine) return 500n;
       const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
-
-      const marketData = await client.readContract({
-        address: launchpadEngine,
-        abi: ABIS.LaunchpadEngine,
-        functionName: 'markets',
-        args: [marketAddress],
-      });
-      const isGraduated = (marketData as readonly unknown[])[8] as boolean;
 
       const fnName = isGraduated ? 'postGradFeeBps' : 'preGradFeeBps';
       const bps = await client.readContract({
@@ -81,8 +82,11 @@ export function useAMMQuote(
       });
       return BigInt(bps as number | bigint);
     },
-    enabled: !!launchpadEngine && !!marketAddress,
-    staleTime: 60_000,
+    // Only enable when user has entered shares - no point fetching fees otherwise
+    enabled: !!launchpadEngine && sharesWad > 0n,
+    // Fee rates rarely change, cache for 5 minutes
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const {
@@ -103,7 +107,8 @@ export function useAMMQuote(
       return result as readonly [bigint, bigint];
     },
     enabled: !!ammEngine && !!marketAddress && sharesWad > 0n,
-    staleTime: 5_000,
+    // Cache quote for 10 seconds to reduce spam during typing
+    staleTime: 10_000,
   });
 
   return useMemo(() => {
@@ -151,3 +156,4 @@ export function useAMMQuote(
     };
   }, [quoteData, sharesWad, feeRateBps, outcome, currentYesPrice, isLoading, error]);
 }
+

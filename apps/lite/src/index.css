@@ -62,6 +62,37 @@
     background-color: #1a1a1b;
   }
 
+  @keyframes pulse-highlight {
+    0% {
+      background-color: transparent;
+      border-color: transparent;
+    }
+
+    25% {
+      background-color: rgba(0, 212, 170, 0.08);
+      border-color: rgba(0, 212, 170, 0.3);
+    }
+
+    50% {
+      background-color: rgba(0, 212, 170, 0.12);
+      border-color: rgba(0, 212, 170, 0.5);
+    }
+
+    75% {
+      background-color: rgba(0, 212, 170, 0.08);
+      border-color: rgba(0, 212, 170, 0.3);
+    }
+
+    100% {
+      background-color: rgba(0, 212, 170, 0.05);
+      border-color: transparent;
+    }
+  }
+
+  .animate-highlight {
+    animation: pulse-highlight 2s ease-in-out forwards;
+  }
+
   .snap-container {
     scroll-snap-type: y mandatory;
     scrollbar-width: none;
