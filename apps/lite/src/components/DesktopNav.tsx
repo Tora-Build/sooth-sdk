@@ -13,9 +13,7 @@ export function DesktopNav() {
     <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-3 border-b border-white/5 bg-black/80 backdrop-blur-md">
       <div className="flex items-center gap-8">
         <NavLink to="/" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#836ef9] to-[#00d4aa] flex items-center justify-center">
-            <Eye className="w-4 h-4 text-white" />
-          </div>
+          <img src="/favicon.svg" alt="SoothSayer" className="w-7 h-7 rounded-lg" />
           <span className="font-mono font-bold text-base tracking-tight text-white">SoothSayer</span>
         </NavLink>
 
