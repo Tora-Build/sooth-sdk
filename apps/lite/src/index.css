@@ -36,9 +36,15 @@
 
   /* Desktop: allow scrolling for showcase */
   @media (min-width: 768px) {
-    html, body, #root {
+    html, body {
       overflow: auto;
+      height: auto;
       background-color: #0a0a0b;
+    }
+
+    #root {
+      height: auto;
+      overflow: visible;
     }
   }
 
@@ -136,6 +142,7 @@
     .phone-frame-content .snap-card {
       height: 100%;
     }
+
   }
 
   .glass-panel {
