@@ -52,8 +52,11 @@
     }
   }
 
-  body {
-    overscroll-behavior: none;
+  /* Mobile only: prevent overscroll bounce */
+  @media (max-width: 767px) {
+    body {
+      overscroll-behavior: none;
+    }
   }
 
   input[type='number']::-webkit-inner-spin-button,

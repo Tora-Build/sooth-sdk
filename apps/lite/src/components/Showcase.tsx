@@ -42,7 +42,7 @@ export function Showcase({ children }: ShowcaseProps) {
   const totalMarkets = markets?.length ?? 0;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0a0a0b] text-white">
       {/* Grid Background */}
       <div
         className="fixed inset-0 z-0 opacity-20 pointer-events-none"
