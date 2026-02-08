@@ -1,9 +1,8 @@
 import { ReactNode } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
-import { useAppKit } from '@reown/appkit/react';
 import { PhoneFrame } from './PhoneFrame';
-import { Wallet, TrendingUp, Users, Clock, ExternalLink, BarChart3, Trophy, Zap, Shield, Code, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
+import { TrendingUp, Users, Clock, Trophy, Zap, Shield, Code, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -34,8 +33,7 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 export function Showcase({ children }: ShowcaseProps) {
   const { data: markets } = useMarkets();
-  const { isConnected, address } = useAccount();
-  const { open } = useAppKit();
+  const { isConnected } = useAccount();
 
   const openMarkets = markets?.filter(m => m.stage === 'bonding' || m.stage === 'live') ?? [];
   const settledMarkets = markets?.filter(m => m.stage === 'settled' || m.stage === 'finalized') ?? [];
@@ -55,32 +53,6 @@ export function Showcase({ children }: ShowcaseProps) {
       {/* Background Gradients */}
       <div className="fixed top-20 left-1/4 w-[500px] h-[500px] bg-[#00d4aa]/10 rounded-full blur-[120px] mix-blend-screen opacity-30 pointer-events-none" />
       <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-[#836ef9]/10 rounded-full blur-[120px] mix-blend-screen opacity-20 pointer-events-none" />
-
-      {/* Top Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-black/50 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#836ef9] to-[#00d4aa] flex items-center justify-center">
-            <span className="text-base">🔮</span>
-          </div>
-          <span className="font-mono font-bold text-lg tracking-tight">SoothSayer</span>
-          <span className="text-xs font-mono text-[#836ef9]/80 bg-[#836ef9]/10 px-2 py-0.5 rounded-full border border-[#836ef9]/20">
-            Monad Testnet
-          </span>
-        </div>
-
-        <div className="flex items-center gap-6 text-sm font-mono text-white/50">
-          <a href="https://github.com/Tora-Build/sooth-alpha" target="_blank" rel="noopener noreferrer" className="hover:text-[#00d4aa] transition-colors flex items-center gap-1">
-            GitHub <ExternalLink className="w-3 h-3" />
-          </a>
-          <button
-            onClick={() => open()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:border-[#00d4aa]/50 hover:text-[#00d4aa] transition-all"
-          >
-            <Wallet className="w-4 h-4" />
-            {isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : 'Connect'}
-          </button>
-        </div>
-      </nav>
 
       {/* Main Content */}
       <section className="relative z-10 px-8 py-10">
