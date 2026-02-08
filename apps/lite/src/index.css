@@ -139,13 +139,10 @@
     height: 100vh;
   }
 
-  /* Desktop: disable snap inside phone frame to prevent scroll capture */
+  /* Desktop: keep snap inside phone frame but isolate scroll */
   @media (min-width: 768px) {
     .phone-frame-content .snap-container {
-      scroll-snap-type: none;
-    }
-    .phone-frame-content .snap-card {
-      scroll-snap-align: none;
+      overscroll-behavior: contain;
     }
   }
 
