@@ -132,7 +132,7 @@ export function Showcase({ children }: ShowcaseProps) {
             </div>
 
             {/* Right: Info Panel */}
-            <div className="space-y-6 lg:pt-0">
+            <div className="space-y-6 lg:pt-0 lg:max-w-xl">
 
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-4">
