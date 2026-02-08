@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Eye } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home' },
@@ -14,7 +14,7 @@ export function DesktopNav() {
       <div className="flex items-center gap-8">
         <NavLink to="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#836ef9] to-[#00d4aa] flex items-center justify-center">
-            <span className="text-sm">🔮</span>
+            <Eye className="w-4 h-4 text-white" />
           </div>
           <span className="font-mono font-bold text-base tracking-tight text-white">SoothSayer</span>
         </NavLink>

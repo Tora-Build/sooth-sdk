@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
 import { PhoneFrame } from './PhoneFrame';
-import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
+import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, Eye } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -62,8 +62,8 @@ export function Showcase({ children }: ShowcaseProps) {
           <div className="text-center mb-10">
             <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4">
               The prediction market plugin for{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-emerald-400 to-cyan-400">
-                AI agents
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#836ef9] via-[#00d4aa] to-cyan-400">
+                agents
               </span>
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
@@ -185,7 +185,7 @@ export function Showcase({ children }: ShowcaseProps) {
               <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
                 <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-[#836ef9]" />
-                  <span className="font-mono font-semibold text-sm">Two Building Blocks</span>
+                  <span className="font-mono font-semibold text-sm">Give Any Agent Two Things</span>
                 </div>
                 <div className="p-4 space-y-3">
                   <p className="text-xs text-white/50 leading-relaxed">
@@ -251,7 +251,7 @@ export function Showcase({ children }: ShowcaseProps) {
               {/* Footer Badge */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-white/30 font-mono">
                 <div className="w-2 h-2 rounded-full bg-[#00d4aa] animate-pulse" />
-                SoothSayer · Prediction market plugin for AI agents · Powered by Sooth Protocol on Monad
+                SoothSayer · Prediction market plugin for agents · Powered by Sooth Protocol on Monad
               </div>
             </div>
           </div>
