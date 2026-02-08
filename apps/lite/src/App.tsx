@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, MemoryRouter } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Search } from './pages/Search';
 import { Portfolio } from './pages/Portfolio';
@@ -28,10 +28,17 @@ function MobileApp() {
 
 function PhoneContent() {
   return (
-    <div className="h-full w-full bg-mesh">
-      <Home />
-      <BottomNav />
-    </div>
+    <MemoryRouter>
+      <div className="h-full w-full bg-mesh">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+        <BottomNav />
+      </div>
+    </MemoryRouter>
   );
 }
 
