@@ -21,7 +21,7 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    [MONAD_TESTNET_CHAIN_ID]: http('https://testnet-rpc.monad.xyz', {
+    [MONAD_TESTNET_CHAIN_ID]: http('https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/', {
       retryCount: 3,
       retryDelay: 1000,
       timeout: 30_000,
