@@ -18,7 +18,6 @@
   html,
   body,
   #root {
-    height: 100%;
     width: 100%;
     background-color: #1a1a1b;
     color: #ffffff;
@@ -27,18 +26,23 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Mobile: lock overflow for native app feel */
+  /* Mobile: full height, locked overflow, hidden scrollbars */
   @media (max-width: 767px) {
     html, body, #root {
+      height: 100%;
       overflow: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      display: none;
     }
   }
 
-  /* Desktop: allow scrolling for showcase */
+  /* Desktop: natural document flow, scrollable */
   @media (min-width: 768px) {
     html, body {
-      overflow: auto;
       height: auto;
+      overflow: auto;
       background-color: #0a0a0b;
     }
 
@@ -50,10 +54,6 @@
 
   body {
     overscroll-behavior: none;
-  }
-
-  ::-webkit-scrollbar {
-    display: none;
   }
 
   input[type='number']::-webkit-inner-spin-button,

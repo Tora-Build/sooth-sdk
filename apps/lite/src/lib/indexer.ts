@@ -1,6 +1,7 @@
 import { MONAD_TESTNET_CHAIN_ID } from './config';
 
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:42069';
+// Only use indexer if explicitly configured — otherwise fall back to RPC
+const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || '';
 
 /**
  * LaunchpadMarket from indexer - matches ponder.schema.ts launchpadMarket table
@@ -38,6 +39,7 @@ export interface IndexerLaunchpadMarket {
  * GET /launchpad-markets/:chainId
  */
 export async function fetchLaunchpadMarketsFromIndexer(): Promise<IndexerLaunchpadMarket[]> {
+  if (!INDEXER_URL) throw new Error('Indexer not configured');
   const response = await fetch(`${INDEXER_URL}/launchpad-markets/${MONAD_TESTNET_CHAIN_ID}`);
   if (!response.ok) {
     throw new Error(`Indexer error: ${response.status}`);
@@ -54,6 +56,7 @@ export async function fetchOrderbookFromIndexer(marketKey: string) {
 }
 
 export async function checkIndexerHealth(): Promise<boolean> {
+  if (!INDEXER_URL) return false;
   try {
     const response = await fetch(`${INDEXER_URL}/api-health`, {
       method: 'GET',
