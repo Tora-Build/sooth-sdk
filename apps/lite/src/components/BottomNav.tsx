@@ -16,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function BottomNav() {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-3" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
       <nav className="max-w-md mx-auto bg-[#1a1a1b] border border-[#333] rounded-2xl px-2 py-1.5 shadow-lg shadow-black/50">
         <div className="flex items-center justify-between">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
