@@ -1,13 +1,13 @@
 <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="48" fill="#060b19" />
+  <rect width="200" height="200" rx="48" fill="#0a0a0b" />
   
   <defs>
-    <linearGradient id="diamond-gradient" x1="20" y1="100" x2="180" y2="100" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#06B6D4" />
-      <stop offset="100%" stop-color="#D946EF" />
+    <linearGradient id="eye-gradient" x1="40" y1="100" x2="160" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#836ef9" />
+      <stop offset="100%" stop-color="#00d4aa" />
     </linearGradient>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
@@ -15,8 +15,13 @@
     </filter>
   </defs>
   
-  <path d="M100 30L165 100L100 170L35 100Z" fill="url(#diamond-gradient)" opacity="0.3" />
-  <path d="M100 30L165 100L100 170L35 100Z" stroke="url(#diamond-gradient)" stroke-width="3" fill="none" filter="url(#glow)" />
+  <!-- Eye shape -->
+  <path d="M40 100 Q70 55 100 55 Q130 55 160 100 Q130 145 100 145 Q70 145 40 100 Z" 
+        stroke="url(#eye-gradient)" stroke-width="6" fill="none" filter="url(#glow)" />
   
-  <circle cx="100" cy="100" r="8" fill="white" filter="url(#glow)" />
+  <!-- Iris -->
+  <circle cx="100" cy="100" r="22" stroke="url(#eye-gradient)" stroke-width="4" fill="none" filter="url(#glow)" />
+  
+  <!-- Pupil -->
+  <circle cx="100" cy="100" r="9" fill="url(#eye-gradient)" filter="url(#glow)" />
 </svg>
