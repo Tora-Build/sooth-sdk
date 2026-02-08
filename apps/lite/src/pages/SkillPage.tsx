@@ -96,7 +96,7 @@ export function SkillPage() {
         {/* Contracts */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold mb-4">Sooth Protocol Contracts</h2>
-          <p className="text-white/40 text-sm mb-4">Monad Testnet (chainId: 10143)</p>
+          <p className="text-white/40 text-sm mb-4">Deployed on Monad Testnet (10143) and Base Sepolia (84532)</p>
           <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
             {CONTRACTS.map((c, i) => (
               <div key={c.name} className={`px-4 py-3 flex items-center justify-between ${i < CONTRACTS.length - 1 ? 'border-b border-white/5' : ''}`}>
