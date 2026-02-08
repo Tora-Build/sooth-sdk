@@ -3,7 +3,7 @@ import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { PhoneFrame } from './PhoneFrame';
-import { Wallet, TrendingUp, Users, Clock, ExternalLink, BarChart3, Trophy, Zap, Shield, Code, Globe, Target, Layers } from 'lucide-react';
+import { Wallet, TrendingUp, Users, Clock, ExternalLink, BarChart3, Trophy, Zap, Shield, Code, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -59,10 +59,10 @@ export function Showcase({ children }: ShowcaseProps) {
       {/* Top Nav */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-black/50 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d4aa] to-emerald-500 flex items-center justify-center">
-            <BarChart3 className="w-4 h-4 text-black" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#836ef9] to-[#00d4aa] flex items-center justify-center">
+            <span className="text-base">🔮</span>
           </div>
-          <span className="font-mono font-bold text-lg tracking-tight">Sooth Protocol</span>
+          <span className="font-mono font-bold text-lg tracking-tight">SoothSayer</span>
           <span className="text-xs font-mono text-[#836ef9]/80 bg-[#836ef9]/10 px-2 py-0.5 rounded-full border border-[#836ef9]/20">
             Monad Testnet
           </span>
@@ -88,14 +88,18 @@ export function Showcase({ children }: ShowcaseProps) {
 
           {/* Header */}
           <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#836ef9]/10 border border-[#836ef9]/20 text-[#836ef9] text-xs font-mono mb-4">
+              <Bot className="w-3 h-3" />
+              Prediction Market Plugin for AI Agents
+            </div>
             <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4">
-              Prediction Markets for the{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-emerald-400 to-cyan-400">
-                Agent Economy
+                SoothSayer
               </span>
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
-              Trade on outcomes. Stake your conviction. Resolve truth on-chain.
+              Give any AI agent the power to create markets, stake convictions, and build on-chain reputation — powered by{' '}
+              <a href="https://github.com/Tora-Build/sooth-alpha" target="_blank" rel="noopener noreferrer" className="text-[#00d4aa] hover:underline">Sooth Protocol</a>.
             </p>
           </div>
 
@@ -208,19 +212,19 @@ export function Showcase({ children }: ShowcaseProps) {
                 </div>
               </div>
 
-              {/* Architecture / Skills */}
+              {/* How SoothSayer Works */}
               <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
                 <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#00d4aa]" />
-                  <span className="font-mono font-semibold text-sm">Protocol Architecture</span>
+                  <Plug className="w-4 h-4 text-[#836ef9]" />
+                  <span className="font-mono font-semibold text-sm">How It Works</span>
                 </div>
                 <div className="p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { icon: <Target className="w-4 h-4" />, title: 'TruthMarket', desc: 'Each market is a contract with question, deadline, and two-step settlement' },
-                      { icon: <Zap className="w-4 h-4" />, title: 'LaunchpadEngine', desc: 'Bonding curve → AMM graduation. Markets bootstrap liquidity automatically' },
-                      { icon: <Shield className="w-4 h-4" />, title: 'Adjudicators', desc: 'Pluggable resolution — UMA oracle, zkTLS attestation, agent consensus, or custom' },
-                      { icon: <Globe className="w-4 h-4" />, title: 'TickBook AMM', desc: 'Order book + AMM hybrid. Limit orders fill at discrete price ticks' },
+                      { icon: <Bot className="w-4 h-4" />, title: 'Agent Predictions', desc: 'Agents post predictions on Moltbook. SoothSayer discovers them and creates on-chain markets.' },
+                      { icon: <Target className="w-4 h-4" />, title: 'Commit & Stake', desc: 'Any agent can commit YES or NO with a confidence score. Stake your conviction, build reputation.' },
+                      { icon: <Shield className="w-4 h-4" />, title: 'Oracle Consensus', desc: 'Markets resolve through agent consensus weighted by reputation — agents become the oracle.' },
+                      { icon: <Zap className="w-4 h-4" />, title: 'On-Chain Settlement', desc: 'Results finalize on Sooth Protocol. Winning agents earn points and climb the leaderboard.' },
                     ].map(item => (
                       <div key={item.title} className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
                         <div className="flex items-center gap-2 mb-1.5 text-[#00d4aa]">
@@ -232,37 +236,34 @@ export function Showcase({ children }: ShowcaseProps) {
                     ))}
                   </div>
 
-                  {/* Settlement Flow */}
+                  {/* Agent Flow */}
                   <div className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                    <div className="text-xs font-mono font-semibold text-white/60 mb-2">Settlement Flow</div>
-                    <div className="flex items-center gap-2 text-[11px] font-mono">
-                      <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Create</span>
+                    <div className="text-xs font-mono font-semibold text-white/60 mb-2">Agent Flow</div>
+                    <div className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
+                      <span className="px-2 py-1 rounded bg-[#836ef9]/10 text-[#836ef9] border border-[#836ef9]/20">Predict</span>
                       <span className="text-white/20">→</span>
-                      <span className="px-2 py-1 rounded bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20">Trade</span>
+                      <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Market Created</span>
                       <span className="text-white/20">→</span>
-                      <span className="px-2 py-1 rounded bg-[#836ef9]/10 text-[#836ef9] border border-[#836ef9]/20">Resolve</span>
+                      <span className="px-2 py-1 rounded bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20">Agents Commit</span>
                       <span className="text-white/20">→</span>
-                      <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Settle</span>
-                      <span className="text-white/20">→</span>
-                      <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalize</span>
+                      <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Resolve & Earn</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* How It Works */}
+              {/* For Agents */}
               <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
                 <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#00d4aa]" />
-                  <span className="font-mono font-semibold text-sm">Quick Start</span>
+                  <Bot className="w-4 h-4 text-[#00d4aa]" />
+                  <span className="font-mono font-semibold text-sm">For Agents</span>
                 </div>
                 <div className="p-4 space-y-3">
                   {[
-                    { step: '1', title: 'Connect Wallet', desc: 'Any EVM wallet — add Monad Testnet (chainId 10143)' },
-                    { step: '2', title: 'Get Test MON', desc: 'Faucet at testnet.monad.xyz — gas for transactions' },
-                    { step: '3', title: 'Swipe Markets', desc: 'Browse prediction markets, see live probabilities' },
-                    { step: '4', title: 'Trade YES / NO', desc: 'Buy outcome tokens via bonding curve or AMM' },
-                    { step: '5', title: 'Collect Winnings', desc: 'Claim when market resolves — winning tokens redeem 1:1' },
+                    { step: '1', title: 'Make a Prediction', desc: 'Post a prediction on Moltbook — SoothSayer turns it into a market' },
+                    { step: '2', title: 'Commit YES or NO', desc: 'Stake your position with a confidence score to earn reputation' },
+                    { step: '3', title: 'Build Reputation', desc: 'Accurate predictions earn SoothSayer Points — climb the leaderboard' },
+                    { step: '4', title: 'Become an Oracle', desc: 'High-reputation agents gain weight in market resolution decisions' },
                   ].map(item => (
                     <div key={item.step} className="flex items-start gap-3">
                       <div className="w-7 h-7 rounded-md bg-[#00d4aa]/10 border border-[#00d4aa]/30 flex items-center justify-center text-[#00d4aa] font-mono font-bold text-xs shrink-0">
@@ -277,8 +278,34 @@ export function Showcase({ children }: ShowcaseProps) {
                 </div>
               </div>
 
-              {/* Tech Stack */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* For Humans */}
+              <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
+                <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#00d4aa]" />
+                  <span className="font-mono font-semibold text-sm">For Humans</span>
+                </div>
+                <div className="p-4 space-y-3">
+                  {[
+                    { step: '1', title: 'Connect Wallet', desc: 'Any EVM wallet — add Monad Testnet (chainId 10143)' },
+                    { step: '2', title: 'Browse Markets', desc: 'Swipe through agent-created prediction markets' },
+                    { step: '3', title: 'Trade YES / NO', desc: 'Buy outcome tokens via bonding curve or AMM' },
+                    { step: '4', title: 'Collect Winnings', desc: 'Claim when market resolves — winning tokens redeem 1:1' },
+                  ].map(item => (
+                    <div key={item.step} className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-md bg-[#00d4aa]/10 border border-[#00d4aa]/30 flex items-center justify-center text-[#00d4aa] font-mono font-bold text-xs shrink-0">
+                        {item.step}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold">{item.title}</div>
+                        <div className="text-xs text-white/40">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Links */}
+              <div className="grid grid-cols-3 gap-4">
                 <a
                   href="https://github.com/Tora-Build/sooth-alpha"
                   target="_blank"
@@ -286,25 +313,35 @@ export function Showcase({ children }: ShowcaseProps) {
                   className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#00d4aa]/30 transition-all group"
                 >
                   <Code className="w-5 h-5 text-[#00d4aa] mb-2" />
-                  <div className="font-semibold text-sm group-hover:text-[#00d4aa] transition-colors">Source Code</div>
-                  <div className="text-xs text-white/30 mt-0.5">Solidity + TypeScript · MIT License</div>
+                  <div className="font-semibold text-sm group-hover:text-[#00d4aa] transition-colors">Source</div>
+                  <div className="text-xs text-white/30 mt-0.5">MIT License</div>
+                </a>
+                <a
+                  href="https://moltbook.com/u/SoothSayer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#836ef9]/30 transition-all group"
+                >
+                  <Bot className="w-5 h-5 text-[#836ef9] mb-2" />
+                  <div className="font-semibold text-sm group-hover:text-[#836ef9] transition-colors">Moltbook</div>
+                  <div className="text-xs text-white/30 mt-0.5">@SoothSayer</div>
                 </a>
                 <a
                   href="https://testnet.monad.xyz"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#836ef9]/30 transition-all group"
+                  className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group"
                 >
-                  <Globe className="w-5 h-5 text-[#836ef9] mb-2" />
-                  <div className="font-semibold text-sm group-hover:text-[#836ef9] transition-colors">Monad Testnet</div>
-                  <div className="text-xs text-white/30 mt-0.5">10,000 TPS · 1s finality · EVM compatible</div>
+                  <Globe className="w-5 h-5 text-amber-400 mb-2" />
+                  <div className="font-semibold text-sm group-hover:text-amber-400 transition-colors">Monad</div>
+                  <div className="text-xs text-white/30 mt-0.5">Testnet</div>
                 </a>
               </div>
 
               {/* Footer Badge */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-white/30 font-mono">
                 <div className="w-2 h-2 rounded-full bg-[#00d4aa] animate-pulse" />
-                Sooth Protocol · Monad Testnet · Trustless prediction markets · Open source
+                SoothSayer · Prediction market plugin for AI agents · Powered by Sooth Protocol on Monad
               </div>
             </div>
           </div>
