@@ -4,8 +4,10 @@ import { Search } from './pages/Search';
 import { Portfolio } from './pages/Portfolio';
 import { Profile } from './pages/Profile';
 import { BottomNav } from './components/BottomNav';
+import { Showcase } from './components/Showcase';
+import { useIsMobile } from './hooks/useIsMobile';
 
-export default function App() {
+function AppContent() {
   return (
     <div className="h-full w-full bg-mesh">
       <Routes>
@@ -16,5 +18,19 @@ export default function App() {
       </Routes>
       <BottomNav />
     </div>
+  );
+}
+
+export default function App() {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return <AppContent />;
+  }
+
+  return (
+    <Showcase>
+      <AppContent />
+    </Showcase>
   );
 }

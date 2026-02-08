@@ -20,12 +20,26 @@
   #root {
     height: 100%;
     width: 100%;
-    overflow: hidden;
     background-color: #1a1a1b;
     color: #ffffff;
     font-family: 'IBM Plex Mono', 'Plus Jakarta Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Mobile: lock overflow for native app feel */
+  @media (max-width: 767px) {
+    html, body, #root {
+      overflow: hidden;
+    }
+  }
+
+  /* Desktop: allow scrolling for showcase */
+  @media (min-width: 768px) {
+    html, body, #root {
+      overflow: auto;
+      background-color: #0a0a0b;
+    }
   }
 
   body {
