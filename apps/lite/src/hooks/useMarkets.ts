@@ -18,7 +18,7 @@ export interface Market {
   lpToken?: Address;
 }
 
-const CHUNK_SIZE = 5;
+const CHUNK_SIZE = 2;
 
 async function readContractSafe<T>(
   client: ReturnType<typeof getPublicClient>,
@@ -26,9 +26,6 @@ async function readContractSafe<T>(
 ): Promise<T | null> {
   try {
     const result = (await client.readContract(config)) as T;
-    if (config.functionName === 'question') {
-      console.log(`[DEBUG] question read for ${config.address}:`, result);
-    }
     return result;
   } catch (e) {
     console.warn(`Contract read failed: ${config.functionName} on ${config.address}`, e);
@@ -216,7 +213,7 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
     marketDetails.push(...chunkResults.filter((m): m is Market => m !== null));
 
     if (i + CHUNK_SIZE < marketAddresses.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 
