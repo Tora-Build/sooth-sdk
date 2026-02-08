@@ -3,7 +3,7 @@ import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { PhoneFrame } from './PhoneFrame';
-import { Wallet, TrendingUp, Users, Clock, ExternalLink, BarChart3, Trophy, Zap, Shield, Code, Globe, Star, Target, Layers } from 'lucide-react';
+import { Wallet, TrendingUp, Users, Clock, ExternalLink, BarChart3, Trophy, Zap, Shield, Code, Globe, Target, Layers } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -85,28 +85,6 @@ export function Showcase({ children }: ShowcaseProps) {
       {/* Main Content */}
       <section className="relative z-10 px-8 py-10">
         <div className="max-w-7xl mx-auto">
-
-          {/* Hackathon Banner */}
-          <div className="mb-8 p-5 rounded-2xl bg-gradient-to-r from-[#836ef9]/10 via-[#00d4aa]/5 to-[#836ef9]/10 border border-[#836ef9]/20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-[#836ef9]/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="flex items-start gap-4 relative">
-              <div className="w-12 h-12 rounded-xl bg-[#836ef9]/20 border border-[#836ef9]/30 flex items-center justify-center shrink-0">
-                <Star className="w-6 h-6 text-[#836ef9]" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="font-bold text-lg">Moltiverse Hackathon — Monad</h2>
-                  <span className="text-xs font-mono bg-[#836ef9]/20 text-[#836ef9] px-2 py-0.5 rounded-full">$200K Prize Pool</span>
-                </div>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  Sooth is building <strong className="text-white/80">trustless prediction market infrastructure</strong> on Monad.
-                  Agents and humans create markets, trade outcomes, and resolve truth — all on-chain.
-                  The protocol is <strong className="text-white/80">agnostic</strong>: it doesn't prescribe who the oracles are.
-                  Anyone can build resolution strategies — from AI agents to zkTLS attestations to community voting.
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* Header */}
           <div className="text-center mb-10">
