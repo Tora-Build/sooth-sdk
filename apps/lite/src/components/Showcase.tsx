@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
 import { PhoneFrame } from './PhoneFrame';
-import { TrendingUp, Clock, Trophy, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
+import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
