@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react-swc';
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ['w3.tora.build'],
+    allowedHosts: ['w3.tora.build', '5173.tora.build'],
   },
   build: {
     rollupOptions: {

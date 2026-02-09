@@ -35,7 +35,7 @@ export function Profile() {
     return (
       <div className="h-full w-full flex flex-col bg-mesh text-white">
         <header className="shrink-0 pt-4 px-6 pb-4">
-          <h1 className="text-xl font-bold font-heading text-white">Profile</h1>
+          <h1 className="text-2xl font-bold font-heading text-white">Profile</h1>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center px-6 pb-32">
           <div className="w-20 h-20 rounded-2xl glass-panel flex items-center justify-center mb-6 border border-[#444]">
@@ -62,7 +62,7 @@ export function Profile() {
   return (
     <div className="h-full w-full flex flex-col bg-mesh text-white">
       <header className="shrink-0 pt-4 px-6">
-        <h1 className="text-xl font-bold font-heading text-white mb-2">Profile</h1>
+        <h1 className="text-2xl font-bold font-heading text-white mb-2">Profile</h1>
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-24 space-y-3">

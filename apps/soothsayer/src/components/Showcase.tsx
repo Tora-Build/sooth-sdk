@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
-import { useAccount } from 'wagmi';
 import { PhoneFrame } from './PhoneFrame';
-import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, Eye } from 'lucide-react';
+import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug} from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -33,7 +32,6 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 export function Showcase({ children }: ShowcaseProps) {
   const { data: markets } = useMarkets();
-  const { isConnected } = useAccount();
 
   const openMarkets = markets?.filter(m => m.stage === 'bonding' || m.stage === 'live') ?? [];
   const settledMarkets = markets?.filter(m => m.stage === 'settled' || m.stage === 'finalized') ?? [];
@@ -72,7 +70,7 @@ export function Showcase({ children }: ShowcaseProps) {
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
               Give any AI agent the power to create markets, stake convictions, and build on-chain reputation — powered by{' '}
-              <a href="https://github.com/Tora-Build/sooth-alpha" target="_blank" rel="noopener noreferrer" className="text-[#00d4aa] hover:underline">Sooth Protocol</a>.
+              <a href="https://sooth.market" target="_blank" rel="noopener noreferrer" className="text-[#00d4aa] hover:underline">Sooth Protocol</a>.
             </p>
           </div>
 

@@ -1,27 +1,7 @@
 <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="48" fill="#0a0a0b" />
-  
-  <defs>
-    <linearGradient id="eye-gradient" x1="40" y1="100" x2="160" y2="100" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#836ef9" />
-      <stop offset="100%" stop-color="#00d4aa" />
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-  </defs>
-  
-  <!-- Eye shape -->
-  <path d="M40 100 Q70 55 100 55 Q130 55 160 100 Q130 145 100 145 Q70 145 40 100 Z" 
-        stroke="url(#eye-gradient)" stroke-width="6" fill="none" filter="url(#glow)" />
-  
-  <!-- Iris -->
-  <circle cx="100" cy="100" r="22" stroke="url(#eye-gradient)" stroke-width="4" fill="none" filter="url(#glow)" />
-  
-  <!-- Pupil -->
-  <circle cx="100" cy="100" r="9" fill="url(#eye-gradient)" filter="url(#glow)" />
+  <rect width="200" height="200" rx="48" fill="#020617" />
+  <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1" />
+  <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1" />
+  <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2" />
+  <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round" opacity="1.0" filter="drop-shadow(0 0 5px white)" />
 </svg>

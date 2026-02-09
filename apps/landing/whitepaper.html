@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sooth Protocol — Whitepaper</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="description" content="Sooth Protocol Whitepaper — The permissionless prediction market launchpad." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            sooth: { purple: '#836ef9', teal: '#00d4aa', dark: '#0a0a0b' },
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    html, body { overflow-x: hidden; width: 100%; }
+    body { background: #0a0a0b; color: #fff; font-family: 'JetBrains Mono', monospace; }
+    .gradient-text { background: linear-gradient(135deg, #836ef9, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .bg-grid { background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 32px 32px; }
+  </style>
+</head>
+<body class="bg-grid min-h-screen antialiased">
+
+  <!-- Nav -->
+  <nav class="fixed top-0 w-full z-50 bg-[#0a0a0b]/80 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 flex items-center justify-center">
+          <svg width="28" height="28" viewBox="0 0 200 200" fill="none">
+            <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
+            <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
+            <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
+            <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round" opacity="1.0"/>
+          </svg>
+        </div>
+        <span class="font-bold text-lg tracking-tight">Sooth</span>
+      </div>
+      <a href="/" class="text-sm text-white/50 hover:text-white transition-colors flex items-center gap-2">
+        ← Back to Home
+      </a>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <main class="pt-28 pb-20 px-5 sm:px-6">
+    <div class="max-w-4xl mx-auto">
+
+      <!-- Title -->
+      <header class="text-center mb-16">
+        <h1 class="text-3xl sm:text-5xl font-black tracking-tighter mb-4 lowercase">
+          <span class="gradient-text">sooth protocol</span>
+        </h1>
+        <p class="text-lg sm:text-xl text-white/50 mb-2">The Permissionless Prediction Market Launchpad</p>
+        <p class="text-sm text-white/30">Official Whitepaper</p>
+        <div class="mt-6 border-t border-white/5 pt-6">
+          <p class="text-sm text-white/40 italic">"Pursuing the full potential of decentralization."</p>
+        </div>
+      </header>
+
+      <!-- Section 1: Abstract -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">1. abstract</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">
+          Sooth Protocol is a fully on-chain prediction market infrastructure designed around one core thesis: <strong class="text-white">decentralization creates better markets</strong>.
+        </p>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">We pursue this through three foundational pillars:</p>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead>
+              <tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest">
+                <th class="text-left py-3 px-4 font-medium">Pillar</th>
+                <th class="text-left py-3 px-4 font-medium">Innovation</th>
+                <th class="text-left py-3 px-4 font-medium">Decentralization Unlock</th>
+              </tr>
+            </thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 font-semibold text-white/70">🚀 Launchpad</td>
+                <td class="py-2.5 px-4">Permissionless market creation with creator economics</td>
+                <td class="py-2.5 px-4">Economic incentive alignment without gatekeepers</td>
+              </tr>
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 font-semibold text-white/70">⚖️ ZK Rules</td>
+                <td class="py-2.5 px-4">Autonomous, retroactive settlement via T*</td>
+                <td class="py-2.5 px-4">Trustless resolution without centralized oracles</td>
+              </tr>
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 font-semibold text-white/70">📊 TickBook</td>
+                <td class="py-2.5 px-4">On-chain CLOB with 10,000-tick depth</td>
+                <td class="py-2.5 px-4">Decentralized price discovery rivaling CEX execution</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mt-6">
+          By aligning incentives across <strong class="text-white">Creators</strong>, <strong class="text-white">Gaming Traders</strong>, and <strong class="text-white">Arbitrageurs</strong>, Sooth transforms prediction markets from extractive platforms into <strong class="text-white">cooperative value creation networks</strong>.
+        </p>
+      </section>
+
+      <!-- Section 2: The Decentralization Thesis -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">2. the decentralization thesis</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">Traditional prediction markets fail to capture the full potential of decentralization:</p>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead>
+              <tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest">
+                <th class="text-left py-3 px-4 font-medium">Platform</th>
+                <th class="text-left py-3 px-4 font-medium">Creation</th>
+                <th class="text-left py-3 px-4 font-medium">Liquidity</th>
+                <th class="text-left py-3 px-4 font-medium">Resolution</th>
+                <th class="text-left py-3 px-4 font-medium">Price Discovery</th>
+              </tr>
+            </thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 text-white/70">Polymarket</td>
+                <td class="py-2.5 px-4">Gatekept</td>
+                <td class="py-2.5 px-4">Hybrid</td>
+                <td class="py-2.5 px-4">Centralized oracle</td>
+                <td class="py-2.5 px-4">Off-chain matching</td>
+              </tr>
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 text-white/70">Kalshi</td>
+                <td class="py-2.5 px-4">Gatekept</td>
+                <td class="py-2.5 px-4">Centralized</td>
+                <td class="py-2.5 px-4">Centralized</td>
+                <td class="py-2.5 px-4">Centralized CLOB</td>
+              </tr>
+              <tr class="border-t border-white/5">
+                <td class="py-2.5 px-4 text-white/70">Omen</td>
+                <td class="py-2.5 px-4">Open</td>
+                <td class="py-2.5 px-4">Fragmented</td>
+                <td class="py-2.5 px-4">Reality.eth</td>
+                <td class="py-2.5 px-4">Per-market AMM</td>
+              </tr>
+              <tr class="border-t border-white/5 bg-sooth-teal/5">
+                <td class="py-2.5 px-4 text-sooth-teal font-semibold">Sooth</td>
+                <td class="py-2.5 px-4 text-sooth-teal font-semibold">Permissionless</td>
+                <td class="py-2.5 px-4 text-sooth-teal font-semibold">Unified Vault</td>
+                <td class="py-2.5 px-4 text-sooth-teal font-semibold">ZK + Multi-class</td>
+                <td class="py-2.5 px-4 text-sooth-teal font-semibold">On-chain TickBook + AMM</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mt-6">Sooth's architecture ensures that every layer—creation, liquidity, settlement, and discovery—benefits from decentralized design.</p>
+      </section>
+
+      <!-- Section 3: Pillar I: The Launchpad -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">3. pillar I: the launchpad 🚀 — decentralized economic design</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">The Launchpad transforms market creation from a privileged operation into an <strong class="text-white">incentive-aligned economic game</strong>.</p>
+
+        <!-- 3.1 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">3.1 the creator's game</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Problem:</strong> Traditional platforms decide which markets exist. Creators have no stake in success.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-6"><strong class="text-white">Sooth's Solution:</strong> Creators deposit capital and become the first LP. Their economic interests are permanently aligned with market success.</p>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">Creator P&L Analysis</h4>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Event</th><th class="text-left py-3 px-4 font-medium">Creator Impact</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Market created</td><td class="py-2.5 px-4">-$693 deposit (for $1,000 liquidity tier)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Trading generates fees</td><td class="py-2.5 px-4">+LP tokens minted (pre-graduation)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Market graduates</td><td class="py-2.5 px-4">Unlocks ongoing yield stream</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Market settles profitably</td><td class="py-2.5 px-4">+Proportional share of vault assets</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Market settles at loss</td><td class="py-2.5 px-4">-Bounded by initial deposit</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Key insight:</strong> Creators can profit even if the market settles against the "crowd" prediction, as long as trading volume generates sufficient fees.</p>
+
+        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5 mb-8">
+          <p class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-widest">Example</p>
+          <p class="text-sm text-white/50 leading-relaxed">
+            Carol creates "Protocol X hacked > $1M?" with $693 deposit.<br/>
+            • $3,000 in trading volume generates $150 in fees (5%)<br/>
+            • Market graduates after $2,000 cumulative fees<br/>
+            • Carol holds 50% LP tokens → Claims ~$1,500 at settlement<br/>
+            • <strong class="text-sooth-teal">Net P&L: +$807</strong> (even if she never traded)
+          </p>
+        </div>
+
+        <!-- 3.2 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">3.2 the gaming trader's reward 🎮</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Problem:</strong> Early traders take the most risk but receive no special reward.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-6"><strong class="text-white">Sooth's Solution:</strong> Pre-graduation fees mint LP tokens to traders, converting them from customers into stakeholders.</p>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">Fee → LP Mechanism</h4>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-6 overflow-x-auto">
+<pre>Trader pays 5% fee on $100 trade = $5
+→ $5 adds to liquidity depth (bBase grows)
+→ $5 worth of LP tokens minted TO THE TRADER
+→ Trader now earns from future trading activity</pre>
+        </div>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">The Gaming Trader's P&L</h4>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Scenario</th><th class="text-left py-3 px-4 font-medium">Traditional Platform</th><th class="text-left py-3 px-4 font-medium text-sooth-teal">Sooth</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Win prediction</td><td class="py-2.5 px-4">+Payout</td><td class="py-2.5 px-4 text-sooth-teal">+Payout + LP tokens</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Lose prediction</td><td class="py-2.5 px-4">-Stake</td><td class="py-2.5 px-4 text-sooth-teal">-Stake + LP tokens (partial recovery)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Market becomes popular</td><td class="py-2.5 px-4">No benefit</td><td class="py-2.5 px-4 text-sooth-teal">LP tokens appreciate</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5 mb-8">
+          <p class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-widest">Example</p>
+          <p class="text-sm text-white/50 leading-relaxed">
+            Alice bets $200 on YES during the internal phase, paying $10 in fees.<br/>
+            • She receives $10 worth of LP tokens<br/>
+            • The market goes viral, generating $50,000 in volume<br/>
+            • Her LP tokens now represent a share of ~$2,500 in fees<br/>
+            • <strong class="text-sooth-teal">Even if her prediction loses, her LP position may offset the loss</strong>
+          </p>
+        </div>
+
+        <!-- 3.3 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">3.3 graduation economics</h3>
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Phase</th><th class="text-left py-3 px-4 font-medium">Fee</th><th class="text-left py-3 px-4 font-medium">Who Benefits</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Internal</td><td class="py-2.5 px-4">5%</td><td class="py-2.5 px-4">Traders (LP minting) + Liquidity depth</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Graduated</td><td class="py-2.5 px-4">1%</td><td class="py-2.5 px-4">50% Liquidity · 30% LP Yield · 20% Protocol</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">The high internal phase fee incentivizes early participation. As markets mature, lower fees attract higher volume.</p>
+
+        <!-- 3.4 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">3.4 liquidity tiers</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Tier</th><th class="text-left py-3 px-4 font-medium">Liquidity (b)</th><th class="text-left py-3 px-4 font-medium">Creator Deposit</th><th class="text-left py-3 px-4 font-medium">Graduation Threshold</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Micro</td><td class="py-2.5 px-4">$100</td><td class="py-2.5 px-4">$69</td><td class="py-2.5 px-4">$200 in fees</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Small</td><td class="py-2.5 px-4">$1,000</td><td class="py-2.5 px-4">$693</td><td class="py-2.5 px-4">$2,000 in fees</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Medium</td><td class="py-2.5 px-4">$10,000</td><td class="py-2.5 px-4">$6,930</td><td class="py-2.5 px-4">$20,000 in fees</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Large</td><td class="py-2.5 px-4">$100,000</td><td class="py-2.5 px-4">$69,300</td><td class="py-2.5 px-4">$200,000 in fees</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 4: Pillar II: ZK Rules -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">4. pillar II: ZK rules ⚖️ — autonomous and retroactive settlement</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">Settlement is where centralization causes the most damage. Biased oracles, delayed resolution, and latency exploitation all undermine market integrity.</p>
+
+        <!-- 4.1 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">4.1 the T* mechanism: retroactive finality</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Problem:</strong> When truth emerges, fast traders exploit stale AMM quotes before prices update.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-6"><strong class="text-white">Sooth's Solution:</strong> Adjudicators report not just the outcome, but <strong class="text-white">when</strong> it became true (T*). Settlement rewinds trades executed after T*.</p>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">How It Works</h4>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-6 overflow-x-auto">
+<pre>Timeline:
+├─ 14:00:00 — BTC crosses $100k (T* = this moment)
+├─ 14:00:05 — News breaks
+├─ 14:00:10 — Arbitrageur buys YES at 60¢
+├─ 14:00:30 — Adjudicator reports: "YES, T* = 14:00:00"
+└─ Settlement: The 14:00:10 trade is REWOUND
+    → Arbitrageur receives refund, not windfall
+    → LPs protected from latency exploitation</pre>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mb-8"><strong class="text-white">Result:</strong> No rollbacks on-chain. ZK proofs verify the rewind accounting. LPs don't bleed to faster traders.</p>
+
+        <!-- 4.2 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">4.2 four adjudicator classes</h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Class</th><th class="text-left py-3 px-4 font-medium">Use Case</th><th class="text-left py-3 px-4 font-medium">Trust Model</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Optimistic</td><td class="py-2.5 px-4">Subjective events, disputes</td><td class="py-2.5 px-4">UMA/Reality.eth-style challenges</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">ZK Rule</td><td class="py-2.5 px-4">On-chain verifiable conditions</td><td class="py-2.5 px-4">Pure smart contract logic</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Oracle+ZK</td><td class="py-2.5 px-4">Price feeds, data thresholds</td><td class="py-2.5 px-4">Chainlink + ZK enhancement</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Multisig</td><td class="py-2.5 px-4">Institutional, private data</td><td class="py-2.5 px-4">N-of-M authorized signers</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed mb-8"><strong class="text-white">Creators choose</strong> the appropriate adjudicator for their market. More trust assumptions = more market types possible.</p>
+
+        <!-- 4.3 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">4.3 optional open-end markets</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4">Not all markets need to be open-end. Sooth supports both models:</p>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Type</th><th class="text-left py-3 px-4 font-medium">Description</th><th class="text-left py-3 px-4 font-medium">Best For</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Open-End</td><td class="py-2.5 px-4">No expiry; settles when truth is known</td><td class="py-2.5 px-4">"Will X ever happen?"</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Fixed-End</td><td class="py-2.5 px-4">Traditional expiry date</td><td class="py-2.5 px-4">"Will X happen by Y date?"</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
+            <p class="text-xs text-sooth-teal font-semibold uppercase tracking-widest mb-2">Open-End advantages</p>
+            <ul class="text-xs text-white/50 space-y-1.5">
+              <li>• No forced liquidations at arbitrary deadlines</li>
+              <li>• Markets can live forever until resolution</li>
+              <li>• Truth-driven rather than time-driven</li>
+            </ul>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
+            <p class="text-xs text-sooth-purple font-semibold uppercase tracking-widest mb-2">Fixed-End advantages</p>
+            <ul class="text-xs text-white/50 space-y-1.5">
+              <li>• Familiar structure for traditional events</li>
+              <li>• Clear settlement timeline for traders</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Pillar III: TickBook -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">5. pillar III: tickbook 📊 — decentralized CLOB alternative</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">The TickBook brings CEX-grade execution to on-chain prediction markets.</p>
+
+        <!-- 5.1 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">5.1 architecture</h3>
+        <ul class="text-sm text-white/60 space-y-2 mb-8 list-none">
+          <li>• <strong class="text-white">10,000 price ticks</strong> from 0.01% to 99.99%</li>
+          <li>• <strong class="text-white">Bitmap-based O(1) tick discovery</strong> — Finding the best price is constant-time</li>
+          <li>• <strong class="text-white">On-chain matching</strong> — No off-chain sequencer, no MEV extraction</li>
+          <li>• <strong class="text-white">Native to high-throughput L2s</strong> — Optimized for MegaETH, Base, and similar chains</li>
+        </ul>
+
+        <!-- 5.2 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">5.2 dual venue architecture</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4">Sooth operates two parallel trading venues for different trader archetypes:</p>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-8 overflow-x-auto">
+<pre>┌───────────────────────────────────────────────────────────┐
+│                     DUAL VENUE DESIGN                     │
+├────────────────────────────┬──────────────────────────────┤
+│       AMM (Retail)         │       TickBook (Pro)         │
+├────────────────────────────┼──────────────────────────────┤
+│ Entry: LaunchpadEngine     │ Entry: Collateralizer.split()│
+│ Asset: Position ledger     │ Asset: Transferable ERC20    │
+│ Pricing: LMSR curve        │ Pricing: Limit orderbook     │
+│ Execution: Always available│ Execution: Depth-dependent   │
+│ Fees: 5%/1% protocol fee   │ Fees: Maker-taker spread     │
+│ Sell Lock: 24h on proceeds │ Sell Lock: None (instant)    │
+│ Best For: Retail, one-click│ Best For: MMs, arb bots, API │
+└────────────────────────────┴──────────────────────────────┘</pre>
+        </div>
+
+        <!-- 5.3 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">5.3 market evolution</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4">Markets naturally evolve through phases:</p>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-6 overflow-x-auto">
+<pre>  LAUNCH             GROWTH              MATURE
+ [AMM Only]    →   [AMM + TickBook]  →  [TickBook Dominant]
+
+ AMM Role:     Bootstrap liquidity  →   Retail access, tail liquidity
+ TickBook:     (Disabled)           →   Price discovery, institutional flow</pre>
+        </div>
+        <ul class="text-sm text-white/60 space-y-2 mb-8 list-none">
+          <li><strong class="text-white">Pre-Graduation:</strong> AMM bootstraps liquidity, TickBook disabled</li>
+          <li><strong class="text-white">Post-Graduation:</strong> Both venues active, arbitrageurs keep prices aligned</li>
+          <li><strong class="text-white">Mature Market:</strong> TickBook handles institutional flow, AMM serves retail tail</li>
+        </ul>
+
+        <!-- 5.4 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">5.4 the arbitrageur's playground</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Dual-venue arbitrage</strong> creates tight, efficient prices through pure market forces:</p>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">AMM ↔ TickBook Arbitrage</h4>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-6 overflow-x-auto">
+<pre>Scenario: YES price diverges
+├─ AMM (LMSR): YES = 62%
+├─ TickBook: YES best ask = 58%
+└─ Arbitrage opportunity:
+    → Buy YES on TickBook at 58¢
+    → Sell YES on AMM at 62¢
+    → Pocket 4¢ per share (risk-free)
+    → Prices converge</pre>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Who benefits:</strong></p>
+        <ul class="text-sm text-white/60 space-y-1 mb-8 list-none">
+          <li>• Arbitrageurs profit from price discrepancies</li>
+          <li>• All traders get better prices from tighter spreads</li>
+          <li>• LPs earn fees from the increased volume</li>
+        </ul>
+
+        <h4 class="text-sm font-bold mb-3 text-white/80">PvP Trading on TickBook</h4>
+        <p class="text-sm text-white/60 leading-relaxed mb-4">The TickBook enables <strong class="text-white">pure peer-to-peer trading</strong> without LP intermediation:</p>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Trading Mode</th><th class="text-left py-3 px-4 font-medium">Counterparty</th><th class="text-left py-3 px-4 font-medium">Who Takes Risk</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">AMM</td><td class="py-2.5 px-4">Liquidity Pool</td><td class="py-2.5 px-4">LPs</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">TickBook</td><td class="py-2.5 px-4">Other Traders</td><td class="py-2.5 px-4">Traders vs Traders</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">PvP advantages for sophisticated traders:</strong></p>
+        <ul class="text-sm text-white/60 space-y-1 mb-6 list-none">
+          <li>• No slippage on large orders (if matched)</li>
+          <li>• Set exact prices with limit orders</li>
+          <li>• No LP spread extraction</li>
+          <li>• True price discovery through order flow</li>
+        </ul>
+
+        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
+          <p class="text-xs text-white/40 mb-2 font-semibold uppercase tracking-widest">Example</p>
+          <p class="text-sm text-white/50 leading-relaxed">
+            Bob thinks YES is overvalued at 65%. He places a limit sell at 64%.<br/>
+            Charlie thinks YES is undervalued at 64%. He places a limit buy at 64%.<br/>
+            → Orders match. Bob and Charlie trade directly.<br/>
+            → No AMM fee, no LP involvement, pure PvP.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 6: Two Trader Archetypes -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">6. two trader archetypes</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">The dual-venue architecture serves <strong class="text-white">fundamentally different trader profiles</strong>:</p>
+
+        <!-- 6.1 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">6.1 the 🐢 AMM trader (retail)</h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Dimension</th><th class="text-left py-3 px-4 font-medium">Description</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Profile</td><td class="py-2.5 px-4">Retail users, hedgers, speculators</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Frequency</td><td class="py-2.5 px-4">Low (hours/days)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Primary Goal</td><td class="py-2.5 px-4">Express opinion, hedge risk</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Trade Size</td><td class="py-2.5 px-4">Small-medium</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Entry Point</td><td class="py-2.5 px-4 font-mono text-[11px]">LaunchpadEngine.tradePositions()</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Asset Type</td><td class="py-2.5 px-4">Non-transferable positions</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Constraint</td><td class="py-2.5 px-4">24h sell lock on proceeds</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Reward</td><td class="py-2.5 px-4">Fee → LP token conversion</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">The 🐢 Trader Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-8 list-decimal list-inside">
+          <li>Discover promising early-stage market</li>
+          <li>Trade during internal phase (5% fee → LP tokens)</li>
+          <li>Accumulate LP position alongside prediction position</li>
+          <li>Win on prediction OR win on LP appreciation (or both)</li>
+        </ol>
+
+        <!-- 6.2 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">6.2 the ⚡ tickbook trader</h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Dimension</th><th class="text-left py-3 px-4 font-medium">Description</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Profile</td><td class="py-2.5 px-4">Market makers, arbitrageurs, HFT bots</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Frequency</td><td class="py-2.5 px-4">High (seconds/blocks)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Primary Goal</td><td class="py-2.5 px-4">Price discovery, capture spreads</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Trade Size</td><td class="py-2.5 px-4">Large, rapid</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Entry Point</td><td class="py-2.5 px-4 font-mono text-[11px]">Collateralizer.split() → TickBook</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Asset Type</td><td class="py-2.5 px-4">Transferable ERC20 tokens</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Constraint</td><td class="py-2.5 px-4">None — instant transfer</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Reward</td><td class="py-2.5 px-4">Spread capture, arbitrage profit</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">The ⚡ Trader Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-8 list-decimal list-inside">
+          <li>Mint tokens via <code class="bg-black/30 px-1.5 py-0.5 rounded text-xs">Collateralizer.split()</code> (1 USDC → 1 YES + 1 NO)</li>
+          <li>Place limit orders on TickBook at desired prices</li>
+          <li>Capture spreads when orders fill</li>
+          <li>Arbitrage AMM ↔ TickBook price discrepancies</li>
+          <li>Redeem winning tokens after settlement</li>
+        </ol>
+
+        <!-- 6.3 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">6.3 comparison matrix</h3>
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Dimension</th><th class="text-left py-3 px-4 font-medium">🐢 AMM Trader</th><th class="text-left py-3 px-4 font-medium">⚡ TickBook Trader</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Entry Point</td><td class="py-2.5 px-4 font-mono text-[11px]">LaunchpadEngine.tradePositions()</td><td class="py-2.5 px-4 font-mono text-[11px]">Collateralizer.split() → TickBook</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Asset Type</td><td class="py-2.5 px-4">Non-transferable positions</td><td class="py-2.5 px-4">Transferable ERC20 tokens</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Liquidity</td><td class="py-2.5 px-4">LMSR curve (always available)</td><td class="py-2.5 px-4">Limit orderbook (depth varies)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Sell Constraint</td><td class="py-2.5 px-4">24h lock on proceeds</td><td class="py-2.5 px-4">Instant (token transfer)</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Fee Model</td><td class="py-2.5 px-4">5% pre-grad / 1% post-grad</td><td class="py-2.5 px-4">Maker-taker spreads</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Settlement</td><td class="py-2.5 px-4">Automatic via position</td><td class="py-2.5 px-4">Explicit token redemption</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">UX Priority</td><td class="py-2.5 px-4">Simplicity, one-click trades</td><td class="py-2.5 px-4">Speed, API access, depth</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 6.4 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">6.4 why two venues?</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4">Different traders have different needs. Forcing everyone through one interface means nobody is optimally served.</p>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Need</th><th class="text-left py-3 px-4 font-medium">AMM Provides</th><th class="text-left py-3 px-4 font-medium">TickBook Provides</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Guaranteed liquidity</td><td class="py-2.5 px-4">✅ LMSR always quotes</td><td class="py-2.5 px-4">❌ Depends on depth</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Precise pricing</td><td class="py-2.5 px-4">❌ Curve-determined</td><td class="py-2.5 px-4">✅ Set your own price</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Large orders</td><td class="py-2.5 px-4">❌ High slippage</td><td class="py-2.5 px-4">✅ Match at limit</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Instant execution</td><td class="py-2.5 px-4">✅ Trade immediately</td><td class="py-2.5 px-4">❌ Wait for fill</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">API trading</td><td class="py-2.5 px-4">❌ Basic</td><td class="py-2.5 px-4">✅ Full orderbook API</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 text-white/70">Retail simplicity</td><td class="py-2.5 px-4">✅ One-click trades</td><td class="py-2.5 px-4">❌ Complex token flow</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed"><strong class="text-white">Arbitrageurs bridge the gap</strong> — keeping prices aligned between venues while profiting from discrepancies.</p>
+      </section>
+
+      <!-- Section 7: Actor-Driven Design -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">7. actor-driven design</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-8">Sooth's architecture is designed around <strong class="text-white">who uses it and why</strong>.</p>
+
+        <!-- 7.1 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">7.1 the creator 🎨</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Motivation:</strong> Monetize market-making expertise or community insight.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-4 list-decimal list-inside">
+          <li>Identify an underserved prediction topic</li>
+          <li>Deposit capital, select adjudicator class</li>
+          <li>Promote the market to attract early traders</li>
+          <li>Earn LP tokens as the market grows</li>
+          <li>Collect ongoing yield post-graduation</li>
+        </ol>
+        <p class="text-sm text-white/60 leading-relaxed mb-8"><strong class="text-white">P&L Drivers:</strong> ✅ Trading volume · ✅ Market graduation · ⚠️ Settlement outcome</p>
+
+        <!-- 7.2 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">7.2 the gaming trader 🎮</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Motivation:</strong> Profit from predictions while earning stakeholder rewards.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-4 list-decimal list-inside">
+          <li>Discover promising early-stage markets</li>
+          <li>Trade during internal phase (5% fee → LP tokens)</li>
+          <li>Accumulate LP position alongside prediction position</li>
+          <li>Win on prediction OR win on LP appreciation (or both)</li>
+        </ol>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">P&L Drivers:</strong> ✅ Correct predictions · ✅ LP token appreciation · ✅ Early entry</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-8"><strong class="text-white">The Gaming Trader's Edge:</strong> Unlike traditional platforms, losing a prediction doesn't mean total loss. LP tokens provide upside even on wrong bets.</p>
+
+        <!-- 7.3 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">7.3 the arbitrageur 🔄</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Motivation:</strong> Risk-free profit from market inefficiencies.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-4 list-decimal list-inside">
+          <li>Monitor AMM and TickBook prices in real-time</li>
+          <li>Identify divergences (&gt;1% spread = opportunity)</li>
+          <li>Execute simultaneous buy/sell across venues</li>
+          <li>Capture spread, repeat</li>
+        </ol>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">P&L Drivers:</strong> ✅ Price divergence frequency · ✅ Execution speed · ✅ Volume capacity</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-8"><strong class="text-white">The Arbitrageur's Role:</strong> They're not extracting value—they're providing a service. Arbitrage tightens spreads and improves prices for all traders.</p>
+
+        <!-- 7.4 -->
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">7.4 the PvP trader ⚔️</h3>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">Motivation:</strong> Trade conviction against other humans, not algorithms.</p>
+        <p class="text-sm text-white/60 leading-relaxed mb-2"><strong class="text-white">Journey:</strong></p>
+        <ol class="text-sm text-white/60 space-y-1 mb-4 list-decimal list-inside">
+          <li>Form thesis on market outcome</li>
+          <li>Place limit orders on TickBook at desired price</li>
+          <li>Wait for counterparty to match</li>
+          <li>Settle directly—winner takes loser's stake</li>
+        </ol>
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">P&L Drivers:</strong> ✅ Superior information · ✅ Correct timing · ❌ No LP safety net</p>
+        <p class="text-sm text-white/60 leading-relaxed"><strong class="text-white">The PvP Trader's Arena:</strong> The TickBook is where conviction meets conviction. No AMM cushion, no fee→LP conversion. Just traders vs traders.</p>
+      </section>
+
+      <!-- Section 8: Technical Architecture -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">8. technical architecture</h2>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-8 overflow-x-auto">
+<pre>                     ┌─────────────────┐
+                     │   TruthMarket   │  Lifecycle Authority
+                     │    isLive()     │  Settlement State
+                     │   isSettled()   │  T* Storage
+                     └────────┬────────┘
+                              │ queries
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+    ┌────────────────┐ ┌──────────────┐ ┌────────────────┐
+    │LaunchpadEngine │ │   TickBook   │ │ Collateralizer │
+    │    (Retail)    │ │    (Pro)     │ │  Token Mgmt    │
+    │  Fee->LP Mint  │ │ PvP Trading  │ │  Split/Merge   │
+    └───────┬────────┘ └──────────────┘ └────────────────┘
+            │ delegates
+            ▼
+    ┌─────────────────┐
+    │    AMMEngine    │  LMSR Trading
+    │ 24h Lock-on-Sell│  Guaranteed Liquidity
+    └─────────────────┘
+            │ direct USDC
+            ▼
+    ┌─────────────────┐
+    │   User Wallet   │  EOA, Safe, Smart Account
+    └─────────────────┘</pre>
+        </div>
+
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">architecture reference</h3>
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Layer</th><th class="text-left py-3 px-4 font-medium">Contract</th><th class="text-left py-3 px-4 font-medium">Trader Type</th><th class="text-left py-3 px-4 font-medium">Responsibility</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Lifecycle</td><td class="py-2.5 px-4 font-mono">TruthMarket</td><td class="py-2.5 px-4">All</td><td class="py-2.5 px-4">Question, deadline, settlement, roles</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">AMM Trading</td><td class="py-2.5 px-4 font-mono">AMMEngine</td><td class="py-2.5 px-4">🐢 Retail</td><td class="py-2.5 px-4">LMSR pricing, positions, 24h locks</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Economics</td><td class="py-2.5 px-4 font-mono">LaunchpadEngine</td><td class="py-2.5 px-4">🐢 Retail</td><td class="py-2.5 px-4">Fees, LP tokens, graduation</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Token Ops</td><td class="py-2.5 px-4 font-mono">Collateralizer</td><td class="py-2.5 px-4">⚡ Pro</td><td class="py-2.5 px-4">Token split/merge, redemption</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Orderbook</td><td class="py-2.5 px-4 font-mono">TickBook</td><td class="py-2.5 px-4">⚡ Pro</td><td class="py-2.5 px-4">Limit orders, matching engine</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Tokens</td><td class="py-2.5 px-4 font-mono">OutcomeToken</td><td class="py-2.5 px-4">⚡ Pro</td><td class="py-2.5 px-4">Transferable ERC20 (OB-domain only)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-lg font-bold tracking-tight mb-4 lowercase text-white/90">design principles</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Principle</th><th class="text-left py-3 px-4 font-medium">Why It Matters</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Domain Isolation</td><td class="py-2.5 px-4">AMM and TickBook don't share state—cleaner, safer</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Pull-Based Lifecycle</td><td class="py-2.5 px-4">Venues query TruthMarket, no callback complexity</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">No Custody Layer</td><td class="py-2.5 px-4">Users keep funds in their wallets until trade</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Pure WAD Architecture</td><td class="py-2.5 px-4">All internal math uses 18 decimals</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Dual Trader Support</td><td class="py-2.5 px-4">Different constraints, fees, and UX for each archetype</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 9: Market Lifecycle -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">9. market lifecycle</h2>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 overflow-x-auto">
+<pre>┌──────────┐   activate()   ┌──────────┐    deadline    ┌───────────┐
+│ CREATED  │───────────────►│   LIVE   │───────────────►│ SETTLING  │
+└──────────┘                └──────────┘                └───────────┘
+     │                           │                            │
+     │ Creator deposits          │ Trading active             │ settle(outcome, T*)
+     │ LP initializes AMM        │ Fees collected             ▼
+     │                           │ Graduation check      ┌───────────┐
+     │                           │                       │  SETTLED  │
+     │                           │                       └───────────┘
+     │                           │                            │
+     │                           │                            │ 24h veto window
+     │                           │                            │ Guardian oversight
+     │                           │                            ▼
+     │                           │                       ┌───────────┐
+     │                           │                       │ FINALIZED │
+     │                           │                       └───────────┘
+     │                           │                            │
+     │                           │                            │ Winners redeem
+     │                           │                            │ LP claims yield
+     │                           │                            ▼
+     └───────────────────────────┴──────────────────────►[Complete]</pre>
+        </div>
+      </section>
+
+      <!-- Section 10: LP Valuation -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">10. LP valuation: the honest floor model</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">LP tokens represent ownership in market liquidity. The protocol uses worst-case accounting:</p>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-6 overflow-x-auto">
+<pre>Floor = Cash - max(qYes, qNo)    ← Guaranteed minimum
+Ceiling = Cash - min(qYes, qNo)  ← Best case
+ExRate = Floor / LP_Supply       ← Redemption rate</pre>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed"><strong class="text-white">Lock-on-Sell (AMM only):</strong> Sell proceeds lock for 24 hours (spendable but not withdrawable) to prevent hit-and-run extraction. TickBook traders have instant transfer via ERC20 tokens.</p>
+      </section>
+
+      <!-- Section 11: Technical Interfaces -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">11. technical interfaces</h2>
+
+        <h3 class="text-lg font-bold tracking-tight mb-3 lowercase text-white/90">LaunchpadEngine (🐢 Retail)</h3>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-8 overflow-x-auto">
+<pre><span class="text-sooth-purple">interface</span> ILaunchpadEngine {
+    <span class="text-sooth-teal">function</span> createMarket(address market, address creator, uint256 bBase) 
+        external returns (uint256 requiredDeposit);
+    
+    <span class="text-sooth-teal">function</span> tradePositions(address market, int256 deltaShares, uint256 maxCost) 
+        external returns (uint256 actualCost);
+    
+    <span class="text-sooth-teal">function</span> redeemLP(address market, uint256 lpAmount) 
+        external returns (uint256 payout);
+}</pre>
+        </div>
+
+        <h3 class="text-lg font-bold tracking-tight mb-3 lowercase text-white/90">Collateralizer (⚡ Pro)</h3>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-8 overflow-x-auto">
+<pre><span class="text-sooth-purple">interface</span> ICollateralizer {
+    <span class="text-sooth-teal">function</span> split(address market, uint256 amount) external;   <span class="text-white/30">// 1 USDC → 1 YES + 1 NO</span>
+    <span class="text-sooth-teal">function</span> merge(address market, uint256 amount) external;   <span class="text-white/30">// 1 YES + 1 NO → 1 USDC</span>
+    <span class="text-sooth-teal">function</span> redeem(address market, uint8 outcome, uint256 amount) external;
+}</pre>
+        </div>
+
+        <h3 class="text-lg font-bold tracking-tight mb-3 lowercase text-white/90">TickBook (⚡ Pro)</h3>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 mb-8 overflow-x-auto">
+<pre><span class="text-sooth-purple">interface</span> ITickBook {
+    <span class="text-sooth-teal">function</span> placeOrder(address market, uint8 outcome, uint16 tick, uint256 amount, bool isBuy)
+        external returns (uint256 orderId);
+    
+    <span class="text-sooth-teal">function</span> cancelOrder(uint256 orderId) external;
+    
+    <span class="text-sooth-teal">function</span> getBestBid(address market, uint8 outcome) external view returns (uint16, uint256);
+    <span class="text-sooth-teal">function</span> getBestAsk(address market, uint8 outcome) external view returns (uint16, uint256);
+}</pre>
+        </div>
+
+        <h3 class="text-lg font-bold tracking-tight mb-3 lowercase text-white/90">TruthMarket</h3>
+        <div class="bg-black/30 rounded-xl p-4 font-mono text-xs text-white/50 overflow-x-auto">
+<pre><span class="text-sooth-purple">interface</span> ITruthMarket {
+    <span class="text-sooth-teal">function</span> isLive() external view returns (bool);
+    <span class="text-sooth-teal">function</span> isSettled() external view returns (bool);
+    <span class="text-sooth-teal">function</span> winningOutcome() external view returns (uint8);
+    <span class="text-sooth-teal">function</span> tStar() external view returns (uint64);
+}</pre>
+        </div>
+      </section>
+
+      <!-- Section 12: Testnet Deployment -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">12. testnet deployment</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">Live on <strong class="text-white">Base Sepolia</strong>:</p>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Contract</th><th class="text-left py-3 px-4 font-medium">Address</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">LaunchpadEngine</td><td class="py-2.5 px-4 font-mono text-[11px] break-all">0xFf422cc9b537BD41DD2583E3E611CA2eF1C149B4</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">Collateralizer</td><td class="py-2.5 px-4 font-mono text-[11px] break-all">0x2C60E3A96334E449C92C7d035E51EB8A6dA9245E</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">AMMEngine</td><td class="py-2.5 px-4 font-mono text-[11px] break-all">0x35089e985E23D01b4D2E453E775D570649624E8E</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4 font-semibold text-white/70">TickBook</td><td class="py-2.5 px-4 font-mono text-[11px] break-all">0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-white/60 leading-relaxed"><strong class="text-white">Sample Markets:</strong> UN Alien Confirmation · BTC ATH 2026 (Chainlink TWAP) · Lakers NBA Championship</p>
+      </section>
+
+      <!-- Section 13: Conclusion -->
+      <section class="py-12 border-t border-white/5">
+        <h2 class="text-2xl font-black tracking-tighter mb-6 lowercase">13. conclusion: the decentralization dividend</h2>
+        <p class="text-sm text-white/60 leading-relaxed mb-6">Sooth Protocol proves that decentralization isn't a compromise—it's a <strong class="text-white">competitive advantage</strong>.</p>
+
+        <div class="overflow-x-auto mb-8">
+          <table class="w-full text-xs border border-white/5 rounded-xl overflow-hidden">
+            <thead><tr class="bg-white/[0.03] text-white/40 uppercase tracking-widest"><th class="text-left py-3 px-4 font-medium">Centralized Approach</th><th class="text-left py-3 px-4 font-medium text-sooth-teal">Sooth's Decentralized Design</th></tr></thead>
+            <tbody class="text-white/50">
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Gatekept creation</td><td class="py-2.5 px-4 text-sooth-teal">Permissionless launchpad with aligned incentives</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Single oracle</td><td class="py-2.5 px-4 text-sooth-teal">Four adjudicator classes + ZK verification</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Off-chain matching</td><td class="py-2.5 px-4 text-sooth-teal">On-chain CLOB with transparent execution</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Extractive fees</td><td class="py-2.5 px-4 text-sooth-teal">Fee→LP conversion rewards participants</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">Forced expiration</td><td class="py-2.5 px-4 text-sooth-teal">Optional open-end markets</td></tr>
+              <tr class="border-t border-white/5"><td class="py-2.5 px-4">One-size-fits-all</td><td class="py-2.5 px-4 text-sooth-teal">Dual venue for retail (🐢) and pro (⚡) traders</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-white/60 leading-relaxed mb-4"><strong class="text-white">The result:</strong> A prediction market infrastructure where:</p>
+        <ul class="text-sm text-white/60 space-y-2 mb-8 list-none">
+          <li>• <strong class="text-white">Creators 🎨</strong> are incentivized to build great markets</li>
+          <li>• <strong class="text-white">Gaming Traders 🎮</strong> are rewarded for early participation</li>
+          <li>• <strong class="text-white">Arbitrageurs 🔄</strong> keep prices efficient across venues</li>
+          <li>• <strong class="text-white">PvP Traders ⚔️</strong> find fair, transparent battlegrounds</li>
+        </ul>
+
+        <div class="p-6 rounded-xl bg-white/[0.03] border border-white/5 text-center mb-8">
+          <p class="text-sm text-white/60 italic leading-relaxed">When every participant has aligned incentives, the protocol doesn't need gatekeepers. Truth emerges from the market itself.</p>
+        </div>
+
+        <p class="text-xs text-white/30 text-center mb-8">Updated: December 2025</p>
+
+        <div class="flex items-center justify-center gap-6">
+          <a href="https://github.com/sooth-protocol" target="_blank" class="text-xs text-white/40 hover:text-white transition-colors">GitHub</a>
+          <a href="https://docs.sooth.markets" target="_blank" class="text-xs text-white/40 hover:text-white transition-colors">Documentation</a>
+          <a href="https://app.sooth.markets" target="_blank" class="text-xs text-white/40 hover:text-white transition-colors">dApp</a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="py-12 px-6 border-t border-white/5">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 flex items-center justify-center">
+          <svg width="20" height="20" viewBox="0 0 200 200" fill="none">
+            <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
+            <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
+            <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
+            <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round" opacity="1.0"/>
+          </svg>
+        </div>
+        <span class="text-sm text-white/30">Sooth Protocol · MIT License</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/Tora-Build/sooth-alpha" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">GitHub</a>
+        <a href="https://moltbook.com/u/SoothSayer" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">Moltbook</a>
+        <a href="https://app.sooth.market" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">dApp</a>
+        <a href="https://sayer.sooth.market" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">SoothSayer</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

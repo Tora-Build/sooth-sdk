@@ -83,7 +83,7 @@ export function Search() {
   return (
     <div className="h-full w-full flex flex-col bg-mesh text-white">
       <header className="shrink-0 pt-4 px-6 pb-4">
-        <h1 className="text-xl font-bold font-heading text-white mb-4">Discover</h1>
+        <h1 className="text-2xl font-bold font-heading text-white mb-4">Discover</h1>
         <div className="relative">
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#888]" />
           <input
