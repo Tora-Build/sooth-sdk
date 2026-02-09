@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { ExternalLink, Eye } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home' },

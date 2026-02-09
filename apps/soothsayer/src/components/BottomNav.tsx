@@ -17,7 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/profile', icon: User, label: 'PROFILE' },
 ];
 
-function PhoneNavButton({ to, icon: Icon, label, isActive, onClick }: {
+function PhoneNavButton({ to: _to, icon: Icon, label, isActive, onClick }: {
   to: string; icon: typeof Home; label: string; isActive: boolean; onClick: () => void;
 }) {
   return (

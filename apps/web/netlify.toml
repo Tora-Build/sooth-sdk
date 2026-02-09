@@ -4,7 +4,21 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  VITE_MONAD_RPC_URL = "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/"
+  VITE_MONAD_RPC_URL = "https://rpc.sooth.market/monad"
+  VITE_INDEXER_URL = "https://sooth-indexer.onrender.com"
+
+[[edge_functions]]
+  function = "check-access"
+  path = "/api/check-access"
+
+[[edge_functions]]
+  function = "request-access"
+  path = "/api/request-access"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
 
 [[redirects]]
   from = "/*"

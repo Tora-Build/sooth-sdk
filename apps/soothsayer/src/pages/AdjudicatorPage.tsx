@@ -1,4 +1,4 @@
-import { Scale, Search, BarChart3, Trophy, Zap, GitMerge } from 'lucide-react';
+import { Scale, Search, Trophy, GitMerge } from 'lucide-react';
 
 const ARCHITECTURE = `Agent Predictions (social feeds)
        ↓
