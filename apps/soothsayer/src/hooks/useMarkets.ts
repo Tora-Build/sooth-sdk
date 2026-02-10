@@ -6,6 +6,14 @@ import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
 import { fetchLaunchpadMarketsFromIndexer, checkIndexerHealth } from '../lib/indexer';
 import { getDisplayQuestion } from '../lib/questionOverrides';
 
+/**
+ * Markets to hide from the UI (e.g. settled with wrong outcome, test markets).
+ * Key: lowercase market address.
+ */
+const HIDDEN_MARKETS: Set<string> = new Set([
+  '0x23384a4369abb07a378c6568b59f370ac27bfb27', // GPT-5 — finalized with wrong outcome
+]);
+
 export interface Market {
   address: Address;
   question: string;
@@ -218,7 +226,7 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
     }
   }
 
-  return marketDetails.sort((a, b) => Number(b.createdAt - a.createdAt));
+  return marketDetails.filter((m) => !HIDDEN_MARKETS.has(m.address.toLowerCase())).sort((a, b) => Number(b.createdAt - a.createdAt));
 }
 
 async function fetchMarketsFromIndexer(): Promise<Market[]> {
@@ -226,7 +234,7 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
   if (indexerMarkets.length === 0) return [];
 
   // All data comes from indexer - ZERO RPC calls
-  return indexerMarkets.map((m) => {
+  return indexerMarkets.filter((m) => !HIDDEN_MARKETS.has(m.address.toLowerCase())).map((m) => {
     const question = getDisplayQuestion(m.address, m.name || m.symbol || m.address.slice(2, 10).toUpperCase());
     const isSettled = m.isSettled ?? false;
     const isFinalized = m.isFinalized ?? false;
