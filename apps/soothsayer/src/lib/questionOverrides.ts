@@ -67,6 +67,22 @@ export function parseAAPQuestion(raw: string): ParsedQuestion {
   // Strip "predicts: " prefix if present (legacy format)
   question = question.replace(/^predicts:\s*/i, '');
 
+  // Strip secondary "@Agent predicts:" pattern (garbled on-chain data had double @mentions)
+  const secondCreator = question.match(/^@(\S+)\s+predicts:\s*/i);
+  if (secondCreator) {
+    // Use the inner creator as the real one (closer to original predictor)
+    creator = secondCreator[1];
+    question = question.slice(secondCreator[0].length);
+  } else {
+    // Also handle "@Agent <question>" without "predicts:"
+    const secondMention = question.match(/^@(\S+)\s+/);
+    if (secondMention && creator) {
+      // Two @mentions — second one is the real creator
+      creator = secondMention[1];
+      question = question.slice(secondMention[0].length);
+    }
+  }
+
   // Extract trailing moltbook URL
   const urlMatch = question.match(/\s+(https:\/\/moltbook\.com\/post\/\S+)\s*$/);
   if (urlMatch) {
@@ -74,12 +90,15 @@ export function parseAAPQuestion(raw: string): ParsedQuestion {
     question = question.slice(0, urlMatch.index).trim();
   }
 
-  // Also strip "Source: <url>" pattern (legacy)
+  // Strip "Source: <url>" pattern (legacy)
   const sourceMatch = question.match(/\s*Source:\s*(https:\/\/\S+)\s*$/i);
   if (sourceMatch) {
     sourceUrl = sourceUrl ?? sourceMatch[1];
     question = question.slice(0, sourceMatch.index).trim();
   }
+
+  // Strip garbled "Source: Moltbookmoltbook.com" or similar junk suffixes
+  question = question.replace(/\s*Source:\s*\S*moltbook\S*\s*$/i, '').trim();
 
   return { creator, question, sourceUrl };
 }
