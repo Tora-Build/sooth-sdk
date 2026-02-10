@@ -42,14 +42,14 @@ export function MarketCard({ market }: MarketCardProps) {
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-3">
           <img
-            src={getAvatarUrl(market.creator ?? market.address)}
+            src={getAvatarUrl(market.address)}
             alt=""
             className="w-10 h-10 rounded-full bg-zinc-800"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white truncate">
-                {market.creator ? `@${market.creator}` : getCreatorName(market.address)}
+                {getCreatorName(market.address)}
               </span>
               {isHot && (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 rounded-full">

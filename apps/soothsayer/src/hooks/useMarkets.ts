@@ -4,13 +4,11 @@ import { getDeployment, ABIS, computeMarketKey } from '@sooth/sdk-core';
 import type { Address } from 'viem';
 import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
 import { fetchLaunchpadMarketsFromIndexer, checkIndexerHealth } from '../lib/indexer';
-import { getDisplayQuestion, parseAAPQuestion } from '../lib/questionOverrides';
+import { getDisplayQuestion } from '../lib/questionOverrides';
 
 export interface Market {
   address: Address;
   question: string;
-  creator: string | null;
-  sourceUrl: string | null;
   stage: 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
   yesProbability?: number;
   volume?: bigint;
@@ -192,14 +190,9 @@ async function fetchMarketsFromRPC(): Promise<Market[]> {
             stage = 'bonding';
           }
 
-          const rawQ = getDisplayQuestion(marketAddress, (question as string) || marketAddress.slice(2, 10).toUpperCase());
-          const parsedQ = parseAAPQuestion(rawQ);
-
           const market: Market = {
             address: marketAddress,
-            question: parsedQ.question,
-            creator: parsedQ.creator,
-            sourceUrl: parsedQ.sourceUrl,
+            question: getDisplayQuestion(marketAddress, (question as string) || marketAddress.slice(2, 10).toUpperCase()),
             stage,
             createdAt,
             winningOutcome:
@@ -234,8 +227,7 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
 
   // All data comes from indexer - ZERO RPC calls
   return indexerMarkets.map((m) => {
-    const rawQ = getDisplayQuestion(m.address, m.name || m.symbol || m.address.slice(2, 10).toUpperCase());
-    const parsedQ = parseAAPQuestion(rawQ);
+    const question = getDisplayQuestion(m.address, m.name || m.symbol || m.address.slice(2, 10).toUpperCase());
     const isSettled = m.isSettled ?? false;
     const isFinalized = m.isFinalized ?? false;
     const winOutcome = m.winningOutcome;
@@ -265,9 +257,7 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
 
     return {
       address: m.address,
-      question: parsedQ.question,
-      creator: parsedQ.creator,
-      sourceUrl: parsedQ.sourceUrl,
+      question,
       stage,
       createdAt: BigInt(m.createdAt),
       winningOutcome: (isSettled || isFinalized) && winOutcome != null ? winOutcome : undefined,
