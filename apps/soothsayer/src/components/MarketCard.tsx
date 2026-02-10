@@ -25,6 +25,7 @@ export function MarketCard({ market }: MarketCardProps) {
   const isHot = market.stage === 'bonding';
   const isGraduated = market.stage === 'live' || market.stage === 'finalized';
   const isSettled = market.stage === 'settled';
+  const isClosed = market.stage === 'finalized' || market.stage === 'settled';
 
   const handleClick = () => {
     navigate(`/?marketId=${market.address}`);
@@ -128,24 +129,32 @@ export function MarketCard({ market }: MarketCardProps) {
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/?marketId=${market.address}`);
-            }}
-            className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base transition-all hover:bg-emerald-400 bounce-button shadow-lg shadow-emerald-500/20"
-          >
-            Yes {yesPercent}¢
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/?marketId=${market.address}`);
-            }}
-            className="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-bold text-base transition-all hover:bg-rose-400 bounce-button shadow-lg shadow-rose-500/20"
-          >
-            No {noPercent}¢
-          </button>
+          {isClosed ? (
+            <div className="flex-1 py-3 rounded-2xl bg-zinc-700/50 text-zinc-400 font-bold text-base text-center">
+              {market.winningOutcome === 1 ? '✅ Resolved YES' : market.winningOutcome === 0 ? '❌ Resolved NO' : '⚖️ Resolved INVALID'}
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/?marketId=${market.address}`);
+                }}
+                className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base transition-all hover:bg-emerald-400 bounce-button shadow-lg shadow-emerald-500/20"
+              >
+                Yes {yesPercent}¢
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/?marketId=${market.address}`);
+                }}
+                className="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-bold text-base transition-all hover:bg-rose-400 bounce-button shadow-lg shadow-rose-500/20"
+              >
+                No {noPercent}¢
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
