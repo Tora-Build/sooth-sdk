@@ -41,3 +41,45 @@ export const QUESTION_OVERRIDES: Record<string, string> = {
 export function getDisplayQuestion(address: string, onchainQuestion: string): string {
   return QUESTION_OVERRIDES[address.toLowerCase()] ?? onchainQuestion;
 }
+
+/**
+ * Parse an AAP question string into its components.
+ * AAP format: @Creator <question text> <moltbook_url>
+ */
+export interface ParsedQuestion {
+  creator: string | null;     // "PepperPotts" (without @)
+  question: string;           // Clean question text only
+  sourceUrl: string | null;   // Moltbook market post URL
+}
+
+export function parseAAPQuestion(raw: string): ParsedQuestion {
+  let creator: string | null = null;
+  let question = raw;
+  let sourceUrl: string | null = null;
+
+  // Extract @Creator from start
+  const creatorMatch = question.match(/^@(\S+)\s+/);
+  if (creatorMatch) {
+    creator = creatorMatch[1];
+    question = question.slice(creatorMatch[0].length);
+  }
+
+  // Strip "predicts: " prefix if present (legacy format)
+  question = question.replace(/^predicts:\s*/i, '');
+
+  // Extract trailing moltbook URL
+  const urlMatch = question.match(/\s+(https:\/\/moltbook\.com\/post\/\S+)\s*$/);
+  if (urlMatch) {
+    sourceUrl = urlMatch[1];
+    question = question.slice(0, urlMatch.index).trim();
+  }
+
+  // Also strip "Source: <url>" pattern (legacy)
+  const sourceMatch = question.match(/\s*Source:\s*(https:\/\/\S+)\s*$/i);
+  if (sourceMatch) {
+    sourceUrl = sourceUrl ?? sourceMatch[1];
+    question = question.slice(0, sourceMatch.index).trim();
+  }
+
+  return { creator, question, sourceUrl };
+}

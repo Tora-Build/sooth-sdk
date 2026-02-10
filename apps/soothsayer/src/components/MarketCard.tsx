@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Flame, Zap, Trophy } from 'lucide-react';
 import type { Market } from '../hooks/useMarkets';
 import { getMarketImage } from '../lib/images';
-
 interface MarketCardProps {
   market: Market;
 }
@@ -23,7 +22,6 @@ export function MarketCard({ market }: MarketCardProps) {
   const yesPercent = Math.round(probability * 100);
   const noPercent = 100 - yesPercent;
   const imageUrl = getMarketImage(market.question, market.address);
-  const creatorSeed = market.address;
   const isHot = market.stage === 'bonding';
   const isGraduated = market.stage === 'live' || market.stage === 'finalized';
   const isSettled = market.stage === 'settled';
@@ -44,14 +42,14 @@ export function MarketCard({ market }: MarketCardProps) {
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-3">
           <img
-            src={getAvatarUrl(creatorSeed)}
+            src={getAvatarUrl(market.creator ?? market.address)}
             alt=""
             className="w-10 h-10 rounded-full bg-zinc-800"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white truncate">
-                {getCreatorName(creatorSeed)}
+                {market.creator ? `@${market.creator}` : getCreatorName(market.address)}
               </span>
               {isHot && (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 rounded-full">
