@@ -321,7 +321,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
           <div className="p-4 bg-[#1a1a1b] border-t border-[#333] shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             <button
               onClick={handleBuy}
-              disabled={isTrading || (isConnected && quote.deltaShares <= 0n)}
+              disabled={isTrading || (isConnected && quote.deltaShares <= 0n) || market.stage === 'finalized' || market.stage === 'settled'}
               className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 active:scale-95 hover:scale-[1.02] hover:shadow-lg ${status === 'success'
                 ? 'bg-[#00d4aa] text-[#1a1a1b] hover:shadow-[#00d4aa]/20'
                 : status === 'error'
