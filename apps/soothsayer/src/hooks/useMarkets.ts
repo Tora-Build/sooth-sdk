@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicClient } from '../lib/client';
 import { getDeployment, ABIS, computeMarketKey } from '@sooth/sdk-core';
 import type { Address } from 'viem';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 import { fetchLaunchpadMarketsFromIndexer, checkIndexerHealth } from '../lib/indexer';
 import { getDisplayQuestion } from '../lib/questionOverrides';
 
@@ -11,7 +11,7 @@ import { getDisplayQuestion } from '../lib/questionOverrides';
  * Key: lowercase market address.
  */
 const HIDDEN_MARKETS: Set<string> = new Set([
-  '0x23384a4369abb07a378c6568b59f370ac27bfb27', // GPT-5 — finalized with wrong outcome
+  // Fresh mainnet deployment — no hidden markets yet
 ]);
 
 export interface Market {
@@ -97,11 +97,11 @@ async function fetchMarketPrice(
 }
 
 async function fetchMarketsFromRPC(): Promise<Market[]> {
-  const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
+  const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
 
   if (!deployment) {
-    throw new Error(`No deployment found for chain ${MONAD_TESTNET_CHAIN_ID}`);
+    throw new Error(`No deployment found for chain ${MONAD_MAINNET_CHAIN_ID}`);
   }
 
   const launchpadEngine = deployment.contracts.LaunchpadEngine as Address;
@@ -279,7 +279,7 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
 
 export function useMarkets() {
   return useQuery({
-    queryKey: ['markets', MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['markets', MONAD_MAINNET_CHAIN_ID],
     queryFn: async () => {
       const indexerHealthy = await checkIndexerHealth();
 

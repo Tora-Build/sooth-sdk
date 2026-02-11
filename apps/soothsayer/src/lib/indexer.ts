@@ -1,4 +1,4 @@
-import { MONAD_TESTNET_CHAIN_ID } from './config';
+import { MONAD_MAINNET_CHAIN_ID } from './config';
 
 // Only use indexer if explicitly configured — otherwise fall back to RPC
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || '';
@@ -40,7 +40,7 @@ export interface IndexerLaunchpadMarket {
  */
 export async function fetchLaunchpadMarketsFromIndexer(): Promise<IndexerLaunchpadMarket[]> {
   if (!INDEXER_URL) throw new Error('Indexer not configured');
-  const response = await fetch(`${INDEXER_URL}/launchpad-markets/${MONAD_TESTNET_CHAIN_ID}`);
+  const response = await fetch(`${INDEXER_URL}/launchpad-markets/${MONAD_MAINNET_CHAIN_ID}`);
   if (!response.ok) {
     throw new Error(`Indexer error: ${response.status}`);
   }
@@ -48,7 +48,7 @@ export async function fetchLaunchpadMarketsFromIndexer(): Promise<IndexerLaunchp
 }
 
 export async function fetchOrderbookFromIndexer(marketKey: string) {
-  const response = await fetch(`${INDEXER_URL}/orderbook/${MONAD_TESTNET_CHAIN_ID}/${marketKey}`);
+  const response = await fetch(`${INDEXER_URL}/orderbook/${MONAD_MAINNET_CHAIN_ID}/${marketKey}`);
   if (!response.ok) {
     throw new Error(`Indexer error: ${response.status}`);
   }

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicClient } from '../lib/client';
 import { getDeployment, ABIS } from '@sooth/sdk-core';
 import { formatUnits, parseUnits } from 'viem';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 
 type Address = `0x${string}`;
 
@@ -52,7 +52,7 @@ export function useAMMQuote(
   currentYesPrice: number,
   isGraduated: boolean = false // Pass from market data to avoid RPC call
 ): AMMQuoteResult {
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
   const ammEngine = deployment?.contracts.AMMEngine as Address | undefined;
   const launchpadEngine = deployment?.contracts.LaunchpadEngine as Address | undefined;
 
@@ -69,10 +69,10 @@ export function useAMMQuote(
   // Only fetch fee rate when user has actually entered shares
   // Use the passed isGraduated flag to avoid an extra RPC call
   const { data: feeRateBps } = useQuery({
-    queryKey: ['fee-rate-bps', isGraduated, MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['fee-rate-bps', isGraduated, MONAD_MAINNET_CHAIN_ID],
     queryFn: async () => {
       if (!launchpadEngine) return 500n;
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
 
       const fnName = isGraduated ? 'postGradFeeBps' : 'preGradFeeBps';
       const bps = await client.readContract({
@@ -94,10 +94,10 @@ export function useAMMQuote(
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['amm-quote', marketAddress, outcome, sharesWad.toString(), MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['amm-quote', marketAddress, outcome, sharesWad.toString(), MONAD_MAINNET_CHAIN_ID],
     queryFn: async () => {
       if (!ammEngine || !marketAddress) return null;
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
       const result = await client.readContract({
         address: ammEngine,
         abi: ABIS.AMMEngine,
