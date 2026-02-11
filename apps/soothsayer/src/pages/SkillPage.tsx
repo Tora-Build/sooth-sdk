@@ -25,11 +25,11 @@ await createMarket({
 });`;
 
 const CONTRACTS = [
-  { name: 'LaunchpadEngine', address: '0x7447...2084', desc: 'Market creation + bonding curve' },
-  { name: 'AMMEngine', address: '0x6714...96a7', desc: 'Automated market making' },
-  { name: 'Collateralizer', address: '0x5799...632f', desc: 'Token minting + collateral' },
-  { name: 'TickBookPoolManager', address: '0xcc8f...98b4', desc: 'Order book + AMM hybrid' },
-  { name: 'MockUSDC', address: '0x3b2f...222a', desc: 'Test collateral token' },
+  { name: 'LaunchpadEngine', address: '0xaa3F...E492', desc: 'Market creation + bonding curve' },
+  { name: 'AMMEngine', address: '0x8629...498d', desc: 'Automated market making' },
+  { name: 'Collateralizer', address: '0x1aF3...191f', desc: 'Token minting + collateral' },
+  { name: 'TickBookPoolManager', address: '0x12A3...75A3', desc: 'Order book + AMM hybrid' },
+  { name: 'MockUSDC', address: '0x3C06...4b6E', desc: 'Collateral token' },
 ];
 
 export function SkillPage() {

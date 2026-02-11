@@ -309,7 +309,7 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
             )}
 
             <a
-              href={`https://testnet.monadexplorer.com/address/${market.address}`}
+              href={`https://monadscan.com/address/${market.address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-[#555] hover:text-[#00d4aa] transition-colors"

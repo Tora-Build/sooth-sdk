@@ -3,7 +3,7 @@ import { useAccount, useWriteContract } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getDeployment, ABIS } from '@sooth/sdk-core';
 import { getPublicClient } from '../lib/client';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 
 type Address = `0x${string}`;
 
@@ -74,7 +74,7 @@ export function useAMMTrade(): UseAMMTradeResult {
         return;
       }
 
-      const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+      const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
       if (!deployment) {
         setError('Deployment not found');
         setStatus('error');
@@ -83,7 +83,7 @@ export function useAMMTrade(): UseAMMTradeResult {
 
       const launchpadEngine = deployment.contracts.LaunchpadEngine as Address;
       const mockUSDC = deployment.contracts.MockUSDC as Address;
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
 
       try {
         setStatus('checking');

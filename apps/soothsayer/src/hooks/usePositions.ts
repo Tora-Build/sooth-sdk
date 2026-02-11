@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import type { Address } from 'viem';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 import { useMarkets, type Market } from './useMarkets';
 import { checkIndexerHealth } from '../lib/indexer';
 
@@ -40,8 +40,8 @@ async function fetchPositionsFromIndexer(
 ): Promise<Position[]> {
   // Fetch AMM positions and LP balances from indexer in parallel
   const [ammResponse, lpResponse] = await Promise.all([
-    fetch(`${INDEXER_URL}/amm-positions/${MONAD_TESTNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
-    fetch(`${INDEXER_URL}/lp-balances/${MONAD_TESTNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
+    fetch(`${INDEXER_URL}/amm-positions/${MONAD_MAINNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
+    fetch(`${INDEXER_URL}/lp-balances/${MONAD_MAINNET_CHAIN_ID}/${userAddress.toLowerCase()}`),
   ]);
 
   if (!ammResponse.ok || !lpResponse.ok) {
@@ -102,7 +102,7 @@ export function usePositions() {
   const { data: markets } = useMarkets();
 
   return useQuery({
-    queryKey: ['positions', MONAD_TESTNET_CHAIN_ID, address, markets?.map((m) => m.address)],
+    queryKey: ['positions', MONAD_MAINNET_CHAIN_ID, address, markets?.map((m) => m.address)],
     queryFn: async () => {
       // Check if indexer is healthy
       const indexerHealthy = await checkIndexerHealth();

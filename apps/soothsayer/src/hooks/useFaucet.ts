@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useAccount, useWalletClient } from 'wagmi';
 import { getDeployment } from '@sooth/sdk-core';
 import { parseUnits } from 'viem';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 import { getPublicClient } from '../lib/client';
 
 type Address = `0x${string}`;
@@ -30,7 +30,7 @@ const MOCK_USDC_ABI = [
 export function useFaucet() {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
   const mockUsdcAddress = deployment?.contracts.MockUSDC as Address | undefined;
 
   const mutation = useMutation({
@@ -39,7 +39,7 @@ export function useFaucet() {
         throw new Error('Wallet not connected');
       }
 
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
       
       const decimals = await client.readContract({
         address: mockUsdcAddress,

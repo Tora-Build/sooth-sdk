@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicClient } from '../lib/client';
 import { getDeployment } from '@sooth/sdk-core';
 import { formatUnits } from 'viem';
-import { MONAD_TESTNET_CHAIN_ID } from '../lib/config';
+import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 
 type Address = `0x${string}`;
 
@@ -35,14 +35,14 @@ export interface USDCBalanceData {
 }
 
 export function useUSDCBalance(userAddress: Address | undefined): USDCBalanceData {
-  const deployment = getDeployment(MONAD_TESTNET_CHAIN_ID);
+  const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
   const mockUsdcAddress = deployment?.contracts.MockUSDC as Address | undefined;
 
   const { data: decimalsData } = useQuery({
-    queryKey: ['usdc-decimals', mockUsdcAddress, MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['usdc-decimals', mockUsdcAddress, MONAD_MAINNET_CHAIN_ID],
     queryFn: async () => {
       if (!mockUsdcAddress) return DEFAULT_USDC_DECIMALS;
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
       const decimals = await client.readContract({
         address: mockUsdcAddress,
         abi: ERC20_ABI,
@@ -57,10 +57,10 @@ export function useUSDCBalance(userAddress: Address | undefined): USDCBalanceDat
   const decimals = decimalsData ?? DEFAULT_USDC_DECIMALS;
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['usdc-balance', userAddress, MONAD_TESTNET_CHAIN_ID],
+    queryKey: ['usdc-balance', userAddress, MONAD_MAINNET_CHAIN_ID],
     queryFn: async () => {
       if (!userAddress || !mockUsdcAddress) return 0n;
-      const client = getPublicClient(MONAD_TESTNET_CHAIN_ID);
+      const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
       const balance = await client.readContract({
         address: mockUsdcAddress,
         abi: ERC20_ABI,

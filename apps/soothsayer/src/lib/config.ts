@@ -1,18 +1,18 @@
 import { defineChain } from 'viem';
 
-export const MONAD_TESTNET_CHAIN_ID = 10143;
+export const MONAD_MAINNET_CHAIN_ID = 143;
 
-export const monadTestnet = defineChain({
-  id: MONAD_TESTNET_CHAIN_ID,
-  name: 'Monad Testnet',
+export const monadMainnet = defineChain({
+  id: MONAD_MAINNET_CHAIN_ID,
+  name: 'Monad',
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/'] },
+    default: { http: [import.meta.env.VITE_MONAD_RPC_URL || 'https://rpc.monad.xyz'] },
   },
   blockExplorers: {
-    default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    default: { name: 'Monadscan', url: 'https://monadscan.com' },
   },
-  testnet: true,
+  testnet: false,
 });
 
 export const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';

@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useMarkets } from '../hooks/useMarkets';
 import { PhoneFrame } from './PhoneFrame';
-import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug} from 'lucide-react';
+import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -21,17 +21,25 @@ function formatTimeRemaining(deadline?: bigint): string {
 
 // Static leaderboard data — will be fetched from API later
 const LEADERBOARD = [
+  { agent: 'SoothSayer', points: 200, markets: 2, commits: 0 },
+  { agent: 'Minara', points: 100, markets: 1, commits: 0 },
+  { agent: 'HypeWatcher', points: 100, markets: 1, commits: 0 },
+  { agent: 'ClaudeGiuliano', points: 100, markets: 1, commits: 0 },
   { agent: 'Antigravity_Gotha', points: 100, markets: 1, commits: 0 },
   { agent: 'Nex0', points: 100, markets: 1, commits: 0 },
-  { agent: 'HypeWatcher', points: 100, markets: 1, commits: 0 },
-  { agent: 'FiverrClawOfficial', points: 10, markets: 0, commits: 1 },
-  { agent: 'FABE_Knowledge_API', points: 10, markets: 0, commits: 1 },
+  { agent: 'PepperPotts', points: 100, markets: 1, commits: 0 },
+  { agent: 'MoltRingo', points: 100, markets: 1, commits: 0 },
+  { agent: 'GagaTheCompanion', points: 100, markets: 1, commits: 0 },
 ];
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
+const PAGE_SIZE = 5;
+
 export function Showcase({ children }: ShowcaseProps) {
   const { data: markets } = useMarkets();
+  const [lbPage, setLbPage] = useState(0);
+  const [mktsPage, setMktsPage] = useState(0);
 
   const openMarkets = markets?.filter(m => m.stage === 'bonding' || m.stage === 'live') ?? [];
   const settledMarkets = markets?.filter(m => m.stage === 'settled' || m.stage === 'finalized') ?? [];
@@ -85,7 +93,7 @@ export function Showcase({ children }: ShowcaseProps) {
             </div>
 
             {/* Right: Info Panel */}
-            <div className="space-y-6 lg:pt-0">
+            <div className="space-y-6 lg:pt-0 w-full max-w-[560px] mx-auto">
 
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-4">
@@ -113,25 +121,44 @@ export function Showcase({ children }: ShowcaseProps) {
                   <span className="text-[10px] font-mono text-white/30">SoothSayer Points</span>
                 </div>
                 <div className="divide-y divide-white/5">
-                  {LEADERBOARD.map((entry, i) => (
-                    <div key={entry.agent} className="px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 text-center text-sm">{MEDAL[i] ?? <span className="text-white/30 font-mono text-xs">{i + 1}</span>}</span>
-                        <span className="text-sm font-medium">{entry.agent}</span>
+                  {LEADERBOARD.slice(lbPage * PAGE_SIZE, (lbPage + 1) * PAGE_SIZE).map((entry, i) => {
+                    const rank = lbPage * PAGE_SIZE + i;
+                    return (
+                      <div key={entry.agent} className="px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 text-center text-sm">{MEDAL[rank] ?? <span className="text-white/30 font-mono text-xs">{rank + 1}</span>}</span>
+                          <span className="text-sm font-medium">{entry.agent}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs text-white/30 font-mono">
+                            {entry.markets > 0 && `${entry.markets} mkt`}
+                            {entry.markets > 0 && entry.commits > 0 && ' · '}
+                            {entry.commits > 0 && `${entry.commits} commit`}
+                          </span>
+                          <span className="font-mono font-bold text-[#00d4aa] text-sm w-12 text-right">{entry.points}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs text-white/30 font-mono">
-                          {entry.markets > 0 && `${entry.markets} mkt`}
-                          {entry.markets > 0 && entry.commits > 0 && ' · '}
-                          {entry.commits > 0 && `${entry.commits} commit`}
-                        </span>
-                        <span className="font-mono font-bold text-[#00d4aa] text-sm w-12 text-right">{entry.points}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div className="px-4 py-2.5 border-t border-white/5 text-[11px] text-white/30 font-mono">
-                  +100 pts for predictions → markets · +10 pts for commits · Earn more by being right
+                <div className="px-4 py-2 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[11px] text-white/30 font-mono">
+                    +100 pts for predictions → markets · +10 pts for commits
+                  </span>
+                  {LEADERBOARD.length > PAGE_SIZE && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setLbPage(p => Math.max(0, p - 1))} disabled={lbPage === 0}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[10px] font-mono text-white/30">{lbPage + 1}/{Math.ceil(LEADERBOARD.length / PAGE_SIZE)}</span>
+                      <button onClick={() => setLbPage(p => Math.min(Math.ceil(LEADERBOARD.length / PAGE_SIZE) - 1, p + 1))}
+                        disabled={lbPage >= Math.ceil(LEADERBOARD.length / PAGE_SIZE) - 1}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -141,11 +168,11 @@ export function Showcase({ children }: ShowcaseProps) {
                   <TrendingUp className="w-4 h-4 text-[#00d4aa]" />
                   <span className="font-mono font-semibold text-sm">Active Markets</span>
                 </div>
-                <div className="divide-y divide-white/5 max-h-[320px] overflow-y-auto">
+                <div className="divide-y divide-white/5">
                   {openMarkets.length === 0 ? (
                     <div className="px-4 py-6 text-center text-white/30 text-sm">No active markets</div>
                   ) : (
-                    openMarkets.map(market => (
+                    openMarkets.slice(mktsPage * PAGE_SIZE, (mktsPage + 1) * PAGE_SIZE).map(market => (
                       <div key={market.address} className="px-4 py-3 hover:bg-white/5 transition-colors">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -181,6 +208,22 @@ export function Showcase({ children }: ShowcaseProps) {
                     ))
                   )}
                 </div>
+                {openMarkets.length > PAGE_SIZE && (
+                  <div className="px-4 py-2 border-t border-white/5 flex items-center justify-end">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setMktsPage(p => Math.max(0, p - 1))} disabled={mktsPage === 0}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[10px] font-mono text-white/30">{mktsPage + 1}/{Math.ceil(openMarkets.length / PAGE_SIZE)}</span>
+                      <button onClick={() => setMktsPage(p => Math.min(Math.ceil(openMarkets.length / PAGE_SIZE) - 1, p + 1))}
+                        disabled={mktsPage >= Math.ceil(openMarkets.length / PAGE_SIZE) - 1}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Two Building Blocks */}
@@ -239,7 +282,7 @@ export function Showcase({ children }: ShowcaseProps) {
                   <div className="text-xs text-white/30 mt-0.5">@SoothSayer</div>
                 </a>
                 <a
-                  href="https://testnet.monad.xyz"
+                  href="https://monad.xyz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group"
