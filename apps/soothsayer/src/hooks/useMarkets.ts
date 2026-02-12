@@ -233,48 +233,80 @@ async function fetchMarketsFromIndexer(): Promise<Market[]> {
   const indexerMarkets = await fetchLaunchpadMarketsFromIndexer();
   if (indexerMarkets.length === 0) return [];
 
-  // All data comes from indexer - ZERO RPC calls
-  return indexerMarkets.filter((m) => !HIDDEN_MARKETS.has(m.address.toLowerCase())).map((m) => {
-    const question = getDisplayQuestion(m.address, m.name || m.symbol || m.address.slice(2, 10).toUpperCase());
-    const isSettled = m.isSettled ?? false;
-    const isFinalized = m.isFinalized ?? false;
-    const winOutcome = m.winningOutcome;
+  // Detect stale indexer: if ALL non-settled markets have yesProbability === 0.5, prices are likely stale
+  const activePrices = indexerMarkets
+    .filter((m) => !m.isSettled && !m.isFinalized && !m.isDismissed)
+    .map((m) => m.yesProbability);
+  const allDefault = activePrices.length > 1 && activePrices.every((p) => p === 0.5 || p === null);
 
-    let stage: Market['stage'];
-    if (m.isDismissed) {
-      stage = 'dismissed';
-    } else if (isFinalized) {
-      stage = 'finalized';
-    } else if (isSettled) {
-      stage = 'settled';
-    } else if (m.isGraduated) {
-      stage = 'live';
-    } else {
-      stage = 'bonding';
+  const markets: Market[] = indexerMarkets
+    .filter((m) => !HIDDEN_MARKETS.has(m.address.toLowerCase()))
+    .map((m) => {
+      const question = getDisplayQuestion(m.address, m.name || m.symbol || m.address.slice(2, 10).toUpperCase());
+      const isSettled = m.isSettled ?? false;
+      const isFinalized = m.isFinalized ?? false;
+      const winOutcome = m.winningOutcome;
+
+      let stage: Market['stage'];
+      if (m.isDismissed) {
+        stage = 'dismissed';
+      } else if (isFinalized) {
+        stage = 'finalized';
+      } else if (isSettled) {
+        stage = 'settled';
+      } else if (m.isGraduated) {
+        stage = 'live';
+      } else {
+        stage = 'bonding';
+      }
+
+      // Use indexer's yesProbability directly
+      let yesProbability = m.yesProbability ?? undefined;
+
+      // For settled/finalized, override with outcome-based price
+      if (stage === 'settled' || stage === 'finalized') {
+        if (winOutcome === 1) yesProbability = 1.0;
+        else if (winOutcome === 0) yesProbability = 0.0;
+        else if (winOutcome === 2) yesProbability = 0.5;
+      }
+
+      return {
+        address: m.address,
+        question,
+        stage,
+        createdAt: BigInt(m.createdAt),
+        winningOutcome: (isSettled || isFinalized) && winOutcome != null ? winOutcome : undefined,
+        deadline: m.deadline ? BigInt(m.deadline) : undefined,
+        totalLPSupply: BigInt(m.totalLPSupply),
+        lpToken: undefined,
+        yesProbability,
+      };
+    });
+
+  // If indexer prices look stale, enrich with RPC price reads
+  if (allDefault) {
+    console.warn('Indexer prices look stale (all 0.5), fetching prices from RPC...');
+    const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
+    const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
+
+    if (deployment) {
+      await Promise.all(
+        markets.map(async (market) => {
+          if (market.stage === 'settled' || market.stage === 'finalized' || market.stage === 'dismissed') return;
+          try {
+            const price = await fetchMarketPrice(client, market, deployment);
+            if (price !== undefined) {
+              market.yesProbability = price;
+            }
+          } catch {
+            // Keep indexer default
+          }
+        })
+      );
     }
+  }
 
-    // Use indexer's yesProbability directly
-    let yesProbability = m.yesProbability ?? undefined;
-
-    // For settled/finalized, override with outcome-based price
-    if (stage === 'settled' || stage === 'finalized') {
-      if (winOutcome === 1) yesProbability = 1.0;
-      else if (winOutcome === 0) yesProbability = 0.0;
-      else if (winOutcome === 2) yesProbability = 0.5;
-    }
-
-    return {
-      address: m.address,
-      question,
-      stage,
-      createdAt: BigInt(m.createdAt),
-      winningOutcome: (isSettled || isFinalized) && winOutcome != null ? winOutcome : undefined,
-      deadline: m.deadline ? BigInt(m.deadline) : undefined,
-      totalLPSupply: BigInt(m.totalLPSupply),
-      lpToken: undefined,
-      yesProbability,
-    };
-  });
+  return markets;
 }
 
 export function useMarkets() {
