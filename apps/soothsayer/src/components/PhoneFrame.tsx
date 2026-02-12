@@ -1,4 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useRef, createContext } from 'react';
+
+/** Ref to the phone frame content container — used to portal modals/drawers inside the frame */
+export const PhoneFrameContainerContext = createContext<React.RefObject<HTMLDivElement | null> | null>(null);
 
 interface PhoneFrameProps {
   children: ReactNode;
@@ -9,6 +12,7 @@ interface PhoneFrameProps {
  * On mobile, this component is not rendered — the app goes fullscreen.
  */
 export function PhoneFrame({ children }: PhoneFrameProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   return (
     <div className="relative">
       {/* Glow Effect */}
@@ -42,8 +46,10 @@ export function PhoneFrame({ children }: PhoneFrameProps) {
           </div>
 
           {/* App Content — transform creates new stacking context so fixed children stay inside */}
-          <div className="w-full h-full overflow-hidden phone-frame-content pt-12" style={{ transform: 'translateZ(0)' }}>
-            {children}
+          <div ref={containerRef} className="w-full h-full overflow-hidden phone-frame-content pt-12 relative" style={{ transform: 'translateZ(0)' }}>
+            <PhoneFrameContainerContext.Provider value={containerRef}>
+              {children}
+            </PhoneFrameContainerContext.Provider>
           </div>
         </div>
       </div>
