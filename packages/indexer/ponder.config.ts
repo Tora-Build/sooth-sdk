@@ -23,7 +23,7 @@ export default createConfig({
       id: 143,
       rpc: monadRpcUrls,
       pollingInterval: 500,
-      ethGetLogsBlockRange: 1_000,
+      ethGetLogsBlockRange: 50,
     },
     baseSepolia: {
       id: 84532,
