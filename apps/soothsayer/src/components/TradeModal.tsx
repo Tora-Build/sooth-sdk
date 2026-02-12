@@ -7,6 +7,7 @@ import { useAppKit } from '@reown/appkit/react';
 import { useAMMQuote, useAMMTrade, useUSDCBalance } from '../hooks';
 import { useHaptics } from '../hooks/useHaptics';
 import { parseTextWithLinks } from '../lib/utils';
+import { getMoltbookLink } from '../lib/moltbookLinks';
 import type { Market } from '../hooks/useMarkets';
 
 type Outcome = 0 | 1;
@@ -143,6 +144,17 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
           <div className="sticky top-0 bg-[#1a1a1b] z-10 px-6 py-3 border-b border-[#333] shrink-0">
             <Drawer.Title className="text-base font-bold text-white truncate w-full">
               {parseTextWithLinks(market.question)}
+              {getMoltbookLink(market.address) && (
+                <a
+                  href={getMoltbookLink(market.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 ml-2 text-xs text-[#836ef9] hover:text-[#9d8bfa] align-middle"
+                >
+                  <img src="https://moltbook.com/moltbook-mascot.png" alt="" className="w-3.5 h-3.5 inline" />
+                  Discuss
+                </a>
+              )}
             </Drawer.Title>
           </div>
 

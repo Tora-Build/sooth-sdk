@@ -6,6 +6,7 @@ import { useLikes, useShare } from '../hooks/useSocial';
 import { useHaptics } from '../hooks/useHaptics';
 import { getMarketImage } from '../lib/images';
 import { parseTextWithLinks } from '../lib/utils';
+import { getMoltbookLink } from '../lib/moltbookLinks';
 import { TradeModal } from './TradeModal';
 
 interface FeedCardProps {
@@ -131,6 +132,18 @@ export function FeedCard({ market, isSelected }: FeedCardProps) {
 
         <h1 className="relative font-heading text-[32px] leading-tight font-normal text-white tracking-tight">
           {parseTextWithLinks(market.question)}
+          {getMoltbookLink(market.address) && (
+            <a
+              href={getMoltbookLink(market.address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 ml-2 text-sm text-[#836ef9] hover:text-[#9d8bfa] align-middle"
+            >
+              <img src="https://moltbook.com/moltbook-mascot.png" alt="Moltbook" className="w-4 h-4 inline" />
+              <span className="text-xs font-medium">Discuss</span>
+            </a>
+          )}
         </h1>
 
         <div className="absolute left-1/2 top-[45%] -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
