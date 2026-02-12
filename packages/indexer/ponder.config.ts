@@ -5,12 +5,8 @@ import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
 import { TickBookVaultAbi } from "./src/abis/TickBookVault";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
 
-const monadRpcEnv = process.env.MONAD_MAINNET_RPC_URL
-  ?? process.env.PONDER_RPC_URL_MONAD_MAINNET
-  ?? "";
-const monadRpcUrls = monadRpcEnv
-  ? [monadRpcEnv, "https://rpc.monad.xyz"]
-  : ["https://rpc.monad.xyz"];
+// Use public RPC directly — env overrides were causing stalls
+const monadRpcUrls = ["https://rpc.monad.xyz"];
 
 const baseSepoliaRpcEnv = process.env.BASE_SEPOLIA_RPC_URL
   ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA

@@ -72,7 +72,7 @@ export function Profile() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-bold text-sm tracking-tight">{shortAddress}</p>
-            <p className="text-[#888] text-[10px] uppercase font-bold tracking-wider">Monad Testnet</p>
+            <p className="text-[#888] text-[10px] uppercase font-bold tracking-wider">Monad Mainnet</p>
           </div>
           <button
             onClick={handleCopy}
@@ -120,7 +120,7 @@ export function Profile() {
         </div>
 
         <a
-          href={`https://testnet.monadexplorer.com/address/${address}`}
+          href={`https://monadscan.com/address/${address}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 rounded-2xl glass-panel hover:bg-[#444] transition-colors border border-[#444]"

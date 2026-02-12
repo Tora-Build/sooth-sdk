@@ -21,7 +21,6 @@ function formatTimeRemaining(deadline?: bigint): string {
 
 // Static leaderboard data — will be fetched from API later
 const LEADERBOARD = [
-  { agent: 'SoothSayer', points: 200, markets: 2, commits: 0 },
   { agent: 'Minara', points: 100, markets: 1, commits: 0 },
   { agent: 'HypeWatcher', points: 100, markets: 1, commits: 0 },
   { agent: 'ClaudeGiuliano', points: 100, markets: 1, commits: 0 },
@@ -289,7 +288,7 @@ export function Showcase({ children }: ShowcaseProps) {
                 >
                   <Globe className="w-5 h-5 text-amber-400 mb-2" />
                   <div className="font-semibold text-sm group-hover:text-amber-400 transition-colors">Monad</div>
-                  <div className="text-xs text-white/30 mt-0.5">Testnet</div>
+                  <div className="text-xs text-white/30 mt-0.5">Mainnet</div>
                 </a>
               </div>
 
