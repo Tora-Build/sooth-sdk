@@ -124,28 +124,18 @@ export function TradeModal({ market, initialOutcome, isOpen, onClose, onNavigate
   };
 
   const phoneFrameRef = useContext(PhoneFrameContainerContext);
-
-  // Lock scroll on the snap-container when drawer is open
-  useEffect(() => {
-    if (!isOpen) return;
-    const scrollContainer = document.querySelector('.snap-container') as HTMLElement | null;
-    if (scrollContainer) {
-      const prev = scrollContainer.style.overflow;
-      scrollContainer.style.overflow = 'hidden';
-      return () => { scrollContainer.style.overflow = prev; };
-    }
-  }, [isOpen]);
+  const inPhoneFrame = !!phoneFrameRef?.current;
 
   const probability = market.yesProbability ?? 0.5;
   const yesPercent = (probability * 100).toFixed(1);
   const noPercent = (100 - probability * 100).toFixed(1);
 
   return (
-    <Drawer.Root open={isOpen} onOpenChange={(open) => !open && handleClose()} shouldScaleBackground={false}>
-      <Drawer.Portal container={phoneFrameRef?.current ?? undefined}>
-        <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" />
+    <Drawer.Root open={isOpen} onOpenChange={(open) => !open && handleClose()} shouldScaleBackground={false} modal={!inPhoneFrame}>
+      <Drawer.Portal container={inPhoneFrame ? phoneFrameRef.current! : undefined}>
+        <Drawer.Overlay className={`${inPhoneFrame ? 'absolute' : 'fixed'} inset-0 bg-black/60 backdrop-blur-sm z-[60]`} />
         <Drawer.Content
-          className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1a1a1b] rounded-t-[32px] outline-none border-t border-[#333] max-h-[95vh] flex flex-col"
+          className={`${inPhoneFrame ? 'absolute' : 'fixed'} bottom-0 left-0 right-0 z-[70] bg-[#1a1a1b] rounded-t-[32px] outline-none border-t border-[#333] max-h-[85%] flex flex-col`}
           aria-describedby={undefined}
         >
           <div className="mx-auto w-12 h-1.5 rounded-full bg-[#333] mt-3 mb-2 shrink-0" />
