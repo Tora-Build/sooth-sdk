@@ -4,6 +4,8 @@ import type { Address } from 'viem';
 import { MONAD_MAINNET_CHAIN_ID } from '../lib/config';
 import { useMarkets, type Market } from './useMarkets';
 import { checkIndexerHealth } from '../lib/indexer';
+import { getPublicClient } from '../lib/client';
+import { getDeployment, ABIS } from '@sooth/sdk-core';
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:42069';
 
@@ -97,6 +99,55 @@ async function fetchPositionsFromIndexer(
   return positions;
 }
 
+async function fetchPositionsFromRPC(
+  markets: Market[],
+  userAddress: Address
+): Promise<Position[]> {
+  const client = getPublicClient(MONAD_MAINNET_CHAIN_ID);
+  const deployment = getDeployment(MONAD_MAINNET_CHAIN_ID);
+  if (!deployment) return [];
+
+  const ammEngine = deployment.contracts.AMMEngine as Address;
+  const positions: Position[] = [];
+
+  // Read positions in chunks to avoid RPC overload
+  const CHUNK = 3;
+  for (let i = 0; i < markets.length; i += CHUNK) {
+    const chunk = markets.slice(i, i + CHUNK);
+    const results = await Promise.all(
+      chunk.map(async (market) => {
+        try {
+          const [yesShares, noShares] = await client.readContract({
+            address: ammEngine,
+            abi: ABIS.AMMEngine,
+            functionName: 'getPosition',
+            args: [market.address, userAddress],
+          }) as [bigint, bigint];
+
+          if (yesShares > 0n || noShares > 0n) {
+            const yesValue = Number(yesShares) / 1e18 * (market.yesProbability ?? 0.5);
+            const noValue = Number(noShares) / 1e18 * (1 - (market.yesProbability ?? 0.5));
+            return {
+              market,
+              yesShares,
+              noShares,
+              totalShares: yesShares + noShares,
+              valueUsd: yesValue + noValue,
+              lpBalance: 0n,
+            };
+          }
+        } catch {
+          // Skip failed reads
+        }
+        return null;
+      })
+    );
+    positions.push(...results.filter((p): p is Position => p !== null));
+  }
+
+  return positions;
+}
+
 export function usePositions() {
   const { address } = useAccount();
   const { data: markets } = useMarkets();
@@ -104,13 +155,20 @@ export function usePositions() {
   return useQuery({
     queryKey: ['positions', MONAD_MAINNET_CHAIN_ID, address, markets?.map((m) => m.address)],
     queryFn: async () => {
-      // Check if indexer is healthy
       const indexerHealthy = await checkIndexerHealth();
-      if (!indexerHealthy) {
-        console.warn('Indexer not available, returning empty positions');
-        return [];
+
+      if (indexerHealthy) {
+        try {
+          const positions = await fetchPositionsFromIndexer(markets ?? [], address as Address);
+          // If indexer returns positions, use them
+          if (positions.length > 0) return positions;
+        } catch {
+          console.warn('Indexer positions failed, falling back to RPC');
+        }
       }
-      return fetchPositionsFromIndexer(markets ?? [], address as Address);
+
+      // Fallback: read positions directly from chain
+      return fetchPositionsFromRPC(markets ?? [], address as Address);
     },
     enabled: !!address && !!markets && markets.length > 0,
     staleTime: 30_000,
