@@ -496,7 +496,7 @@ uint256 proceeds = tickBook.claimFills(orderId);
 
 ## 📚 External Resources
 
-- [Test Suite](packages/contracts-testing/test/v9/)
+- [Test Suite](packages/contracts-core/test/v9/)
 - [V996 Retrospective](packages/contracts-core/docs/V996-crossing-logic-retrospective.md)
 - [Unified Order API (ADR-066)](../../DECISIONS.md#adr-066)
 - [TickBitmap Library](./LIBRARIES.md#tickbitmap)

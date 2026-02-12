@@ -251,8 +251,8 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 ## Running the Test
 
 ```bash
-# From contracts-testing directory
-cd packages/contracts-testing
+# From contracts-core directory
+cd packages/contracts-core
 
 # Run full scenario
 bun run script/interactive/interactive-test.ts \

@@ -164,7 +164,7 @@ test/
 ### All Tests
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 

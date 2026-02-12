@@ -86,7 +86,7 @@
 **QA/Tester**
 - Start: [01-OVERVIEW.md](./01-OVERVIEW.md) (understand flow)
 - See: [../testing/README.md](../testing/README.md)
-- Run: Tests in `packages/contracts-testing/test/`
+- Run: Tests in `packages/contracts-core/test/`
 
 **Frontend Developer**
 - Start: [01-OVERVIEW.md](./01-OVERVIEW.md)
@@ -169,7 +169,7 @@ struct TickLiquidity {
 
 ### Run All Tests
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 
@@ -227,8 +227,8 @@ Returns smooth, continuous pricing with natural spread
 
 ### Code Locations
 - **Contracts**: `packages/contracts-core/src/`
-- **Tests**: `packages/contracts-testing/test/`
-- **Scripts**: `packages/contracts-testing/script/`
+- **Tests**: `packages/contracts-core/test/`
+- **Scripts**: `packages/contracts-core/script/`
 
 ---
 

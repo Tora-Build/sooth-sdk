@@ -439,7 +439,7 @@ graph TD
 - [STATUS.md](../../STATUS.md) — Current deployments
 - [DECISIONS.md](../../DECISIONS.md) — ADRs (65+)
 - [Contract Docs](./01-OVERVIEW.md) — Full contract reference
-- [Test Suite](../contracts-testing/test/v9/) — Test examples
+- [Test Suite](../contracts-core/test/v9/) — Test examples
 
 ---
 

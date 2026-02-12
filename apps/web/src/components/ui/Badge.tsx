@@ -10,7 +10,7 @@ export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
     const variants = {
       default: 'bg-slate-800/60 text-slate-200 border border-slate-700/40',
       success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-      warning: 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
+      warning: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20',
       danger: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
       outline: 'border border-slate-700 text-slate-400',
       live: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',

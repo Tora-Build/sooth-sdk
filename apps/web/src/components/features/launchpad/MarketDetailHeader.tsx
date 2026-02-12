@@ -66,12 +66,12 @@ export const MarketDetailHeader: React.FC<MarketDetailHeaderProps> = ({
         // V11: Dismissed market
         if (isDismissed) return { label: 'Dismissed', variant: 'danger' as const, emoji: '✗' };
         // Settlement status takes priority over graduated
-        if (isFinalized) return { label: 'Finalized', variant: 'success' as const, emoji: '✓' };
-        if (isSettled) return { label: 'Settled', variant: 'outline' as const, emoji: '✓' };
-        if (isGraduated) return { label: 'Graduated', variant: 'success' as const, emoji: '✓' };
+        if (isFinalized) return { label: 'Finalized', variant: 'warning' as const, emoji: '✓' };
+        if (isSettled) return { label: 'Settled', variant: 'warning' as const, emoji: '✓' };
+        if (isGraduated) return { label: 'Graduated', variant: 'warning' as const, emoji: '✓' };
         if (isExpired) return { label: 'Expired', variant: 'danger' as const, emoji: '' };
         // V11: Trial period
-        if (isInTrialPeriod) return { label: `Trial · ${formatTrialTime(trialTimeRemaining || 0)} left`, variant: 'warning' as const, emoji: '⏱' };
+        if (isInTrialPeriod) return { label: `Trial · ${formatTrialTime(trialTimeRemaining || 0)} left`, variant: 'outline' as const, emoji: '⏱' };
         return { label: 'Bonding', variant: 'live' as const, emoji: '⚡' };
     };
 

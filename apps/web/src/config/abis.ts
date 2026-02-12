@@ -1,40 +1,7 @@
-import { parseAbi, type Abi } from "viem";
+import { parseAbi } from "viem";
 
-// ABIs - Flat structure (no versioned folders)
-import LaunchpadEngineABI from "./abis/LaunchpadEngine.json";
-import CollateralizerABI from "./abis/Collateralizer.json";
-import AMMEngineABI from "./abis/AMMEngine.json";
-import TickBookABI from "./abis/TickBook.json";
-import TickBookVaultABI from "./abis/TickBookVault.json";
-import TruthMarketABI from "./abis/TruthMarket.json";
-import OutcomeTokenABI from "./abis/OutcomeToken.json";
-import TickBookPoolManagerABI from "./abis/TickBookPoolManager.json";
-import TickBookVaultPoolManagerABI from "./abis/TickBookVaultPoolManager.json";
-import DynamicFeeHookABI from "./abis/DynamicFeeHook.json";
-import ITickBookHooksABI from "./abis/ITickBookHooks.json";
-
-// Helper to extract ABI whether it's a raw array or a Foundry artifact object
-function getAbi(json: any): Abi {
-  if (Array.isArray(json)) return json as unknown as Abi;
-  if (json && typeof json === 'object' && Array.isArray(json.abi)) return json.abi as Abi;
-  return [] as unknown as Abi;
-}
-
-// Contract ABIs - unified export
-export const ABIS = {
-  LaunchpadEngine: getAbi(LaunchpadEngineABI),
-  Collateralizer: getAbi(CollateralizerABI),
-  AMMEngine: getAbi(AMMEngineABI),
-  TickBook: getAbi(TickBookABI),
-  TickBookVault: getAbi(TickBookVaultABI),
-  TruthMarket: getAbi(TruthMarketABI),
-  OutcomeToken: getAbi(OutcomeTokenABI),
-  // TickBook singleton (pool manager architecture)
-  TickBookPoolManager: getAbi(TickBookPoolManagerABI),
-  TickBookVaultPoolManager: getAbi(TickBookVaultPoolManagerABI),
-  DynamicFeeHook: getAbi(DynamicFeeHookABI),
-  ITickBookHooks: getAbi(ITickBookHooksABI),
-};
+// Re-export ABIS from sdk-core (11 contract ABIs)
+export { ABIS } from "@sooth/sdk-core";
 
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
@@ -242,7 +209,6 @@ export const LAUNCHPAD_OUTCOME_TOKEN_ABI = parseAbi([
   "function split(uint256 amount)",
   "function yesBalance(address user) view returns (uint256)",
   "function noBalance(address user) view returns (uint256)",
-  // ERC1155 approval
   "function isApprovedForAll(address account, address operator) view returns (bool)",
   "function setApprovalForAll(address operator, bool approved)",
 ]);

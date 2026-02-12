@@ -3,7 +3,7 @@
 > Interactive REPL for multi-actor protocol testing on live testnets
 
 **Status**: Implemented
-**Location**: `packages/contracts-testing/script/interactive/`
+**Location**: `packages/contracts-core/script/interactive/`
 **Last Updated**: 2026-01-25
 
 ---
@@ -11,7 +11,7 @@
 ## Quick Start
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 
 # Run against Base Sepolia (default)
 bun run interactive

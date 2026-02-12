@@ -246,7 +246,7 @@ FINALIZED (locked, can redeem)
 
 2. **Run tests**:
    ```bash
-   cd packages/contracts-testing
+   cd packages/contracts-core
    forge test
    ```
 
@@ -262,4 +262,4 @@ FINALIZED (locked, can redeem)
 
 - [Architecture Decision Records (ADRs)](../../../DECISIONS.md)
 - [Status & Known Issues](../../../STATUS.md)
-- [Test Suite](../../../packages/contracts-testing/test/)
+- [Test Suite](../../../packages/contracts-core/test/)

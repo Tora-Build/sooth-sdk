@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Sooth Protocol — Seed Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #836ef9;
+    --teal: #00d4aa;
+    --dark: #0a0a0b;
+    --surface: #111113;
+    --border: rgba(255,255,255,0.06);
+    --muted: rgba(255,255,255,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-snap-type: y mandatory; overflow-x: hidden; }
+  body { background: var(--dark); color: #fff; font-family: 'JetBrains Mono', monospace; }
+
+  .slide {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .slide-number {
+    position: absolute;
+    top: 30px;
+    right: 40px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--purple), var(--teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  h1 { font-size: clamp(36px, 6vw, 72px); font-weight: 700; line-height: 1.1; margin-bottom: 24px; }
+  h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 600; line-height: 1.2; margin-bottom: 20px; }
+  h3 { font-size: 18px; font-weight: 600; margin-bottom: 12px; color: var(--teal); }
+  p { font-size: 15px; line-height: 1.7; color: rgba(255,255,255,0.7); max-width: 700px; }
+  .subtitle { font-size: clamp(16px, 2vw, 22px); color: var(--muted); margin-bottom: 40px; font-weight: 300; }
+
+  /* Logo */
+  .logo-diamond {
+    width: 80px; height: 80px;
+    position: relative; margin-bottom: 32px;
+  }
+  .logo-diamond .layer {
+    position: absolute; inset: 0;
+    border: 2px solid; border-radius: 4px;
+    transform: rotate(45deg);
+  }
+  .logo-diamond .layer:nth-child(1) { border-color: var(--purple); }
+  .logo-diamond .layer:nth-child(2) { inset: 10px; border-color: var(--teal); opacity: 0.7; }
+  .logo-diamond .layer:nth-child(3) { inset: 20px; border-color: var(--purple); opacity: 0.4; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  th { text-align: left; padding: 10px 14px; color: var(--teal); border-bottom: 1px solid var(--border); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: rgba(255,255,255,0.7); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Grid cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .card h3 { font-size: 15px; margin-bottom: 8px; }
+  .card p { font-size: 13px; color: var(--muted); }
+
+  /* Stats row */
+  .stats-row { display: flex; gap: 32px; flex-wrap: wrap; margin: 24px 0; }
+  .stat { text-align: center; }
+  .stat .num { font-size: clamp(32px, 4vw, 56px); font-weight: 700; display: block; }
+  .stat .num.purple { color: var(--purple); }
+  .stat .num.teal { color: var(--teal); }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Code block */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.6);
+    overflow-x: auto;
+    white-space: pre;
+    margin: 16px 0;
+  }
+
+  /* Pillar badges */
+  .pillar-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .pillar-badge.purple { background: rgba(131,110,249,0.15); color: var(--purple); }
+  .pillar-badge.teal { background: rgba(0,212,170,0.15); color: var(--teal); }
+
+  /* Comparison checkmarks */
+  .yes { color: var(--teal); }
+  .no { color: rgba(255,255,255,0.15); }
+
+  /* Divider */
+  .divider { width: 60px; height: 2px; background: linear-gradient(90deg, var(--purple), var(--teal)); margin: 24px 0; border-radius: 1px; }
+
+  /* Slide separators */
+  .slide::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+
+  /* Ambient glow */
+  .glow-purple {
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(131,110,249,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .glow-teal {
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0,212,170,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* Flow diagram */
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+  }
+  .flow-arrow { color: var(--teal); font-size: 18px; }
+
+  /* Use of funds bar */
+  .fund-bar { display: flex; height: 32px; border-radius: 8px; overflow: hidden; margin: 16px 0; }
+  .fund-bar div { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+
+  /* Nav dots */
+  .nav-dots {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .nav-dot.active { background: var(--teal); transform: scale(1.3); }
+
+  /* Keyboard hint */
+  .key-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.15);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 100;
+    transition: opacity 0.5s;
+  }
+
+  @media (max-width: 768px) {
+    .slide { padding: 32px 20px; min-height: 100dvh; }
+    .slide-number { top: 16px; right: 20px; font-size: 10px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 24px; margin-bottom: 16px; }
+    h3 { font-size: 15px; }
+    p { font-size: 13px; line-height: 1.6; }
+    .subtitle { font-size: 15px; margin-bottom: 24px; }
+    .stats-row { gap: 16px; flex-direction: column; align-items: flex-start; }
+    .stat .num { font-size: 32px; }
+    .stat .lbl { font-size: 10px; }
+    .card-grid { grid-template-columns: 1fr; gap: 12px; }
+    .card { padding: 16px; }
+    .card h3 { font-size: 13px; }
+    .card p { font-size: 12px; }
+    .nav-dots { display: none; }
+    table { font-size: 11px; display: block; overflow-x: auto; white-space: nowrap; }
+    th, td { padding: 6px 8px; }
+    .code-block { font-size: 11px; padding: 14px 16px; }
+    .flow { gap: 8px; }
+    .flow-step { padding: 8px 12px; font-size: 11px; }
+    .flow-arrow { font-size: 14px; }
+    .fund-bar { height: 24px; }
+    .fund-bar div { font-size: 8px; }
+    .logo-diamond { width: 60px; height: 60px; }
+    .glow-purple, .glow-teal { width: 250px; height: 250px; }
+    .key-hint { display: none; }
+  }
+
+  @media (max-width: 400px) {
+    .slide { padding: 24px 16px; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 20px; }
+    .stats-row { gap: 12px; }
+    table { font-size: 10px; }
+    th, td { padding: 5px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Password Gate -->
+<div id="gate" style="position:fixed;inset:0;z-index:9999;background:var(--dark);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+  <img src="sooth-logo.svg" style="width:64px;height:64px;border-radius:12px;" alt="Sooth">
+  <p style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Confidential</p>
+  <div style="display:flex;gap:8px;">
+    <input id="gatePw" type="password" placeholder="Password" autofocus
+      style="padding:10px 16px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:#fff;font-family:inherit;font-size:13px;outline:none;width:220px;"
+      onkeydown="if(event.key==='Enter')unlock()">
+    <button onclick="unlock()"
+      style="padding:10px 20px;border-radius:8px;background:linear-gradient(135deg,var(--purple),var(--teal));border:none;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Enter</button>
+  </div>
+  <p id="gateErr" style="font-size:11px;color:#ef4444;display:none;">Incorrect password</p>
+</div>
+<script>
+function unlock(){
+  const pw=document.getElementById('gatePw').value;
+  if(pw==='sooth2026'){
+    document.getElementById('gate').style.display='none';
+    document.body.style.overflow='';
+  } else {
+    document.getElementById('gateErr').style.display='block';
+    document.getElementById('gatePw').value='';
+    document.getElementById('gatePw').focus();
+  }
+}
+document.body.style.overflow='hidden';
+</script>
+
+<!-- Nav dots -->
+<div class="nav-dots" id="navDots"></div>
+<div class="key-hint" id="keyHint">scroll or arrow keys to navigate</div>
+
+<!-- SLIDE 1: Cover -->
+<div class="slide" id="s1">
+  <div class="glow-purple" style="top:-200px;left:-200px;"></div>
+  <div class="glow-teal" style="bottom:-200px;right:-200px;"></div>
+  <div class="slide-inner" style="text-align:center;display:flex;flex-direction:column;align-items:center;">
+    <img src="sooth-logo.svg" style="width:80px;height:80px;border-radius:16px;margin-bottom:32px;" alt="Sooth">
+    <h1><span class="gradient-text">SOOTH</span></h1>
+    <p class="subtitle">The Permissionless Prediction Market Launchpad</p>
+    <div class="divider" style="margin:0 auto 32px;"></div>
+    <p style="font-size:13px;color:var(--muted);text-align:center;">Seed Round &middot; sooth.market</p>
+  </div>
+</div>
+
+<!-- SLIDE 2: Problem -->
+<div class="slide" id="s2">
+  <span class="slide-number">02</span>
+  <div class="slide-inner">
+    <h2>Prediction markets are <span class="gradient-text">centralized at every layer</span></h2>
+    <table>
+      <tr><th>Layer</th><th>Polymarket</th><th>Kalshi</th><th>Sooth</th></tr>
+      <tr><td>Market Creation</td><td>Gatekept</td><td>Gatekept</td><td class="yes">Permissionless</td></tr>
+      <tr><td>Liquidity</td><td>Hybrid (off-chain)</td><td>Centralized</td><td class="yes">Unified Vault</td></tr>
+      <tr><td>Settlement</td><td>Centralized oracle</td><td>Centralized</td><td class="yes">ZK + Multi-class</td></tr>
+      <tr><td>Price Discovery</td><td>Off-chain matching</td><td>Centralized CLOB</td><td class="yes">On-chain TickBook + AMM</td></tr>
+    </table>
+    <p style="margin-top:24px;">$50B+ traded on prediction markets in 2025 &mdash; through centralized bottlenecks. Only ~500 markets exist on Polymarket despite billions in volume. Creators have zero economic upside.</p>
+  </div>
+</div>
+
+<!-- SLIDE 3: Solution -->
+<div class="slide" id="s3">
+  <span class="slide-number">03</span>
+  <div class="glow-purple" style="top:50%;right:-200px;"></div>
+  <div class="slide-inner">
+    <h2>Three pillars of <span class="gradient-text">decentralized design</span></h2>
+    <div class="card-grid">
+      <div class="card">
+        <span class="pillar-badge purple">Launchpad</span>
+        <h3>Permissionless Creation</h3>
+        <p>Anyone can create a market. Creators deposit capital, become the first LP, and earn ongoing yield from trading fees. Economic alignment without gatekeepers.</p>
+      </div>
+      <div class="card">
+        <span class="pillar-badge teal">ZK Rules</span>
+        <h3>Trustless Settlement</h3>
+        <p>Adjudicators report the outcome and when it became true (T*). Trades after T* are rewound via ZK proofs. Four adjudicator classes for every trust model.</p>
+      </div>
+      <div class="card">
+        <span class="pillar-badge purple">TickBook</span>
+        <h3>On-Chain CLOB</h3>
+        <p>10,000-tick orderbook with bitmap O(1) discovery. CEX-grade execution, fully on-chain. No off-chain sequencer, no MEV extraction.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4: Why Now -->
+<div class="slide" id="s4">
+  <span class="slide-number">04</span>
+  <div class="slide-inner">
+    <h2><span class="gradient-text">Why now</span></h2>
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+      <div class="card">
+        <h3>Category proven</h3>
+        <p>Polymarket did $9B+ in 2024 US election volume. Prediction markets are mainstream.</p>
+      </div>
+      <div class="card">
+        <h3>Infrastructure ready</h3>
+        <p>High-throughput L2s (Base, Monad, MegaETH) make on-chain orderbooks viable for the first time.</p>
+      </div>
+      <div class="card">
+        <h3>AI agents need markets</h3>
+        <p>Autonomous agents need permissionless prediction infrastructure. No human gatekeeper can approve markets fast enough.</p>
+      </div>
+      <div class="card">
+        <h3>Regulatory tailwinds</h3>
+        <p>CFTC evolving stance on prediction markets. Decentralized architecture = regulatory resilience.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5: Dual Venue -->
+<div class="slide" id="s5">
+  <span class="slide-number">05</span>
+  <div class="glow-teal" style="top:-100px;left:-200px;"></div>
+  <div class="slide-inner">
+    <h2>Dual venue <span class="gradient-text">architecture</span></h2>
+    <p style="margin-bottom:24px;">Two parallel trading venues for different trader archetypes. Arbitrageurs keep prices aligned.</p>
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+      <div class="card" style="border-color:rgba(131,110,249,0.2);">
+        <span class="pillar-badge purple">AMM &middot; Retail</span>
+        <table style="margin:8px 0;">
+          <tr><td>Entry</td><td>LaunchpadEngine</td></tr>
+          <tr><td>Pricing</td><td>LMSR curve</td></tr>
+          <tr><td>Execution</td><td>Always available</td></tr>
+          <tr><td>Fees</td><td>5% &rarr; 1% (graduation)</td></tr>
+          <tr><td>UX</td><td>One-click trades</td></tr>
+        </table>
+      </div>
+      <div class="card" style="border-color:rgba(0,212,170,0.2);">
+        <span class="pillar-badge teal">TickBook &middot; Pro</span>
+        <table style="margin:8px 0;">
+          <tr><td>Entry</td><td>Collateralizer.split()</td></tr>
+          <tr><td>Pricing</td><td>Limit orderbook</td></tr>
+          <tr><td>Execution</td><td>Depth-dependent</td></tr>
+          <tr><td>Fees</td><td>Maker-taker spreads</td></tr>
+          <tr><td>UX</td><td>API-first, bot-ready</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="flow" style="justify-content:center;margin-top:16px;">
+      <div class="flow-step">Creator deposits</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Internal phase (5% &rarr; LP)</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Graduation</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">TickBook activates</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-step">Settlement</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 6: Incentive Alignment -->
+<div class="slide" id="s6">
+  <span class="slide-number">06</span>
+  <div class="slide-inner">
+    <h2>Everyone is a <span class="gradient-text">stakeholder</span></h2>
+    <p style="margin-bottom:24px;">Trading fees convert to LP tokens during the internal phase. Even losing traders earn upside from market growth.</p>
+    <table>
+      <tr><th>Actor</th><th>Incentive</th><th>Alignment</th></tr>
+      <tr><td style="color:var(--purple);">Creator</td><td>Deposit capital, earn ongoing LP yield</td><td>Promotes market growth</td></tr>
+      <tr><td style="color:var(--teal);">Gaming Trader</td><td>Fees convert to LP tokens</td><td>Even losing bets earn LP upside</td></tr>
+      <tr><td style="color:var(--purple);">Arbitrageur</td><td>Capture cross-venue spreads</td><td>Tightens prices for everyone</td></tr>
+      <tr><td style="color:var(--teal);">PvP Trader</td><td>Direct conviction on TickBook</td><td>Pure price discovery</td></tr>
+    </table>
+    <div class="card" style="margin-top:24px;border-color:rgba(0,212,170,0.15);">
+      <h3>The Gaming Trader's Edge</h3>
+      <p>Alice bets $200 on YES, paying $10 in fees. She receives $10 in LP tokens. The market goes viral with $50K volume. Her LP tokens now represent ~$2,500 in fees. Even if her prediction loses, her LP position offsets the loss.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7: T* Settlement -->
+<div class="slide" id="s7">
+  <span class="slide-number">07</span>
+  <div class="glow-purple" style="bottom:-100px;left:50%;transform:translateX(-50%);"></div>
+  <div class="slide-inner">
+    <h2>T* retroactive <span class="gradient-text">finality</span></h2>
+    <p style="margin-bottom:24px;">When news breaks, fast bots exploit stale AMM prices. Sooth's T* mechanism rewinds post-truth trades, protecting LPs.</p>
+    <div class="code-block">14:00:00 &mdash; BTC crosses $100K   <span style="color:var(--teal);">T* = this moment</span>
+14:00:05 &mdash; News breaks
+14:00:10 &mdash; Bot buys YES at 60&cent;  <span style="color:var(--purple);">exploit attempt</span>
+14:00:30 &mdash; Adjudicator reports: YES, T* = 14:00:00
+Settlement: Bot's trade <span style="color:var(--teal);">REWOUND</span>. LPs protected.</div>
+    <h3 style="margin-top:24px;">Four adjudicator classes</h3>
+    <table>
+      <tr><th>Class</th><th>Use Case</th><th>Trust Model</th></tr>
+      <tr><td>Optimistic</td><td>Subjective events, disputes</td><td>Challenge-based</td></tr>
+      <tr><td>ZK Rule</td><td>On-chain verifiable conditions</td><td>Pure smart contract</td></tr>
+      <tr><td>Oracle+ZK</td><td>Price feeds, data thresholds</td><td>Chainlink + ZK</td></tr>
+      <tr><td>Multisig</td><td>Institutional, private data</td><td>N-of-M authorized</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- SLIDE 8: Traction -->
+<div class="slide" id="s8">
+  <span class="slide-number">08</span>
+  <div class="slide-inner">
+    <h2><span class="gradient-text">Traction</span></h2>
+    <div class="stats-row">
+      <div class="stat"><span class="num purple">50+</span><span class="lbl">Markets Created</span></div>
+      <div class="stat"><span class="num teal">16+</span><span class="lbl">Settled On-Chain</span></div>
+      <div class="stat"><span class="num purple">2</span><span class="lbl">Chains Live</span></div>
+      <div class="stat"><span class="num teal">7</span><span class="lbl">Agent Oracles</span></div>
+    </div>
+    <div class="card-grid" style="margin-top:24px;">
+      <div class="card">
+        <h3>SoothSayer</h3>
+        <p>AI agent adjudicator. Discovers predictions from other agents, creates markets, collects commitments, resolves by consensus. Proof that permissionless infrastructure enables novel oracle designs.</p>
+      </div>
+      <div class="card">
+        <h3>Brevis Partnership</h3>
+        <p>zkTLS integration for trustless resolution of Web2 data sources. Crypto prices, API responses, and real-world data verified via zero-knowledge proofs.</p>
+      </div>
+      <div class="card">
+        <h3>Multi-Chain</h3>
+        <p>Live on Base Sepolia (UMA Oracle settlement) and Monad Testnet (Agent Consensus settlement). Two different adjudicator models proving protocol flexibility.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9: Market Opportunity -->
+<div class="slide" id="s9">
+  <span class="slide-number">09</span>
+  <div class="glow-teal" style="top:50%;right:-200px;"></div>
+  <div class="slide-inner">
+    <h2>Market <span class="gradient-text">opportunity</span></h2>
+    <div class="stats-row" style="margin-bottom:32px;">
+      <div class="stat"><span class="num purple">$500B+</span><span class="lbl">TAM &middot; Global prediction &amp; betting</span></div>
+      <div class="stat"><span class="num teal">$50B</span><span class="lbl">SAM &middot; On-chain prediction markets</span></div>
+      <div class="stat"><span class="num purple">$500M</span><span class="lbl">SOM &middot; Permissionless + agent-native</span></div>
+    </div>
+    <h3>Growth vectors</h3>
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div class="card">
+        <h3>Supply</h3>
+        <p>Creator economics drive market creation. More markets = more volume = more revenue.</p>
+      </div>
+      <div class="card">
+        <h3>Agents</h3>
+        <p>AI agents create demand for permissionless infrastructure they can access programmatically.</p>
+      </div>
+      <div class="card">
+        <h3>Cross-chain</h3>
+        <p>Each new chain deployment captures fragmented liquidity and new user bases.</p>
+      </div>
+      <div class="card">
+        <h3>Institutional</h3>
+        <p>ZK settlement enables trust models that institutions can underwrite.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10: Business Model -->
+<div class="slide" id="s10">
+  <span class="slide-number">10</span>
+  <div class="slide-inner">
+    <h2>Business <span class="gradient-text">model</span></h2>
+    <p style="margin-bottom:24px;">Protocol captures 20% of post-graduation trading fees.</p>
+    <table>
+      <tr><th>Phase</th><th>Fee</th><th>Distribution</th></tr>
+      <tr><td>Internal (pre-graduation)</td><td>5%</td><td>100% &rarr; LP tokens to traders</td></tr>
+      <tr><td>Graduated</td><td>1%</td><td>50% Liquidity &middot; 30% LP Yield &middot; 20% Protocol</td></tr>
+    </table>
+    <div class="card-grid" style="margin-top:32px;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));">
+      <div class="card" style="text-align:center;">
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">$100M monthly volume</p>
+        <span style="font-size:32px;font-weight:700;color:var(--purple);">$2.4M</span>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">annual protocol revenue</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">$1B monthly volume</p>
+        <span style="font-size:32px;font-weight:700;color:var(--teal);">$24M</span>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">annual protocol revenue</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 11: Competition -->
+<div class="slide" id="s11">
+  <span class="slide-number">11</span>
+  <div class="glow-purple" style="top:-100px;right:-200px;"></div>
+  <div class="slide-inner">
+    <h2>Competitive <span class="gradient-text">landscape</span></h2>
+    <table>
+      <tr><th></th><th style="color:var(--teal);">Sooth</th><th>Polymarket</th><th>Kalshi</th><th>Omen</th></tr>
+      <tr><td>Market creation</td><td class="yes">Permissionless</td><td>Gatekept</td><td>Gatekept</td><td>Open</td></tr>
+      <tr><td>Creator economics</td><td class="yes">LP yield</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="no">&mdash;</td></tr>
+      <tr><td>On-chain orderbook</td><td class="yes">TickBook</td><td class="no">Off-chain</td><td class="no">Centralized</td><td class="no">&mdash;</td></tr>
+      <tr><td>Settlement</td><td class="yes">Multi-class + ZK</td><td>UMA only</td><td>Centralized</td><td>Reality.eth</td></tr>
+      <tr><td>T* rewind</td><td class="yes">Yes</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="no">&mdash;</td></tr>
+      <tr><td>Agent-native</td><td class="yes">SoothSayer</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="no">&mdash;</td></tr>
+      <tr><td>Dual venue</td><td class="yes">AMM + CLOB</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td>AMM only</td></tr>
+    </table>
+    <p style="margin-top:24px;">Permissionless creation + creator economics + ZK settlement + agent oracle = defensible stack that centralized platforms cannot replicate without restructuring.</p>
+  </div>
+</div>
+
+<!-- SLIDE 12: Roadmap -->
+<div class="slide" id="s12">
+  <span class="slide-number">12</span>
+  <div class="slide-inner">
+    <h2><span class="gradient-text">Roadmap</span></h2>
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));">
+      <div class="card" style="border-color:rgba(0,212,170,0.2);">
+        <span class="pillar-badge teal">Q1 2026 &middot; Done</span>
+        <p>Core contracts on Base Sepolia &amp; Monad Testnet. 50+ markets, 16+ settled. SoothSayer agent oracle. Brevis partnership.</p>
+      </div>
+      <div class="card" style="border-color:rgba(131,110,249,0.2);">
+        <span class="pillar-badge purple">Q2 2026</span>
+        <p>Mainnet launch (Base + Monad). TickBook activation. Creator dashboard &amp; SDK. Agent SDK for programmatic markets.</p>
+      </div>
+      <div class="card">
+        <span class="pillar-badge purple">Q3 2026</span>
+        <p>Cross-chain expansion. ZK adjudicator via Brevis zkTLS. Institutional API &amp; market maker program. Governance framework.</p>
+      </div>
+      <div class="card">
+        <span class="pillar-badge teal">Q4 2026</span>
+        <p>Token launch &amp; governance. Creator grant program. Agent economy integration. Mobile app.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 13: The Ask -->
+<div class="slide" id="s13">
+  <span class="slide-number">13</span>
+  <div class="glow-teal" style="bottom:-200px;left:-200px;"></div>
+  <div class="glow-purple" style="top:-200px;right:-200px;"></div>
+  <div class="slide-inner">
+    <h2>Raising <span class="gradient-text">$2M Seed</span></h2>
+    <div class="fund-bar">
+      <div style="width:45%;background:var(--purple);color:#fff;">Engineering 45%</div>
+      <div style="width:20%;background:var(--teal);color:#000;">Agents 20%</div>
+      <div style="width:15%;background:rgba(131,110,249,0.5);color:#fff;">Liquidity 15%</div>
+      <div style="width:15%;background:rgba(0,212,170,0.4);color:#fff;">Ops 15%</div>
+      <div style="width:5%;background:rgba(255,255,255,0.1);color:var(--muted);">5%</div>
+    </div>
+    <h3 style="margin-top:32px;">Milestones this round enables</h3>
+    <table>
+      <tr><td style="color:var(--teal);">1</td><td>Mainnet launch on Base + Monad</td></tr>
+      <tr><td style="color:var(--teal);">2</td><td>TickBook (on-chain CLOB) live with market makers</td></tr>
+      <tr><td style="color:var(--teal);">3</td><td>500+ active markets</td></tr>
+      <tr><td style="color:var(--teal);">4</td><td>$10M+ monthly trading volume</td></tr>
+      <tr><td style="color:var(--teal);">5</td><td>ZK settlement via Brevis integration</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- SLIDE 14: Contact -->
+<div class="slide" id="s14">
+  <span class="slide-number">14</span>
+  <div class="slide-inner" style="text-align:center;display:flex;flex-direction:column;align-items:center;">
+    <img src="sooth-logo.svg" style="width:80px;height:80px;border-radius:16px;margin-bottom:40px;" alt="Sooth">
+    <h2 style="margin-bottom:12px;"><span class="gradient-text">sooth.market</span></h2>
+    <p style="text-align:center;margin-bottom:40px;font-style:italic;">"Pursuing the full potential of decentralization."</p>
+    <div style="display:flex;gap:32px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--muted);">
+      <span>hello@sooth.market</span>
+      <span>@SoothProtocol</span>
+      <span>github.com/Tora-Build/sooth-core</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// Nav dots
+const slides = document.querySelectorAll('.slide');
+const dotsContainer = document.getElementById('navDots');
+slides.forEach((s, i) => {
+  const dot = document.createElement('div');
+  dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => s.scrollIntoView({ behavior: 'smooth' });
+  dotsContainer.appendChild(dot);
+});
+
+// Track active slide
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const idx = [...slides].indexOf(e.target);
+      document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+  });
+}, { threshold: 0.5 });
+slides.forEach(s => observer.observe(s));
+
+// Hide hint after first scroll
+let hintShown = true;
+window.addEventListener('scroll', () => {
+  if (hintShown) {
+    document.getElementById('keyHint').style.opacity = '0';
+    hintShown = false;
+  }
+}, { once: true });
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  const active = [...slides].findIndex(s => {
+    const r = s.getBoundingClientRect();
+    return r.top >= -100 && r.top < window.innerHeight / 2;
+  });
+  if (e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    if (active < slides.length - 1) slides[active + 1].scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (active > 0) slides[active - 1].scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+
+</body>
+</html>

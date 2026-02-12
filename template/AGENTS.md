@@ -9,7 +9,7 @@ sooth-alpha/
 ├── apps/web/                    # React frontend (Vite + Tailwind)
 ├── packages/
 │   ├── contracts-core/          # Solidity contracts (Foundry) - AUDIT SCOPE
-│   ├── contracts-testing/       # Tests, CLI, benchmarks
+│   ├── contracts-core/       # Tests, CLI, benchmarks
 │   └── indexer/                 # Ponder indexer
 ├── .agent/                      # Agent workflows & knowledge
 ├── STATUS.md                    # Current project state
@@ -20,12 +20,13 @@ sooth-alpha/
 ## Build & Test Commands
 
 ### Contracts (Foundry)
+
 ```bash
 # Build
 cd packages/contracts-core && forge build
 
 # Run all tests
-cd packages/contracts-testing && forge test
+cd packages/contracts-core && forge test
 
 # Run single test file
 forge test --match-path test/v10/UnifiedCrossing.t.sol
@@ -47,6 +48,7 @@ forge test --match-path 'test/v9/fork/*.t.sol' --fork-url https://sepolia.base.o
 ```
 
 ### Frontend (Vite + React)
+
 ```bash
 cd apps/web
 npm run dev           # Start dev server (localhost:5173)
@@ -56,6 +58,7 @@ npm run test:e2e:ui   # Playwright with UI
 ```
 
 ### Monorepo (pnpm)
+
 ```bash
 pnpm dev:all          # Start web + indexer
 pnpm test:contracts   # Run forge tests
@@ -64,6 +67,7 @@ pnpm interactive:arc  # CLI for Arc Testnet
 ```
 
 ### Deployment
+
 ```bash
 cd packages/contracts-core
 bun run script/deploy-multichain.ts --chains=baseSepolia
@@ -74,6 +78,7 @@ bun run script/deploy-multichain.ts --chains=arcTestnet
 ## Code Style Guidelines
 
 ### Solidity
+
 - **Solc version**: 0.8.30 with `via_ir = true`
 - **Optimizer**: 1 run (size optimization)
 - **Naming**: `_privateVar`, `publicVar`, `CONSTANT_NAME`
@@ -90,12 +95,14 @@ require(balance >= amount, "insufficient balance");
 ```
 
 ### TypeScript/React
+
 - **Strict mode**: `strict: true` in tsconfig
 - **Types**: No `any`. Use `unknown` + type guards if needed.
 - **Hooks**: Custom hooks in `src/hooks/`, prefixed with `use`
 - **State**: Zustand for global state, React Query for server state
 
 ### File Naming
+
 - **Canonical names only**: `Market.sol`, `App.tsx`, `deployments.json`
 - **NO version numbers**: `MarketV10.tsx` is FORBIDDEN
 - **Flat structure**: No `v8/`, `v9/` folders. Use Git for versioning.
@@ -103,6 +110,7 @@ require(balance >= amount, "insufficient balance");
 ## Critical Rules
 
 ### WAD Math (1e18)
+
 ```solidity
 // If both operands are WAD, divide result by 1e18
 uint256 result = (wadA * wadB) / 1e18;
@@ -112,6 +120,7 @@ uint256 usdcAmount = wadAmount / 1e12;
 ```
 
 ### Outcome Encoding (Protocol-Wide)
+
 | Value | Outcome |
 |-------|---------|
 | `0`   | NO      |
@@ -119,6 +128,7 @@ uint256 usdcAmount = wadAmount / 1e12;
 | `2`   | INVALID |
 
 ### Deployment Checklist
+
 1. Run `forge build` - verify compilation
 2. Deploy with `bun run deploy`
 3. Run `./script/verify-deployment.sh`
@@ -182,6 +192,7 @@ To use: Ensure MCP servers are installed (`npx`, `uvx` available).
 ## Testing Patterns
 
 ### Unit Tests
+
 ```solidity
 function test_PlaceOrder_EmitsEvent() public {
     vm.expectEmit(true, true, false, true);
@@ -191,6 +202,7 @@ function test_PlaceOrder_EmitsEvent() public {
 ```
 
 ### Invariant Tests
+
 ```solidity
 function invariant_VaultSolvency() public view {
     assertGe(usdc.balanceOf(vault), vault.totalClaims());

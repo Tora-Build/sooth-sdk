@@ -5,22 +5,26 @@
   "scripts": {
     "dev": "pnpm run --parallel dev:web dev:indexer",
     "dev:web": "pnpm --filter ./apps/web dev",
+    "dev:soothsayer": "pnpm --filter ./apps/soothsayer dev",
     "dev:indexer": "pnpm --filter ./packages/indexer dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:contracts": "pnpm --filter contracts-testing test",
+    "test:contracts": "pnpm --filter contracts-core test",
     "deploy:contracts": "pnpm --filter contracts-core deploy",
-    "dev:cli:base": "pnpm --filter contracts-testing interactive:base",
-    "dev:cli:monad": "pnpm --filter contracts-testing interactive:monad",
-    "dev:cli:arc": "pnpm --filter contracts-testing interactive:arc",
-    "dev:cli:megaeth": "pnpm --filter contracts-testing interactive:megaeth",
+    "dev:cli:base": "pnpm --filter contracts-core interactive:base",
+    "dev:cli:monad": "pnpm --filter contracts-core interactive:monad",
+    "dev:cli:arc": "pnpm --filter contracts-core interactive:arc",
+    "dev:cli:megaeth": "pnpm --filter contracts-core interactive:megaeth",
     "dev:keeper:base": "pnpm --filter @sooth/keeper keeper:base",
     "dev:keeper:monad": "pnpm --filter @sooth/keeper keeper:monad",
     "dev:keeper:arc": "pnpm --filter @sooth/keeper keeper:arc",
     "dev:keeper:megaeth": "pnpm --filter @sooth/keeper keeper:megaeth"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "turbo": "^2.0.0",
     "viem": "^2.44.2"
+  },
+  "pnpm": {
   }
 }

@@ -17,7 +17,7 @@ The Interactive CLI provides a REPL for testing V10 functionality without writin
 ### Launch
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ```
 

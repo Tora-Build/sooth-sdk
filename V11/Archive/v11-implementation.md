@@ -34,7 +34,7 @@ Remove versioned filenames per repo rules.
 packages/contracts-core/src/
 ├── LaunchpadEngineV11.sol → LaunchpadEngine.sol
 
-packages/contracts-testing/test/
+packages/contracts-core/test/
 ├── v11/                    → DELETE after moving
 ├── unit/
 │   ├── LaunchpadEngine.t.sol (renamed from V11)
@@ -127,7 +127,7 @@ Defer unless needed for CLI actor testing.
 
 ```bash
 # After each phase
-cd packages/contracts-testing && forge test -vvv
+cd packages/contracts-core && forge test -vvv
 
 # Specific suites
 forge test --match-path 'test/unit/LaunchpadEngine.t.sol' -vvv
