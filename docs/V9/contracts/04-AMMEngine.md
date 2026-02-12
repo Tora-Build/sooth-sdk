@@ -371,4 +371,4 @@ uint256 payout = ammEngine.redeemAfterSettlement(market, 0);
 
 - **LMSR Paper**: Hanson, "Logarithmic Market Scoring Rules for Modular Combinatorial Information Aggregation" (2002)
 - **24h Lock Rationale**: [ADR-054](../../DECISIONS.md) — Prevents informed trading attacks
-- **Test Suite**: `packages/contracts-testing/test/v8/AMMEngine.t.sol`
+- **Test Suite**: `packages/contracts-core/test/v8/AMMEngine.t.sol`

@@ -1,7 +1,7 @@
 # Testing Review & Recommendations
 
 **Date**: 2026-01-03  
-**Package**: `packages/contracts-testing`  
+**Package**: `packages/contracts-core`  
 **Current Status**: 138/138 tests passing ✅
 
 ---

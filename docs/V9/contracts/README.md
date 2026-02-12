@@ -82,7 +82,7 @@
 **🧪 QA/Tester**
 - Start: [01-OVERVIEW.md](./01-OVERVIEW.md) (understand flow)
 - See: Testing section below
-- Run: Tests in `packages/contracts-testing/test/v9/`
+- Run: Tests in `packages/contracts-core/test/v9/`
 
 **🎨 Frontend Developer**
 - Start: [01-OVERVIEW.md](./01-OVERVIEW.md)
@@ -130,7 +130,7 @@
 
 ### Run All Tests
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 
@@ -145,7 +145,7 @@ forge test --match-contract "TickBookPoolManagerV996" -v
 
 ### Gas Benchmarking
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test --match-path "*benchmark*" --gas-report
 ```
 
@@ -198,8 +198,8 @@ Returns smooth, continuous pricing with natural spread
 
 ### Code Locations
 - **Contracts**: `packages/contracts-core/src/`
-- **Tests**: `packages/contracts-testing/test/v9/`
-- **Scripts**: `packages/contracts-testing/script/`
+- **Tests**: `packages/contracts-core/test/v9/`
+- **Scripts**: `packages/contracts-core/script/`
 - **Deployment**: `packages/contracts-core/deployments/`
 
 ### Live Deployments

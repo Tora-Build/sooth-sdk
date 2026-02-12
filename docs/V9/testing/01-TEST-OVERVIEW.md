@@ -1,6 +1,6 @@
 # Testing Strategy & Overview
 
-**Package**: `packages/contracts-testing`  
+**Package**: `packages/contracts-core`  
 **Status**: 138/138 tests passing ✅  
 **Coverage**: Unit + Integration + Fuzz + Invariant + Fork
 
@@ -165,7 +165,7 @@ function testLiveMarketReplay() public {
 
 ### All Tests
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 

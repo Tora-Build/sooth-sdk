@@ -1,6 +1,6 @@
 # Sooth Protocol Testing Documentation
 
-**Package**: `packages/contracts-testing`  
+**Package**: `packages/contracts-core`  
 **Status**: 138/138 tests passing ✅  
 **Date**: 2026-01-03
 
@@ -60,19 +60,19 @@
 
 ### Run All Tests
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 
 ### Run Interactive CLI
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ```
 
 ### Benchmark Gas Usage
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test --match-path "*benchmark*" --gas-report
 ```
 
@@ -95,7 +95,7 @@ forge test --match-path "*benchmark*" --gas-report
 ## 📁 Test Structure
 
 ```
-packages/contracts-testing/
+packages/contracts-core/
 ├── test/v9/
 │   ├── TickBookPoolManager.t.sol        (60 tests)
 │   ├── TruthMarketLifecycle.t.sol       (15 tests)
@@ -222,7 +222,7 @@ packages/contracts-testing/
 curl -L https://foundry.paradigm.xyz | bash
 
 # Install dependencies
-cd packages/contracts-testing
+cd packages/contracts-core
 forge install
 
 # Or with Bun (for interactive CLI)
@@ -277,7 +277,7 @@ jobs:
 ### Pre-Commit Hook
 ```bash
 #!/bin/bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test --fail-fast || exit 1
 ```
 

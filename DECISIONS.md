@@ -196,7 +196,7 @@
   - `packages/contracts-core/src/TruthMarket.sol`
   - `apps/web/src/pages/Launchpad.tsx`
   - `apps/web/src/pages/Create.tsx`
-  - `packages/contracts-testing/script/interactive/commands/market.ts`
+  - `packages/contracts-core/script/interactive/commands/market.ts`
 
 ## ADR-075: Tick-Indexed Spot Fills for O(overlap) Gas Complexity (V10.4)
 - **Date**: 2026-01-06
@@ -251,7 +251,7 @@
   - **SDK/Frontend**: Should document "narrow range preferred" constraint.
 - **Files Changed**:
   - `packages/contracts-core/src/TickBookPoolManager.sol` — Tick-indexed storage + fill rewrite
-  - `packages/contracts-testing/test/crossing/UnifiedCrossing.t.sol` — Range cap test
+  - `packages/contracts-core/test/crossing/UnifiedCrossing.t.sol` — Range cap test
 - **Test Coverage**: 10/10 crossing tests pass, including new `test_SpotSellRangeCapped()`.
 
 ---
@@ -545,13 +545,13 @@
   - **Test Coverage**: 11 new tests covering all order types.
 - **Files Changed**:
   - `packages/contracts-core/src/TickBookPoolManagerV996.sol` — New contract
-  - `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol` — Tests
+  - `packages/contracts-core/test/v9/UnifiedOrderSystem.t.sol` — Tests
   - `apps/web/src/hooks/usePlaceOrder.ts` — New hook
   - `apps/web/src/config/abis.ts` — Added V996_ABIS
 
 ---
 
-## ADR-065: Package Split — contracts-core + contracts-testing
+## ADR-065: Package Split — contracts-core + contracts-core
 - **Date**: 2026-01-01
 - **Status**: Accepted (Implemented)
 - **Context**:
@@ -562,14 +562,14 @@
 - **Decision**:
   1. **Split `packages/contracts-evm/`** into two packages:
      - `contracts-core` — Audit scope: core contracts + infrastructure deployment scripts
-     - `contracts-testing` — QA/Partners: tests, market scripts, benchmarks, mocks
+     - `contracts-core` — QA/Partners: tests, market scripts, benchmarks, mocks
   2. **Delete outdated artifacts**:
      - `broadcast/` folder (V4/V5/V8 transaction logs)
      - `deployments/v2-archive/`, `v8-*.json`
      - `mockusdc-latest.json`, `test-market-latest.json`
   3. **Use symlinks** for shared dependencies:
-     - `contracts-testing/lib` → `../contracts-core/lib`
-     - `contracts-testing/core` → `../contracts-core/src`
+     - `contracts-core/lib` → `../contracts-core/lib`
+     - `contracts-core/core` → `../contracts-core/src`
   4. **Use `@core/` remapping** in tests to import from core package.
 - **Rationale**:
   - **Audit Clarity**: Auditors can focus on `contracts-core/src/` only.

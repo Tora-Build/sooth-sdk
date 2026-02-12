@@ -19,6 +19,16 @@ export const launchpadMarket = onchainTable(
     lpToken: t.hex(), // ERC20 LP token address (V11)
     trialEndTime: t.bigint(), // Trial period end timestamp (V11)
     isDismissed: t.boolean(), // Market dismissed during trial (V11)
+    // Settlement fields (from TruthMarket contract)
+    deadline: t.bigint(), // Market deadline timestamp
+    isSettled: t.boolean(), // Market has been settled
+    isFinalized: t.boolean(), // Market outcome is finalized
+    winningOutcome: t.integer(), // 0 = NO, 1 = YES (null if not settled)
+    // AMM reserve tracking (for price calculation)
+    yesReserves: t.bigint(), // YES token reserves in AMM
+    noReserves: t.bigint(), // NO token reserves in AMM
+    // Price tracking (computed from reserves: noReserves / (yesReserves + noReserves))
+    yesProbability: t.real(), // Current YES price (0.0 to 1.0), updated on trades
   }),
   (table) => ({
     creatorIdx: index().on(table.creator),

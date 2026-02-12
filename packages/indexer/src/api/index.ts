@@ -532,4 +532,8 @@ app.get("/lock-entries/:chainId/:user", async (c) => {
   return c.json(serializeBigInts(entries));
 });
 
+app.get("/api-health", (c) => {
+  return c.json({ status: "ok" });
+});
+
 export default app;

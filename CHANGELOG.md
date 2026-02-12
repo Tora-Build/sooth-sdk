@@ -4,11 +4,25 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Indexer Reserve Tracking (2026-02-08)**: Added `yesReserves` and `noReserves` fields to indexer schema for AMM price calculation without RPC calls. `PositionTraded` handler now computes `yesProbability` locally: `noReserves / (yesReserves + noReserves)`.
+- **Indexer Health Hook (2026-02-08)**: New `useIndexerHealth` hook in Sooth Lite to track indexer availability. Profile page now shows indexer status indicator.
+- **Mobile Debugging (2026-02-04)**: Added AppKit event logging, wallet storage reset flow, and boot markers to confirm the active JS bundle on device.
+- **Mobile Trading App (2026-01-30)**: Complete Expo mobile app with Privy social login, Stories-style market discovery, AMM + TickBook trading, and portfolio management. 16 TypeScript/React Native files, 3,019 lines of code, 7 atomic commits. Features: email/Google/Apple login, swipeable market cards with unique gradients, shares-based trading with approval flow, position list with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with 11 contract ABIs, LMSR math, and contract read functions. Zero TypeScript errors, 100% strict mode compliance.
+
 ### Fixed
+- **RPC 429 Rate Limiting Eliminated (2026-02-08)**: Comprehensive RPC call reduction across Sooth Lite frontend:
+  - `usePositions`: Refactored from N×2 RPC calls (per market) to 2 indexer endpoint calls (`/amm-positions`, `/lp-balances`)
+  - `useAMMQuote`: Fee rate query now only runs when user enters shares (was running on every render), cache extended to 5 minutes, `isGraduated` passed from market data to avoid extra RPC read
+  - `useMarkets`: Now uses indexer exclusively with health check fallback
+  - **Result**: Zero 429 errors in console
+- **TradeModal Accessibility (2026-02-08)**: Fixed vaul drawer accessibility warnings by adding `Drawer.Title` and `aria-describedby={undefined}`.
+- **Mobile WalletConnect Storage (2026-02-04)**: Added safe JSON parsing and fallback handling for AppKit/WC storage to avoid invalid array/object shapes that break connection state.
 - **AMMSettlementCard Mock Data (2026-01-27)**: Replaced hardcoded `mockPosition = { yesShares: 0n, noShares: 0n }` with real user position data from `useAMMPositionDirect` hook. Users can now see their AMM shares and claim payouts on finalized markets.
 - **LPHolders Null Return (2026-01-27)**: Fixed component returning null when stats unavailable on finalized markets. Added `useTruthMarketDirect` to check `isFinalized` status and render LP Leaderboard even without stats. LP Leaderboard now visible on finalized Trade page.
 
 ### Changed
+- **Metro Polyfills (2026-02-04)**: Added Node 18 polyfills for `URL.canParse` and `Array.prototype.toReversed` to keep Metro running.
 - **Trade Page UI (2026-01-27)**: Improved AMMSettlementCard visual hierarchy with prominent status badges (Settled/Finalized), large payout display, clear winning outcome indicator, and full-width claim button with icon.
 - **Pro Page UI (2026-01-27)**: Standardized settlement card design matching AMMSettlementCard style. Added grid layout for Winning Outcome + Payout, status badges, and prominent redemption button.
 - **UserOrdersPanel Decision (2026-01-27)**: Decided to KEEP UserOrdersPanel in Pro finalized view. Reasoning: Open orders lock user collateral; market finalization does not auto-cancel orders due to gas constraints; users must manually cancel to retrieve funds and claim pending fills.
@@ -243,7 +257,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
   - Test count: 124 tests (was 30).
 
 **Contracts - Testing**
-- **New**: `packages/contracts-testing/test/unit/TickBookVault.t.sol` — 34 unit tests covering:
+- **New**: `packages/contracts-core/test/unit/TickBookVault.t.sol` — 34 unit tests covering:
   - Constructor validation
   - USDC deposit/withdraw
   - Reserve/release USDC (onlyTickBook)
@@ -296,12 +310,12 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Removed**: Verbose YES/NO token output lines from CLI.
 - **Fixed**: SDK now fetches market name from `TruthMarket.question()` instead of address-derived symbol only.
 - **Fixed**: CLI now shows full market key (removed truncation).
-- **Files Changed**: `packages/contracts-testing/script/interactive/interactive-test.ts`, `apps/web/src/lib/sdk/index.ts`
+- **Files Changed**: `packages/contracts-core/script/interactive/interactive-test.ts`, `apps/web/src/lib/sdk/index.ts`
 
 ### CLI Private RPC Support (2026-01-16)
 - **Added**: `BASE_SEPOLIA_RPC_URL` environment variable support in CLI config.
 - **Fixed**: `MEGAETH_TESTNET_RPC_URL` env var name (was incorrectly `MEGAETH_RPC_URL`).
-- **Files Changed**: `packages/contracts-testing/script/interactive/config.ts`
+- **Files Changed**: `packages/contracts-core/script/interactive/config.ts`
 
 ### Trade/Pro UI Header Cleanup (2026-01-16)
 - **Changed**: Market chips (Trade/Pro) now show question text + status icon only. Removed redundant symbol display, price/probability values.
@@ -316,7 +330,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Fixed**: `useLaunchpadMarket.ts`, `useLaunchpadMarketDirect.ts`, `useOnChainMarkets.ts` - symbol derived from address.
 - **Fixed**: `useOnChainMarkets.ts` now fetches question from `TruthMarket.question()` for market names.
 - **Fixed**: SDK `lib/sdk/commands/state.ts` and `lib/sdk/index.ts` - removed stale marketState[10]/[11] access.
-- **Fixed**: CLI `packages/contracts-testing/script/interactive/config.ts` - updated markets ABI to 10 fields.
+- **Fixed**: CLI `packages/contracts-core/script/interactive/config.ts` - updated markets ABI to 10 fields.
 
 ### Indexer Reset (2026-01-16)
 - **Changed**: Cleared `.ponder/` database to remove stale V10.8.2 indexed data.
@@ -336,7 +350,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Fixed**: Market chip cards in Pro.tsx - same treatment (`w-[280px]`), removed `.slice(0, 25)` truncation.
 
 ### CLI V10.8.3 Compatibility (2026-01-16)
-- **Fixed**: Internal CLI (`packages/contracts-testing/script/interactive/`) inline ABIs updated for V10.8.3 MarketState (removed name/symbol fields).
+- **Fixed**: Internal CLI (`packages/contracts-core/script/interactive/`) inline ABIs updated for V10.8.3 MarketState (removed name/symbol fields).
 - **Fixed**: Web SDK (`apps/web/src/lib/sdk/commands/state.ts`) markets command synced with internal CLI format.
 - **Changed**: Market names now fetched from `TruthMarket.question()` instead of MarketState struct.
 - **Changed**: Two-line market display format: Line 1 = market question, Line 2 = symbol/progress/liquidity/address.
@@ -402,7 +416,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Shared Utils**: `formatWad`, `parseWad`, `parseTickRange`, `parseOutcome`, `formatOutcome`, `formatTick`, `shortAddress`, `shortTx`, `computeMarketKey`, `sleep`, `getOrderType`
 - **Shared Types**: `OutputLine`, `CommandResult`, `OrderResult`, `Order`, `MarketState`, `Balances`
 - **Error Decoding**: `ERROR_SELECTORS`, `PANIC_CODES`, `decodeError`, `isTransientError`, `isContractError`
-- **Integration**: Both internal CLI (`packages/contracts-testing`) and web SDK (`apps/web/src/lib/sdk`) now import from `@sooth/sdk-core`
+- **Integration**: Both internal CLI (`packages/contracts-core`) and web SDK (`apps/web/src/lib/sdk`) now import from `@sooth/sdk-core`
 
 ### RPC Security (2026-01-16)
 - **Removed API Keys**: Removed hardcoded Alchemy API keys from frontend bundle (`chains.ts`, `wagmi.ts`).
@@ -429,7 +443,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Fix (Frontend)**: Updated `SimpleTradingPanel.tsx` to use 60M gas for graduation trades on MegaETH, 30M for normal trades.
 - **RPC**: Switched MegaETH CLI RPC from Alchemy to official endpoint (`carrot.megaeth.com/rpc`).
 - **Graduation Logic**: Re-enabled mid-loop graduation check for all chains with 2s state settling delay on MegaETH.
-- **Files Changed**: `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/config.ts`, `apps/web/src/components/features/SimpleTradingPanel.tsx`
+- **Files Changed**: `packages/contracts-core/script/interactive/commands/market.ts`, `packages/contracts-core/script/interactive/config.ts`, `apps/web/src/components/features/SimpleTradingPanel.tsx`
 
 ### MegaETH Stability & Market Creation (2026-01-14)
 - **Fix (Gas Limit)**: Removed hardcoded 2.5M gas limit in `createmarket` command; MegaETH requires ~28M gas for market deployment.
@@ -437,7 +451,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Enhancement**: Enabled `market buy/sell` in CLI for pre-graduation markets by routing trades to `LaunchpadEngine.tradePositions`.
 - **Infrastructure**: Successfully redeployed V10.8.1 core suite to MegaETH Testnet and updated all configuration endpoints.
 - **Branch Sync**: Reconciled and merged all stability fixes into the `render` branch, verifying zero changes to core contract Solidity source.
-- **Files Changed**: `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/commands/orderbook.ts`, `packages/contracts-core/script/chainConfigs.ts`, `apps/web/src/config/deployments.json`
+- **Files Changed**: `packages/contracts-core/script/interactive/commands/market.ts`, `packages/contracts-core/script/interactive/commands/orderbook.ts`, `packages/contracts-core/script/chainConfigs.ts`, `apps/web/src/config/deployments.json`
 
 ### Portfolio Market Name Fix (2026-01-13)
 - **Bug Fix**: Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question on Base Sepolia and Monad.
@@ -455,7 +469,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 
 ### Interactive CLI Reliability (2026-01-13)
 - **Fix**: Added RPC fallback retry for `readContract` on Monad when an endpoint returns empty call data (viem: `returned no data ("0x")`) during `createmarket` and balance checks.
-- **Files Changed**: `packages/contracts-testing/script/interactive/utils.ts`, `packages/contracts-testing/script/interactive/commands/market.ts`, `packages/contracts-testing/script/interactive/commands/wallet.ts`, `packages/contracts-testing/script/interactive/commands/vault.ts`
+- **Files Changed**: `packages/contracts-core/script/interactive/utils.ts`, `packages/contracts-core/script/interactive/commands/market.ts`, `packages/contracts-core/script/interactive/commands/wallet.ts`, `packages/contracts-core/script/interactive/commands/vault.ts`
 
 ### Indexer Reliability (2026-01-13)
 - **Fix**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier `eth_getLogs` 10-block range limit.
@@ -491,7 +505,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
   - MockUSDC: `0x2231f76e847cfdc3f1dee2197f97de2edf57fe5e`
 - **Infrastructure Sync**:
   - Updated `packages/indexer/ponder.config.ts` — Arc addresses + start block 21,290,000 + RPC preference
-  - Updated `packages/contracts-testing/script/interactive/config.ts` — Arc RPC to stable endpoint
+  - Updated `packages/contracts-core/script/interactive/config.ts` — Arc RPC to stable endpoint
   - Updated `README.md` — Arc contract addresses table
   - Frontend `deployments.json` already updated in earlier session
 - **Status**: All 3 testnets now on V10.8 (Base Sepolia, Monad, Arc)
@@ -524,7 +538,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
   - `apps/web/src/lib/wagmi.ts` — Updated Monad transport to single Ankr endpoint
   - `apps/web/src/hooks/useLaunchpadMarkets.ts` — Refactored to use useOnChainMarkets
   - `apps/web/src/hooks/useOnChainMarkets.ts` — Added error handling and v10 query keys
-  - `packages/contracts-testing/script/interactive/config.ts` — Updated Arc RPC to drpc
+  - `packages/contracts-core/script/interactive/config.ts` — Updated Arc RPC to drpc
 
 ### V10.8 Deployment & Full-Stack Sync (2026-01-11)
 - **Deployment**: Core protocol V10.8 deployed to **Arc Testnet** and **Monad Testnet**.
@@ -591,8 +605,8 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
   - Bumped indexer config to V10.7 contract addresses
 - **Files Changed**:
   - `packages/contracts-core/src/TickBookPoolManager.sol` — Full-range spot search in `_unifiedCross()`
-  - `packages/contracts-testing/test/crossing/SpotSellTickSpace.t.sol` — New test file
-  - `packages/contracts-testing/test/integration/OrderSystem.t.sol` — Updated gas benchmark
+  - `packages/contracts-core/test/crossing/SpotSellTickSpace.t.sol` — New test file
+  - `packages/contracts-core/test/integration/OrderSystem.t.sol` — Updated gas benchmark
   - `docs/V10/contracts/03-TickBookPoolManager.md` — Added V10.7 fix documentation
   - `apps/web/src/hooks/useIndexerStatus.ts` — New hook for indexer status
   - `apps/web/src/components/layout/Footer.tsx` — Sync indicator display
@@ -646,7 +660,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **Contracts**: Fixed MAX_TICK (999) boundary visibility by special-casing range orders that end at tick 999 so overlap discovery can still see top-of-book liquidity.
 
 ### CLI & Monad Config Fixes (2026-01-06)
-- **Monad Gas Config**: Explicitly set `gas_limit = 2000000` in `contracts-testing/foundry.toml` [profile.monad] to prevent OutOfGas.
+- **Monad Gas Config**: Explicitly set `gas_limit = 2000000` in `contracts-core/foundry.toml` [profile.monad] to prevent OutOfGas.
 - **CLI Fixes**:
   - Reduced `simulate` gas limit from 5M to 2M in `market.ts` to match network config.
   - Fixed `simulate` command `Address "0" is invalid` crash (incorrect destructuring of `truthMarket`).
@@ -654,7 +668,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 
 ### V10 Critical Fix (2026-01-05)
 - **Bug Fix**: `_hasSpotLiquidity` used exclusive search `findNextUp(tick)`, causing `placeOrder` to skip spot liquidity at the exact start tick. Fixed to uses inclusive search `findNextUp(tick - 1)`.
-- **Test Recovery**: Restored and migrated variable V9 test suite (79 tests) to V10 structure in `packages/contracts-testing/test/`.
+- **Test Recovery**: Restored and migrated variable V9 test suite (79 tests) to V10 structure in `packages/contracts-core/test/`.
 - **Verification**: `test_Unified_PlaceOrderCrossesSpotSell` now passes.
 
 ### Repo Hygiene (2026-01-05)
@@ -705,7 +719,7 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
   - `apps/web/src/config/abis.ts` → Added `V10_ABIS` export
   - `apps/web/src/config/abis/TickBookPoolManagerV10.json` → New ABI
   - 8 frontend hooks updated to use `V10_ABIS`
-  - `packages/contracts-testing/script/interactive/config.ts` → V10 ABI
+  - `packages/contracts-core/script/interactive/config.ts` → V10 ABI
 
 ### V10 Unified Crossing Architecture (2026-01-05)
 - **New Contract**: `TickBookPoolManagerV10.sol` — Unified crossing for dual-collateral orderbook
@@ -724,11 +738,11 @@ V11 introduces **Trial Period**, **ERC20 LP Tokens**, **Validated Adjudicator**,
 - **ADR-073**: Documents the V10 unified crossing design
 - **Files Added**:
   - `packages/contracts-core/src/TickBookPoolManagerV10.sol`
-  - `packages/contracts-testing/test/v10/UnifiedCrossingV10.t.sol`
+  - `packages/contracts-core/test/v10/UnifiedCrossingV10.t.sol`
 
 ### V10 Version Consistency Audit (2026-01-05)
 - **Removed**: Legacy `TickBookPoolManagerV996.sol` (historical V9).
-- **Removed**: `packages/contracts-testing/test/v9` directory (legacy tests).
+- **Removed**: `packages/contracts-core/test/v9` directory (legacy tests).
 - **Renamed**: `UnifiedOrderSystem.t.sol` → `UnifiedOrderSystemV9.t.sol` (explicit regression test).
 - **Fixed**: `interactive-test.ts` now uses `keyV10` instead of `keyV996`.
 - **Fixed**: `Pro.tsx` fully migrated to `V10_ABIS` (removed lingering V996 ABI imports).

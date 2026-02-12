@@ -1,8 +1,8 @@
 # Project Status
 
 > **Codebase Version**: V11.1  
-> **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-01-27
+> **Active Testing**: Base Sepolia + Monad Testnet  
+> **Last Updated**: 2026-02-08
 
 ## V11 Features (Implemented)
 
@@ -17,9 +17,14 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **Finalized Markets UI Audit Complete (2026-01-27)** — Fixed all critical and high-priority issues with finalized market displays across Portfolio, Trade, and Pro pages. Completed 10/10 tasks from work plan.
+
+- **Sooth Lite PWA Polish (2026-02-08)** — Mobile-first PWA for Monad hackathon. TikTok-style vertical snap-scroll feed. Completed: UI cleanup, faucet integration, background images, branding updates, decimal precision fixes, **RPC 429 error elimination**. Testing on Monad Testnet.
 
 ## Recent Changes (Last 5 Sessions)
+
+- **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction in Sooth Lite. Indexer now computes `yesProbability` locally from reserves (removed 67s/event RPC calls). Added `yesReserves`/`noReserves` fields to schema. Frontend `usePositions` refactored to use indexer endpoints. `useAMMQuote` optimized to only query when user types input. Added `useIndexerHealth` hook and status indicator. Fixed TradeModal accessibility (Drawer.Title). Result: Zero 429 errors.
+- **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
+- **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
 - **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
 - **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
 - **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
@@ -84,6 +89,7 @@
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
+
 - **ADR-083 Refactor** — Rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature-based paths per canonical filename policy.
 - **claimSpotSellProceedsFor** — Add permissionless spot sell claim for keeper parity (see cli-actor-testing-tool.md).
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
@@ -91,10 +97,13 @@
 - **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
 
 ## Recently Completed
+
 - ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
 - ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
 
 ## Known Issues
+
+- **Mobile Wallet Connect** — AppKit reports CONNECT_SUCCESS but `useAccount` stays disconnected; LINKING_ERROR on mobile wallet deep links (Base/Coinbase). Uniswap wallet opens but app doesn’t return to authenticated state.
 - **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
 - **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
 - **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
@@ -120,6 +129,7 @@
 ## V9.9.6 Unified Order API (2026-01-01)
 
 ### API Changes
+
 - **UNIFIED**: Single `placeOrder()` replaces separate `placeRangeOrder()` and `executeMarketOrder()`
 - **ORDER TYPES**: Determined by tick range:
   - Market order: `tickLower=1, tickUpper=999`
@@ -130,6 +140,7 @@
 - **TERMINOLOGY**: Removed maker/taker language (now resting/crossing orders)
 
 ### Frontend Integration
+
 - **New Hook**: `usePlaceOrder(marketKey)` with helper functions:
   - `marketOrder(outcome, shares, maxCost)` — fill everything
   - `limitOrder(outcome, shares, priceCents, maxCost)` — single tick
@@ -139,8 +150,9 @@
 - **Account Model**: Integrated spendable proceeds into buying power for better capital efficiency.
 
 ### Files Added
+
 - `packages/contracts-core/src/TickBookPoolManagerV996.sol`
-- `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol`
+- `packages/contracts-core/test/v9/UnifiedOrderSystem.t.sol`
 - `apps/web/src/hooks/usePlaceOrder.ts`
 - `apps/web/src/hooks/useOnChainMarkets.ts`
 - `apps/web/src/config/abis/TickBookPoolManager.json`
@@ -150,11 +162,13 @@
 ## V9.9.5 LEAN Changes (Deployed 2025-12-31)
 
 ### Bug Fixes
+
 - **Fill Overflow**: Q128 accumulator math could cause `filledShares > sharesTotal` (~0.1% drift)
 - **Phantom Orders**: Fully-filled orders remained "active" with dust liquidity
 - **Double Subtraction Risk**: Multiple cleanup paths could double-subtract liquidity
 
 ### Solution
+
 - Added `liquidityRemoved` flag to `RangeOrder` struct for idempotent cleanup
 - Cap `filledShares` at `sharesTotal` in `claimFills()`
 - Auto-complete orders when fully filled (removes tick liquidity, sets `active=false`)
@@ -165,6 +179,7 @@
 ## Current Deployments
 
 ### Base Sepolia (chainId: 84532) — V11.1 (Active Testing)
+
 | Contract | Address |
 |----------|---------|
 | **LaunchpadEngine** | `0x3cfa2113c919c916e8334d245b157de937e76836` |
@@ -178,6 +193,7 @@
 > **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
 
 ### Arc Testnet (chainId: 5042002) — V10.9
+
 | Contract | Address |
 |----------|---------|
 | **LaunchpadEngine** | `0x625b4b2997232380126f0aecd84867086f89b27e` |
@@ -187,17 +203,20 @@
 | **Collateralizer** | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
 | **MockUSDC** | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
 
-### Monad Testnet (chainId: 10143) — V10.9
+### Monad Testnet (chainId: 10143) — V11.1
+
 | Contract | Address |
 |----------|---------|
-| **LaunchpadEngine** | `0x3ae688354f831a6b37025e3f19744bd857005cca` |
-| **TickBookPoolManager** | `0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e` |
-| **TickBookVault** | `0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9` |
-| **AMMEngine** | `0x8f3e3e0309f0730c62b3fdc68bff2291308537bd` |
-| **Collateralizer** | `0x6a6454680c547c4db7e9bb7b06cac3030ce60183` |
-| **MockUSDC** | `0x394e0e16baf10cb2e2bb0016f854635ea80a3d23` |
+| **LaunchpadEngine** | `0x744724aa5b389644f31dfcfbb67786b581602084` |
+| **TickBookPoolManager** | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
+| **TickBookVault** | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
+| **AMMEngine** | `0x67147bc54df45ce43cb88b735043c496047596a7` |
+| **Collateralizer** | `0x57992a707c285971a22dffc3106118331b5e632f` |
+| **ProtocolConfig** | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
+| **MockUSDC** | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
 
 ### MegaETH Testnet (chainId: 6343) — V10.9
+
 | Contract | Address |
 |----------|---------|
 | **LaunchpadEngine** | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
@@ -207,12 +226,12 @@
 | **Collateralizer** | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
 | **MockUSDC** | `0x57bda4319c306a68054f25017183030752f97d63` |
 
-
 ---
 
 ## Package Structure (2026-01-01)
 
 ### contracts-core (Audit Scope)
+
 ```
 packages/contracts-core/
 ├── src/                 # Core contracts (audit scope)
@@ -222,9 +241,10 @@ packages/contracts-core/
 └── lib/                 # Dependencies
 ```
 
-### contracts-testing (Partner + QA)
+### contracts-core (Partner + QA)
+
 ```
-packages/contracts-testing/
+packages/contracts-core/
 ├── test/                # V10 tests only (legacy V9 removed)
 ├── script/
 │   ├── markets/         # Market creation & init scripts
@@ -236,18 +256,19 @@ packages/contracts-testing/
 ```
 
 ### Commands
+
 ```bash
 # Build core (audit scope)
 cd packages/contracts-core && forge build
 
 # Run tests
-cd packages/contracts-testing && forge test
+cd packages/contracts-core && forge test
 
 # Deploy
 pnpm deploy:contracts  # → contracts-core
 
 # Benchmark
-pnpm benchmark  # → contracts-testing
+pnpm benchmark  # → contracts-core
 ```
 
 ---
@@ -255,17 +276,21 @@ pnpm benchmark  # → contracts-testing
 ## Recent Improvements (2026-01-06)
 
 ### V10 Unified Crossing (ADR-073)
+
 - **Unified Liquidity**: `placeOrder` now natively crosses both Spot Sells and Range Orders.
 - **Spot Priority**: Takers automatically get the best price (Spot > Range).
 - **Verified**: Regression tests (`UnifiedCrossing.t.sol`) confirm correct priority and settlement.
 
-### Interactive CLI (contracts-testing)
+### Interactive CLI (contracts-core)
+
 New REPL for on-chain testing without external scripts:
+
 ```bash
 bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ```
 
 **Commands added:**
+
 - `createmarket <template> [liquidity]` — Deploy TruthMarket + init in LaunchpadEngine
 - `graduate [tradeSize] [numTrades]` — Execute trades to accumulate fees until graduation
 - `marketstatus` — Show comprehensive status (TruthMarket, AMM, Collateralizer, TickBook)
@@ -276,17 +301,21 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 **Key feature:** Everything works from CLI — TruthMarket bytecode embedded, no forge scripts needed.
 
 ### Package Split (ADR-065)
-- Split `contracts-evm` into `contracts-core` (audit) + `contracts-testing` (QA/partners)
+
+- Split `contracts-evm` into `contracts-core` (audit) + `contracts-core` (QA/partners)
 - Deleted outdated V4/V5/V8 artifacts (broadcast logs, old deployment configs)
 - Updated sync scripts to point to `contracts-core/deployments/`
 - Tests use `@core/` remapping to import from core package
 
 ### Deployment Workflow
+
 **STEP 1**: [1_DeployCore.s.sol](packages/contracts-core/script/1_DeployCore.s.sol)
+
 - Deploys 5 core contracts (Collateralizer, AMMEngine, TickBookVault, PoolManager, LaunchpadEngine)
 - Links components (vault→poolManager, ammEngine→launchpad router)
 
-**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-testing/script/markets/2_CreateMarket.s.sol)
+**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-core/script/markets/2_CreateMarket.s.sol)
+
 - Market creation workflow in correct order (deploy → activate → register → initialize)
 
 ---
@@ -294,24 +323,30 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ## Interactive CLI Bug Fixes (2026-01-01)
 
 ### Basis Points (BPS) Fixes
+
 **Issue**: `getGraduationProgress` returns progress in basis points (10000 = 100%), but CLI was treating it as percentage.
 
 **Fixed files**:
+
 - `commands/state.ts`: Markets list now displays correct % (was showing "ready!" at 6.9%)
 - `commands/market.ts`: Graduate command checks `>= 10000n` not `>= 100n`
 - `commands/market.ts`: Progress display divides by 100 for correct %
 
 ### Graduate Trade Size Calculation
+
 **Issue**: Trades weren't generating enough fees because:
+
 1. `tradeSize` is in shares, but fees are charged on COST (USDC)
 2. SELL trades are half the size of BUY trades
 3. With LMSR at ~50% price, cost ≈ 0.5 × shares
 
 **Fix**: Changed formula from `volumeNeeded * 8 / (3 * numTrades)` to account for:
+
 - BUY cost ≈ shares × 0.5
 - SELL cost ≈ (shares/2) × 0.5
 
 ### Frontend Collateralizer Fix
+
 **Issue**: Pre-graduation markets threw "Collateralizer: not registered" error
 
 **Fix**: `useCollateralizerDirect.ts` now wraps read in try-catch, returns fallback with `isRegistered: false` for pre-graduation markets.
@@ -323,18 +358,21 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 Added on-chain market enumeration to replace static `markets.json` config.
 
 ### Contract Changes
+
 - `LaunchpadEngine.sol`: Added `address[] public allMarkets` storage
 - `LaunchpadEngine.sol`: Added `getMarkets()` and `getMarketCount()` view functions
 - `ILaunchpadEngine.sol`: Updated interface with new functions
 - `createMarket()` now pushes to `allMarkets` array
 
 ### Frontend Changes
+
 - Updated `LaunchpadEngine.json` ABI
 - New hook: `useOnChainMarkets.ts`
   - `useOnChainMarkets()` — Returns all markets with metadata
   - `useOnChainMarketCount()` — Lightweight count-only query
 
 ### Integration Status
+
 - **Ready**: Contract + hook complete, build passes
 - **Pending**: Wire hook into market list pages (Trade, Portfolio, Pro)
 - **Decision**: Keep `markets.json` for UI metadata (descriptions, categories, images)
@@ -344,23 +382,28 @@ Added on-chain market enumeration to replace static `markets.json` config.
 ## Pending Work
 
 ### Critical (Blocking)
+
 - [x] **Create test markets** — V10.3.0 markets created on Monad & Base Sepolia.
 - [x] **Frontend Integration** — Connected V10 contracts to web app.
 
 ### High Priority
+
 - [x] **Verify Graduate Command** — Validated on V10 markets.
 - [ ] **Contract Verification** — Verify V10 contracts on Basescan
 
 ### Medium Priority
+
 - [ ] **Integrate useOnChainMarkets** — Replace static config in market pages
 - [ ] **Documentation** — Update developer guides for V10 changes
 
 ### Interactive CLI Next Steps
+
 - [ ] **Tune graduate trade sizes** — Current formula gets ~70% progress; may need more iterations
 - [ ] **Custom market template** — Allow user to specify question/name/symbol
 - [ ] **Scenario library** — Add more YAML scenarios for automated testing
 
 ### Known Issues
+
 - Graduate command with 4 trades reaches ~70% progress instead of 100% (LMSR price impact varies)
 
 ---

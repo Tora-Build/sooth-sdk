@@ -17,7 +17,7 @@ V10 introduces unified crossing which affects gas costs. This document provides 
 ### Basic Gas Report
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test --gas-report
 ```
 
@@ -170,7 +170,7 @@ function test_UnifiedCrossing_GasBenchmark() public {
 **Location**: `script/benchmark/hft-benchmark.ts`
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 bun run script/benchmark/hft-benchmark.ts --chain=baseSepolia
 ```
 

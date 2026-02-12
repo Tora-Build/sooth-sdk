@@ -420,5 +420,5 @@ uint16 protocolShareBps = 2000;       // 20% to protocol
 ## 📚 Additional Resources
 
 - **Fee Economics**: See STATUS.md for current fee rates
-- **Test Suite**: `packages/contracts-testing/test/v9/LaunchpadEngine.t.sol`
-- **Interactive CLI**: `packages/contracts-testing/script/interactive/interactive-test.ts`
+- **Test Suite**: `packages/contracts-core/test/v9/LaunchpadEngine.t.sol`
+- **Interactive CLI**: `packages/contracts-core/script/interactive/interactive-test.ts`

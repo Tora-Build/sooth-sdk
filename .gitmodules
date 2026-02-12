@@ -7,3 +7,7 @@
 [submodule "packages/contracts-evm/lib/prb-math"]
 	path = packages/contracts-evm/lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
+[submodule "packages/contracts-core"]
+	path = packages/contracts-core
+	url = https://github.com/Tora-Build/sooth-core
+	branch = develop

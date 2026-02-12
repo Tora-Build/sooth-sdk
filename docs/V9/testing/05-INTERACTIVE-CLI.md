@@ -1,7 +1,7 @@
 # Interactive CLI Testing
 
 **Status**: Full REPL for on-chain testing ✅  
-**Location**: `packages/contracts-testing/script/interactive/`  
+**Location**: `packages/contracts-core/script/interactive/`  
 **Chains**: Base Sepolia, Monad Testnet
 
 ---
@@ -9,7 +9,7 @@
 ## 🚀 Quick Start
 
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ```
 

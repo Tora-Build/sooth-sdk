@@ -1,5 +1,6 @@
 import { formatUnits, parseUnits, keccak256, encodeAbiParameters, parseAbiParameters, type Address } from 'viem';
-import type { OutputLine, OutputLineType } from './types';
+import { WAD } from './types.js';
+import type { OutputLine, OutputLineType } from './types.js';
 
 export function formatWad(value: bigint, decimals = 2): string {
   const formatted = formatUnits(value, 18);
@@ -153,4 +154,24 @@ export function getOrderType(tickLower: number, tickUpper: number): 'limit' | 'm
   if (tickLower === tickUpper) return 'limit';
   if ((tickLower === 1 || tickLower === 10) && (tickUpper === 999 || tickUpper === 9990)) return 'market';
   return 'range';
+}
+
+/**
+ * Convert WAD (1e18) value to token units for a given decimal count.
+ * Example: wadToTokenUnits(1000000000000000000n, 6) => 1000000n (1 USDC)
+ */
+export function wadToTokenUnits(wad: bigint, tokenDecimals: number): bigint {
+  const diff = 18 - tokenDecimals;
+  if (diff < 0) return wad * (10n ** BigInt(-diff));
+  return wad / (10n ** BigInt(diff));
+}
+
+/**
+ * Convert token units to WAD (1e18) for a given decimal count.
+ * Example: tokenUnitsToWad(1000000n, 6) => 1000000000000000000n
+ */
+export function tokenUnitsToWad(units: bigint, tokenDecimals: number): bigint {
+  const diff = 18 - tokenDecimals;
+  if (diff < 0) return units / (10n ** BigInt(-diff));
+  return units * (10n ** BigInt(diff));
 }

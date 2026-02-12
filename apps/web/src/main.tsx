@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { preferInjectedProvider } from './lib/preferInjectedProvider';
 // Pages
 import { Landing } from './pages/Landing';
 import { AppLayout } from './layouts/AppLayout';
+import { AccessGate } from './components/AccessGate';
 import { Faucet } from './pages/Faucet';
 
 // Role-Based Pages (V10)
@@ -44,6 +45,7 @@ createAppKit({
     socials: ['google', 'github', 'discord'],
     smartSessions: true,
   },
+  showBalance: false,
   themeMode: 'dark',
   themeVariables: {
     '--w3m-accent': '#06b6d4', // Cyan-500 for Neon Terminal theme
@@ -73,7 +75,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             }}
           />
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Navigate to="/create" replace />} />
+            <Route element={<AccessGate />}>
             <Route element={<AppLayout />}>
               <Route path="/learn" element={<Learn />} />
               <Route path="/trade" element={<Trade />} />
@@ -87,6 +90,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/faucet" element={<Faucet />} />
               <Route path="/explore-markets" element={<ExploreExternalMarkets />} />
               <Route path="/geek" element={<Geek />} />
+            </Route>
             </Route>
           </Routes>
         </BrowserRouter>

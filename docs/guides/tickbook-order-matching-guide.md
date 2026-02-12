@@ -655,7 +655,7 @@ event SpotSellProceedsClaimed(...)
 ## Additional Resources
 
 - **Contract Source**: `packages/contracts-core/src/TickBookPoolManager.sol`
-- **Tests**: `packages/contracts-testing/test/crossing/SpotSellTickSpace.t.sol`
+- **Tests**: `packages/contracts-core/test/crossing/SpotSellTickSpace.t.sol`
 - **Architecture**: `docs/V10/contracts/03-TickBookPoolManager.md`
 - **CHANGELOG**: `CHANGELOG.md`
 

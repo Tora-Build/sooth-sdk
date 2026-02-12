@@ -1,0 +1,7 @@
+name = "sooth-rpc-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+routes = [{ pattern = "rpc.sooth.market", custom_domain = true }]
+
+[vars]
+ALLOWED_ORIGINS = "https://sooth.market,https://app.sooth.market,https://sayer.sooth.market,https://w3.tora.build,http://localhost:5173,http://localhost:5174"

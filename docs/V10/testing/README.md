@@ -1,6 +1,6 @@
 # Sooth Protocol V10 Testing Documentation
 
-**Package**: `packages/contracts-testing`  
+**Package**: `packages/contracts-core`  
 **Status**: 10/10 V10 tests passing  
 **Date**: 2026-01-06
 
@@ -60,7 +60,7 @@
 
 ### Run All Tests
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 forge test
 ```
 
@@ -78,7 +78,7 @@ forge test --match-path "*integration*" -v
 
 ### Run Interactive CLI
 ```bash
-cd packages/contracts-testing
+cd packages/contracts-core
 bun run script/interactive/interactive-test.ts --chain=baseSepolia
 ```
 
@@ -106,7 +106,7 @@ forge test --gas-report
 ## V10 Test Structure
 
 ```
-packages/contracts-testing/
+packages/contracts-core/
 ├── test/
 │   ├── crossing/
 │   │   ├── UnifiedCrossing.t.sol       # V10 unified crossing (14 tests)
@@ -258,7 +258,7 @@ forge test --match-path "*crossing*" -vvv
 curl -L https://foundry.paradigm.xyz | bash
 
 # Install dependencies
-cd packages/contracts-testing
+cd packages/contracts-core
 forge install
 
 # For interactive CLI

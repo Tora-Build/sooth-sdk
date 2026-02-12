@@ -191,7 +191,7 @@ See [docs/contracts/03-TickBook.md § V9.9.6-fix9L](../contracts/03-TickBook.md#
 ## 🔗 References
 
 - **Code**: `packages/contracts-core/src/TickBookPoolManagerV996.sol:450`
-- **Tests**: `packages/contracts-testing/test/v9/UnifiedOrderSystem.t.sol:228`
+- **Tests**: `packages/contracts-core/test/v9/UnifiedOrderSystem.t.sol:228`
 - **Deployments**: `packages/contracts-core/deployments/v9-*.json`
 - **Status**: [STATUS.md](../STATUS.md)
 
