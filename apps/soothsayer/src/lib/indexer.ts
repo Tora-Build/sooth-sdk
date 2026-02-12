@@ -58,11 +58,19 @@ export async function fetchOrderbookFromIndexer(marketKey: string) {
 export async function checkIndexerHealth(): Promise<boolean> {
   if (!INDEXER_URL) return false;
   try {
-    const response = await fetch(`${INDEXER_URL}/api-health`, {
+    const response = await fetch(`${INDEXER_URL}/status`, {
       method: 'GET',
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(3000),
     });
-    return response.ok;
+    if (!response.ok) return false;
+
+    const status = await response.json();
+    // Check if Monad mainnet data is fresh (within last 10 minutes)
+    const monadTimestamp = status?.monadMainnet?.block?.timestamp;
+    if (!monadTimestamp) return false;
+
+    const ageSeconds = Math.floor(Date.now() / 1000) - Number(monadTimestamp);
+    return ageSeconds < 600; // 10 min staleness threshold
   } catch {
     return false;
   }
