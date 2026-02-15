@@ -1,12 +1,11 @@
 /**
  * Invariant Assertions
- * Built-in invariants that can be checked during scenarios
+ * SoothBook invariants for on-chain verification
  */
 
 import type { CommandContext } from '../commands/types';
-import type { ActorManager } from '../actors';
-import { ABIS, WAD } from '../config';
-import { formatWad, success, error } from '../utils';
+import { ABIS } from '../config';
+import { formatWad, success, error, readContractWithRpcFallback } from '../utils';
 
 export interface AssertionResult {
   name: string;
@@ -16,51 +15,210 @@ export interface AssertionResult {
 }
 
 /**
- * Check vault solvency - total claims <= vault balance
- * SKIPPED: TickBook removed
+ * Check SoothBook collateral backing — USDC held >= collateralBacking reported
  */
-export async function checkVaultSolvency(ctx: CommandContext): Promise<AssertionResult> {
-  return {
-    name: 'vault.solvent',
-    passed: true,
-    message: 'Skipped (TickBook removed)',
-  };
+export async function checkCollateralBacking(ctx: CommandContext): Promise<AssertionResult> {
+  const soothBook = ctx.deployment.contracts.SoothBook;
+  const marketKey = ctx.marketKey;
+
+  if (!soothBook || !marketKey) {
+    return {
+      name: 'soothbook.backing',
+      passed: true,
+      message: 'Skipped (no SoothBook or market selected)',
+    };
+  }
+
+  try {
+    const [usdcBalance, collateralBacking] = await Promise.all([
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: ctx.deployment.contracts.MockUSDC as `0x${string}`,
+        abi: ABIS.MockUSDC,
+        functionName: 'balanceOf',
+        args: [soothBook as `0x${string}`],
+      }),
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: soothBook as `0x${string}`,
+        abi: ABIS.SoothBook,
+        functionName: 'getCollateralBacking',
+        args: [marketKey],
+      }),
+    ]);
+
+    const passed = usdcBalance >= collateralBacking;
+    return {
+      name: 'soothbook.backing',
+      passed,
+      message: passed
+        ? `USDC ${formatWad(usdcBalance)} >= backing ${formatWad(collateralBacking)}`
+        : `USDC ${formatWad(usdcBalance)} < backing ${formatWad(collateralBacking)} — UNDERCOLLATERALIZED`,
+      data: { usdcBalance, collateralBacking },
+    };
+  } catch (err) {
+    return {
+      name: 'soothbook.backing',
+      passed: false,
+      message: `Error: ${(err as Error).message}`,
+    };
+  }
 }
 
 /**
- * Check no order overflow - filledShares <= sharesTotal for all orders
- * SKIPPED: TickBook removed
+ * Check market is active (not finalized/resolved)
  */
-export async function checkNoOrderOverflow(ctx: CommandContext): Promise<AssertionResult> {
-  return {
-    name: 'orders.noOverflow',
-    passed: true,
-    message: 'Skipped (TickBook removed)',
-  };
+export async function checkMarketActive(ctx: CommandContext): Promise<AssertionResult> {
+  const soothBook = ctx.deployment.contracts.SoothBook;
+  const marketKey = ctx.marketKey;
+
+  if (!soothBook || !marketKey) {
+    return {
+      name: 'soothbook.marketActive',
+      passed: true,
+      message: 'Skipped (no SoothBook or market selected)',
+    };
+  }
+
+  try {
+    const marketInfo = await readContractWithRpcFallback<
+      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
+    >(ctx.config.chain, ctx.config.rpc, {
+      address: soothBook as `0x${string}`,
+      abi: ABIS.SoothBook,
+      functionName: 'markets',
+      args: [marketKey],
+    });
+
+    const [, , , active, finalized, outcome] = marketInfo;
+    const passed = active && !finalized;
+    const outcomeLabels = ['NO', 'YES', 'INVALID'];
+
+    return {
+      name: 'soothbook.marketActive',
+      passed,
+      message: passed
+        ? 'Market is active'
+        : `Market inactive: active=${active}, finalized=${finalized}, outcome=${outcomeLabels[outcome] ?? outcome}`,
+      data: { active, finalized, outcome },
+    };
+  } catch (err) {
+    return {
+      name: 'soothbook.marketActive',
+      passed: false,
+      message: `Error: ${(err as Error).message}`,
+    };
+  }
 }
 
 /**
- * Check tick consistency - tick in valid range
- * SKIPPED: TickBook removed
+ * Check YES totalSupply == NO totalSupply (complete sets invariant)
  */
-export async function checkTickConsistency(ctx: CommandContext): Promise<AssertionResult> {
-  return {
-    name: 'market.tickValid',
-    passed: true,
-    message: 'Skipped (TickBook removed)',
-  };
+export async function checkTokenSupply(ctx: CommandContext): Promise<AssertionResult> {
+  const soothBook = ctx.deployment.contracts.SoothBook;
+  const marketKey = ctx.marketKey;
+
+  if (!soothBook || !marketKey) {
+    return {
+      name: 'soothbook.tokenSupply',
+      passed: true,
+      message: 'Skipped (no SoothBook or market selected)',
+    };
+  }
+
+  try {
+    const marketInfo = await readContractWithRpcFallback<
+      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
+    >(ctx.config.chain, ctx.config.rpc, {
+      address: soothBook as `0x${string}`,
+      abi: ABIS.SoothBook,
+      functionName: 'markets',
+      args: [marketKey],
+    });
+
+    const [, yesToken, noToken] = marketInfo;
+
+    const [yesSupply, noSupply] = await Promise.all([
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: yesToken,
+        abi: ABIS.OutcomeToken,
+        functionName: 'totalSupply',
+        args: [],
+      }),
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: noToken,
+        abi: ABIS.OutcomeToken,
+        functionName: 'totalSupply',
+        args: [],
+      }),
+    ]);
+
+    const passed = yesSupply === noSupply;
+    return {
+      name: 'soothbook.tokenSupply',
+      passed,
+      message: passed
+        ? `YES supply == NO supply (${formatWad(yesSupply)})`
+        : `YES ${formatWad(yesSupply)} != NO ${formatWad(noSupply)} — SUPPLY MISMATCH`,
+      data: { yesSupply, noSupply },
+    };
+  } catch (err) {
+    return {
+      name: 'soothbook.tokenSupply',
+      passed: false,
+      message: `Error: ${(err as Error).message}`,
+    };
+  }
 }
 
 /**
- * Check reserved never exceeds available for each actor
- * SKIPPED: TickBook removed
+ * Check best ticks are in valid range (0 = empty book, or 1-999)
  */
-export async function checkReservedBounds(ctx: CommandContext): Promise<AssertionResult> {
-  return {
-    name: 'vault.reservedBounds',
-    passed: true,
-    message: 'Skipped (TickBook removed)',
-  };
+export async function checkTickRange(ctx: CommandContext): Promise<AssertionResult> {
+  const soothBook = ctx.deployment.contracts.SoothBook;
+  const marketKey = ctx.marketKey;
+
+  if (!soothBook || !marketKey) {
+    return {
+      name: 'soothbook.tickRange',
+      passed: true,
+      message: 'Skipped (no SoothBook or market selected)',
+    };
+  }
+
+  try {
+    const [bestYesTick, bestNoTick] = await Promise.all([
+      readContractWithRpcFallback<number>(ctx.config.chain, ctx.config.rpc, {
+        address: soothBook as `0x${string}`,
+        abi: ABIS.SoothBook,
+        functionName: 'getBestTick',
+        args: [marketKey, 1],
+      }),
+      readContractWithRpcFallback<number>(ctx.config.chain, ctx.config.rpc, {
+        address: soothBook as `0x${string}`,
+        abi: ABIS.SoothBook,
+        functionName: 'getBestTick',
+        args: [marketKey, 0],
+      }),
+    ]);
+
+    const yesValid = bestYesTick === 0 || (bestYesTick >= 1 && bestYesTick <= 999);
+    const noValid = bestNoTick === 0 || (bestNoTick >= 1 && bestNoTick <= 999);
+    const passed = yesValid && noValid;
+
+    return {
+      name: 'soothbook.tickRange',
+      passed,
+      message: passed
+        ? `YES tick=${bestYesTick}, NO tick=${bestNoTick} (valid)`
+        : `Out of range: YES tick=${bestYesTick}, NO tick=${bestNoTick}`,
+      data: { bestYesTick, bestNoTick },
+    };
+  } catch (err) {
+    return {
+      name: 'soothbook.tickRange',
+      passed: false,
+      message: `Error: ${(err as Error).message}`,
+    };
+  }
 }
 
 /**
@@ -68,10 +226,10 @@ export async function checkReservedBounds(ctx: CommandContext): Promise<Assertio
  */
 export async function runAllInvariants(ctx: CommandContext): Promise<AssertionResult[]> {
   const results = await Promise.all([
-    checkVaultSolvency(ctx),
-    checkNoOrderOverflow(ctx),
-    checkTickConsistency(ctx),
-    checkReservedBounds(ctx),
+    checkCollateralBacking(ctx),
+    checkMarketActive(ctx),
+    checkTokenSupply(ctx),
+    checkTickRange(ctx),
   ]);
 
   return results;
@@ -98,10 +256,10 @@ export function printInvariantResults(results: AssertionResult[]): void {
 }
 
 export const invariants = {
-  checkVaultSolvency,
-  checkNoOrderOverflow,
-  checkTickConsistency,
-  checkReservedBounds,
+  checkCollateralBacking,
+  checkMarketActive,
+  checkTokenSupply,
+  checkTickRange,
   runAllInvariants,
   printInvariantResults,
 };

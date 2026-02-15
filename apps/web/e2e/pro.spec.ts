@@ -5,13 +5,13 @@ const V8_GRADUATED = marketsConfig.markets.find(m => m.version.startsWith('v8') 
 const V8_PREGRAD = marketsConfig.markets.find(m => m.version.startsWith('v8') && !m.isGraduated);
 
 test.describe('Pro Page', () => {
-  test('displays TickBook terminal identification', async ({ page }) => {
+  test('displays SoothBook terminal identification', async ({ page }) => {
     await page.goto('/pro');
     await page.waitForTimeout(2000);
     
     // Should show either terminal or restricted view
     await expect(
-      page.getByText(/TICKBOOK TERMINAL|TickBook Restricted|Tick Map|Tick Ladder/i).first()
+      page.getByText(/SOOTHBOOK TERMINAL|SoothBook Restricted|Tick Map|Tick Ladder/i).first()
     ).toBeVisible();
   });
 
@@ -26,8 +26,8 @@ test.describe('Pro Page', () => {
     
     // Note: in E2E, the contract state might not match the config hint.
     // We check for either the terminal or the restricted warning.
-    const terminal = page.getByText(/TICKBOOK TERMINAL|Tick Map|Tick Ladder/i);
-    const warning = page.getByText(/TickBook Restricted/i);
+    const terminal = page.getByText(/SOOTHBOOK TERMINAL|Tick Map|Tick Ladder/i);
+    const warning = page.getByText(/SoothBook Restricted/i);
     
     const hasTerminal = await terminal.first().isVisible().catch(() => false);
     const hasWarning = await warning.first().isVisible().catch(() => false);
@@ -45,7 +45,7 @@ test.describe('Pro Page', () => {
     await page.waitForTimeout(3000);
     
     await expect(
-      page.getByText(/TickBook Restricted|Hyper-orderbook venues are only available/i).first()
+      page.getByText(/SoothBook Restricted|Hyper-orderbook venues are only available/i).first()
     ).toBeVisible();
   });
 
@@ -68,7 +68,7 @@ test.describe('Pro Page', () => {
     await page.goto(`/pro/${V8_PREGRAD.contractAddress}`);
     await page.waitForTimeout(2000);
     
-    const warning = page.getByText(/TickBook Restricted/i);
+    const warning = page.getByText(/SoothBook Restricted/i);
     const hasWarning = await warning.first().isVisible().catch(() => false);
     
     if (hasWarning) {

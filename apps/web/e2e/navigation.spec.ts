@@ -43,7 +43,7 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/pro/);
     // Pro page shows either trading interface or "not graduated" warning
     await expect(
-      page.getByText(/Pro|TickBook|Not Graduated|Advanced/i).first()
+      page.getByText(/Pro|SoothBook|Not Graduated|Advanced/i).first()
     ).toBeVisible();
   });
 

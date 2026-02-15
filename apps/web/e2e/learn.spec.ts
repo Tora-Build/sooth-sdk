@@ -21,7 +21,7 @@ test.describe('Learn Page', () => {
     // Check for pillars
     await expect(page.getByRole('heading', { name: /Launchpad/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /ZK Rules/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /TickBook/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /SoothBook/i })).toBeVisible();
   });
 
   test('can navigate through all steps', async ({ page }) => {

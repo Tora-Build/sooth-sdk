@@ -14,11 +14,7 @@
     "dev:cli:base": "pnpm --filter contracts-testing interactive:base",
     "dev:cli:monad": "pnpm --filter contracts-testing interactive:monad",
     "dev:cli:arc": "pnpm --filter contracts-testing interactive:arc",
-    "dev:cli:megaeth": "pnpm --filter contracts-testing interactive:megaeth",
-    "dev:keeper:base": "pnpm --filter @sooth/keeper keeper:base",
-    "dev:keeper:monad": "pnpm --filter @sooth/keeper keeper:monad",
-    "dev:keeper:arc": "pnpm --filter @sooth/keeper keeper:arc",
-    "dev:keeper:megaeth": "pnpm --filter @sooth/keeper keeper:megaeth"
+    "dev:cli:megaeth": "pnpm --filter contracts-testing interactive:megaeth"
   },
   "devDependencies": {
     "patch-package": "^8.0.1",

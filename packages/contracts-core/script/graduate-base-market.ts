@@ -64,7 +64,7 @@ const walletClient = createWalletClient({
 
 async function main() {
   console.log('╔════════════════════════════════════════════════╗');
-  console.log('║  Graduate Base Sepolia Market (V10.7)         ║');
+  console.log('║  Graduate Base Sepolia Market (V12)            ║');
   console.log('╚════════════════════════════════════════════════╝\n');
 
   console.log(`TruthMarket: ${TRUTH_MARKET}`);
@@ -93,7 +93,7 @@ async function main() {
   console.log('║  ✅ SUCCESS - Market Graduated!                ║');
   console.log('╚════════════════════════════════════════════════╝\n');
 
-  console.log('Market is now in orderbook (TickBook) phase');
+  console.log('Market is now in orderbook (SoothBook) phase');
   console.log('Indexer should pick it up within ~10 seconds! 🎉');
   console.log('');
   console.log('Check with: curl "http://localhost:42069/markets/84532"');

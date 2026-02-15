@@ -148,8 +148,8 @@ test.describe('V9 Trading Features', () => {
       // Should show Wallet section
       await expect(page.getByText(/Wallet/i).first()).toBeVisible({ timeout: 10000 });
 
-      // Should show TickBook Vault section
-      await expect(page.getByText(/TickBook Vault/i).first()).toBeVisible({ timeout: 10000 });
+      // Should show SoothBook Vault section
+      await expect(page.getByText(/SoothBook Vault/i).first()).toBeVisible({ timeout: 10000 });
     });
 
     test('shows LP Shares section', async ({ page }) => {

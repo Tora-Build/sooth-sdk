@@ -191,6 +191,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
     mockUSDC,
     ammEngine,
     collateralizer,
+    soothBook,
     protocolConfig,
     ctx.deployer, // Protocol Treasury
     ctx.deployer, // Initial owner

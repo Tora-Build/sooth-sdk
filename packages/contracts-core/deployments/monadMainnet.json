@@ -6,8 +6,7 @@
     "ProtocolConfig": "0xbc7b155057bb78bb8bf9c9f9fa6bfcc931aeaf38",
     "Collateralizer": "0x1af3cb8b270db3e71fc979543c32b87709ea191f",
     "AMMEngine": "0x8629b9ca457f4088ec8346faed61da858fdb498d",
-    "TickBookVault": "0x50293ad4e42593a8b081960c991c198729e81192",
-    "TickBookPoolManager": "0x12a38bc9e3bd2359265ce70451777ede2fd875a3",
+    "SoothBook": "0x12a38bc9e3bd2359265ce70451777ede2fd875a3",
     "LaunchpadEngine": "0xaa3ffae62a8af00d08ac395e9551776b0a01e492",
     "ValidatedAdjudicator": "0x4f0b73177dac5a7f5ea2dbcffd2b983b3719b39b"
   },

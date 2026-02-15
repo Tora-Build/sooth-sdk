@@ -57,38 +57,6 @@ export const MOCK_ERC20_ABI = parseAbi([
   "function mint(address to, uint256 amount)",
 ]);
 
-export const TRADER_VAULT_V4_ABI = parseAbi([
-  "function deposit(uint256 amount)",
-  "function withdraw(uint256 amount)",
-  "function accounts(address user) view returns (uint256 available, uint256 pending)",
-  "function shareBalances(address user, address market, uint8 outcome) view returns (uint256)",
-  "function ammPositions(address user, address market) view returns (uint256 yesShares, uint256 noShares)",
-  "function tradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost)",
-  "function depositAndTradeAMM(address market, uint8 outcome, int256 deltaShares, int256 maxCost, uint256 depositAmount)",
-  "function depositShares(address market, uint8 outcome, uint256 amount)",
-  "function withdrawShares(address market, uint8 outcome, uint256 amount)",
-  "function splitAndDeposit(address market, uint256 amount)",
-  "function mergeFromVault(address market, uint256 amount)",
-  "function placeOrder(address market, uint8 outcome, uint256 price, uint256 amount, bool isBuy) returns (uint256)",
-  "function cancelOrder(address market, uint256 orderId)",
-  "function onOrderMatched(uint256 orderId, uint256 matchedAmount, uint256 matchedValue)",
-  "function claimUnlocked() returns (uint256)",
-  "function claimUnlocked(address vault) returns (uint256)",
-  "function redeem(address market)",
-  "function asset() view returns (address)",
-  "function isMarket(address market) view returns (bool)",
-  "function orderOwners(uint256 orderId) view returns (address)",
-  "function lockedBalance(address user) view returns (uint256)",
-  "function claimableBalance(address user) view returns (uint256)",
-  "function availableBalance(address user) view returns (uint256)",
-  "function pendingBalance(address user) view returns (uint256)",
-  "function totalBalance(address user) view returns (uint256)",
-  "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
-  "function getLockEntries(address user) view returns (uint256[] amounts, uint64[] unlockTimes)",
-  "function setSettlementSink(address sink, bool allowed)",
-  "function claimSettlementRoot(address market, uint256 batchId, int256 pnlWad, bytes32[] proof)",
-]);
-
 export const GOVERNOR_VAULT_V4_ABI = parseAbi([
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",

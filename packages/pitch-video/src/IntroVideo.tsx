@@ -926,7 +926,7 @@ const SceneDualVenue = () => {
               </div>
             </div>
 
-            {/* TickBook Card */}
+            {/* SoothBook Card */}
             <div
               style={{
                 width: 440,
@@ -940,7 +940,7 @@ const SceneDualVenue = () => {
               }}
             >
               <div style={{ fontSize: 18, fontFamily: FONTS.mono, color: COLORS.magenta[400], marginBottom: 24, letterSpacing: 3 }}>
-                TICKBOOK · PRO
+                SOOTHBOOK · PRO
               </div>
 
               {[{ price: 71, size: 1200 }, { price: 69, size: 2500 }, { price: 68, size: 1800 }].map((row, i) => (

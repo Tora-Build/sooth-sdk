@@ -7,6 +7,7 @@ import {ProtocolConfig} from "@core/ProtocolConfig.sol";
 import {ValidatedAdjudicator} from "@core/ValidatedAdjudicator.sol";
 import {LaunchpadLPToken} from "@core/LaunchpadLPToken.sol";
 import {TruthMarket} from "@core/TruthMarket.sol";
+import {SoothBook} from "@core/SoothBook.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import {MockAMMEngine} from "../mocks/MockAMMEngine.sol";
@@ -48,6 +49,7 @@ abstract contract TrialPeriodTestBase is Test {
     ERC20Mock internal usdc;
     MockAMMEngine internal ammEngine;
     MockCollateralizer internal collateralizer;
+    SoothBook internal soothBook;
 
     LaunchpadEngine internal launchpad;
     ProtocolConfig internal protocolConfig;
@@ -99,11 +101,14 @@ abstract contract TrialPeriodTestBase is Test {
     function _deployCoreContracts() internal {
         protocolConfig = new ProtocolConfig(deployer);
 
+        soothBook = new SoothBook();
+
         // Deploy LaunchpadEngine
         launchpad = new LaunchpadEngine(
             address(usdc),
             address(ammEngine),
             address(collateralizer),
+            address(soothBook),
             address(protocolConfig),
             treasury,
             deployer
@@ -121,6 +126,9 @@ abstract contract TrialPeriodTestBase is Test {
     function _configureContracts() internal {
         // Set launchpad as AMM router
         ammEngine.setRouter(address(launchpad));
+
+        // Allow LaunchpadEngine to register graduated markets in SoothBook
+        soothBook.transferOwnership(address(launchpad));
 
         address[] memory guardiansToAdd = new address[](1);
         guardiansToAdd[0] = guardian;

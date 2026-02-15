@@ -322,7 +322,7 @@ test.describe('On-Chain Functions', () => {
     }
   });
 
-  test('pro: verify TickBook access for graduated markets', async ({ walletPage }) => {
+  test('pro: verify SoothBook access for graduated markets', async ({ walletPage }) => {
     if (!hasCredentials) {
       test.skip();
       return;
@@ -333,17 +333,17 @@ test.describe('On-Chain Functions', () => {
     await walletPage.goto('http://localhost:5173/pro');
     await walletPage.waitForTimeout(3000);
 
-    // Check for TickBook or market selection
-    const tickBookHeader = walletPage.getByText(/TickBook|Order Book|Pro Trading/i).first();
-    const hasTickBook = await tickBookHeader.isVisible({ timeout: 5000 }).catch(() => false);
+    // Check for SoothBook or market selection
+    const soothBookHeader = walletPage.getByText(/SoothBook|Order Book|Pro Trading/i).first();
+    const hasSoothBook = await soothBookHeader.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (hasTickBook) {
+    if (hasSoothBook) {
       console.log('✓ Pro trading interface loaded');
       
       // Check for graduated market indicator
       const graduatedBadge = walletPage.getByText(/graduated/i);
       if (await graduatedBadge.isVisible().catch(() => false)) {
-        console.log('✓ Graduated market detected - TickBook available');
+        console.log('✓ Graduated market detected - SoothBook available');
       }
     } else {
       console.log('Pro interface may require graduated market selection');

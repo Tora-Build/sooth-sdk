@@ -10,6 +10,7 @@ import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
 
 import {LaunchpadLPToken} from "./LaunchpadLPToken.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
+import {ISoothBook} from "./interfaces/ISoothBook.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -48,6 +49,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     IERC20 public immutable usdc;
     IAMMEngine public immutable ammEngine;
     ICollateralizer public immutable collateralizer;
+    ISoothBook public immutable soothBook;
 
     IProtocolConfig public immutable protocolConfig;
     address public immutable protocolTreasury;
@@ -113,6 +115,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         address _usdc,
         address _ammEngine,
         address _collateralizer,
+        address _soothBook,
         address _protocolConfig,
         address _protocolTreasury,
         address _owner
@@ -126,6 +129,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         usdc = IERC20(_usdc);
         ammEngine = IAMMEngine(_ammEngine);
         collateralizer = ICollateralizer(_collateralizer);
+        soothBook = ISoothBook(_soothBook);
         protocolConfig = IProtocolConfig(_protocolConfig);
         protocolTreasury = _protocolTreasury;
         usdcDecimals = IERC20Metadata(_usdc).decimals();
@@ -477,6 +481,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
                 (address yes, address no) = collateralizer.isMarketRegistered(market)
                     ? collateralizer.getOutcomeTokens(market)
                     : collateralizer.registerMarket(market);
+                _registerSoothBookMarket(market);
 
                 emit MarketGraduated(market, state.feesAccrued, block.timestamp);
             }
@@ -660,6 +665,35 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
 
     function _wadToUsdcCeil(uint256 wadAmount) internal view returns (uint256) {
         return DecimalMath.fromWadCeil(wadAmount, usdcDecimals);
+    }
+
+    function _registerSoothBookMarket(address market) internal {
+        if (address(soothBook) == address(0)) {
+            return;
+        }
+
+        try soothBook.owner() returns (address soothBookOwner) {
+            if (soothBookOwner != address(this)) {
+                return;
+            }
+        } catch {
+            return;
+        }
+
+        bytes32 marketKey = keccak256(abi.encodePacked(market));
+        string memory marketName;
+        try ITruthMarket(market).question() returns (string memory questionText) {
+            marketName = questionText;
+        } catch {
+            marketName = _addressToString(market);
+        }
+
+        try soothBook.createMarket(marketKey, address(usdc), marketName) returns (address, address) {
+        } catch (bytes memory reason) {
+            if (reason.length < 4 || bytes4(reason) != ISoothBook.MarketAlreadyExists.selector) {
+                revert("LaunchpadEngine: soothbook register failed");
+            }
+        }
     }
 
     function _truncateString(string memory str, uint256 maxLen) internal pure returns (string memory) {

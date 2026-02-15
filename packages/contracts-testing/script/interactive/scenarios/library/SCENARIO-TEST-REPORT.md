@@ -30,16 +30,16 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia --scenario=or
 | `market-lifecycle-multi-actor` | ✅ PASS | 50 | 0.00 USDC | 2026-01-24 | Full lifecycle, 5 actors |
 | `trial-period` | ✅ PASS | 19 | 0.00 USDC | 2026-01-24 | V11 dismissal + refund flow |
 
-### Legacy Scenarios (Pre-V11, TickBook Only)
+### Legacy Scenarios (Pre-V12, SoothBook Only)
 
-These scenarios were written before V11 and only test TickBook operations. They need updating to be self-contained.
+These scenarios were written before V12 and only test SoothBook operations. They need updating to be self-contained.
 
 | Scenario | Status | Notes |
 |----------|--------|-------|
-| `order-lifecycle` | ⚠️ LEGACY | Needs graduated market, no V11 features |
-| `basic-roundtrip` | ⚠️ LEGACY | Needs graduated market, no V11 features |
-| `multi-actor-orderbook` | ⚠️ LEGACY | Needs graduated market, no V11 features |
-| `stress-orderbook` | ⚠️ LEGACY | Needs graduated market, no V11 features |
+| `order-lifecycle` | ⚠️ LEGACY | Needs graduated market, no V12 features |
+| `basic-roundtrip` | ⚠️ LEGACY | Needs graduated market, no V12 features |
+| `multi-actor-orderbook` | ⚠️ LEGACY | Needs graduated market, no V12 features |
+| `stress-orderbook` | ⚠️ LEGACY | Needs graduated market, no V12 features |
 
 **TODO**: Update legacy scenarios to either:
 1. Create their own market and graduate it (like `market-lifecycle-multi-actor`)
@@ -57,7 +57,7 @@ These scenarios were written before V11 and only test TickBook operations. They 
 │   Phase 1        Phase 2-3       Phase 4-5      Phase 6       Phase 7-8     │
 │  ┌───────┐      ┌─────────┐     ┌─────────┐   ┌─────────┐   ┌───────────┐  │
 │  │CREATE │ ──▶  │  TRADE  │ ──▶ │GRADUATE │──▶│ SETTLE  │──▶│  REDEEM   │  │
-│  │       │      │   AMM   │     │TickBook │   │         │   │   P&L     │  │
+│  │       │      │   AMM   │     │SoothBook│   │         │   │   P&L     │  │
 │  └───────┘      └─────────┘     └─────────┘   └─────────┘   └───────────┘  │
 │     │               │               │              │              │         │
 │   Alice          Bob,Charlie    Bob,Charlie      David       All Actors    │
@@ -88,22 +88,22 @@ USDC Minted:           +160,000.00 USDC
 
 | Invariant | Status |
 |-----------|--------|
-| `vault.solvent` | ✅ PASS |
+| `soothbook.backing` | ✅ PASS |
 | `orders.noOverflow` | ✅ PASS |
 | `market.tickValid` | ✅ PASS |
-| `vault.reservedBounds` | ✅ PASS |
+| `soothbook.tokenSupply` | ✅ PASS |
 | `checksum.zeroSum` | ✅ PASS |
 | `lp.transferable` (pre-settlement) | ✅ PASS |
 | `lp.locked` (post-settlement) | ✅ PASS |
 | `amm.tradingStopped` (post-settlement) | ✅ PASS |
-| `tickbook.tradingStopped` (post-settlement) | ✅ PASS |
+| `soothbook.tradingStopped` (post-settlement) | ✅ PASS |
 
 ### Fee Distribution
 
 | Metric | Value |
 |--------|-------|
 | Pre-grad Fees (5% AMM) | 382.97 USDC → LP Pool |
-| Post-grad Fees (1% TickBook) | 13.67 USDC |
+| Post-grad Fees (1% SoothBook) | 13.67 USDC |
 | → LP Yield Pool (80%) | 10.93 USDC |
 | → Protocol Treasury (20%) | 2.73 USDC |
 
@@ -171,13 +171,12 @@ The `checksum` command tracks ALL protocol USDC to verify zero-sum:
 | Location | Description |
 |----------|-------------|
 | Actor wallets | Direct USDC holdings |
-| Actor vault balances | TickBookVault available + reserved |
 | LaunchpadEngine | Creator deposits + fees + lpYieldPool |
 | AMMEngine | AMM liquidity pool |
-| TickBookPoolManager | Should be 0 (pass-through) |
+| SoothBook | Orderbook USDC backing |
 | Collateralizer | ERC20 token backing |
 | ProtocolTreasury | Protocol fee recipient |
-| vaultMarketCollateral | Internal outcome backing |
+| marketCollateral | Internal outcome backing |
 
 ## Lessons Learned
 
@@ -207,7 +206,7 @@ The `checksum` command tracks ALL protocol USDC to verify zero-sum:
 **Problem**: Checksum showed -1.27 USDC imbalance even after AMM fix.
 
 **Root Cause**: Two sources of "stuck" USDC weren't tracked:
-- `vaultMarketCollateral` — backing for internal outcomes
+- `marketCollateral` — backing for internal outcomes
 - `lpYieldPool` — unclaimed LP yield in LaunchpadEngine
 
 **Solution**: Added tracking for both. Display "Potential Stuck USDC" section when non-zero.
@@ -226,14 +225,14 @@ The `checksum` command tracks ALL protocol USDC to verify zero-sum:
 
 **Implication**: Unredeemed positions after dismissal are expected and don't affect zero-sum validation.
 
-### 6. Legacy Scenarios Need V11 Updates (2026-01-24)
+### 6. Legacy Scenarios Need V12 Updates (2026-01-24)
 
-**Problem**: Pre-V11 scenarios (`basic-roundtrip`, `order-lifecycle`, `multi-actor-orderbook`, `stress-orderbook`) assume a pre-existing graduated market and only test TickBook operations.
+**Problem**: Pre-V12 scenarios (`basic-roundtrip`, `order-lifecycle`, `multi-actor-orderbook`, `stress-orderbook`) assume a pre-existing graduated market and only test SoothBook operations.
 
-**Why they fail**: V11 markets start in trial period and require graduation before TickBook trading. These scenarios skip market creation entirely.
+**Why they fail**: V12 markets start in trial period and require graduation before SoothBook trading. These scenarios skip market creation entirely.
 
 **Recommendation**: 
-- For quick TickBook testing: Run `market-lifecycle-multi-actor` first to create a graduated market, then run legacy scenarios with `setmarket <address>`
+- For quick SoothBook testing: Run `market-lifecycle-multi-actor` first to create a graduated market, then run legacy scenarios with `setmarket <address>`
 - For CI/automation: Update legacy scenarios to create + graduate their own markets
 
 ## Maintenance Schedule

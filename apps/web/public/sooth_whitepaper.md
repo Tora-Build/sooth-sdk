@@ -16,7 +16,7 @@ We pursue this through three foundational pillars:
 |--------|------------|------------------------|
 | **🚀 Launchpad** | Permissionless market creation with creator economics | Economic incentive alignment without gatekeepers |
 | **⚖️ ZK Rules** | Autonomous, retroactive settlement via T* | Trustless resolution without centralized oracles |
-| **📊 TickBook** | On-chain CLOB with 10,000-tick depth | Decentralized price discovery rivaling CEX execution |
+| **📊 SoothBook** | On-chain CLOB with 10,000-tick depth | Decentralized price discovery rivaling CEX execution |
 
 By aligning incentives across **Creators**, **Gaming Traders**, and **Arbitrageurs**, Sooth transforms prediction markets from extractive platforms into **cooperative value creation networks**.
 
@@ -31,7 +31,7 @@ Traditional prediction markets fail to capture the full potential of decentraliz
 | Polymarket | Gatekept | Hybrid | Centralized oracle | Off-chain matching |
 | Kalshi | Gatekept | Centralized | Centralized | Centralized CLOB |
 | Omen | Open | Fragmented | Reality.eth | Per-market AMM |
-| **Sooth** | **Permissionless** | **Unified Vault** | **ZK + Multi-class** | **On-chain TickBook + AMM** |
+| **Sooth** | **Permissionless** | **Unified Vault** | **ZK + Multi-class** | **On-chain SoothBook + AMM** |
 
 Sooth's architecture ensures that every layer—creation, liquidity, settlement, and discovery—benefits from decentralized design.
 
@@ -172,9 +172,9 @@ Not all markets need to be open-end. Sooth supports both models:
 
 ---
 
-## 5. Pillar III: TickBook 📊 — Decentralized CLOB Alternative
+## 5. Pillar III: SoothBook 📊 — Decentralized CLOB Alternative
 
-The TickBook brings CEX-grade execution to on-chain prediction markets.
+The SoothBook brings CEX-grade execution to on-chain prediction markets.
 
 ### 5.1 Architecture
 
@@ -191,7 +191,7 @@ Sooth operates two parallel trading venues for different trader archetypes:
 ┌───────────────────────────────────────────────────────────┐
 │                     DUAL VENUE DESIGN                     │
 ├────────────────────────────┬──────────────────────────────┤
-│       AMM (Retail)         │       TickBook (Pro)         │
+│       AMM (Retail)         │       SoothBook (Pro)         │
 ├────────────────────────────┼──────────────────────────────┤
 │ Entry: LaunchpadEngine     │ Entry: Collateralizer.split()│
 │ Asset: Position ledger     │ Asset: Transferable ERC20    │
@@ -209,28 +209,28 @@ Markets naturally evolve through phases:
 
 ```
   LAUNCH             GROWTH              MATURE
- [AMM Only]    →   [AMM + TickBook]  →  [TickBook Dominant]
+ [AMM Only]    →   [AMM + SoothBook]  →  [SoothBook Dominant]
 
  AMM Role:     Bootstrap liquidity  →   Retail access, tail liquidity
- TickBook:     (Disabled)           →   Price discovery, institutional flow
+ SoothBook:     (Disabled)           →   Price discovery, institutional flow
 ```
 
-**Pre-Graduation**: AMM bootstraps liquidity, TickBook disabled
+**Pre-Graduation**: AMM bootstraps liquidity, SoothBook disabled
 **Post-Graduation**: Both venues active, arbitrageurs keep prices aligned
-**Mature Market**: TickBook handles institutional flow, AMM serves retail tail
+**Mature Market**: SoothBook handles institutional flow, AMM serves retail tail
 
 ### 5.4 The Arbitrageur's Playground
 
 **Dual-venue arbitrage** creates tight, efficient prices through pure market forces:
 
-#### AMM ↔ TickBook Arbitrage
+#### AMM ↔ SoothBook Arbitrage
 
 ```
 Scenario: YES price diverges
 ├─ AMM (LMSR): YES = 62%
-├─ TickBook: YES best ask = 58%
+├─ SoothBook: YES best ask = 58%
 └─ Arbitrage opportunity:
-    → Buy YES on TickBook at 58¢
+    → Buy YES on SoothBook at 58¢
     → Sell YES on AMM at 62¢
     → Pocket 4¢ per share (risk-free)
     → Prices converge
@@ -241,14 +241,14 @@ Scenario: YES price diverges
 - All traders get better prices from tighter spreads
 - LPs earn fees from the increased volume
 
-#### PvP Trading on TickBook
+#### PvP Trading on SoothBook
 
-The TickBook enables **pure peer-to-peer trading** without LP intermediation:
+The SoothBook enables **pure peer-to-peer trading** without LP intermediation:
 
 | Trading Mode | Counterparty | Who Takes Risk |
 |--------------|--------------|----------------|
 | AMM | Liquidity Pool | LPs |
-| TickBook | Other Traders | Traders vs Traders |
+| SoothBook | Other Traders | Traders vs Traders |
 
 **PvP advantages for sophisticated traders:**
 - No slippage on large orders (if matched)
@@ -287,7 +287,7 @@ The dual-venue architecture serves **fundamentally different trader profiles**:
 3. Accumulate LP position alongside prediction position
 4. Win on prediction OR win on LP appreciation (or both)
 
-### 6.2 The ⚡ TickBook Trader
+### 6.2 The ⚡ SoothBook Trader
 
 | Dimension | Description |
 |-----------|-------------|
@@ -295,23 +295,23 @@ The dual-venue architecture serves **fundamentally different trader profiles**:
 | **Frequency** | High (seconds/blocks) |
 | **Primary Goal** | Price discovery, capture spreads |
 | **Trade Size** | Large, rapid |
-| **Entry Point** | `Collateralizer.split()` → TickBook |
+| **Entry Point** | `Collateralizer.split()` → SoothBook |
 | **Asset Type** | Transferable ERC20 tokens |
 | **Constraint** | None — instant transfer |
 | **Reward** | Spread capture, arbitrage profit |
 
 **The ⚡ Trader Journey:**
 1. Mint tokens via `Collateralizer.split()` (1 USDC → 1 YES + 1 NO)
-2. Place limit orders on TickBook at desired prices
+2. Place limit orders on SoothBook at desired prices
 3. Capture spreads when orders fill
-4. Arbitrage AMM ↔ TickBook price discrepancies
+4. Arbitrage AMM ↔ SoothBook price discrepancies
 5. Redeem winning tokens after settlement
 
 ### 6.3 Comparison Matrix
 
-| Dimension | 🐢 AMM Trader | ⚡ TickBook Trader |
+| Dimension | 🐢 AMM Trader | ⚡ SoothBook Trader |
 |-----------|--------------|-------------------|
-| **Entry Point** | `LaunchpadEngine.tradePositions()` | `Collateralizer.split()` → TickBook |
+| **Entry Point** | `LaunchpadEngine.tradePositions()` | `Collateralizer.split()` → SoothBook |
 | **Asset Type** | Non-transferable positions | Transferable ERC20 tokens |
 | **Liquidity** | LMSR curve (always available) | Limit orderbook (depth varies) |
 | **Sell Constraint** | 24h lock on proceeds | Instant (token transfer) |
@@ -323,7 +323,7 @@ The dual-venue architecture serves **fundamentally different trader profiles**:
 
 Different traders have different needs. Forcing everyone through one interface means nobody is optimally served.
 
-| Need | AMM Provides | TickBook Provides |
+| Need | AMM Provides | SoothBook Provides |
 |------|--------------|-------------------|
 | Guaranteed liquidity | ✅ LMSR always quotes | ❌ Depends on depth |
 | Precise pricing | ❌ Curve-determined | ✅ Set your own price |
@@ -378,7 +378,7 @@ Sooth's architecture is designed around **who uses it and why**.
 **Motivation:** Risk-free profit from market inefficiencies.
 
 **Journey:**
-1. Monitor AMM and TickBook prices in real-time
+1. Monitor AMM and SoothBook prices in real-time
 2. Identify divergences (>1% spread = opportunity)
 3. Execute simultaneous buy/sell across venues
 4. Capture spread, repeat
@@ -396,7 +396,7 @@ Sooth's architecture is designed around **who uses it and why**.
 
 **Journey:**
 1. Form thesis on market outcome
-2. Place limit orders on TickBook at desired price
+2. Place limit orders on SoothBook at desired price
 3. Wait for counterparty to match
 4. Settle directly—winner takes loser's stake
 
@@ -405,7 +405,7 @@ Sooth's architecture is designed around **who uses it and why**.
 - ✅ Correct timing of market entry/exit
 - ❌ No LP safety net—pure skill/conviction game
 
-**The PvP Trader's Arena:** The TickBook is where conviction meets conviction. No AMM cushion, no fee→LP conversion. Just traders vs traders.
+**The PvP Trader's Arena:** The SoothBook is where conviction meets conviction. No AMM cushion, no fee→LP conversion. Just traders vs traders.
 
 ---
 
@@ -421,7 +421,7 @@ Sooth's architecture is designed around **who uses it and why**.
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
     ┌────────────────┐ ┌──────────────┐ ┌────────────────┐
-    │LaunchpadEngine │ │   TickBook   │ │ Collateralizer │
+    │LaunchpadEngine │ │   SoothBook   │ │ Collateralizer │
     │    (Retail)    │ │    (Pro)     │ │  Token Mgmt    │
     │  Fee->LP Mint  │ │ PvP Trading  │ │  Split/Merge   │
     └───────┬────────┘ └──────────────┘ └────────────────┘
@@ -446,14 +446,14 @@ Sooth's architecture is designed around **who uses it and why**.
 | **AMM Trading** | `AMMEngine` | 🐢 Retail | LMSR pricing, positions, 24h locks |
 | **Economics** | `LaunchpadEngine` | 🐢 Retail | Fees, LP tokens, graduation |
 | **Token Ops** | `Collateralizer` | ⚡ Pro | Token split/merge, redemption |
-| **Orderbook** | `TickBook` | ⚡ Pro | Limit orders, matching engine |
+| **Orderbook** | `SoothBook` | ⚡ Pro | Limit orders, matching engine |
 | **Tokens** | `OutcomeToken` | ⚡ Pro | Transferable ERC20 (OB-domain only) |
 
 ### Design Principles
 
 | Principle | Why It Matters |
 |-----------|----------------|
-| **Domain Isolation** | AMM and TickBook don't share state—cleaner, safer |
+| **Domain Isolation** | AMM and SoothBook don't share state—cleaner, safer |
 | **Pull-Based Lifecycle** | Venues query TruthMarket, no callback complexity |
 | **No Custody Layer** | Users keep funds in their wallets until trade |
 | **Pure WAD Architecture** | All internal math uses 18 decimals |
@@ -499,7 +499,7 @@ Ceiling = Cash - min(qYes, qNo)  ← Best case
 ExRate = Floor / LP_Supply       ← Redemption rate
 ```
 
-**Lock-on-Sell (AMM only):** Sell proceeds lock for 24 hours (spendable but not withdrawable) to prevent hit-and-run extraction. TickBook traders have instant transfer via ERC20 tokens.
+**Lock-on-Sell (AMM only):** Sell proceeds lock for 24 hours (spendable but not withdrawable) to prevent hit-and-run extraction. SoothBook traders have instant transfer via ERC20 tokens.
 
 ---
 
@@ -528,9 +528,9 @@ interface ICollateralizer {
 }
 ```
 
-### TickBook (⚡ Pro)
+### SoothBook (⚡ Pro)
 ```solidity
-interface ITickBook {
+interface ISoothBook {
     function placeOrder(address market, uint8 outcome, uint16 tick, uint256 amount, bool isBuy)
         external returns (uint256 orderId);
     
@@ -562,7 +562,7 @@ Live on **Base Sepolia**:
 | **LaunchpadEngine** | `0xFf422cc9b537BD41DD2583E3E611CA2eF1C149B4` |
 | **Collateralizer** | `0x2C60E3A96334E449C92C7d035E51EB8A6dA9245E` |
 | **AMMEngine** | `0x35089e985E23D01b4D2E453E775D570649624E8E` |
-| **TickBook** | `0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF` |
+| **SoothBook** | `0xEDe4d7AAa1311A6391Dd203E5E728bb6489575aF` |
 
 **Sample Markets:** UN Alien Confirmation · BTC ATH 2026 (Chainlink TWAP) · Lakers NBA Championship
 

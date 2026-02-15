@@ -39,6 +39,25 @@ contract GraduationFlowTest is TrialPeriodTestBase {
         assertGt(progressBps, 0, "Should have some progress");
     }
 
+    function test_GraduationFlow_RegistersMarketInSoothBookOnGraduation() public {
+        address market = _createMarketWithLiquidity(100e18);
+        bytes32 marketKey = keccak256(abi.encodePacked(market));
+
+        (, , , bool activeBefore, , ) = soothBook.markets(marketKey);
+        assertFalse(activeBefore, "SoothBook market should not exist pre-graduation");
+
+        for (uint256 i = 0; i < 60; i++) {
+            _buyShares(alice, market, 1, 100e18);
+            (, , , , bool isGraduated, ) = launchpad.getMarketState(market);
+            if (isGraduated) {
+                break;
+            }
+        }
+
+        (, , , bool activeAfter, , ) = soothBook.markets(marketKey);
+        assertTrue(activeAfter, "SoothBook market should be created on graduation");
+    }
+
     function test_GraduationFlow_LPTokensTransferablePreGraduation() public {
         address market = _createMarket();
         address lpToken = _getLPToken(market);

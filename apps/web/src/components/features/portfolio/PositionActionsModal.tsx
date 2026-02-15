@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useActivePositions, ActivePosition } from '../../../hooks/useActivePositions';
 import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft, ChevronDown } from 'lucide-react';
-import { useWriteContract, usePublicClient, useAccount } from 'wagmi';
-import { TRADER_VAULT_V4_ABI } from '../../../config/abis';
+import { useAccount } from 'wagmi';
 import toast from 'react-hot-toast';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
 import { useTraderVault } from '../../../hooks/useTraderVault';
-import { parseUnits, formatUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { useLaunchpadMarkets } from '../../../hooks/useLaunchpadMarkets';
 import { cn } from '../../../lib/utils';
 
@@ -21,9 +20,7 @@ export const PositionActionsModal: React.FC<{
     refetch: () => void;
 }> = ({ isOpen, onClose, pos, marketId, mode, refetch }) => {
     const { address } = useAccount();
-    const { writeContractAsync } = useWriteContract();
-    const publicClient = usePublicClient();
-    const { availableBalance, decimals, refetch: refetchVault, vaultAddress } = useTraderVault();
+    const { availableBalance, decimals, refetch: refetchVault } = useTraderVault();
     const { markets } = useLaunchpadMarkets();
     const { vaultPositions } = useActivePositions();
     
@@ -64,74 +61,16 @@ export const PositionActionsModal: React.FC<{
         : parseFloat(formatUnits(availableBalance, decimals || 18));
 
     const handleAction = async () => {
-        if (!amount || parseFloat(amount) <= 0 || !activeMarket || !publicClient || !address) return;
+        if (!amount || parseFloat(amount) <= 0 || !activeMarket || !address) return;
         setIsLoading(true);
         const toastId = mode === 'merge' ? 'merge' : 'split';
-        
-        const marketAddr = activeMarket.marketAddress as `0x${string}`;
-        
+
         try {
-            let finalAmountBig: bigint;
-            
-            if (mode === 'merge') {
-                // Merge: Atomic via mergeFromVault (1 transaction)
-                const liqYes = activeMarket.liquidYes || 0;
-                const liqNo = activeMarket.liquidNo || 0;
-                const maxMerge = Math.min(liqYes, liqNo);
-                
-                if (parseFloat(amount) >= maxMerge) {
-                    finalAmountBig = parseUnits(maxMerge.toString(), 18);
-                } else {
-                    finalAmountBig = parseUnits(amount, 18);
-                }
-                
-                if (finalAmountBig === 0n) throw new Error("No shares available to merge");
-                
-                toast.loading('Merging shares...', { id: toastId });
-                const hash = await writeContractAsync({
-                    address: vaultAddress,
-                    abi: TRADER_VAULT_V4_ABI,
-                    functionName: 'mergeFromVault',
-                    args: [marketAddr, finalAmountBig],
-                });
-                await publicClient.waitForTransactionReceipt({ hash });
-                
-                toast.success('Shares merged! USDC credited to account.', { id: toastId });
-                
-            } else {
-                // Split: Atomic via splitAndDeposit (1 transaction)
-                const scalar = BigInt(10 ** (18 - (decimals || 18)));
-                const maxSplitWad = availableBalance * scalar;
-                const availableSplit = parseFloat(formatUnits(availableBalance, decimals || 18));
-                
-                if (parseFloat(amount) >= availableSplit) {
-                    finalAmountBig = maxSplitWad;
-                } else {
-                    finalAmountBig = parseUnits(amount, 18);
-                }
-                
-                if (finalAmountBig === 0n) throw new Error("Amount is 0");
-                
-                toast.loading('Splitting USDC into shares...', { id: toastId });
-                const hash = await writeContractAsync({
-                    address: vaultAddress,
-                    abi: TRADER_VAULT_V4_ABI,
-                    functionName: 'splitAndDeposit',
-                    args: [marketAddr, finalAmountBig],
-                });
-                await publicClient.waitForTransactionReceipt({ hash });
-                
-                toast.success('USDC split! Shares deposited to account.', { id: toastId });
-            }
-            
-            // Refetch data
-            const triggers = [0, 1000, 3000, 5000];
-            triggers.forEach(delay => {
-                setTimeout(() => {
-                    refetch();
-                    refetchVault();
-                }, delay);
-            });
+            toast.loading('Action unavailable in V12 (no vault).', { id: toastId });
+            await Promise.resolve();
+            toast.success('No action executed.', { id: toastId });
+            refetch();
+            refetchVault();
 
             onClose();
         } catch (e: any) {
@@ -263,4 +202,3 @@ export const PositionActionsModal: React.FC<{
         </Dialog>
     );
 };
-
