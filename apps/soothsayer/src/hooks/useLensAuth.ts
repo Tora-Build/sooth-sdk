@@ -8,7 +8,7 @@ import { useState } from 'react';
 
 export function useLensAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const login = async () => {
     // TODO: Implement Lens V3 SIWE auth
