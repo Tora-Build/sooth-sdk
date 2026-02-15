@@ -37,14 +37,16 @@ export function DesktopNav() {
         </div>
       </div>
 
-      <a
-        href="https://github.com/Tora-Build/soothsayer-core"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:border-[#00d4aa]/50 hover:text-[#00d4aa] text-white/70 text-sm font-mono transition-all"
-      >
-        GitHub <ExternalLink className="w-3 h-3" />
-      </a>
+      <div className="flex items-center gap-3">
+        <a
+          href="https://github.com/Tora-Build/soothsayer-core"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:border-[#00d4aa]/50 hover:text-[#00d4aa] text-white/70 text-sm font-mono transition-all"
+        >
+          GitHub <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
     </nav>
   );
 }

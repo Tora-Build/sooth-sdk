@@ -32,7 +32,7 @@ function MobileApp() {
 
 export { PhoneRouteContext };
 
-const PHONE_PAGES: Record<string, () => JSX.Element> = {
+const PHONE_PAGES: Record<string, (props: { onBack?: () => void }) => JSX.Element> = {
   '/': Home,
   '/search': Search,
   '/portfolio': Portfolio,

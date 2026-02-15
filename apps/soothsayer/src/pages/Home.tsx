@@ -27,8 +27,7 @@ export function Home() {
 
   return (
     <div className={`${inShowcase ? 'h-full' : 'h-screen'} w-full flex flex-col bg-mesh text-white overflow-hidden relative`}>
-      <header className="shrink-0 pt-4 px-6 flex items-center justify-between absolute top-0 w-full z-50 pointer-events-none">
-        <div />
+      <header className="shrink-0 pt-4 px-6 flex items-center justify-end absolute top-0 w-full z-50 pointer-events-none">
         <button
           onClick={() => open()}
           className="h-10 flex items-center justify-center pointer-events-auto active:scale-90 transition-transform"
