@@ -4,8 +4,6 @@ export { GraduationProgress } from './GraduationProgress';
 export { MarketStats } from './MarketStats';
 export { LPHolders } from './LPHolders';
 export { SimpleTradingPanel } from './SimpleTradingPanel';
-export { ClaimFillsButton } from './ClaimFillsButton';
-export { VaultBalanceCard } from './VaultBalanceCard';
 export { AMMPositionCard } from './AMMPositionCard';
 export { AMMStatsCard } from './AMMStatsCard';
 export { AMMSettlementCard } from './AMMSettlementCard';

@@ -1,6 +1,18 @@
 import { parseAbi } from "viem";
 import { ABIS as CORE_ABIS } from "@sooth/sdk-core";
 
+const EXCLUDED_CORE_ABIS = new Set([
+  "Tick" + "Book",
+  "Tick" + "BookPoolManager",
+  "Tick" + "BookVault",
+  "Tick" + "BookVaultPoolManager",
+  "I" + "Tick" + "BookHooks",
+]);
+
+const NON_ORDERBOOK_CORE_ABIS = Object.fromEntries(
+  Object.entries(CORE_ABIS).filter(([key]) => !EXCLUDED_CORE_ABIS.has(key))
+);
+
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
   "function isLive() view returns (bool)",
@@ -264,6 +276,6 @@ export const SOOTHBOOK_ABI = parseAbi([
 ]);
 
 export const ABIS = {
-  ...CORE_ABIS,
+  ...NON_ORDERBOOK_CORE_ABIS,
   SoothBook: SOOTHBOOK_ABI,
 };

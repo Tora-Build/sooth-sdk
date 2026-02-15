@@ -6,7 +6,7 @@ type Address = `0x${string}`;
 /**
  * Compute market key from pool key components
  * marketKey = keccak256(abi.encode(truthMarket, yesToken, noToken))
- * Must match TickBookPoolManager.sol line 396
+ * Must match the on-chain market key derivation formula
  */
 export function computeMarketKey(
   truthMarket: Address,

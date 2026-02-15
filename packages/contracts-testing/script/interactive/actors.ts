@@ -23,7 +23,7 @@ import { shortAddress, error, success, info } from './utils';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export type ActorRole = 'creator' | 'amm' | 'tickbook' | 'adjudicator' | 'keeper' | 'admin';
+export type ActorRole = 'creator' | 'amm' | 'trader' | 'adjudicator' | 'keeper' | 'admin';
 
 export interface Actor {
   name: string;
@@ -47,7 +47,7 @@ export interface ActorManagerOptions {
 const DEFAULT_ACTORS: ActorConfig[] = [
   { name: 'alice', envKey: 'PRIVATE_KEY_ALICE', role: 'creator' },
   { name: 'bob', envKey: 'PRIVATE_KEY_BOB', role: 'amm' },
-  { name: 'charlie', envKey: 'PRIVATE_KEY_CHARLIE', role: 'tickbook' },
+  { name: 'charlie', envKey: 'PRIVATE_KEY_CHARLIE', role: 'trader' },
   { name: 'david', envKey: 'PRIVATE_KEY_DAVID', role: 'adjudicator' },
   { name: 'ellen', envKey: 'PRIVATE_KEY_ELLEN', role: 'keeper' },
   { name: 'admin', envKey: 'PRIVATE_KEY', role: 'admin' }, // Fallback to default PRIVATE_KEY
@@ -177,7 +177,7 @@ export class ActorManager {
       const adminKey = process.env.PRIVATE_KEY!;
       this.addActor('alice', adminKey, 'creator');
       this.addActor('bob', adminKey, 'amm');
-      this.addActor('charlie', adminKey, 'tickbook');
+      this.addActor('charlie', adminKey, 'trader');
       this.addActor('david', adminKey, 'adjudicator');
       this.addActor('ellen', adminKey, 'keeper');
       // Set alice as default instead of admin for better UX

@@ -9,7 +9,7 @@ export const Landing = () => {
 
       {/* Blueprint Snippets */}
       <div className="absolute top-20 left-10 opacity-5 font-mono text-xs text-cyan-400 pointer-events-none select-none hidden lg:block">
-        <pre>{`// tickbook_matching.sol
+          <pre>{`// soothbook_matching.sol
 function match_orders(uint256 orderId) external {
     uint16 tick = bitmap.find_best_tick();
     // O(1) discovery
@@ -172,7 +172,7 @@ message SettlementProof {
             />
             <FeatureCard
               icon={<BarChart3 className="w-5 h-5" />}
-              title="TickBook"
+              title="SoothBook"
               description="On-chain CLOB with 10,000-tick depth and constant-time discovery."
               color="cyan"
             />

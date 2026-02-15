@@ -63,7 +63,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.CancelOrderParams",
+        "internalType": "struct IOrderbookHooks.CancelOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -98,7 +98,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.ClaimParams",
+        "internalType": "struct IOrderbookHooks.ClaimParams",
         "components": [
           {
             "name": "marketKey",
@@ -138,7 +138,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "params",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.CrossParams",
+        "internalType": "struct IOrderbookHooks.CrossParams",
         "components": [
           {
             "name": "marketKey",
@@ -183,7 +183,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "params",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.ExecuteOrderParams",
+        "internalType": "struct IOrderbookHooks.ExecuteOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -238,7 +238,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.PlaceOrderParams",
+        "internalType": "struct IOrderbookHooks.PlaceOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -293,7 +293,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.SpotSellParams",
+        "internalType": "struct IOrderbookHooks.SpotSellParams",
         "components": [
           {
             "name": "marketKey",
@@ -343,7 +343,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.CancelOrderParams",
+        "internalType": "struct IOrderbookHooks.CancelOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -379,7 +379,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.ClaimParams",
+        "internalType": "struct IOrderbookHooks.ClaimParams",
         "components": [
           {
             "name": "marketKey",
@@ -420,7 +420,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.CrossParams",
+        "internalType": "struct IOrderbookHooks.CrossParams",
         "components": [
           {
             "name": "marketKey",
@@ -461,7 +461,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.ExecuteOrderParams",
+        "internalType": "struct IOrderbookHooks.ExecuteOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -512,7 +512,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.PlaceOrderParams",
+        "internalType": "struct IOrderbookHooks.PlaceOrderParams",
         "components": [
           {
             "name": "marketKey",
@@ -568,7 +568,7 @@ export const DynamicFeeHookABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct ITickBookHooks.SpotSellParams",
+        "internalType": "struct IOrderbookHooks.SpotSellParams",
         "components": [
           {
             "name": "marketKey",

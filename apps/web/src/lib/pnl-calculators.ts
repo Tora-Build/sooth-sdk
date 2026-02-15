@@ -202,7 +202,7 @@ export function calculateGamingTraderPnL(
 /**
  * Calculate Arbitrageur P&L
  * 
- * Arb captures spread between AMM and TickBook venues
+ * Arb captures spread between AMM and SoothBook venues
  * Profit = Spread - Gas - AMM Fee
  */
 export function calculateArbitrageurPnL(

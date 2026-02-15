@@ -18,7 +18,7 @@ export const LaunchpadEngineABI = [
         "internalType": "address"
       },
       {
-        "name": "_tickBook",
+        "name": "_orderbook",
         "type": "address",
         "internalType": "address"
       },
@@ -613,13 +613,13 @@ export const LaunchpadEngineABI = [
   },
   {
     "type": "function",
-    "name": "tickBook",
+    "name": "orderbook",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract ITickBook"
+        "internalType": "contract IOrderbook"
       }
     ],
     "stateMutability": "view"

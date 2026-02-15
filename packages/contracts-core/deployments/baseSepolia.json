@@ -11,9 +11,6 @@
     "ProtocolConfig": "0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0",
     "Collateralizer": "0x4deae2f0a39b84f57a28f07762e8b47085ed38de",
     "AMMEngine": "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",
-    "TickBookVault": "0x667c100f8f5667177fce0e9566ffe1403fc7c6f7",
-    "TickBookPoolManager": "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
-    "TickBook": "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
     "LaunchpadEngine": "0x3cfa2113c919c916e8334d245b157de937e76836"
   },
   "markets": [

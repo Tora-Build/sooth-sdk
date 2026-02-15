@@ -1,7 +1,7 @@
 import type { SDKContext, CommandResult, OutputLine } from '../types';
 import { WAD, MAX_UINT256 } from '../types';
 import { ABIS, MOCK_ERC20_ABI } from '../../../config/abis';
-import { formatWad, shortAddress, shortTx, success, error, plain, bold, info, warn, dim, separator, computeMarketKey, computeMarketKeyWithHook } from '../utils';
+import { formatWad, shortAddress, shortTx, success, error, plain, bold, info, warn, dim, separator } from '../utils';
 import { decodeEventLog } from 'viem';
 
 const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
@@ -93,10 +93,12 @@ export async function createmarket(
     if (usdcBalance < required) {
       out(warn(`  Low USDC. Minting ${formatWad(required * 2n)}...`));
       const mintHash = await config.walletClient.writeContract({
+        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [address, required * 2n],
+        chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash: mintHash });
       out(success('  Minted ✓'));
@@ -106,10 +108,12 @@ export async function createmarket(
 
     out(info('[2/4] Approving USDC...'));
     const approveHash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.MockUSDC,
       abi: MOCK_ERC20_ABI,
       functionName: 'approve',
       args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+      chain: null,
     });
     await config.publicClient.waitForTransactionReceipt({ hash: approveHash });
     out(success('  Approved ✓'));
@@ -127,10 +131,12 @@ export async function createmarket(
     }) as `0x${string}`;
 
     const createHash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'createMarket',
       args: [template.question, startTime, deadline, address, protocolConfig, liquidityWad, 0n, 0n],
+      chain: null,
     });
 
     const createReceipt = await config.publicClient.waitForTransactionReceipt({ hash: createHash });
@@ -255,17 +261,21 @@ export async function graduate(
       out(warn('Fees reached threshold. Triggering graduation...'));
 
       await config.walletClient.writeContract({
+        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'approve',
         args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+        chain: null,
       });
 
       const hash = await config.walletClient.writeContract({
+        account: address,
         address: config.contracts.LaunchpadEngine,
         abi: ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [marketAddress, 1, WAD, MAX_UINT256],
+        chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash });
 
@@ -304,10 +314,12 @@ export async function graduate(
     if (usdcBalance < requiredUsdc) {
       out(warn('Minting USDC...'));
       const mintHash = await config.walletClient.writeContract({
+        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [address, requiredUsdc * 2n],
+        chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash: mintHash });
       out(success('Minted ✓'));
@@ -315,10 +327,12 @@ export async function graduate(
 
     out(info('Approving...'));
     const approveHash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.MockUSDC,
       abi: MOCK_ERC20_ABI,
       functionName: 'approve',
       args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+      chain: null,
     });
     await config.publicClient.waitForTransactionReceipt({ hash: approveHash });
     out(success('Approved ✓'));
@@ -336,10 +350,12 @@ export async function graduate(
 
       try {
         const hash = await config.walletClient.writeContract({
+          account: address,
           address: config.contracts.LaunchpadEngine,
           abi: ABIS.LaunchpadEngine,
           functionName: 'tradePositions',
           args: [marketAddress, 1, delta, maxCostOrMinProceeds],
+          chain: null,
         });
         await config.publicClient.waitForTransactionReceipt({ hash });
         tradesExecuted++;
@@ -505,18 +521,6 @@ export async function marketstatus(ctx: SDKContext, args: string[]): Promise<{ r
         output.push(plain(`Progress:    ${(Number(percent) / 100).toFixed(1)}% (${formatWad(feesAccrued)}/${formatWad(threshold)} USDC)`));
       }
 
-      try {
-        const yesPrice = await config.publicClient.readContract({
-          address: config.contracts.AMMEngine,
-          abi: ABIS.AMMEngine,
-          functionName: 'getPrice',
-          args: [marketAddress, 1],
-        }) as bigint;
-
-        output.push(plain(`YES Price:   ${(Number(yesPrice) / 1e18 * 100).toFixed(2)}%`));
-      } catch {
-        // Price not available
-      }
     } else {
       output.push(plain(`Initialized: NO`));
     }
@@ -524,219 +528,8 @@ export async function marketstatus(ctx: SDKContext, args: string[]): Promise<{ r
     output.push(plain(`Initialized: NO`));
   }
 
-  // 4. TickBook Pool Status (only relevant if graduated)
-  output.push(plain(''));
-  output.push(info('TickBook Pool (Orderbook)'));
-  output.push(separator(40));
-
-  try {
-    const [yesToken, noToken] = await config.publicClient.readContract({
-      address: config.contracts.Collateralizer,
-      abi: ABIS.Collateralizer,
-      functionName: 'getOutcomeTokens',
-      args: [marketAddress],
-    }) as [string, string];
-
-    if (yesToken === '0x0000000000000000000000000000000000000000') {
-      output.push(plain(`Status:      NOT REGISTERED (no tokens)`));
-      if (isGraduated) {
-        output.push(warn(`Issue: Graduated but no outcome tokens!`));
-      }
-    } else {
-      const key3Param = computeMarketKey(marketAddress, yesToken as `0x${string}`, noToken as `0x${string}`);
-      const key4Param = computeMarketKeyWithHook(marketAddress, yesToken as `0x${string}`, noToken as `0x${string}`);
-
-      const tryKey = async (k: `0x${string}`) => {
-        try {
-          const [tm, , , active] = await config.publicClient.readContract({
-            address: config.contracts.TickBookPoolManager,
-            abi: ABIS.TickBookPoolManager,
-            functionName: 'getMarketInfo',
-            args: [k],
-          }) as [string, string, string, boolean];
-          return { ok: true, active: tm !== '0x0000000000000000000000000000000000000000' && active };
-        } catch {
-          return { ok: false, active: false };
-        }
-      };
-
-      const info3 = await tryKey(key3Param);
-      const info4 = key3Param !== key4Param ? await tryKey(key4Param) : { ok: false, active: false };
-
-      let marketKey: `0x${string}`;
-      let isActive = false;
-      let isLegacy = false;
-
-      if (info3.active) {
-        marketKey = key3Param;
-        isActive = true;
-      } else if (info4.active) {
-        marketKey = key4Param;
-        isActive = true;
-        isLegacy = true;
-      } else {
-        marketKey = key3Param;
-      }
-
-      output.push(plain(`Market Key:  ${marketKey.slice(0, 18)}...`));
-      if (isLegacy) {
-        output.push(warn(`Using legacy key format (with hook)`));
-      }
-      output.push(plain(`Pool Active: ${isActive ? 'YES' : 'NO'}`));
-      
-      if (isGraduated && !isActive) {
-        output.push(warn(`Issue: Graduated but pool NOT active!`));
-        output.push(plain(`       Pool may need manual registration.`));
-      } else if (!isGraduated && isActive) {
-        output.push(info(`Pool active before graduation (pre-seeded)`));
-      }
-
-      if (isActive) {
-        try {
-          const [currentTick, activeLiqNo, activeLiqYes, currentProb] = await config.publicClient.readContract({
-            address: config.contracts.TickBookPoolManager,
-            abi: ABIS.TickBookPoolManager,
-            functionName: 'getMarketState',
-            args: [marketKey],
-          }) as [number, bigint, bigint, bigint];
-
-          output.push(plain(`Current Tick: ${currentTick} (${currentTick}%)`));
-          output.push(plain(`Probability:  ${(Number(currentProb) / 1e18 * 100).toFixed(2)}%`));
-          output.push(plain(`Liquidity:    YES=${formatWad(activeLiqYes)}, NO=${formatWad(activeLiqNo)}`));
-        } catch {
-          // State not available
-        }
-      }
-    }
-  } catch {
-    output.push(plain(`Status:      NOT REGISTERED`));
-    if (isGraduated) {
-      output.push(warn(`Issue: Graduated but not in TickBook!`));
-    }
-  }
-
   output.push(plain(''));
   return { result: { success: true }, output };
-}
-
-/**
- * Manually register a graduated market in TickBook
- * Usage: registermarket [address]
- * Requires: Owner or Registrar of TickBookPoolManager
- */
-export async function registermarket(
-  ctx: SDKContext,
-  args: string[],
-  onProgress?: (line: OutputLine) => void
-): Promise<{ result: CommandResult; output: OutputLine[] }> {
-  const { config, address, marketAddress: ctxMarket } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
-
-  if (!address || !config.walletClient) {
-    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
-  }
-
-  const marketAddress = args[0] ? args[0] as `0x${string}` : ctxMarket;
-
-  if (!marketAddress) {
-    return {
-      result: { success: false, message: 'No market address' },
-      output: [error('No market address. Use: registermarket <address> or setmarket first')],
-    };
-  }
-
-  const output: OutputLine[] = [];
-
-  out(plain(''));
-  out(bold(`Register Market in TickBook`));
-  out(separator(50));
-
-  try {
-    out(info('[1/3] Fetching outcome tokens...'));
-    const [yesToken, noToken] = await config.publicClient.readContract({
-      address: config.contracts.Collateralizer,
-      abi: ABIS.Collateralizer,
-      functionName: 'getOutcomeTokens',
-      args: [marketAddress],
-    }) as [string, string];
-
-    if (yesToken === '0x0000000000000000000000000000000000000000') {
-      out(error('  Market has no outcome tokens ✗'));
-      return { result: { success: false, message: 'No outcome tokens' }, output };
-    }
-    out(success('  Found ✓'));
-
-    out(info('[2/3] Checking registration status...'));
-    const key3Param = computeMarketKey(marketAddress, yesToken as `0x${string}`, noToken as `0x${string}`);
-    const key4Param = computeMarketKeyWithHook(marketAddress, yesToken as `0x${string}`, noToken as `0x${string}`);
-
-    const tryKey = async (k: `0x${string}`) => {
-      try {
-        const [tm, , , active] = await config.publicClient.readContract({
-          address: config.contracts.TickBookPoolManager,
-          abi: ABIS.TickBookPoolManager,
-          functionName: 'getMarketInfo',
-          args: [k],
-        }) as [string, string, string, boolean];
-        return tm !== '0x0000000000000000000000000000000000000000' && active;
-      } catch {
-        return false;
-      }
-    };
-
-    const active3 = await tryKey(key3Param);
-    const active4 = key3Param !== key4Param ? await tryKey(key4Param) : false;
-
-    if (active3 || active4) {
-      const activeKey = active3 ? key3Param : key4Param;
-      out(success('  Already registered ✓'));
-      out(plain(''));
-      out(success('Market is already registered and active!'));
-      out(dim(`Market Key: ${activeKey}`));
-      return { result: { success: true }, output };
-    }
-    out(success('  Not registered ✓'));
-
-    out(plain(''));
-    out(plain(`Market:    ${shortAddress(marketAddress)}`));
-    out(plain(`YES Token: ${shortAddress(yesToken)}`));
-    out(plain(`NO Token:  ${shortAddress(noToken)}`));
-    out(plain(''));
-
-    out(info('[3/3] Registering market...'));
-    const hash = await config.walletClient.writeContract({
-      address: config.contracts.TickBookPoolManager,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'registerMarket',
-      args: [marketAddress, yesToken, noToken, WAD / 2n, '0x0000000000000000000000000000000000000000'],
-    });
-
-    const receipt = await config.publicClient.waitForTransactionReceipt({ hash });
-
-    if (receipt.status === 'reverted') {
-      out(error('  Transaction reverted ✗'));
-      out(dim('  Are you the owner/registrar?'));
-      return { result: { success: false, message: 'Transaction reverted' }, output };
-    }
-    out(success('  Registered ✓'));
-
-    out(plain(''));
-    out(success('MARKET REGISTERED!'));
-    out(dim(`Market Key: ${key3Param}`));
-    out(dim(`Tx: ${shortTx(hash)}`));
-    out(plain(''));
-
-    return { result: { success: true, txHash: hash, data: { marketKey: key3Param } }, output };
-  } catch (err) {
-    const msg = (err as Error).message;
-    if (msg.includes('UnauthorizedRegistrar')) {
-      out(error('Not authorized. Only owner/registrar can register.'));
-      out(dim('Check: cast call <TickBookPoolManager> "owner()"'));
-    } else {
-      out(error(`Registration failed: ${msg.slice(0, 80)}`));
-    }
-    return { result: { success: false, message: msg }, output };
-  }
 }
 
 /**
@@ -845,11 +638,13 @@ export async function dismiss(
     out(info(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`));
 
     const hash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'dismissMarket',
       args: [marketAddress],
       gas: 200000n,
+      chain: null,
     });
 
     await config.publicClient.waitForTransactionReceipt({ hash });
@@ -927,11 +722,13 @@ export async function claimrefund(
     out(info(`Claiming refund of ${formatWad(userLocked)} USDC...`));
 
     const hash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'claimRefund',
       args: [marketAddress],
       gas: 200000n,
+      chain: null,
     });
 
     await config.publicClient.waitForTransactionReceipt({ hash });
@@ -1074,11 +871,13 @@ export async function redeemlp(
     out(info(`Redeeming ${formatWad(amount)} LP tokens...`));
 
     const hash = await config.walletClient.writeContract({
+      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'redeemLP',
       args: [marketAddress, amount],
       gas: 500000n,
+      chain: null,
     });
 
     await config.publicClient.waitForTransactionReceipt({ hash });
@@ -1181,11 +980,13 @@ export async function transferlp(
     out(info(`Transferring ${formatWad(amount)} LP to ${shortAddress(toAddress)}...`));
 
     const hash = await config.walletClient.writeContract({
+      account: address,
       address: lpTokenAddress,
       abi: MOCK_ERC20_ABI,
       functionName: 'transfer',
       args: [toAddress, amount],
       gas: 200000n,
+      chain: null,
     });
 
     await config.publicClient.waitForTransactionReceipt({ hash });
@@ -1245,4 +1046,4 @@ export async function pausestatus(ctx: SDKContext, _args: string[]): Promise<{ r
   }
 }
 
-export const marketCommands = { createmarket, graduate, marketstatus, registermarket, trialstatus, dismiss, claimrefund, lpbalance, redeemlp, transferlp, pausestatus };
+export const marketCommands = { createmarket, graduate, marketstatus, trialstatus, dismiss, claimrefund, lpbalance, redeemlp, transferlp, pausestatus };

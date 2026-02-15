@@ -23,12 +23,11 @@ export interface SDKConfig {
   walletClient?: WalletClient;
   contracts: {
     MockUSDC: Address;
-    TickBookVault: Address;
-    TickBookPoolManager: Address;
     LaunchpadEngine: Address;
     Collateralizer: Address;
     AMMEngine: Address;
     SoothBook?: Address;
+    [contractName: string]: Address | undefined;
   };
 }
 

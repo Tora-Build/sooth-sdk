@@ -5,8 +5,5 @@
 
 export * from './types';
 export { walletCommands } from './wallet';
-export { vaultCommands } from './vault';
-export { orderbookCommands } from './orderbook';
 export { soothbookCommands } from './soothbook';
-export { stateCommands } from './state';
 export { marketCommands } from './market';
