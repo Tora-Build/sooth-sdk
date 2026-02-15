@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
 import {
   useAccount,
@@ -9,39 +9,31 @@ import {
   useSwitchChain,
   useWriteContract,
 } from 'wagmi';
-import { formatUnits, isAddress, parseAbi, parseAbiItem, parseUnits } from 'viem';
+import { formatUnits, isAddress, parseAbiItem, parseUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
+import { ERC20_ABI, SOOTHBOOK_ABI } from '../../../config/abis';
+import deployments from '../../../config/deployments.json';
+import { useSoothBookMarket } from '../../../hooks/useSoothBook';
 
 const BASE_SEPOLIA = 84532;
-const DEFAULT_SOOTHBOOK = '0x9a992959490578c8f171C25BC8615E9Cc1AA2aB8';
 const DEFAULT_MARKET_KEY = '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5';
 
-const SOOTHBOOK_ABI = parseAbi([
-  'function owner() view returns (address)',
-  'function markets(bytes32) view returns (address collateral, address yesToken, address noToken, bool active, bool finalized, uint8 outcome)',
-  'function buyYes(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)',
-  'function buyNo(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)',
-  'function mint(bytes32 marketKey, uint256 amount)',
-  'function merge(bytes32 marketKey, uint256 amount)',
-  'function cancel(bytes32 marketKey, uint8 side, uint16 tick)',
-  'function redeem(bytes32 marketKey)',
-  'function resolveMarket(bytes32 marketKey, uint8 outcome)',
-  'function getCollateralBacking(bytes32 marketKey) view returns (uint256)',
-  'function getBestTick(bytes32 marketKey, uint8 side) view returns (uint16)',
-  'function getOrdersAtTick(bytes32 marketKey, uint8 side, uint16 tick) view returns (uint256 totalAmount, uint256 orderCount)',
-  'function getImpliedPrice(bytes32 marketKey) view returns (uint256 yesPrice, uint256 noPrice)',
-]);
+type DeploymentNetwork = {
+  chainId?: number;
+  contracts?: Record<string, string>;
+};
 
-const ERC20_ABI = parseAbi([
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-]);
+const getSoothBookAddress = (chainId: number): string | undefined => {
+  for (const network of Object.values(deployments.networks as Record<string, DeploymentNetwork>)) {
+    if (network.chainId === chainId) {
+      return network.contracts?.SoothBook;
+    }
+  }
+  return undefined;
+};
 
 const ORDER_PLACED_EVENT = parseAbiItem(
   'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)'
@@ -101,7 +93,7 @@ export const V12Workbench = () => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  const [soothBookInput, setSoothBookInput] = useState(DEFAULT_SOOTHBOOK);
+  const [soothBookInput, setSoothBookInput] = useState(getSoothBookAddress(BASE_SEPOLIA) || '');
   const [marketKeyInput, setMarketKeyInput] = useState(DEFAULT_MARKET_KEY);
   const [tickInput, setTickInput] = useState('500');
   const [inspectTickInput, setInspectTickInput] = useState('500');
@@ -144,56 +136,48 @@ export const V12Workbench = () => {
     query: { enabled: !!soothBookAddress },
   });
 
-  const { data: marketTuple } = useReadContract({
-    address: soothBookAddress ?? undefined,
-    abi: SOOTHBOOK_ABI,
-    functionName: 'markets',
-    args: marketKey ? [marketKey] : undefined,
-    query: { enabled: canReadMarket },
-  });
+  const { marketState, prices, backing, isLoading: isMarketStateLoading } = useSoothBookMarket(
+    soothBookAddress ?? undefined,
+    marketKey ?? undefined
+  );
+  const { collateral, yesToken, noToken, isActive, isFinalized, outcome } = marketState;
+  const { bestYesTick, bestNoTick, yesPrice, noPrice } = prices;
 
-  const collateral = marketTuple?.[0] as `0x${string}` | undefined;
-  const yesToken = marketTuple?.[1] as `0x${string}` | undefined;
-  const noToken = marketTuple?.[2] as `0x${string}` | undefined;
-  const isActive = Boolean(marketTuple?.[3]);
-  const isFinalized = Boolean(marketTuple?.[4]);
-  const outcome = Number(marketTuple?.[5] ?? 0);
-
-  const { data: collateralSymbol } = useReadContract({
+  const { data: collateralSymbolData } = useReadContract({
     address: collateral,
     abi: ERC20_ABI,
     functionName: 'symbol',
     query: { enabled: !!collateral },
   });
-  const { data: collateralDecimals = 18 } = useReadContract({
+  const { data: collateralDecimalsData = 18 } = useReadContract({
     address: collateral,
     abi: ERC20_ABI,
     functionName: 'decimals',
     query: { enabled: !!collateral },
   });
 
-  const { data: collateralBalance = 0n } = useReadContract({
+  const { data: collateralBalanceData = 0n } = useReadContract({
     address: collateral,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!collateral && !!userAddress },
   });
-  const { data: yesBalance = 0n } = useReadContract({
+  const { data: yesBalanceData = 0n } = useReadContract({
     address: yesToken,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!yesToken && !!userAddress },
   });
-  const { data: noBalance = 0n } = useReadContract({
+  const { data: noBalanceData = 0n } = useReadContract({
     address: noToken,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
     query: { enabled: !!noToken && !!userAddress },
   });
-  const { data: allowance = 0n } = useReadContract({
+  const { data: allowanceData = 0n } = useReadContract({
     address: collateral,
     abi: ERC20_ABI,
     functionName: 'allowance',
@@ -201,34 +185,12 @@ export const V12Workbench = () => {
     query: { enabled: !!collateral && !!userAddress && !!soothBookAddress },
   });
 
-  const { data: backing } = useReadContract({
-    address: soothBookAddress ?? undefined,
-    abi: SOOTHBOOK_ABI,
-    functionName: 'getCollateralBacking',
-    args: marketKey ? [marketKey] : undefined,
-    query: { enabled: canReadMarket },
-  });
-  const { data: bestYesTick } = useReadContract({
-    address: soothBookAddress ?? undefined,
-    abi: SOOTHBOOK_ABI,
-    functionName: 'getBestTick',
-    args: marketKey ? [marketKey, 1] : undefined,
-    query: { enabled: canReadMarket },
-  });
-  const { data: bestNoTick } = useReadContract({
-    address: soothBookAddress ?? undefined,
-    abi: SOOTHBOOK_ABI,
-    functionName: 'getBestTick',
-    args: marketKey ? [marketKey, 0] : undefined,
-    query: { enabled: canReadMarket },
-  });
-  const { data: implied } = useReadContract({
-    address: soothBookAddress ?? undefined,
-    abi: SOOTHBOOK_ABI,
-    functionName: 'getImpliedPrice',
-    args: marketKey ? [marketKey] : undefined,
-    query: { enabled: canReadMarket },
-  });
+  const collateralSymbol = collateralSymbolData as string | undefined;
+  const collateralDecimals = collateralDecimalsData as number;
+  const collateralBalance = collateralBalanceData as bigint;
+  const yesBalance = yesBalanceData as bigint;
+  const noBalance = noBalanceData as bigint;
+  const allowance = allowanceData as bigint;
 
   const { data: bookAtTick } = useReadContracts({
     contracts:
@@ -303,15 +265,15 @@ export const V12Workbench = () => {
           account: userAddress,
           address: targetAddress,
           abi: targetAbi,
-          functionName: fn,
-          args,
+          functionName: fn as never,
+          args: args as never,
         });
       }
       const hash = await writeContractAsync({
         address: targetAddress,
         abi: targetAbi,
-        functionName: fn,
-        args,
+        functionName: fn as never,
+        args: args as never,
       });
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
       setLastTx(hash);
@@ -522,6 +484,7 @@ export const V12Workbench = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-4 space-y-2">
           <div className="text-xs uppercase tracking-wider text-slate-500">Market State</div>
+          {isMarketStateLoading && <div className="text-xs text-slate-500">Loading market state...</div>}
           <div className="text-sm text-slate-300">Status: {isFinalized ? 'Finalized' : isActive ? 'Active' : 'Inactive/Unknown'}</div>
           <div className="text-sm text-slate-300">Outcome: {outcome} ({outcome === 0 ? 'NO' : outcome === 1 ? 'YES' : 'INVALID'})</div>
           <div className="text-sm text-slate-300 font-mono">Collateral: {collateral ?? '-'}</div>
@@ -530,8 +493,8 @@ export const V12Workbench = () => {
           <div className="text-sm text-slate-300">Collateral backing: {fmt(backing as bigint | undefined, decimals, 4)} {collateralSymbol ?? ''}</div>
           <div className="text-sm text-slate-300">Best YES tick: {String(bestYesTick ?? '-')}</div>
           <div className="text-sm text-slate-300">Best NO tick: {String(bestNoTick ?? '-')}</div>
-          <div className="text-sm text-slate-300">Implied YES: {fmt((implied?.[0] as bigint | undefined), 18, 4)}</div>
-          <div className="text-sm text-slate-300">Implied NO: {fmt((implied?.[1] as bigint | undefined), 18, 4)}</div>
+          <div className="text-sm text-slate-300">Implied YES: {fmt(yesPrice, 18, 4)}</div>
+          <div className="text-sm text-slate-300">Implied NO: {fmt(noPrice, 18, 4)}</div>
         </Card>
 
         <Card className="p-4 space-y-2">

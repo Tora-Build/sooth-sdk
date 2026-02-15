@@ -1,10 +1,11 @@
 {
-  "version": "V11.1",
+  "version": "V12.0",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d",
+        "SoothBook": "0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7",
+        "MockUSDC": "0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38",
         "ProtocolConfig": "0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0",
         "Collateralizer": "0x4deae2f0a39b84f57a28f07762e8b47085ed38de",
         "AMMEngine": "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",

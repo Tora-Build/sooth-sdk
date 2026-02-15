@@ -4,7 +4,7 @@
  */
 
 import type { CommandContext, CommandResult } from './types';
-import { ABIS, WAD, MAX_UINT256 } from '../config';
+import { ABIS, MAX_UINT256 } from '../config';
 import { formatWad, parseWad, shortAddress, shortTx, Spinner, success, error, warn, info, dim, bold, readContractWithRpcFallback } from '../utils';
 import { parseAbi } from 'viem';
 
@@ -42,7 +42,7 @@ const ERC20Abi = parseAbi([
 /**
  * Show balances for current actor
  */
-export async function balance(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+export async function balance(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
   const { actorManager, deployment } = ctx;
   const address = actorManager.currentAddress();
   const publicClient = actorManager.getPublicClient();
@@ -51,7 +51,54 @@ export async function balance(ctx: CommandContext, args: string[]): Promise<Comm
     return { success: false, message: 'No actor selected' };
   }
 
-  // Fetch all balances in parallel
+  const firstMarket = deployment.markets[0];
+  const hasSoothBook = Boolean(deployment.contracts.SoothBook);
+  const hasOutcomeTokens = Boolean(firstMarket?.yesToken && firstMarket?.noToken);
+
+  if (hasSoothBook && hasOutcomeTokens) {
+    const [walletBalance, yesBalance, noBalance] = await Promise.all([
+      readContractWithRpcFallback<bigint>(
+        ctx.config.chain,
+        ctx.config.rpc,
+        {
+          address: deployment.contracts.MockUSDC as `0x${string}`,
+          abi: ABIS.MockUSDC,
+          functionName: 'balanceOf',
+          args: [address],
+        },
+      ),
+      readContractWithRpcFallback<bigint>(
+        ctx.config.chain,
+        ctx.config.rpc,
+        {
+          address: firstMarket.yesToken as `0x${string}`,
+          abi: ABIS.OutcomeToken,
+          functionName: 'balanceOf',
+          args: [address],
+        },
+      ),
+      readContractWithRpcFallback<bigint>(
+        ctx.config.chain,
+        ctx.config.rpc,
+        {
+          address: firstMarket.noToken as `0x${string}`,
+          abi: ABIS.OutcomeToken,
+          functionName: 'balanceOf',
+          args: [address],
+        },
+      ),
+    ]);
+
+    console.log(`\n  ${bold('Balances')} for ${info(shortAddress(address))}`);
+    console.log('  ' + '─'.repeat(40));
+    console.log(`  Wallet USDC: ${formatWad(walletBalance)} USDC`);
+    console.log(`  YES Token:   ${success(formatWad(yesBalance))} YES`);
+    console.log(`  NO Token:    ${warn(formatWad(noBalance))} NO`);
+    console.log('');
+
+    return { success: true };
+  }
+
   const [walletBalance, vaultAvailable, vaultReserved] = await Promise.all([
     readContractWithRpcFallback<bigint>(
       ctx.config.chain,
@@ -79,7 +126,7 @@ export async function balance(ctx: CommandContext, args: string[]): Promise<Comm
 
   console.log(`\n  ${bold('Balances')} for ${info(shortAddress(address))}`);
   console.log('  ' + '─'.repeat(40));
-  console.log(`  Wallet USDC:     ${formatWad(walletBalance as bigint)} USDC`);
+  console.log(`  Wallet USDC:     ${formatWad(walletBalance)} USDC`);
   console.log(`  Vault Available: ${success(formatWad(vaultAvailable as bigint))} USDC`);
   console.log(`  Vault Reserved:  ${dim(formatWad(vaultReserved as bigint))} USDC`);
   console.log('');
@@ -94,7 +141,6 @@ export async function mint(ctx: CommandContext, args: string[]): Promise<Command
   const { actorManager, deployment } = ctx;
   const walletClient = actorManager.currentWalletClient();
   const address = actorManager.currentAddress();
-  const publicClient = actorManager.getPublicClient();
 
   if (!walletClient || !address) {
     return { success: false, message: 'No actor selected' };
@@ -132,7 +178,6 @@ export async function mint(ctx: CommandContext, args: string[]): Promise<Command
 export async function approve(ctx: CommandContext, args: string[]): Promise<CommandResult> {
   const { actorManager, deployment } = ctx;
   const walletClient = actorManager.currentWalletClient();
-  const publicClient = actorManager.getPublicClient();
 
   if (!walletClient) {
     return { success: false, message: 'No actor selected' };
@@ -199,7 +244,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
 /**
  * Check allowance for a contract
  */
-export async function allowance(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+export async function allowance(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
   const { actorManager, deployment } = ctx;
   const address = actorManager.currentAddress();
   const publicClient = actorManager.getPublicClient();
@@ -643,7 +688,7 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
   console.log('');
 }
 
-export async function checksum(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+export async function checksum(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
   const { actorManager, deployment, marketAddress: ctxMarketAddress } = ctx;
   const publicClient = actorManager.getPublicClient();
   const actors = actorManager.listActors();

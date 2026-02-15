@@ -157,6 +157,7 @@ export interface Deployment {
   chainName: string;
   version: string;
   contracts: {
+    SoothBook?: string;
     MockUSDC: string;
     Collateralizer: string;
     AMMEngine: string;
@@ -166,10 +167,11 @@ export interface Deployment {
     LaunchpadEngine: string;
   };
   markets: Array<{
-    address: string;
+    key: string;
     name: string;
-    yesToken?: string;
-    noToken?: string;
+    yesToken: string;
+    noToken: string;
+    address?: string;
     marketKey?: string;
     isGraduated?: boolean;
   }>;
@@ -190,7 +192,46 @@ export function loadDeployment(chainName: string): Deployment {
 
   for (const deployPath of paths) {
     if (fs.existsSync(deployPath)) {
-      return JSON.parse(fs.readFileSync(deployPath, 'utf-8'));
+      const parsed = JSON.parse(fs.readFileSync(deployPath, 'utf-8')) as {
+        [key: string]: unknown;
+        contracts?: Deployment['contracts'];
+        markets?: unknown;
+      };
+
+      const rawMarkets = Array.isArray(parsed.markets) ? parsed.markets : [];
+      const normalizedMarkets: Deployment['markets'] = rawMarkets.map((entry, index) => {
+        const market = typeof entry === 'object' && entry !== null
+          ? (entry as Record<string, unknown>)
+          : {};
+
+        const keyValue = typeof market.key === 'string'
+          ? market.key
+          : typeof market.marketKey === 'string'
+            ? market.marketKey
+            : '';
+        const nameValue = typeof market.name === 'string' ? market.name : `Market ${index + 1}`;
+        const yesTokenValue = typeof market.yesToken === 'string'
+          ? market.yesToken
+          : '0x0000000000000000000000000000000000000000';
+        const noTokenValue = typeof market.noToken === 'string'
+          ? market.noToken
+          : '0x0000000000000000000000000000000000000000';
+
+        return {
+          key: keyValue,
+          marketKey: keyValue,
+          name: nameValue,
+          yesToken: yesTokenValue,
+          noToken: noTokenValue,
+          address: typeof market.address === 'string' ? market.address : undefined,
+        };
+      });
+
+      return {
+        ...(parsed as Omit<Deployment, 'markets' | 'contracts'>),
+        contracts: parsed.contracts as Deployment['contracts'],
+        markets: normalizedMarkets,
+      };
     }
   }
 
@@ -238,6 +279,33 @@ export const ABIS = {
     { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
     { name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
     { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+  ],
+
+  OutcomeToken: [
+    { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+    { name: 'approve', type: 'function', inputs: [{ type: 'address', name: 'spender' }, { type: 'uint256', name: 'amount' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
+    { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+    { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+  ],
+
+  SoothBook: [
+    { name: 'buyYes', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint16', name: 'tick' }, { type: 'uint128', name: 'amount' }, { type: 'bool', name: 'escrow' }, { type: 'uint256', name: 'maxCost' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'buyNo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint16', name: 'tick' }, { type: 'uint128', name: 'amount' }, { type: 'bool', name: 'escrow' }, { type: 'uint256', name: 'maxCost' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'mint', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'merge', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'cancel', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }, { type: 'uint16', name: 'tick' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'redeem', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'resolveMarket', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'outcome' }], outputs: [], stateMutability: 'nonpayable' },
+    { name: 'createMarket', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'address', name: 'collateral' }, { type: 'string', name: 'name' }], outputs: [{ type: 'address', name: 'yesToken' }, { type: 'address', name: 'noToken' }], stateMutability: 'nonpayable' },
+    { name: 'getBalance', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'address', name: 'user' }], outputs: [{ type: 'uint256', name: 'yes' }, { type: 'uint256', name: 'no' }], stateMutability: 'view' },
+    { name: 'getCollateralBacking', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+    { name: 'getBestTick', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }], outputs: [{ type: 'uint16' }], stateMutability: 'view' },
+    { name: 'getOrdersAtTick', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }, { type: 'uint16', name: 'tick' }], outputs: [{ type: 'uint256', name: 'totalAmount' }, { type: 'uint256', name: 'orderCount' }], stateMutability: 'view' },
+    { name: 'getImpliedPrice', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [{ type: 'uint256', name: 'yesPrice' }, { type: 'uint256', name: 'noPrice' }], stateMutability: 'view' },
+    { name: 'markets', type: 'function', inputs: [{ type: 'bytes32', name: '' }], outputs: [{ type: 'address', name: 'collateral' }, { type: 'address', name: 'yesToken' }, { type: 'address', name: 'noToken' }, { type: 'bool', name: 'active' }, { type: 'bool', name: 'finalized' }, { type: 'uint8', name: 'outcome' }], stateMutability: 'view' },
+    { name: 'feeBps', type: 'function', inputs: [], outputs: [{ type: 'uint24' }], stateMutability: 'view' },
+    { name: 'feeRecipient', type: 'function', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
+    { name: 'owner', type: 'function', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
   ],
 
   TickBookVault: [

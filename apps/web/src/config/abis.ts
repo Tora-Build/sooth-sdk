@@ -1,7 +1,5 @@
 import { parseAbi } from "viem";
-
-// Re-export ABIS from sdk-core (11 contract ABIs)
-export { ABIS } from "@sooth/sdk-core";
+import { ABIS as CORE_ABIS } from "@sooth/sdk-core";
 
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
@@ -33,6 +31,7 @@ export const SOOTH_FEE_CONTROLLER_ABI = parseAbi([
 ]);
 
 const ERC20_STRINGS = [
+  "function symbol() view returns (string)",
   "function balanceOf(address owner) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
@@ -233,3 +232,38 @@ export const SOOTH_OPTIMISTIC_ADJUDICATOR_ABI = parseAbi([
   "function adjudicatorClass() view returns (uint8)",
   "function challengeWindow() view returns (uint256)",
 ]);
+
+export const SOOTHBOOK_ABI = parseAbi([
+  // Write functions
+  "function buyYes(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)",
+  "function buyNo(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)",
+  "function mint(bytes32 marketKey, uint256 amount)",
+  "function merge(bytes32 marketKey, uint256 amount)",
+  "function cancel(bytes32 marketKey, uint8 side, uint16 tick)",
+  "function redeem(bytes32 marketKey)",
+  "function resolveMarket(bytes32 marketKey, uint8 outcome)",
+  // View functions
+  "function getBalance(bytes32 marketKey, address user) view returns (uint256 yes, uint256 no)",
+  "function getBestTick(bytes32 marketKey, uint8 side) view returns (uint16)",
+  "function getCollateralBacking(bytes32 marketKey) view returns (uint256)",
+  "function getImpliedPrice(bytes32 marketKey) view returns (uint256 yesPrice, uint256 noPrice)",
+  "function getOrdersAtTick(bytes32 marketKey, uint8 side, uint16 tick) view returns (uint256 totalAmount, uint256 orderCount)",
+  "function markets(bytes32) view returns (address collateral, address yesToken, address noToken, bool active, bool finalized, uint8 outcome)",
+  "function feeBps() view returns (uint24)",
+  "function feeRecipient() view returns (address)",
+  "function owner() view returns (address)",
+  // Events
+  "event MarketCreated(bytes32 indexed marketKey, address collateral, address yesToken, address noToken)",
+  "event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)",
+  "event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)",
+  "event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)",
+  "event Minted(bytes32 indexed marketKey, address indexed user, uint256 amount)",
+  "event Merged(bytes32 indexed marketKey, address indexed user, uint256 amount)",
+  "event Redeemed(bytes32 indexed marketKey, address indexed user, uint256 payout)",
+  "event MarketResolved(bytes32 indexed marketKey, uint8 outcome)",
+]);
+
+export const ABIS = {
+  ...CORE_ABIS,
+  SoothBook: SOOTHBOOK_ABI,
+};

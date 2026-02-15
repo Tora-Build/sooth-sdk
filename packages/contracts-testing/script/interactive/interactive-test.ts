@@ -29,6 +29,7 @@ import {
   walletCommands,
   vaultCommands,
   orderbookCommands,
+  soothbookCommands,
   stateCommands,
   marketCommands,
 } from './commands';
@@ -440,6 +441,28 @@ function printHelp(): void {
 
   ${dim('┄'.repeat(62))}
 
+  ${info('SoothBook V12 (standalone orderbook):')}
+    ${dim('# Set SoothBook market first: sbcreatemarket or sbsetmarket')}
+
+    ${info('Trading:')}
+      buyyes <tick> <amount>    Buy YES shares at tick (USDC amount)
+      buyno <tick> <amount>     Buy NO shares at tick
+      sbmint <amount>           Mint complete set (YES+NO)
+      sbmerge <amount>          Merge complete set back to USDC
+
+    ${info('Order Management:')}
+      sbcancel <tick> <side>    Cancel oldest order at tick (yes/no)
+      sbredeem <marketKey>      Redeem winning tokens after resolution
+      sbresolve <outcome>       Resolve market (owner only: yes/no/invalid)
+
+    ${info('State:')}
+      sbstate                   Show SoothBook market state
+      sbbook [depth]            Show SoothBook orderbook
+      sbpositions               Show SoothBook positions (YES/NO balances)
+      sbcreatemarket <q> <exp>  Create new SoothBook market
+
+  ${dim('┄'.repeat(62))}
+
   ${info('Scenarios:')}
     scenario <name>      Run predefined scenario
     scenarios            List available scenarios
@@ -713,6 +736,51 @@ async function handleCommand(input: string): Promise<void> {
         await run(marketCommands.claimrefund(ctx, args));
         break;
 
+      // SoothBook V12 commands
+      case 'buyyes':
+        await run(soothbookCommands.buyyes(ctx, args));
+        break;
+
+      case 'buyno':
+        await run(soothbookCommands.buyno(ctx, args));
+        break;
+
+      case 'sbmint':
+        await run(soothbookCommands.mint(ctx, args));
+        break;
+
+      case 'sbmerge':
+        await run(soothbookCommands.merge(ctx, args));
+        break;
+
+      case 'sbcancel':
+        await run(soothbookCommands.cancel(ctx, args));
+        break;
+
+      case 'sbredeem':
+        await run(soothbookCommands.redeem(ctx, args));
+        break;
+
+      case 'sbresolve':
+        await run(soothbookCommands.resolve(ctx, args));
+        break;
+
+      case 'sbstate':
+        await run(soothbookCommands.state(ctx, args));
+        break;
+
+      case 'sbbook':
+        await run(soothbookCommands.book(ctx, args));
+        break;
+
+      case 'sbpositions':
+        await run(soothbookCommands.positions(ctx, args));
+        break;
+
+      case 'sbcreatemarket':
+        await run(soothbookCommands.createmarket(ctx, args));
+        break;
+
       // Scenario commands
       case 'scenario':
         if (args.length < 1) {
@@ -832,7 +900,7 @@ async function main(): Promise<void> {
   }
 
   const headerLines = [
-    bold('SOOTH V11 INTERACTIVE TEST CONSOLE'),
+    bold('SOOTH V11/V12 INTERACTIVE TEST CONSOLE'),
     `Chain: ${config.chainName} | Version: ${config.deployment.version}`,
     `RPC: ${config.rpc.length > 40 ? config.rpc.slice(0, 37) + '...' : config.rpc}`,
   ];

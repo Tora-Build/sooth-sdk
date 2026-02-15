@@ -458,3 +458,84 @@ export const protocolState = onchainTable(
     blockNumber: t.bigint().notNull(),
   })
 );
+
+// V12 SoothBook tables
+export const soothbookMarket = onchainTable("soothbook_market", (t) => ({
+  marketKey: t.hex().primaryKey(),
+  chainId: t.integer().notNull(),
+  collateral: t.hex().notNull(),
+  yesToken: t.hex().notNull(),
+  noToken: t.hex().notNull(),
+  active: t.boolean().notNull(),
+  finalized: t.boolean().notNull(),
+  outcome: t.integer(),
+  createdAt: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));
+
+export const soothbookOrder = onchainTable(
+  "soothbook_order",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    side: t.integer().notNull(),
+    tick: t.integer().notNull(),
+    maker: t.hex().notNull(),
+    amount: t.bigint().notNull(),
+    escrow: t.boolean().notNull(),
+    status: t.text().notNull(),
+    filledAmount: t.bigint().notNull(),
+    createdAt: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    makerIdx: index().on(table.maker),
+    statusIdx: index().on(table.status),
+  })
+);
+
+export const soothbookFill = onchainTable(
+  "soothbook_fill",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    takerSide: t.integer().notNull(),
+    yesTick: t.integer().notNull(),
+    noTick: t.integer().notNull(),
+    taker: t.hex().notNull(),
+    maker: t.hex().notNull(),
+    amount: t.bigint().notNull(),
+    surplus: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    takerIdx: index().on(table.taker),
+    makerIdx: index().on(table.maker),
+  })
+);
+
+export const soothbookMintMerge = onchainTable(
+  "soothbook_mint_merge",
+  (t) => ({
+    id: t.text().primaryKey(),
+    chainId: t.integer().notNull(),
+    marketKey: t.hex().notNull(),
+    user: t.hex().notNull(),
+    action: t.text().notNull(),
+    amount: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    blockNumber: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+  }),
+  (table) => ({
+    marketIdx: index().on(table.marketKey),
+    userIdx: index().on(table.user),
+  })
+);
