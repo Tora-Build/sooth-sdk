@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TickBitmap} from "./libraries/TickBitmap.sol";
+import {OutcomeToken} from "./OutcomeToken.sol";
 
 /**
  * @title SoothBook V12
@@ -19,6 +20,8 @@ import {TickBitmap} from "./libraries/TickBitmap.sol";
  *
  *      No sell action. Selling = buying opposite side.
  *      With escrow flag: lock existing tokens, auto-merge on fill.
+ *
+ *      YES/NO positions are ERC20 OutcomeTokens — transferable and composable.
  */
 contract SoothBook is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
@@ -40,11 +43,9 @@ contract SoothBook is ReentrancyGuard, Ownable {
     error InvalidTick();
     error ZeroAmount();
     error MarketNotActive();
-    error MarketNotLive();
     error MarketAlreadyExists();
     error InsufficientBalance();
     error OrderNotActive();
-    error NotOrderOwner();
     error SlippageExceeded();
     error MarketNotFinalized();
     error NothingToRedeem();
@@ -55,6 +56,8 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
     struct Market {
         IERC20 collateral;
+        OutcomeToken yesToken;
+        OutcomeToken noToken;
         bool active;
         bool finalized;
         uint8 outcome; // 0 = NO wins, 1 = YES wins, 2 = invalid (50/50)
@@ -73,7 +76,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
     // Market state
     mapping(bytes32 => Market) public markets;
 
-    // Order books: marketKey => side (0=YES, 1=NO) => tick => orders (FIFO queue)
+    // Order books: marketKey => side (0=NO, 1=YES) => tick => orders (FIFO queue)
     mapping(bytes32 => mapping(uint8 => mapping(uint16 => Order[]))) private _orders;
     // Head pointer for FIFO (avoid shifting arrays)
     mapping(bytes32 => mapping(uint8 => mapping(uint16 => uint256))) private _orderHead;
@@ -81,21 +84,21 @@ contract SoothBook is ReentrancyGuard, Ownable {
     // Bitmaps: marketKey => side => bitmap
     mapping(bytes32 => mapping(uint8 => TickBitmap.Bitmap)) private _bitmaps;
 
-    // Balances: marketKey => user => outcome => shares (WAD)
-    mapping(bytes32 => mapping(address => mapping(uint8 => uint256))) public balances;
-
     // Collateral backing: marketKey => total collateral held
     mapping(bytes32 => uint256) private _collateralBacking;
 
+    // Escrowed tokens for orders: marketKey => side => tick => order index => escrowed
+    // (tracked implicitly via Order.escrow + amount — tokens burned on order placement)
+
     // Fee
-    uint24 public feeBps; // taker fee in bps (applied to surplus only)
+    uint24 public feeBps;
     address public feeRecipient;
 
     // ============================================
     // Events
     // ============================================
 
-    event MarketCreated(bytes32 indexed marketKey, address collateral);
+    event MarketCreated(bytes32 indexed marketKey, address collateral, address yesToken, address noToken);
     event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow);
     event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus);
     event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount);
@@ -114,15 +117,22 @@ contract SoothBook is ReentrancyGuard, Ownable {
     // Admin
     // ============================================
 
-    function createMarket(bytes32 marketKey, address collateral) external onlyOwner {
+    function createMarket(
+        bytes32 marketKey,
+        address collateral,
+        address yesToken,
+        address noToken
+    ) external onlyOwner {
         if (markets[marketKey].active) revert MarketAlreadyExists();
         markets[marketKey] = Market({
             collateral: IERC20(collateral),
+            yesToken: OutcomeToken(yesToken),
+            noToken: OutcomeToken(noToken),
             active: true,
             finalized: false,
             outcome: 0
         });
-        emit MarketCreated(marketKey, collateral);
+        emit MarketCreated(marketKey, collateral, yesToken, noToken);
     }
 
     function resolveMarket(bytes32 marketKey, uint8 outcome) external onlyOwner {
@@ -194,13 +204,13 @@ contract SoothBook is ReentrancyGuard, Ownable {
     function mint(bytes32 marketKey, uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         Market storage m = markets[marketKey];
-        if (!m.active) revert MarketNotActive();
+        if (!m.active || m.finalized) revert MarketNotActive();
 
         m.collateral.safeTransferFrom(msg.sender, address(this), amount);
         _collateralBacking[marketKey] += amount;
 
-        balances[marketKey][msg.sender][1] += amount; // YES
-        balances[marketKey][msg.sender][0] += amount; // NO
+        m.yesToken.mint(msg.sender, amount);
+        m.noToken.mint(msg.sender, amount);
 
         emit Minted(marketKey, msg.sender, amount);
     }
@@ -218,14 +228,11 @@ contract SoothBook is ReentrancyGuard, Ownable {
         if (amount == 0) revert ZeroAmount();
         Market storage m = markets[marketKey];
 
-        uint256 yesBal = balances[marketKey][msg.sender][1];
-        uint256 noBal = balances[marketKey][msg.sender][0];
-        if (yesBal < amount || noBal < amount) revert InsufficientBalance();
+        // Burn both tokens from user (reverts if insufficient)
+        m.yesToken.burn(msg.sender, amount);
+        m.noToken.burn(msg.sender, amount);
 
-        balances[marketKey][msg.sender][1] -= amount;
-        balances[marketKey][msg.sender][0] -= amount;
         _collateralBacking[marketKey] -= amount;
-
         m.collateral.safeTransfer(msg.sender, amount);
 
         emit Merged(marketKey, msg.sender, amount);
@@ -274,9 +281,9 @@ contract SoothBook is ReentrancyGuard, Ownable {
         Market storage m = markets[marketKey];
 
         if (wasEscrow) {
-            // Return escrowed opposite tokens
+            // Return escrowed opposite tokens (re-mint them)
             uint8 opposite = side == 1 ? 0 : 1;
-            balances[marketKey][msg.sender][opposite] += refundAmount;
+            _mintOutcome(m, msg.sender, opposite, refundAmount);
         } else {
             // Return collateral: price = tick/1000
             uint256 refund = (uint256(refundAmount) * uint256(tick)) / NUM_TICKS;
@@ -299,8 +306,8 @@ contract SoothBook is ReentrancyGuard, Ownable {
         Market storage m = markets[marketKey];
         if (!m.finalized) revert MarketNotFinalized();
 
-        uint256 yesBal = balances[marketKey][msg.sender][1];
-        uint256 noBal = balances[marketKey][msg.sender][0];
+        uint256 yesBal = m.yesToken.balanceOf(msg.sender);
+        uint256 noBal = m.noToken.balanceOf(msg.sender);
         if (yesBal == 0 && noBal == 0) revert NothingToRedeem();
 
         uint256 payout;
@@ -313,8 +320,9 @@ contract SoothBook is ReentrancyGuard, Ownable {
             payout = noBal;
         }
 
-        balances[marketKey][msg.sender][1] = 0;
-        balances[marketKey][msg.sender][0] = 0;
+        // Burn all tokens
+        if (yesBal > 0) m.yesToken.burn(msg.sender, yesBal);
+        if (noBal > 0) m.noToken.burn(msg.sender, noBal);
 
         if (payout > 0) {
             _collateralBacking[marketKey] -= payout;
@@ -351,10 +359,9 @@ contract SoothBook is ReentrancyGuard, Ownable {
         if (maxCost > 0 && cost > maxCost) revert SlippageExceeded();
 
         if (escrow) {
-            // Escrow opposite tokens
+            // Burn opposite tokens (escrow for exit)
             uint8 opposite = side == 1 ? 0 : 1;
-            if (balances[marketKey][msg.sender][opposite] < amount) revert InsufficientBalance();
-            balances[marketKey][msg.sender][opposite] -= amount;
+            _burnOutcome(m, msg.sender, opposite, amount);
         } else {
             // Deposit collateral
             m.collateral.safeTransferFrom(msg.sender, address(this), cost);
@@ -384,7 +391,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
      *      i.e., NO tick >= (1000 - Y)
      *
      *      Matching traverses from best (highest) opposite tick downward.
-     *      Surplus = (yesTick + noTick - 1000) goes to taker.
+     *      Surplus = (yesTick + noTick - 1000) goes to taker as collateral.
      *
      * @return remaining Unfilled amount
      */
@@ -400,11 +407,11 @@ contract SoothBook is ReentrancyGuard, Ownable {
         uint8 makerSide = takerSide == 1 ? 0 : 1;
         // Minimum opposite tick needed: 1000 - takerTick
         uint16 minOppTick = NUM_TICKS - takerTick;
-        if (minOppTick > MAX_TICK) return remaining; // taker price too low to match anything
+        if (minOppTick > MAX_TICK) return remaining;
 
         // Find highest opposite tick
         uint16 oppTick = _bitmaps[marketKey][makerSide].findNextDown(MAX_TICK + 1);
-        if (oppTick > MAX_TICK) return remaining; // no opposite orders
+        if (oppTick > MAX_TICK) return remaining;
 
         Market storage m = markets[marketKey];
 
@@ -422,7 +429,6 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
                 uint128 fill = remaining < maker.amount ? remaining : maker.amount;
 
-                // Calculate ticks
                 uint16 yesTick;
                 uint16 noTick;
                 if (takerSide == 1) {
@@ -434,47 +440,39 @@ contract SoothBook is ReentrancyGuard, Ownable {
                 }
 
                 // Surplus per share (in ticks): yesTick + noTick - 1000
-                uint256 surplusPerShare = uint256(yesTick) + uint256(noTick) - NUM_TICKS;
-                uint256 surplus = (surplusPerShare * uint256(fill)) / NUM_TICKS;
+                uint256 surplusTicks = uint256(yesTick) + uint256(noTick) - NUM_TICKS;
+                uint256 surplus = (surplusTicks * uint256(fill)) / NUM_TICKS;
 
-                // Settlement: auto-mint a complete set, distribute tokens
-                // YES token → YES buyer, NO token → NO buyer
-                balances[marketKey][msg.sender][takerSide] += fill;
-
+                // --- Settle maker ---
                 if (maker.escrow) {
-                    // Maker escrowed opposite tokens — they want to exit
-                    // Auto-merge: their escrowed tokens + newly minted = collateral back
+                    // Maker escrowed opposite tokens to exit position
+                    // Their opposite tokens were burned on order placement
+                    // They get collateral back at their price
                     uint256 makerPayout = (uint256(oppTick) * uint256(fill)) / NUM_TICKS;
                     _collateralBacking[marketKey] -= makerPayout;
                     m.collateral.safeTransfer(maker.maker, makerPayout);
                 } else {
-                    // Normal fill: maker gets their outcome tokens
-                    balances[marketKey][maker.maker][makerSide == 1 ? 1 : 0] += fill;
+                    // Normal maker: gets their outcome tokens
+                    _mintOutcome(m, maker.maker, makerSide, fill);
                 }
 
-                // Taker gets surplus as collateral refund
-                if (surplus > 0) {
-                    if (takerEscrow) {
-                        // Taker was escrowing — surplus is extra collateral back
-                        _collateralBacking[marketKey] -= surplus;
-                        m.collateral.safeTransfer(msg.sender, surplus);
-                    } else {
-                        _collateralBacking[marketKey] -= surplus;
-                        m.collateral.safeTransfer(msg.sender, surplus);
-                    }
-                }
-
-                // Handle taker escrow: auto-merge taker's escrowed + received
+                // --- Settle taker ---
                 if (takerEscrow) {
-                    // Taker escrowed opposite tokens and just received `fill` of their side
-                    // Merge: reduce both balances, return collateral
-                    // Actually the opposite tokens were already deducted in _buy
-                    // And we just credited takerSide above
-                    // So we need to merge: deduct the takerSide tokens we just gave, return collateral
+                    // Taker escrowed opposite tokens to exit
+                    // Their opposite tokens were burned in _buy
+                    // They get collateral back at their price
                     uint256 takerPayout = (uint256(takerTick) * uint256(fill)) / NUM_TICKS;
-                    balances[marketKey][msg.sender][takerSide] -= fill;
                     _collateralBacking[marketKey] -= takerPayout;
                     m.collateral.safeTransfer(msg.sender, takerPayout);
+                } else {
+                    // Normal taker: gets their outcome tokens
+                    _mintOutcome(m, msg.sender, takerSide, fill);
+                }
+
+                // Surplus to taker
+                if (surplus > 0) {
+                    _collateralBacking[marketKey] -= surplus;
+                    m.collateral.safeTransfer(msg.sender, surplus);
                 }
 
                 emit OrderFilled(marketKey, takerSide, yesTick, noTick, msg.sender, maker.maker, fill, surplus);
@@ -500,7 +498,27 @@ contract SoothBook is ReentrancyGuard, Ownable {
     }
 
     // ============================================
-    // Internal Helpers
+    // Internal: Token Helpers
+    // ============================================
+
+    function _mintOutcome(Market storage m, address to, uint8 outcome, uint256 amount) internal {
+        if (outcome == 1) {
+            m.yesToken.mint(to, amount);
+        } else {
+            m.noToken.mint(to, amount);
+        }
+    }
+
+    function _burnOutcome(Market storage m, address from, uint8 outcome, uint256 amount) internal {
+        if (outcome == 1) {
+            m.yesToken.burn(from, amount);
+        } else {
+            m.noToken.burn(from, amount);
+        }
+    }
+
+    // ============================================
+    // Internal: Book Helpers
     // ============================================
 
     function _tickEmpty(bytes32 marketKey, uint8 side, uint16 tick) internal view returns (bool) {
@@ -526,7 +544,8 @@ contract SoothBook is ReentrancyGuard, Ownable {
     // ============================================
 
     function getBalance(bytes32 marketKey, address user) external view returns (uint256 yes, uint256 no) {
-        return (balances[marketKey][user][1], balances[marketKey][user][0]);
+        Market storage m = markets[marketKey];
+        return (m.yesToken.balanceOf(user), m.noToken.balanceOf(user));
     }
 
     function getCollateralBacking(bytes32 marketKey) external view returns (uint256) {
@@ -537,8 +556,8 @@ contract SoothBook is ReentrancyGuard, Ownable {
         return _bitmaps[marketKey][side].findNextDown(MAX_TICK + 1);
     }
 
-    function getOrdersAtTick(bytes32 marketKey, uint8 side, uint16 tick) 
-        external view returns (uint256 totalAmount, uint256 orderCount) 
+    function getOrdersAtTick(bytes32 marketKey, uint8 side, uint16 tick)
+        external view returns (uint256 totalAmount, uint256 orderCount)
     {
         Order[] storage queue = _orders[marketKey][side][tick];
         uint256 head = _orderHead[marketKey][side][tick];
