@@ -1,12 +1,12 @@
 # Project Status
 
-> **Codebase Version**: V12.0 (SoothBook) + V11.1 (TickBook)  
+> **Codebase Version**: V12.0 (SoothBook)  
 > **Active Testing**: Base Sepolia  
 > **Last Updated**: 2026-02-15
 
-## V12 SoothBook (Implemented)
+## V12 SoothBook (Current)
 
-V12 introduces **SoothBook** — a radically simplified standalone orderbook (602 lines vs V10's 2710). No vault, no growth accumulators, ERC20 outcome tokens, FIFO matching.
+V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines). No vault, no growth accumulators, ERC20 outcome tokens, FIFO matching. TickBook has been fully removed from the codebase.
 
 | Feature | Description | Status |
 |---------|-------------|--------|
@@ -17,7 +17,7 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 | Tick bitmap | O(1) tick discovery via TickBitmap library | ✅ Deployed |
 | Market resolution | `resolveMarket` (onlyOwner) + `redeem` | ✅ Deployed |
 
-**Tests**: 45 passing (unit tests in `SoothBook.t.sol`)
+**Tests**: 207 passing (45 SoothBook + 162 protocol)
 
 ### V12 Stack
 
@@ -26,7 +26,7 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 | Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia |
 | CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`) |
 | SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
-| Indexer | ✅ Configured | 8 event handlers, 4 schema tables, 5 REST endpoints at `/v12/*` |
+| Indexer | ✅ Configured | 8 event handlers, 4 schema tables (market, order, fill, mint_merge) |
 | Frontend | ✅ Integrated | `useSoothBookMarket` hook, V12Workbench at `/pro` reads from deployments.json |
 
 ### V12 Deployment (Base Sepolia)
@@ -34,13 +34,17 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 | Contract | Address |
 |----------|---------|
 | SoothBook | `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7` |
+| LaunchpadEngine | `0x3cfa2113c919c916e8334d245b157de937e76836` |
+| AMMEngine | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
+| Collateralizer | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
+| ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
 | MockUSDC | `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` |
 
 3 test markets deployed with seeded liquidity on Market 1.
 
 ---
 
-## V11 Features (Implemented)
+## Protocol Features (Implemented)
 
 | Feature | Contract | Status |
 |---------|----------|--------|
@@ -50,14 +54,12 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 | Protocol Config (guardian + pause) | `ProtocolConfig` | ✅ Implemented |
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
-**Tests**: 266 passing (unit, integration, invariant, fuzz)
-
 ## Current Focus
-- **V12 SoothBook Full Stack (2026-02-15)** — Complete V12 integration across all layers: fresh Base Sepolia deployment, 45 unit tests, CLI (11 commands), browser SDK (11 commands), Ponder indexer (8 event handlers), frontend hook (`useSoothBookMarket`) + V12Workbench at `/pro`. All builds pass.
-- **Sooth Lite PWA Polish (2026-02-08)** — Mobile-first PWA for Monad hackathon. TikTok-style vertical snap-scroll feed. Completed: UI cleanup, faucet integration, background images, branding updates, decimal precision fixes, **RPC 429 error elimination**. Testing on Monad Testnet.
+- **V12 TickBook Removal Complete (2026-02-15)** — Replaced TickBook with SoothBook across the entire stack. Removed TickBookPoolManager (2710 lines), TickBookVault (353 lines), all interfaces, hooks, tests, CLI/SDK/indexer/frontend references. 101 files changed, -29,934 lines. 207 tests passing, all builds clean.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia (contract `0xBcD904...`). Created 3 test markets with seeded liquidity. Built full integration: CLI with 11 `sb*` commands wired into REPL, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables + 5 REST endpoints, `useSoothBookMarket` hook, V12Workbench refactored to use `deployments.json` and shared ABIs. 45 unit tests passing. All builds clean.
+- **2026-02-15** — **TickBook Removal**: Removed TickBookPoolManager, TickBookVault, interfaces, hooks, DynamicFeeHook across all layers. SoothBook is now the sole orderbook. 13 test files removed, CLI/SDK/indexer/frontend cleaned of all TickBook references. Updated LaunchpadEngine (removed `_tickBook` constructor param). Zero TickBook references in active code.
+- **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia (contract `0xBcD904...`). Created 3 test markets with seeded liquidity. Built full integration: CLI with 11 `sb*` commands wired into REPL, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables, `useSoothBookMarket` hook, V12Workbench refactored to use `deployments.json` and shared ABIs. 45 unit tests passing. All builds clean.
 - **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction in Sooth Lite. Indexer now computes `yesProbability` locally from reserves (removed 67s/event RPC calls). Added `yesReserves`/`noReserves` fields to schema. Frontend `usePositions` refactored to use indexer endpoints. `useAMMQuote` optimized to only query when user types input. Added `useIndexerHealth` hook and status indicator. Fixed TradeModal accessibility (Drawer.Title). Result: Zero 429 errors.
 - **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
 - **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
@@ -125,24 +127,19 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 - **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
 
 ## Pending/Blocked
-- **ADR-083 Refactor** — Rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature-based paths per canonical filename policy.
-- **claimSpotSellProceedsFor** — Add permissionless spot sell claim for keeper parity (see cli-actor-testing-tool.md).
+- **LaunchpadEngine graduation** — Graduation currently does NOT register markets in SoothBook (TickBook registration was removed). Needs reconnecting for production.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
-- **Mobile Testing with Data** — Pro page mobile fixes need testing with actual market data (indexer was offline during development).
-- **Market Order Semantics** — Decide/implement true sweep behavior (shares- or budget-based) before re-enabling FE Market.
+- **Multi-chain SoothBook deploy** — SoothBook only deployed to Base Sepolia. Monad, MegaETH, Arc need fresh deployments.
+- **CLI scenarios** — YAML scenarios in `packages/contracts-testing/script/interactive/scenarios/` still reference TickBook commands. Need updating for SoothBook.
 
 ## Recently Completed
 - ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
 - ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
 
 ## Known Issues
-- **Mobile Wallet Connect** — AppKit reports CONNECT_SUCCESS but `useAccount` stays disconnected; LINKING_ERROR on mobile wallet deep links (Base/Coinbase). Uniswap wallet opens but app doesn’t return to authenticated state.
-- **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls; the interactive CLI now retries across fallback RPCs for critical reads.
-- **Arc Testnet Event Polling** — 400 Bad Request on high-frequency `useWatchContractEvent` (Mitigated by disabling on ID 5042002).
-- **Arc Alchemy Free Tier getLogs Limit** — Alchemy free tier caps `eth_getLogs` queries to a 10-block range; Ponder must chunk Arc backfills accordingly (or use a different RPC plan/endpoint).
-- **Recent Trades Empty** — Indexer `/trades` endpoint returns `[]` (no `MarketOrderExecuted` events indexed yet on Base Sepolia).
-- **⚠️ Market Order Semantics (V10)** — Current implementation uses full-range order + overlap-based crossing; it is not a guaranteed book sweep.
-- **Isolated ERC20 Tokens** — The `Collateralizer` (Split/Merge) produces ERC20 tokens, but the `TickBookVault` (Pro Trading) uses internal shares. There is no deposit/withdraw bridge, so Split/Merge tokens cannot be traded on the Pro orderbook.
+- **Mobile Wallet Connect** — AppKit reports CONNECT_SUCCESS but `useAccount` stays disconnected; LINKING_ERROR on mobile wallet deep links (Base/Coinbase).
+- **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls.
+- **Keeper bot** — `packages/keeper/` still references TickBook. Needs removal or rewrite for SoothBook.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 
@@ -206,49 +203,9 @@ V12 introduces **SoothBook** — a radically simplified standalone orderbook (60
 
 ## Current Deployments
 
-### Base Sepolia (chainId: 84532) — V11.1 (Active Testing)
-| Contract | Address |
-|----------|---------|
-| **LaunchpadEngine** | `0x3cfa2113c919c916e8334d245b157de937e76836` |
-| **TickBookPoolManager** | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
-| **TickBookVault** | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
-| **AMMEngine** | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
-| **Collateralizer** | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
-| **ProtocolConfig** | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
-| **MockUSDC** | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
+See V12 Deployment table above for Base Sepolia addresses.
 
-> **Note:** V11.1 focuses on Base Sepolia for testing. Monad, MegaETH, and Arc deployments remain at V10.9 but are disabled in tooling.
-
-### Arc Testnet (chainId: 5042002) — V10.9
-| Contract | Address |
-|----------|---------|
-| **LaunchpadEngine** | `0x625b4b2997232380126f0aecd84867086f89b27e` |
-| **TickBookPoolManager** | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
-| **TickBookVault** | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
-| **AMMEngine** | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
-| **Collateralizer** | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
-| **MockUSDC** | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
-
-### Monad Testnet (chainId: 10143) — V11.1
-| Contract | Address |
-|----------|---------|
-| **LaunchpadEngine** | `0x744724aa5b389644f31dfcfbb67786b581602084` |
-| **TickBookPoolManager** | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
-| **TickBookVault** | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
-| **AMMEngine** | `0x67147bc54df45ce43cb88b735043c496047596a7` |
-| **Collateralizer** | `0x57992a707c285971a22dffc3106118331b5e632f` |
-| **ProtocolConfig** | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
-| **MockUSDC** | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
-
-### MegaETH Testnet (chainId: 6343) — V10.9
-| Contract | Address |
-|----------|---------|
-| **LaunchpadEngine** | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
-| **TickBookPoolManager** | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
-| **TickBookVault** | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
-| **AMMEngine** | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
-| **Collateralizer** | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
-| **MockUSDC** | `0x57bda4319c306a68054f25017183030752f97d63` |
+> Other chains (Monad, MegaETH, Arc) have stale TickBook-era deployments and are disabled in tooling. See git history for legacy addresses.
 
 
 ---
@@ -325,12 +282,12 @@ bun run script/interactive/interactive-test.ts --chain=baseSepolia
 - Tests use `@core/` remapping to import from core package
 
 ### Deployment Workflow
-**STEP 1**: [1_DeployCore.s.sol](packages/contracts-core/script/1_DeployCore.s.sol)
-- Deploys 5 core contracts (Collateralizer, AMMEngine, TickBookVault, PoolManager, LaunchpadEngine)
-- Links components (vault→poolManager, ammEngine→launchpad router)
+**STEP 1**: Deploy core contracts via `deploy-multichain.ts`
+- Deploys protocol contracts (Collateralizer, AMMEngine, LaunchpadEngine, ProtocolConfig)
+- Deploys SoothBook separately via `DeploySoothBook.s.sol`
 
-**STEP 2**: [2_CreateMarket.s.sol](packages/contracts-testing/script/markets/2_CreateMarket.s.sol)
-- Market creation workflow in correct order (deploy → activate → register → initialize)
+**STEP 2**: Create markets via CLI or scripts
+- Market creation through LaunchpadEngine or directly on SoothBook
 
 ---
 
@@ -420,4 +377,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-02-15 (V12.0 SoothBook full stack integration)*
+*Last updated: 2026-02-15 (V12.0 — TickBook fully replaced by SoothBook)*

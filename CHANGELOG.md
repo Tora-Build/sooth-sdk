@@ -4,14 +4,34 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Removed (V12 TickBook Replacement — 2026-02-15)
+- **TickBookPoolManager** (2710 lines) — replaced by SoothBook (602 lines)
+- **TickBookVault** (353 lines) — SoothBook handles custody internally, no vault needed
+- **TickBook interfaces**: `ITickBook.sol`, `ITickBookVault.sol`, `ITickBookHooks.sol`
+- **DynamicFeeHook** — TickBook-specific hook contract
+- **13 test files**: crossing/, integration/, invariants/, repro/, mocks/MockTickBook, unit/TickBookVault, unit/KeeperFunctions
+- **CLI**: `orderbook.ts`, `vault.ts`, `state.ts` commands (replaced by soothbook.ts)
+- **SDK**: `orderbook.ts`, `vault.ts`, `state.ts` commands (replaced by soothbook.ts)
+- **Indexer**: TickBook handlers, ABIs, portfolio handlers
+- **Frontend**: 5+ `useTickBook*` hooks, TickBook terminal from Pro.tsx
+- **Config**: TickBook addresses from all deployment JSONs, 5 sdk-core ABI files
+- **Deploy scripts**: TickBook deployment steps from `deploy-multichain.ts`, `DeployArc.s.sol`, `DeployMonadMainnet.s.sol`
+
+### Changed (V12 — 2026-02-15)
+- **LaunchpadEngine**: Removed `_tickBook` constructor param and graduation registration call
+- **Indexer tables**: Renamed SoothBook tables to primary names (`market`, `order`, `fill`, `mint_merge`)
+- **Pro.tsx**: Now shows V12Workbench only (TickBook terminal removed)
+- **CLI router**: SoothBook commands are now the primary orderbook commands
+- **SDK router**: SoothBook commands are now the primary orderbook commands
+
 ### Added
 - **V12 SoothBook Full Stack (2026-02-15)**: Complete V12 integration across all layers:
-  - **Contracts**: `SoothBook.sol` (602 lines) — 4 atomic actions (buyYes, buyNo, mint, merge), auto-match engine (`yesTick + noTick >= 1000`), FIFO array-based matching with head pointer, ERC20 outcome tokens via `OutcomeToken.sol`, O(1) tick discovery via `TickBitmap.sol`. Deployed to Base Sepolia with 3 test markets and seeded liquidity. 45 unit tests passing.
-  - **CLI**: 11 commands in `commands/soothbook.ts` wired into REPL (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`). Wallet balance command detects SoothBook and shows YES/NO token balances.
-  - **SDK**: 11 browser SDK commands in `apps/web/src/lib/sdk/commands/soothbook.ts`. `SOOTHBOOK_ABI` added to shared `abis.ts`. `SDKConfig.contracts` extended with optional `SoothBook`.
-  - **Indexer**: 8 event handlers in `src/soothbook.ts` (MarketCreated, OrderPlaced, OrderFilled, OrderCancelled, Minted, Merged, Redeemed, MarketResolved). 4 schema tables (`soothbookMarket`, `soothbookOrder`, `soothbookFill`, `soothbookMintMerge`). 5 REST endpoints at `/v12/*`.
-  - **Frontend**: `useSoothBookMarket` hook with market state + price types. V12Workbench refactored to read SoothBook address from `deployments.json`, imports shared `SOOTHBOOK_ABI`. Added `resolveMarket` and `symbol()` to shared ABIs.
-  - **Deployment**: SoothBook `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7`, MockUSDC `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` on Base Sepolia (V12.0).
+  - **Contracts**: `SoothBook.sol` (602 lines) — 4 atomic actions (buyYes, buyNo, mint, merge), auto-match engine (`yesTick + noTick >= 1000`), FIFO array-based matching with head pointer, ERC20 outcome tokens via `OutcomeToken.sol`, O(1) tick discovery via `TickBitmap.sol`. Deployed to Base Sepolia with 3 test markets and seeded liquidity. 207 tests passing (45 SoothBook + 162 protocol).
+  - **CLI**: 11 commands in `commands/soothbook.ts` wired into REPL (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`).
+  - **SDK**: 11 browser SDK commands in `apps/web/src/lib/sdk/commands/soothbook.ts`.
+  - **Indexer**: 8 event handlers in `src/soothbook.ts`. 4 schema tables (`market`, `order`, `fill`, `mint_merge`).
+  - **Frontend**: `useSoothBookMarket` hook with market state + price types. V12Workbench at `/pro`.
+  - **Deployment**: SoothBook `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7`, MockUSDC `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` on Base Sepolia.
 - **Indexer Reserve Tracking (2026-02-08)**: Added `yesReserves` and `noReserves` fields to indexer schema for AMM price calculation without RPC calls. `PositionTraded` handler now computes `yesProbability` locally: `noReserves / (yesReserves + noReserves)`.
 - **Indexer Health Hook (2026-02-08)**: New `useIndexerHealth` hook in Sooth Lite to track indexer availability. Profile page now shows indexer status indicator.
 - **Mobile Debugging (2026-02-04)**: Added AppKit event logging, wallet storage reset flow, and boot markers to confirm the active JS bundle on device.
