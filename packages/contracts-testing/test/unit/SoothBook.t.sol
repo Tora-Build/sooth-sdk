@@ -25,11 +25,10 @@ contract SoothBookTest is Test {
         usdc = new ERC20Mock();
         book = new SoothBook();
 
-        // Deploy outcome tokens with book as collateralizer (so it can mint/burn)
-        yesToken = new OutcomeToken("YES", "YES", address(book), address(0x1), 1);
-        noToken = new OutcomeToken("NO", "NO", address(book), address(0x1), 0);
-
-        book.createMarket(marketKey, address(usdc), address(yesToken), address(noToken));
+        // Factory creates market + deploys YES/NO tokens
+        (address yesAddr, address noAddr) = book.createMarket(marketKey, address(usdc), "Test Market");
+        yesToken = OutcomeToken(yesAddr);
+        noToken = OutcomeToken(noAddr);
 
         // Fund users
         usdc.mint(alice, 1000 * WAD);

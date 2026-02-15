@@ -120,18 +120,37 @@ contract SoothBook is ReentrancyGuard, Ownable {
     function createMarket(
         bytes32 marketKey,
         address collateral,
-        address yesToken,
-        address noToken
-    ) external onlyOwner {
+        string calldata name
+    ) external onlyOwner returns (address yesToken, address noToken) {
         if (markets[marketKey].active) revert MarketAlreadyExists();
+
+        // Factory: auto-deploy YES/NO tokens with SoothBook as collateralizer
+        OutcomeToken yes = new OutcomeToken(
+            string.concat(name, " - YES"),
+            string.concat("SOOTH-YES"),
+            address(this),
+            address(this),
+            1
+        );
+        OutcomeToken no = new OutcomeToken(
+            string.concat(name, " - NO"),
+            string.concat("SOOTH-NO"),
+            address(this),
+            address(this),
+            0
+        );
+
         markets[marketKey] = Market({
             collateral: IERC20(collateral),
-            yesToken: OutcomeToken(yesToken),
-            noToken: OutcomeToken(noToken),
+            yesToken: yes,
+            noToken: no,
             active: true,
             finalized: false,
             outcome: 0
         });
+
+        yesToken = address(yes);
+        noToken = address(no);
         emit MarketCreated(marketKey, collateral, yesToken, noToken);
     }
 
