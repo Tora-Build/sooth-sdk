@@ -2,7 +2,7 @@ import { MONAD_MAINNET_CHAIN_ID } from '../config';
 import {
   fetchLaunchpadMarketsFromIndexer,
   checkIndexerHealth,
-  
+  type IndexerLaunchpadMarket,
 } from '../indexer';
 import { getPublicClient } from '../client';
 import { getDeployment, ABIS, computeMarketKey } from '@sooth/sdk-core';
