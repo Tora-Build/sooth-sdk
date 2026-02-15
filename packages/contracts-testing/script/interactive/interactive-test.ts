@@ -1,15 +1,14 @@
 #!/usr/bin/env bun
 /**
  * Interactive On-Chain Testing REPL
- * Sooth Protocol V9
+ * Sooth Protocol
  *
  * Usage:
  *   bun run script/interactive/interactive-test.ts --chain=baseSepolia
  */
 
 import * as readline from 'readline';
-import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
-import { createConfig, type InteractiveConfig, type Deployment, ABIS } from './config';
+import { createConfig, type InteractiveConfig, type Deployment } from './config';
 import { createActorManager, type ActorManager } from './actors';
 import {
   parseCommand,
@@ -27,10 +26,7 @@ import {
   type CommandResult,
   type RecordingState,
   walletCommands,
-  vaultCommands,
-  orderbookCommands,
   soothbookCommands,
-  stateCommands,
   marketCommands,
 } from './commands';
 import { ScenarioEngine } from './scenarios/engine';
@@ -56,41 +52,6 @@ let lastCreatedMarketAddress: string | null = null;
 let recording: RecordingState = { active: false, commands: [], startTime: 0 };
 let scenarioEngine: ScenarioEngine;
 let scenarioMode = false;
-
-/**
- * Compute market key from market info
- */
-function computeMarketKey(
-  truthMarket: string,
-  yesToken: string,
-  noToken: string,
-  hook: string = '0x0000000000000000000000000000000000000000'
-): `0x${string}` {
-  return keccak256(
-    encodeAbiParameters(
-      parseAbiParameters('address, address, address, address'),
-      [
-        truthMarket as `0x${string}`,
-        yesToken as `0x${string}`,
-        noToken as `0x${string}`,
-        hook as `0x${string}`,
-      ]
-    )
-  );
-}
-
-function computeLegacyMarketKey(
-  truthMarket: string,
-  yesToken: string,
-  noToken: string
-): `0x${string}` {
-  return keccak256(
-    encodeAbiParameters(
-      parseAbiParameters('address, address, address'),
-      [truthMarket as `0x${string}`, yesToken as `0x${string}`, noToken as `0x${string}`]
-    )
-  );
-}
 
 /**
  * Set current market by address, index, or latest
@@ -169,6 +130,13 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       }
       marketAddress = config.deployment.markets[index].address;
     }
+  } else if (/^0x[a-fA-F0-9]{64}$/.test(addressOrIndex)) {
+    currentMarketKey = addressOrIndex as `0x${string}`;
+    currentMarketAddress = null;
+    currentMarketName = null;
+    console.log(success('  Market key set'));
+    console.log(dim(`  Key: ${currentMarketKey}`));
+    return true;
   } else if (isDirectAddress) {
     marketAddress = addressOrIndex;
   } else {
@@ -183,22 +151,13 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
     marketAddress = market.address;
   }
 
-  // Get market info from deployment or compute key
   const deployedMarket = config.deployment.markets.find(
     m => m.address.toLowerCase() === marketAddress.toLowerCase()
   );
 
-  let yesToken: string | undefined;
-  let noToken: string | undefined;
-
   if (deployedMarket?.marketKey) {
     currentMarketKey = deployedMarket.marketKey as `0x${string}`;
-  } else if (deployedMarket?.yesToken && deployedMarket?.noToken) {
-    yesToken = deployedMarket.yesToken;
-    noToken = deployedMarket.noToken;
-    currentMarketKey = computeMarketKey(marketAddress, yesToken, noToken);
   } else {
-
     // First check if market exists in LaunchpadEngine (pre-graduation)
     let isLaunchpadMarket = false;
     try {
@@ -258,7 +217,6 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       }
     } catch {}
 
-    // Try Collateralizer (for graduated markets)
     try {
       const [yes, no] = await publicClient.readContract({
         address: config.deployment.contracts.Collateralizer as `0x${string}`,
@@ -276,42 +234,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       }) as [string, string];
 
       if (yes !== '0x0000000000000000000000000000000000000000') {
-        yesToken = yes;
-        noToken = no;
-        // Try V9.9.6 key (includes hook) first, then fall back to legacy key (no hook)
-        const keyV10 = computeMarketKey(marketAddress, yesToken, noToken);
-        const keyLegacy = computeLegacyMarketKey(marketAddress, yesToken, noToken);
-
-        const tryKey = async (k: `0x${string}`) => {
-          try {
-            const [tm, y, n, h] = await publicClient.readContract({
-              address: config.deployment.contracts.TickBookPoolManager as `0x${string}`,
-              abi: ABIS.TickBookPoolManager,
-              functionName: 'getMarketInfo',
-              args: [k],
-            }) as [string, string, string, boolean];
-
-            const active =
-              tm !== '0x0000000000000000000000000000000000000000' &&
-              y !== '0x0000000000000000000000000000000000000000' &&
-              n !== '0x0000000000000000000000000000000000000000';
-
-            return { ok: true, tm, y, n, h, active };
-          } catch {
-            return { ok: false as const };
-          }
-        };
-
-        const infoV10 = await tryKey(keyV10);
-        const infoLegacy = keyLegacy !== keyV10 ? await tryKey(keyLegacy) : { ok: false as const };
-
-        if (infoV10.ok && infoV10.active) {
-          currentMarketKey = keyV10;
-        } else if (infoLegacy.ok && infoLegacy.active) {
-          currentMarketKey = keyLegacy;
-        } else {
-          currentMarketKey = keyV10;
-        }
+        currentMarketKey = currentMarketKey || null;
       } else if (!isLaunchpadMarket) {
         console.log(error(`  Market not found: ${shortAddress(marketAddress)}`));
         return false;
@@ -375,9 +298,9 @@ function printHelp(): void {
   ${dim('┄'.repeat(62))}
 
   ${info('Wallet (global):')}
-    balance              Show USDC balances (wallet + vault)
+    balance              Show USDC balances
     mint <amount>        Mint MockUSDC
-    approve <contract>   Approve (vault, poolmanager, launchpad, all)
+    approve <contract>   Approve (launchpad, all)
     allowance            Show current allowances
     snapshot             Take balance snapshot (before scenario)
     snapshot show        Show stored snapshot
@@ -391,10 +314,10 @@ function printHelp(): void {
                              Options: --adjudicator=<actor> (default: creator)
     graduate [steps]         Graduate market via trades (default 8 steps)
     marketstatus             Show full market lifecycle status
-     settle <outcome>         Settle market (adjudicator only)
-                              outcome: yes, no, invalid
-     finalize                 Finalize settled market (adjudicator only)
-     redeem                   Redeem winning tokens for USDC (after settlement)
+    settle <outcome>         Settle market (adjudicator only)
+                             outcome: yes, no, invalid
+    finalize                 Finalize settled market (adjudicator only)
+    redeem                   Redeem winning tokens for USDC (after settlement)
     redeemamm                Redeem AMM positions for USDC (after settlement)
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
@@ -407,59 +330,25 @@ function printHelp(): void {
       dismiss                  Dismiss market during trial (creator only)
       claimrefund              Claim refund after market dismissal
 
-  ${dim('  │')}
-  ${dim('  └─ Graduated markets become TickBook pools (marketKey)')}
-
-  ${info('TickBook (Vault / PoolManager):')}
-    ${dim('# Requires a TickBook-registered (active) marketKey; use: setmarket <address>')}
-
-    ${info('Vault:')}
-      deposit <amount>     Deposit USDC to vault
-      withdraw <amount>    Withdraw USDC from vault
-      reserved             Show reserved balance details
-
-    ${info('Orderbook (V10 Unified Order API):')}\n      order <side> <range> <shares>   Place order (range, limit, or market)\n                                      Range:  order yes 40-60 100\n                                      Limit:  order yes 50 100\n                                      Market: order yes 1-999 100\n      cancel <orderId>                Cancel order\n      claim <orderId>                 Claim fills\n      market buy|sell <side> <shares> Market order shortcut\n                                      Example: market buy no 50\n      orders [actor]                  List orders\n\n    ${info('Spot Sells:')}\n      spotsell <side> <tickRange> <shares>  Place spot sell order\n                                            Example: spotsell no 100-110 1000\n      spotsells                             List all spot sell orders\n      cancelspotsell <sellId>               Cancel a spot sell\n      claimspotsell <sellId>                Claim proceeds from spot sell
-      claimspotsellfor <sellId>             Keeper claim proceeds for spot sell\n      hybridsell <side> <amount> <tickLow> <tickHigh>  Hybrid sell\n\n    ${info('State:')}
-      state                Show market state (tick, liquidity)
-      book [depth]         Show orderbook
-      positions            Show all actor positions
-      info                 Show market info (addresses)
-      markets              Show current market & available markets
-      setmarket <addr|index|latest|created>  Set current market
-
-    ${info('Simulation:')}
-      simulate [n] [size] [seed]  Run orderbook simulation
-                                  n:    Number of orders (default 10)
-                                  size: Average shares (default 100)
-                                  seed: Random seed for reproducibility
-                                  ${dim('Press Enter during simulation to stop early')}
-                                  Examples:
-                                    simulate              10 random orders
-                                    simulate 50           50 orders
-                                    simulate 20 500       20 orders, 500 avg size
-                                    simulate 20 100 12345 Deterministic (seed)
-
-  ${dim('┄'.repeat(62))}
-
-  ${info('SoothBook V12 (standalone orderbook):')}
-    ${dim('# Set SoothBook market first: sbcreatemarket or sbsetmarket')}
+  ${info('Orderbook (SoothBook):')}
+    ${dim('# Set market key with: setmarket <marketKey>')}
 
     ${info('Trading:')}
-      buyyes <tick> <amount>    Buy YES shares at tick (USDC amount)
-      buyno <tick> <amount>     Buy NO shares at tick
-      sbmint <amount>           Mint complete set (YES+NO)
-      sbmerge <amount>          Merge complete set back to USDC
-
-    ${info('Order Management:')}
-      sbcancel <tick> <side>    Cancel oldest order at tick (yes/no)
-      sbredeem <marketKey>      Redeem winning tokens after resolution
-      sbresolve <outcome>       Resolve market (owner only: yes/no/invalid)
+      buyyes <tick> <amount>      Buy YES shares at tick (USDC amount)
+      buyno <tick> <amount>       Buy NO shares at tick
+      mintset <amount>            Mint complete set (YES+NO)
+      mergeset <amount>           Merge complete set back to USDC
+      cancelorder <side> <tick>   Cancel oldest order at tick (yes/no)
+      sbredeem                    Redeem winning tokens after resolution
+      sbresolve <outcome>         Resolve market (owner only: yes/no/invalid)
 
     ${info('State:')}
-      sbstate                   Show SoothBook market state
-      sbbook [depth]            Show SoothBook orderbook
-      sbpositions               Show SoothBook positions (YES/NO balances)
-      sbcreatemarket <q> <exp>  Create new SoothBook market
+      state                       Show SoothBook market state
+      book [center] [window]      Show SoothBook orderbook
+      positions [actor]           Show SoothBook positions (YES/NO balances)
+      markets                     Show current market & available markets
+      setmarket <addr|key|index|latest|created>  Set current market
+      sbcreate <name>             Create new SoothBook market
 
   ${dim('┄'.repeat(62))}
 
@@ -569,108 +458,65 @@ async function handleCommand(input: string): Promise<void> {
         await run(walletCommands.checksum(ctx, args));
         break;
 
-      // Vault commands
-      case 'deposit':
-        await run(vaultCommands.deposit(ctx, args));
-        break;
-
-      case 'withdraw':
-        await run(vaultCommands.withdraw(ctx, args));
-        break;
-
-      case 'reserved':
-        await run(vaultCommands.reserved(ctx, args));
-        break;
-
-      // Orderbook commands
-      case 'order':
-        await run(orderbookCommands.order(ctx, args));
-        break;
-
-      case 'cancel':
-        await run(orderbookCommands.cancel(ctx, args));
-        break;
-
-      case 'claim':
-        await run(orderbookCommands.claim(ctx, args));
-        break;
-
-      case 'claimrefunds':
-        await run(orderbookCommands.claimrefunds(ctx, args));
-        break;
-
-      case 'market':
-        await run(orderbookCommands.market(ctx, args));
-        break;
-
-      case 'orders':
-        await run(orderbookCommands.orders(ctx, args));
-        break;
-
-      case 'getorder':
-        await run(orderbookCommands.getorder(ctx, args));
-        break;
-
-      case 'spotsell':
-        await run(orderbookCommands.spotsell(ctx, args));
-        break;
-
-      case 'cancelspotsell':
-        await run(orderbookCommands.cancelspotsell(ctx, args));
-        break;
-
-      case 'spotsells':
-        await run(orderbookCommands.spotsells(ctx, args));
-        break;
-
-      case 'claimspotsell':
-        await run(orderbookCommands.claimspotsell(ctx, args));
-        break;
-
-      case 'claimspotsellfor':
-        await run(orderbookCommands.claimspotsellfor(ctx, args));
-        break;
-
-      case 'hybridsell':
-        await run(orderbookCommands.hybridsell(ctx, args));
-        break;
-
-      // State commands
       case 'state':
-        await run(stateCommands.state(ctx, args));
+        await run(soothbookCommands.state(ctx, args));
         break;
 
       case 'book':
-        await run(stateCommands.book(ctx, args));
+        await run(soothbookCommands.book(ctx, args));
         break;
 
       case 'positions':
-        await run(stateCommands.positions(ctx, args));
-        break;
-
-      case 'info':
-        await run(stateCommands.info(ctx, args));
+        await run(soothbookCommands.positions(ctx, args));
         break;
 
       case 'markets':
-      case 'm':
-        await run(stateCommands.markets(ctx, args));
+      case 'm': {
+        console.log('');
+        console.log(`  ${bold('Markets')}`);
+        console.log('  ' + '─'.repeat(50));
+        if (currentMarketAddress || currentMarketKey) {
+          console.log(`  Current Address: ${currentMarketAddress || '(none)'}`);
+          console.log(`  Current Key:     ${currentMarketKey || '(none)'}`);
+        } else {
+          console.log(`  Current: ${warn('none')}`);
+        }
+        if (config.deployment.markets.length > 0) {
+          console.log('');
+          config.deployment.markets.forEach((market, index) => {
+            const label = market.name || `Market ${index}`;
+            const addressValue = market.address || '(none)';
+            const keyValue = market.marketKey || market.key || '(none)';
+            console.log(`  [${index}] ${label}`);
+            console.log(`      address: ${addressValue}`);
+            console.log(`      key:     ${keyValue}`);
+          });
+        }
+        console.log('');
         break;
+      }
 
       case 'setmarket':
         if (args.length < 1) {
-          await run(stateCommands.setmarket(ctx, args));
+          console.log(error('  Usage: setmarket <addr|key|index|latest|created>'));
         } else {
           await setMarket(args[0]);
         }
         break;
 
-      case 'rpc':
-        await run(stateCommands.rpc(ctx, args));
+      case 'rpc': {
+        const publicClient = actorManager.getPublicClient();
+        const block = await publicClient.getBlockNumber();
+        console.log('');
+        console.log(`  Chain: ${config.chainName} (${config.chain.id})`);
+        console.log(`  RPC:   ${config.rpc}`);
+        console.log(`  Block: ${block.toString()}`);
+        console.log('');
         break;
+      }
 
       case 'call':
-        await run(stateCommands.call(ctx, args));
+        console.log(warn('  call command is not available in this console'));
         break;
 
       // Market lifecycle commands
@@ -720,10 +566,6 @@ async function handleCommand(input: string): Promise<void> {
         await run(marketCommands.transferlp(ctx, args));
         break;
 
-      case 'simulate':
-        await run(marketCommands.simulate(ctx, args));
-        break;
-
       case 'trialstatus':
         await run(marketCommands.trialstatus(ctx, args));
         break;
@@ -736,7 +578,6 @@ async function handleCommand(input: string): Promise<void> {
         await run(marketCommands.claimrefund(ctx, args));
         break;
 
-      // SoothBook V12 commands
       case 'buyyes':
         await run(soothbookCommands.buyyes(ctx, args));
         break;
@@ -745,15 +586,15 @@ async function handleCommand(input: string): Promise<void> {
         await run(soothbookCommands.buyno(ctx, args));
         break;
 
-      case 'sbmint':
+      case 'mintset':
         await run(soothbookCommands.mint(ctx, args));
         break;
 
-      case 'sbmerge':
+      case 'mergeset':
         await run(soothbookCommands.merge(ctx, args));
         break;
 
-      case 'sbcancel':
+      case 'cancelorder':
         await run(soothbookCommands.cancel(ctx, args));
         break;
 
@@ -765,19 +606,7 @@ async function handleCommand(input: string): Promise<void> {
         await run(soothbookCommands.resolve(ctx, args));
         break;
 
-      case 'sbstate':
-        await run(soothbookCommands.state(ctx, args));
-        break;
-
-      case 'sbbook':
-        await run(soothbookCommands.book(ctx, args));
-        break;
-
-      case 'sbpositions':
-        await run(soothbookCommands.positions(ctx, args));
-        break;
-
-      case 'sbcreatemarket':
+      case 'sbcreate':
         await run(soothbookCommands.createmarket(ctx, args));
         break;
 
@@ -900,7 +729,7 @@ async function main(): Promise<void> {
   }
 
   const headerLines = [
-    bold('SOOTH V11/V12 INTERACTIVE TEST CONSOLE'),
+    bold('SOOTH INTERACTIVE TEST CONSOLE'),
     `Chain: ${config.chainName} | Version: ${config.deployment.version}`,
     `RPC: ${config.rpc.length > 40 ? config.rpc.slice(0, 37) + '...' : config.rpc}`,
   ];

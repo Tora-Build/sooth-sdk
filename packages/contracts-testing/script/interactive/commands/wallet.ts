@@ -14,10 +14,7 @@ const CollateralizerAbi = parseAbi([
   'function isMarketRegistered(address market) view returns (bool)',
 ]);
 
-const TickBookVaultAbi = parseAbi([
-  'function getInternalOutcomes(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
-  'function marketCollateralWad(address market) view returns (uint256)',
-]);
+
 
 const LaunchpadEngineAbi = parseAbi([
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
@@ -99,36 +96,20 @@ export async function balance(ctx: CommandContext, _args: string[]): Promise<Com
     return { success: true };
   }
 
-  const [walletBalance, vaultAvailable, vaultReserved] = await Promise.all([
-    readContractWithRpcFallback<bigint>(
-      ctx.config.chain,
-      ctx.config.rpc,
-      {
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
-        functionName: 'balanceOf',
-        args: [address],
-      },
-    ),
-    publicClient.readContract({
-      address: deployment.contracts.TickBookVault as `0x${string}`,
-      abi: ABIS.TickBookVault,
-      functionName: 'availableUsdcWad',
+  const walletBalance = await readContractWithRpcFallback<bigint>(
+    ctx.config.chain,
+    ctx.config.rpc,
+    {
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
       args: [address],
-    }),
-    publicClient.readContract({
-      address: deployment.contracts.TickBookVault as `0x${string}`,
-      abi: ABIS.TickBookVault,
-      functionName: 'reservedUsdcWad',
-      args: [address],
-    }),
-  ]);
+    },
+  );
 
   console.log(`\n  ${bold('Balances')} for ${info(shortAddress(address))}`);
   console.log('  ' + '─'.repeat(40));
-  console.log(`  Wallet USDC:     ${formatWad(walletBalance)} USDC`);
-  console.log(`  Vault Available: ${success(formatWad(vaultAvailable as bigint))} USDC`);
-  console.log(`  Vault Reserved:  ${dim(formatWad(vaultReserved as bigint))} USDC`);
+  console.log(`  Wallet USDC: ${formatWad(walletBalance)} USDC`);
   console.log('');
 
   return { success: true };
@@ -190,14 +171,14 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
   const contractArg = args[0].toLowerCase();
   const amount = args[1] ? parseWad(args[1]) : MAX_UINT256;
 
-  // Map contract names to addresses
-  // Note: PoolManager doesn't need direct USDC allowance - it uses Vault's internal accounting
   const contractMap: Record<string, string> = {
-    vault: deployment.contracts.TickBookVault,
-    tickbookvault: deployment.contracts.TickBookVault,
     launchpad: deployment.contracts.LaunchpadEngine,
     launchpadengine: deployment.contracts.LaunchpadEngine,
   };
+
+  if (deployment.contracts.SoothBook) {
+    contractMap.soothbook = deployment.contracts.SoothBook;
+  }
 
   const approveContract = async (name: string, address: string) => {
     const spinner = new Spinner(`Approving ${name}...`);
@@ -224,7 +205,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
   if (contractArg === 'all') {
     let allSuccess = true;
     for (const [name, addr] of Object.entries(contractMap)) {
-      if (name !== 'tickbookvault' && name !== 'launchpadengine') {
+      if (name !== 'launchpadengine') {
         const ok = await approveContract(name, addr);
         allSuccess = allSuccess && ok;
       }
@@ -234,7 +215,7 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
 
   const contractAddress = contractMap[contractArg];
   if (!contractAddress) {
-    return { success: false, message: `Unknown contract: ${contractArg}. Use: vault, launchpad, or all` };
+    return { success: false, message: `Unknown contract: ${contractArg}. Use: launchpad, soothbook, or all` };
   }
 
   const ok = await approveContract(contractArg, contractAddress);
@@ -253,11 +234,13 @@ export async function allowance(ctx: CommandContext, _args: string[]): Promise<C
     return { success: false, message: 'No actor selected' };
   }
 
-  // Note: PoolManager doesn't need direct USDC allowance - it uses Vault's internal accounting
   const contracts = [
-    { name: 'Vault', address: deployment.contracts.TickBookVault },
     { name: 'Launchpad', address: deployment.contracts.LaunchpadEngine },
   ];
+
+  if (deployment.contracts.SoothBook) {
+    contracts.push({ name: 'SoothBook', address: deployment.contracts.SoothBook });
+  }
 
   console.log(`\n  ${bold('Allowances')} for ${info(shortAddress(address))}`);
   console.log('  ' + '─'.repeat(40));
@@ -285,12 +268,9 @@ let balanceSnapshot: BalanceSnapshot | null = null;
 
 export interface ActorPositions {
   wallet: bigint;
-  vault: bigint;
-  internalYes: bigint;
-  internalNo: bigint;
   erc20Yes: bigint;
   erc20No: bigint;
-  ammYes: bigint;      // AMM positions (pre-graduation trades)
+  ammYes: bigint;
   ammNo: bigint;
   lpTokens: bigint;
   name: string;
@@ -314,12 +294,9 @@ export interface BalanceSnapshot {
   actors: Record<string, ActorPositions>;
   contracts: {
     launchpadEngine: bigint;
-    tickBookVault: bigint;
-    tickBookPoolManager: bigint;
     collateralizer: bigint;
     ammEngine: bigint;
     protocolTreasury: bigint;
-    vaultMarketCollateral: bigint;
   };
   protocolTreasuryAddress: string | null;
   totalMinted: bigint;
@@ -357,12 +334,9 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     actors: {},
     contracts: {
       launchpadEngine: 0n,
-      tickBookVault: 0n,
-      tickBookPoolManager: 0n,
       collateralizer: 0n,
       ammEngine: 0n,
       protocolTreasury: 0n,
-      vaultMarketCollateral: 0n,
     },
     protocolTreasuryAddress: null,
     totalMinted: 0n,
@@ -423,29 +397,13 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   for (const actor of actors) {
     const actorAddr = actor.account.address;
     
-    const [wallet, available, reserved] = await Promise.all([
-      publicClient.readContract({
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
-        functionName: 'balanceOf',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-      publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: ABIS.TickBookVault,
-        functionName: 'availableUsdcWad',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-      publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: ABIS.TickBookVault,
-        functionName: 'reservedUsdcWad',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-    ]);
+    const wallet = await publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [actorAddr],
+    }) as Promise<bigint>;
 
-    let internalYes = 0n;
-    let internalNo = 0n;
     let erc20Yes = 0n;
     let erc20No = 0n;
     let ammYes = 0n;
@@ -453,15 +411,6 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     let lpTokens = 0n;
 
     if (marketAddress) {
-      try {
-        [internalYes, internalNo] = await publicClient.readContract({
-          address: deployment.contracts.TickBookVault as `0x${string}`,
-          abi: TickBookVaultAbi,
-          functionName: 'getInternalOutcomes',
-          args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
-      } catch {}
-
       try {
         [erc20Yes, erc20No] = await publicClient.readContract({
           address: deployment.contracts.Collateralizer as `0x${string}`,
@@ -494,9 +443,6 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 
     snap.actors[actorAddr] = {
       wallet,
-      vault: available + reserved,
-      internalYes,
-      internalNo,
       erc20Yes,
       erc20No,
       ammYes,
@@ -512,24 +458,12 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     functionName: 'protocolTreasury',
   }) as `0x${string}`;
 
-  const [launchpadBal, vaultBal, poolManagerBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
+  const [launchpadBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'balanceOf',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`],
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [deployment.contracts.TickBookVault as `0x${string}`],
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [deployment.contracts.TickBookPoolManager as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
@@ -551,26 +485,11 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     }) as Promise<bigint>,
   ]);
 
-  let vaultMarketCollateral = 0n;
-  if (marketAddress) {
-    try {
-      vaultMarketCollateral = await publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: TickBookVaultAbi,
-        functionName: 'marketCollateralWad',
-        args: [marketAddress],
-      }) as bigint;
-    } catch {}
-  }
-
   snap.contracts = {
     launchpadEngine: launchpadBal,
-    tickBookVault: vaultBal,
-    tickBookPoolManager: poolManagerBal,
     collateralizer: collateralizerBal,
     ammEngine: ammEngineBal,
     protocolTreasury: treasuryBal,
-    vaultMarketCollateral,
   };
   snap.protocolTreasuryAddress = protocolTreasuryAddr;
 
@@ -589,20 +508,18 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 }
 
 function calculateActorTotalValue(data: ActorPositions, market: MarketState | null, excludeAmm: boolean = false): bigint {
-  const liquidUsdc = data.wallet + data.vault;
+  const liquidUsdc = data.wallet;
   
   if (!market) {
     return liquidUsdc;
   }
 
-  // AMM positions are backed by AMMEngine USDC (counted separately in contract totals)
-  // Only count internal (TickBook) and ERC20 positions here
   const totalYes = excludeAmm 
-    ? data.internalYes + data.erc20Yes 
-    : data.internalYes + data.erc20Yes + data.ammYes;
+    ? data.erc20Yes 
+    : data.erc20Yes + data.ammYes;
   const totalNo = excludeAmm 
-    ? data.internalNo + data.erc20No 
-    : data.internalNo + data.erc20No + data.ammNo;
+    ? data.erc20No 
+    : data.erc20No + data.ammNo;
   
   let yesValue = 0n;
   let noValue = 0n;
@@ -659,11 +576,10 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
     
     const parts: string[] = [];
     if (data.wallet > 0n) parts.push(`w:${formatWad(data.wallet)}`);
-    if (data.vault > 0n) parts.push(`v:${formatWad(data.vault)}`);
     
     if (snap.market) {
-      const totalYes = data.internalYes + data.erc20Yes + data.ammYes;
-      const totalNo = data.internalNo + data.erc20No + data.ammNo;
+      const totalYes = data.erc20Yes + data.ammYes;
+      const totalNo = data.erc20No + data.ammNo;
       if (totalYes > 0n) parts.push(`Y:${formatWad(totalYes)}`);
       if (totalNo > 0n) parts.push(`N:${formatWad(totalNo)}`);
       if (data.ammYes > 0n || data.ammNo > 0n) parts.push(`amm:${formatWad(data.ammYes)}/${formatWad(data.ammNo)}`);
@@ -678,8 +594,6 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
   console.log(`\n  ${info('Contract Balances:')}`);
   console.log(`    LaunchpadEngine  ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`);
   console.log(`    AMMEngine        ${formatWad(snap.contracts.ammEngine).padStart(12)} USDC`);
-  console.log(`    TickBookPoolMgr  ${formatWad(snap.contracts.tickBookPoolManager).padStart(12)} USDC`);
-  console.log(`    TickBookVault    ${formatWad(snap.contracts.tickBookVault).padStart(12)} USDC ${dim('(custodial)')}`);
   console.log(`    Collateralizer   ${formatWad(snap.contracts.collateralizer).padStart(12)} USDC`);
   console.log(`    ProtocolTreasury ${formatWad(snap.contracts.protocolTreasury).padStart(12)} USDC`);
 
@@ -707,12 +621,9 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     actors: {},
     contracts: {
       launchpadEngine: 0n,
-      tickBookVault: 0n,
-      tickBookPoolManager: 0n,
       collateralizer: 0n,
       ammEngine: 0n,
       protocolTreasury: 0n,
-      vaultMarketCollateral: 0n,
     },
     protocolTreasuryAddress: before.protocolTreasuryAddress,
     totalMinted: 0n,
@@ -771,29 +682,13 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   for (const actor of actors) {
     const actorAddr = actor.account.address;
     
-    const [wallet, available, reserved] = await Promise.all([
-      publicClient.readContract({
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
-        functionName: 'balanceOf',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-      publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: ABIS.TickBookVault,
-        functionName: 'availableUsdcWad',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-      publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: ABIS.TickBookVault,
-        functionName: 'reservedUsdcWad',
-        args: [actorAddr],
-      }) as Promise<bigint>,
-    ]);
+    const wallet = await publicClient.readContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [actorAddr],
+    }) as Promise<bigint>;
 
-    let internalYes = 0n;
-    let internalNo = 0n;
     let erc20Yes = 0n;
     let erc20No = 0n;
     let ammYes = 0n;
@@ -801,15 +696,6 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     let lpTokens = 0n;
 
     if (marketAddress) {
-      try {
-        [internalYes, internalNo] = await publicClient.readContract({
-          address: deployment.contracts.TickBookVault as `0x${string}`,
-          abi: TickBookVaultAbi,
-          functionName: 'getInternalOutcomes',
-          args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
-      } catch {}
-
       try {
         [erc20Yes, erc20No] = await publicClient.readContract({
           address: deployment.contracts.Collateralizer as `0x${string}`,
@@ -842,9 +728,6 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
     after.actors[actorAddr] = {
       wallet,
-      vault: available + reserved,
-      internalYes,
-      internalNo,
       erc20Yes,
       erc20No,
       ammYes,
@@ -856,24 +739,12 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   const treasuryAddr = before.protocolTreasuryAddress as `0x${string}` | null;
   
-  const [launchpadBal, vaultBal, poolManagerBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
+  const [launchpadBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
       abi: ABIS.MockUSDC,
       functionName: 'balanceOf',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`],
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [deployment.contracts.TickBookVault as `0x${string}`],
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'balanceOf',
-      args: [deployment.contracts.TickBookPoolManager as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
       address: deployment.contracts.MockUSDC as `0x${string}`,
@@ -895,26 +766,11 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     }) as Promise<bigint> : Promise.resolve(0n),
   ]);
 
-  let vaultMarketCollateral = 0n;
-  if (marketAddress) {
-    try {
-      vaultMarketCollateral = await publicClient.readContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: TickBookVaultAbi,
-        functionName: 'marketCollateralWad',
-        args: [marketAddress],
-      }) as bigint;
-    } catch {}
-  }
-
   after.contracts = {
     launchpadEngine: launchpadBal,
-    tickBookVault: vaultBal,
-    tickBookPoolManager: poolManagerBal,
     collateralizer: collateralizerBal,
     ammEngine: ammEngineBal,
     protocolTreasury: treasuryBal,
-    vaultMarketCollateral,
   };
 
   after.totalMinted = await publicClient.readContract({
@@ -955,15 +811,15 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     const beforeData = before.actors[addr];
     if (!beforeData) continue;
 
-    const beforeUsdc = beforeData.wallet + beforeData.vault;
-    const afterUsdc = afterData.wallet + afterData.vault;
+    const beforeUsdc = beforeData.wallet;
+    const afterUsdc = afterData.wallet;
     const delta = afterUsdc - beforeUsdc;
     
     totalActorUsdcBefore += beforeUsdc;
     totalActorUsdcAfter += afterUsdc;
 
-    const actorYesTokens = afterData.internalYes + afterData.erc20Yes + afterData.ammYes;
-    const actorNoTokens = afterData.internalNo + afterData.erc20No + afterData.ammNo;
+    const actorYesTokens = afterData.erc20Yes + afterData.ammYes;
+    const actorNoTokens = afterData.erc20No + afterData.ammNo;
     const actorLpTokens = afterData.lpTokens;
     
     if (actorYesTokens > 0n || actorNoTokens > 0n || actorLpTokens > 0n) {
@@ -989,7 +845,6 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   console.log('  ' + '─'.repeat(70));
 
   const launchpadDelta = after.contracts.launchpadEngine - before.contracts.launchpadEngine;
-  const poolManagerDelta = after.contracts.tickBookPoolManager - (before.contracts.tickBookPoolManager ?? 0n);
   const collateralizerDelta = after.contracts.collateralizer - before.contracts.collateralizer;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
   const treasuryDelta = after.contracts.protocolTreasury - before.contracts.protocolTreasury;
@@ -998,7 +853,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   const treasuryIsActor = before.protocolTreasuryAddress && actorAddresses.has(before.protocolTreasuryAddress.toLowerCase());
   const effectiveTreasuryDelta = treasuryIsActor ? 0n : treasuryDelta;
   
-  const totalContractDelta = launchpadDelta + poolManagerDelta + collateralizerDelta + ammEngineDelta + effectiveTreasuryDelta;
+  const totalContractDelta = launchpadDelta + collateralizerDelta + ammEngineDelta + effectiveTreasuryDelta;
 
   const printDelta = (name: string, delta: bigint, note?: string) => {
     const sign = delta >= 0n ? '+' : '';
@@ -1009,16 +864,12 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   printDelta('LaunchpadEngine', launchpadDelta);
   printDelta('AMMEngine', ammEngineDelta);
-  printDelta('TickBookPoolMgr', poolManagerDelta);
   printDelta('Collateralizer', collateralizerDelta);
   if (treasuryIsActor) {
     console.log(`    ${dim('ProtocolTreasury'.padEnd(18))} ${dim(`${treasuryDelta >= 0n ? '+' : ''}${formatWad(treasuryDelta)}`.padStart(12))} ${dim('USDC (= actor, not counted)')}`);
   } else {
     printDelta('ProtocolTreasury', treasuryDelta);
   }
-  
-  const vaultDelta = after.contracts.tickBookVault - before.contracts.tickBookVault;
-  console.log(`    ${dim('TickBookVault'.padEnd(18))} ${dim(`${vaultDelta >= 0n ? '+' : ''}${formatWad(vaultDelta)}`.padStart(12))} ${dim('USDC (custodial)')}`);
   
   console.log('  ' + '─'.repeat(70));
   const contractSign = totalContractDelta >= 0n ? '+' : '';
@@ -1033,17 +884,10 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     console.log(dim('    Run: redeem, redeemamm, redeemlp max'));
   }
 
-  const hasStuckUsdc = after.contracts.vaultMarketCollateral > 0n || (after.market?.lpYieldPool ?? 0n) > 0n;
-  if (hasStuckUsdc) {
+  if ((after.market?.lpYieldPool ?? 0n) > 0n) {
     console.log(`\n  ${warn('Potential Stuck USDC:')}`);
-    if (after.contracts.vaultMarketCollateral > 0n) {
-      console.log(`    Vault marketCollateral: ${formatWad(after.contracts.vaultMarketCollateral)} USDC`);
-      console.log(dim('      → Unredeemed internal outcomes. Run: redeem'));
-    }
-    if ((after.market?.lpYieldPool ?? 0n) > 0n) {
-      console.log(`    lpYieldPool:            ${formatWad(after.market!.lpYieldPool)} USDC`);
-      console.log(dim('      → Unclaimed LP yield. Run: claimlpyield'));
-    }
+    console.log(`    lpYieldPool:            ${formatWad(after.market!.lpYieldPool)} USDC`);
+    console.log(dim('      → Unclaimed LP yield. Run: claimlpyield'));
   }
 
   console.log(`\n  ${bold('Zero-Sum Equation:')}`);

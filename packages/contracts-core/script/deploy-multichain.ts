@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Multi-Chain V10 Core Deployment Script
+ * Multi-Chain V12 Core Deployment Script
  * 
- * Deploys V10 Singleton core contracts to multiple chains:
+ * Deploys V12 core contracts to multiple chains:
  * - Base Sepolia (testnet)
  * - Monad Testnet
  * - Arc Testnet
@@ -70,7 +70,7 @@ import {
   type DeploymentArtifact,
 } from './chainConfigs.js';
 
-const DEPLOYMENT_VERSION = 'V11.1';
+const DEPLOYMENT_VERSION = 'V12.0';
 
 // ============================================
 // Artifact Loading
@@ -98,14 +98,6 @@ function loadArtifact(contractName: string): ContractArtifact {
 // ============================================
 // Contract ABIs (inline for key interactions)
 // ============================================
-
-const VAULT_ABI = parseAbi([
-  'function setTickBook(address _tickBook) external',
-]);
-
-const POOL_MANAGER_ABI = parseAbi([
-  'function setRegistrar(address _registrar) external',
-]);
 
 // ============================================
 // Deployment Context
@@ -172,14 +164,12 @@ interface CoreContracts {
   protocolConfig: `0x${string}`;
   collateralizer: `0x${string}`;
   ammEngine: `0x${string}`;
-  tickBookVault: `0x${string}`;
-  tickBookPoolManager: `0x${string}`;
-  dynamicFeeHook: `0x${string}`;
+  soothBook: `0x${string}`;
   launchpadEngine: `0x${string}`;
 }
 
 async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContracts> {
-  console.log(`\n[${ctx.chainName}] === Deploying Core V10 Contracts ===`);
+  console.log(`\n[${ctx.chainName}] === Deploying Core V12 Contracts ===`);
 
   // 1. MockUSDC
   const mockUSDC = await deployContract(ctx, 'MockUSDC', ['Mock USDC', 'USDC']);
@@ -193,17 +183,14 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   // 4. AMMEngine
   const ammEngine = await deployContract(ctx, 'AMMEngine', [mockUSDC, protocolConfig, ctx.deployer]);
 
-  // 5. Singleton TickBook Components (V10 Unified Crossing)
-  const tickBookVault = await deployContract(ctx, 'TickBookVault', [mockUSDC, protocolConfig, ctx.deployer]);
-  const tickBookPoolManager = await deployContract(ctx, 'TickBookPoolManager', [tickBookVault, protocolConfig]);
-  const dynamicFeeHook = await deployContract(ctx, 'DynamicFeeHook', []);
+  // 5. SoothBook
+  const soothBook = await deployContract(ctx, 'SoothBook', []);
 
   // 6. LaunchpadEngine
   const launchpadEngine = await deployContract(ctx, 'LaunchpadEngine', [
     mockUSDC,
     ammEngine,
     collateralizer,
-    tickBookPoolManager,
     protocolConfig,
     ctx.deployer, // Protocol Treasury
     ctx.deployer, // Initial owner
@@ -211,18 +198,6 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
 
   // 7. Configure Engines (Link up permissions)
   console.log(`\n[${ctx.chainName}] === Configuring Engines & Permissions ===`);
-
-  console.log(`  [${ctx.chainName}] Linking Vault to PoolManager...`);
-  const setVaultTickBookHash = await ctx.walletClient.writeContract({
-    address: tickBookVault,
-    abi: VAULT_ABI,
-    functionName: 'setTickBook',
-    args: [tickBookPoolManager],
-    chain: ctx.config.chain,
-    account: ctx.walletClient.account!,
-    ...ctx.config.gasSettings,
-  });
-  await ctx.publicClient.waitForTransactionReceipt({ hash: setVaultTickBookHash });
 
   console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as AMMEngine router...`);
   const setRouterHash = await ctx.walletClient.writeContract({
@@ -236,26 +211,12 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: setRouterHash });
 
-  console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as PoolManager registrar...`);
-  const setRegistrarHash = await ctx.walletClient.writeContract({
-    address: tickBookPoolManager,
-    abi: POOL_MANAGER_ABI,
-    functionName: 'setRegistrar',
-    args: [launchpadEngine],
-    chain: ctx.config.chain,
-    account: ctx.walletClient.account!,
-    ...ctx.config.gasSettings,
-  });
-  await ctx.publicClient.waitForTransactionReceipt({ hash: setRegistrarHash });
-
   return {
     mockUSDC,
     protocolConfig,
     collateralizer,
     ammEngine,
-    tickBookVault,
-    tickBookPoolManager,
-    dynamicFeeHook,
+    soothBook,
     launchpadEngine,
   };
 }
@@ -325,7 +286,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   };
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[${chainName}] Starting V10 Core Deployment`);
+  console.log(`[${chainName}] Starting V12 Core Deployment`);
   console.log(`[${chainName}] Chain ID: ${config.chain.id}`);
   console.log(`[${chainName}] Deployer: ${account.address}`);
   console.log(`${'='.repeat(60)}`);
@@ -353,9 +314,7 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
       ProtocolConfig: core.protocolConfig,
       Collateralizer: core.collateralizer,
       AMMEngine: core.ammEngine,
-      TickBookVault: core.tickBookVault,
-      TickBookPoolManager: core.tickBookPoolManager,
-      TickBook: core.tickBookPoolManager, // Legacy alias
+      SoothBook: core.soothBook,
       LaunchpadEngine: core.launchpadEngine,
     },
     markets: [], // Markets created separately via CLI or launchpad
@@ -397,7 +356,7 @@ async function main() {
     : `0x${privateKey}` as `0x${string}`;
 
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║         SOOTH PROTOCOL V10 CORE CONTRACT DEPLOYMENT        ║');
+  console.log('║         SOOTH PROTOCOL V12 CORE CONTRACT DEPLOYMENT        ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
   console.log(`║ Target Chains: ${targetChains.join(', ').padEnd(44)}║`);
   console.log('╚════════════════════════════════════════════════════════════╝');
@@ -423,8 +382,7 @@ async function main() {
       console.log(`   ProtocolConfig: ${artifact.contracts.ProtocolConfig}`);
       console.log(`   Collateralizer: ${artifact.contracts.Collateralizer}`);
       console.log(`   AMMEngine: ${artifact.contracts.AMMEngine}`);
-      console.log(`   TickBookVault: ${artifact.contracts.TickBookVault}`);
-      console.log(`   TickBookPoolManager: ${artifact.contracts.TickBookPoolManager}`);
+      console.log(`   SoothBook: ${artifact.contracts.SoothBook}`);
       console.log(`   LaunchpadEngine: ${artifact.contracts.LaunchpadEngine}`);
     } else {
       console.log(`\n❌ ${chainName}: FAILED`);

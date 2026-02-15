@@ -11,7 +11,7 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import {MockAMMEngine} from "../mocks/MockAMMEngine.sol";
 import {MockCollateralizer} from "../mocks/MockCollateralizer.sol";
-import {MockTickBook} from "../mocks/MockTickBook.sol";
+
 import {MockValidationRegistry} from "../mocks/MockValidationRegistry.sol";
 
 /**
@@ -48,7 +48,7 @@ abstract contract TrialPeriodTestBase is Test {
     ERC20Mock internal usdc;
     MockAMMEngine internal ammEngine;
     MockCollateralizer internal collateralizer;
-    MockTickBook internal tickBook;
+
     LaunchpadEngine internal launchpad;
     ProtocolConfig internal protocolConfig;
     ValidatedAdjudicator internal validatedAdjudicator;
@@ -93,9 +93,6 @@ abstract contract TrialPeriodTestBase is Test {
         // Deploy Collateralizer mock
         collateralizer = new MockCollateralizer();
 
-        // Deploy TickBook mock
-        tickBook = new MockTickBook();
-
         validationRegistry = new MockValidationRegistry();
     }
 
@@ -107,7 +104,6 @@ abstract contract TrialPeriodTestBase is Test {
             address(usdc),
             address(ammEngine),
             address(collateralizer),
-            address(tickBook),
             address(protocolConfig),
             treasury,
             deployer

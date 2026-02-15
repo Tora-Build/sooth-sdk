@@ -9,9 +9,6 @@
         "ProtocolConfig": "0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0",
         "Collateralizer": "0x4deae2f0a39b84f57a28f07762e8b47085ed38de",
         "AMMEngine": "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",
-        "TickBookVault": "0x667c100f8f5667177fce0e9566ffe1403fc7c6f7",
-        "TickBookPoolManager": "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
-        "TickBook": "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
         "LaunchpadEngine": "0x3cfa2113c919c916e8334d245b157de937e76836"
       }
     },
@@ -21,9 +18,6 @@
         "MockUSDC": "0x394e0e16baf10cb2e2bb0016f854635ea80a3d23",
         "Collateralizer": "0x6a6454680c547c4db7e9bb7b06cac3030ce60183",
         "AMMEngine": "0x8f3e3e0309f0730c62b3fdc68bff2291308537bd",
-        "TickBookVault": "0x0d9c613ae45820dacfcd5aff85a98f2e650b09a9",
-        "TickBookPoolManager": "0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e",
-        "TickBook": "0xdebbf3b24b3bc6ff44888b6153c64bbd569ec90e",
         "LaunchpadEngine": "0x3ae688354f831a6b37025e3f19744bd857005cca"
       }
     },
@@ -33,9 +27,6 @@
         "MockUSDC": "0x57bda4319c306a68054f25017183030752f97d63",
         "Collateralizer": "0xe928d0cf62a98f2e24e65978ae487f562749305a",
         "AMMEngine": "0x61470420cc117e9460aae3bdc6cdf77c443ac09c",
-        "TickBookVault": "0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756",
-        "TickBookPoolManager": "0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530",
-        "TickBook": "0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530",
         "LaunchpadEngine": "0xa2b2653124cb98b4d83a8a314e5e0bef2621832f"
       }
     },
@@ -45,9 +36,6 @@
         "MockUSDC": "0x805825e6af09178ea699a32a8d6cc5ca3637df80",
         "Collateralizer": "0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5",
         "AMMEngine": "0x0f0dd0be87f6ab153e732039469fe64353b95dbb",
-        "TickBookVault": "0x1695ac9983f457e446d8f903d7c4061fbc7907f8",
-        "TickBookPoolManager": "0x8ba9751284d77ed59f46ea877577e6430bc30209",
-        "TickBook": "0x8ba9751284d77ed59f46ea877577e6430bc30209",
         "LaunchpadEngine": "0x625b4b2997232380126f0aecd84867086f89b27e"
       }
     }

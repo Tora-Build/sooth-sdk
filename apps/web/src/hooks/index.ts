@@ -37,23 +37,8 @@ export { useLaunchpadPositionDirect } from "./useLaunchpadPositionDirect";
 export { useAMMPositionDirect } from "./useAMMPositionDirect";
 export { useCollateralizerDirect } from "./useCollateralizerDirect";
 export { useAMMQuoteDirect } from "./useAMMQuoteDirect";
-export { useTickBookDirect } from "./useTickBookDirect";
-export { useTickBookQuoteDirect } from "./useTickBookQuoteDirect";
-export { useTickBookVaultDirect } from "./useTickBookVaultDirect";
-export { useUserOrdersDirect } from "./useUserOrdersDirect";
-export { useAllOrdersDirect } from "./useAllOrdersDirect";
-export type { RangeOrder } from "./useUserOrdersDirect";
-
-// ============================================================
-// TickBook/Pool Manager Hooks
-// ============================================================
-export { useTickBookPoolManager } from "./useTickBookPoolManager";
-export { useTickBookVault } from "./useTickBookVault";
 export { useDynamicFee } from "./useDynamicFee";
-export { usePendingFills } from "./usePendingFills";
 export { useMarketKey } from "./useMarketKey";
-export { usePlaceOrder, orderUtils } from "./usePlaceOrder";
-export type { PlaceOrderResult } from "./usePlaceOrder";
 
 // ============================================================
 // Spendable Proceeds Hooks

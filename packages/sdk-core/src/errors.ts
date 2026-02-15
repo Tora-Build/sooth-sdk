@@ -10,7 +10,7 @@ function hexToString(hex: string): string {
 
 export const ERROR_SELECTORS: Record<string, string> = {
   '0x427be97e': 'RPC_ERROR: Returned contract address (gas estimation failed?)',
-  '0x7e42f86b': 'RPC_ERROR: Returned contract address (Monad TickBookPoolManager)',
+  '0x7e42f86b': 'RPC_ERROR: Returned contract address (Monad orderbook manager)',
   '0xedd7c146': 'DuplicateMarket()',
   '0xcd4e6167': 'FeeTooHigh()',
   '0x39996567': 'InsufficientShares()',

@@ -7,7 +7,7 @@ import {ITruthMarket} from "./interfaces/ITruthMarket.sol";
 import {IAdjudicatorRegistration} from "./interfaces/IAdjudicator.sol";
 import {TruthMarket} from "./TruthMarket.sol";
 import {ICollateralizer} from "./interfaces/ICollateralizer.sol";
-import {ITickBook} from "./interfaces/ITickBook.sol";
+
 import {LaunchpadLPToken} from "./LaunchpadLPToken.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -48,7 +48,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     IERC20 public immutable usdc;
     IAMMEngine public immutable ammEngine;
     ICollateralizer public immutable collateralizer;
-    ITickBook public immutable tickBook;
+
     IProtocolConfig public immutable protocolConfig;
     address public immutable protocolTreasury;
     uint8 private immutable usdcDecimals;
@@ -63,7 +63,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     uint16 public lpYieldShareBps;
     uint16 public protocolShareBps;
     uint16 public graduationMultiplier;
-    address public defaultHook;
+
 
     // ============================================
     // V11: Trial Period State
@@ -113,7 +113,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         address _usdc,
         address _ammEngine,
         address _collateralizer,
-        address _tickBook,
         address _protocolConfig,
         address _protocolTreasury,
         address _owner
@@ -121,14 +120,12 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         require(_usdc != address(0), "LaunchpadEngine: zero usdc");
         require(_ammEngine != address(0), "LaunchpadEngine: zero ammEngine");
         require(_collateralizer != address(0), "LaunchpadEngine: zero collateralizer");
-        require(_tickBook != address(0), "LaunchpadEngine: zero tickBook");
         require(_protocolConfig != address(0), "LaunchpadEngine: zero protocol config");
         require(_protocolTreasury != address(0), "LaunchpadEngine: zero treasury");
 
         usdc = IERC20(_usdc);
         ammEngine = IAMMEngine(_ammEngine);
         collateralizer = ICollateralizer(_collateralizer);
-        tickBook = ITickBook(_tickBook);
         protocolConfig = IProtocolConfig(_protocolConfig);
         protocolTreasury = _protocolTreasury;
         usdcDecimals = IERC20Metadata(_usdc).decimals();
@@ -182,13 +179,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         emit GraduationMultiplierUpdated(multiplier);
     }
 
-    function setDefaultHook(address hook) external onlyOwner {
-        defaultHook = hook;
-        emit DefaultHookUpdated(hook);
-    }
-
-    /// @notice Emitted when default hook is updated
-    event DefaultHookUpdated(address indexed hook);
 
     // ============================================
     // Market Creation
@@ -487,16 +477,6 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
                 (address yes, address no) = collateralizer.isMarketRegistered(market)
                     ? collateralizer.getOutcomeTokens(market)
                     : collateralizer.registerMarket(market);
-
-                (,, uint256 ammProbability) = ammEngine.getMarketState(market);
-
-                try tickBook.registerMarket(market, yes, no, ammProbability, defaultHook) returns (bytes32) {
-                } catch (bytes memory reason) {
-                    bytes4 duplicateMarketSelector = 0xedd7c146;
-                    if (reason.length < 4 || bytes4(reason) != duplicateMarketSelector) {
-                        revert("LaunchpadEngine: tickbook register failed");
-                    }
-                }
 
                 emit MarketGraduated(market, state.feesAccrued, block.timestamp);
             }

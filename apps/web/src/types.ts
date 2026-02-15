@@ -56,7 +56,6 @@ export interface LaunchpadMarketState {
 // ORDER TYPES
 // =============================================================================
 
-/** Range order (matches TickBookPoolManager.RangeOrder struct) */
 export interface RangeOrder {
   id: bigint;
   owner: `0x${string}`;
@@ -80,7 +79,6 @@ export interface OrderWithTicks extends RangeOrder {
   fillPercent: number;
 }
 
-/** Spot sell order (matches TickBookPoolManager.SpotSell struct) */
 export interface SpotSellOrder {
   id: bigint;
   owner: `0x${string}`;
@@ -102,7 +100,6 @@ export interface AMMPosition {
   noShares: bigint;
 }
 
-/** User position in TickBookVault (post-graduation) */
 export interface VaultPosition {
   availableUsdc: bigint;
   reservedUsdc: bigint;
@@ -203,8 +200,7 @@ export function formatUsdc(usdc: bigint, decimals = 2): string {
 /** Deployed contract addresses for a chain */
 export interface DeployedContracts {
   LaunchpadEngine: `0x${string}`;
-  TickBookPoolManager: `0x${string}`;
-  TickBookVault: `0x${string}`;
+  SoothBook?: `0x${string}`;
   AMMEngine: `0x${string}`;
   Collateralizer: `0x${string}`;
   MockUSDC: `0x${string}`;

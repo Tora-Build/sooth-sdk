@@ -225,7 +225,7 @@ export function Geek() {
         }
         if (msg.includes('MarketNotActive')) {
           return [
-            { type: 'error', text: 'Market not active in TickBook.' },
+              { type: 'error', text: 'Market not active in SoothBook.' },
             { type: 'dim', text: 'Run: marketstatus to check market state' },
           ];
         }

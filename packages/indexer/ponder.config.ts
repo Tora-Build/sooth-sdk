@@ -1,8 +1,6 @@
 import { createConfig } from "ponder";
 
-import { TickBookPoolManagerAbi } from "./src/abis/TickBookPoolManager";
 import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
-import { TickBookVaultAbi } from "./src/abis/TickBookVault";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
 import { SoothBookAbi } from "./src/abis/SoothBook";
 
@@ -33,19 +31,6 @@ export default createConfig({
     },
   },
   contracts: {
-    TickBookPoolManager: {
-      abi: TickBookPoolManagerAbi,
-      chain: {
-        monadMainnet: {
-          address: "0x12A38bc9E3bD2359265cE70451777eDe2fd875A3",
-          startBlock: 54706817,
-        },
-        baseSepolia: {
-          address: "0x61ddf4716a181658e2fa9efd98b93c634ac49cdd",
-          startBlock: 21127900,
-        },
-      },
-    },
     LaunchpadEngine: {
       abi: LaunchpadEngineAbi,
       chain: {
@@ -55,19 +40,6 @@ export default createConfig({
         },
         baseSepolia: {
           address: "0x3cfa2113c919c916e8334d245b157de937e76836",
-          startBlock: 21127900,
-        },
-      },
-    },
-    TickBookVault: {
-      abi: TickBookVaultAbi,
-      chain: {
-        monadMainnet: {
-          address: "0x50293aD4e42593A8b081960c991c198729E81192",
-          startBlock: 54706817,
-        },
-        baseSepolia: {
-          address: "0x667c100f8f5667177fce0e9566ffe1403fc7c6f7",
           startBlock: 21127900,
         },
       },

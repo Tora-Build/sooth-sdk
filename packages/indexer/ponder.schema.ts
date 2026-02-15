@@ -6,8 +6,8 @@ export const launchpadMarket = onchainTable(
     address: t.hex().primaryKey(),
     chainId: t.integer().notNull(),
     creator: t.hex().notNull(),
-    name: t.text(), // Market question (from TruthMarket.MarketCreated)
-    symbol: t.text(), // Market symbol
+    name: t.text(),
+    symbol: t.text(),
     initialLiquidity: t.bigint().notNull(),
     deposit: t.bigint().notNull(),
     totalLPSupply: t.bigint().notNull(),
@@ -15,57 +15,20 @@ export const launchpadMarket = onchainTable(
     createdAt: t.bigint().notNull(),
     graduatedAt: t.bigint(),
     blockNumber: t.bigint().notNull(),
-    // V11 fields
-    lpToken: t.hex(), // ERC20 LP token address (V11)
-    trialEndTime: t.bigint(), // Trial period end timestamp (V11)
-    isDismissed: t.boolean(), // Market dismissed during trial (V11)
-    // Settlement fields (from TruthMarket contract)
-    deadline: t.bigint(), // Market deadline timestamp
-    isSettled: t.boolean(), // Market has been settled
-    isFinalized: t.boolean(), // Market outcome is finalized
-    winningOutcome: t.integer(), // 0 = NO, 1 = YES (null if not settled)
-    // AMM reserve tracking (for price calculation)
-    yesReserves: t.bigint(), // YES token reserves in AMM
-    noReserves: t.bigint(), // NO token reserves in AMM
-    // Price tracking (computed from reserves: noReserves / (yesReserves + noReserves))
-    yesProbability: t.real(), // Current YES price (0.0 to 1.0), updated on trades
+    lpToken: t.hex(),
+    trialEndTime: t.bigint(),
+    isDismissed: t.boolean(),
+    deadline: t.bigint(),
+    isSettled: t.boolean(),
+    isFinalized: t.boolean(),
+    winningOutcome: t.integer(),
+    yesReserves: t.bigint(),
+    noReserves: t.bigint(),
+    yesProbability: t.real(),
   }),
   (table) => ({
     creatorIdx: index().on(table.creator),
     chainIdx: index().on(table.chainId),
-  })
-);
-
-export const vaultBalance = onchainTable(
-  "vault_balance",
-  (t) => ({
-    id: t.text().primaryKey(),
-    chainId: t.integer().notNull(),
-    user: t.hex().notNull(),
-    availableUsdcWad: t.bigint().notNull(),
-    reservedUsdcWad: t.bigint().notNull(),
-    updatedAt: t.bigint().notNull(),
-  }),
-  (table) => ({
-    userIdx: index().on(table.user),
-    chainIdx: index().on(table.chainId),
-  })
-);
-
-export const vaultPosition = onchainTable(
-  "vault_position",
-  (t) => ({
-    id: t.text().primaryKey(),
-    chainId: t.integer().notNull(),
-    market: t.hex().notNull(),
-    user: t.hex().notNull(),
-    yesSharesWad: t.bigint().notNull(),
-    noSharesWad: t.bigint().notNull(),
-    updatedAt: t.bigint().notNull(),
-  }),
-  (table) => ({
-    userIdx: index().on(table.user),
-    marketIdx: index().on(table.market),
   })
 );
 
@@ -119,277 +82,10 @@ export const lockEntry = onchainTable(
   })
 );
 
-export const market = onchainTable("market", (t) => ({
-  marketKey: t.hex().primaryKey(),
-  chainId: t.integer().notNull(),
-  contractAddress: t.hex().notNull(),
-  yesToken: t.hex().notNull(),
-  noToken: t.hex().notNull(),
-  hook: t.hex(),
-  createdAt: t.bigint().notNull(),
-  blockNumber: t.bigint().notNull(),
-}));
-
-/**
- * Range orders placed by users
- */
-export const order = onchainTable(
-  "order",
-  (t) => ({
-    id: t.text().primaryKey(), // chainId-orderId
-    chainId: t.integer().notNull(),
-    orderId: t.bigint().notNull(),
-    marketKey: t.hex().notNull(),
-    owner: t.hex().notNull(),
-    outcome: t.integer().notNull(), // 0 = NO, 1 = YES
-    tickLower: t.integer().notNull(),
-    tickUpper: t.integer().notNull(),
-    liquidity: t.bigint().notNull(),
-    collateralReserved: t.bigint().notNull(),
-    crossingFilled: t.bigint().notNull(),
-    crossingCost: t.bigint().notNull(),
-    // Mutable state
-    status: t.text().notNull(), // 'active' | 'cancelled' | 'filled'
-    filledShares: t.bigint().notNull(),       // Total filled (from OrdersCrossed)
-    claimedShares: t.bigint().notNull(),      // Already claimed
-    pendingShares: t.bigint().notNull(),      // filledShares - claimedShares
-    pendingUsdc: t.bigint().notNull(),        // USDC value of pending fills
-    collateralUsed: t.bigint().notNull(),
-    // Timestamps
-    createdAt: t.bigint().notNull(),
-    updatedAt: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    // Fill growth snapshot at order creation (for accurate pending fill calculation)
-    fillGrowthLastX128: t.bigint().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-    ownerIdx: index().on(table.owner),
-    statusIdx: index().on(table.status),
-  })
-);
-
-/**
- * Fill claims - when users claim their filled shares
- */
-export const fillClaim = onchainTable(
-  "fill_claim",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    orderId: t.bigint().notNull(),
-    marketKey: t.hex().notNull(),
-    owner: t.hex().notNull(),
-    filledShares: t.bigint().notNull(),
-    collateralUsedWad: t.bigint().notNull(),
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    orderIdx: index().on(table.orderId),
-    ownerIdx: index().on(table.owner),
-    marketIdx: index().on(table.marketKey),
-  })
-);
-
-/**
- * Market order executions (taker trades)
- */
-export const marketOrder = onchainTable(
-  "market_order",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    taker: t.hex().notNull(),
-    outcome: t.integer().notNull(),
-    sharesRequested: t.bigint().notNull(),
-    sharesFilled: t.bigint().notNull(),
-    totalCost: t.bigint().notNull(),
-    startTick: t.integer().notNull(),
-    endTick: t.integer().notNull(),
-    refunded: t.bigint().notNull(),
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-    takerIdx: index().on(table.taker),
-  })
-);
-
-/**
- * Aggregated tick liquidity per market (for orderbook visualization)
- */
-export const tickLiquidity = onchainTable(
-  "tick_liquidity",
-  (t) => ({
-    id: t.text().primaryKey(), // chainId-marketKey-outcome-tick
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    outcome: t.integer().notNull(),
-    tick: t.integer().notNull(),
-    totalLiquidity: t.bigint().notNull(),
-    orderCount: t.integer().notNull(),
-    updatedAt: t.bigint().notNull(),
-  }),
-  (table) => ({
-    marketOutcomeIdx: index().on(table.marketKey),
-  })
-);
-
-/**
- * Orders crossed - when a new order crosses existing liquidity
- */
-export const orderCrossed = onchainTable(
-  "order_crossed",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    newOrderId: t.bigint().notNull(),
-    newOutcome: t.integer().notNull(),
-    crossedShares: t.bigint().notNull(),
-    newOrderCost: t.bigint().notNull(),
-    oppositeOrderCost: t.bigint().notNull(),
-    crossTick: t.integer().notNull(),
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-    orderIdx: index().on(table.newOrderId),
-  })
-);
-
-/**
- * Tick crossed events - when market orders consume liquidity at a tick
- */
-export const tickCrossed = onchainTable(
-  "tick_crossed",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    tick: t.integer().notNull(),
-    liquidityDelta: t.bigint().notNull(), // Signed: positive = added, negative = removed
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-  })
-);
-
-/**
- * V9.9.7: Spot sell orders - users selling existing shares (not short sell)
- */
-export const spotSellOrder = onchainTable(
-  "spot_sell_order",
-  (t) => ({
-    id: t.text().primaryKey(), // chainId-sellId
-    chainId: t.integer().notNull(),
-    sellId: t.bigint().notNull(),
-    marketKey: t.hex().notNull(),
-    owner: t.hex().notNull(),
-    outcome: t.integer().notNull(), // 0 = NO, 1 = YES
-    tickLower: t.integer().notNull(),
-    tickUpper: t.integer().notNull(),
-    shares: t.bigint().notNull(),
-    // Mutable state
-    status: t.text().notNull(), // 'active' | 'cancelled' | 'filled'
-    filledShares: t.bigint().notNull(),
-    proceeds: t.bigint().notNull(), // USDC received from fills
-    // Timestamps
-    createdAt: t.bigint().notNull(),
-    updatedAt: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-    ownerIdx: index().on(table.owner),
-    statusIdx: index().on(table.status),
-  })
-);
-
-/**
- * V9.9.7: Spot sell fills - when buyers purchase from spot sells
- */
-export const spotSellFill = onchainTable(
-  "spot_sell_fill",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    sellId: t.bigint().notNull(),
-    marketKey: t.hex().notNull(),
-    sharesFilled: t.bigint().notNull(),
-    proceeds: t.bigint().notNull(),
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    sellIdx: index().on(table.sellId),
-    marketIdx: index().on(table.marketKey),
-  })
-);
-
-/**
- * V10: Unified crossing events - spot-first + range crossing
- */
-export const unifiedCrossing = onchainTable(
-  "unified_crossing",
-  (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    newOrderId: t.bigint().notNull(),
-    newOutcome: t.integer().notNull(),
-    spotFilled: t.bigint().notNull(),
-    rangeFilled: t.bigint().notNull(),
-    spotCost: t.bigint().notNull(),
-    rangeCost: t.bigint().notNull(),
-    crossTick: t.integer().notNull(),
-    timestamp: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-    orderIdx: index().on(table.newOrderId),
-  })
-);
-
-/**
- * Fill growth state per market-outcome (replicates contract's fill growth accumulator)
- */
-export const fillGrowthState = onchainTable(
-  "fill_growth_state",
-  (t) => ({
-    id: t.text().primaryKey(),
-    chainId: t.integer().notNull(),
-    marketKey: t.hex().notNull(),
-    outcome: t.integer().notNull(),
-    totalLiquidity: t.bigint().notNull(),
-    fillGrowthX128: t.bigint().notNull(),
-    updatedAt: t.bigint().notNull(),
-  }),
-  (table) => ({
-    marketIdx: index().on(table.marketKey),
-  })
-);
-
-/**
- * V11: Trial period state per market
- */
 export const trialState = onchainTable(
   "trial_state",
   (t) => ({
-    id: t.text().primaryKey(), // market address
+    id: t.text().primaryKey(),
     chainId: t.integer().notNull(),
     market: t.hex().notNull(),
     trialEndTime: t.bigint().notNull(),
@@ -404,13 +100,10 @@ export const trialState = onchainTable(
   })
 );
 
-/**
- * V11: Refund claims after market dismissal
- */
 export const refundClaim = onchainTable(
   "refund_claim",
   (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
+    id: t.text().primaryKey(),
     chainId: t.integer().notNull(),
     market: t.hex().notNull(),
     user: t.hex().notNull(),
@@ -425,13 +118,10 @@ export const refundClaim = onchainTable(
   })
 );
 
-/**
- * V11: Market veto events (guardian vetoed settlement)
- */
 export const marketVeto = onchainTable(
   "market_veto",
   (t) => ({
-    id: t.text().primaryKey(), // txHash-logIndex
+    id: t.text().primaryKey(),
     chainId: t.integer().notNull(),
     market: t.hex().notNull(),
     previousOutcome: t.integer().notNull(),
@@ -445,22 +135,15 @@ export const marketVeto = onchainTable(
   })
 );
 
-/**
- * V11: Protocol pause state
- */
-export const protocolState = onchainTable(
-  "protocol_state",
-  (t) => ({
-    id: t.text().primaryKey(), // chainId
-    chainId: t.integer().notNull(),
-    isPaused: t.boolean().notNull(),
-    updatedAt: t.bigint().notNull(),
-    blockNumber: t.bigint().notNull(),
-  })
-);
+export const protocolState = onchainTable("protocol_state", (t) => ({
+  id: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  isPaused: t.boolean().notNull(),
+  updatedAt: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));
 
-// V12 SoothBook tables
-export const soothbookMarket = onchainTable("soothbook_market", (t) => ({
+export const market = onchainTable("market", (t) => ({
   marketKey: t.hex().primaryKey(),
   chainId: t.integer().notNull(),
   collateral: t.hex().notNull(),
@@ -473,8 +156,8 @@ export const soothbookMarket = onchainTable("soothbook_market", (t) => ({
   blockNumber: t.bigint().notNull(),
 }));
 
-export const soothbookOrder = onchainTable(
-  "soothbook_order",
+export const order = onchainTable(
+  "order",
   (t) => ({
     id: t.text().primaryKey(),
     chainId: t.integer().notNull(),
@@ -497,8 +180,8 @@ export const soothbookOrder = onchainTable(
   })
 );
 
-export const soothbookFill = onchainTable(
-  "soothbook_fill",
+export const fill = onchainTable(
+  "fill",
   (t) => ({
     id: t.text().primaryKey(),
     chainId: t.integer().notNull(),
@@ -521,8 +204,8 @@ export const soothbookFill = onchainTable(
   })
 );
 
-export const soothbookMintMerge = onchainTable(
-  "soothbook_mint_merge",
+export const mintMerge = onchainTable(
+  "mint_merge",
   (t) => ({
     id: t.text().primaryKey(),
     chainId: t.integer().notNull(),

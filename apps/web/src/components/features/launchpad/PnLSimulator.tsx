@@ -520,7 +520,7 @@ const ArbitrageurPanel = () => {
             <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
                 <p className="text-sm text-blue-200">
                     <span className="font-bold">Bob's Strategy:</span> Capture price differences between
-                    AMM and TickBook. Risk-free profit when spread exceeds costs!
+                  AMM and SoothBook. Risk-free profit when spread exceeds costs!
                 </p>
             </div>
 

@@ -1,6 +1,6 @@
 /**
  * Market Commands
- * create, graduate, status, simulate
+ * create, graduate, status
  */
 
 import type { CommandContext, CommandResult } from './types';
@@ -20,8 +20,6 @@ import {
   printTable,
   sleep,
   decodeError,
-  isTransientError,
-  isContractError,
   readContractWithRpcFallback,
 } from '../utils';
 import { decodeEventLog, parseAbi, encodeFunctionData } from 'viem';
@@ -53,12 +51,6 @@ const CollateralizerAbi = parseAbi([
 const ERC20Abi = parseAbi([
   'function balanceOf(address account) view returns (uint256)',
   'function approve(address spender, uint256 amount) external returns (bool)',
-]);
-
-const TickBookVaultAbi = parseAbi([
-  'function redeemResolved(address market) external',
-  'function getInternalOutcomes(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
-  'function availableUsdcWad(address user) view returns (uint256)',
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
@@ -739,553 +731,8 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
     console.log(`  Initialized: ${warn('NO')}`);
   }
 
-  // 4. TickBook Status
-  console.log(`\n  ${info('TickBook (Orderbook)')}`);
-  console.log('  ' + '─'.repeat(40));
-
-  try {
-    // Try to get market info from TickBook
-    // This would need the marketKey
-    console.log(`  ${dim('Use "state" command with market set')}`);
-  } catch {
-    console.log(`  Registered: ${warn('NO')}`);
-  }
-
   console.log('');
   return { success: true };
-}
-
-/**
- * Simulate realistic orderbook activity with configurable randomization
- *
- * Usage: simulate [numOrders] [avgSize] [seed]
- *
- * Examples:
- *   simulate              - 10 orders, 100 avg size, random seed
- *   simulate 50           - 50 orders
- *   simulate 20 500       - 20 orders, 500 avg size
- *   simulate 20 100 12345 - deterministic with seed 12345
- *
- * Order types generated:
- *   - Range orders (55%): Random tick ranges within 10-90%
- *   - Limit orders (20%): Single-tick orders at specific prices
- *   - Market orders (10%): Full range 1-999 for immediate fills
- *   - Spot sell (10%): Sell owned shares at limit price
- *   - Hybrid sell (5%): Partial spot + partial short sell
- */
-export async function simulate(ctx: CommandContext, args: string[]): Promise<CommandResult> {
-  const { actorManager, deployment, marketKey, marketAddress } = ctx;
-  const walletClient = actorManager.currentWalletClient();
-  const address = actorManager.currentAddress();
-  const publicClient = actorManager.getPublicClient();
-
-  if (!walletClient || !address) {
-    return { success: false, message: 'No actor selected' };
-  }
-
-  if (!marketKey || !marketAddress) {
-    return { success: false, message: 'No market selected. Use: setmarket <address>' };
-  }
-
-  const numOrders = args[0] ? parseInt(args[0], 10) : 10;
-  const avgSize = args[1] ? parseWad(args[1]) : 100n * WAD;
-  const seed = args[2] ? Number(args[2]) : Date.now();
-
-  // Deterministic PRNG (mulberry32) for reproducible simulations
-  const rng = (() => {
-    let t = (seed >>> 0) || 1;
-    return () => {
-      t += 0x6d2b79f5;
-      let x = Math.imul(t ^ (t >>> 15), 1 | t);
-      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-    };
-  })();
-
-  // Helper to generate random int in range [min, max]
-  const randInt = (min: number, max: number) => Math.floor(rng() * (max - min + 1)) + min;
-
-  // Helper to generate random bigint size (50%-200% of avgSize)
-  const randSize = () => (avgSize * BigInt(50 + Math.floor(rng() * 150))) / 100n;
-
-  if (!Number.isFinite(numOrders) || numOrders <= 0) {
-    return {
-      success: false,
-      message: `Usage: simulate [numOrders] [avgSize] [seed]
-
-  Examples:
-    simulate              10 orders, 100 avg size
-    simulate 50           50 orders
-    simulate 20 500       20 orders, 500 avg size
-    simulate 20 100 12345 Deterministic with seed`,
-    };
-  }
-
-  // Ensure TickBook market is active/registered for this marketKey
-  try {
-    const [truthMarket, yesToken, noToken] = await publicClient.readContract({
-      address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-      abi: ABIS.TickBookPoolManager,
-      functionName: 'getMarketInfo',
-      args: [marketKey],
-    }) as unknown as [string, string, string, string];
-
-    const active =
-      truthMarket !== '0x0000000000000000000000000000000000000000' &&
-      yesToken !== '0x0000000000000000000000000000000000000000' &&
-      noToken !== '0x0000000000000000000000000000000000000000';
-
-    if (!active) {
-      return {
-        success: false,
-        message: 'TickBook marketKey is not active/registered. Ensure the market is graduated and registered into TickBook, then re-run setmarket.',
-      };
-    }
-  } catch (err) {
-    return { success: false, message: `Failed to validate TickBook marketKey: ${(err as Error).message}` };
-  }
-
-  console.log(`\n  ${bold('Orderbook Simulation')}`);
-  console.log('  ' + '─'.repeat(50));
-  console.log(`  Orders to place: ${numOrders}`);
-  console.log(`  Average size: ${formatWad(avgSize)} shares`);
-  console.log(`  Seed: ${seed}`);
-  console.log('');
-
-  // Ensure sufficient vault balance - ALWAYS deposit enough for simulation
-  const available = await publicClient.readContract({
-    address: deployment.contracts.TickBookVault as `0x${string}`,
-    abi: ABIS.TickBookVault,
-    functionName: 'availableUsdcWad',
-    args: [address],
-  }) as bigint;
-
-  // Increase buffer for randomized order sizes (50%-150% of avg) + market orders
-  const requiredBalance = avgSize * BigInt(numOrders) * 10n; // 10x buffer
-
-  console.log(dim(`  Current vault balance: ${formatWad(available)} USDC`));
-
-  if (available < requiredBalance) {
-    console.log(warn(`  Insufficient vault balance. Depositing ${formatWad(requiredBalance)}...`));
-
-    // Mint USDC
-    console.log(dim(`  Minting ${formatWad(requiredBalance * 2n)} USDC...`));
-    const mintHash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'mint',
-      args: [address, requiredBalance * 2n],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(mintHash);
-    console.log(dim(`  Minted (tx: ${mintHash.slice(0, 10)}...)`));
-
-    // Approve vault
-    console.log(dim(`  Approving vault...`));
-    const approveHash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
-      functionName: 'approve',
-      args: [deployment.contracts.TickBookVault as `0x${string}`, MAX_UINT256],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(approveHash);
-    console.log(dim(`  Approved (tx: ${approveHash.slice(0, 10)}...)`));
-
-    // Deposit to vault (depositUsdc takes USDC in token decimals)
-    // MockUSDC uses 18 decimals (WAD), so no conversion needed
-    const depositAmount = requiredBalance * 2n;
-    console.log(dim(`  Depositing ${formatWad(depositAmount)} to vault...`));
-    const depositHash = await walletClient.writeContract({
-      address: deployment.contracts.TickBookVault as `0x${string}`,
-      abi: ABIS.TickBookVault,
-      functionName: 'depositUsdc',
-      args: [depositAmount],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(depositHash);
-    console.log(dim(`  Deposit tx confirmed: ${depositHash.slice(0, 10)}...`));
-
-    // Verify new balance
-    const newBalance = await publicClient.readContract({
-      address: deployment.contracts.TickBookVault as `0x${string}`,
-      abi: ABIS.TickBookVault,
-      functionName: 'availableUsdcWad',
-      args: [address],
-    }) as bigint;
-    console.log(success(`  Deposited. New balance: ${formatWad(newBalance)} USDC`));
-  }
-
-  // Place orders at various price levels
-  console.log('  ' + '─'.repeat(50));
-  console.log(`  ${bold('Phase 1: Placing Orders')} ${dim('(press Enter to stop early)')}`);
-
-  // Setup early stop flag - user can press Enter to stop
-  // Note: We only add a listener, don't modify stdin modes (readline manages those)
-  let stopRequested = false;
-  const stdinListener = () => { stopRequested = true; };
-  process.stdin.once('data', stdinListener);
-
-  const cleanup = () => {
-    process.stdin.removeListener('data', stdinListener);
-  };
-
-  const placedOrders: {
-    orderId: bigint;
-    outcome: number;
-    tickLower: number;
-    tickUpper: number;
-    shares: bigint;
-    filledShares: bigint;
-    filledCost: bigint;
-    restingShares: bigint;
-    txHash: `0x${string}`;
-  }[] = [];
-
-  // Unified order execution helper
-  type OrderType = 'range' | 'limit' | 'market' | 'spotsell' | 'hybrid';
-
-  interface ExecuteOrderParams {
-    orderType: OrderType;
-    outcome: number;
-    shares: bigint;
-    tickLower: number;
-    tickUpper: number;
-  }
-
-  interface ExecuteOrderResult {
-    orderId: bigint;
-    filledShares: bigint;
-    filledCost: bigint;
-    restingShares: bigint;
-    txHash: `0x${string}`;
-    actualType: OrderType; // May differ if fallback occurred
-    spotAmount?: bigint;
-    shortAmount?: bigint;
-    gasUsed: bigint;
-  }
-
-  // Cache market info for spot/hybrid sells
-  let cachedMarketInfo: { truthMarket: string } | null = null;
-  const getMarketInfoCached = async () => {
-    if (!cachedMarketInfo) {
-      const [truthMarket] = await publicClient.readContract({
-        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-        abi: ABIS.TickBookPoolManager,
-        functionName: 'getMarketInfo',
-        args: [marketKey],
-      }) as unknown as [string, string, string];
-      cachedMarketInfo = { truthMarket };
-    }
-    return cachedMarketInfo;
-  };
-
-  const getUserShares = async (outcome: number): Promise<bigint> => {
-    const market = await getMarketInfoCached();
-    if (!market || !market.truthMarket) {
-      // Just console error if invalid, but truthMarket structure is fixed now
-      return 0n;
-    }
-    const vault = deployment.contracts.TickBookVault as `0x${string}`;
-    // Debug addresses
-    // console.log(`  Debug: getUserShares vault=${vault} market=${market.truthMarket} user=${address}`);
-
-    const [yesShares, noShares] = await publicClient.readContract({
-      address: vault,
-      abi: ABIS.TickBookVault,
-      functionName: 'getInternalOutcomes',
-      args: [market.truthMarket as `0x${string}`, address],
-    }) as [bigint, bigint];
-    return outcome === 1 ? yesShares : noShares;
-  };
-
-  const estimateGas = async (
-    functionName: 'placeOrder' | 'placeSpotSell',
-    args: readonly unknown[],
-  ): Promise<bigint> => {
-    const MIN_GAS = 500_000n;
-    const MAX_GAS = 30_000_000n;
-    const GAS_BUFFER_PERCENT = 120n;
-
-    try {
-      const estimated = await publicClient.estimateContractGas({
-        address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-        abi: ABIS.TickBookPoolManager,
-        functionName,
-        args: args as any,
-        account: address,
-      });
-      const withBuffer = (estimated * GAS_BUFFER_PERCENT) / 100n;
-      return withBuffer < MIN_GAS ? MIN_GAS : withBuffer > MAX_GAS ? MAX_GAS : withBuffer;
-    } catch (err) {
-      if (isContractError(err as Error)) {
-        throw err;
-      }
-      return 2_000_000n;
-    }
-  };
-
-  const executeOrder = async (params: ExecuteOrderParams, retries = 3): Promise<ExecuteOrderResult> => {
-    const { orderType, outcome, shares, tickLower, tickUpper } = params;
-    const maxCost = shares * 2n;
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        if (orderType === 'spotsell' || orderType === 'hybrid') {
-          const userShares = await getUserShares(outcome);
-
-          if (userShares === 0n) {
-            return executeOrder({ ...params, orderType: 'range' }, 1);
-          }
-
-          const spotAmount = userShares > shares ? shares : userShares;
-          const shortAmount = orderType === 'hybrid' && shares > userShares ? shares - userShares : 0n;
-
-          const spotArgs = [marketKey, outcome, spotAmount, tickLower, tickUpper] as const;
-          const spotGas = await estimateGas('placeSpotSell', spotArgs);
-
-          const spotHash = await walletClient.writeContract({
-            address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-            abi: ABIS.TickBookPoolManager,
-            functionName: 'placeSpotSell',
-            args: spotArgs,
-            gas: spotGas,
-          });
-          const spotReceipt = await actorManager.waitForTransactionReceipt(spotHash);
-          let gasUsed = spotReceipt.gasUsed;
-
-          let shortHash: `0x${string}` = '0x0';
-          if (shortAmount > 0n) {
-            const shortArgs = [marketKey, outcome, shortAmount, tickLower, tickUpper, shortAmount * 2n] as const;
-            const shortGas = await estimateGas('placeOrder', shortArgs);
-
-            shortHash = await walletClient.writeContract({
-              address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-              abi: ABIS.TickBookPoolManager,
-              functionName: 'placeOrder',
-              args: shortArgs,
-              gas: shortGas,
-            });
-            const shortReceipt = await actorManager.waitForTransactionReceipt(shortHash);
-            gasUsed += shortReceipt.gasUsed;
-          }
-
-          return {
-            orderId: 0n,
-            filledShares: 0n,
-            filledCost: 0n,
-            restingShares: spotAmount + shortAmount,
-            txHash: shortAmount > 0n ? shortHash : spotHash,
-            actualType: shortAmount > 0n ? 'hybrid' : 'spotsell',
-            spotAmount,
-            shortAmount,
-            gasUsed,
-          };
-        }
-
-        const orderArgs = [marketKey, outcome, shares, tickLower, tickUpper, maxCost] as const;
-        const estimatedGas = await estimateGas('placeOrder', orderArgs);
-
-        let simResult: any = null;
-        try {
-          simResult = await publicClient.simulateContract({
-            address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-            abi: ABIS.TickBookPoolManager,
-            functionName: 'placeOrder',
-            args: orderArgs,
-            account: address,
-          });
-        } catch (simErr: any) {
-          if (isContractError(simErr)) {
-            throw simErr;
-          }
-        }
-
-        const txHash = await walletClient.writeContract({
-          address: deployment.contracts.TickBookPoolManager as `0x${string}`,
-          abi: ABIS.TickBookPoolManager,
-          functionName: 'placeOrder',
-          args: orderArgs,
-          gas: estimatedGas,
-        });
-        const receipt = await actorManager.waitForTransactionReceipt(txHash);
-
-        const result = simResult?.result
-          ? simResult.result as [bigint, bigint, bigint, bigint]
-          : [0n, 0n, 0n, shares] as [bigint, bigint, bigint, bigint];
-
-        return {
-          orderId: result[0],
-          filledShares: result[1],
-          filledCost: result[2],
-          restingShares: result[3],
-          txHash,
-          actualType: orderType,
-          gasUsed: receipt.gasUsed,
-        };
-      } catch (err) {
-        lastError = err as Error;
-        if (!isTransientError(lastError) || attempt === retries) throw lastError;
-        await sleep(500 * attempt);
-      }
-    }
-    throw lastError!;
-  };
-
-  // Debug: show first order params
-  const debugFirstOrder = true;
-  let consecutiveFailures = 0;
-  const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures to save gas
-  let totalSimGas = 0n;
-
-  for (let i = 0; i < numOrders; i++) {
-    // Check for early stop
-    if (stopRequested) {
-      console.log(warn(`\n  Stopped early by user after ${i} orders`));
-      break;
-    }
-
-    // Randomly select order type: 55% range, 20% limit, 10% market, 10% spot sell, 5% hybrid
-    const orderTypeRoll = rng();
-    let orderType: 'range' | 'limit' | 'market' | 'spotsell' | 'hybrid';
-    if (orderTypeRoll < 0.55) {
-      orderType = 'range';
-    } else if (orderTypeRoll < 0.75) {
-      orderType = 'limit';
-    } else if (orderTypeRoll < 0.85) {
-      orderType = 'market';
-    } else if (orderTypeRoll < 0.95) {
-      orderType = 'spotsell';
-    } else {
-      orderType = 'hybrid';
-    }
-
-    // Random outcome (YES=1, NO=0) with slight bias toward YES
-    const outcome = rng() < 0.55 ? 1 : 0;
-
-    // Generate tick range based on order type
-    // Tick constraints: 1 <= tickLower < tickUpper <= 999
-    let tickLower: number;
-    let tickUpper: number;
-
-    if (orderType === 'market') {
-      tickLower = 1;
-      tickUpper = 999;
-    } else if (orderType === 'limit') {
-      tickLower = randInt(100, 898);
-      tickUpper = tickLower + randInt(1, 3);
-      tickUpper = Math.min(tickUpper, 999);
-    } else if (orderType === 'spotsell' || orderType === 'hybrid') {
-      tickLower = randInt(100, 950);
-      tickUpper = tickLower + randInt(0, 49);
-      tickUpper = Math.min(tickUpper, 999);
-    } else {
-      // Range order: random range within safe bounds
-      // tickLower: 100-800 (10%-80%), width: 50-150 ticks (5%-15%)
-      tickLower = randInt(100, 800);
-      const width = randInt(50, 150);
-      tickUpper = tickLower + width;
-      // Ensure within bounds
-      if (tickUpper > 999) {
-        tickUpper = 999;
-        tickLower = Math.max(1, tickUpper - width);
-      }
-    }
-
-    // Ensure valid range (should always be true with above logic)
-    if (tickLower < 1) tickLower = 1;
-    if (tickUpper > 999) tickUpper = 999;
-    if (tickLower >= tickUpper) tickUpper = tickLower + 1;
-
-    // Random size (50%-200% of avgSize), minimum 1 WAD
-    let shares = randSize();
-    if (shares < WAD) shares = WAD;
-
-    // Order type indicator
-    const typeIndicator = orderType === 'market' ? 'MKT' : orderType === 'limit' ? 'LMT' : orderType === 'spotsell' ? 'SPOT' : orderType === 'hybrid' ? 'HYB' : 'RNG';
-
-    // Debug output for first order
-    if (debugFirstOrder && i === 0) {
-      console.log(dim(`  Debug: marketKey=${(marketKey as string).slice(0, 18)}...`));
-      console.log(dim(`  Debug: type=${orderType}, outcome=${outcome}, shares=${shares.toString()}, ticks=${tickLower}-${tickUpper}`));
-    }
-
-    const spinner = new Spinner(`  Order ${i + 1}/${numOrders}: ${typeIndicator} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)}...`);
-    spinner.start();
-
-    try {
-      const result = await executeOrder({ orderType, outcome, shares, tickLower, tickUpper });
-
-      // Format output based on actual order type executed
-      const actualIndicator = result.actualType === 'market' ? 'MKT' : result.actualType === 'limit' ? 'LMT'
-        : result.actualType === 'spotsell' ? 'SPOT' : result.actualType === 'hybrid' ? 'HYB' : 'RNG';
-
-      if (result.actualType === 'hybrid') {
-        spinner.succeed(
-          `Order ${i + 1}: HYB ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] spot:${formatWad(result.spotAmount || 0n)} + short:${formatWad(result.shortAmount || 0n)} ${dim(`(gas: ${result.gasUsed})`)}`
-        );
-      } else if (result.actualType === 'spotsell') {
-        spinner.succeed(
-          `Order ${i + 1}: SPOT ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(result.spotAmount || shares)} shares ${dim(`(gas: ${result.gasUsed})`)}`
-        );
-      } else {
-        spinner.succeed(
-          `Order ${i + 1}: ${actualIndicator} #${result.orderId} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] ${formatWad(shares)} (filled: ${formatWad(result.filledShares)}, resting: ${formatWad(result.restingShares)}) ${dim(`(gas: ${result.gasUsed})`)}`
-        );
-      }
-
-      placedOrders.push({
-        orderId: result.orderId,
-        outcome,
-        tickLower,
-        tickUpper,
-        shares: result.spotAmount && result.shortAmount ? result.spotAmount + result.shortAmount : shares,
-        filledShares: result.filledShares,
-        filledCost: result.filledCost,
-        restingShares: result.restingShares,
-        txHash: result.txHash
-      });
-      consecutiveFailures = 0;
-      totalSimGas += result.gasUsed;
-    } catch (err) {
-      const decodedErr = decodeError(err as Error);
-      spinner.fail(`Order ${i + 1} failed: ${typeIndicator} ${outcome === 1 ? 'YES' : 'NO'} [${(tickLower / 10).toFixed(1)}%-${(tickUpper / 10).toFixed(1)}%] - ${decodedErr}`);
-
-      if (i === 0 || decodedErr.includes('Unknown') || decodedErr.includes('RPC')) {
-        console.log(dim(`    Params: shares=${formatWad(shares)}, maxCost=${formatWad(shares * 2n)}`));
-      }
-
-      if (isContractError(err as Error) || (err as Error).message.toLowerCase().includes('out of gas')) {
-        consecutiveFailures++;
-        if (consecutiveFailures >= maxConsecutiveFailures) {
-          console.log(warn(`  Stopping early after ${maxConsecutiveFailures} consecutive contract failures`));
-          break;
-        }
-      }
-    }
-
-    await sleep(300); // Slightly longer delay for stability
-  }
-
-  // Cleanup stdin listener
-  cleanup();
-
-  // Summary
-  console.log('');
-  console.log('  ' + '─'.repeat(50));
-  console.log(`  ${bold('Simulation Complete')}`);
-  console.log(`  Orders placed: ${placedOrders.length}/${numOrders}`);
-  console.log(`  Total gas used: ${totalSimGas}`);
-  if (placedOrders.length > 0) {
-    console.log(`  Avg gas per order: ${totalSimGas / BigInt(placedOrders.length)}`);
-  }
-  if (stopRequested) {
-    console.log(`  ${warn('(stopped early by user)')}`);
-  }
-  console.log('');
-
-  return { success: true, data: { placedOrders: placedOrders.length } };
 }
 
 /**
@@ -1438,40 +885,6 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
   console.log('  ' + '─'.repeat(40));
   console.log(`  Winner: ${['NO', 'YES', 'INVALID'][winningOutcome]}`);
 
-  let totalRedeemed = 0n;
-
-  const [internalYes, internalNo] = await publicClient.readContract({
-    address: deployment.contracts.TickBookVault as `0x${string}`,
-    abi: TickBookVaultAbi,
-    functionName: 'getInternalOutcomes',
-    args: [marketAddress, address],
-  }) as [bigint, bigint];
-
-  if (internalYes > 0n || internalNo > 0n) {
-    console.log(`  Internal YES: ${formatWad(internalYes)}`);
-    console.log(`  Internal NO:  ${formatWad(internalNo)}`);
-
-    const spinner1 = new Spinner('Redeeming internal vault outcomes...');
-    spinner1.start();
-
-    try {
-      const hash = await walletClient.writeContract({
-        address: deployment.contracts.TickBookVault as `0x${string}`,
-        abi: TickBookVaultAbi,
-        functionName: 'redeemResolved',
-        args: [marketAddress],
-        gas: 500000n,
-      });
-      await actorManager.waitForTransactionReceipt(hash);
-      
-      const internalValue = winningOutcome === 1 ? internalYes : winningOutcome === 0 ? internalNo : (internalYes + internalNo) / 2n;
-      totalRedeemed += internalValue;
-      spinner1.succeed(`Redeemed internal outcomes ${dim(`(tx: ${shortTx(hash)})`)}`);
-    } catch (err) {
-      spinner1.fail(`Internal redeem failed: ${(err as Error).message.slice(0, 50)}`);
-    }
-  }
-
   const [yesBalance, noBalance] = await publicClient.readContract({
     address: deployment.contracts.Collateralizer as `0x${string}`,
     abi: CollateralizerAbi,
@@ -1485,8 +898,8 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
   const totalTokens = yesBalance + noBalance;
 
   if (totalTokens > 0n) {
-    const spinner2 = new Spinner('Redeeming ERC20 outcome tokens...');
-    spinner2.start();
+    const spinner = new Spinner('Redeeming ERC20 outcome tokens...');
+    spinner.start();
 
     try {
       const hash = await walletClient.writeContract({
@@ -1496,24 +909,24 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
         args: [marketAddress, totalTokens],
         gas: 500000n,
       });
-      const receipt = await actorManager.waitForTransactionReceipt(hash);
+      await actorManager.waitForTransactionReceipt(hash);
       
-      const tokenValue = winningOutcome === 1 ? yesBalance : winningOutcome === 0 ? noBalance : (yesBalance + noBalance) / 2n;
-      totalRedeemed += tokenValue;
-      spinner2.succeed(`Redeemed ${formatWad(totalTokens)} tokens ${dim(`(tx: ${shortTx(hash)})`)}`);
+      spinner.succeed(`Redeemed ${formatWad(totalTokens)} tokens ${dim(`(tx: ${shortTx(hash)})`)}`);
     } catch (err) {
-      spinner2.fail(`Token redeem failed: ${(err as Error).message.slice(0, 50)}`);
+      spinner.fail(`Token redeem failed: ${(err as Error).message.slice(0, 50)}`);
     }
   }
 
-  if (totalRedeemed === 0n && totalTokens === 0n && internalYes === 0n && internalNo === 0n) {
+  const tokenValue = winningOutcome === 1 ? yesBalance : winningOutcome === 0 ? noBalance : (yesBalance + noBalance) / 2n;
+
+  if (totalTokens === 0n) {
     console.log(`\n  ${warn('No positions to redeem')}`);
   } else {
-    console.log(`\n  ${success(`Total redeemed: ~${formatWad(totalRedeemed)} USDC`)}`);
+    console.log(`\n  ${success(`Total redeemed: ~${formatWad(tokenValue)} USDC`)}`);
   }
 
   console.log('');
-  return { success: true, data: { totalRedeemed } };
+  return { success: true, data: { totalRedeemed: tokenValue } };
 }
 
 export async function redeemamm(ctx: CommandContext, args: string[]): Promise<CommandResult> {
@@ -1700,20 +1113,6 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
     args: [address],
   }) as bigint;
 
-  const vaultUsdc = await publicClient.readContract({
-    address: deployment.contracts.TickBookVault as `0x${string}`,
-    abi: TickBookVaultAbi,
-    functionName: 'availableUsdcWad',
-    args: [address],
-  }) as bigint;
-
-  const [internalYes, internalNo] = await publicClient.readContract({
-    address: deployment.contracts.TickBookVault as `0x${string}`,
-    abi: TickBookVaultAbi,
-    functionName: 'getInternalOutcomes',
-    args: [marketAddress, address],
-  }) as [bigint, bigint];
-
   let yesTokens = 0n;
   let noTokens = 0n;
   try {
@@ -1795,39 +1194,38 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
 
   if (isSettled) {
     if (winningOutcome === 1) {
-      yesValue = yesTokens + internalYes;
+      yesValue = yesTokens;
     } else if (winningOutcome === 0) {
-      noValue = noTokens + internalNo;
+      noValue = noTokens;
     } else {
-      yesValue = (yesTokens + internalYes) / 2n;
-      noValue = (noTokens + internalNo) / 2n;
+      yesValue = yesTokens / 2n;
+      noValue = noTokens / 2n;
     }
   } else {
-    yesValue = (yesTokens + internalYes) / 2n;
-    noValue = (noTokens + internalNo) / 2n;
+    yesValue = yesTokens / 2n;
+    noValue = noTokens / 2n;
   }
 
   const totalPositionValue = yesValue + noValue + lpValue;
-  const totalValue = walletUsdc + vaultUsdc + totalPositionValue;
+  const totalValue = walletUsdc + totalPositionValue;
 
   console.log(`\n  ${info('USDC Holdings')}`);
   console.log('  ' + '─'.repeat(40));
   console.log(`  Wallet:        ${formatWad(walletUsdc).padStart(15)} USDC`);
-  console.log(`  Vault:         ${formatWad(vaultUsdc).padStart(15)} USDC`);
 
   console.log(`\n  ${info('Positions')} ${isSettled ? dim(`(settled: ${['NO', 'YES', 'INVALID'][winningOutcome]})`) : dim('(live)')}`);
   console.log('  ' + '─'.repeat(40));
   
-  if (yesTokens + internalYes > 0n || noTokens + internalNo > 0n) {
-    console.log(`  YES tokens:    ${formatWad(yesTokens + internalYes).padStart(15)} → ${formatWad(yesValue)} USDC`);
-    console.log(`  NO tokens:     ${formatWad(noTokens + internalNo).padStart(15)} → ${formatWad(noValue)} USDC`);
+  if (yesTokens > 0n || noTokens > 0n) {
+    console.log(`  YES tokens:    ${formatWad(yesTokens).padStart(15)} → ${formatWad(yesValue)} USDC`);
+    console.log(`  NO tokens:     ${formatWad(noTokens).padStart(15)} → ${formatWad(noValue)} USDC`);
   }
   
   if (lpBalance > 0n) {
     console.log(`  LP tokens:     ${formatWad(lpBalance).padStart(15)} → ~${formatWad(lpValue)} USDC`);
   }
 
-  if (yesTokens + internalYes === 0n && noTokens + internalNo === 0n && lpBalance === 0n) {
+  if (yesTokens === 0n && noTokens === 0n && lpBalance === 0n) {
     console.log(dim('  No positions'));
   }
 
@@ -1861,7 +1259,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   console.log(`\n  ${info('Summary')}`);
   console.log('  ' + '─'.repeat(40));
   
-  const liquidUsdc = walletUsdc + vaultUsdc;
+  const liquidUsdc = walletUsdc;
   console.log(`  Liquid USDC:   ${formatWad(liquidUsdc).padStart(15)} USDC`);
   
   if (totalPositionValue > 0n) {
@@ -1881,7 +1279,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
     console.log(`  ${bold('P&L:')}            ${pnlColor(`${pnlSign}${formatWad(pnlAmount).padStart(13)}`)} ${bold('USDC')} ${dim(`(${pnlSign}${pnlPercent.toFixed(2)}%)`)}`);
   }
 
-  if (isSettled && (yesTokens > 0n || noTokens > 0n || internalYes > 0n || internalNo > 0n)) {
+  if (isSettled && (yesTokens > 0n || noTokens > 0n)) {
     console.log(`\n  ${warn('Unredeemed positions! Run: redeem')}`);
   }
 
@@ -1890,7 +1288,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   }
 
   console.log('');
-  return { success: true, data: { walletUsdc, vaultUsdc, yesValue, noValue, lpValue, totalValue, initialInvestment, pnl: totalValue - initialInvestment } };
+  return { success: true, data: { walletUsdc, yesValue, noValue, lpValue, totalValue, initialInvestment, pnl: totalValue - initialInvestment } };
 }
 
 /**
@@ -2230,7 +1628,6 @@ export const marketCommands = {
   createmarket,
   graduate,
   marketstatus,
-  simulate,
   settle,
   finalize,
   redeem,

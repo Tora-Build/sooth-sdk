@@ -7,7 +7,7 @@ ponder.on("SoothBook:MarketCreated", async ({ event, context }) => {
   const { marketKey, collateral, yesToken, noToken } = event.args;
 
   await context.db
-    .insert(schema.soothbookMarket)
+    .insert(schema.market)
     .values({
       marketKey,
       chainId: context.chain.id,
@@ -26,7 +26,7 @@ ponder.on("SoothBook:MarketCreated", async ({ event, context }) => {
 ponder.on("SoothBook:OrderPlaced", async ({ event, context }) => {
   const { marketKey, side, tick, maker, amount, escrow } = event.args;
 
-  await context.db.insert(schema.soothbookOrder).values({
+  await context.db.insert(schema.order).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -46,7 +46,7 @@ ponder.on("SoothBook:OrderPlaced", async ({ event, context }) => {
 ponder.on("SoothBook:OrderFilled", async ({ event, context }) => {
   const { marketKey, takerSide, yesTick, noTick, taker, maker, amount, surplus } = event.args;
 
-  await context.db.insert(schema.soothbookFill).values({
+  await context.db.insert(schema.fill).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -66,7 +66,7 @@ ponder.on("SoothBook:OrderFilled", async ({ event, context }) => {
 ponder.on("SoothBook:OrderCancelled", async ({ event, context }) => {
   const { marketKey, maker, amount } = event.args;
 
-  await context.db.insert(schema.soothbookMintMerge).values({
+  await context.db.insert(schema.mintMerge).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -82,7 +82,7 @@ ponder.on("SoothBook:OrderCancelled", async ({ event, context }) => {
 ponder.on("SoothBook:Minted", async ({ event, context }) => {
   const { marketKey, user, amount } = event.args;
 
-  await context.db.insert(schema.soothbookMintMerge).values({
+  await context.db.insert(schema.mintMerge).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -98,7 +98,7 @@ ponder.on("SoothBook:Minted", async ({ event, context }) => {
 ponder.on("SoothBook:Merged", async ({ event, context }) => {
   const { marketKey, user, amount } = event.args;
 
-  await context.db.insert(schema.soothbookMintMerge).values({
+  await context.db.insert(schema.mintMerge).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -114,7 +114,7 @@ ponder.on("SoothBook:Merged", async ({ event, context }) => {
 ponder.on("SoothBook:Redeemed", async ({ event, context }) => {
   const { marketKey, user, payout } = event.args;
 
-  await context.db.insert(schema.soothbookMintMerge).values({
+  await context.db.insert(schema.mintMerge).values({
     id: eventId(event.transaction.hash, event.log.logIndex),
     chainId: context.chain.id,
     marketKey,
@@ -130,10 +130,10 @@ ponder.on("SoothBook:Redeemed", async ({ event, context }) => {
 ponder.on("SoothBook:MarketResolved", async ({ event, context }) => {
   const { marketKey, outcome } = event.args;
 
-  const existingMarket = await context.db.find(schema.soothbookMarket, { marketKey });
+  const existingMarket = await context.db.find(schema.market, { marketKey });
   if (!existingMarket) return;
 
-  await context.db.update(schema.soothbookMarket, { marketKey }).set({
+  await context.db.update(schema.market, { marketKey }).set({
     active: false,
     finalized: true,
     outcome,
