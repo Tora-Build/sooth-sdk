@@ -28,6 +28,7 @@ export interface SDKConfig {
     LaunchpadEngine: Address;
     Collateralizer: Address;
     AMMEngine: Address;
+    SoothBook?: Address;
   };
 }
 

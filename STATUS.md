@@ -1,8 +1,44 @@
 # Project Status
 
-> **Codebase Version**: V11.1  
-> **Active Testing**: Base Sepolia + Monad Testnet  
+> **Codebase Version**: V12.0 (SoothBook) + V11.1 (TickBook)  
+> **Active Testing**: Base Sepolia  
 > **Last Updated**: 2026-02-15
+
+## V12 SoothBook (Implemented)
+
+V12 introduces **SoothBook** — a radically simplified standalone orderbook (602 lines vs V10's 2710). No vault, no growth accumulators, ERC20 outcome tokens, FIFO matching.
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 4 atomic actions | `buyYes`, `buyNo`, `mint`, `merge` | ✅ Deployed |
+| Auto-match engine | `yesTick + noTick >= 1000` auto-mints complete set | ✅ Deployed |
+| FIFO matching | Array-based with head pointer | ✅ Deployed |
+| ERC20 outcome tokens | OutcomeToken with minter role | ✅ Deployed |
+| Tick bitmap | O(1) tick discovery via TickBitmap library | ✅ Deployed |
+| Market resolution | `resolveMarket` (onlyOwner) + `redeem` | ✅ Deployed |
+
+**Tests**: 45 passing (unit tests in `SoothBook.t.sol`)
+
+### V12 Stack
+
+| Layer | Status | Details |
+|-------|--------|---------|
+| Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia |
+| CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`) |
+| SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
+| Indexer | ✅ Configured | 8 event handlers, 4 schema tables, 5 REST endpoints at `/v12/*` |
+| Frontend | ✅ Integrated | `useSoothBookMarket` hook, V12Workbench at `/pro` reads from deployments.json |
+
+### V12 Deployment (Base Sepolia)
+
+| Contract | Address |
+|----------|---------|
+| SoothBook | `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7` |
+| MockUSDC | `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` |
+
+3 test markets deployed with seeded liquidity on Market 1.
+
+---
 
 ## V11 Features (Implemented)
 
@@ -17,11 +53,11 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
-- **V12 Pro Workbench (2026-02-15)** — Replace validation-only Pro test shell with comprehensive SoothBook testing surface. Added on-page actions for approve/buy/mint/merge/cancel/redeem/resolve plus bitmap snapshot and event-based order list.
+- **V12 SoothBook Full Stack (2026-02-15)** — Complete V12 integration across all layers: fresh Base Sepolia deployment, 45 unit tests, CLI (11 commands), browser SDK (11 commands), Ponder indexer (8 event handlers), frontend hook (`useSoothBookMarket`) + V12Workbench at `/pro`. All builds pass.
 - **Sooth Lite PWA Polish (2026-02-08)** — Mobile-first PWA for Monad hackathon. TikTok-style vertical snap-scroll feed. Completed: UI cleanup, faucet integration, background images, branding updates, decimal precision fixes, **RPC 429 error elimination**. Testing on Monad Testnet.
 
 ## Recent Changes (Last 5 Sessions)
-- **2026-02-15** — **V12 Pro Workbench Expanded**: `/pro` now routes to V12 SoothBook workbench instead of minimal validation widget. Added configurable SoothBook/market key targeting, market+wallet state inspection, write flows (approve, buyYes/buyNo escrow, mint, merge, cancel, redeem, resolve), tick-window bitmap snapshot (YES/NO order counts+amounts), and recent event order list (placed/filled/cancelled) with wallet highlighting.
+- **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia (contract `0xBcD904...`). Created 3 test markets with seeded liquidity. Built full integration: CLI with 11 `sb*` commands wired into REPL, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables + 5 REST endpoints, `useSoothBookMarket` hook, V12Workbench refactored to use `deployments.json` and shared ABIs. 45 unit tests passing. All builds clean.
 - **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction in Sooth Lite. Indexer now computes `yesProbability` locally from reserves (removed 67s/event RPC calls). Added `yesReserves`/`noReserves` fields to schema. Frontend `usePositions` refactored to use indexer endpoints. `useAMMQuote` optimized to only query when user types input. Added `useIndexerHealth` hook and status indicator. Fixed TradeModal accessibility (Drawer.Title). Result: Zero 429 errors.
 - **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
 - **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
@@ -384,4 +420,4 @@ Added on-chain market enumeration to replace static `markets.json` config.
 
 **Status**: **RESOLVED**. Included in V10.3.0.
 
-*Last updated: 2026-01-26 (V11.1 fresh deployment to Base Sepolia)*
+*Last updated: 2026-02-15 (V12.0 SoothBook full stack integration)*

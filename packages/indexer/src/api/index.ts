@@ -532,6 +532,157 @@ app.get("/lock-entries/:chainId/:user", async (c) => {
   return c.json(serializeBigInts(entries));
 });
 
+// ============================================
+// V12: SoothBook API Endpoints
+// ============================================
+
+app.get("/v12/markets/:chainId", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+
+  const markets = await db
+    .select()
+    .from(schema.soothbookMarket)
+    .where(eq(schema.soothbookMarket.chainId, chainId))
+    .orderBy(desc(schema.soothbookMarket.createdAt));
+
+  return c.json(serializeBigInts(markets));
+});
+
+app.get("/v12/orders/:chainId/:marketKey", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+
+  const orders = await db
+    .select()
+    .from(schema.soothbookOrder)
+    .where(
+      and(
+        eq(schema.soothbookOrder.chainId, chainId),
+        eq(schema.soothbookOrder.marketKey, marketKey),
+        eq(schema.soothbookOrder.status, "active")
+      )
+    )
+    .orderBy(desc(schema.soothbookOrder.createdAt));
+
+  return c.json(serializeBigInts(orders));
+});
+
+app.get("/v12/orders/:chainId/:marketKey/:owner", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+  const owner = c.req.param("owner").toLowerCase() as `0x${string}`;
+
+  const status = c.req.query("status") ?? "active";
+
+  const whereClause = status === "all"
+    ? and(
+        eq(schema.soothbookOrder.chainId, chainId),
+        eq(schema.soothbookOrder.marketKey, marketKey),
+        eq(schema.soothbookOrder.maker, owner)
+      )
+    : and(
+        eq(schema.soothbookOrder.chainId, chainId),
+        eq(schema.soothbookOrder.marketKey, marketKey),
+        eq(schema.soothbookOrder.maker, owner),
+        eq(schema.soothbookOrder.status, "active")
+      );
+
+  const orders = await db
+    .select()
+    .from(schema.soothbookOrder)
+    .where(whereClause)
+    .orderBy(desc(schema.soothbookOrder.createdAt));
+
+  return c.json(serializeBigInts(orders));
+});
+
+app.get("/v12/fills/:chainId/:marketKey", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+  const limit = parseInt(c.req.query("limit") || "50");
+
+  const fills = await db
+    .select()
+    .from(schema.soothbookFill)
+    .where(
+      and(
+        eq(schema.soothbookFill.chainId, chainId),
+        eq(schema.soothbookFill.marketKey, marketKey)
+      )
+    )
+    .orderBy(desc(schema.soothbookFill.timestamp))
+    .limit(limit);
+
+  return c.json(serializeBigInts(fills));
+});
+
+app.get("/v12/activity/:chainId/:marketKey", async (c) => {
+  const chainId = parseInt(c.req.param("chainId"));
+  const marketKey = c.req.param("marketKey") as `0x${string}`;
+  const limit = parseInt(c.req.query("limit") || "100");
+
+  const [orders, fills, mintMerges] = await Promise.all([
+    db
+      .select()
+      .from(schema.soothbookOrder)
+      .where(
+        and(
+          eq(schema.soothbookOrder.chainId, chainId),
+          eq(schema.soothbookOrder.marketKey, marketKey)
+        )
+      )
+      .orderBy(desc(schema.soothbookOrder.createdAt))
+      .limit(limit),
+    db
+      .select()
+      .from(schema.soothbookFill)
+      .where(
+        and(
+          eq(schema.soothbookFill.chainId, chainId),
+          eq(schema.soothbookFill.marketKey, marketKey)
+        )
+      )
+      .orderBy(desc(schema.soothbookFill.timestamp))
+      .limit(limit),
+    db
+      .select()
+      .from(schema.soothbookMintMerge)
+      .where(
+        and(
+          eq(schema.soothbookMintMerge.chainId, chainId),
+          eq(schema.soothbookMintMerge.marketKey, marketKey)
+        )
+      )
+      .orderBy(desc(schema.soothbookMintMerge.timestamp))
+      .limit(limit),
+  ]);
+
+  const activity = [
+    ...orders.map((order) => ({
+      type: "order",
+      timestamp: order.createdAt,
+      data: order,
+    })),
+    ...fills.map((fill) => ({
+      type: "fill",
+      timestamp: fill.timestamp,
+      data: fill,
+    })),
+    ...mintMerges.map((entry) => ({
+      type: "mint_merge",
+      timestamp: entry.timestamp,
+      data: entry,
+    })),
+  ]
+    .sort((a, b) => {
+      if (a.timestamp === b.timestamp) return 0;
+      return a.timestamp > b.timestamp ? -1 : 1;
+    })
+    .slice(0, limit);
+
+  return c.json(serializeBigInts(activity));
+});
+
 app.get("/api-health", (c) => {
   return c.json({ status: "ok" });
 });

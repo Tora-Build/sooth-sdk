@@ -4,6 +4,7 @@ import { TickBookPoolManagerAbi } from "./src/abis/TickBookPoolManager";
 import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
 import { TickBookVaultAbi } from "./src/abis/TickBookVault";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
+import { SoothBookAbi } from "./src/abis/SoothBook";
 
 const monadRpcUrls = [
   "https://monad-mainnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN",
@@ -81,6 +82,15 @@ export default createConfig({
         baseSepolia: {
           address: "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",
           startBlock: 21127900,
+        },
+      },
+    },
+    SoothBook: {
+      abi: SoothBookAbi,
+      chain: {
+        baseSepolia: {
+          address: "0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7",
+          startBlock: 37620400,
         },
       },
     },

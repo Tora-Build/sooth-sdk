@@ -96,6 +96,8 @@ export { useContent } from "./useContent";
 export { useSandbox } from "./useSandbox";
 export { useOrderbook } from "./useOrderbook";
 export { useOrderbookTrade } from "./useOrderbookTrade";
+export { useSoothBookMarket } from "./useSoothBook";
+export type { SoothBookMarketState, SoothBookPrices } from "./useSoothBook";
 
 // ============================================================
 // Legacy Hooks (for backward compatibility)

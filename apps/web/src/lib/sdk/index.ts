@@ -6,13 +6,14 @@ import type { PublicClient, WalletClient, Address } from 'viem';
 import type { SDKConfig, SDKContext, CommandResult, OutputLine, OrderResult } from './types';
 import deployments from '../../config/deployments.json';
 import { computeMarketKey, computeMarketKeyWithHook, plain, error as errorLine, success as successLine, bold, dim, info, warn } from './utils';
-import { ABIS } from '../../config/abis';
+import { ABIS, SOOTHBOOK_ABI } from '../../config/abis';
 
 import { walletCommands } from './commands/wallet';
 import { vaultCommands } from './commands/vault';
 import { orderbookCommands } from './commands/orderbook';
 import { stateCommands } from './commands/state';
 import { marketCommands } from './commands/market';
+import { soothbookCommands } from './commands/soothbook';
 
 export * from './types';
 export * from './utils';
@@ -21,6 +22,12 @@ export * from './commands';
 type NetworkKey = keyof typeof deployments.networks;
 
 const STORAGE_KEY_MARKET = 'sooth_selected_market';
+const SOOTHBOOK_TEST_MARKETS: readonly `0x${string}`[] = [
+  '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5',
+  '0x51c50fd0e163b78ae31b6b04b87169dee2041aaf0279ecef7d10d0284d4cecb9',
+  '0x1e20bd6ecb21252705442f66733ad9bd6b38f4a29acae27f1c95bd2f57eab737',
+];
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class SoothSDK {
   private config: SDKConfig;
@@ -52,6 +59,7 @@ export class SoothSDK {
         LaunchpadEngine: network.contracts.LaunchpadEngine as Address,
         Collateralizer: network.contracts.Collateralizer as Address,
         AMMEngine: network.contracts.AMMEngine as Address,
+        SoothBook: ('SoothBook' in network.contracts ? network.contracts.SoothBook : undefined) as Address | undefined,
       },
     };
     
@@ -82,7 +90,7 @@ export class SoothSDK {
   private persistMarketSelection() {
     if (typeof window === 'undefined') return;
     
-    if (this.marketAddress) {
+    if (this.marketAddress || this.marketKey) {
       localStorage.setItem(STORAGE_KEY_MARKET, JSON.stringify({
         chainId: this.config.chainId,
         marketAddress: this.marketAddress,
@@ -371,6 +379,112 @@ export class SoothSDK {
     return marketCommands.pausestatus(this.getContext(), args);
   }
 
+  async buyyes(args: string[]) {
+    return soothbookCommands.buyyes(this.getContext(), args);
+  }
+
+  async buyno(args: string[]) {
+    return soothbookCommands.buyno(this.getContext(), args);
+  }
+
+  async sbmint(args: string[]) {
+    return soothbookCommands.sbmint(this.getContext(), args);
+  }
+
+  async sbmerge(args: string[]) {
+    return soothbookCommands.sbmerge(this.getContext(), args);
+  }
+
+  async sbcancel(args: string[]) {
+    return soothbookCommands.sbcancel(this.getContext(), args);
+  }
+
+  async sbredeem(args: string[] = []) {
+    return soothbookCommands.sbredeem(this.getContext(), args);
+  }
+
+  async sbbook(args: string[] = []) {
+    return soothbookCommands.sbbook(this.getContext(), args);
+  }
+
+  async sbbalance(args: string[] = []) {
+    return soothbookCommands.sbbalance(this.getContext(), args);
+  }
+
+  async sbstate(args: string[] = []) {
+    return soothbookCommands.sbstate(this.getContext(), args);
+  }
+
+  async sbprice(args: string[] = []) {
+    return soothbookCommands.sbprice(this.getContext(), args);
+  }
+
+  async sbSetMarket(keyOrIndex: string): Promise<{ result: CommandResult; output: OutputLine[] }> {
+    if (!this.config.contracts.SoothBook) {
+      return {
+        result: { success: false, message: 'SoothBook not configured' },
+        output: [errorLine('SoothBook not available on this chain')],
+      };
+    }
+
+    let nextKey: `0x${string}`;
+    if (keyOrIndex.startsWith('0x')) {
+      if (keyOrIndex.length !== 66) {
+        return {
+          result: { success: false, message: 'Market key must be 32-byte hex' },
+          output: [errorLine('Usage: sbsetmarket <key|index>')],
+        };
+      }
+      nextKey = keyOrIndex as `0x${string}`;
+    } else {
+      const idx = parseInt(keyOrIndex.trim(), 10);
+      if (isNaN(idx) || idx < 0 || idx >= SOOTHBOOK_TEST_MARKETS.length) {
+        return {
+          result: { success: false, message: 'Index out of range' },
+          output: [errorLine(`Index out of range (0-${SOOTHBOOK_TEST_MARKETS.length - 1})`)],
+        };
+      }
+      nextKey = SOOTHBOOK_TEST_MARKETS[idx];
+    }
+
+    try {
+      const [collateral, yesToken, noToken, active, finalized, outcome] = await this.config.publicClient.readContract({
+        address: this.config.contracts.SoothBook,
+        abi: SOOTHBOOK_ABI,
+        functionName: 'markets',
+        args: [nextKey],
+      }) as [Address, Address, Address, boolean, boolean, number];
+
+      if (collateral.toLowerCase() === ZERO_ADDRESS) {
+        return {
+          result: { success: false, message: 'Market not found' },
+          output: [errorLine('Market not found in SoothBook')],
+        };
+      }
+
+      this.marketKey = nextKey;
+      this.persistMarketSelection();
+
+      return {
+        result: { success: true, data: { marketKey: this.marketKey, active, finalized, outcome } },
+        output: [
+          successLine(`SoothBook market set: ${nextKey}`),
+          dim(`Collateral: ${collateral}`),
+          dim(`YES Token:  ${yesToken}`),
+          dim(`NO Token:   ${noToken}`),
+          dim(`Active:     ${active ? 'YES' : 'NO'}`),
+          dim(`Finalized:  ${finalized ? 'YES' : 'NO'}`),
+          dim(`Outcome:    ${outcome}`),
+        ],
+      };
+    } catch (err) {
+      return {
+        result: { success: false, message: (err as Error).message },
+        output: [errorLine(`Failed to set SoothBook market: ${(err as Error).message}`)],
+      };
+    }
+  }
+
   async executeCommand(input: string): Promise<{ result: CommandResult; output: OutputLine[]; orderResult?: OrderResult }> {
     const parts = input.trim().split(/\s+/);
     if (parts.length === 0 || !parts[0]) {
@@ -454,6 +568,36 @@ export class SoothSDK {
         return this.transferlp(args);
       case 'pausestatus':
         return this.pausestatus(args);
+      case 'buyyes':
+        return this.buyyes(args);
+      case 'buyno':
+        return this.buyno(args);
+      case 'sbmint':
+        return this.sbmint(args);
+      case 'sbmerge':
+        return this.sbmerge(args);
+      case 'sbcancel':
+        return this.sbcancel(args);
+      case 'sbredeem':
+        return this.sbredeem(args);
+      case 'sbbook':
+        return this.sbbook(args);
+      case 'sbbalance':
+      case 'sbbal':
+        return this.sbbalance(args);
+      case 'sbstate':
+        return this.sbstate(args);
+      case 'sbprice':
+        return this.sbprice(args);
+      case 'sbsetmarket':
+      case 'sbm':
+        if (args.length < 1) {
+          return {
+            result: { success: false },
+            output: [errorLine('Usage: sbsetmarket <key|index>')],
+          };
+        }
+        return this.sbSetMarket(args[0]);
       case 'setmarket':
         if (args.length < 1) {
           return {
@@ -500,6 +644,17 @@ export class SoothSDK {
         plain(''),
         info('  Protocol (V11)'),
         plain('    pausestatus               Check protocol pause status'),
+        plain(''),
+        info('  SoothBook (V12)'),
+        plain('    buyyes <tick> <amount> [escrow]    Buy YES tokens'),
+        plain('    buyno <tick> <amount> [escrow]     Buy NO tokens'),
+        plain('    sbmint <amount>                    Mint YES+NO set'),
+        plain('    sbmerge <amount>                   Merge YES+NO → USDC'),
+        plain('    sbcancel <yes|no> <tick>           Cancel order'),
+        plain('    sbredeem                           Redeem winning tokens'),
+        plain('    sbbook                             Show orderbook'),
+        plain('    sbbalance / sbstate / sbprice      Query state'),
+        plain('    sbsetmarket <key|index>            Select V12 market'),
         plain(''),
         dim(`  ${sep}`),
         plain(''),
