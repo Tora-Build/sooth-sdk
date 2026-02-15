@@ -7,6 +7,7 @@ import { Profile } from './pages/Profile';
 import { AAP } from './pages/AAP';
 import { SkillPage } from './pages/SkillPage';
 import { AdjudicatorPage } from './pages/AdjudicatorPage';
+import { MarketPage } from './pages/MarketPage';
 import { BottomNav } from './components/BottomNav';
 import { Showcase } from './components/Showcase';
 import { DesktopNav } from './components/DesktopNav';
@@ -71,6 +72,7 @@ function DesktopApp() {
         <Route path="/aap" element={<AAP />} />
         <Route path="/skill" element={<SkillPage />} />
         <Route path="/adjudicator" element={<AdjudicatorPage />} />
+        <Route path="/market" element={<MarketPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
