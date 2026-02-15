@@ -1,5 +1,20 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-084: V12 Pro Testing Surface Must Include Book Visibility
+- **Date**: 2026-02-15
+- **Status**: Accepted
+- **Context**:
+  - A contract-info-only V12 page was insufficient for testing matching behavior.
+  - Pro users need visibility comparable to TickBook Pro (book state and order activity), even though SoothBook internals differ.
+- **Decision**:
+  1. Route `/pro` to a dedicated V12 SoothBook workbench during V12 testing.
+  2. Include full write-path controls (approve, buy, mint, merge, cancel, redeem, resolve).
+  3. Add a bitmap-like tick snapshot using `getOrdersAtTick` across a configurable tick window.
+  4. Add an event-based order activity list (`OrderPlaced`, `OrderFilled`, `OrderCancelled`) for market-level debugging.
+- **Consequences**:
+  - Faster manual validation of matching and liquidity distribution without separate scripts.
+  - Event list is activity-level visibility, not a canonical per-order open-state index.
+
 ## ADR-082: Adjudicator Trust & Guardian Role (Forward Compatibility)
 - **Date**: 2026-01-21
 - **Status**: Accepted

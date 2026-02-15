@@ -5,6 +5,8 @@ All notable changes to Sooth Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **V12 Pro Workbench (2026-02-15)**: Added `V12Workbench` with comprehensive SoothBook testing controls on `/pro`: configurable target contract/market, market+wallet state reads, approve, buyYes/buyNo (escrow + maxCost), mint, merge, cancel, redeem, owner resolve, plus tx explorer links.
+- **V12 Bitmap + Order Feed Panels (2026-02-15)**: Added tick-window bitmap snapshot using `getOrdersAtTick` multicalls and event-based order list (`OrderPlaced`, `OrderFilled`, `OrderCancelled`) with lookback controls and wallet highlighting.
 - **Indexer Reserve Tracking (2026-02-08)**: Added `yesReserves` and `noReserves` fields to indexer schema for AMM price calculation without RPC calls. `PositionTraded` handler now computes `yesProbability` locally: `noReserves / (yesReserves + noReserves)`.
 - **Indexer Health Hook (2026-02-08)**: New `useIndexerHealth` hook in Sooth Lite to track indexer availability. Profile page now shows indexer status indicator.
 - **Mobile Debugging (2026-02-04)**: Added AppKit event logging, wallet storage reset flow, and boot markers to confirm the active JS bundle on device.

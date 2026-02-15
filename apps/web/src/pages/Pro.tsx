@@ -8,14 +8,14 @@
  * - Shows only graduated markets
  * - Click to open trading terminal for selected market
  */
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   Zap, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, Loader2, ArrowLeft, BookOpen, TrendingUp, ChevronLeft, ChevronRight, ExternalLink, Package, ArrowLeftRight, TrendingDown, BarChart3, Calendar, User, Shield, Trophy, XCircle, CheckCircle, Clock
 } from 'lucide-react';
-import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, useWriteContract, useReadContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { logger } from '../lib/logger';
-import { parseUnits, formatUnits } from 'viem';
+import { parseUnits, formatUnits, parseAbi } from 'viem';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -46,6 +46,7 @@ import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
 import { LiquidityMap, UserOrdersPanel } from '../components/features/pro';
+import { V12Workbench } from '../components/features/pro/V12Workbench';
 
 interface StaticMarket {
   id: string;
@@ -64,6 +65,26 @@ type OrderAction = 'buy_yes' | 'sell_yes' | 'buy_no' | 'sell_no';
 type OrderType = 'limit' | 'market';
 
 const MARKET_ORDER_ENABLED = false;
+
+const V12_BASE_SEPOLIA = {
+  chainId: 84532,
+  soothBook: '0x9a992959490578c8f171C25BC8615E9Cc1AA2aB8' as `0x${string}`,
+  marketKey: '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5' as `0x${string}`,
+} as const;
+
+const SOOTHBOOK_V12_ABI = parseAbi([
+  'function markets(bytes32) view returns (address collateral, address yesToken, address noToken, bool active, bool finalized, uint8 outcome)',
+  'function buyYes(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)',
+  'function buyNo(bytes32 marketKey, uint16 tick, uint128 amount, bool escrow, uint256 maxCost)',
+  'function redeem(bytes32 marketKey)',
+]);
+
+const ERC20_READ_WRITE_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function decimals() view returns (uint8)',
+]);
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -85,24 +106,7 @@ const STAGES = [
 // Main Component
 // ============================================================================
 export const Pro = () => {
-  const { marketId } = useParams<{ marketId?: string }>();
-  const navigate = useNavigate();
-  const { selectedChainId } = useChainStore();
-  const chainId = typeof selectedChainId === 'number' ? selectedChainId : Number(selectedChainId);
-  const previousChainId = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (previousChainId.current !== null && previousChainId.current !== chainId && marketId) {
-      navigate('/pro');
-    }
-    previousChainId.current = chainId;
-  }, [chainId, marketId, navigate]);
-
-  if (marketId) {
-    return <ProTradingTerminal marketId={marketId} />;
-  }
-
-  return <ProMarketList chainId={chainId} />;
+  return <V12Workbench />;
 };
 
 // ============================================================================
@@ -499,6 +503,321 @@ const getAddressExplorerUrl = (chainId: number, address: string) => {
     5042002: 'https://testnet.arcscan.app',
   };
   return `${explorers[chainId] || 'https://sepolia.basescan.org'}/address/${address}`;
+};
+
+const V12ProTerminal = ({ embedded = false }: { embedded?: boolean }) => {
+  const navigate = useNavigate();
+  const { isConnected, address: userAddress, chainId: walletChainId } = useAccount();
+  const chainId = useChainId();
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
+  const invalidateV8Queries = useInvalidateQueries();
+  const [action, setAction] = useState<OrderAction>('buy_yes');
+  const [priceCents, setPriceCents] = useState('50.0');
+  const [amount, setAmount] = useState('1');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: marketTuple } = useReadContract({
+    address: V12_BASE_SEPOLIA.soothBook,
+    abi: SOOTHBOOK_V12_ABI,
+    functionName: 'markets',
+    args: [V12_BASE_SEPOLIA.marketKey],
+    query: { enabled: chainId === V12_BASE_SEPOLIA.chainId },
+  });
+
+  const collateral = marketTuple?.[0] as `0x${string}` | undefined;
+  const yesToken = marketTuple?.[1] as `0x${string}` | undefined;
+  const noToken = marketTuple?.[2] as `0x${string}` | undefined;
+  const isActive = Boolean(marketTuple?.[3]);
+  const isFinalized = Boolean(marketTuple?.[4]);
+
+  const { data: collateralBalance = 0n } = useReadContract({
+    address: collateral,
+    abi: ERC20_READ_WRITE_ABI,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!collateral && !!userAddress && isConnected },
+  });
+  const { data: yesBalance = 0n } = useReadContract({
+    address: yesToken,
+    abi: ERC20_READ_WRITE_ABI,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!yesToken && !!userAddress && isConnected },
+  });
+  const { data: noBalance = 0n } = useReadContract({
+    address: noToken,
+    abi: ERC20_READ_WRITE_ABI,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!noToken && !!userAddress && isConnected },
+  });
+  const { data: allowance = 0n } = useReadContract({
+    address: collateral,
+    abi: ERC20_READ_WRITE_ABI,
+    functionName: 'allowance',
+    args: userAddress ? [userAddress, V12_BASE_SEPOLIA.soothBook] : undefined,
+    query: { enabled: !!collateral && !!userAddress && isConnected },
+  });
+
+  const isBuying = action === 'buy_yes' || action === 'buy_no';
+  const isYesSide = action === 'buy_yes' || action === 'sell_yes';
+  const isWrongNetwork = walletChainId !== V12_BASE_SEPOLIA.chainId;
+  const priceNum = Math.max(0.1, Math.min(99.9, Number(priceCents) || 50));
+  const tick = Math.max(1, Math.min(999, Math.round(priceNum * 10)));
+  const amountNum = Number(amount) || 0;
+  const amountWad = amountNum > 0 ? parseUnits(amount, 18) : 0n;
+  const priceProb = tick / 1000;
+  const estimate = amountNum * (isYesSide ? priceProb : (1 - priceProb));
+  const estimatedCostWad = isBuying && estimate > 0 ? parseUnits(estimate.toFixed(6), 18) : 0n;
+  const maxCost = isBuying && estimate > 0 ? parseUnits((estimate * 1.1).toFixed(6), 18) : 0n;
+  const needsApproval = isBuying && allowance < maxCost;
+  const hasEnoughCollateral = !isBuying || collateralBalance >= estimatedCostWad;
+
+  const ensureBaseSepolia = async (): Promise<boolean> => {
+    if (!isWrongNetwork) return true;
+    if (!switchChainAsync) {
+      toast.error('Wallet connector cannot switch chain automatically');
+      return false;
+    }
+    try {
+      const switched = await switchChainAsync({ chainId: V12_BASE_SEPOLIA.chainId });
+      if (!switched || switched.id !== V12_BASE_SEPOLIA.chainId) {
+        toast.error('Please switch wallet to Base Sepolia and retry');
+        return false;
+      }
+      toast.success('Switched to Base Sepolia. Retry your action.');
+      return false; // avoid same-tick tx submission race after network switch
+    } catch (e: any) {
+      toast.error(e?.shortMessage || 'Switch wallet to Base Sepolia first');
+      return false;
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!collateral) return;
+    if (!(await ensureBaseSepolia())) return;
+    setIsSubmitting(true);
+    const toastId = toast.loading('Approving collateral...');
+    try {
+      const hash = await writeContractAsync({
+        address: collateral,
+        abi: ERC20_READ_WRITE_ABI,
+        functionName: 'approve',
+        args: [V12_BASE_SEPOLIA.soothBook, parseUnits('1000000000', 18)],
+      });
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Approved</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+      invalidateV8Queries();
+    } catch (e: any) {
+      toast.error(e?.shortMessage || e?.message || 'Approval failed', { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTrade = async () => {
+    if (!isConnected || amountWad <= 0n) return;
+    if (!(await ensureBaseSepolia())) return;
+    const isSell = action === 'sell_yes' || action === 'sell_no';
+    const fn = action === 'buy_yes' || action === 'sell_no' ? 'buyYes' : 'buyNo';
+    const escrow = isSell;
+    const requiredShares = amountWad;
+    if (action === 'sell_yes' && yesBalance < requiredShares) {
+      toast.error('Insufficient YES balance for escrow sell');
+      return;
+    }
+    if (action === 'sell_no' && noBalance < requiredShares) {
+      toast.error('Insufficient NO balance for escrow sell');
+      return;
+    }
+    if (isBuying && !hasEnoughCollateral) {
+      toast.error('Insufficient USDC balance for this order');
+      return;
+    }
+    if (isBuying && needsApproval) {
+      toast.error('Approve USDC first');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading('Submitting V12 order...');
+    try {
+      if (publicClient && userAddress) {
+        await publicClient.simulateContract({
+          account: userAddress,
+          address: V12_BASE_SEPOLIA.soothBook,
+          abi: SOOTHBOOK_V12_ABI,
+          functionName: fn,
+          args: [V12_BASE_SEPOLIA.marketKey, tick, amountWad, escrow, isSell ? 0n : maxCost],
+        });
+      }
+      const hash = await writeContractAsync({
+        address: V12_BASE_SEPOLIA.soothBook,
+        abi: SOOTHBOOK_V12_ABI,
+        functionName: fn,
+        args: [V12_BASE_SEPOLIA.marketKey, tick, amountWad, escrow, isSell ? 0n : maxCost],
+      });
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Order confirmed</span>
+          <a href={getExplorerUrl(chainId, hash)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-300">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>,
+        { id: toastId }
+      );
+      invalidateV8Queries();
+      setAmount('');
+    } catch (e: any) {
+      const msg =
+        e?.shortMessage ||
+        e?.cause?.shortMessage ||
+        e?.details ||
+        e?.message ||
+        'Trade failed';
+      toast.error(msg, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {!embedded && (
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/pro')}
+            className="p-2 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-400" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm text-white font-medium line-clamp-1">SoothBook V12 (Base Sepolia Test Market)</div>
+            <div className="text-xs text-slate-500 font-mono">{V12_BASE_SEPOLIA.marketKey.slice(0, 12)}...{V12_BASE_SEPOLIA.marketKey.slice(-8)}</div>
+          </div>
+          <Badge variant={isActive && !isFinalized ? 'success' : 'outline'}>
+            {isFinalized ? 'Finalized' : isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        <div className="lg:col-span-6 space-y-4">
+          <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">Market-Bound Token Balances</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-950/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-slate-500 uppercase">USDC</div>
+                <div className="font-mono text-sm text-white">${parseFloat(formatUnits(collateralBalance, 18)).toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-950/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-slate-500 uppercase">YES</div>
+                <div className="font-mono text-sm text-emerald-400">{parseFloat(formatUnits(yesBalance, 18)).toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-950/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-slate-500 uppercase">NO</div>
+                <div className="font-mono text-sm text-rose-400">{parseFloat(formatUnits(noBalance, 18)).toFixed(2)}</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-4 space-y-4">
+          <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-5 space-y-4">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">V12 Actions</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['buy_yes', 'buy_no', 'sell_yes', 'sell_no'] as const).map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setAction(a)}
+                  className={cn(
+                    'py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors',
+                    action === a ? 'border-slate-500 bg-slate-800 text-white' : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:text-slate-300'
+                  )}
+                >
+                  {a.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Price (cents)</div>
+              <input
+                type="number"
+                value={priceCents}
+                step="0.1"
+                min="0.1"
+                max="99.9"
+                onChange={(e) => setPriceCents(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-slate-500"
+              />
+              <div className="text-xs text-slate-500 mt-1">Tick: {tick}</div>
+            </div>
+
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Amount (shares)</div>
+              <input
+                type="number"
+                value={amount}
+                min="0"
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-slate-500"
+              />
+            </div>
+
+            <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-slate-500">Est. cost</span><span className="font-mono text-white">${estimate.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Max cost</span><span className="font-mono text-white">${parseFloat(formatUnits(maxCost, 18)).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Wallet USDC</span><span className={cn("font-mono", hasEnoughCollateral ? "text-emerald-400" : "text-rose-400")}>${parseFloat(formatUnits(collateralBalance, 18)).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Escrow mode</span><span className="font-mono text-slate-300">{action.startsWith('sell') ? 'true' : 'false'}</span></div>
+            </div>
+
+            {isWrongNetwork && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                Connected network is not Base Sepolia. Switch first to send V12 transactions.
+              </div>
+            )}
+
+            {needsApproval ? (
+              <Button onClick={handleApprove} disabled={!isConnected || isSubmitting || !isActive || isFinalized || !hasEnoughCollateral || isWrongNetwork} className="w-full">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Approve USDC for SoothBook'}
+              </Button>
+            ) : (
+              <Button onClick={handleTrade} disabled={!isConnected || isSubmitting || !isActive || isFinalized || amountWad <= 0n || !hasEnoughCollateral || isWrongNetwork} className="w-full">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Execute ${action.replace('_', ' ')}`}
+              </Button>
+            )}
+            {isWrongNetwork && (
+              <Button
+                onClick={async () => {
+                  try {
+                    await switchChainAsync?.({ chainId: V12_BASE_SEPOLIA.chainId });
+                  } catch (e: any) {
+                    toast.error(e?.shortMessage || 'Could not switch network');
+                  }
+                }}
+                disabled={!isConnected || isSwitchingChain}
+                className="w-full bg-slate-700 hover:bg-slate-600"
+              >
+                {isSwitchingChain ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Switch to Base Sepolia'}
+              </Button>
+            )}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; embedded?: boolean }) => {

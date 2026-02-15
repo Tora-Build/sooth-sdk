@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V11.1  
 > **Active Testing**: Base Sepolia + Monad Testnet  
-> **Last Updated**: 2026-02-08
+> **Last Updated**: 2026-02-15
 
 ## V11 Features (Implemented)
 
@@ -17,9 +17,11 @@
 **Tests**: 266 passing (unit, integration, invariant, fuzz)
 
 ## Current Focus
+- **V12 Pro Workbench (2026-02-15)** — Replace validation-only Pro test shell with comprehensive SoothBook testing surface. Added on-page actions for approve/buy/mint/merge/cancel/redeem/resolve plus bitmap snapshot and event-based order list.
 - **Sooth Lite PWA Polish (2026-02-08)** — Mobile-first PWA for Monad hackathon. TikTok-style vertical snap-scroll feed. Completed: UI cleanup, faucet integration, background images, branding updates, decimal precision fixes, **RPC 429 error elimination**. Testing on Monad Testnet.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-15** — **V12 Pro Workbench Expanded**: `/pro` now routes to V12 SoothBook workbench instead of minimal validation widget. Added configurable SoothBook/market key targeting, market+wallet state inspection, write flows (approve, buyYes/buyNo escrow, mint, merge, cancel, redeem, resolve), tick-window bitmap snapshot (YES/NO order counts+amounts), and recent event order list (placed/filled/cancelled) with wallet highlighting.
 - **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction in Sooth Lite. Indexer now computes `yesProbability` locally from reserves (removed 67s/event RPC calls). Added `yesReserves`/`noReserves` fields to schema. Frontend `usePositions` refactored to use indexer endpoints. `useAMMQuote` optimized to only query when user types input. Added `useIndexerHealth` hook and status indicator. Fixed TradeModal accessibility (Drawer.Title). Result: Zero 429 errors.
 - **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
 - **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
