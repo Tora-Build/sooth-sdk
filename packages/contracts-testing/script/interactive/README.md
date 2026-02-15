@@ -1,27 +1,24 @@
 # Interactive On-Chain Testing REPL
 
-A command-line REPL for interactive testing of Sooth Protocol V9 contracts on live testnets.
+A command-line REPL for interactive testing of Sooth Protocol V12 contracts on live testnets.
 
 ## Quick Start
 
 ```bash
-# From contracts-testing directory
-cd packages/contracts-testing
+# From monorepo root
+pnpm dev:cli:base
 
-# Run against Base Sepolia (default)
+# Or from contracts-testing directory
+cd packages/contracts-testing
 bun run interactive
 
 # Or specify chain
 bun run interactive:base
-bun run interactive:monad
-
-# Auto-run a scenario (non-interactive)
-bun run interactive:base -- --scenario=market-lifecycle-multi-actor
 ```
 
 ## Prerequisites
 
-1. **Private Keys**: Set up test wallets in `.env`:
+1. **Private Keys**: Set up test wallets in `.env` (monorepo root):
    ```bash
    # Single actor (uses PRIVATE_KEY)
    PRIVATE_KEY=0x...
@@ -34,9 +31,7 @@ bun run interactive:base -- --scenario=market-lifecycle-multi-actor
    PRIVATE_KEY_ELLEN=0x...
    ```
 
-2. **Deployment Config**: Ensure `contracts-core/deployments/v9-baseSepolia.json` exists with market data.
-
-3. **Market Key Info**: For market commands to work, add `yesToken`, `noToken`, and optionally `marketKey` to market entries in deployment config.
+2. **Deployment Config**: Ensure `contracts-core/deployments/baseSepolia.json` exists with contract addresses and market data.
 
 ## Commands
 
@@ -48,41 +43,55 @@ actors          List all available actors with addresses
 
 ### Wallet Operations
 ```
-balance         Show USDC balances (wallet + vault)
+balance         Show USDC + outcome token balances
 mint <amount>   Mint MockUSDC to current actor
-approve <contract>  Approve contract (vault, poolmanager, launchpad, all)
-allowance       Show current allowances for all contracts
+approve <contract>  Approve contract (launchpad, soothbook, all)
+allowance       Show current allowances
 ```
 
-### Vault Operations
+### SoothBook Orderbook
 ```
-deposit <amount>    Deposit USDC to TickBookVault
-withdraw <amount>   Withdraw USDC from vault (or "max")
-reserved            Show reserved balance details
-```
-
-### Orderbook Operations
-```
-order <side> <range> <shares>   Place a range order
-                                Example: order yes 40-60 100
-
-cancel <orderId>                Cancel an order
-claim <orderId>                 Claim fills on an order
-orders [actor]                  List orders for actor
-
-market buy|sell <side> <shares> Execute market order
-                                Example: market buy no 50
-
-getorder <orderId>              Get detailed order info
+buyyes <tick> <amount> [escrow] [maxcost]   Place YES order at tick
+buyno <tick> <amount> [escrow] [maxcost]    Place NO order at tick
+sbmint <amount>                             Mint complete set (USDC → YES+NO)
+sbmerge <amount>                            Merge back to USDC (YES+NO → USDC)
+cancel <side> <tick>                        Cancel oldest order at tick
+redeem                                      Redeem winning tokens after resolution
+resolve <outcome>                           Resolve market (owner only)
+createmarket <name>                         Create SoothBook market (owner only)
 ```
 
-### State Inspection
+### SoothBook State Inspection
 ```
-state               Show market state (tick, liquidity, probability)
-book [depth]        Show orderbook with active orders
-positions           Show all actor positions
-info                Show market info (addresses)
-setmarket <addr|index|latest|created>    Set current market
+state               Show market state (tokens, backing, implied price)
+book [center] [window]  Show orderbook depth around center tick
+positions [actor]   Show token balances for all actors
+```
+
+### LaunchpadEngine (AMM)
+```
+createmarket <template> [liquidity]   Create market via LaunchpadEngine
+                                      Templates: alien, btcath, lakers, btc75k
+graduate [steps]                      Accumulate fees to trigger graduation
+marketstatus                          Show comprehensive market status
+settle <outcome>                      Settle market (adjudicator only)
+finalize                              Finalize settled market
+redeem                                Redeem winning ERC20 tokens
+redeemamm                             Settle AMM position after settlement
+redeemlp [amount|max]                 Redeem LP tokens
+pnl [initial]                         Show P&L summary
+transferlp <actor> <amount|max>       Transfer LP tokens
+```
+
+### Accounting
+```
+snapshot            Take comprehensive balance snapshot
+checksum            Zero-sum verification (run after scenario)
+```
+
+### State Selection
+```
+setmarket <addr|index|key>   Set current market context
 ```
 
 ### Scenarios
@@ -94,54 +103,21 @@ record stop <name>  Save recorded commands as scenario
 playback <name>     Playback a recorded scenario
 ```
 
-### Market Lifecycle
-```
-createmarket <template> [liquidity]   Create new market (alien, btc100k)
-                                      Example: createmarket alien 500
-graduate [steps]                      Graduate market via trades (default 8)
-marketstatus                          Show full market lifecycle status
-```
-
-### Simulation
-```
-simulate [n] [size] [seed]   Run orderbook simulation
-                             n:    Number of orders (default 10)
-                             size: Average shares (default 100)
-                             seed: Random seed for reproducibility
-
-                             Press Enter during simulation to stop early
-
-Examples:
-  simulate              10 random orders
-  simulate 50           50 orders
-  simulate 20 500       20 orders, 500 avg size
-  simulate 20 100 12345 Deterministic with seed 12345
-
-Order types generated:
-  - Range orders (70%): Random tick ranges within 10-90%
-  - Limit orders (20%): Single-tick orders at specific prices
-  - Market orders (10%): Full range 1-999 for immediate fills
-```
-
 ### Debug
 ```
 rpc                 Show RPC status and test connection
-call <contract> <fn>  Raw contract call for debugging
-```
-
-### Invariant Checks
-```
 invariants          Run all invariant checks
 check               Alias for invariants
+help                Show available commands
 ```
 
 ## Example Session
 
 ```
 ╔════════════════════════════════════════════════════════════╗
-║          SOOTH V9 INTERACTIVE TEST CONSOLE                  ║
-║ Chain: baseSepolia | Version: 9.9.6-fix9l                    ║
-║ Market: BTC100K                                             ║
+║          SOOTH V12 INTERACTIVE TEST CONSOLE               ║
+║ Chain: baseSepolia | Version: V12.0                       ║
+║ Market: Will BTC hit 150k in 2026?                        ║
 ╚════════════════════════════════════════════════════════════╝
 
   Type "help" for available commands
@@ -149,79 +125,51 @@ check               Alias for invariants
 alice> balance
   Balances for 0xEfdB...74F
   ────────────────────────────────────────
-  Wallet USDC:     0.00 USDC
-  Vault Available: 0.00 USDC
-  Vault Reserved:  0.00 USDC
+  Wallet USDC: 0.00 USDC
+  YES Token:   0.00 YES
+  NO Token:    0.00 NO
 
 alice> mint 10000
-  ✓ Minted 10,000.00 USDC (tx: 0xabc123...)
+  ✓ Minted 10,000.00 USDC
 
-alice> deposit 5000
-  ✓ Deposited 5,000.00 USDC to vault (tx: 0xdef456...)
+alice> approve soothbook
+  ✓ Approved SoothBook for unlimited USDC
 
-alice> order yes 40-60 100
-  ✓ Placed YES order at 40.0%-60.0% for 100.00 shares (tx: 0x789...)
+alice> buyyes 500 100
+  ✓ Placed YES order at 50.0% for 100.00 shares
 
 alice> actor bob
   Switched to bob (0x1234...567)
 
 bob> mint 5000
-  ✓ Minted 5,000.00 USDC (tx: 0xaaa...)
+  ✓ Minted 5,000.00 USDC
 
-bob> deposit 5000
-  ✓ Deposited 5,000.00 USDC to vault (tx: 0xbbb...)
+bob> approve soothbook
+  ✓ Approved SoothBook for unlimited USDC
 
-bob> market buy no 50
-  ✓ Bought 50.00 NO shares (tx: 0xccc...)
+bob> buyno 500 100
+  ✓ Placed NO order at 50.0% for 100.00 shares
 
-bob> actor alice
-  Switched to alice (0xEfdB...74F)
+bob> book 500 5
+  SoothBook [center=500, window=5]
+  Best YES Tick: 500 | Best NO Tick: 500
+  ...
 
-alice> claim 1
-  ✓ Claimed fills for order #1 (tx: 0xddd...)
+bob> positions
+  Positions
+  Actor    Address     USDC       YES        NO
+  alice    0xEfdB...   9,900.00   0.00       0.00
+  bob      0x1234...   4,900.00   0.00       0.00
 
 alice> invariants
   Invariant Checks:
   ──────────────────────────────────────────────────
-    [PASS] vault.solvent
-    [PASS] orders.noOverflow
-    [PASS] market.tickValid
-    [PASS] vault.reservedBounds
+    [PASS] soothbook.backing
+    [PASS] soothbook.marketActive
+    [PASS] soothbook.tokenSupply
+    [PASS] soothbook.tickRange
 
   4/4 invariants passed
-```
-
-## Predefined Scenarios
-
-| Name | Description |
-|------|-------------|
-| `basic-roundtrip` | Place order, cross it, claim fills |
-| `multi-actor-orderbook` | Multiple actors placing and crossing orders |
-| `market-lifecycle-multi-actor` | Full lifecycle with creator, AMM, TickBook, keeper roles |
-| `order-lifecycle` | Complete order lifecycle with partial fills |
-| `stress-orderbook` | Stress test with many orders |
-
-Run a scenario:
-```
-alice> scenario basic-roundtrip
-```
-
-## Recording Custom Scenarios
-
-```
-alice> record start
-Recording started
-
-alice> mint 1000
-alice> deposit 500
-alice> order no 30-40 25
-
-alice> record stop my-test
-✓ Saved scenario to: scenarios/recordings/my-test.yaml
-
-alice> playback my-test
-Running scenario: my-test
-...
 ```
 
 ## File Structure
@@ -234,27 +182,37 @@ script/interactive/
 ├── utils.ts                # Formatting, parsing, UI helpers
 ├── commands/
 │   ├── types.ts            # Command types
-│   ├── wallet.ts           # mint, approve, balance
-│   ├── vault.ts            # deposit, withdraw, reserved
-│   ├── orderbook.ts        # order, cancel, claim, market
-│   ├── state.ts            # state, book, positions, rpc
-│   └── market.ts           # createmarket, graduate, marketstatus, simulate
+│   ├── index.ts            # Command registry
+│   ├── wallet.ts           # mint, approve, balance, allowance, snapshot, checksum
+│   ├── soothbook.ts        # buyyes, buyno, mint, merge, cancel, redeem, resolve, book, state, positions, createmarket
+│   └── market.ts           # createmarket (launchpad), graduate, marketstatus, settle, finalize, redeem, redeemamm, redeemlp, pnl, transferlp
 ├── scenarios/
 │   ├── engine.ts           # Scenario execution engine
 │   ├── library/            # Predefined scenarios (YAML)
 │   └── recordings/         # User-recorded scenarios
 └── assertions/
-    └── invariants.ts       # Invariant check functions
+    └── invariants.ts       # SoothBook invariant checks
 ```
 
 ## Invariants Checked
 
 | Invariant | Description |
 |-----------|-------------|
-| `vault.solvent` | Total claims <= vault USDC balance |
-| `orders.noOverflow` | filledShares <= sharesTotal for all orders |
-| `market.tickValid` | Tick in range 1-999, consistent with probability |
-| `vault.reservedBounds` | Reserved <= available for all actors |
+| `soothbook.backing` | SoothBook USDC balance >= collateral backing for market |
+| `soothbook.marketActive` | Market is active (not finalized) |
+| `soothbook.tokenSupply` | YES totalSupply == NO totalSupply (complete sets) |
+| `soothbook.tickRange` | Best ticks in valid range (0 = empty, or 1-999) |
+
+## SoothBook Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Tick** | Price point 1-999 (tick/1000 = probability). E.g., tick 500 = 50% |
+| **Auto-match** | When `yesTick + noTick >= 1000`, orders cross and mint a complete set |
+| **Complete set** | 1 YES + 1 NO = 1 USDC. `mint` creates, `merge` destroys |
+| **Escrow** | If true, shares are held in SoothBook; if false, sent to wallet |
+| **Side** | `yes` (1) or `no` (0) |
+| **Outcome** | `no` (0), `yes` (1), `invalid` (2) |
 
 ## Troubleshooting
 
@@ -262,12 +220,12 @@ script/interactive/
 Set `PRIVATE_KEY` or `PRIVATE_KEY_ALICE` in `.env` file.
 
 ### "No market selected"
-Run `setmarket 0` to select the first market in deployment config, or `setmarket <address>`.
+Run `setmarket 0` to select the first market in deployment config, or `setmarket <key>`.
 
-### "Cannot compute market key"
-Add `yesToken` and `noToken` fields to the market entry in deployment config.
+### "SoothBook address not found"
+Ensure `contracts-core/deployments/baseSepolia.json` has a `SoothBook` entry in `contracts`.
 
 ### Transaction failures
-- Check vault balance with `balance`
+- Check USDC balance with `balance`
 - Ensure allowances with `allowance`
-- Approve if needed: `approve all`
+- Approve if needed: `approve soothbook` or `approve all`

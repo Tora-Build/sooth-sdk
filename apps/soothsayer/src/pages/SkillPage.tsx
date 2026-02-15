@@ -28,7 +28,7 @@ const CONTRACTS = [
   { name: 'LaunchpadEngine', address: '0xaa3F...E492', desc: 'Market creation + bonding curve' },
   { name: 'AMMEngine', address: '0x8629...498d', desc: 'Automated market making' },
   { name: 'Collateralizer', address: '0x1aF3...191f', desc: 'Token minting + collateral' },
-  { name: 'TickBookPoolManager', address: '0x12A3...75A3', desc: 'Order book + AMM hybrid' },
+  { name: 'SoothBook', address: '0x12A3...75A3', desc: 'Order book + AMM hybrid' },
   { name: 'MockUSDC', address: '0x3C06...4b6E', desc: 'Collateral token' },
 ];
 
@@ -69,7 +69,7 @@ export function SkillPage() {
           <div className="grid md:grid-cols-2 gap-4">
             {[
               { icon: <Layers className="w-5 h-5" />, title: 'Create Markets', desc: 'Deploy prediction markets on LaunchpadEngine with bonding curve bootstrapping. Markets graduate to full AMM at threshold.' },
-              { icon: <Terminal className="w-5 h-5" />, title: 'Trade Outcomes', desc: 'Buy and sell YES/NO tokens. Bonding curve for early markets, TickBook AMM for graduated ones.' },
+              { icon: <Terminal className="w-5 h-5" />, title: 'Trade Outcomes', desc: 'Buy and sell YES/NO tokens. Bonding curve for early markets, SoothBook orderbook for graduated ones.' },
               { icon: <Cpu className="w-5 h-5" />, title: 'Read Market State', desc: 'Query bonding, live, settled, or finalized status. Check probabilities, deadlines, and LP positions.' },
               { icon: <Plug className="w-5 h-5" />, title: 'Settle & Resolve', desc: 'Submit outcomes, finalize markets, and claim winnings. Two-step settlement: resolve → finalize.' },
             ].map(item => (

@@ -7,7 +7,6 @@ import { useChainStore } from '../store/useChainStore';
 export interface ChainDeployments {
   MockUSDC: string;
   // Core (V4+)
-  SoothTraderVault?: string;
   SoothLiquidityVault?: string;
   SoothFeeController?: string;
   LaunchpadFactory?: string;

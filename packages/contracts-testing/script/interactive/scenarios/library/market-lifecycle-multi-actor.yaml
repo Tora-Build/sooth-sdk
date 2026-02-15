@@ -2,22 +2,22 @@
 # 
 # Demonstrates full market lifecycle with 5 distinct actor roles:
 #   alice   = creator (creates market, provides liquidity)
-#   bob     = AMM trader (trades pre-graduation), TickBook maker
-#   charlie = TickBook trader (places orders post-graduation)
+#   bob     = AMM trader (trades pre-graduation), SoothBook maker
+#   charlie = SoothBook trader (places orders post-graduation)
 #   david   = adjudicator (settles market)
 #   ellen   = keeper (receives LP tokens from creator)
 #
 # Flow:
 #   1. Alice creates market with David as adjudicator
 #   2. Bob and Charlie fund and trade on AMM to graduate market
-#   3. After graduation, actors place TickBook orders
+#   3. After graduation, actors place SoothBook orders
 #   4. Alice transfers LP tokens to Ellen
 #   5. David settles the market as YES
 #   6. Actors redeem their positions and LP tokens
 #   7. Run invariant checks
 
 name: market-lifecycle-multi-actor
-description: Full 5-actor lifecycle from creation through settlement with TickBook trading and LP transfers
+description: Full 5-actor lifecycle from creation through settlement with SoothBook trading and LP transfers
 
 steps:
   # ============================================================
@@ -111,40 +111,40 @@ steps:
     action: marketstatus
     args: {}
 
-  # ============================================================
-  # PHASE 3: TickBook trading (post-graduation)
-  # ============================================================
-  
-  - actor: bob
-    action: setmarket
-    args:
-      address: "created"
+   # ============================================================
+   # PHASE 3: SoothBook trading (post-graduation)
+   # ============================================================
+   
+   - actor: bob
+     action: setmarket
+     args:
+       address: "created"
 
-  - actor: bob
-    action: order
-    args:
-      outcome: "no"
-      tickRange: "450-550"
-      shares: "50"
+   - actor: bob
+     action: order
+     args:
+       outcome: "no"
+       tickRange: "450-550"
+       shares: "50"
 
-  - actor: charlie
-    action: setmarket
-    args:
-      address: "created"
+   - actor: charlie
+     action: setmarket
+     args:
+       address: "created"
 
-  - actor: charlie
-    action: order
-    args:
-      outcome: "yes"
-      tickRange: "450-550"
-      shares: "25"
+   - actor: charlie
+     action: order
+     args:
+       outcome: "yes"
+       tickRange: "450-550"
+       shares: "25"
 
-  - actor: bob
-    action: order
-    args:
-      outcome: "yes"
-      tickRange: "450-550"
-      shares: "20"
+   - actor: bob
+     action: order
+     args:
+       outcome: "yes"
+       tickRange: "450-550"
+       shares: "20"
 
   # ============================================================
   # PHASE 4: Set up Ellen (keeper)
@@ -168,7 +168,7 @@ steps:
   # ============================================================
   # PHASE 5: Token Transfer Tests (BEFORE settlement)
   # LP tokens are transferable pre-settlement, locked post-settlement
-  # Internal TickBook shares are NOT user-transferable (by design)
+   # Internal SoothBook shares are NOT user-transferable (by design)
   # ============================================================
 
   # Alice transfers some LP tokens to Ellen (keeper)
@@ -194,7 +194,7 @@ steps:
 
   # ============================================================
   # PHASE 8.5: Verify Trading Stopped (post-settlement)
-  # Both AMM and TickBook should reject trades after settlement
+   # Both AMM and SoothBook should reject trades after settlement
   # ============================================================
 
   # Test: AMM trading should fail after settlement
@@ -207,15 +207,15 @@ steps:
     expect:
       fail: true
 
-  # Test: TickBook order should fail after settlement  
-  - actor: bob
-    action: order
-    args:
-      outcome: "yes"
-      tickRange: "400-600"
-      shares: "10"
-    expect:
-      fail: true
+   # Test: SoothBook order should fail after settlement  
+   - actor: bob
+     action: order
+     args:
+       outcome: "yes"
+       tickRange: "400-600"
+       shares: "10"
+     expect:
+       fail: true
 
   # Test: LP transfer should fail after settlement (tokens locked)
   - actor: alice
@@ -235,41 +235,41 @@ steps:
     args:
       address: "created"
 
-  # IMPORTANT: Cancel orders and claim refunds BEFORE redeeming internal outcomes
-  # The refund pool uses _marketCollateralWad which gets depleted by redemptions
-  - actor: bob
-    action: cancel
-    args:
-      orderId: "all"
+   # IMPORTANT: Cancel orders and claim refunds BEFORE redeeming internal outcomes
+   # The refund pool uses _marketCollateralWad which gets depleted by redemptions
+   - actor: bob
+     action: cancel
+     args:
+       orderId: "all"
 
-  - actor: bob
-    action: claimrefunds
-    args: {}
+   - actor: bob
+     action: claimrefunds
+     args: {}
 
-  # Now redeem internal outcomes (from order fills)
-  - actor: bob
-    action: redeem
-    args: {}
+   # Now redeem internal outcomes (from order fills)
+   - actor: bob
+     action: redeem
+     args: {}
 
-  - actor: bob
-    action: redeemamm
-    args: {}
+   - actor: bob
+     action: redeemamm
+     args: {}
 
-  - actor: bob
-    action: redeemlp
-    args:
-      amount: "max"
+   - actor: bob
+     action: redeemlp
+     args:
+       amount: "max"
 
-  - actor: charlie
-    action: setmarket
-    args:
-      address: "created"
+   - actor: charlie
+     action: setmarket
+     args:
+       address: "created"
 
-  # Cancel TickBook orders (claims fills + refunds unfilled collateral)
-  - actor: charlie
-    action: cancel
-    args:
-      orderId: "all"
+   # Cancel SoothBook orders (claims fills + refunds unfilled collateral)
+   - actor: charlie
+     action: cancel
+     args:
+       orderId: "all"
 
   - actor: charlie
     action: redeem

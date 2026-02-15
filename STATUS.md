@@ -27,18 +27,18 @@ V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines).
 | CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`) |
 | SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
 | Indexer | ✅ Configured | 8 event handlers, 4 schema tables (market, order, fill, mint_merge) |
-| Frontend | ✅ Integrated | `useSoothBookMarket` hook, V12Workbench at `/pro` reads from deployments.json |
+| Frontend | ✅ Integrated | Pro page (SoothBook trading) + Trade page (AMM) read from deployments.json |
 
 ### V12 Deployment (Base Sepolia)
 
 | Contract | Address |
 |----------|---------|
-| SoothBook | `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7` |
-| LaunchpadEngine | `0x3cfa2113c919c916e8334d245b157de937e76836` |
-| AMMEngine | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
-| Collateralizer | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
-| ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
-| MockUSDC | `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` |
+| SoothBook | `0xa83b770de63349629ea1f92ad9b40285b1d47d74` |
+| LaunchpadEngine | `0xc5f6b53c74a5d14336e971459ee7cf936d401384` |
+| AMMEngine | `0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2` |
+| Collateralizer | `0x72b11e98d4050b5edaa9b069d1c6d7309a8c8f04` |
+| ProtocolConfig | `0xaf2b599fedfda277f66525bf91ef6f49df6bddae` |
+| MockUSDC | `0xe2025de4fbee78d0a3832ea02d070d791c42ed1e` |
 
 3 test markets deployed with seeded liquidity on Market 1.
 
@@ -55,7 +55,7 @@ V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines).
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
 ## Current Focus
-- **V12 TickBook Removal Complete (2026-02-15)** — Replaced TickBook with SoothBook across the entire stack. Removed TickBookPoolManager (2710 lines), TickBookVault (353 lines), all interfaces, hooks, tests, CLI/SDK/indexer/frontend references. 101 files changed, -29,934 lines. 207 tests passing, all builds clean.
+- **V12 Fresh Deployment + Pro Page Redesign (2026-02-15)** — Deployed fresh V12 contracts to Base Sepolia with new addresses. Pro page redesigned to focus on SoothBook trading with improved UI. Trade page continues AMM trading for pre-graduation markets. Both pages read from deployments.json for contract addresses.
 
 ## Recent Changes (Last 5 Sessions)
 - **2026-02-15** — **TickBook Removal**: Removed TickBookPoolManager, TickBookVault, interfaces, hooks, DynamicFeeHook across all layers. SoothBook is now the sole orderbook. 13 test files removed, CLI/SDK/indexer/frontend cleaned of all TickBook references. Updated LaunchpadEngine (removed `_tickBook` constructor param). Zero TickBook references in active code.

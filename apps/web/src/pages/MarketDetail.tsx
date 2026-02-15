@@ -1,9 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Lock, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield, Landmark, Scale, TrendingUp, Package, Anchor } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Clock, Zap, BookOpen, Copy, CheckCircle, HelpCircle, BarChart3, AlertTriangle, Shield, Landmark, Scale, TrendingUp, Package, Anchor } from 'lucide-react';
 import { useState } from 'react';
 import { useLaunchpadMarket } from '../hooks/useLaunchpadMarket';
 import { useLaunchpadMarkets } from '../hooks/useLaunchpadMarkets';
-import { useAmmMarketByAddress } from '../hooks/useAmmMarketByAddress';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -14,11 +13,9 @@ import { getAddressExplorerUrl } from '../lib/chains';
 import { MarketCard } from '../components/features/market/MarketCard';
 import { LPLeaderboardCard } from '../components/features/market/LPLeaderboardCard';
 import { LaunchpadLockedProceeds } from '../components/features/trader/LaunchpadLockedProceeds';
-import { LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI, TRADER_VAULT_V4_ABI } from '../config/abis';
+import { LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { formatCurrency } from '../utils/format';
-import { PositionActionsModal } from '../components/features/portfolio/PositionActionsModal';
-import { useTraderVault } from '../hooks/useTraderVault';
-import { GitMerge, Scissors, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import uiContent from '../config/ui-content.json';
 import { logger } from '../lib/logger';
 
@@ -503,32 +500,6 @@ export const MarketDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
-  const { refetch: refetchVault, availableBalance, decimals, vaultAddress: traderVaultAddress, isLoading: vaultLoading } = useTraderVault();
-  const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
-  
-  // Fetch vault share balances for this market
-  const { data: vaultShareData } = useReadContracts({
-    contracts: [
-      {
-        address: traderVaultAddress,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'shareBalances',
-        args: [userAddress || '0x0', address as `0x${string}`, 0], // YES
-      },
-      {
-        address: traderVaultAddress,
-        abi: TRADER_VAULT_V4_ABI,
-        functionName: 'shareBalances',
-        args: [userAddress || '0x0', address as `0x${string}`, 1], // NO
-      },
-    ],
-    query: { enabled: !!userAddress && !!address && !!traderVaultAddress, refetchInterval: 5000 }
-  });
-  
-  const vaultYesShares = vaultShareData?.[0]?.result ? parseFloat(formatUnits(vaultShareData[0].result as bigint, 18)) : 0;
-  const vaultNoShares = vaultShareData?.[1]?.result ? parseFloat(formatUnits(vaultShareData[1].result as bigint, 18)) : 0;
-  const usdcAvailable = parseFloat(formatUnits(availableBalance || 0n, decimals || 18));
-  const mergeableAmount = Math.min(vaultYesShares, vaultNoShares);
 
   const marketData = useLaunchpadMarket(address as `0x${string}`);
   const {
@@ -561,7 +532,7 @@ export const MarketDetail = () => {
   const adjudicator = undefined as `0x${string}` | undefined;
   const tStar = 0n;
   const winningOutcome = 0;
-  const marketDecimals = decimals || 6;
+  const marketDecimals = 6;
   const totalSupply = launchpad?.lpSupply ?? 0n;
   const totalAssets = 0n;
   const totalNetAssets = 0n;
@@ -791,58 +762,6 @@ export const MarketDetail = () => {
             </Card>
           )}
 
-          {/* Inventory Management (Post-Graduation Only) */}
-          {isGraduated && address && (
-            <Card className="p-4 border-cyan-500/20 bg-cyan-950/10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
-                  <GitMerge size={12} /> Inventory Management
-                </div>
-                <div className="text-xs text-slate-500 font-medium">
-                  Direct mint/burn sets for this market
-                </div>
-              </div>
-              
-              {/* Balance Display */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="p-2 rounded-lg bg-slate-900/50 border border-slate-800/50">
-                  <div className="text-[8px] text-slate-500 uppercase tracking-wider font-bold mb-0.5">USDC</div>
-                  <div className="text-xs font-mono font-bold text-white">{formatCurrency(usdcAvailable)}</div>
-                </div>
-                <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                  <div className="text-[8px] text-emerald-400/60 uppercase tracking-wider font-bold mb-0.5">YES</div>
-                  <div className="text-xs font-mono font-bold text-emerald-400">{Math.floor(vaultYesShares).toLocaleString()}</div>
-                </div>
-                <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-                  <div className="text-[8px] text-rose-400/60 uppercase tracking-wider font-bold mb-0.5">NO</div>
-                  <div className="text-xs font-mono font-bold text-rose-400">{Math.floor(vaultNoShares).toLocaleString()}</div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setModalMode('merge')}
-                  disabled={mergeableAmount <= 0}
-                  className="group py-2 text-xs font-black uppercase tracking-widest border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-50"
-                >
-                  <GitMerge size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Merge {mergeableAmount > 0 ? `(${mergeableAmount.toFixed(0)})` : ''}
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => setModalMode('split')}
-                  disabled={usdcAvailable <= 0}
-                  className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white disabled:opacity-50"
-                >
-                  <Scissors size={12} className="mr-1 opacity-70 group-hover:scale-110 transition-transform" /> Split
-                </Button>
-              </div>
-            </Card>
-          )}
-
           {/* Orderbook Trading (Post-Graduation Only) */}
           {isGraduated && address && (
             <Card className="p-6">
@@ -906,17 +825,6 @@ export const MarketDetail = () => {
         </div>
       </div>
 
-      <PositionActionsModal
-        isOpen={modalMode !== null}
-        onClose={() => setModalMode(null)}
-        marketId={address}
-        mode={modalMode || 'merge'}
-        refetch={() => {
-          marketData.refetch();
-          refetchVault();
-        }}
-      />
     </div>
   );
 };
-

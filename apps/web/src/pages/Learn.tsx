@@ -20,7 +20,7 @@ import { cn } from '../lib/utils';
 import uiContent from '../config/ui-content.json';
 
 const { learn: content } = uiContent;
-const LEGACY_PRO_KEY = ("tick" + "Book") as keyof typeof content.pro;
+const LEGACY_PRO_KEY = ("sooth" + "Book") as keyof typeof content.pro;
 
 // Learning steps
 const STEPS = content.steps;
@@ -349,11 +349,11 @@ icon={Shield}
                       innovation={content.pillars.zkRules.innovation}
                     />
                     <PillarCard
-                      icon={BarChart3}
-                      title={content.pillars[LEGACY_PRO_KEY].title}
-                      description={content.pillars[LEGACY_PRO_KEY].description}
-                      innovation={content.pillars[LEGACY_PRO_KEY].innovation}
-                    />
+                       icon={BarChart3}
+                       title={content.pillars.soothBook.title}
+                       description={content.pillars.soothBook.description}
+                       innovation={content.pillars.soothBook.innovation}
+                     />
                   </div>
 
                   <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-800">
@@ -523,11 +523,11 @@ icon={Shield}
                       </div>
                       <div className="p-6 bg-cyan-500/5">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center"><BarChart3 className="w-4 h-4 text-cyan-400" /></div>
-                          <h5 className="font-bold text-white text-cyan-400">{content.pro[LEGACY_PRO_KEY].title}</h5>
-                        </div>
-                        <ul className="space-y-3 text-xs text-slate-400">
-                          {content.pro[LEGACY_PRO_KEY].items.map((item, i) => (
+                           <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center"><BarChart3 className="w-4 h-4 text-cyan-400" /></div>
+                           <h5 className="font-bold text-white text-cyan-400">{content.pro.soothBook.title}</h5>
+                         </div>
+                         <ul className="space-y-3 text-xs text-slate-400">
+                           {content.pro.soothBook.items.map((item, i) => (
                             <li key={i} className="flex justify-between">
                               <span>{item[0]}</span>
                               <span className={cn("text-white", (item[1].includes('Instant') || item[1].includes('ERC20')) && "font-bold text-emerald-400")}>{item[1]}</span>

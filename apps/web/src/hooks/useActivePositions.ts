@@ -1,7 +1,6 @@
 import { useAccount, useReadContracts, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { TRADER_VAULT_V4_ABI, MARKET_V4_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
-import { useDeployments } from './useDeployments';
+import { MARKET_V4_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
 import { useMarketStore } from '../store/useMarketStore';
 import { useLaunchpadMarkets } from './useLaunchpadMarkets';
 import { useMemo } from 'react';
@@ -17,15 +16,15 @@ export interface ActivePosition {
     liquidNo: number;
     lockedYes: number;
     lockedNo: number;
-    
+
     // Wallet portions (Direct) - AMM IS WALLET ONLY
     walletYes: number;
     walletNo: number;
-    
+
     unlockTime: number;
     value: number;
     priceYes: number;
-    
+
     // Settlement info
     isSettled: boolean;
     winningOutcome: number | null;
@@ -34,15 +33,11 @@ export interface ActivePosition {
 export const useActivePositions = () => {
     const { address } = useAccount();
     const { mode, markets: demoMarkets } = useMarketStore();
-    const { config } = useDeployments();
-    const deployments = config.contracts;
     const chainId = useChainId();
-
-    const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
     // Get real markets from LaunchpadFactory (on-chain)
     const { markets: launchpadMarkets } = useLaunchpadMarkets();
-    
+
     // Build market list from LaunchpadFactory (Dynamic)
     const uniqueMarkets = useMemo(() => {
         const list: { address: `0x${string}`, name: string, outcomeToken: `0x${string}` }[] = [];
@@ -53,10 +48,10 @@ export const useActivePositions = () => {
             launchpadMarkets.forEach(m => {
                 if (m.address && !seen.has(m.address.toLowerCase())) {
                     seen.add(m.address.toLowerCase());
-                    list.push({ 
-                        address: m.address, 
-                        name: m.name, 
-                        outcomeToken: m.outcomeToken || '0x0000000000000000000000000000000000000000' 
+                    list.push({
+                        address: m.address,
+                        name: m.name,
+                        outcomeToken: m.outcomeToken || '0x0000000000000000000000000000000000000000'
                     });
                 }
             });
@@ -65,35 +60,11 @@ export const useActivePositions = () => {
         return list;
     }, [launchpadMarkets]);
 
-    // Batch Contract Calls
+    // Batch Contract Calls (4 calls per market, wallet-only in V12)
     const marketContracts = useMemo(() => {
         if (!address || mode !== 'real') return [];
         return uniqueMarkets.flatMap(m => [
-            // 0: AMM Positions (Locked in Vault)
-            {
-                address: traderVaultAddress,
-                abi: TRADER_VAULT_V4_ABI,
-                functionName: 'ammPositions',
-                args: [address, m.address],
-                chainId: chainId
-            },
-            // 1: Orderbook YES (Liquid in Vault)
-            {
-                address: traderVaultAddress,
-                abi: TRADER_VAULT_V4_ABI,
-                functionName: 'shareBalances',
-                args: [address, m.address, 0],
-                chainId: chainId
-            },
-            // 2: Orderbook NO (Liquid in Vault)
-            {
-                address: traderVaultAddress,
-                abi: TRADER_VAULT_V4_ABI,
-                functionName: 'shareBalances',
-                args: [address, m.address, 1],
-                chainId: chainId
-            },
-            // 3: Wallet YES (ERC1155) - AMM IS WALLET ONLY
+            // 0: Wallet YES (ERC1155)
             {
                 address: m.outcomeToken,
                 abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
@@ -101,7 +72,7 @@ export const useActivePositions = () => {
                 args: [address, 0n],
                 chainId: chainId
             },
-            // 4: Wallet NO (ERC1155) - AMM IS WALLET ONLY
+            // 1: Wallet NO (ERC1155)
             {
                 address: m.outcomeToken,
                 abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
@@ -109,15 +80,15 @@ export const useActivePositions = () => {
                 args: [address, 1n],
                 chainId: chainId
             },
-            // 5: Current Price (YES)
-            { 
-                address: m.address, 
-                abi: MARKET_V4_ABI, 
-                functionName: 'price', 
+            // 2: Current Price (YES)
+            {
+                address: m.address,
+                abi: MARKET_V4_ABI,
+                functionName: 'price',
                 args: [0],
                 chainId: chainId
             },
-            // 6: isSettled
+            // 3: isSettled
             {
                 address: m.address,
                 abi: MARKET_V4_ABI,
@@ -125,14 +96,14 @@ export const useActivePositions = () => {
                 chainId: chainId
             }
         ]);
-    }, [address, uniqueMarkets, traderVaultAddress, chainId, mode]);
+    }, [address, uniqueMarkets, chainId, mode]);
 
     const { data: positionData, refetch, isLoading } = useReadContracts({
         contracts: marketContracts as any,
-        query: { 
-            enabled: mode === 'real' && !!address && uniqueMarkets.length > 0, 
+        query: {
+            enabled: mode === 'real' && !!address && uniqueMarkets.length > 0,
             refetchInterval: getPollingInterval(chainId, 'slow'),
-            staleTime: 10000 
+            staleTime: 10000
         }
     });
 
@@ -152,12 +123,12 @@ export const useActivePositions = () => {
                         id: market.id,
                         question: market.name,
                         marketAddress: market.contractAddress as `0x${string}`,
-                        liquidYes: yes,
-                        liquidNo: no,
+                        liquidYes: 0,
+                        liquidNo: 0,
                         lockedYes: 0,
                         lockedNo: 0,
-                        walletYes: 0,
-                        walletNo: 0,
+                        walletYes: yes,
+                        walletNo: no,
                         unlockTime: 0,
                         value: val,
                         priceYes: market.priceYes || 0.5,
@@ -168,29 +139,25 @@ export const useActivePositions = () => {
             });
         } else if (positionData) {
             uniqueMarkets.forEach((market, idx) => {
-                const baseIdx = idx * 7; // Updated to 7 calls per market
-                if (baseIdx + 6 >= positionData.length) return;
+                const baseIdx = idx * 4;
+                if (baseIdx + 3 >= positionData.length) return;
 
-                const [ammPosRes, obYesRes, obNoRes, walletYesRes, walletNoRes, priceRes, settledRes] = [0, 1, 2, 3, 4, 5, 6].map(i => positionData[baseIdx + i]);
+                const [walletYesRes, walletNoRes, priceRes, settledRes] = [0, 1, 2, 3].map(i => positionData[baseIdx + i]);
 
                 // Parse Price
                 let priceYes = 0.5;
                 if (priceRes?.result) priceYes = parseFloat(formatUnits(priceRes.result as bigint, 18));
                 const priceNo = 1 - priceYes;
 
-                // Vault portions
-                let lockYes = 0, lockNo = 0;
-                if (ammPosRes?.result) {
-                    const pos = ammPosRes.result as [bigint, bigint];
-                    lockYes = parseFloat(formatUnits(pos[0], 18));
-                    lockNo = parseFloat(formatUnits(pos[1], 18));
-                }
-                let liqYes = 0, liqNo = 0;
-                if (obYesRes?.result) liqYes = parseFloat(formatUnits(obYesRes.result as bigint, 18));
-                if (obNoRes?.result) liqNo = parseFloat(formatUnits(obNoRes.result as bigint, 18));
+                // Vault portions are always zero in V12
+                const lockYes = 0;
+                const lockNo = 0;
+                const liqYes = 0;
+                const liqNo = 0;
 
-                // Wallet portions - AMM IS WALLET ONLY
-                let walletYes = 0, walletNo = 0;
+                // Wallet portions
+                let walletYes = 0;
+                let walletNo = 0;
                 if (walletYesRes?.result) walletYes = parseFloat(formatUnits(walletYesRes.result as bigint, 18));
                 if (walletNoRes?.result) walletNo = parseFloat(formatUnits(walletNoRes.result as bigint, 18));
 
@@ -199,7 +166,6 @@ export const useActivePositions = () => {
                 const totalYes = liqYes + lockYes + walletYes;
                 const totalNo = liqNo + lockNo + walletNo;
 
-                // Add to Global Positions
                 if (totalYes > 0.001 || totalNo > 0.001) {
                     const val = (totalYes * priceYes) + (totalNo * priceNo);
                     vaultValue += val;
@@ -212,8 +178,8 @@ export const useActivePositions = () => {
                         liquidNo: liqNo,
                         lockedYes: lockYes,
                         lockedNo: lockNo,
-                        walletYes: walletYes,
-                        walletNo: walletNo,
+                        walletYes,
+                        walletNo,
                         unlockTime: 0,
                         value: val,
                         priceYes,
@@ -224,12 +190,12 @@ export const useActivePositions = () => {
             });
         }
 
-        return { 
-            vaultPositions, 
-            vaultValue, 
-            totalPositionValue: vaultValue, 
-            refetch, 
-            isLoading 
+        return {
+            vaultPositions,
+            vaultValue,
+            totalPositionValue: vaultValue,
+            refetch,
+            isLoading
         };
-    }, [mode, demoMarkets, positionData, uniqueMarkets]);
+    }, [mode, demoMarkets, positionData, uniqueMarkets, refetch, isLoading]);
 };

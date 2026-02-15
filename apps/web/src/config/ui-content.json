@@ -35,7 +35,7 @@
       "name": "PvP Trader",
       "icon": "Swords",
       "path": "/pro",
-      "description": "Pure conviction trading on the 10,000-tick CLOB",
+      "description": "Pure conviction trading on the 1,000-tick orderbook",
       "story": "Dave bets on conviction, winner takes all",
       "gradient": "from-orange-500 to-red-500",
       "color": "orange"
@@ -65,12 +65,12 @@
         "badge": "Pillar I · Stakeholder Rewards",
         "description": "Early traders receive **LP tokens** for every trade, converting from customers into protocol stakeholders."
       },
-      {
-        "id": "pro",
-        "title": "The Arbitrageur & PvP Trader",
-        "badge": "Pillar III · TickBook",
-        "description": "Sooth operates **dual trading venues** to serve different trader archetypes. Sophisticated traders use the TickBook for CEX-grade execution."
-      },
+       {
+         "id": "pro",
+         "title": "The Arbitrageur & PvP Trader",
+         "badge": "Pillar III · SoothBook",
+         "description": "Sooth operates **dual trading venues** to serve different trader archetypes. Sophisticated traders use the SoothBook for CEX-grade execution."
+       },
       {
         "id": "ready",
         "title": "Start Your Journey",
@@ -88,11 +88,11 @@
         "description": "Autonomous, retroactive settlement via T*.",
         "innovation": "Retroactive Finality"
       },
-      "tickBook": {
-        "title": "TickBook",
-        "description": "On-chain CLOB with 10,000-tick depth.",
-        "innovation": "High-throughput CLOB"
-      }
+      "soothBook": {
+         "title": "SoothBook",
+         "description": "On-chain orderbook with 1,000-tick depth.",
+         "innovation": "High-throughput CLOB"
+       }
     },
     "advantage": {
       "title": "The Sooth Advantage",
@@ -212,46 +212,46 @@
           ]
         ]
       },
-      "tickBook": {
-        "title": "TickBook (Pro)",
-        "items": [
-          [
-            "Asset",
-            "ERC20 Tokens"
-          ],
-          [
-            "Pricing",
-            "Limit Orderbook"
-          ],
-          [
-            "Liquidity",
-            "Depth-dependent"
-          ],
-          [
-            "Sell Lock",
-            "None (Instant)"
-          ]
-        ]
-      },
-      "arb": {
-        "title": "The Arbitrageur's Role",
-        "description": "Arbitrageurs keep prices efficient by bridging the gap between AMM and TickBook. They buy cheap on one venue and sell expensive on the other."
-      },
-      "pvp": {
-        "title": "PvP Conviction",
-        "description": "The TickBook is where conviction meets conviction. No AMM buffer—just peer-to-peer trading. Winners take the loser's stake with zero LP spread extraction."
-      },
+       "soothBook": {
+         "title": "SoothBook (Pro)",
+         "items": [
+           [
+             "Asset",
+             "ERC20 Tokens"
+           ],
+           [
+             "Pricing",
+             "Limit Orderbook"
+           ],
+           [
+             "Liquidity",
+             "Depth-dependent"
+           ],
+           [
+             "Sell Lock",
+             "None (Instant)"
+           ]
+         ]
+       },
+       "arb": {
+         "title": "The Arbitrageur's Role",
+         "description": "Arbitrageurs keep prices efficient by bridging the gap between AMM and SoothBook. They buy cheap on one venue and sell expensive on the other."
+       },
+       "pvp": {
+         "title": "PvP Conviction",
+         "description": "The SoothBook is where conviction meets conviction. No AMM buffer—just peer-to-peer trading. Winners take the loser's stake with zero LP spread extraction."
+       },
       "evolutionTitle": "Market Evolution",
       "evolutionStages": [
         "LAUNCH",
         "GROWTH",
         "MATURE"
       ],
-      "evolutionStates": [
-        "AMM Only",
-        "AMM + TickBook",
-        "TickBook Dominant"
-      ]
+       "evolutionStates": [
+         "AMM Only",
+         "AMM + SoothBook",
+         "SoothBook Dominant"
+       ]
     },
     "ready": {
       "title": "Choose Your Path",
@@ -324,11 +324,11 @@
           "formula": "Equity / LP Supply = Rate",
           "desc": "The real-time redemption value of 1 LP token. Unlike V7, V8 LP tokens are stakeholders in the entire AMM treasury."
         },
-        {
-          "name": "Graduation Threshold",
-          "formula": "b × Multiplier (2x)",
-          "desc": "Markets graduate to the TickBook once cumulative trading fees reach 200% of the initial creator deposit."
-        },
+         {
+           "name": "Graduation Threshold",
+           "formula": "b × Multiplier (2x)",
+           "desc": "Markets graduate to the SoothBook once cumulative trading fees reach 200% of the initial creator deposit."
+         },
         {
           "name": "Liquidity Anchor",
           "formula": "b × ln(2) ≈ LP Supply",
@@ -339,10 +339,10 @@
   },
   "pro": {
     "restricted": {
-      "title": "TickBook Restricted",
-      "description": "Hyper-orderbook venues are only available for graduated markets. This market is still in its bonding phase.",
-      "switchButton": "Switch to Trade"
-    },
+       "title": "SoothBook Restricted",
+       "description": "Hyper-orderbook venues are only available for graduated markets. This market is still in its bonding phase.",
+       "switchButton": "Switch to Trade"
+     },
     "utility": {
       "network": "Network",
       "latency": "Latency"
@@ -363,8 +363,8 @@
       "empty": "No trade history"
     },
     "visuals": {
-      "tickMap": "Tick Map (10,000)",
-      "tickMapSub": "HIGH FIDELITY BITMAP",
+       "tickMap": "Tick Map (1,000)",
+       "tickMapSub": "HIGH FIDELITY BITMAP",
       "tickLadder": "Tick Ladder",
       "depthChart": "Market Depth"
     },
@@ -393,7 +393,7 @@
       "sell": "SELL",
       "price": "PRICE",
       "shortcuts": "SHORTCUTS",
-      "terminal": "V8.1 TICKBOOK TERMINAL"
+       "terminal": "V12 SOOTHBOOK TERMINAL"
     }
   },
   "trade": {

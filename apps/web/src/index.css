@@ -742,31 +742,7 @@
     @apply bg-rose-500;
   }
 
-  /* TickBook Visualization */
-  .tick-grid {
-    display: grid;
-    grid-template-columns: repeat(100, 1fr);
-    grid-template-rows: repeat(100, 1fr);
-    @apply gap-px bg-slate-900 border border-slate-800;
-  }
 
-  .tick-pulse {
-    animation: tick-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  @keyframes tick-pulse {
-
-    0%,
-    100% {
-      transform: scale(1);
-      filter: brightness(1);
-    }
-
-    50% {
-      transform: scale(1.2);
-      filter: brightness(1.5);
-    }
-  }
 
   .ladder-row-hover:hover {
     @apply bg-indigo-500/10;

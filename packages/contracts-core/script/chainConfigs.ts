@@ -169,7 +169,7 @@ export const chainConfigs: Record<string, ChainConfig> = {
     gasSettings: {
       // Monad has repriced opcodes: cold access 4x more expensive
       // See: https://docs.monad.xyz/developer-essentials/opcode-pricing
-      // Large contracts like TickBookPoolManager and LaunchpadEngine need 8M+
+      // Large contracts like SoothBook and LaunchpadEngine need 8M+
       gasLimit: 10_000_000n, // 10M gas for complex contract deployments
       maxFeePerGas: 105_000_000_000n, // 105 gwei (just above min 100 gwei)
       maxPriorityFeePerGas: 1_000_000_000n, // 1 gwei priority
@@ -234,11 +234,9 @@ export interface DeploymentArtifact {
     MockUSDC: string;
     Collateralizer: string;
     AMMEngine: string;
-    TickBook: string;
-    TickBookPoolManager?: string;
-    TickBookVault?: string;
-    DynamicFeeHook?: string;
+    SoothBook: string;
     LaunchpadEngine: string;
+    ProtocolConfig?: string;
   };
   markets: {
     address: string;
@@ -247,7 +245,7 @@ export interface DeploymentArtifact {
     yesToken: string;
     noToken: string;
     isGraduated: boolean;
-    tickBookKey?: string;
+    soothBookKey?: string;
   }[];
 }
 

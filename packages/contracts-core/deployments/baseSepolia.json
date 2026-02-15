@@ -2,35 +2,15 @@
   "chainId": 84532,
   "chainName": "baseSepolia",
   "version": "V12.0",
-  "timestamp": "2026-02-15T19:00:00.000Z",
+  "timestamp": "2026-02-15T16:38:21.529Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "SoothBook": "0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7",
-    "MockUSDC": "0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38",
-    "MockUSDC_V11": "0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d",
-    "ProtocolConfig": "0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0",
-    "Collateralizer": "0x4deae2f0a39b84f57a28f07762e8b47085ed38de",
-    "AMMEngine": "0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5",
-    "LaunchpadEngine": "0x3cfa2113c919c916e8334d245b157de937e76836"
+    "MockUSDC": "0xe2025de4fbee78d0a3832ea02d070d791c42ed1e",
+    "ProtocolConfig": "0xaf2b599fedfda277f66525bf91ef6f49df6bddae",
+    "Collateralizer": "0x72b11e98d4050b5edaa9b069d1c6d7309a8c8f04",
+    "AMMEngine": "0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2",
+    "SoothBook": "0xa83b770de63349629ea1f92ad9b40285b1d47d74",
+    "LaunchpadEngine": "0xc5f6b53c74a5d14336e971459ee7cf936d401384"
   },
-  "markets": [
-    {
-      "key": "0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5",
-      "name": "Will BTC hit $100k by end of 2026?",
-      "yesToken": "0x8c3790CeB303853758048ED73894f03c97FEEFD6",
-      "noToken": "0x626112087Cab522ABc67581D785D658a43cd5d90"
-    },
-    {
-      "key": "0x51c50fd0e163b78ae31b6b04b87169dee2041aaf0279ecef7d10d0284d4cecb9",
-      "name": "Will ETH hit $10k by end of 2026?",
-      "yesToken": "0x80b67942b748e69e23a9c7c993f9391c1aecebf0",
-      "noToken": "0x48a4fbfd9e97fa7febadc4cf410659b7e36f9f31"
-    },
-    {
-      "key": "0x1e20bd6ecb21252705442f66733ad9bd6b38f4a29acae27f1c95bd2f57eab737",
-      "name": "Will SOL hit $500 by end of 2026?",
-      "yesToken": "0x800f5daa5c81276e76bcd955af2ec69b87c11ab1",
-      "noToken": "0x04828ecd9b02438b6089a6ac98ac2688f2800624"
-    }
-  ]
+  "markets": []
 }

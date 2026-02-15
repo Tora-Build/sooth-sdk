@@ -32,7 +32,7 @@ This document specifies end-to-end test cases for the V8.1 frontend. Tests are o
 e2e/
 ├── navigation.spec.ts       # Route navigation, navbar
 ├── trade.spec.ts            # /trade AMM trading page
-├── pro.spec.ts              # /pro TickBook trading page
+├── pro.spec.ts              # /pro SoothBook trading page
 ├── create.spec.ts           # /create creator/adjudicator page
 ├── gov.spec.ts              # /gov guardian page
 ├── learn.spec.ts            # /learn tutorial page
@@ -96,7 +96,7 @@ npx synpress run --config playwright.config.ts
 | `/` | Landing | Marketing page with "Launch App" CTA |
 | `/trade` | Trade | AMM trading for retail users |
 | `/trade/:marketId` | Trade (specific) | Trade page with pre-selected market |
-| `/pro` | Pro | TickBook trading for advanced users |
+| `/pro` | Pro | SoothBook trading for advanced users |
 | `/pro/:marketId` | Pro (specific) | Pro page with pre-selected market |
 | `/create` | Create | Creator + Adjudicator tools |
 | `/gov` | Gov | Guardian governance controls |

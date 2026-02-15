@@ -8,9 +8,6 @@ import { useAmmMarketByAddress } from '../../../hooks/useAmmMarketByAddress';
 import { useOrderbook } from '../../../hooks/useOrderbook';
 import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { ERC20_ABI } from '../../../config/abis';
-import { useDeployments } from '../../../hooks/useDeployments';
 import { logger } from '../../../lib/logger';
 
 interface LimitOrderFormProps {
@@ -24,11 +21,7 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   selectedOutcome: propOutcome = 0,
   onOutcomeChange
 }) => {
-  const { address } = useAccount();
   const { t } = useContent();
-  const { config } = useDeployments();
-  const deployments = config.contracts;
-  const traderVaultAddress = deployments.SoothTraderVault as `0x${string}`;
 
   // Detect if marketId is an address (0x...) or a config ID
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
@@ -52,8 +45,6 @@ export const LimitOrderForm: React.FC<LimitOrderFormProps> = ({
   const market = isAddressFormat ? addressMarket : (configAmmMarket ? { priceYes: configAmmMarket.yesProbability, priceNo: configAmmMarket.noProbability, bParam: 0n, status: 'trading' } : undefined);
 
   const { bids, asks, userYesShares: obYes, userNoShares: obNo } = useOrderbook(marketId);
-
-  const { writeContractAsync } = useWriteContract();
 
   // Note: USDC Approval is NOT needed for Trading (V4 uses Internal Vault Balance).
   // Users must Deposit USDC into the Vault first.

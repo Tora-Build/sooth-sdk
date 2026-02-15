@@ -64,8 +64,8 @@ async function fetchMarketPrice(
         const marketState = await readContractSafe<readonly [bigint, bigint, bigint, bigint]>(
           client,
           {
-            address: deployment.contracts.TickBookPoolManager as Address,
-            abi: ABIS.TickBookPoolManager,
+            address: deployment.contracts.SoothBook as Address,
+            abi: ABIS.SoothBook,
             functionName: 'getMarketState',
             args: [marketKey],
           }
