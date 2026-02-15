@@ -13,8 +13,11 @@ contract OutcomeToken is ERC20 {
     // State Variables
     // ============================================
 
-    /// @notice Collateralizer address (only address that can mint/burn)
+    /// @notice Collateralizer address (can mint/burn)
     address public immutable collateralizer;
+
+    /// @notice Additional authorized minter/burner (e.g., SoothBook)
+    address public minter;
 
     /// @notice Market address this token represents
     address public immutable market;
@@ -60,17 +63,26 @@ contract OutcomeToken is ERC20 {
      * @param amount Amount to mint (WAD)
      */
     function mint(address to, uint256 amount) external {
-        require(msg.sender == collateralizer, "OutcomeToken: only collateralizer");
+        require(msg.sender == collateralizer || msg.sender == minter, "OutcomeToken: unauthorized");
         _mint(to, amount);
     }
 
     /**
-     * @notice Burn tokens (only collateralizer)
+     * @notice Burn tokens (only collateralizer or minter)
      * @param from Address to burn from
      * @param amount Amount to burn (WAD)
      */
     function burn(address from, uint256 amount) external {
-        require(msg.sender == collateralizer, "OutcomeToken: only collateralizer");
+        require(msg.sender == collateralizer || msg.sender == minter, "OutcomeToken: unauthorized");
         _burn(from, amount);
+    }
+
+    /**
+     * @notice Set additional minter (only collateralizer)
+     * @param _minter Address to authorize as minter
+     */
+    function setMinter(address _minter) external {
+        require(msg.sender == collateralizer, "OutcomeToken: only collateralizer");
+        minter = _minter;
     }
 }
