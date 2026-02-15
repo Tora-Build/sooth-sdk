@@ -2,55 +2,22 @@
 
 A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
 
-**Current Version**: V11.1 (Trial Period, ERC20 LP, ValidatedAdjudicator)  
-**Codebase**: V11 | **Deployed**: V11.1 (Base Sepolia testing)  
+**Current Version**: V12.0 (SoothBook orderbook)  
 **Status**: Alpha (breaking changes allowed)
 
 ## Active Deployments
 
-### Base Sepolia (chainId: 84532) - V11.1 (Active Testing)
+### Base Sepolia (chainId: 84532) - V12.0 (Active Testing)
 | Contract | Address |
 |----------|---------|
+| SoothBook | `0xBcD904bcCF4BA8ec257F348a837B594bD162c5B7` |
 | LaunchpadEngine | `0x3cfa2113c919c916e8334d245b157de937e76836` |
-| TickBookPoolManager | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
-| TickBookVault | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
 | AMMEngine | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
 | Collateralizer | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
 | ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
-| MockUSDC | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
+| MockUSDC | `0x4c69Be122CE5A3C19e5239F5724898A2Cb837c38` |
 
-> **Note:** V11.1 deployed to Base Sepolia and Monad Testnet. MegaETH and Arc remain at V10.9.
-
-### Monad Testnet (chainId: 10143) - V11.1
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x744724aa5b389644f31dfcfbb67786b581602084` |
-| TickBookPoolManager | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
-| TickBookVault | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
-| AMMEngine | `0x67147bc54df45ce43cb88b735043c496047596a7` |
-| Collateralizer | `0x57992a707c285971a22dffc3106118331b5e632f` |
-| ProtocolConfig | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
-| MockUSDC | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
-
-### MegaETH Testnet (chainId: 6343) - V10.9
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
-| TickBookPoolManager | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
-| TickBookVault | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
-| AMMEngine | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
-| Collateralizer | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
-| MockUSDC | `0x57bda4319c306a68054f25017183030752f97d63` |
-
-### Arc Testnet (chainId: 5042002) - V10.9
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x625b4b2997232380126f0aecd84867086f89b27e` |
-| TickBookPoolManager | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
-| TickBookVault | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
-| AMMEngine | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
-| Collateralizer | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
-| MockUSDC | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
+> **Note:** Only Base Sepolia is deployed with V12 SoothBook. Other chains (Monad, MegaETH, Arc) remain at older versions and are disabled in tooling.
 
 ## Structure
 
@@ -61,8 +28,8 @@ sooth-alpha/
 ├── packages/
 │   ├── contracts-core/           # Solidity smart contracts (Foundry) - Audit scope
 │   ├── contracts-testing/        # Contract tests, CLI & deployment scripts
-│   ├── indexer/                  # Ponder indexer for orderbook data
-│   └── keeper/                   # Arbitrage keeper bot for TickBook
+│   ├── indexer/                  # Ponder indexer for SoothBook market data
+│   └── sdk-core/                 # Shared SDK utilities (@sooth/sdk-core)
 ├── .agent/                       # Agent workflows and knowledge base
 ├── package.json                  # pnpm workspace root
 ├── pnpm-workspace.yaml
@@ -116,23 +83,11 @@ pnpm deploy:contracts
 
 ```bash
 pnpm dev:cli:base      # Base Sepolia
-pnpm dev:cli:monad     # Monad Testnet
-pnpm dev:cli:arc       # Arc Testnet
-pnpm dev:cli:megaeth   # MegaETH Testnet
 ```
 
-**Keeper Bot:**
+## Architecture (V12 SoothBook)
 
-```bash
-PRIVATE_KEY=0x... pnpm dev:keeper:base
-PRIVATE_KEY=0x... pnpm dev:keeper:monad
-PRIVATE_KEY=0x... pnpm dev:keeper:arc
-PRIVATE_KEY=0x... pnpm dev:keeper:megaeth
-```
-
-## Architecture (V10 Unified Crossing)
-
-V10 introduces unified crossing where `placeOrder` natively crosses both Spot Sells and Range Orders:
+V12 replaces TickBook with SoothBook — a standalone orderbook (602 lines) with 4 atomic actions, ERC20 outcome tokens, and FIFO matching:
 
 ```
 TruthMarket (lifecycle + settlement)
@@ -140,9 +95,7 @@ TruthMarket (lifecycle + settlement)
 LaunchpadEngine (creator economics, graduation mechanics)
   ↓ (delegates to)
 AMMEngine (LMSR positions for pre-graduation)
-TickBookPoolManager (unified orderbook: spot + range liquidity)
-  ↓ (manages)
-TickBookVault (USDC + outcome token custody)
+SoothBook (standalone orderbook: buyYes, buyNo, mint, merge)
 Collateralizer (split/merge/redeem for graduated markets)
 ```
 
@@ -153,8 +106,7 @@ Collateralizer (split/merge/redeem for graduated markets)
 | **TruthMarket** | Canonical lifecycle + settlement authority |
 | **LaunchpadEngine** | Creator deposit + fee distribution + graduation |
 | **AMMEngine** | LMSR trading logic for pre-graduation markets |
-| **TickBookPoolManager** | V10 unified orderbook (spot-first, then range crossing) |
-| **TickBookVault** | User fund custody (USDC + outcome tokens) |
+| **SoothBook** | Standalone orderbook — 4 atomic actions (buyYes, buyNo, mint, merge), ERC20 outcome tokens, FIFO matching |
 | **Collateralizer** | Token split/merge/redeem operations |
 
 ## Packages
@@ -171,8 +123,7 @@ Vite + React 18 dApp with:
 
 Foundry project containing the **audit scope**:
 
-- `TickBookPoolManager` — V10 unified orderbook with spot-first crossing
-- `TickBookVault` — User fund custody
+- `SoothBook` — Standalone orderbook with 4 atomic actions
 - `LaunchpadEngine` — Market creation + graduation
 - `AMMEngine` — LMSR trading (pre-graduation)
 - `Collateralizer` — Token management
@@ -182,7 +133,7 @@ Foundry project containing the **audit scope**:
 
 Testing & deployment tools:
 
-- Forge test suites (79 tests)
+- Forge test suites (207 tests)
 - Interactive CLI for on-chain testing
 - Deployment scripts (multi-chain)
 
@@ -212,13 +163,6 @@ Run `/preflight` at session start to load context.
 | `pnpm test:contracts` | Run forge tests |
 | `pnpm deploy:contracts` | Deploy contracts |
 | `pnpm dev:cli:base` | Interactive CLI (Base Sepolia) |
-| `pnpm dev:cli:monad` | Interactive CLI (Monad Testnet) |
-| `pnpm dev:cli:arc` | Interactive CLI (Arc Testnet) |
-| `pnpm dev:cli:megaeth` | Interactive CLI (MegaETH Testnet) |
-| `pnpm dev:keeper:base` | Keeper bot (Base Sepolia) |
-| `pnpm dev:keeper:monad` | Keeper bot (Monad Testnet) |
-| `pnpm dev:keeper:arc` | Keeper bot (Arc Testnet) |
-| `pnpm dev:keeper:megaeth` | Keeper bot (MegaETH Testnet) |
 
 ## Key Files
 
