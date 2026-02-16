@@ -1,24 +1,22 @@
 /**
- * Pro Trading Page — SoothBook Orderbook Interface
+ * Pro Trading Page — SoothBook Orderbook Terminal
  *
- * Production-grade trading UI for the SoothBook 4-atomic-action orderbook.
- * Markets loaded from deployments.json. Supports buyYes, buyNo, mint, merge, cancel, redeem.
+ * Pro-grade heatmap orderbook with trading panel.
+ * Markets loaded from deployments.json.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import {
-  ArrowDownUp, ChevronDown, ExternalLink,
-  Loader2, RefreshCw, Wallet,
+  ArrowDownUp, ChevronDown, ChevronUp, ExternalLink,
+  Loader2, Minus, Plus, RefreshCw, Wallet,
 } from 'lucide-react';
 import {
-  useAccount, useChainId, usePublicClient, useReadContract,
+  useAccount, usePublicClient, useReadContract,
   useSwitchChain, useWriteContract,
 } from 'wagmi';
 import { formatUnits, parseAbiItem, parseUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { ERC20_ABI, SOOTHBOOK_ABI } from '../config/abis';
 import { useSoothBookMarket } from '../hooks/useSoothBook';
 import deployments from '../config/deployments.json';
@@ -28,176 +26,205 @@ import deployments from '../config/deployments.json';
 // ---------------------------------------------------------------------------
 
 const BASE_SEPOLIA = 84532;
+const TICK_WINDOW = 20;
+const REFRESH_INTERVAL = 12_000;
 
-type DeploymentNetwork = {
+type Network = {
   chainId?: number;
   contracts?: Record<string, string>;
-  markets?: Array<{ name: string; marketKey: string; yesToken: string; noToken: string }>;
+  markets?: string[];
 };
 
-const getNetwork = (): DeploymentNetwork | undefined =>
-  Object.values(deployments.networks as Record<string, DeploymentNetwork>).find(
-    (n) => n.chainId === BASE_SEPOLIA,
-  );
+const network = Object.values(
+  deployments.networks as Record<string, Network>,
+).find((n) => n.chainId === BASE_SEPOLIA);
 
-const network = getNetwork();
-const SOOTHBOOK_ADDRESS = network?.contracts?.SoothBook as `0x${string}` | undefined;
-const USDC_ADDRESS = network?.contracts?.MockUSDC as `0x${string}` | undefined;
-const MARKETS = network?.markets ?? [];
+const SOOTHBOOK = network?.contracts?.SoothBook as `0x${string}` | undefined;
+const USDC = network?.contracts?.MockUSDC as `0x${string}` | undefined;
+const MARKET_KEYS = (network?.markets ?? []) as `0x${string}`[];
 
-const ORDER_PLACED_EVENT = parseAbiItem(
+const ORDER_PLACED = parseAbiItem(
   'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)',
 );
-const ORDER_FILLED_EVENT = parseAbiItem(
+const ORDER_FILLED = parseAbiItem(
   'event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)',
 );
-const ORDER_CANCELLED_EVENT = parseAbiItem(
+const ORDER_CANCELLED = parseAbiItem(
   'event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)',
 );
 
-const explorerUrl = (segment: 'tx' | 'address', value: string) =>
-  `https://sepolia.basescan.org/${segment}/${value}`;
-
-const fmt = (value: bigint | undefined, decimals = 18, digits = 4) => {
-  if (value === undefined) return '—';
-  return Number(formatUnits(value, decimals)).toFixed(digits);
-};
-
-const shortAddr = (v: string) => `${v.slice(0, 6)}…${v.slice(-4)}`;
-
-const parseAmt = (raw: string, decimals: number): bigint | null => {
-  if (!raw || Number(raw) <= 0) return null;
-  try { return parseUnits(raw, decimals); } catch { return null; }
-};
+const fmt = (v: bigint | undefined, dec = 18, dp = 2) =>
+  v === undefined ? '—' : Number(formatUnits(v, dec)).toFixed(dp);
+const shortKey = (k: string) => `${k.slice(0, 8)}…${k.slice(-6)}`;
+const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+const explorerUrl = (s: 'tx' | 'address', v: string) =>
+  `https://sepolia.basescan.org/${s}/${v}`;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type BookRow = {
-  tick: number;
-  yesAmount: bigint;
-  yesCount: bigint;
-  noAmount: bigint;
-  noCount: bigint;
-};
-
+type BookRow = { tick: number; amount: bigint; count: bigint };
 type FeedItem = {
   id: string;
   type: 'placed' | 'filled' | 'cancelled';
-  sideLabel: string;
-  tickLabel: string;
+  side: string;
+  tick: string;
   amount: bigint;
-  account: `0x${string}`;
+  who: `0x${string}`;
   block: bigint;
 };
 
 // ---------------------------------------------------------------------------
-// Component
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function HeatmapRow({
+  row,
+  side,
+  maxAmount,
+  onClickTick,
+}: {
+  row: BookRow;
+  side: 'yes' | 'no';
+  maxAmount: bigint;
+  onClickTick: (tick: number) => void;
+}) {
+  const pct = maxAmount > 0n ? Number((row.amount * 10000n) / maxAmount) / 100 : 0;
+  const isYes = side === 'yes';
+  return (
+    <div
+      className="orderbook-row relative cursor-pointer"
+      onClick={() => onClickTick(row.tick)}
+    >
+      <div
+        className={`orderbook-depth ${isYes ? 'bid' : 'ask'}`}
+        style={{
+          width: `${Math.min(pct, 100)}%`,
+          opacity: 0.15 + Math.min(pct / 100, 1) * 0.4,
+          ...(isYes ? { left: 0, right: 'auto' } : {}),
+        }}
+      />
+      <div className="relative z-10 flex items-center w-full tabular-nums">
+        <span className="w-14 text-slate-300">{row.tick}</span>
+        <span className="w-16 text-slate-500">{(row.tick / 10).toFixed(1)}%</span>
+        <span className={`flex-1 text-right ${isYes ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {row.amount > 0n ? fmt(row.amount, 18, 2) : ''}
+        </span>
+        <span className="w-12 text-right text-slate-600">
+          {row.count > 0n ? row.count.toString() : ''}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
 // ---------------------------------------------------------------------------
 
 export const Pro = () => {
-  const { marketId } = useParams<{ marketId?: string }>();
   const { address: user, isConnected, chainId: walletChain } = useAccount();
-  const chainId = useChainId();
   const { switchChainAsync, isPending: isSwitching } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  // --- Market selection ---
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  // Market selection
+  const [marketIdx, setMarketIdx] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const marketKey = MARKET_KEYS[marketIdx];
+  const canRead = !!SOOTHBOOK && !!marketKey;
+  const isWrongNetwork = walletChain !== BASE_SEPOLIA;
 
-  useEffect(() => {
-    if (marketId) {
-      const idx = MARKETS.findIndex((m) => m.marketKey.toLowerCase() === marketId.toLowerCase());
-      if (idx >= 0) setSelectedIdx(idx);
-    }
-  }, [marketId]);
-
-  const market = MARKETS[selectedIdx];
-  const marketKey = market?.marketKey as `0x${string}` | undefined;
-
-  // --- Trading form state ---
-  const [tradeSide, setTradeSide] = useState<'yes' | 'no'>('yes');
+  // Trade form
+  const [side, setSide] = useState<'yes' | 'no'>('yes');
   const [tickInput, setTickInput] = useState('500');
-  const [sharesInput, setSharesInput] = useState('1');
-  const [maxCostInput, setMaxCostInput] = useState('0');
-  const [escrowExit, setEscrowExit] = useState(false);
-  const [mintMergeInput, setMintMergeInput] = useState('1');
+  const [sharesInput, setSharesInput] = useState('');
+  const [maxCostInput, setMaxCostInput] = useState('');
+  const [escrow, setEscrow] = useState(false);
+  const [mintAmt, setMintAmt] = useState('');
+  const [mergeAmt, setMergeAmt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastTx, setLastTx] = useState<string | null>(null);
 
-  // --- Orderbook state ---
-  const [bookRows, setBookRows] = useState<BookRow[]>([]);
+  // Orderbook
+  const [yesRows, setYesRows] = useState<BookRow[]>([]);
+  const [noRows, setNoRows] = useState<BookRow[]>([]);
   const [isBookLoading, setIsBookLoading] = useState(false);
-  const bookWindow = 20;
 
-  // --- Activity feed ---
+  // Activity
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [feedOpen, setFeedOpen] = useState(false);
   const [isFeedLoading, setIsFeedLoading] = useState(false);
 
-  // --- Derived ---
-  const isWrongNetwork = walletChain !== BASE_SEPOLIA;
-  const canRead = !!SOOTHBOOK_ADDRESS && !!marketKey;
+  // Derived
   const tick = Math.max(1, Math.min(999, Number(tickInput) || 500));
-  const sharesWad = parseAmt(sharesInput, 18);
-  const mintMergeAmt = parseAmt(mintMergeInput, 6);
-  const maxCostAmt = parseAmt(maxCostInput, 6) ?? 0n;
+  const prob = (tick / 10).toFixed(1);
 
-  // --- On-chain reads ---
-  const { marketState, prices, backing, isLoading: isMarketLoading } = useSoothBookMarket(
-    SOOTHBOOK_ADDRESS, marketKey,
-  );
+  // On-chain reads
+  const { marketState, prices, backing, isLoading: isMarketLoading } =
+    useSoothBookMarket(SOOTHBOOK, marketKey);
 
-  const { data: usdcBalData = 0n } = useReadContract({
-    address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf',
+  const { data: usdcBal = 0n } = useReadContract({
+    address: USDC, abi: ERC20_ABI, functionName: 'balanceOf',
     args: user ? [user] : undefined,
-    query: { enabled: !!user && !!USDC_ADDRESS },
+    query: { enabled: !!user && !!USDC },
   });
-  const { data: allowanceData = 0n } = useReadContract({
-    address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance',
-    args: user && SOOTHBOOK_ADDRESS ? [user, SOOTHBOOK_ADDRESS] : undefined,
-    query: { enabled: !!user && !!USDC_ADDRESS && !!SOOTHBOOK_ADDRESS },
+  const { data: allowance = 0n } = useReadContract({
+    address: USDC, abi: ERC20_ABI, functionName: 'allowance',
+    args: user && SOOTHBOOK ? [user, SOOTHBOOK] : undefined,
+    query: { enabled: !!user && !!USDC && !!SOOTHBOOK },
   });
-  const { data: yesBalData = 0n } = useReadContract({
-    address: marketState.yesToken, abi: ERC20_ABI, functionName: 'balanceOf',
-    args: user ? [user] : undefined,
-    query: { enabled: !!user && !!marketState.yesToken },
+  const { data: balTuple } = useReadContract({
+    address: SOOTHBOOK, abi: SOOTHBOOK_ABI, functionName: 'getBalance',
+    args: marketKey && user ? [marketKey, user] : undefined,
+    query: { enabled: !!user && canRead },
   });
-  const { data: noBalData = 0n } = useReadContract({
-    address: marketState.noToken, abi: ERC20_ABI, functionName: 'balanceOf',
-    args: user ? [user] : undefined,
-    query: { enabled: !!user && !!marketState.noToken },
-  });
+  const yesBal = (balTuple as readonly [bigint, bigint] | undefined)?.[0] ?? 0n;
+  const noBalVal = (balTuple as readonly [bigint, bigint] | undefined)?.[1] ?? 0n;
 
-  const usdcBalance = usdcBalData as bigint;
-  const allowance = allowanceData as bigint;
-  const yesBalance = yesBalData as bigint;
-  const noBalance = noBalData as bigint;
+  // Prices
+  const bestYes = prices.bestYesTick ?? 0;
+  const bestNo = prices.bestNoTick ?? 0;
+  const yesProb = prices.yesPrice
+    ? (Number(formatUnits(prices.yesPrice, 18)) * 100).toFixed(1)
+    : '—';
+  const noProb = prices.noPrice
+    ? (Number(formatUnits(prices.noPrice, 18)) * 100).toFixed(1)
+    : '—';
+  const spread = bestYes > 0 && bestNo > 0
+    ? (1000 - bestYes - bestNo)
+    : null;
 
-  // --- Network switch ---
+  // Cost estimate
+  const costEstimate = useMemo(() => {
+    const shares = Number(sharesInput);
+    if (!shares || shares <= 0) return null;
+    const cost = shares * (tick / 1000);
+    return cost;
+  }, [sharesInput, tick]);
+
+  // Network switch
   const ensureNetwork = async () => {
     if (!isWrongNetwork) return true;
-    if (!switchChainAsync) { toast.error('Wallet cannot switch automatically'); return false; }
+    if (!switchChainAsync) { toast.error('Cannot switch network'); return false; }
     try {
       const r = await switchChainAsync({ chainId: BASE_SEPOLIA });
       return r.id === BASE_SEPOLIA;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Switch to Base Sepolia';
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : 'Switch to Base Sepolia');
       return false;
     }
   };
 
-  // --- Contract write helper ---
+  // Write helper
   const exec = async (
     label: string, fn: string, args: readonly unknown[],
     addr?: `0x${string}`, abi?: typeof SOOTHBOOK_ABI | typeof ERC20_ABI,
   ) => {
     if (!isConnected || !user) { toast.error('Connect wallet'); return; }
     if (!(await ensureNetwork())) return;
-    const target = addr ?? SOOTHBOOK_ADDRESS;
+    const target = addr ?? SOOTHBOOK;
     const targetAbi = abi ?? SOOTHBOOK_ABI;
     if (!target) { toast.error('Missing contract'); return; }
     setIsSubmitting(true);
@@ -220,66 +247,74 @@ export const Pro = () => {
       void refreshFeed();
     } catch (e: unknown) {
       const err = e as { shortMessage?: string; message?: string };
-      toast.error(err.shortMessage ?? err.message ?? 'Transaction failed', { id: tid });
+      toast.error(err.shortMessage ?? err.message ?? 'Failed', { id: tid });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- Orderbook refresh ---
+  // Orderbook fetch
   const refreshBook = useCallback(async () => {
-    if (!publicClient || !SOOTHBOOK_ADDRESS || !marketKey) return;
+    if (!publicClient || !SOOTHBOOK || !marketKey) return;
     setIsBookLoading(true);
     try {
-      const bestYes = prices.bestYesTick ?? 500;
-      const bestNo = prices.bestNoTick ?? 500;
-      const center = Math.round((bestYes + (1000 - bestNo)) / 2) || 500;
-      const lo = Math.max(1, center - bookWindow);
-      const hi = Math.min(999, center + bookWindow);
+      const center = bestYes > 0 && bestNo > 0
+        ? Math.round((bestYes + (1000 - bestNo)) / 2)
+        : 500;
+      const lo = Math.max(1, center - TICK_WINDOW);
+      const hi = Math.min(999, center + TICK_WINDOW);
       const calls: Array<{
         address: `0x${string}`; abi: typeof SOOTHBOOK_ABI;
         functionName: 'getOrdersAtTick'; args: readonly [`0x${string}`, number, number];
       }> = [];
       for (let t = lo; t <= hi; t++) {
-        calls.push({ address: SOOTHBOOK_ADDRESS, abi: SOOTHBOOK_ABI, functionName: 'getOrdersAtTick', args: [marketKey, 1, t] });
-        calls.push({ address: SOOTHBOOK_ADDRESS, abi: SOOTHBOOK_ABI, functionName: 'getOrdersAtTick', args: [marketKey, 0, t] });
+        calls.push({ address: SOOTHBOOK, abi: SOOTHBOOK_ABI, functionName: 'getOrdersAtTick', args: [marketKey, 1, t] });
+        calls.push({ address: SOOTHBOOK, abi: SOOTHBOOK_ABI, functionName: 'getOrdersAtTick', args: [marketKey, 0, t] });
       }
       const res = await publicClient.multicall({ contracts: calls });
-      const rows: BookRow[] = [];
+      const yes: BookRow[] = [];
+      const no: BookRow[] = [];
       let i = 0;
       for (let t = lo; t <= hi; t++) {
         const y = res[i++];
         const n = res[i++];
         const yt = y.status === 'success' ? (y.result as readonly [bigint, bigint]) : [0n, 0n] as const;
         const nt = n.status === 'success' ? (n.result as readonly [bigint, bigint]) : [0n, 0n] as const;
-        rows.push({ tick: t, yesAmount: yt[0], yesCount: yt[1], noAmount: nt[0], noCount: nt[1] });
+        if (yt[0] > 0n) yes.push({ tick: t, amount: yt[0], count: yt[1] });
+        if (nt[0] > 0n) no.push({ tick: t, amount: nt[0], count: nt[1] });
       }
-      setBookRows(rows);
+      yes.sort((a, b) => b.tick - a.tick);
+      no.sort((a, b) => a.tick - b.tick);
+      setYesRows(yes);
+      setNoRows(no);
     } catch {
       toast.error('Failed to load orderbook');
     } finally {
       setIsBookLoading(false);
     }
-  }, [publicClient, marketKey, prices.bestYesTick, prices.bestNoTick]);
+  }, [publicClient, marketKey, bestYes, bestNo]);
 
-  // --- Activity feed refresh ---
+  // Activity feed
   const refreshFeed = useCallback(async () => {
-    if (!publicClient || !SOOTHBOOK_ADDRESS || !marketKey) return;
+    if (!publicClient || !SOOTHBOOK || !marketKey) return;
     setIsFeedLoading(true);
     try {
       const latest = await publicClient.getBlockNumber();
       const from = latest > 50000n ? latest - 50000n : 0n;
       const [placed, filled, cancelled] = await Promise.all([
-        publicClient.getLogs({ address: SOOTHBOOK_ADDRESS, event: ORDER_PLACED_EVENT, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
-        publicClient.getLogs({ address: SOOTHBOOK_ADDRESS, event: ORDER_FILLED_EVENT, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
-        publicClient.getLogs({ address: SOOTHBOOK_ADDRESS, event: ORDER_CANCELLED_EVENT, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
+        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_PLACED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
+        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_FILLED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
+        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_CANCELLED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
       ]);
       const items: FeedItem[] = [];
-      for (const l of placed) items.push({ id: `${l.transactionHash}-${l.logIndex}-p`, type: 'placed', sideLabel: Number(l.args.side) === 1 ? 'YES' : 'NO', tickLabel: String(l.args.tick), amount: l.args.amount ?? 0n, account: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
-      for (const l of filled) items.push({ id: `${l.transactionHash}-${l.logIndex}-f`, type: 'filled', sideLabel: Number(l.args.takerSide) === 1 ? 'YES taker' : 'NO taker', tickLabel: `${l.args.yesTick}/${l.args.noTick}`, amount: l.args.amount ?? 0n, account: l.args.taker as `0x${string}`, block: l.blockNumber ?? 0n });
-      for (const l of cancelled) items.push({ id: `${l.transactionHash}-${l.logIndex}-c`, type: 'cancelled', sideLabel: Number(l.args.side) === 1 ? 'YES' : 'NO', tickLabel: String(l.args.tick), amount: l.args.amount ?? 0n, account: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
-      items.sort((a, b) => (a.block > b.block ? -1 : a.block < b.block ? 1 : 0));
-      setFeed(items.slice(0, 50));
+      for (const l of placed)
+        items.push({ id: `${l.transactionHash}-${l.logIndex}-p`, type: 'placed', side: Number(l.args.side) === 1 ? 'YES' : 'NO', tick: String(l.args.tick), amount: l.args.amount ?? 0n, who: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
+      for (const l of filled)
+        items.push({ id: `${l.transactionHash}-${l.logIndex}-f`, type: 'filled', side: Number(l.args.takerSide) === 1 ? 'YES' : 'NO', tick: `${l.args.yesTick}/${l.args.noTick}`, amount: l.args.amount ?? 0n, who: l.args.taker as `0x${string}`, block: l.blockNumber ?? 0n });
+      for (const l of cancelled)
+        items.push({ id: `${l.transactionHash}-${l.logIndex}-c`, type: 'cancelled', side: Number(l.args.side) === 1 ? 'YES' : 'NO', tick: String(l.args.tick), amount: l.args.amount ?? 0n, who: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
+      items.sort((a, b) => (a.block > b.block ? -1 : 1));
+      setFeed(items.slice(0, 30));
     } catch {
       toast.error('Failed to load activity');
     } finally {
@@ -287,287 +322,417 @@ export const Pro = () => {
     }
   }, [publicClient, marketKey]);
 
-  // Auto-load on market change
+  // Auto-load + auto-refresh
   useEffect(() => {
     if (!canRead || !publicClient || isWrongNetwork) return;
     void refreshBook();
     void refreshFeed();
+    const iv = setInterval(() => { void refreshBook(); }, REFRESH_INTERVAL);
+    return () => clearInterval(iv);
   }, [canRead, publicClient, isWrongNetwork, refreshBook, refreshFeed]);
+
+  // Max amounts for heatmap scaling
+  const maxYes = useMemo(() => yesRows.reduce((m: bigint, r: BookRow) => r.amount > m ? r.amount : m, 0n), [yesRows]);
+  const maxNo = useMemo(() => noRows.reduce((m: bigint, r: BookRow) => r.amount > m ? r.amount : m, 0n), [noRows]);
+  const maxAll = maxYes > maxNo ? maxYes : maxNo;
+
+  // Click on orderbook row → fill tick
+  const handleTickClick = (t: number) => setTickInput(String(t));
+
+  // ---------------------------------------------------------------------------
+  // Empty state
+  // ---------------------------------------------------------------------------
+
+  if (!SOOTHBOOK || MARKET_KEYS.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-32 text-slate-500 text-sm">
+        No SoothBook deployment configured.
+      </div>
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
-  if (!SOOTHBOOK_ADDRESS || MARKETS.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-24 text-slate-400 text-sm">
-        No SoothBook deployment configured for this network.
-      </div>
-    );
-  }
-
-  const { bestYesTick, bestNoTick, yesPrice, noPrice } = prices;
-  const yesPct = yesPrice ? (Number(formatUnits(yesPrice, 18)) * 100).toFixed(1) : '—';
-  const noPct = noPrice ? (Number(formatUnits(noPrice, 18)) * 100).toFixed(1) : '—';
-
   return (
-    <div className="space-y-4">
-      {/* ---- Top bar ---- */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Market selector */}
+    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+      {/* ═══ Header Bar ═══ */}
+      <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-sm">
+        {/* Left: market selector */}
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-slate-600 transition-colors text-white text-sm font-medium min-w-[280px]"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700/50 bg-slate-900/60 hover:border-slate-600 transition-colors text-white text-sm font-mono min-w-[200px]"
           >
-            <span className="truncate flex-1 text-left">{market?.name ?? 'Select market'}</span>
-            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="truncate flex-1 text-left">{shortKey(marketKey)}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           {dropdownOpen && (
-            <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 shadow-xl overflow-hidden">
-              {MARKETS.map((m, i) => (
+            <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+              {MARKET_KEYS.map((k, i) => (
                 <button
-                  key={m.marketKey}
-                  onClick={() => { setSelectedIdx(i); setDropdownOpen(false); }}
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors ${i === selectedIdx ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'}`}
+                  key={k}
+                  onClick={() => { setMarketIdx(i); setDropdownOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 text-xs font-mono hover:bg-slate-800 transition-colors ${
+                    i === marketIdx ? 'bg-amber-500/10 text-amber-300' : 'text-slate-300'
+                  }`}
                 >
-                  {m.name}
+                  {shortKey(k)}
                 </button>
               ))}
             </div>
           )}
         </div>
 
+        {/* Center: prices */}
+        <div className="flex items-center gap-4 text-sm font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase text-slate-500">YES</span>
+            <span className="text-emerald-400 font-bold">{yesProb}%</span>
+            {bestYes > 0 && <span className="text-[10px] text-slate-600">@{bestYes}</span>}
+          </div>
+          {spread !== null && (
+            <span className="text-[10px] text-slate-600 border border-slate-800 rounded px-1.5 py-0.5">
+              {spread > 0 ? `${(spread / 10).toFixed(1)}% spread` : 'crossed'}
+            </span>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase text-slate-500">NO</span>
+            <span className="text-rose-400 font-bold">{noProb}%</span>
+            {bestNo > 0 && <span className="text-[10px] text-slate-600">@{bestNo}</span>}
+          </div>
+        </div>
+
+        {/* Right: status + backing */}
         <div className="flex items-center gap-3">
-          {isWrongNetwork && (
-            <Button size="sm" variant="danger" onClick={() => switchChainAsync?.({ chainId: BASE_SEPOLIA })} disabled={!isConnected || isSwitching}>
-              {isSwitching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Switch to Base Sepolia'}
+          <div className="text-xs font-mono text-slate-400">
+            {fmt(backing as bigint | undefined, 6, 0)} <span className="text-slate-600">USDC</span>
+          </div>
+          {isWrongNetwork && isConnected && (
+            <Button size="xs" variant="danger" onClick={() => switchChainAsync?.({ chainId: BASE_SEPOLIA })} disabled={isSwitching}>
+              {isSwitching ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Switch'}
             </Button>
           )}
-          <Badge variant={marketState.isActive ? 'success' : marketState.isFinalized ? 'warning' : 'default'}>
-            {marketState.isFinalized ? 'Resolved' : marketState.isActive ? 'Active' : 'Loading…'}
+          <Badge variant={marketState.isActive ? 'live' : marketState.isFinalized ? 'warning' : 'default'}>
+            {marketState.isFinalized ? 'Resolved' : marketState.isActive ? 'Live' : 'Loading'}
           </Badge>
-          <a href={explorerUrl('address', SOOTHBOOK_ADDRESS)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-200">
-            <ExternalLink className="w-4 h-4" />
+          <a href={explorerUrl('address', SOOTHBOOK)} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-slate-400">
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
 
-      {/* ---- Price banner ---- */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="!p-3 text-center">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">YES Price</div>
-          <div className="text-lg font-bold text-emerald-400">{yesPct}%</div>
-          <div className="text-[11px] text-slate-500">tick {String(bestYesTick ?? '—')}</div>
-        </Card>
-        <Card className="!p-3 text-center">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">NO Price</div>
-          <div className="text-lg font-bold text-rose-400">{noPct}%</div>
-          <div className="text-[11px] text-slate-500">tick {String(bestNoTick ?? '—')}</div>
-        </Card>
-        <Card className="!p-3 text-center">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Backing</div>
-          <div className="text-lg font-bold text-white">{fmt(backing as bigint | undefined, 6, 2)}</div>
-          <div className="text-[11px] text-slate-500">USDC</div>
-        </Card>
-        <Card className="!p-3 text-center">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Status</div>
-          <div className="text-lg font-bold text-white">{marketState.isFinalized ? ['NO', 'YES', 'INVALID'][marketState.outcome] : 'Trading'}</div>
-          <div className="text-[11px] text-slate-500">{marketState.isFinalized ? 'Resolved' : 'Open'}</div>
-        </Card>
-      </div>
+      {/* ═══ Main Panel ═══ */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* ─── Orderbook ─── */}
+        <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-800/40">
+          {/* Orderbook header */}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-slate-800/40">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Orderbook</h3>
+              {isBookLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
+            </div>
+            <div className="flex items-center gap-3 text-[10px] font-mono text-slate-600">
+              <span>Tick</span>
+              <span>Prob</span>
+              <span>Depth</span>
+              <span>#</span>
+              <button onClick={() => void refreshBook()} className="ml-2 text-slate-500 hover:text-slate-300">
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
 
-      {/* ---- Main grid ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-        {/* Left: Orderbook */}
-        <div className="lg:col-span-6">
-          <Card className="!p-0 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-              <h3 className="text-sm font-semibold text-white">Orderbook</h3>
-              <Button size="xs" variant="ghost" onClick={() => void refreshBook()} disabled={isBookLoading}>
-                {isBookLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              </Button>
-            </div>
-            <div className="max-h-[420px] overflow-auto">
-              <table className="w-full text-xs font-mono">
-                <thead className="sticky top-0 bg-slate-950/95 text-slate-500 border-b border-slate-800">
-                  <tr>
-                    <th className="text-left px-3 py-2 w-16">Tick</th>
-                    <th className="text-left px-3 py-2 w-20">Price</th>
-                    <th className="text-right px-3 py-2">YES Depth</th>
-                    <th className="text-right px-3 py-2">YES #</th>
-                    <th className="text-right px-3 py-2">NO Depth</th>
-                    <th className="text-right px-3 py-2">NO #</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookRows.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">{isBookLoading ? 'Loading…' : 'No data — click refresh'}</td></tr>
-                  ) : bookRows.map((r) => {
-                    const hasLiq = r.yesCount > 0n || r.noCount > 0n;
-                    return (
-                      <tr key={r.tick} className={hasLiq ? 'bg-slate-900/40' : ''}>
-                        <td className="px-3 py-1.5 text-slate-300">{r.tick}</td>
-                        <td className="px-3 py-1.5 text-slate-400">{(r.tick / 10).toFixed(1)}%</td>
-                        <td className="px-3 py-1.5 text-right text-emerald-400">{r.yesAmount > 0n ? fmt(r.yesAmount, 18, 2) : ''}</td>
-                        <td className="px-3 py-1.5 text-right text-slate-500">{r.yesCount > 0n ? r.yesCount.toString() : ''}</td>
-                        <td className="px-3 py-1.5 text-right text-rose-400">{r.noAmount > 0n ? fmt(r.noAmount, 18, 2) : ''}</td>
-                        <td className="px-3 py-1.5 text-right text-slate-500">{r.noCount > 0n ? r.noCount.toString() : ''}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          {/* Orderbook body */}
+          <div className="flex-1 overflow-auto no-scrollbar">
+            {yesRows.length === 0 && noRows.length === 0 && !isBookLoading ? (
+              <div className="flex items-center justify-center h-full text-slate-600 text-xs">
+                No liquidity — place the first order
+              </div>
+            ) : (
+              <div className="flex flex-col h-full">
+                {/* YES side (bids) — top half */}
+                <div className="flex-1 flex flex-col justify-end overflow-auto no-scrollbar">
+                  {yesRows.map((r) => (
+                    <HeatmapRow key={`y-${r.tick}`} row={r} side="yes" maxAmount={maxAll} onClickTick={handleTickClick} />
+                  ))}
+                </div>
+
+                {/* Spread indicator */}
+                <div className="flex-shrink-0 flex items-center justify-center gap-4 px-4 py-1.5 bg-slate-900/50 border-y border-slate-800/30">
+                  <span className="text-[10px] text-emerald-400/60 font-mono">
+                    {bestYes > 0 ? `${(bestYes / 10).toFixed(1)}%` : '—'}
+                  </span>
+                  <span className="text-[10px] text-slate-600">
+                    {spread !== null
+                      ? spread <= 0
+                        ? 'CROSSED'
+                        : `${(spread / 10).toFixed(1)}% spread`
+                      : '— spread'}
+                  </span>
+                  <span className="text-[10px] text-rose-400/60 font-mono">
+                    {bestNo > 0 ? `${((1000 - bestNo) / 10).toFixed(1)}%` : '—'}
+                  </span>
+                </div>
+
+                {/* NO side (asks) — bottom half */}
+                <div className="flex-1 overflow-auto no-scrollbar">
+                  {noRows.map((r) => (
+                    <HeatmapRow key={`n-${r.tick}`} row={r} side="no" maxAmount={maxAll} onClickTick={handleTickClick} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right: Trade panel + Positions */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Trade panel */}
-          <Card className="!p-4 space-y-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500">Place Order</div>
-
-            {/* Side tabs */}
-            <div className="grid grid-cols-2 gap-2">
+        {/* ─── Trade Sidebar ─── */}
+        <div className="flex-shrink-0 w-full lg:w-80 overflow-auto no-scrollbar bg-slate-950/50">
+          <div className="p-4 space-y-4">
+            {/* Side toggle */}
+            <div className="grid grid-cols-2 gap-1.5">
               <button
-                onClick={() => setTradeSide('yes')}
-                className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${tradeSide === 'yes' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'}`}
-              >Buy YES</button>
+                onClick={() => setSide('yes')}
+                className={side === 'yes' ? 'btn-buy rounded-lg py-2.5 text-sm' : 'rounded-lg py-2.5 text-sm border border-slate-700 bg-slate-950 text-slate-400 hover:border-emerald-500/30 hover:text-emerald-300 transition-colors'}
+              >
+                Buy YES
+              </button>
               <button
-                onClick={() => setTradeSide('no')}
-                className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${tradeSide === 'no' ? 'border-rose-500/50 bg-rose-500/10 text-rose-300' : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'}`}
-              >Buy NO</button>
+                onClick={() => setSide('no')}
+                className={side === 'no' ? 'btn-sell rounded-lg py-2.5 text-sm' : 'rounded-lg py-2.5 text-sm border border-slate-700 bg-slate-950 text-slate-400 hover:border-rose-500/30 hover:text-rose-300 transition-colors'}
+              >
+                Buy NO
+              </button>
             </div>
 
-            {/* Inputs */}
-            <div className="space-y-2">
-              <label className="block">
-                <span className="text-[11px] text-slate-500">Tick (1–999) · {(tick / 10).toFixed(1)}% probability</span>
-                <input value={tickInput} onChange={(e) => setTickInput(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-cyan-500/50 focus:outline-none" placeholder="500" />
-              </label>
-              <label className="block">
-                <span className="text-[11px] text-slate-500">Shares (WAD)</span>
-                <input value={sharesInput} onChange={(e) => setSharesInput(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-cyan-500/50 focus:outline-none" placeholder="1" />
-              </label>
-              <label className="block">
-                <span className="text-[11px] text-slate-500">Max cost (USDC, 0 = no limit)</span>
-                <input value={maxCostInput} onChange={(e) => setMaxCostInput(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-cyan-500/50 focus:outline-none" placeholder="0" />
-              </label>
-              <label className="inline-flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
-                <input type="checkbox" checked={escrowExit} onChange={(e) => setEscrowExit(e.target.checked)} className="accent-cyan-500" />
-                Escrow exit (lock opposite tokens)
-              </label>
+            {/* Tick input */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500">Tick</label>
+                <span className="text-[10px] font-mono text-slate-500">{prob}% probability</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-white transition-colors"
+                  onClick={() => setTickInput(String(Math.max(1, tick - 1)))}
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  value={tickInput}
+                  onChange={(e) => setTickInput(e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white text-center focus:border-amber-500/50 focus:outline-none"
+                  placeholder="500"
+                />
+                <button
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-white transition-colors"
+                  onClick={() => setTickInput(String(Math.min(999, tick + 1)))}
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
             </div>
 
-            <Button
-              className="w-full"
-              variant={tradeSide === 'yes' ? 'success' : 'danger'}
-              disabled={!sharesWad || !canRead || isSubmitting}
+            {/* Shares input */}
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">Shares (WAD)</label>
+              <input
+                value={sharesInput}
+                onChange={(e) => setSharesInput(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-amber-500/50 focus:outline-none"
+                placeholder="e.g. 100"
+              />
+            </div>
+
+            {/* Max cost */}
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">Max Cost (USDC, 0 = no limit)</label>
+              <input
+                value={maxCostInput}
+                onChange={(e) => setMaxCostInput(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-amber-500/50 focus:outline-none"
+                placeholder="0"
+              />
+            </div>
+
+            {/* Escrow toggle */}
+            <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+              <input type="checkbox" checked={escrow} onChange={(e) => setEscrow(e.target.checked)} className="accent-amber-500 rounded" />
+              Escrow exit (lock opposite tokens)
+            </label>
+
+            {/* Cost estimate */}
+            {costEstimate !== null && costEstimate > 0 && (
+              <div className="flex items-center justify-between text-xs bg-slate-900/50 rounded-lg px-3 py-2 border border-slate-800/50">
+                <span className="text-slate-500">Est. cost</span>
+                <span className="font-mono text-white">{costEstimate.toFixed(2)} <span className="text-slate-500">USDC</span></span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              className={`w-full rounded-lg py-3 text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                side === 'yes' ? 'btn-buy' : 'btn-sell'
+              }`}
+              disabled={!sharesInput || Number(sharesInput) <= 0 || !canRead || isSubmitting}
               onClick={() => {
-                if (!sharesWad || !marketKey) return;
-                const fn = tradeSide === 'yes' ? 'buyYes' : 'buyNo';
-                void exec(`Placing ${tradeSide.toUpperCase()} order…`, fn, [marketKey, tick, sharesWad, escrowExit, maxCostAmt]);
+                if (!marketKey) return;
+                const shares = parseUnits(sharesInput, 18);
+                const maxCost = maxCostInput && Number(maxCostInput) > 0
+                  ? parseUnits(maxCostInput, 6)
+                  : 0n;
+                const fn = side === 'yes' ? 'buyYes' : 'buyNo';
+                void exec(
+                  `Placing ${side.toUpperCase()} @ ${prob}%…`,
+                  fn,
+                  [marketKey, tick, shares, escrow, maxCost],
+                );
               }}
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Buy ${tradeSide.toUpperCase()} @ ${(tick / 10).toFixed(1)}%`}
-            </Button>
-          </Card>
+              {isSubmitting
+                ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                : `Buy ${side.toUpperCase()} @ ${prob}%`}
+            </button>
 
-          {/* Mint / Merge */}
-          <Card className="!p-4 space-y-3">
-            <div className="text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <ArrowDownUp className="w-3.5 h-3.5" /> Mint / Merge
-            </div>
-            <label className="block">
-              <span className="text-[11px] text-slate-500">Amount (USDC)</span>
-              <input value={mintMergeInput} onChange={(e) => setMintMergeInput(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white focus:border-cyan-500/50 focus:outline-none" placeholder="1" />
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="info" disabled={!mintMergeAmt || !marketKey || isSubmitting} onClick={() => marketKey && mintMergeAmt && exec('Minting…', 'mint', [marketKey, mintMergeAmt])}>
-                Mint Set
-              </Button>
-              <Button size="sm" variant="secondary" disabled={!mintMergeAmt || !marketKey || isSubmitting} onClick={() => marketKey && mintMergeAmt && exec('Merging…', 'merge', [marketKey, mintMergeAmt])}>
-                Merge
-              </Button>
-            </div>
-            {marketState.isFinalized && (
-              <Button size="sm" variant="success" className="w-full" disabled={!marketKey || isSubmitting} onClick={() => marketKey && exec('Redeeming…', 'redeem', [marketKey])}>
-                Redeem Winnings
-              </Button>
-            )}
-          </Card>
+            {/* Divider */}
+            <div className="border-t border-slate-800/50" />
 
-          {/* Wallet / Positions */}
-          <Card className="!p-4 space-y-2">
-            <div className="text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Wallet className="w-3.5 h-3.5" /> Positions
-            </div>
-            {!isConnected ? (
-              <div className="text-xs text-slate-500">Connect wallet to see positions</div>
-            ) : (
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between text-slate-300">
-                  <span>USDC</span>
-                  <span className="font-mono">{fmt(usdcBalance, 6, 2)}</span>
-                </div>
-                <div className="flex justify-between text-emerald-400">
-                  <span>YES tokens</span>
-                  <span className="font-mono">{fmt(yesBalance, 18, 4)}</span>
-                </div>
-                <div className="flex justify-between text-rose-400">
-                  <span>NO tokens</span>
-                  <span className="font-mono">{fmt(noBalance, 18, 4)}</span>
-                </div>
-                <div className="flex justify-between text-slate-400 text-xs pt-1 border-t border-slate-800">
-                  <span>Allowance</span>
-                  <span className="font-mono">{fmt(allowance, 6, 2)} USDC</span>
-                </div>
-                <Button
-                  size="xs" variant="ghost" className="w-full mt-1"
-                  disabled={!USDC_ADDRESS || !SOOTHBOOK_ADDRESS || isSubmitting}
-                  onClick={() => USDC_ADDRESS && SOOTHBOOK_ADDRESS && exec('Approving…', 'approve', [SOOTHBOOK_ADDRESS, parseUnits('100000', 6)], USDC_ADDRESS, ERC20_ABI)}
-                >
-                  Approve 100k USDC
-                </Button>
+            {/* Positions */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Wallet className="w-3 h-3 text-slate-500" />
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Positions</span>
               </div>
-            )}
-          </Card>
+              {!isConnected ? (
+                <div className="text-xs text-slate-600">Connect wallet</div>
+              ) : (
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">USDC</span>
+                    <span className="text-white">{fmt(usdcBal as bigint, 6, 2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-emerald-400/70">YES</span>
+                    <span className="text-emerald-400">{fmt(yesBal, 18, 4)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-rose-400/70">NO</span>
+                    <span className="text-rose-400">{fmt(noBalVal, 18, 4)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-800/30">
+                    <span>Allowance</span>
+                    <span>{fmt(allowance as bigint, 6, 2)}</span>
+                  </div>
+                  {(allowance as bigint) < parseUnits('100', 6) && (
+                    <Button
+                      size="xs" variant="ghost" className="w-full mt-1"
+                      disabled={!USDC || !SOOTHBOOK || isSubmitting}
+                      onClick={() => USDC && SOOTHBOOK && exec('Approving…', 'approve', [SOOTHBOOK, parseUnits('100000', 6)], USDC, ERC20_ABI)}
+                    >
+                      Approve USDC
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-slate-800/50" />
+
+            {/* Mint / Merge */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <ArrowDownUp className="w-3 h-3 text-slate-500" />
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Mint / Merge</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={mintAmt}
+                    onChange={(e) => setMintAmt(e.target.value)}
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 font-mono text-xs text-white focus:border-amber-500/50 focus:outline-none"
+                    placeholder="Amount (USDC)"
+                  />
+                  <Button
+                    size="xs" variant="info"
+                    disabled={!mintAmt || Number(mintAmt) <= 0 || !marketKey || isSubmitting}
+                    onClick={() => marketKey && exec('Minting…', 'mint', [marketKey, parseUnits(mintAmt, 6)])}
+                  >
+                    Mint
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={mergeAmt}
+                    onChange={(e) => setMergeAmt(e.target.value)}
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 font-mono text-xs text-white focus:border-amber-500/50 focus:outline-none"
+                    placeholder="Amount (USDC)"
+                  />
+                  <Button
+                    size="xs" variant="secondary"
+                    disabled={!mergeAmt || Number(mergeAmt) <= 0 || !marketKey || isSubmitting}
+                    onClick={() => marketKey && exec('Merging…', 'merge', [marketKey, parseUnits(mergeAmt, 6)])}
+                  >
+                    Merge
+                  </Button>
+                </div>
+                {marketState.isFinalized && (
+                  <Button
+                    size="xs" variant="success" className="w-full"
+                    disabled={!marketKey || isSubmitting}
+                    onClick={() => marketKey && exec('Redeeming…', 'redeem', [marketKey])}
+                  >
+                    Redeem Winnings
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ---- Activity Feed ---- */}
-      <Card className="!p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-          <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
-          <Button size="xs" variant="ghost" onClick={() => void refreshFeed()} disabled={isFeedLoading}>
-            {isFeedLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          </Button>
-        </div>
-        <div className="max-h-56 overflow-auto divide-y divide-slate-800/60">
-          {feed.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">No activity yet</div>
-          ) : feed.map((item) => {
-            const mine = !!user && item.account.toLowerCase() === user.toLowerCase();
-            const typeColor = item.type === 'filled' ? 'text-cyan-400' : item.type === 'cancelled' ? 'text-amber-400' : 'text-slate-300';
-            return (
-              <div key={item.id} className="px-4 py-2.5 flex items-center gap-4 text-xs font-mono">
-                <span className={`uppercase font-semibold w-20 ${typeColor}`}>{item.type}</span>
-                <span className="text-slate-400">{item.sideLabel}</span>
-                <span className="text-slate-500">@{item.tickLabel}</span>
-                <span className="text-slate-300 flex-1 text-right">{fmt(item.amount, 18, 2)} shares</span>
-                <span className={mine ? 'text-emerald-400' : 'text-slate-600'}>{mine ? 'You' : shortAddr(item.account)}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+      {/* ═══ Activity Feed (collapsible) ═══ */}
+      <div className="flex-shrink-0 border-t border-slate-800/40">
+        <button
+          onClick={() => setFeedOpen(!feedOpen)}
+          className="w-full flex items-center justify-between px-4 py-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="uppercase tracking-wider font-semibold">Activity</span>
+            {feed.length > 0 && (
+              <span className="text-[10px] bg-slate-800 text-slate-400 rounded-full px-1.5 py-0.5">{feed.length}</span>
+            )}
+            {isFeedLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+          </div>
+          {feedOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
+        {feedOpen && (
+          <div className="max-h-48 overflow-auto no-scrollbar border-t border-slate-800/30">
+            {feed.length === 0 ? (
+              <div className="px-4 py-4 text-center text-xs text-slate-600">No activity</div>
+            ) : feed.map((item) => {
+              const mine = !!user && item.who.toLowerCase() === user.toLowerCase();
+              const tc = item.type === 'filled' ? 'text-amber-400' : item.type === 'cancelled' ? 'text-slate-500' : 'text-slate-300';
+              return (
+                <div key={item.id} className="px-4 py-1.5 flex items-center gap-3 text-[11px] font-mono hover:bg-slate-900/30">
+                  <span className={`uppercase font-semibold w-16 ${tc}`}>{item.type}</span>
+                  <span className={item.side.includes('YES') ? 'text-emerald-400' : 'text-rose-400'}>{item.side}</span>
+                  <span className="text-slate-600">@{item.tick}</span>
+                  <span className="text-slate-300 flex-1 text-right">{fmt(item.amount, 18, 2)}</span>
+                  <span className={mine ? 'text-amber-300' : 'text-slate-700'}>{mine ? 'You' : shortAddr(item.who)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* Last tx */}
+      {/* Last tx link */}
       {lastTx && (
-        <div className="text-center">
-          <a href={explorerUrl('tx', lastTx)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white font-mono">
-            Last tx: {lastTx.slice(0, 10)}…{lastTx.slice(-6)} <ExternalLink className="w-3 h-3" />
+        <div className="flex-shrink-0 text-center py-1.5 border-t border-slate-800/20">
+          <a href={explorerUrl('tx', lastTx)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 font-mono">
+            tx: {lastTx.slice(0, 10)}…{lastTx.slice(-6)} <ExternalLink className="w-2.5 h-2.5" />
           </a>
         </div>
       )}
