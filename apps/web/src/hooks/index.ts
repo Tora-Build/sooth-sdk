@@ -82,6 +82,7 @@ export { useSandbox } from "./useSandbox";
 export { useOrderbook } from "./useOrderbook";
 export { useOrderbookTrade } from "./useOrderbookTrade";
 export { useSoothBookMarket } from "./useSoothBook";
+export { useSoothBookFeed } from "./useSoothBookFeed";
 export type { SoothBookMarketState, SoothBookPrices } from "./useSoothBook";
 
 // ============================================================
