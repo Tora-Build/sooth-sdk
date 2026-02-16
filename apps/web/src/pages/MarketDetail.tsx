@@ -712,7 +712,7 @@ export const MarketDetail = () => {
             pureFloorProp={pureFloor}
             pureCeilingProp={pureCeiling}
             isUnderwater={isUnderwater}
-            decimals={marketDecimals || decimals}
+            decimals={marketDecimals}
             chainId={chainId}
           />
 
@@ -803,7 +803,7 @@ export const MarketDetail = () => {
               ammCashProp={ammCash}
               pureFloorProp={pureFloor}
               pureCeilingProp={pureCeiling}
-              decimals={marketDecimals || decimals}
+              decimals={marketDecimals}
             />
 
             {/* Locked Proceeds Card */}

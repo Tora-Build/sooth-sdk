@@ -15,7 +15,7 @@
 ### Trading Infrastructure
 - `LaunchpadEngine.sol` — Creator economics, fee distribution, graduation mechanics
 - `AMMEngine.sol` — LMSR position domain for pre-graduation markets
-- `SoothBook.sol` — Standalone orderbook for post-graduation markets (4 atomic actions, ERC20 outcome tokens, FIFO matching)
+- `SoothBook.sol` — Orderbook for post-graduation markets (4 atomic actions, ERC20 outcome tokens, FIFO matching)
 
 ### Token Management
 - `Collateralizer.sol` — Split/merge/redeem (1 USDC = 1 YES + 1 NO)
@@ -70,7 +70,7 @@ AMMEngine                                      SoothBook
 
 ## Key Design Decisions
 
-### SoothBook — Standalone Orderbook
+### SoothBook Orderbook
 SoothBook (602 lines) replaces the previous vault-based orderbook with a simpler design:
 - **4 atomic actions**: `buyYes`, `buyNo`, `mint`, `merge`
 - **ERC20 outcome tokens**: Real tokens in user wallets (not internal shares)

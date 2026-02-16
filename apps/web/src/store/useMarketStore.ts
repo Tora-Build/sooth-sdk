@@ -28,6 +28,8 @@ interface MarketsConfigFile {
 }
 
 interface MarketStore {
+  mode: 'demo' | 'real';
+  refreshKey: number;
   markets: MarketConfig[];
   selectedMarket: MarketConfig | null;
   setSelectedMarket: (market: MarketConfig | null) => void;
@@ -50,6 +52,8 @@ const demoMarkets = (typedConfig.markets || [])
   }));
 
 export const useMarketStore = create<MarketStore>((set, get) => ({
+  mode: 'real',
+  refreshKey: 0,
   markets: demoMarkets,
   selectedMarket: null,
   setSelectedMarket: (market) => set({ selectedMarket: market }),

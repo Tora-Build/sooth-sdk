@@ -55,6 +55,8 @@ export async function mint(ctx: SDKContext, args: string[]): Promise<{ result: C
       abi: MOCK_ERC20_ABI,
       functionName: 'mint',
       args: [address, amount],
+      account: address,
+      chain: undefined,
     });
     await config.publicClient.waitForTransactionReceipt({ hash });
     return { result: { success: true, txHash: hash }, output: [success(`Minted ${formatWad(amount)} USDC (tx: ${shortTx(hash)})`)] };
@@ -87,6 +89,8 @@ export async function approve(ctx: SDKContext, args: string[]): Promise<{ result
         abi: MOCK_ERC20_ABI,
         functionName: 'approve',
         args: [addr, amount],
+        account: address,
+        chain: undefined,
       });
       await config.publicClient.waitForTransactionReceipt({ hash });
       const amountStr = amount === MAX_UINT256 ? 'unlimited' : formatWad(amount);

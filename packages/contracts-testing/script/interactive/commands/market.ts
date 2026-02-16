@@ -20,6 +20,7 @@ import {
   printTable,
   sleep,
   decodeError,
+  isTransientError,
   readContractWithRpcFallback,
 } from '../utils';
 import { decodeEventLog, parseAbi, encodeFunctionData } from 'viem';
@@ -501,6 +502,13 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
             functionName: 'getGraduationProgress',
             args: [marketAddress],
           }) as [bigint, bigint, bigint];
+
+          if (currentPercent >= 10000n) {
+            spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} skipped (already graduated)`);
+            console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
+            return { success: true, data: { tradesExecuted, totalGas } };
+          }
+
           // Use 30M if we are > 90% progress, otherwise 5M is enough for trades
           gasLimit = currentPercent > 9000n ? 30_000_000n : 5_000_000n;
         }
@@ -555,6 +563,25 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
       } catch (err) {
         const decoded = decodeError(err as Error);
 
+        try {
+          const mktState = await readContractWithRpcFallback<readonly [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint]>(
+            ctx.config.chain,
+            ctx.config.rpc,
+            {
+              address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+              abi: LaunchpadEngineAbi,
+              functionName: 'markets',
+              args: [marketAddress],
+            },
+          );
+          if (mktState[8]) {
+            spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} rejected (post-graduation)`);
+            console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
+            return { success: true, data: { tradesExecuted, totalGas } };
+          }
+        } catch {
+        }
+
         // If it looks like a node glitch (random address or MegaETH garbage), retry
         const isGlitch = decoded.includes('RPC error (returned address)') 
           || decoded.includes('Internal Error')
@@ -594,6 +621,258 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
   console.log('');
 
   return { success: true, data: { tradesExecuted, totalGas, percentComplete: Number(finalPercent) / 100 } };
+}
+
+function mulberry32(seed: number): () => number {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), t | 1);
+    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export async function simulate(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  const { actorManager, deployment, marketKey } = ctx;
+  const walletClient = actorManager.currentWalletClient();
+  const address = actorManager.currentAddress();
+
+  if (!walletClient || !address) {
+    return { success: false, message: 'No actor selected' };
+  }
+
+  if (!marketKey) {
+    return { success: false, message: 'No market key selected. Use: setmarket <key>' };
+  }
+
+  const soothBook = deployment.contracts.SoothBook as `0x${string}` | undefined;
+  if (!soothBook) {
+    return { success: false, message: 'SoothBook address not found in deployment' };
+  }
+
+  const numOrders = args[0] ? Number.parseInt(args[0], 10) : 100;
+  const avgSize = args[1] ? parseWad(args[1]) : 100n * WAD;
+  const seed = args[2] ? Number.parseInt(args[2], 10) : Date.now();
+
+  if (!Number.isInteger(numOrders) || numOrders <= 0) {
+    return { success: false, message: 'numOrders must be a positive integer' };
+  }
+  if (avgSize <= 0n) {
+    return { success: false, message: 'avgSize must be > 0' };
+  }
+  if (!Number.isFinite(seed)) {
+    return { success: false, message: 'seed must be a number' };
+  }
+
+  const rng = mulberry32(seed);
+
+  console.log(`\n  ${bold('Orderbook Simulation')}`);
+  console.log('  ' + '─'.repeat(40));
+  console.log(`  Orders:   ${numOrders}`);
+  console.log(`  Avg Size: ${formatWad(avgSize)}`);
+  console.log(`  Seed:     ${seed}`);
+  console.log(`  ${dim('Press Enter to stop early')}`);
+
+  const estimatedUsdcNeeded = avgSize * BigInt(numOrders) * 2n;
+  const usdcBalance = await readContractWithRpcFallback<bigint>(
+    ctx.config.chain,
+    ctx.config.rpc,
+    {
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'balanceOf',
+      args: [address],
+    },
+  );
+
+  if (usdcBalance < estimatedUsdcNeeded) {
+    const mintAmount = estimatedUsdcNeeded - usdcBalance + avgSize * 5n;
+    const mintSpinner = new Spinner(`Minting ${formatWad(mintAmount)} USDC...`);
+    mintSpinner.start();
+    const mintHash = await walletClient.writeContract({
+      address: deployment.contracts.MockUSDC as `0x${string}`,
+      abi: ABIS.MockUSDC,
+      functionName: 'mint',
+      args: [address, mintAmount],
+      gas: 500000n,
+    });
+    await actorManager.waitForTransactionReceipt(mintHash);
+    mintSpinner.succeed(`Minted ${formatWad(mintAmount)} USDC`);
+  }
+
+  const approveSpinner = new Spinner('Approving SoothBook spending...');
+  approveSpinner.start();
+  const approveHash = await walletClient.writeContract({
+    address: deployment.contracts.MockUSDC as `0x${string}`,
+    abi: ABIS.MockUSDC,
+    functionName: 'approve',
+    args: [soothBook, MAX_UINT256],
+    gas: 500000n,
+  });
+  await actorManager.waitForTransactionReceipt(approveHash);
+  approveSpinner.succeed('SoothBook approved');
+
+  let stopRequested = false;
+  const onStopInput = (data: Buffer | string) => {
+    const input = data.toString();
+    if (input.includes('\n') || input.includes('\r')) {
+      stopRequested = true;
+    }
+  };
+  process.stdin.on('data', onStopInput);
+
+  let totalGas = 0n;
+  let ordersPlaced = 0;
+  let ordersCrossed = 0;
+  let consecutiveFailures = 0;
+
+  try {
+    for (let i = 0; i < numOrders; i++) {
+      if (stopRequested) {
+        console.log(warn(`\n  Early stop requested after ${i} orders`));
+        break;
+      }
+
+      const r = rng();
+      const sizeMultiplierBps = 500n + BigInt(Math.floor(rng() * 1001));
+      const amount = ((avgSize * sizeMultiplierBps) / 1000n) || WAD;
+      const tick = 100 + Math.floor(rng() * 801);
+
+      let action: 'buyyes' | 'buyno' | 'mint' | 'merge' = 'buyyes';
+      if (r < 0.4) {
+        action = 'buyyes';
+      } else if (r < 0.8) {
+        action = 'buyno';
+      } else if (r < 0.9) {
+        action = 'mint';
+      } else {
+        action = 'merge';
+      }
+
+      const spinner = new Spinner(`  Order ${i + 1}/${numOrders}: ${action.toUpperCase()} ${action === 'buyyes' || action === 'buyno' ? `@${tick} ` : ''}${formatWad(amount)}`);
+      spinner.start();
+
+      let successOrder = false;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (!successOrder && attempts < maxAttempts) {
+        attempts++;
+        try {
+          let likelyCross = false;
+          let hash: `0x${string}`;
+
+          if (action === 'buyyes') {
+            const bestNoTick = await readContractWithRpcFallback<number>(ctx.config.chain, ctx.config.rpc, {
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'getBestTick',
+              args: [marketKey, 0],
+            });
+            likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
+            hash = await walletClient.writeContract({
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'buyYes',
+              args: [marketKey, tick, amount, false, 0n],
+            });
+          } else if (action === 'buyno') {
+            const bestYesTick = await readContractWithRpcFallback<number>(ctx.config.chain, ctx.config.rpc, {
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'getBestTick',
+              args: [marketKey, 1],
+            });
+            likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
+            hash = await walletClient.writeContract({
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'buyNo',
+              args: [marketKey, tick, amount, false, 0n],
+            });
+          } else if (action === 'mint') {
+            hash = await walletClient.writeContract({
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'mint',
+              args: [marketKey, amount],
+            });
+          } else {
+            const balances = await readContractWithRpcFallback<readonly [bigint, bigint]>(ctx.config.chain, ctx.config.rpc, {
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'getBalance',
+              args: [marketKey, address],
+            });
+            const mergeAmount = balances[0] < balances[1] ? balances[0] : balances[1];
+            if (mergeAmount <= 0n) {
+              spinner.succeed(`Order ${i + 1}: MERGE skipped (no complete sets)`);
+              successOrder = true;
+              consecutiveFailures = 0;
+              break;
+            }
+            hash = await walletClient.writeContract({
+              address: soothBook,
+              abi: ABIS.SoothBook,
+              functionName: 'merge',
+              args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
+            });
+          }
+
+          const receipt = await actorManager.waitForTransactionReceipt(hash);
+          totalGas += receipt.gasUsed;
+          ordersPlaced++;
+          if (likelyCross) {
+            ordersCrossed++;
+          }
+          spinner.succeed(`Order ${i + 1}: ${action.toUpperCase()} ${dim(`(gas: ${receipt.gasUsed})`)}`);
+          successOrder = true;
+          consecutiveFailures = 0;
+        } catch (err) {
+          const decoded = decodeError(err as Error);
+          const transient = isTransientError(err as Error)
+            || decoded.includes('Unknown error')
+            || decoded.includes('Internal Error')
+            || decoded.includes('nonce');
+
+          if (transient && attempts < maxAttempts) {
+            await sleep(1000);
+            continue;
+          }
+
+          spinner.fail(`Order ${i + 1} failed: ${decoded}`);
+          consecutiveFailures++;
+          break;
+        }
+      }
+
+      if (!successOrder && consecutiveFailures >= 3) {
+        console.log(warn('  Stopping after 3 consecutive failures'));
+        break;
+      }
+
+      await sleep(300);
+    }
+  } finally {
+    process.stdin.off('data', onStopInput);
+  }
+
+  console.log('\n  ' + '─'.repeat(40));
+  console.log(`  ${bold('Simulation Complete')}`);
+  console.log(`  Orders placed: ${ordersPlaced}`);
+  console.log(`  Orders crossed: ${ordersCrossed}`);
+  console.log(`  Total gas used: ${totalGas.toString()}`);
+  console.log('');
+
+  return {
+    success: true,
+    data: {
+      ordersPlaced,
+      ordersCrossed,
+      totalGas,
+    },
+  };
 }
 
 /**
@@ -1627,6 +1906,7 @@ export async function claimrefund(ctx: CommandContext, _args: string[]): Promise
 export const marketCommands = {
   createmarket,
   graduate,
+  simulate,
   marketstatus,
   settle,
   finalize,

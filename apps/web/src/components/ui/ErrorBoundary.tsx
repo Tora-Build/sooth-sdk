@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { PhWarningCircle, PhArrowClockwise } from '../../pages/icons';
+import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { logger } from '../../lib/logger';
 
 interface ErrorBoundaryProps {
@@ -66,7 +66,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // Default fallback UI
       return (
         <div className="flex flex-col items-center justify-center p-8 min-h-[200px] bg-dark-card/50 rounded-xl border border-red-500/20">
-          <PhWarningCircle className="w-12 h-12 text-red-400 mb-4" />
+          <AlertTriangle className="w-12 h-12 text-red-400 mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">
             Something went wrong
           </h3>
@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             onClick={this.handleRetry}
             className="flex items-center gap-2 px-4 py-2 bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue rounded-lg transition-colors"
           >
-            <PhArrowClockwise className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4" />
             Try Again
           </button>
         </div>
@@ -96,7 +96,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 export function AsyncErrorFallback({ error, resetError }: { error: Error; resetError: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center p-8 min-h-[200px]">
-      <PhWarningCircle className="w-10 h-10 text-red-400 mb-3" />
+      <AlertTriangle className="w-10 h-10 text-red-400 mb-3" />
       <h3 className="text-base font-medium text-white mb-2">Failed to load</h3>
       <p className="text-sm text-dark-text-secondary text-center mb-4">
         {error.message || 'Could not load this section.'}
@@ -105,7 +105,7 @@ export function AsyncErrorFallback({ error, resetError }: { error: Error; resetE
         onClick={resetError}
         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-dark-card hover:bg-dark-border text-white rounded-lg transition-colors"
       >
-        <PhArrowClockwise className="w-3.5 h-3.5" />
+        <RotateCcw className="w-3.5 h-3.5" />
         Retry
       </button>
     </div>

@@ -3,6 +3,8 @@ import { useAccount } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Card } from '../components/ui/Card';
 import { useActivePositions, useLPPositions } from '../hooks';
+import { TradingAccountCard } from '../components/features/portfolio/TradingAccountCard';
+import { ActiveOrdersCard } from '../components/features/portfolio/ActiveOrdersCard';
 
 const formatUsd = (value: number) => {
   return `$${value.toLocaleString(undefined, {
@@ -75,6 +77,8 @@ export const Portfolio = () => {
         </div>
       </Card>
 
+      <TradingAccountCard />
+
       <Card className="bg-slate-900/60 border border-slate-800 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-white">Active Positions</h3>
@@ -133,6 +137,8 @@ export const Portfolio = () => {
           </div>
         )}
       </Card>
+
+      <ActiveOrdersCard />
 
       <Card className="bg-slate-900/60 border border-slate-800 p-6">
         <div className="flex items-center justify-between mb-4">

@@ -45,7 +45,6 @@ createAppKit({
     socials: ['google', 'github', 'discord'],
     smartSessions: true,
   },
-  showBalance: false,
   themeMode: 'dark',
   themeVariables: {
     '--w3m-accent': '#06b6d4', // Cyan-500 for Neon Terminal theme

@@ -1,6 +1,6 @@
 export function useLockedProceeds(_marketAddress?: `0x${string}`) {
-  const claimUnlocked = async () => {};
-  const refetch = async () => {};
+  const claimUnlocked = async () => undefined;
+  const refetch = async () => undefined;
 
   return {
     lockedProceeds: 0n,

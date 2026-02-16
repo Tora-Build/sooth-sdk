@@ -212,6 +212,18 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: setRouterHash });
 
+  console.log(`  [${ctx.chainName}] Transferring SoothBook ownership to LaunchpadEngine...`);
+  const transferOwnershipHash = await ctx.walletClient.writeContract({
+    address: soothBook,
+    abi: parseAbi(['function transferOwnership(address) external']),
+    functionName: 'transferOwnership',
+    args: [launchpadEngine],
+    chain: ctx.config.chain,
+    account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
+  });
+  await ctx.publicClient.waitForTransactionReceipt({ hash: transferOwnershipHash });
+
   return {
     mockUSDC,
     protocolConfig,

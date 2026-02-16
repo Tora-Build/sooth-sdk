@@ -1,9 +1,19 @@
+/// <reference types="ponder/virtual" />
+
 import { db } from "ponder:api";
 import schema from "ponder:schema";
 import { eq, and, desc } from "ponder";
 import { Hono } from "hono";
 
 const app = new Hono();
+
+function parseChainId(chainIdParam: string): number {
+  return parseInt(chainIdParam);
+}
+
+function normalizeUser(userParam: string): `0x${string}` {
+  return userParam.toLowerCase() as `0x${string}`;
+}
 
 function serializeBigInts<T>(obj: T): T {
   return JSON.parse(
@@ -170,6 +180,122 @@ app.get("/v12/activity/:chainId/:marketKey", async (c) => {
     .slice(0, limit);
 
   return c.json(serializeBigInts(activity));
+});
+
+app.get("/amm-positions/:chainId/:user", async (c) => {
+  const chainId = parseChainId(c.req.param("chainId"));
+  const user = normalizeUser(c.req.param("user"));
+
+  const positions = await db
+    .select()
+    .from(schema.ammPosition)
+    .where(
+      and(
+        eq(schema.ammPosition.chainId, chainId),
+        eq(schema.ammPosition.user, user)
+      )
+    )
+    .orderBy(desc(schema.ammPosition.updatedAt));
+
+  return c.json(serializeBigInts(positions));
+});
+
+app.get("/lp-balances/:chainId/:user", async (c) => {
+  const chainId = parseChainId(c.req.param("chainId"));
+  const user = normalizeUser(c.req.param("user"));
+
+  const balances = await db
+    .select()
+    .from(schema.lpBalance)
+    .where(
+      and(
+        eq(schema.lpBalance.chainId, chainId),
+        eq(schema.lpBalance.user, user)
+      )
+    )
+    .orderBy(desc(schema.lpBalance.updatedAt));
+
+  return c.json(serializeBigInts(balances));
+});
+
+app.get("/lock-entries/:chainId/:user", async (c) => {
+  const chainId = parseChainId(c.req.param("chainId"));
+  const user = normalizeUser(c.req.param("user"));
+
+  const entries = await db
+    .select()
+    .from(schema.lockEntry)
+    .where(
+      and(
+        eq(schema.lockEntry.chainId, chainId),
+        eq(schema.lockEntry.user, user)
+      )
+    )
+    .orderBy(desc(schema.lockEntry.createdAt));
+
+  return c.json(serializeBigInts(entries));
+});
+
+app.get("/vault-balance/:chainId/:user", async (c) => {
+  parseChainId(c.req.param("chainId"));
+  normalizeUser(c.req.param("user"));
+
+  return c.json(null);
+});
+
+app.get("/vault-positions/:chainId/:user", async (c) => {
+  parseChainId(c.req.param("chainId"));
+  normalizeUser(c.req.param("user"));
+
+  return c.json([]);
+});
+
+app.get("/portfolio/:chainId/:user", async (c) => {
+  const chainId = parseChainId(c.req.param("chainId"));
+  const user = normalizeUser(c.req.param("user"));
+
+  const [ammPositions, lpBalances, lockEntries] = await Promise.all([
+    db
+      .select()
+      .from(schema.ammPosition)
+      .where(
+        and(
+          eq(schema.ammPosition.chainId, chainId),
+          eq(schema.ammPosition.user, user)
+        )
+      )
+      .orderBy(desc(schema.ammPosition.updatedAt)),
+    db
+      .select()
+      .from(schema.lpBalance)
+      .where(
+        and(
+          eq(schema.lpBalance.chainId, chainId),
+          eq(schema.lpBalance.user, user)
+        )
+      )
+      .orderBy(desc(schema.lpBalance.updatedAt)),
+    db
+      .select()
+      .from(schema.lockEntry)
+      .where(
+        and(
+          eq(schema.lockEntry.chainId, chainId),
+          eq(schema.lockEntry.user, user)
+        )
+      )
+      .orderBy(desc(schema.lockEntry.createdAt)),
+  ]);
+
+  return c.json(
+    serializeBigInts({
+      vaultBalance: null,
+      vaultPositions: [],
+      ammPositions,
+      lpBalances,
+      lockEntries,
+    })
+  );
 });
 
 app.get("/api-health", (c) => {

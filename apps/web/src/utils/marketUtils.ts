@@ -6,7 +6,7 @@ export function searchMarkets(markets: Market[], query: string): Market[] {
   
   const lowerQuery = query.toLowerCase();
   return markets.filter(market => 
-    market.question.toLowerCase().includes(lowerQuery) ||
+    (market.question ?? '').toLowerCase().includes(lowerQuery) ||
     market.name.toLowerCase().includes(lowerQuery)
   );
 }
