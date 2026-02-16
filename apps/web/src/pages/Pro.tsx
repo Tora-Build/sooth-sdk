@@ -13,19 +13,19 @@ import {
   useAccount, usePublicClient, useReadContract,
   useSwitchChain, useWriteContract,
 } from 'wagmi';
-import { formatUnits, parseAbiItem, parseUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import toast from 'react-hot-toast';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ERC20_ABI, SOOTHBOOK_ABI } from '../config/abis';
 import { useSoothBookMarket } from '../hooks/useSoothBook';
+import { useSoothBookFeed } from '../hooks/useSoothBookFeed';
 import deployments from '../config/deployments.json';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
 // ---------------------------------------------------------------------------
 
-const BASE_SEPOLIA = 84532;
 const TICK_WINDOW = 20;
 const REFRESH_INTERVAL = 12_000;
 
@@ -35,23 +35,15 @@ type Network = {
   markets?: string[];
 };
 
-const network = Object.values(
-  deployments.networks as Record<string, Network>,
-).find((n) => n.chainId === BASE_SEPOLIA);
+const deploymentNetworks = Object.values(deployments.networks as Record<string, Network>);
+const firstNetwork = deploymentNetworks[0];
+const TARGET_CHAIN_ID = firstNetwork?.chainId ?? 84532;
+
+const network = deploymentNetworks.find((n) => n.chainId === TARGET_CHAIN_ID) ?? firstNetwork;
 
 const SOOTHBOOK = network?.contracts?.SoothBook as `0x${string}` | undefined;
 const USDC = network?.contracts?.MockUSDC as `0x${string}` | undefined;
 const MARKET_KEYS = (network?.markets ?? []) as `0x${string}`[];
-
-const ORDER_PLACED = parseAbiItem(
-  'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)',
-);
-const ORDER_FILLED = parseAbiItem(
-  'event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)',
-);
-const ORDER_CANCELLED = parseAbiItem(
-  'event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)',
-);
 
 const fmt = (v: bigint | undefined, dec = 18, dp = 2) =>
   v === undefined ? '—' : Number(formatUnits(v, dec)).toFixed(dp);
@@ -65,14 +57,11 @@ const explorerUrl = (s: 'tx' | 'address', v: string) =>
 // ---------------------------------------------------------------------------
 
 type BookRow = { tick: number; amount: bigint; count: bigint };
-type FeedItem = {
-  id: string;
-  type: 'placed' | 'filled' | 'cancelled';
-  side: string;
+type UserOrder = {
+  side: 'YES' | 'NO';
   tick: string;
   amount: bigint;
-  who: `0x${string}`;
-  block: bigint;
+  status: 'open' | 'filled' | 'cancelled';
 };
 
 // ---------------------------------------------------------------------------
@@ -134,7 +123,7 @@ export const Pro = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const marketKey = MARKET_KEYS[marketIdx];
   const canRead = !!SOOTHBOOK && !!marketKey;
-  const isWrongNetwork = walletChain !== BASE_SEPOLIA;
+  const isWrongNetwork = walletChain !== TARGET_CHAIN_ID;
 
   // Trade form
   const [side, setSide] = useState<'yes' | 'no'>('yes');
@@ -153,9 +142,8 @@ export const Pro = () => {
   const [isBookLoading, setIsBookLoading] = useState(false);
 
   // Activity
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const { feed, isLoading: isFeedLoading, refresh: refreshFeed } = useSoothBookFeed(SOOTHBOOK, marketKey);
   const [feedOpen, setFeedOpen] = useState(false);
-  const [isFeedLoading, setIsFeedLoading] = useState(false);
 
   // Derived
   const tick = Math.max(1, Math.min(999, Number(tickInput) || 500));
@@ -209,8 +197,8 @@ export const Pro = () => {
     if (!isWrongNetwork) return true;
     if (!switchChainAsync) { toast.error('Cannot switch network'); return false; }
     try {
-      const r = await switchChainAsync({ chainId: BASE_SEPOLIA });
-      return r.id === BASE_SEPOLIA;
+      const r = await switchChainAsync({ chainId: TARGET_CHAIN_ID });
+      return r.id === TARGET_CHAIN_ID;
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Switch to Base Sepolia');
       return false;
@@ -294,34 +282,6 @@ export const Pro = () => {
     }
   }, [publicClient, marketKey, bestYes, bestNo]);
 
-  // Activity feed
-  const refreshFeed = useCallback(async () => {
-    if (!publicClient || !SOOTHBOOK || !marketKey) return;
-    setIsFeedLoading(true);
-    try {
-      const latest = await publicClient.getBlockNumber();
-      const from = latest > 50000n ? latest - 50000n : 0n;
-      const [placed, filled, cancelled] = await Promise.all([
-        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_PLACED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
-        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_FILLED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
-        publicClient.getLogs({ address: SOOTHBOOK, event: ORDER_CANCELLED, args: { marketKey }, fromBlock: from, toBlock: 'latest' }),
-      ]);
-      const items: FeedItem[] = [];
-      for (const l of placed)
-        items.push({ id: `${l.transactionHash}-${l.logIndex}-p`, type: 'placed', side: Number(l.args.side) === 1 ? 'YES' : 'NO', tick: String(l.args.tick), amount: l.args.amount ?? 0n, who: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
-      for (const l of filled)
-        items.push({ id: `${l.transactionHash}-${l.logIndex}-f`, type: 'filled', side: Number(l.args.takerSide) === 1 ? 'YES' : 'NO', tick: `${l.args.yesTick}/${l.args.noTick}`, amount: l.args.amount ?? 0n, who: l.args.taker as `0x${string}`, block: l.blockNumber ?? 0n });
-      for (const l of cancelled)
-        items.push({ id: `${l.transactionHash}-${l.logIndex}-c`, type: 'cancelled', side: Number(l.args.side) === 1 ? 'YES' : 'NO', tick: String(l.args.tick), amount: l.args.amount ?? 0n, who: l.args.maker as `0x${string}`, block: l.blockNumber ?? 0n });
-      items.sort((a, b) => (a.block > b.block ? -1 : 1));
-      setFeed(items.slice(0, 30));
-    } catch {
-      toast.error('Failed to load activity');
-    } finally {
-      setIsFeedLoading(false);
-    }
-  }, [publicClient, marketKey]);
-
   // Auto-load + auto-refresh
   useEffect(() => {
     if (!canRead || !publicClient || isWrongNetwork) return;
@@ -338,6 +298,62 @@ export const Pro = () => {
 
   // Click on orderbook row → fill tick
   const handleTickClick = (t: number) => setTickInput(String(t));
+
+  const myOpenOrders = useMemo(() => {
+    if (!user) return [] as UserOrder[];
+
+    const userLc = user.toLowerCase();
+    const orders = new Map<string, UserOrder>();
+
+    const reduceOrder = (
+      orderSide: 'YES' | 'NO',
+      orderTick: string,
+      amount: bigint,
+      status: 'filled' | 'cancelled',
+    ) => {
+      const key = `${orderSide}-${orderTick}`;
+      const existing = orders.get(key);
+      if (!existing) return;
+      if (existing.amount <= amount) {
+        existing.amount = 0n;
+        existing.status = status;
+      } else {
+        existing.amount -= amount;
+        existing.status = 'open';
+      }
+      orders.set(key, existing);
+    };
+
+    for (const item of feed) {
+      if (item.type !== 'placed') continue;
+      if (item.who.toLowerCase() !== userLc) continue;
+      const sideLabel = item.side === 'YES' ? 'YES' : 'NO';
+      const key = `${sideLabel}-${item.tick}`;
+      const existing = orders.get(key);
+      if (existing) {
+        existing.amount += item.amount;
+        existing.status = 'open';
+        orders.set(key, existing);
+      } else {
+        orders.set(key, { side: sideLabel, tick: item.tick, amount: item.amount, status: 'open' });
+      }
+    }
+
+    for (const item of feed) {
+      if (item.type === 'cancelled' && item.who.toLowerCase() === userLc) {
+        const sideLabel = item.side === 'YES' ? 'YES' : 'NO';
+        reduceOrder(sideLabel, item.tick, item.amount, 'cancelled');
+      }
+
+      if (item.type === 'filled' && item.maker?.toLowerCase() === userLc && item.makerSide && item.makerTick) {
+        reduceOrder(item.makerSide, item.makerTick, item.amount, 'filled');
+      }
+    }
+
+    return Array.from(orders.values())
+      .filter((order) => order.amount > 0n)
+      .sort((a, b) => Number(a.tick) - Number(b.tick));
+  }, [feed, user]);
 
   // ---------------------------------------------------------------------------
   // Empty state
@@ -410,7 +426,7 @@ export const Pro = () => {
             {fmt(backing as bigint | undefined, 6, 0)} <span className="text-slate-600">USDC</span>
           </div>
           {isWrongNetwork && isConnected && (
-            <Button size="xs" variant="danger" onClick={() => switchChainAsync?.({ chainId: BASE_SEPOLIA })} disabled={isSwitching}>
+            <Button size="xs" variant="danger" onClick={() => switchChainAsync?.({ chainId: TARGET_CHAIN_ID })} disabled={isSwitching}>
               {isSwitching ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Switch'}
             </Button>
           )}
@@ -579,6 +595,14 @@ export const Pro = () => {
               onClick={() => {
                 if (!marketKey) return;
                 const shares = parseUnits(sharesInput, 18);
+                if (escrow && side === 'yes' && noBalVal < shares) {
+                  toast.error('Insufficient NO tokens for escrow sell');
+                  return;
+                }
+                if (escrow && side === 'no' && yesBal < shares) {
+                  toast.error('Insufficient YES tokens for escrow sell');
+                  return;
+                }
                 const maxCost = maxCostInput && Number(maxCostInput) > 0
                   ? parseUnits(maxCostInput, 6)
                   : 0n;
@@ -688,6 +712,46 @@ export const Pro = () => {
                 )}
               </div>
             </div>
+
+            {isConnected && (
+              <>
+                {/* Divider */}
+                <div className="border-t border-slate-800/50" />
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500">My Orders</span>
+                    <span className="text-[10px] bg-slate-800 text-slate-400 rounded-full px-1.5 py-0.5">{myOpenOrders.length}</span>
+                  </div>
+                  {myOpenOrders.length === 0 ? (
+                    <div className="text-xs text-slate-600">No open orders</div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {myOpenOrders.map((order) => {
+                        const sideNum = order.side === 'YES' ? 1 : 0;
+                        const sideClass = order.side === 'YES' ? 'text-emerald-400' : 'text-rose-400';
+                        return (
+                          <div key={`${order.side}-${order.tick}`} className="flex items-center gap-2 text-xs font-mono rounded-lg border border-slate-800/50 px-2 py-1.5">
+                            <span className={`w-8 font-semibold ${sideClass}`}>{order.side}</span>
+                            <span className="text-slate-500">@{order.tick}</span>
+                            <span className="text-slate-200 flex-1 text-right">{fmt(order.amount, 18, 2)}</span>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 px-2"
+                              disabled={!marketKey || isSubmitting}
+                              onClick={() => marketKey && void exec('Cancelling…', 'cancel', [marketKey, sideNum, Number(order.tick)])}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
