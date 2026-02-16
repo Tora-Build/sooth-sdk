@@ -1,3 +1,6 @@
+/// <reference types="ponder/virtual" />
+
+import { and, asc, eq } from "ponder";
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
 
@@ -61,10 +64,64 @@ ponder.on("SoothBook:OrderFilled", async ({ event, context }) => {
     blockNumber: event.block.number,
     txHash: event.transaction.hash,
   });
+
+  const makerSide = takerSide === 0 ? 1 : 0;
+  const makerTick = makerSide === 1 ? yesTick : noTick;
+
+  const activeOrders = await context.db.sql
+    .select()
+    .from(schema.order)
+    .where(
+      and(
+        eq(schema.order.chainId, context.chain.id),
+        eq(schema.order.marketKey, marketKey),
+        eq(schema.order.maker, maker),
+        eq(schema.order.side, makerSide),
+        eq(schema.order.tick, makerTick),
+        eq(schema.order.status, "active")
+      )
+    )
+    .orderBy(asc(schema.order.createdAt));
+
+  if (activeOrders.length === 0) return;
+
+  const targetOrder =
+    activeOrders.find((order) => order.amount - order.filledAmount >= amount) ?? activeOrders[0];
+
+  const nextFilledAmount = targetOrder.filledAmount + amount;
+
+  await context.db.update(schema.order, { id: targetOrder.id }).set({
+    filledAmount: nextFilledAmount,
+    status: nextFilledAmount >= targetOrder.amount ? "filled" : "active",
+  });
 });
 
 ponder.on("SoothBook:OrderCancelled", async ({ event, context }) => {
-  const { marketKey, maker, amount } = event.args;
+  const { marketKey, side, tick, maker, amount } = event.args;
+
+  const activeOrders = await context.db.sql
+    .select()
+    .from(schema.order)
+    .where(
+      and(
+        eq(schema.order.chainId, context.chain.id),
+        eq(schema.order.marketKey, marketKey),
+        eq(schema.order.maker, maker),
+        eq(schema.order.side, side),
+        eq(schema.order.tick, tick),
+        eq(schema.order.status, "active")
+      )
+    )
+    .orderBy(asc(schema.order.createdAt));
+
+  if (activeOrders.length > 0) {
+    const targetOrder =
+      activeOrders.find((order) => order.amount - order.filledAmount === amount) ?? activeOrders[0];
+
+    await context.db.update(schema.order, { id: targetOrder.id }).set({
+      status: "cancelled",
+    });
+  }
 
   await context.db.insert(schema.mintMerge).values({
     id: eventId(event.transaction.hash, event.log.logIndex),

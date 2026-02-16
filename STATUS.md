@@ -6,7 +6,7 @@
 
 ## V12 SoothBook (Current)
 
-V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines). No vault, no growth accumulators, ERC20 outcome tokens, FIFO matching. TickBook has been fully removed from the codebase.
+V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 atomic actions, ERC20 outcome tokens, and FIFO matching. No vault, no growth accumulators. TickBook has been fully removed from the codebase.
 
 | Feature | Description | Status |
 |---------|-------------|--------|
@@ -17,7 +17,7 @@ V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines).
 | Tick bitmap | O(1) tick discovery via TickBitmap library | ✅ Deployed |
 | Market resolution | `resolveMarket` (onlyOwner) + `redeem` | ✅ Deployed |
 
-**Tests**: 207 passing (45 SoothBook + 162 protocol)
+**Tests**: 218 passing (45 SoothBook + 173 protocol)
 
 ### V12 Stack
 
@@ -55,91 +55,29 @@ V12 replaces TickBook with **SoothBook** — a standalone orderbook (602 lines).
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
 ## Current Focus
-- **V12 Fresh Deployment + Pro Page Redesign (2026-02-15)** — Deployed fresh V12 contracts to Base Sepolia with new addresses. Pro page redesigned to focus on SoothBook trading with improved UI. Trade page continues AMM trading for pre-graduation markets. Both pages read from deployments.json for contract addresses.
+- **V12 Migration Repair Complete (2026-02-16)** — Completed comprehensive diagnostic and repair of V11→V12 migration damage. The original migration incorrectly treated SoothBook as "standalone" (independent from LaunchpadEngine), causing features to be deleted instead of replaced. All 8 repair tasks completed: hooks rewired to SoothBook, vault→wallet mode, positions via ERC20, indexer handlers fixed, ~80 TS errors resolved, CLI on-chain market discovery, Portfolio page integrated, order store wired. `tsc --noEmit` 0 errors, `npm run build` success, `forge test` 218 passing.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-16** — **V12 Migration Diagnostic & Repair**: Full audit of V11→V12 "standalone SoothBook" damage. Identified 24 items — 7 needed replacement, 5 were broken stubs. Fixed all: `useOrderbook.ts` + `useOrderbookTrade.ts` rewired to SoothBook (tick-depth reads, buyYes/buyNo/mint/merge/cancel/redeem, Polymarket-style mapping). `useTraderVault` → wallet mode (no vault). `useActivePositions` → SoothBook ERC20 YES/NO tokens + `getImpliedPrice`. `useLockedProceeds`/`useLockedFunds` → clean noops. `TradingAccountCard` → wallet USDC approval semantics. `PositionActionsModal` → wallet wording. Indexer `OrderFilled`/`OrderCancelled` handlers fixed + 6 API endpoints added. ~80 TS errors fixed (ABIS type spread, missing type exports). CLI `markets` command now discovers on-chain markets from LaunchpadEngine. Portfolio page integrated with TradingAccountCard + ActiveOrdersCard. Order store wired to useOrderbookTrade. Pro page findings written to `.agent/PRO_PAGE_FINDINGS.md`.
+- **2026-02-15** — **V12 Fresh Deployment**: Deployed fresh V12 contracts to Base Sepolia. Fixed deploy script to transfer SoothBook ownership to LaunchpadEngine (was missing — root cause of graduation not creating SoothBook markets).
 - **2026-02-15** — **TickBook Removal**: Removed TickBookPoolManager, TickBookVault, interfaces, hooks, DynamicFeeHook across all layers. SoothBook is now the sole orderbook. 13 test files removed, CLI/SDK/indexer/frontend cleaned of all TickBook references. Updated LaunchpadEngine (removed `_tickBook` constructor param). Zero TickBook references in active code.
-- **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia (contract `0xBcD904...`). Created 3 test markets with seeded liquidity. Built full integration: CLI with 11 `sb*` commands wired into REPL, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables, `useSoothBookMarket` hook, V12Workbench refactored to use `deployments.json` and shared ABIs. 45 unit tests passing. All builds clean.
-- **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction in Sooth Lite. Indexer now computes `yesProbability` locally from reserves (removed 67s/event RPC calls). Added `yesReserves`/`noReserves` fields to schema. Frontend `usePositions` refactored to use indexer endpoints. `useAMMQuote` optimized to only query when user types input. Added `useIndexerHealth` hook and status indicator. Fixed TradeModal accessibility (Drawer.Title). Result: Zero 429 errors.
-- **2026-02-04** — **Mobile WalletConnect Debugging**: Added WalletConnect/AppKit storage cleanup path, safe JSON parsing, dev client reinstall, Metro polyfills for Node18 (`URL.canParse`, `toReversed`), and AppKit event/log instrumentation. Added manual storage reset in Login screen. Still seeing LINKING_ERROR on mobile deep link and connect state not updating.
-- **2026-01-30** — **Mobile Trading App Complete**: Built full-featured Expo mobile app (7 tasks, 3,019 lines, 7 commits). Features: Privy social login (email/Google/Apple), Stories-style market discovery with swipeable cards, AMM + TickBook trading with approval flow, portfolio with redemption, haptic feedback, skeleton loaders, transaction overlays, smart error messages. Extended `@sooth/sdk-core` with ABIs and contract functions. All TypeScript strict mode, zero compilation errors. Documentation in `.sisyphus/mobile-app-COMPLETE.md`.
-- **2026-01-27** — **Finalized Markets UI Audit**: Fixed AMMSettlementCard mock data (users can now see positions and claim payouts), fixed LPHolders null return (LP Leaderboard now visible on finalized markets), verified stage detection logic (correct, issue is data-level), improved UI for Trade and Pro pages (prominent status badges, clear CTAs, better visual hierarchy), decided to KEEP UserOrdersPanel in Pro finalized view (users need to cancel orders to retrieve collateral). All changes verified with passing builds. Documentation complete in `.sisyphus/notepads/finalized-markets-ui-audit/`.
-- **2026-01-26** — **V11.1 fresh deployment to Base Sepolia, single-chain focus**
-- **2026-01-25** — **Trial Period Tests**: Updated TrialPeriodFlow + TrialPeriodInvariants to warp past the trial period before dismissal and align expectations with the on-chain rule. Full `forge test` passing again.
-- **2026-01-24** — **Frontend Stage Filtering**: Added comprehensive stage filtering to Trade and Pro pages. Now properly distinguishes 5 stages: `bonding`, `graduated`, `settled`, `finalized`, `dismissed`. Key changes:
-  - `useOnChainMarkets.ts`: Reads `isFinalized` from TruthMarket for each market
-  - `useTruthMarketDirect.ts`: Added `isFinalized` to market data
-  - `AMMSettlementCard.tsx`: Shows different UI for settled (amber, "Veto Period Active") vs finalized (emerald, claim button enabled)
-  - `DismissedMarketPanel.tsx`: New component for V11 trial period refund claims
-  - `Trade.tsx` / `Pro.tsx`: Stage filter dropdown with counts per stage
-  - Pro page excludes settled/finalized/dismissed markets (only tradeable markets)
-- **2026-01-24** — **CLI Checksum Complete Fix**: Added `vaultMarketCollateral` (TickBookVault) and `lpYieldPool` (LaunchpadEngine) tracking to `checksum` command. Previous -1.27 USDC discrepancy was due to missing tracking of these contract-held funds. Checksum now shows "Potential Stuck USDC" section when `vaultMarketCollateral > 0` or `lpYieldPool > 0`. The `market-lifecycle-multi-actor` scenario now passes with exact 0.00 USDC balance.
-- **2026-01-23** — **CLI Zero-Sum P&L Fix**: Added AMM position tracking to `snapshot` and `checksum` commands. Previously missing `AMMEngine.getPosition()` data caused -71.24 USDC discrepancy after `market-lifecycle-multi-actor` scenario. Now tracks `ammYes`/`ammNo` per actor and includes in total value calculations.
-- **2026-01-22** — **CLI Multi-Actor Automation**: Added `market-lifecycle-multi-actor` scenario, `--scenario` auto-run flag, scenario failure enforcement, `setmarket created` flow, keeper `claimspotsellfor` command, and actor role mapping (alice/bob/charlie/david/ellen). Updated README help strings.
-- **2026-01-21** — **Protocol Guardian + Pause Wiring**: Added `ProtocolConfig` (guardian list + pause), shifted guardian checks to protocol-level, adjudicator-only finalize, Launchpad auto-register with per-market adjudicator config, and updated frontend + scripts to new `createMarket` signature. Ported `validate-spot-crossing.ts` to V11 flow (launchpad → graduation → TickBook).
-- **2026-01-21** — **TickBookPoolManager Size + Crossing Fix**: Removed `placeOrderWithPermit`, `placeOrderWithAgent`, and `clearDustLiquidity` from TickBookPoolManager to stay under EVM code size. Fixed spot-sell crossing iteration to avoid OOB when multiple sells share ticks; updated ABIs.
-- **2026-01-21** — **V11 Architecture Decisions**: Added ADR-082 (adjudicator trust: permissionless choice, off-chain registry, protocol-level guardian, adjudicator-only finalize, tStar deferred with finalize hook, auto-register via Launchpad) and ADR-083 (canonical filenames: rename `LaunchpadEngineV11.sol` → `LaunchpadEngine.sol`, move `test/v11/` to feature paths). Updated CLI actor testing tool plan with Protocol Owner actor, Action Purpose table, and guardian/pause flows.
-- **2026-01-20** — **V11 Implementation**: Implemented ERC-8004 Trustless Agents interfaces and Trial Period mechanics. Created `IERC8004.sol` (Identity, Reputation, Validation registries), `LaunchpadLPToken.sol` (ERC20 with settlement-locked transfers), `ValidatedAdjudicator.sol` (TEE attestation-based settlement), `LaunchpadEngineV11.sol` (trial period + adjudicator readiness). TickBook permit/agent order functions later deferred for code size. All 132 V11 tests pass.
-- **2026-01-20** — **V11 Policy Alignment**: Disabled agent-gated markets and Launchpad fee discounts; `tradeWithAgent` deferred/removed to reduce code size. TickBook keeps agent attribution hooks only. Batched `forge test` runs passed.
-- **2026-01-18** — **Code Quality Sprint**: Created production-safe logger utility (`apps/web/src/lib/logger.ts`) with namespaced loggers (trade, order, claim, market, etc.) that only logs in development. Replaced all 69 console.log/warn/error statements across 13 frontend files. Fixed `any` types in `useMarketStore.ts`. Added `ErrorBoundary` component. Enhanced `types.ts` with comprehensive protocol types. Added `MarketInitialized` event to `AMMEngine.sol`. Added unchecked arithmetic to `TickBookPoolManager.sol` batch operations (saves ~100-500 gas per batch). Removed dead code (`useLaunchpadMarketLegacy.ts`). All 90 contract tests pass, frontend builds.
-- **2026-01-16** — **Indexer Stability Fixes**: Diagnosed "PGlite is closed" errors caused by corrupted WASM database under multi-chain load. Fixed MegaETH RPC URL (`timothy` → `carrot.megaeth.com`). Added `RangeOrderPlaced` handler for V10.8.1 backward compatibility. Added missing ABI events (TickBookVault, AMMEngine). Migrated local dev to PostgreSQL.
-- **2026-01-16** — **Trade/Pro UI Polish**: Fixed market chip cards - now show 2 lines for long questions, smaller font (`text-xs`), fixed width (`w-[320px]`/`w-[280px]`).
-- **2026-01-16** — **CLI V10.8.3 Compatibility Fix**: Fixed internal CLI and web SDK to work with V10.8.3 contracts. Updated inline ABIs (removed name/symbol from MarketState). CLI now fetches market names from `TruthMarket.question()`. Unified two-line market display format. Removed debug messages and auto-select market feature.
-- **2026-01-16** — **V10.8.3 Symbol Simplification**: Removed `symbol` param from `createMarket()`, `name`/`symbol` from `MarketState` struct. Symbol now auto-derived from market address (first 4 bytes). Deployed to all 4 testnets. Updated frontend ABIs, SDK, CLI, and indexer.
-- **2026-01-16** — **V10.8.2 Contract Optimization**: Removed `buyFromSpotSell()` function from TickBookPoolManager. V10 unified crossing already handles spot fills automatically (spot-first priority via `placeOrder`). Removed CLI `buyspotsell` command and ABI entries.
-- **2026-01-16** — **Indexer Event Enhancement**: Added `symbol` field to `LaunchpadEngine.MarketCreated` event. Added `LaunchpadEngine:MarketCreated` and `LaunchpadEngine:MarketGraduated` handlers to indexer. Market symbols now captured in `launchpad_market` table.
-- **2026-01-16** — **Trade/Pro UI Cleanup**: Removed "Bonding Fee: 5%" badge from GraduationProgress (returns null for graduated markets). Added fee info to MarketDetailHeader status badge (`Graduated · 1% Fee` or `Bonding · 5% Fee`). Moved market header card into Pro left panel only. Updated LiquidityMap stats.
-- **2026-01-16** — **SDK Streaming Progress**: Added progress callbacks to `createmarket`, `graduate`, `registermarket` commands. Geek page shows streaming step updates (`[1/4] Checking USDC...`).
-- **2026-01-16** — **Geek Mode CLI**: Added `/geek` page with browser-based CLI. Features: WebTerminal with streaming output, local wallet (create/enable/disable/clear), simulate command with detailed order output (like internal CLI), market persistence. Created `@sooth/sdk-core` shared package unifying utilities between internal CLI and web SDK.
-- **2026-01-15** — **Pro UI Refinement**: Removed the Split/Merge panel from `Pro.tsx`. The feature was creating confusion because the generated ERC20 tokens cannot be traded on the Vault-based orderbook (no bridge exists). The panel code remains in the codebase (`SplitMergePanel.tsx`) with integer formatting fixes applied for future use.
-- **2026-01-14** — **MegaETH Graduation Gas Fix**: Fixed graduation tx failures on MegaETH. MegaETH's multidimensional gas model charges 10k storage gas/byte for code deposit. Deploying 2 OutcomeTokens (~4.4KB) requires ~44M storage gas. Updated CLI and frontend to use 60M gas for graduation trades on MegaETH. Also switched to official MegaETH RPC (`carrot.megaeth.com/rpc`).
-- **2026-01-14** — **MegaETH Stability Fixes**: Debugged and resolved market creation reverts on MegaETH. Root cause was a 28M gas requirement (vs 2.5M cap) and local clock drift. Updated CLI to use block timestamp for deadlines and enabled AMM trading in CLI.
-- **2026-01-13** — **Portfolio Market Name Fix**: Fixed bug where Portfolio page displayed "MARKET 0X9F7F2A" instead of actual market question. Root cause: when indexer was ready, code used placeholder names. Fix: always use RPC data for market names (LaunchpadEngine.markets() returns full question).
-- **2026-01-13** — **Indexer Schema Update**: Added `name` and `symbol` fields to `launchpadMarket` table. Handler initializes to null; future work to populate via TruthMarket factory pattern or contract event change.
-- **2026-01-13** — **Interactive CLI RPC Fallback**: `createmarket`/wallet balance reads now retry `readContract` across fallback Monad RPC endpoints when a node returns empty call data (viem: `returned no data ("0x")`).
-- **2026-01-13** — **Indexer Arc Backfill Reliability**: Set Arc `ethGetLogsBlockRange` to `10` to support Alchemy free tier (avoids `eth_getLogs` 10-block range 400s).
-- **2026-01-12** — **Mobile UI Polish**: Fixed Pro page header vertical text bug (market question displayed one char per line on mobile). Fixed orders list Cancel button cutoff with horizontal scroll wrapper (`min-w-[480px]`). Applied same fix to Spot Sells section.
-- **2026-01-12** — **UI Rules Consolidation**: Created global `~/.claude/skills/ui-rules/SKILL.md` with technical constraints (z-index scale, min text size, safe-area insets). Simplified `frontend-dev.md` to creative philosophy only. Added deep ocean bubble animation to Launchpad, aria-labels to icon buttons, text-balance/text-pretty to headings/paragraphs.
-- **2026-01-12** — **Arc V10.8 Deployment + Full Sync**: Deployed V10.8 to Arc Testnet using stable RPC (`rpc.testnet.arc.network`). Synced addresses to indexer (`ponder.config.ts`), CLI (`config.ts`), README, and frontend. All 3 testnets now on V10.8.
-- **2026-01-12** — **Trade/Pro Category & Title Fixes**: Fixed category filter switching bug (stale market display), aligned categories with Launchpad (`crypto, sports, cultures, others`), fixed truncated market titles by using `TruthMarket.question` instead of `LaunchpadEngine.markets.name` (contract truncates to 50 chars).
-- **2026-01-12** — **V10.8 Redeploy (Base + Monad)**: Deployed fresh core contracts; updated frontend `deployments.json` and indexer start blocks.
-- **2026-01-09** — **Deployment Scripts Enhanced**: Added root `.env` loading to `deploy-multichain.ts` and `create-alien-markets.ts`. Created `validate-v10.7-fix.ts` for on-chain testing.
-- **2026-01-09** — **LiquidityMap Color Fix**: Fixed bucket side overwrite bug where last-processed order determined color. Now tracks YES/NO liquidity separately per bucket and uses dominant side for coloring. Added RPC fallback for spot sells.
-- **2026-01-07** — **Launchpad Two-Column Layout**: Complete refactor with sticky form (left), contextual info (right), P\u0026L Simulator in drawer, mobile Create/Learn tab selector.
-- **2026-01-07** — **V10.6 Arc Testnet Deploy**: Completed V10.6 deployment to Arc Testnet. All 3 chains now on V10.6.
-- **2026-01-07** — **V10.6 Dust Order Fix**: Orders with <1000 wei unfilled now stay `active=true` (visible) instead of disappearing. Liquidity removed from book but order remains claimable.
-- **2026-01-06** — **V10.4 Spot Fill Optimization (RFC-001)**: Merged tick-indexed spot fills for O(overlap) gas complexity. Added 50-tick range cap (`MAX_SPOT_RANGE`). See ADR-075.
-- **2026-01-05** — **V10.0.1 Deployed**: Full redeployment to Base Sepolia and Monad Testnet with pro-rata accumulator fix. All 10 V10 forge tests pass.
-- **2026-01-05** — **V9.9.8-fix: Pro-rata Accumulator Bug**: Fixed fill growth denominator using `oppTotalLiq` instead of `oppLiqInOverlap`. Prevents orders showing 99% filled when only small crossings occurred.
-- **2026-01-05** — **Frontend Fixes**: Fixed hybrid sell (now splits spot + short correctly), fixed `calculateMaxCost` for range orders (uses correct bounds per outcome), removed failing publicnode RPC.
-- **2026-01-05** — **CLI Enhancements**: Added `claimspotsell`, `hybridsell` commands. Added spot/hybrid sell to simulate. Increased batch claim limit to 50.
-- **2026-01-05** — **Repo Hygiene**: Librarian cleanup executed. Enforced canonical filenames (`TickBookPoolManager.json`, `baseSepolia.json`). Removed versioned ABI keys, unified around `ABIS`.
-- **2026-01-05** — **V10 Audit & Cleanup**: Removed historical `TickBookPoolManagerV996.sol` and legacy V9 tests. Renamed CLI variables (`keyV996` → `keyV10`) for consistency.
-- **2026-01-05** — V10 Unified Crossing: Created `TickBookPoolManagerV10.sol` with dual-collateral architecture. Spot fills first, then range. See ADR-073.
-- **2026-01-05** — V9.9.8 Bug Fixes: Fixed `cancelSpotSell` double-credit vulnerability (proceeds zeroed before credit), indexer tick liquidity on cancel, MarketRegistered ABI mismatch.
-- **2026-01-05** — V9.9.7 Spot Sell: Added `placeSpotSell`, `cancelSpotSell`, `buyFromSpotSell` to contract. Frontend Pro.tsx updated to use spot sell for users with existing shares.
-- **2026-01-04** — Pro Page Order Management: Simplified order actions (Cancel/Claim), always use RPC for fill tracking, added `batchCancelOrders` to contract.
-
-- **2026-01-06** — **Monad Testnet Stable**: Fixed `simulate` CLI crash, configured 2M gas limit, and successfully created test markets ("UN Confirms Alien Life").
-- **2026-01-06** — **Frontend V10 Integrated**: Updated addresses and ABIs for V10.3.0 deployment.
-- **2026-01-06** — **Graduate Command Verified**: Validated fee accumulation and graduation logic on V10.
-- **2026-01-06** — **Pro Market Order Disabled**: Removed Market toggle / floor UI from Pro terminal pending contract-level market sweep semantics.
-- **2026-01-06** — **Tick 999 Boundary Fix**: Adjusted tick boundary bookkeeping to make overlap discovery aware of liquidity that reaches MAX_TICK.
+- **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia. Built full integration: CLI with 11 `sb*` commands, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables. 45 unit tests passing.
+- **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction. Indexer computes `yesProbability` locally. Frontend `usePositions` refactored to indexer endpoints. `useAMMQuote` optimized. Result: Zero 429 errors.
 
 ## Pending/Blocked
-- **LaunchpadEngine graduation** — Graduation currently does NOT register markets in SoothBook (TickBook registration was removed). Needs reconnecting for production.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
 - **Multi-chain SoothBook deploy** — SoothBook only deployed to Base Sepolia. Monad, MegaETH, Arc need fresh deployments.
 - **CLI scenarios** — YAML scenarios in `packages/contracts-testing/script/interactive/scenarios/` still reference TickBook commands. Need updating for SoothBook.
+- **Indexer LaunchpadEngine/AMMEngine handlers** — `ponder.config.ts` configures them but no `ponder.on("LaunchpadEngine:...")` handlers exist. Schema tables (`launchpadMarket`, `ammPosition`, `lpBalance`, `lockEntry`) are never populated.
 
 ## Recently Completed
-- ✅ **Deploy Indexer Fixes to Render** — Pushed to `render` branch: MegaETH RPC fix (`carrot.megaeth.com/rpc`), RangeOrderPlaced handler, all event handlers verified.
-- ✅ **Address Sync** — Fixed `baseSepolia.json` with correct V10.8.3 addresses. All config files now consistent (indexer, frontend, keeper, contracts-core).
+- ✅ **V12 Migration Repair (2026-02-16)** — All 8 diagnostic/repair tasks complete. 0 TS errors, build passes, 218 forge tests passing.
+- ✅ **V12 Fresh Deployment (2026-02-15)** — Fresh contracts deployed to Base Sepolia with SoothBook ownership correctly transferred to LaunchpadEngine.
+- ✅ **TickBook Full Removal (2026-02-15)** — Zero TickBook references in active code.
 
 ## Known Issues
 - **Mobile Wallet Connect** — AppKit reports CONNECT_SUCCESS but `useAccount` stays disconnected; LINKING_ERROR on mobile wallet deep links (Base/Coinbase).
 - **Monad RPC Empty eth_call** — Some Monad testnet RPC endpoints intermittently return empty data (`0x`) for view calls.
-- **Keeper bot** — `packages/keeper/` still references TickBook. Needs removal or rewrite for SoothBook.
 
 ## V9.9.6 Bug Fixes Summary (2026-01-02)
 

@@ -199,13 +199,18 @@ export function Geek() {
       return [];
     }
 
-    if (cmd === 'registermarket') {
-      const out = (line: OutputLine) => stream?.(line);
-      await sdk.registermarket(parts.slice(1), out);
-      return [];
-    }
-
     if (cmd === 'simulate') {
+      type SimulatedOrder = {
+        orderId: bigint;
+        outcome: number;
+        tickLower: number;
+        tickUpper: number;
+        shares: bigint;
+        filledShares: bigint;
+        restingShares: bigint;
+        orderType: string;
+        gasUsed?: bigint;
+      };
       const count = parseInt(parts[1] || '10', 10);
       const avgSize = parseInt(parts[2] || '100', 10);
       if (isNaN(count) || count < 1 || count > 1000) {
@@ -214,7 +219,8 @@ export function Geek() {
 
       const out = (line: OutputLine) => stream ? stream(line) : undefined;
 
-      const { result: testResult, orderResult: testOrder } = await sdk.executeCommand('order yes 50 1');
+      const { result: testResult } = await sdk.executeCommand('order yes 50 1');
+      const testOrder = testResult.data as SimulatedOrder | undefined;
       if (!testResult.success) {
         const msg = testResult.message || 'Unknown error';
         if (msg.includes('No market') || msg.includes('No wallet')) {
@@ -242,7 +248,7 @@ export function Geek() {
       let failedCount = 0;
       let totalGas = testOrder?.gasUsed || 0n;
 
-      const formatOrderLine = (i: number, or: { orderId: bigint; outcome: number; tickLower: number; tickUpper: number; shares: bigint; filledShares: bigint; restingShares: bigint; orderType: string; gasUsed?: bigint }) => {
+      const formatOrderLine = (i: number, or: SimulatedOrder) => {
         const typeTag = or.orderType === 'market' ? 'MKT' : or.orderType === 'limit' ? 'LMT' : 'RNG';
         const side = or.outcome === 1 ? 'YES' : 'NO';
         const range = `${(or.tickLower / 10).toFixed(1)}%-${(or.tickUpper / 10).toFixed(1)}%`;
@@ -287,7 +293,8 @@ export function Geek() {
         const orderArgs = `${side} ${tickArg} ${shares}`;
 
         try {
-          const { result, orderResult } = await sdk.executeCommand(`order ${orderArgs}`);
+          const { result } = await sdk.executeCommand(`order ${orderArgs}`);
+          const orderResult = result.data as SimulatedOrder | undefined;
           if (result.success && orderResult) {
             successCount++;
             totalGas += orderResult.gasUsed || 0n;

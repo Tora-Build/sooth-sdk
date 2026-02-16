@@ -1,10 +1,18 @@
-import { useAccount, useReadContracts, useChainId } from 'wagmi';
-import { useCallback, useMemo } from 'react';
-import { LAUNCHPAD_MARKET_ABI, ERC20_ABI } from '../config/abis';
-import { useDeployments } from './useDeployments';
-import { useLaunchpadMarkets } from './useLaunchpadMarkets';
-import { formatUnits } from 'viem';
-import { getPollingInterval } from '../lib/polling';
+import { useAccount, useChainId } from "wagmi";
+import { useCallback, useMemo } from "react";
+import { ERC20_ABI, LAUNCHPAD_MARKET_ABI } from "../config/abis";
+import { useDeployments } from "./useDeployments";
+import { useLaunchpadMarkets } from "./useLaunchpadMarkets";
+import { formatUnits, parseAbi } from "viem";
+import { getPollingInterval } from "../lib/polling";
+import { useDirectRead, readContractSafe } from "./useDirectRead";
+
+const LOCK_READ_ABI = parseAbi([
+  "function lockedBalance(address user) view returns (uint256)",
+  "function claimableBalance(address user) view returns (uint256)",
+  "function nextUnlock(address user) view returns (uint256 amount, uint64 unlockTime)",
+  "function getLockEntries(address user) view returns (uint256[] amounts, uint64[] unlockTimes)",
+]);
 
 export interface UseLockedFundsResult {
   locked: bigint;
@@ -41,10 +49,24 @@ export interface LockEntry {
   marketName?: string;
 }
 
+interface LockedFundsData {
+  locked: bigint;
+  claimable: bigint;
+  available: bigint;
+  pending: bigint;
+  total: bigint;
+  vaultLocked: bigint;
+  marketLocked: bigint;
+  decimals: number;
+  nextUnlockAmount: bigint;
+  nextUnlockTimestamp: number;
+  entries: LockEntry[];
+}
+
 export function useLockedFunds(): UseLockedFundsResult {
   const { address } = useAccount();
-  const { config } = useDeployments();
   const chainId = useChainId();
+  const { config } = useDeployments();
   const contracts = config.contracts;
   const { markets, isLoading: marketsLoading } = useLaunchpadMarkets();
 
@@ -53,10 +75,10 @@ export function useLockedFunds(): UseLockedFundsResult {
     const seen = new Set<string>();
 
     if (markets) {
-      markets.forEach((m) => {
-        if (m.address && !seen.has(m.address.toLowerCase())) {
-          seen.add(m.address.toLowerCase());
-          list.push({ address: m.address, name: m.name });
+      markets.forEach((market) => {
+        if (market.address && !seen.has(market.address.toLowerCase())) {
+          seen.add(market.address.toLowerCase());
+          list.push({ address: market.address, name: market.name });
         }
       });
     }
@@ -64,119 +86,139 @@ export function useLockedFunds(): UseLockedFundsResult {
     return list;
   }, [markets]);
 
-  const marketContracts = useMemo(() => {
-    if (!address) return [];
+  const marketScope = useMemo(() => uniqueMarkets.map((m) => m.address), [uniqueMarkets]);
 
-    const calls: any[] = [];
-    uniqueMarkets.forEach((market) => {
-      calls.push(
-        { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'lockedBalance', args: [address], chainId },
-        { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'claimableBalance', args: [address], chainId },
-        { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'nextUnlock', args: [address], chainId },
-        { address: market.address, abi: LAUNCHPAD_MARKET_ABI, functionName: 'getLockEntries', args: [address], chainId }
-      );
-    });
+  const lockQuery = useDirectRead<LockedFundsData>({
+    queryKey: ["v12", "lockedFunds", chainId, address, contracts?.MockUSDC, marketScope],
+    enabled: !!address && !!contracts?.MockUSDC,
+    chainId,
+    refetchInterval: getPollingInterval(chainId, "slow"),
+    staleTime: 10_000,
+    read: async (client) => {
+      if (!address || !contracts?.MockUSDC) {
+        return {
+          locked: 0n,
+          claimable: 0n,
+          available: 0n,
+          pending: 0n,
+          total: 0n,
+          vaultLocked: 0n,
+          marketLocked: 0n,
+          decimals: 6,
+          nextUnlockAmount: 0n,
+          nextUnlockTimestamp: 0,
+          entries: [],
+        };
+      }
 
-    return calls;
-  }, [address, uniqueMarkets, chainId]);
+      const usdcAddress = contracts.MockUSDC as `0x${string}`;
+      const [available, rawDecimals] = await Promise.all([
+        readContractSafe<bigint>(client, {
+          address: usdcAddress,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        }).catch(() => 0n),
+        readContractSafe<number | bigint>(client, {
+          address: usdcAddress,
+          abi: ERC20_ABI,
+          functionName: "decimals",
+        }).catch(() => 6),
+      ]);
 
-  const { data: lockData, isLoading: lockDataLoading, refetch } = useReadContracts({
-    contracts: [
-      ...marketContracts,
-      {
-        address: contracts?.MockUSDC as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'balanceOf',
-        args: address ? [address] : undefined,
-        chainId,
-      },
-      { address: contracts?.MockUSDC as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals', chainId },
-    ],
-    query: {
-      enabled: !!address && !!contracts?.MockUSDC,
-      refetchInterval: getPollingInterval(chainId, 'slow'),
-      staleTime: 10000,
+      const decimals = Number(rawDecimals ?? 6);
+      const now = Math.floor(Date.now() / 1000);
+      let locked = 0n;
+      let claimable = 0n;
+      const entries: LockEntry[] = [];
+
+      for (const market of uniqueMarkets) {
+        const [lockedBalance, claimableBalance, lockEntries] = await Promise.all([
+          readContractSafe<bigint>(client, {
+            address: market.address,
+            abi: LOCK_READ_ABI,
+            functionName: "lockedBalance",
+            args: [address],
+          }).catch(async () => {
+            return await readContractSafe<bigint>(client, {
+              address: market.address,
+              abi: LAUNCHPAD_MARKET_ABI,
+              functionName: "lockedProceeds",
+              args: [address],
+            }).catch(() => 0n);
+          }),
+          readContractSafe<bigint>(client, {
+            address: market.address,
+            abi: LOCK_READ_ABI,
+            functionName: "claimableBalance",
+            args: [address],
+          }).catch(() => 0n),
+          readContractSafe<readonly [bigint[], bigint[]]>(client, {
+            address: market.address,
+            abi: LOCK_READ_ABI,
+            functionName: "getLockEntries",
+            args: [address],
+          }).catch(() => null),
+        ]);
+
+        locked += lockedBalance;
+        claimable += claimableBalance;
+
+        if (lockEntries && Array.isArray(lockEntries[0])) {
+          lockEntries[0].forEach((amount, index) => {
+            const unlockTime = Number(lockEntries[1][index] ?? 0n);
+            entries.push({
+              amount,
+              unlockTime,
+              isClaimable: unlockTime <= now,
+              timeRemaining: Math.max(0, unlockTime - now),
+              marketAddress: market.address,
+              marketName: market.name,
+            });
+          });
+        }
+      }
+
+      entries.sort((a, b) => a.unlockTime - b.unlockTime);
+      const nextEntry = entries.find((entry) => !entry.isClaimable);
+
+      return {
+        locked,
+        claimable,
+        available,
+        pending: 0n,
+        total: available + locked,
+        vaultLocked: 0n,
+        marketLocked: locked,
+        decimals,
+        nextUnlockAmount: nextEntry?.amount ?? 0n,
+        nextUnlockTimestamp: nextEntry?.unlockTime ?? 0,
+        entries,
+      };
     },
   });
 
-  const aggregated = useMemo(() => {
-    let totalLocked = 0n;
-    let totalClaimable = 0n;
-    let marketLocked = 0n;
-    const allEntries: LockEntry[] = [];
+  const aggregated = lockQuery.data ?? {
+    locked: 0n,
+    claimable: 0n,
+    available: 0n,
+    pending: 0n,
+    total: 0n,
+    vaultLocked: 0n,
+    marketLocked: 0n,
+    decimals: 6,
+    nextUnlockAmount: 0n,
+    nextUnlockTimestamp: 0,
+    entries: [],
+  };
 
-    if (!lockData || !address || lockData.length < 2) {
-      return {
-        locked: 0n,
-        claimable: 0n,
-        available: 0n,
-        pending: 0n,
-        total: 0n,
-        vaultLocked: 0n,
-        marketLocked: 0n,
-        nextUnlockAmount: 0n,
-        nextUnlockTimestamp: 0,
-        entries: [],
-        decimals: 6,
-      };
-    }
-
-    const usdcBalance = (lockData[lockData.length - 2]?.result as bigint) || 0n;
-    const assetDecimals = Number(lockData[lockData.length - 1]?.result || 6);
-
-    let cursor = 0;
-    const now = Math.floor(Date.now() / 1000);
-
-    uniqueMarkets.forEach((market) => {
-      if (cursor + 4 > lockData.length - 2) return;
-
-      const mLocked = (lockData[cursor++]?.result as bigint) || 0n;
-      const mClaimable = (lockData[cursor++]?.result as bigint) || 0n;
-      cursor++;
-      const marketEntries = lockData[cursor++]?.result as [bigint[], bigint[]] | undefined;
-
-      totalLocked += mLocked;
-      marketLocked += mLocked;
-      totalClaimable += mClaimable;
-
-      if (marketEntries && Array.isArray(marketEntries[0])) {
-        marketEntries[0].forEach((amt, i) => {
-          const time = Number(marketEntries[1][i]);
-          allEntries.push({
-            amount: amt,
-            unlockTime: time,
-            isClaimable: time <= now,
-            timeRemaining: Math.max(0, time - now),
-            marketAddress: market.address,
-            marketName: market.name,
-          });
-        });
-      }
-    });
-
-    allEntries.sort((a, b) => a.unlockTime - b.unlockTime);
-    const nextEntry = allEntries.find((e) => !e.isClaimable);
-
-    return {
-      locked: totalLocked,
-      claimable: totalClaimable,
-      available: usdcBalance,
-      pending: 0n,
-      total: usdcBalance + totalLocked,
-      vaultLocked: 0n,
-      marketLocked,
-      nextUnlockAmount: nextEntry?.amount || 0n,
-      nextUnlockTimestamp: nextEntry?.unlockTime || 0,
-      entries: allEntries,
-      decimals: assetDecimals,
-    };
-  }, [lockData, address, uniqueMarkets]);
-
-  const claim = useCallback(async () => {}, []);
+  const claim = useCallback(async () => {
+    console.info("No global claim action is available in V12 from this hook.");
+  }, []);
 
   const formatUSD = (value: bigint) => {
     const num = parseFloat(formatUnits(value, aggregated.decimals));
-    return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    return num.toLocaleString("en-US", { style: "currency", currency: "USD" });
   };
 
   const lockedFormatted = formatUSD(aggregated.locked);
@@ -190,8 +232,12 @@ export function useLockedFunds(): UseLockedFundsResult {
   const secondsRemaining = Math.max(0, aggregated.nextUnlockTimestamp - nowSeconds);
   const timeRemaining =
     secondsRemaining <= 0
-      ? 'Ready'
+      ? "Ready"
       : `${Math.floor(secondsRemaining / 3600)}h ${Math.floor((secondsRemaining % 3600) / 60)}m`;
+
+  const refetch = useCallback(() => {
+    void lockQuery.refetch();
+  }, [lockQuery]);
 
   return useMemo(
     () => ({
@@ -203,7 +249,7 @@ export function useLockedFunds(): UseLockedFundsResult {
       totalFormatted,
       nextUnlockFormatted,
       timeRemaining,
-      isLoading: marketsLoading || lockDataLoading,
+      isLoading: marketsLoading || lockQuery.isLoading,
       isClaiming: false,
       hasClaimable: aggregated.claimable > 0n,
       claim,
@@ -219,7 +265,7 @@ export function useLockedFunds(): UseLockedFundsResult {
       nextUnlockFormatted,
       timeRemaining,
       marketsLoading,
-      lockDataLoading,
+      lockQuery.isLoading,
       claim,
       refetch,
     ]

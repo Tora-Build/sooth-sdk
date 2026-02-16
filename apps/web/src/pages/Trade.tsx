@@ -428,7 +428,7 @@ export const Trade = () => {
                 <SimpleTradingPanel
                   address={selectedMarket.contractAddress as `0x${string}`}
                   isGraduated={launchpad?.isGraduated}
-                  isSettled={truth?.isSettled === true}
+                  isSettled={Boolean(truth?.isSettled)}
                 />
               </Card>
             )}

@@ -8,6 +8,7 @@
  */
 
 import * as readline from 'readline';
+import { keccak256, encodePacked } from 'viem';
 import { createConfig, type InteractiveConfig, type Deployment } from './config';
 import { createActorManager, type ActorManager } from './actors';
 import {
@@ -53,6 +54,138 @@ let recording: RecordingState = { active: false, commands: [], startTime: 0 };
 let scenarioEngine: ScenarioEngine;
 let scenarioMode = false;
 
+interface DiscoveredMarket {
+  address: `0x${string}`;
+  name: string;
+  isGraduated: boolean;
+  stage: 'pre-graduation' | 'graduated';
+  marketKey: `0x${string}` | null;
+}
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+const LaunchpadDiscoveryAbi = [
+  {
+    name: 'getMarkets',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'address[]', name: '' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getMarketCount',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'uint256', name: '' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'allMarkets',
+    type: 'function',
+    inputs: [{ type: 'uint256', name: '' }],
+    outputs: [{ type: 'address', name: '' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'markets',
+    type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
+    outputs: [
+      { type: 'address', name: 'creator' },
+      { type: 'address', name: 'lpToken' },
+      { type: 'uint256', name: 'bBase' },
+      { type: 'uint256', name: 'bCurrent' },
+      { type: 'uint256', name: 'creatorDeposit' },
+      { type: 'uint256', name: 'feesAccrued' },
+      { type: 'uint256', name: 'totalLPSupply' },
+      { type: 'uint256', name: 'lpYieldPool' },
+      { type: 'bool', name: 'isGraduated' },
+      { type: 'uint64', name: 'createdAt' },
+      { type: 'uint64', name: 'graduatedAt' },
+    ],
+    stateMutability: 'view',
+  },
+] as const;
+
+const TruthMarketQuestionAbi = [
+  {
+    name: 'question',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'string', name: '' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
+  const publicClient = actorManager.getPublicClient();
+  const launchpadAddress = config.deployment.contracts.LaunchpadEngine as `0x${string}`;
+
+  let marketAddresses: `0x${string}`[] = [];
+  try {
+    marketAddresses = await publicClient.readContract({
+      address: launchpadAddress,
+      abi: LaunchpadDiscoveryAbi,
+      functionName: 'getMarkets',
+    }) as `0x${string}`[];
+  } catch {
+    const marketCount = await publicClient.readContract({
+      address: launchpadAddress,
+      abi: LaunchpadDiscoveryAbi,
+      functionName: 'getMarketCount',
+    }) as bigint;
+
+    for (let i = 0; i < Number(marketCount); i++) {
+      const marketAddress = await publicClient.readContract({
+        address: launchpadAddress,
+        abi: LaunchpadDiscoveryAbi,
+        functionName: 'allMarkets',
+        args: [BigInt(i)],
+      }) as `0x${string}`;
+      marketAddresses.push(marketAddress);
+    }
+  }
+
+  const discovered = await Promise.all(
+    marketAddresses.map(async (marketAddress): Promise<DiscoveredMarket | null> => {
+      const state = await publicClient.readContract({
+        address: launchpadAddress,
+        abi: LaunchpadDiscoveryAbi,
+        functionName: 'markets',
+        args: [marketAddress],
+      }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+
+      const creator = state[0];
+      const isGraduated = state[8];
+      if (creator.toLowerCase() === ZERO_ADDRESS) {
+        return null;
+      }
+
+      let marketName: string = marketAddress;
+      try {
+        const question = await publicClient.readContract({
+          address: marketAddress,
+          abi: TruthMarketQuestionAbi,
+          functionName: 'question',
+        }) as string;
+        if (question && question.trim().length > 0) {
+          marketName = question.trim();
+        }
+      } catch {}
+
+      return {
+        address: marketAddress,
+        name: marketName,
+        isGraduated,
+        stage: isGraduated ? 'graduated' : 'pre-graduation',
+        marketKey: isGraduated ? keccak256(encodePacked(['address'], [marketAddress])) : null,
+      };
+    }),
+  );
+
+  return discovered.filter((market): market is DiscoveredMarket => market !== null);
+}
+
 /**
  * Set current market by address, index, or latest
  */
@@ -75,25 +208,12 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   // Latest market helper
   if (normalized === 'latest' || normalized === 'last') {
     try {
-      const onChainMarkets = await publicClient.readContract({
-        address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: [
-          {
-            name: 'getMarkets',
-            type: 'function',
-            inputs: [],
-            outputs: [{ type: 'address[]', name: '' }],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'getMarkets',
-      }) as string[];
-
+      const onChainMarkets = await discoverMarketsOnChain();
       if (onChainMarkets.length === 0) {
         console.log(error('  No markets available on-chain'));
         return false;
       }
-      marketAddress = onChainMarkets[onChainMarkets.length - 1];
+      marketAddress = onChainMarkets[onChainMarkets.length - 1].address;
     } catch (err) {
       console.log(error(`  Failed to fetch latest market: ${(err as Error).message}`));
       return false;
@@ -101,27 +221,13 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   } else if (/^\d+$/.test(addressOrIndex)) {
     const index = parseInt(addressOrIndex, 10);
 
-    // Fetch on-chain markets from LaunchpadEngine
     try {
-      const onChainMarkets = await publicClient.readContract({
-        address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: [
-          {
-            name: 'getMarkets',
-            type: 'function',
-            inputs: [],
-            outputs: [{ type: 'address[]', name: '' }],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'getMarkets',
-      }) as string[];
-
+      const onChainMarkets = await discoverMarketsOnChain();
       if (index >= onChainMarkets.length) {
         console.log(error(`  Market index ${index} out of range (${onChainMarkets.length} markets available)`));
         return false;
       }
-      marketAddress = onChainMarkets[index];
+      marketAddress = onChainMarkets[index].address;
     } catch {
       // Fallback to deployment config
       if (index >= config.deployment.markets.length) {
@@ -140,15 +246,27 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   } else if (isDirectAddress) {
     marketAddress = addressOrIndex;
   } else {
-    // Try to find by name in deployment config
     const market = config.deployment.markets.find(
       m => m.name?.toLowerCase() === addressOrIndex.toLowerCase()
     );
-    if (!market) {
-      console.log(error(`  Market not found: ${addressOrIndex}`));
-      return false;
+    if (market) {
+      marketAddress = market.address;
+    } else {
+      try {
+        const discovered = await discoverMarketsOnChain();
+        const matched = discovered.find(
+          item => item.name.toLowerCase() === addressOrIndex.toLowerCase(),
+        );
+        if (!matched) {
+          console.log(error(`  Market not found: ${addressOrIndex}`));
+          return false;
+        }
+        marketAddress = matched.address;
+      } catch {
+        console.log(error(`  Market not found: ${addressOrIndex}`));
+        return false;
+      }
     }
-    marketAddress = market.address;
   }
 
   const deployedMarket = config.deployment.markets.find(
@@ -213,6 +331,8 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           console.log(dim(`  Key: (not available pre-graduation)`));
           return true;
         }
+        // Graduated market: compute SoothBook marketKey from address
+        currentMarketKey = keccak256(encodePacked(['address'], [marketAddress as `0x${string}`]));
         currentMarketName = marketName;
       }
     } catch {}
@@ -313,6 +433,7 @@ function printHelp(): void {
     createmarket <template>  Create new market (alien, btc100k, custom)
                              Options: --adjudicator=<actor> (default: creator)
     graduate [steps]         Graduate market via trades (default 8 steps)
+    simulate [orders] [avg] [seed]  Simulate SoothBook order flow
     marketstatus             Show full market lifecycle status
     settle <outcome>         Settle market (adjudicator only)
                              outcome: yes, no, invalid
@@ -474,24 +595,49 @@ async function handleCommand(input: string): Promise<void> {
       case 'm': {
         console.log('');
         console.log(`  ${bold('Markets')}`);
-        console.log('  ' + '─'.repeat(50));
+        console.log('  ' + '─'.repeat(72));
         if (currentMarketAddress || currentMarketKey) {
           console.log(`  Current Address: ${currentMarketAddress || '(none)'}`);
           console.log(`  Current Key:     ${currentMarketKey || '(none)'}`);
         } else {
           console.log(`  Current: ${warn('none')}`);
         }
-        if (config.deployment.markets.length > 0) {
+
+        try {
+          const discovered = await discoverMarketsOnChain();
           console.log('');
-          config.deployment.markets.forEach((market, index) => {
-            const label = market.name || `Market ${index}`;
-            const addressValue = market.address || '(none)';
-            const keyValue = market.marketKey || market.key || '(none)';
-            console.log(`  [${index}] ${label}`);
-            console.log(`      address: ${addressValue}`);
-            console.log(`      key:     ${keyValue}`);
-          });
+
+          if (discovered.length === 0) {
+            console.log(`  ${warn('No Launchpad markets found on-chain')}`);
+          } else {
+            discovered.forEach((market, index) => {
+              const label = market.name.length > 70 ? `${market.name.slice(0, 67)}...` : market.name;
+              console.log(`  [${index}] ${label}`);
+              console.log(`      address:   ${market.address}`);
+              console.log(`      stage:     ${market.stage}`);
+              console.log(`      graduated: ${market.isGraduated ? 'yes' : 'no'}`);
+              console.log(`      marketKey: ${market.marketKey || '(not available pre-graduation)'}`);
+            });
+          }
+        } catch (err) {
+          console.log(error(`  Failed to discover on-chain markets: ${(err as Error).message}`));
+
+          if (config.deployment.markets.length > 0) {
+            console.log('');
+            console.log(dim('  Falling back to static deployment markets:'));
+            config.deployment.markets.forEach((market, index) => {
+              const label = market.name || `Market ${index}`;
+              const addressValue = market.address || '(none)';
+              const keyValue = market.marketKey || market.key || '(none)';
+              console.log(`  [${index}] ${label}`);
+              console.log(`      address:   ${addressValue}`);
+              console.log(`      stage:     unknown`);
+              console.log(`      graduated: unknown`);
+              console.log(`      marketKey: ${keyValue}`);
+            });
+          }
         }
+
         console.log('');
         break;
       }
@@ -532,6 +678,10 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'graduate':
         await run(marketCommands.graduate(ctx, args));
+        break;
+
+      case 'simulate':
+        await run(marketCommands.simulate(ctx, args));
         break;
 
       case 'marketstatus':

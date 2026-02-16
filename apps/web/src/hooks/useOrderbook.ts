@@ -1,9 +1,10 @@
-import { usePublicClient } from 'wagmi';
-import { MARKET_V4_ABI } from '../config/abis';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAccount, usePublicClient } from 'wagmi';
+import { SOOTHBOOK_ABI, ERC20_ABI } from '../config/abis';
 import { useAmmMarket } from './useAmmMarket';
 import { useAmmMarketByAddress } from './useAmmMarketByAddress';
-import { useState, useEffect, useCallback } from 'react';
-import { formatUnits } from 'viem';
+import { encodePacked, formatUnits, isAddress, keccak256 } from 'viem';
+import { useDeployments } from './useDeployments';
 
 export interface Order {
   id: string;
@@ -23,6 +24,8 @@ export interface OrderbookState {
 
 export function useOrderbook(marketId: string) {
   const isAddressFormat = marketId?.startsWith('0x') && marketId.length === 42;
+  const { address: userAddress } = useAccount();
+  const { contracts } = useDeployments();
 
   const { amm: configMarket } = useAmmMarket(
     isAddressFormat ? undefined : (marketId as `0x${string}` | undefined)
@@ -33,112 +36,186 @@ export function useOrderbook(marketId: string) {
   const market = isAddressFormat ? addressMarket : configMarket;
 
   const publicClient = usePublicClient();
+  const soothBookAddress = contracts.SoothBook as `0x${string}` | undefined;
 
   const [orderbook, setOrderbook] = useState<OrderbookState>({ bids: [], asks: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number>(0);
   const [isSupported, setIsSupported] = useState<boolean>(true);
+  const [userYesShares, setUserYesShares] = useState(0);
+  const [userNoShares, setUserNoShares] = useState(0);
 
-  const contractAddress = isAddressFormat
+  const marketAddress = isAddressFormat
     ? (marketId as `0x${string}`)
-    : ((market as any)?.contractAddress || (market as any)?.address);
+    : (((market as { contractAddress?: string; address?: string } | null)?.contractAddress ||
+        (market as { contractAddress?: string; address?: string } | null)?.address) as
+        | `0x${string}`
+        | undefined);
+
+  const marketKey = useMemo(() => {
+    if (!marketAddress || !isAddress(marketAddress)) return undefined;
+    return keccak256(encodePacked(['address'], [marketAddress]));
+  }, [marketAddress]);
+
+  const scanTickDepth = useCallback(
+    async (side: 0 | 1, bestTick: number): Promise<Order[]> => {
+      if (!publicClient || !soothBookAddress || !marketKey || bestTick < 1) {
+        return [];
+      }
+
+      const maxTickCalls = 200;
+      const ticks: number[] = [];
+      for (let tick = bestTick; tick >= 1 && ticks.length < maxTickCalls; tick--) {
+        ticks.push(tick);
+      }
+
+      const tickContracts = ticks.map((tick) => ({
+        address: soothBookAddress,
+        abi: SOOTHBOOK_ABI,
+        functionName: 'getOrdersAtTick' as const,
+        args: [marketKey, side, tick] as const,
+      }));
+
+      const results = await publicClient.multicall({ contracts: tickContracts });
+      const orders: Order[] = [];
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const tick = ticks[i];
+        if (!result || result.status !== 'success') continue;
+
+        const [totalAmount] = result.result as readonly [bigint, bigint];
+        if (totalAmount <= 0n) continue;
+
+        const yesPriceValue = side === 1 ? tick / 1000 : (1000 - tick) / 1000;
+        const yesPrice = yesPriceValue.toFixed(4);
+
+        orders.push({
+          id: `${side}:${tick}`,
+          maker: 'aggregated',
+          yesPrice,
+          displayPrice: yesPrice,
+          amount: formatUnits(totalAmount, 18),
+          timestamp: 0,
+          isBuySide: side === 1,
+          side: side === 1 ? 'bid' : 'ask',
+        });
+      }
+
+      return orders;
+    },
+    [marketKey, publicClient, soothBookAddress]
+  );
 
   const fetchOrderbook = useCallback(
     async (isBackground = false) => {
-      if (!contractAddress || !publicClient) return;
+      if (!soothBookAddress || !marketKey || !publicClient) return;
 
       if (!isBackground) setIsLoading(true);
       try {
-        const fetchSide = async (startFn: 'bestAsk' | 'bestBid', side: 'ask' | 'bid') => {
-          const sideOrders: Order[] = [];
+        const marketContracts = [
+          {
+            address: soothBookAddress,
+            abi: SOOTHBOOK_ABI,
+            functionName: 'getBestTick' as const,
+            args: [marketKey, 1] as const,
+          },
+          {
+            address: soothBookAddress,
+            abi: SOOTHBOOK_ABI,
+            functionName: 'getBestTick' as const,
+            args: [marketKey, 0] as const,
+          },
+          {
+            address: soothBookAddress,
+            abi: SOOTHBOOK_ABI,
+            functionName: 'getImpliedPrice' as const,
+            args: [marketKey] as const,
+          },
+          {
+            address: soothBookAddress,
+            abi: SOOTHBOOK_ABI,
+            functionName: 'markets' as const,
+            args: [marketKey] as const,
+          },
+        ];
 
-          try {
-            let currentIdResult: bigint | null = null;
-            try {
-              currentIdResult = (await publicClient.readContract({
-                address: contractAddress as `0x${string}`,
-                abi: MARKET_V4_ABI,
-                functionName: startFn,
-              })) as bigint;
-            } catch {
-              return sideOrders;
-            }
+        const [bestYesTickRes, bestNoTickRes, _impliedRes, marketRes] = await publicClient.multicall({
+          contracts: marketContracts,
+        });
 
-            let currentId = currentIdResult;
-            let depth = 0;
-            const maxDepth = 20;
-            const visitedIds = new Set<string>();
+        if (
+          bestYesTickRes.status !== 'success' ||
+          bestNoTickRes.status !== 'success' ||
+          marketRes.status !== 'success'
+        ) {
+          setIsSupported(false);
+          return;
+        }
 
-            while (depth < maxDepth) {
-              const idKey = currentId.toString();
-              if (visitedIds.has(idKey)) break;
-              visitedIds.add(idKey);
+        const bestYesTick = Number(bestYesTickRes.result);
+        const bestNoTick = Number(bestNoTickRes.result);
+        const [
+          _collateral,
+          yesToken,
+          noToken,
+          _active,
+          _finalized,
+          _outcome,
+        ] = marketRes.result as readonly [
+          `0x${string}`,
+          `0x${string}`,
+          `0x${string}`,
+          boolean,
+          boolean,
+          number,
+        ];
 
-              const orderData = (await publicClient
-                .readContract({
-                  address: contractAddress as `0x${string}`,
-                  abi: MARKET_V4_ABI,
-                  functionName: 'orders',
-                  args: [currentId],
-                })
-                .catch(() => null)) as [string, number, bigint, bigint, boolean] | undefined | null;
+        const [bids, asks] = await Promise.all([
+          scanTickDepth(1, bestYesTick),
+          scanTickDepth(0, bestNoTick),
+        ]);
 
-              if (!orderData || !Array.isArray(orderData) || orderData.length < 5) break;
+        if (userAddress && isAddress(yesToken) && isAddress(noToken)) {
+          const [yesBalRes, noBalRes] = await publicClient.multicall({
+            contracts: [
+              {
+                address: yesToken,
+                abi: ERC20_ABI,
+                functionName: 'balanceOf',
+                args: [userAddress],
+              },
+              {
+                address: noToken,
+                abi: ERC20_ABI,
+                functionName: 'balanceOf',
+                args: [userAddress],
+              },
+            ],
+          });
 
-              const [maker, _outcome, yesPrice, amount, isBuySide] = orderData;
-
-              if (maker === '0x0000000000000000000000000000000000000000') break;
-
-              if (amount > 0n) {
-                const yesPriceFormatted = formatUnits(yesPrice, 18);
-                sideOrders.push({
-                  id: currentId.toString(),
-                  maker,
-                  yesPrice: yesPriceFormatted,
-                  displayPrice: yesPriceFormatted,
-                  amount: formatUnits(amount, 18),
-                  timestamp: 0,
-                  isBuySide,
-                  side,
-                });
-              }
-
-              const nextId = (await publicClient
-                .readContract({
-                  address: contractAddress as `0x${string}`,
-                  abi: MARKET_V4_ABI,
-                  functionName: 'nextOrder',
-                  args: [currentId],
-                })
-                .catch(() => null)) as bigint | null;
-
-              if (nextId === null) break;
-              if (nextId === 0n) break;
-
-              currentId = nextId;
-              depth++;
-            }
-          } catch {
-            return sideOrders;
-          }
-
-          return sideOrders;
-        };
-
-        const [asks, bids] = await Promise.all([fetchSide('bestAsk', 'ask'), fetchSide('bestBid', 'bid')]);
+          const yesBal = yesBalRes.status === 'success' ? yesBalRes.result : 0n;
+          const noBal = noBalRes.status === 'success' ? noBalRes.result : 0n;
+          setUserYesShares(parseFloat(formatUnits(yesBal as bigint, 18)));
+          setUserNoShares(parseFloat(formatUnits(noBal as bigint, 18)));
+        } else {
+          setUserYesShares(0);
+          setUserNoShares(0);
+        }
 
         setOrderbook({ bids, asks });
         setLastUpdated(Date.now());
         setIsSupported(true);
-      } catch (err: any) {
-        if (err.message?.includes('reverted') || err.message?.includes('function selector')) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '';
+        if (message.includes('reverted') || message.includes('function selector')) {
           setIsSupported(false);
         }
       } finally {
         if (!isBackground) setIsLoading(false);
       }
     },
-    [contractAddress, publicClient]
+    [marketKey, publicClient, scanTickDepth, soothBookAddress, userAddress]
   );
 
   useEffect(() => {
@@ -180,7 +257,7 @@ export function useOrderbook(marketId: string) {
     refetch: () => {
       fetchOrderbook();
     },
-    userYesShares: 0,
-    userNoShares: 0,
+    userYesShares,
+    userNoShares,
   };
 }

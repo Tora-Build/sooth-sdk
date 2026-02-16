@@ -1467,6 +1467,31 @@ User's Choice (EOA, Safe, Smart Account, etc.)
     - **Math Consistency**: While liquidity depth $b$ still scales by $1/\ln(2)$ to maintain capacity (ADR-053), the ownership layer (LP) is decoupled to reflect cash basis.
     - **Deployment**: Integrated into corrected `LaunchpadEngine.sol` (V8.11.0).
 
+## ADR-055: V12 Wallet-Mode Migration (No Vault, Direct Wallet Settlement)
+- **Date**: 2026-02-16
+- **Status**: Accepted (Implemented)
+- **Context**:
+    - V11 used `TickBookVault` as a unified USDC custody layer. Users deposited USDC into the vault, which held funds, managed positions, and handled settlement internally.
+    - V12 replaces TickBook with SoothBook, which handles custody internally via ERC20 outcome tokens. There is no separate vault contract.
+    - The V11→V12 migration initially deleted all vault-connected features instead of replacing them, leaving broken stubs across the frontend.
+- **Decision**: **Adopt wallet-mode — users interact directly with their wallet balance, no vault intermediary**.
+    - `useTraderVault.availableBalance` = user's wallet USDC balance (was: vault deposit balance)
+    - `approveUSDC` → approve SoothBook as spender (was: deposit into vault)
+    - `claimWinnings` → `SoothBook.redeem(marketKey)` (was: vault withdraw)
+    - `useActivePositions` reads SoothBook ERC20 YES/NO token balances for graduated markets (was: vault internal shares)
+    - `useLockedProceeds` and `useLockedFunds` return clean noops (no vault = no locked state)
+    - `TradingAccountCard` shows USDC approval status instead of deposit/withdraw buttons
+- **Rationale**:
+    - **Simplicity**: One fewer contract in the custody chain. Users approve SoothBook directly.
+    - **Composability**: ERC20 outcome tokens are standard — users can hold, transfer, or use them in DeFi.
+    - **Transparency**: Wallet balance is the source of truth. No hidden vault accounting.
+    - **SoothBook design**: SoothBook already handles USDC escrow internally during order placement.
+- **Consequences**:
+    - **No deposit/withdraw flow**: Users must have USDC in wallet + approve SoothBook. No pre-funding.
+    - **ERC20 position tracking**: Frontend reads `yesToken.balanceOf(user)` and `noToken.balanceOf(user)` instead of vault position structs.
+    - **Keeper bot removed**: SoothBook's FIFO matching is self-maintaining. No external keeper needed (TickBook needed one for crossing optimization).
+    - **Polymarket-style mapping**: Buy YES = `buyYes(escrow=false)`, Sell YES = `buyNo(escrow=true)`, Buy NO = `buyNo(escrow=false)`, Sell NO = `buyYes(escrow=true)`.
+
 ---
 
 ## V8 Architecture Summary (V8.11.0)

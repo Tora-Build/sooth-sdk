@@ -4,6 +4,47 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed (V12 Migration Repair — 2026-02-16)
+
+The V11→V12 migration incorrectly treated SoothBook as "standalone" (independent from LaunchpadEngine). This caused orderbook-connected features to be **deleted** instead of **replaced** with SoothBook equivalents. Full diagnostic identified 24 items; 7 needed replacement, 5 were broken stubs.
+
+**Hooks rewired to SoothBook:**
+- `useOrderbook.ts` — Tick-depth reads via `getOrdersAtTick`, `getBestTick`; YES/NO ERC20 balances
+- `useOrderbookTrade.ts` — Write ops (`buyYes`/`buyNo`/`mint`/`merge`/`cancel`/`redeem`), USDC approval flow, Polymarket-style mapping (Sell YES = buyNo+escrow, Sell NO = buyYes+escrow)
+- `useTraderVault.ts` — Wallet mode: `availableBalance` = wallet USDC, `approveUSDC` → SoothBook, `claimWinnings` → `redeem(marketKey)`. No vault deposit/withdraw.
+- `useActivePositions.ts` — AMM ERC1155 for pre-graduation, SoothBook ERC20 YES/NO for graduated markets, `getImpliedPrice` for pricing
+- `useLockedProceeds.ts` / `useLockedFunds.ts` — Clean noops (no vault in V12)
+
+**Components updated for wallet mode:**
+- `TradingAccountCard.tsx` — USDC approval UI, no deposit/withdraw flows
+- `PositionActionsModal.tsx` — Wallet-based wording, merge uses wallet YES/NO availability
+
+**Indexer fixes:**
+- `OrderFilled` handler — Derives maker side/tick, updates filledAmount, flips status
+- `OrderCancelled` handler — Finds matching active order, marks cancelled
+- 6 new API endpoints: `/portfolio`, `/amm-positions`, `/lp-balances`, `/lock-entries`, `/vault-balance`, `/vault-positions`
+
+**Type system fixes (~80 TS errors):**
+- `abis.ts` — Replaced `Object.fromEntries` spread with explicit typed ABI exports
+- `types.ts` — Added `AdjudicatorKind`, `MarketConfig`, `Market` type exports
+- `useMarketStore.ts` — Added `mode` + `refreshKey` fields
+- `ErrorBoundary.tsx` — Fixed Lucide icon import
+- `useTruthMarketDirect.ts` — Added `guardian` on-chain read
+
+**CLI enhancements:**
+- `markets` command — On-chain market discovery from LaunchpadEngine (`getMarkets` + `getMarketCount`)
+- Shows market name, address, stage, graduation status, and marketKey
+
+**Frontend integration:**
+- `Portfolio.tsx` — Integrated `TradingAccountCard` + `ActiveOrdersCard`
+- `useOrderbookTrade.ts` — Pushes placed orders into `useOrderStore`, removes on cancel
+
+**Documentation:**
+- `.agent/PRO_PAGE_FINDINGS.md` — 9 findings for Pro page (user handling separately)
+- Removed "standalone" SoothBook language from contracts README
+
+**Verification:** `tsc --noEmit` 0 errors, `npm run build` success (6.9s), `forge test` 218 passing.
+
 ### Removed (V12 TickBook Replacement — 2026-02-15)
 - **TickBookPoolManager** (2710 lines) — replaced by SoothBook (602 lines)
 - **TickBookVault** (353 lines) — SoothBook handles custody internally, no vault needed

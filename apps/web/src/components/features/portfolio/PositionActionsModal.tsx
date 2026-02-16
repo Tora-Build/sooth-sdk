@@ -31,33 +31,35 @@ export const PositionActionsModal: React.FC<{
     // If marketId is provided, use it to find the market
     const explicitMarket = marketId ? markets.find(m => m.address.toLowerCase() === marketId.toLowerCase()) : null;
 
-    // Find if we have an active position for this market in the vault (custodial)
+    // Find if we have an active wallet position for this market
     const activeVaultPos = useMemo(() => {
         const addr = marketId || selectedMarketAddr;
         if (!addr) return null;
         return vaultPositions.find(p => p.marketAddress.toLowerCase() === addr.toLowerCase());
     }, [vaultPositions, marketId, selectedMarketAddr]);
 
-    // If pos is provided, use it. Otherwise use activeVaultPos, explicit market or selected market from dropdown.
-    // For Merge/Split from Trading Account, we use vault (custodial) positions
+    // If pos is provided, use it. Otherwise use active market data from wallet positions or market list.
     const activeMarket = pos || activeVaultPos || (explicitMarket ? {
         outcomeTokenAddress: explicitMarket.outcomeToken,
         marketAddress: explicitMarket.address as `0x${string}`,
         liquidYes: 0,
         liquidNo: 0,
+        walletYes: 0,
+        walletNo: 0,
         question: explicitMarket.name || 'Current Market'
     } : (selectedMarketAddr ? {
         outcomeTokenAddress: markets.find(m => m.address === selectedMarketAddr)?.outcomeToken,
         marketAddress: selectedMarketAddr,
         liquidYes: 0,
         liquidNo: 0,
+        walletYes: 0,
+        walletNo: 0,
         question: markets.find(m => m.address === selectedMarketAddr)?.name || 'Selected Market'
     } : null));
 
-    // For Merge: Use vault (custodial) shares - liquidYes/liquidNo
-    // For Split: Use vault USDC balance
+    // For Merge: use wallet YES/NO balances. For Split: use wallet USDC balance.
     const available = mode === 'merge' 
-        ? (activeMarket ? Math.min(activeMarket.liquidYes || 0, activeMarket.liquidNo || 0) : 0)
+        ? (activeMarket ? Math.min(activeMarket.walletYes || 0, activeMarket.walletNo || 0) : 0)
         : parseFloat(formatUnits(availableBalance, decimals || 18));
 
     const handleAction = async () => {
@@ -66,7 +68,7 @@ export const PositionActionsModal: React.FC<{
         const toastId = mode === 'merge' ? 'merge' : 'split';
 
         try {
-            toast.loading('Action unavailable in V12 (no vault).', { id: toastId });
+            toast.loading('Action unavailable here in V12 wallet mode.', { id: toastId });
             await Promise.resolve();
             toast.success('No action executed.', { id: toastId });
             refetch();
@@ -135,9 +137,9 @@ export const PositionActionsModal: React.FC<{
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
                         {mode === 'merge' ? (
-                            <>Converts <span className="text-emerald-400 font-bold">1 YES + 1 NO</span> from your Trading Account into <span className="text-white font-bold">$1.00 USDC</span> (credited to Trading Account).</>
+                            <>Converts <span className="text-emerald-400 font-bold">1 YES + 1 NO</span> from your wallet position into <span className="text-white font-bold">$1.00 USDC</span> when merge is available.</>
                         ) : (
-                            <>Converts <span className="text-white font-bold">$1.00 USDC</span> from your Trading Account into <span className="text-cyan-400 font-bold">1 YES + 1 NO</span> shares (deposited to Trading Account).</>
+                            <>Converts <span className="text-white font-bold">$1.00 USDC</span> from wallet collateral into <span className="text-cyan-400 font-bold">1 YES + 1 NO</span> when split is available.</>
                         )}
                     </p>
                 </div>
@@ -174,7 +176,7 @@ export const PositionActionsModal: React.FC<{
                     </div>
                     <div className="flex justify-between items-center px-1">
                         <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                            {mode === 'merge' ? 'In Trading Account' : 'USDC in Trading Account'}
+                            {mode === 'merge' ? 'In Wallet Position' : 'USDC in Wallet'}
                         </span>
                         <span className={cn(
                             "text-xs font-mono font-bold",

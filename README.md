@@ -87,7 +87,7 @@ pnpm dev:cli:base      # Base Sepolia
 
 ## Architecture (V12 SoothBook)
 
-V12 replaces TickBook with SoothBook — a standalone orderbook (602 lines) with 4 atomic actions, ERC20 outcome tokens, and FIFO matching:
+V12 replaces TickBook with SoothBook — an orderbook (602 lines) with 4 atomic actions, ERC20 outcome tokens, and FIFO matching:
 
 ```
 TruthMarket (lifecycle + settlement)
@@ -95,7 +95,7 @@ TruthMarket (lifecycle + settlement)
 LaunchpadEngine (creator economics, graduation mechanics)
   ↓ (delegates to)
 AMMEngine (LMSR positions for pre-graduation)
-SoothBook (standalone orderbook: buyYes, buyNo, mint, merge)
+SoothBook (orderbook: buyYes, buyNo, mint, merge)
 Collateralizer (split/merge/redeem for graduated markets)
 ```
 

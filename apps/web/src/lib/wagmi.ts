@@ -86,9 +86,6 @@ const createTransport = (networkId: number, defaultUrls: string[], envVarName?: 
 const getHttpOptions = (networkId: number) => {
   switch (networkId) {
     case baseSepolia.id: return baseSepoliaHttpOptions;
-    case monadTestnet.id: return monadHttpOptions;
-    case arcTestnet.id: return arcHttpOptions;
-    case megaethTestnet.id: return megaethHttpOptions;
     default: return undefined;
   }
 };
@@ -126,7 +123,6 @@ export const wagmiAdapter = new WagmiAdapter({
 
 // Export wagmi config for hooks
 export const config = wagmiAdapter.wagmiConfig;
-
 
 
 

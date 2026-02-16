@@ -100,6 +100,7 @@ export function useAmmTradeCost(
 
     const ammEngineAddress = deployments?.contracts
         ?.AMMEngine as `0x${string}` | undefined;
+    const outcome = deltaShares >= 0n ? 1 : 0;
 
     const { data, isLoading, error } = useReadContracts({
         contracts: [
@@ -108,7 +109,7 @@ export function useAmmTradeCost(
                 abi: ABIS.AMMEngine,
                 functionName: "getPositionQuote",
                 args: marketAddress && deltaShares !== 0n
-                    ? [marketAddress, deltaShares]
+                    ? [marketAddress, outcome, deltaShares]
                     : undefined,
                 chainId,
             },

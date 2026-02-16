@@ -1,201 +1,222 @@
-import { useAccount, useReadContracts, useChainId } from 'wagmi';
-import { formatUnits } from 'viem';
-import { MARKET_V4_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI } from '../config/abis';
-import { useMarketStore } from '../store/useMarketStore';
-import { useLaunchpadMarkets } from './useLaunchpadMarkets';
-import { useMemo } from 'react';
-import { getPollingInterval } from '../lib/polling';
+import { useAccount, useChainId } from "wagmi";
+import { formatUnits, encodePacked, keccak256 } from "viem";
+import { ERC20_ABI, LAUNCHPAD_MARKET_ABI, LAUNCHPAD_OUTCOME_TOKEN_ABI, SOOTHBOOK_ABI } from "../config/abis";
+import { useLaunchpadMarkets } from "./useLaunchpadMarkets";
+import { useMemo } from "react";
+import { getPollingInterval } from "../lib/polling";
+import { useDirectRead, readContractSafe } from "./useDirectRead";
+import { useDeployments } from "./useDeployments";
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 export interface ActivePosition {
-    id: string;
-    question: string;
-    marketAddress: `0x${string}`;
-    outcomeTokenAddress?: `0x${string}`;
-    // Vault portions (Custodial)
-    liquidYes: number;
-    liquidNo: number;
-    lockedYes: number;
-    lockedNo: number;
-
-    // Wallet portions (Direct) - AMM IS WALLET ONLY
-    walletYes: number;
-    walletNo: number;
-
-    unlockTime: number;
-    value: number;
-    priceYes: number;
-
-    // Settlement info
-    isSettled: boolean;
-    winningOutcome: number | null;
+  id: string;
+  question: string;
+  marketAddress: `0x${string}`;
+  outcomeTokenAddress?: `0x${string}`;
+  liquidYes: number;
+  liquidNo: number;
+  lockedYes: number;
+  lockedNo: number;
+  walletYes: number;
+  walletNo: number;
+  unlockTime: number;
+  value: number;
+  priceYes: number;
+  isSettled: boolean;
+  winningOutcome: number | null;
 }
 
 export const useActivePositions = () => {
-    const { address } = useAccount();
-    const { mode, markets: demoMarkets } = useMarketStore();
-    const chainId = useChainId();
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const { markets: launchpadMarkets } = useLaunchpadMarkets();
+  const { contracts } = useDeployments();
+  const soothBookAddress = contracts.SoothBook as `0x${string}` | undefined;
 
-    // Get real markets from LaunchpadFactory (on-chain)
-    const { markets: launchpadMarkets } = useLaunchpadMarkets();
+  const uniqueMarkets = useMemo(() => {
+    const list: { address: `0x${string}`; name: string; outcomeToken?: `0x${string}`; isGraduated: boolean }[] = [];
+    const seen = new Set<string>();
 
-    // Build market list from LaunchpadFactory (Dynamic)
-    const uniqueMarkets = useMemo(() => {
-        const list: { address: `0x${string}`, name: string, outcomeToken: `0x${string}` }[] = [];
-        const seen = new Set<string>();
-
-        // From LaunchpadFactory (Dynamic)
-        if (launchpadMarkets) {
-            launchpadMarkets.forEach(m => {
-                if (m.address && !seen.has(m.address.toLowerCase())) {
-                    seen.add(m.address.toLowerCase());
-                    list.push({
-                        address: m.address,
-                        name: m.name,
-                        outcomeToken: m.outcomeToken || '0x0000000000000000000000000000000000000000'
-                    });
-                }
-            });
+    if (launchpadMarkets) {
+      launchpadMarkets.forEach((market) => {
+        if (market.address && !seen.has(market.address.toLowerCase())) {
+          seen.add(market.address.toLowerCase());
+          list.push({
+            address: market.address,
+            name: market.name,
+            outcomeToken: market.outcomeToken,
+            isGraduated: Boolean(market.isGraduated),
+          });
         }
+      });
+    }
 
-        return list;
-    }, [launchpadMarkets]);
+    return list;
+  }, [launchpadMarkets]);
 
-    // Batch Contract Calls (4 calls per market, wallet-only in V12)
-    const marketContracts = useMemo(() => {
-        if (!address || mode !== 'real') return [];
-        return uniqueMarkets.flatMap(m => [
-            // 0: Wallet YES (ERC1155)
-            {
-                address: m.outcomeToken,
-                abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
-                functionName: 'balanceOf',
-                args: [address, 0n],
-                chainId: chainId
-            },
-            // 1: Wallet NO (ERC1155)
-            {
-                address: m.outcomeToken,
-                abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
-                functionName: 'balanceOf',
-                args: [address, 1n],
-                chainId: chainId
-            },
-            // 2: Current Price (YES)
-            {
-                address: m.address,
-                abi: MARKET_V4_ABI,
-                functionName: 'price',
-                args: [0],
-                chainId: chainId
-            },
-            // 3: isSettled
-            {
-                address: m.address,
-                abi: MARKET_V4_ABI,
-                functionName: 'isSettled',
-                chainId: chainId
+  const marketScope = useMemo(
+    () => uniqueMarkets.map((m) => `${m.address}:${m.outcomeToken ?? ""}:${m.isGraduated ? 1 : 0}`),
+    [uniqueMarkets]
+  );
+
+  const positionsQuery = useDirectRead<ActivePosition[]>({
+    queryKey: ["v12", "activePositions", chainId, address, soothBookAddress, marketScope],
+    enabled: !!address && uniqueMarkets.length > 0,
+    chainId,
+    refetchInterval: getPollingInterval(chainId, "slow"),
+    staleTime: 10_000,
+    read: async (client) => {
+      if (!address) return [];
+
+      const positions = await Promise.all(
+        uniqueMarkets.map(async (market): Promise<ActivePosition | null> => {
+          const isSettled = await readContractSafe<boolean>(client, {
+            address: market.address,
+            abi: LAUNCHPAD_MARKET_ABI,
+            functionName: "isSettled",
+          }).catch(() => false);
+
+          let winningOutcome: number | null = null;
+          if (isSettled) {
+            const rawOutcome = await readContractSafe<number | bigint>(client, {
+              address: market.address,
+              abi: LAUNCHPAD_MARKET_ABI,
+              functionName: "winningOutcome",
+            }).catch(() => null);
+            if (rawOutcome !== null && rawOutcome !== undefined) {
+              winningOutcome = Number(rawOutcome);
             }
-        ]);
-    }, [address, uniqueMarkets, chainId, mode]);
+          }
 
-    const { data: positionData, refetch, isLoading } = useReadContracts({
-        contracts: marketContracts as any,
-        query: {
-            enabled: mode === 'real' && !!address && uniqueMarkets.length > 0,
-            refetchInterval: getPollingInterval(chainId, 'slow'),
-            staleTime: 10000
-        }
-    });
+          let walletYesRaw = 0n;
+          let walletNoRaw = 0n;
+          let priceYes = 0.5;
 
-    // Process results into Categories
-    return useMemo(() => {
-        let vaultPositions: ActivePosition[] = [];
-        let vaultValue = 0;
+          if (market.isGraduated && soothBookAddress) {
+            const marketKey = keccak256(encodePacked(["address"], [market.address]));
 
-        if (mode === 'demo') {
-            Object.entries(demoMarkets).forEach(([, market]) => {
-                const yes = market.userYesShares || 0;
-                const no = market.userNoShares || 0;
-                if (yes > 0 || no > 0) {
-                    const val = (yes * (market.priceYes || 0.5)) + (no * (market.priceNo || 0.5));
-                    vaultValue += val;
-                    vaultPositions.push({
-                        id: market.id,
-                        question: market.name,
-                        marketAddress: market.contractAddress as `0x${string}`,
-                        liquidYes: 0,
-                        liquidNo: 0,
-                        lockedYes: 0,
-                        lockedNo: 0,
-                        walletYes: yes,
-                        walletNo: no,
-                        unlockTime: 0,
-                        value: val,
-                        priceYes: market.priceYes || 0.5,
-                        isSettled: false,
-                        winningOutcome: null
-                    });
-                }
-            });
-        } else if (positionData) {
-            uniqueMarkets.forEach((market, idx) => {
-                const baseIdx = idx * 4;
-                if (baseIdx + 3 >= positionData.length) return;
+            const marketTuple = await readContractSafe<
+              readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
+            >(client, {
+              address: soothBookAddress,
+              abi: SOOTHBOOK_ABI,
+              functionName: "markets",
+              args: [marketKey],
+            }).catch(() => null);
 
-                const [walletYesRes, walletNoRes, priceRes, settledRes] = [0, 1, 2, 3].map(i => positionData[baseIdx + i]);
+            if (marketTuple) {
+              const yesToken = marketTuple[1];
+              const noToken = marketTuple[2];
 
-                // Parse Price
-                let priceYes = 0.5;
-                if (priceRes?.result) priceYes = parseFloat(formatUnits(priceRes.result as bigint, 18));
-                const priceNo = 1 - priceYes;
+              if (yesToken !== ZERO_ADDRESS) {
+                walletYesRaw = await readContractSafe<bigint>(client, {
+                  address: yesToken,
+                  abi: ERC20_ABI,
+                  functionName: "balanceOf",
+                  args: [address],
+                }).catch(() => 0n);
+              }
 
-                // Vault portions are always zero in V12
-                const lockYes = 0;
-                const lockNo = 0;
-                const liqYes = 0;
-                const liqNo = 0;
+              if (noToken !== ZERO_ADDRESS) {
+                walletNoRaw = await readContractSafe<bigint>(client, {
+                  address: noToken,
+                  abi: ERC20_ABI,
+                  functionName: "balanceOf",
+                  args: [address],
+                }).catch(() => 0n);
+              }
+            }
 
-                // Wallet portions
-                let walletYes = 0;
-                let walletNo = 0;
-                if (walletYesRes?.result) walletYes = parseFloat(formatUnits(walletYesRes.result as bigint, 18));
-                if (walletNoRes?.result) walletNo = parseFloat(formatUnits(walletNoRes.result as bigint, 18));
+            const implied = await readContractSafe<readonly [bigint, bigint]>(client, {
+              address: soothBookAddress,
+              abi: SOOTHBOOK_ABI,
+              functionName: "getImpliedPrice",
+              args: [marketKey],
+            }).catch(() => null);
 
-                const isSettled = settledRes?.result as boolean || false;
+            if (implied?.[0] !== undefined) {
+              priceYes = Number(formatUnits(implied[0], 18));
+            }
+          } else {
+            if (market.outcomeToken && market.outcomeToken !== ZERO_ADDRESS) {
+              const [yesBalance, noBalance] = await Promise.all([
+                readContractSafe<bigint>(client, {
+                  address: market.outcomeToken,
+                  abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
+                  functionName: "balanceOf",
+                  args: [address, 0n],
+                }).catch(() => 0n),
+                readContractSafe<bigint>(client, {
+                  address: market.outcomeToken,
+                  abi: LAUNCHPAD_OUTCOME_TOKEN_ABI,
+                  functionName: "balanceOf",
+                  args: [address, 1n],
+                }).catch(() => 0n),
+              ]);
 
-                const totalYes = liqYes + lockYes + walletYes;
-                const totalNo = liqNo + lockNo + walletNo;
+              walletYesRaw = yesBalance;
+              walletNoRaw = noBalance;
+            }
 
-                if (totalYes > 0.001 || totalNo > 0.001) {
-                    const val = (totalYes * priceYes) + (totalNo * priceNo);
-                    vaultValue += val;
-                    vaultPositions.push({
-                        id: market.address,
-                        question: market.name,
-                        marketAddress: market.address,
-                        outcomeTokenAddress: market.outcomeToken,
-                        liquidYes: liqYes,
-                        liquidNo: liqNo,
-                        lockedYes: lockYes,
-                        lockedNo: lockNo,
-                        walletYes,
-                        walletNo,
-                        unlockTime: 0,
-                        value: val,
-                        priceYes,
-                        isSettled,
-                        winningOutcome: null
-                    });
-                }
-            });
-        }
+            const ammPrice = await readContractSafe<bigint>(client, {
+              address: market.address,
+              abi: LAUNCHPAD_MARKET_ABI,
+              functionName: "price",
+              args: [0],
+            }).catch(() => null);
 
-        return {
-            vaultPositions,
-            vaultValue,
-            totalPositionValue: vaultValue,
-            refetch,
-            isLoading
-        };
-    }, [mode, demoMarkets, positionData, uniqueMarkets, refetch, isLoading]);
+            if (ammPrice !== null) {
+              priceYes = Number(formatUnits(ammPrice, 18));
+            }
+          }
+
+          const walletYes = Number(formatUnits(walletYesRaw, 18));
+          const walletNo = Number(formatUnits(walletNoRaw, 18));
+          const totalYes = walletYes;
+          const totalNo = walletNo;
+
+          if (totalYes <= 0.001 && totalNo <= 0.001) {
+            return null;
+          }
+
+          const priceNo = 1 - priceYes;
+          const value = totalYes * priceYes + totalNo * priceNo;
+
+          return {
+            id: market.address,
+            question: market.name,
+            marketAddress: market.address,
+            outcomeTokenAddress: market.outcomeToken,
+            liquidYes: 0,
+            liquidNo: 0,
+            lockedYes: 0,
+            lockedNo: 0,
+            walletYes,
+            walletNo,
+            unlockTime: 0,
+            value,
+            priceYes,
+            isSettled,
+            winningOutcome,
+          };
+        })
+      );
+
+      return positions.filter((position): position is ActivePosition => position !== null);
+    },
+  });
+
+  return useMemo(() => {
+    const vaultPositions = positionsQuery.data ?? [];
+    const vaultValue = vaultPositions.reduce((sum, position) => sum + position.value, 0);
+
+    return {
+      vaultPositions,
+      vaultValue,
+      totalPositionValue: vaultValue,
+      refetch: positionsQuery.refetch,
+      isLoading: positionsQuery.isLoading,
+    };
+  }, [positionsQuery.data, positionsQuery.refetch, positionsQuery.isLoading]);
 };

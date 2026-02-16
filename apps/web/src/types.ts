@@ -18,6 +18,94 @@ export const OUTCOME = {
 
 export type OutcomeType = typeof OUTCOME[keyof typeof OUTCOME];
 
+export type AdjudicatorKind =
+  | 'UMA'
+  | 'CHAINLINK'
+  | 'TELLOR'
+  | 'MULTISIG'
+  | 'GOVERNANCE'
+  | 'manual'
+  | (string & {});
+
+export interface MarketConfig {
+  id: string;
+  id_numeric?: number;
+  version?: string;
+  mode: 'demo' | 'real' | 'live';
+  chainId?: number;
+  name: string;
+  symbol?: string;
+  question?: string;
+  description?: string;
+  adjudicatorKind: AdjudicatorKind;
+  adjudicatorLabel?: string;
+  openEnded?: boolean;
+  contractAddress?: `0x${string}`;
+  outcomeTokenAddress?: `0x${string}`;
+  adjudicatorId?: string;
+  eventId?: string;
+  initialStatus?: 'trading' | 'settled' | 'cooldown' | 'pending' | 'live' | 'expired';
+  initialYes?: number;
+  riskLevel?: string;
+  bParam?: bigint | string;
+}
+
+export interface Market extends MarketConfig {
+  status: 'trading' | 'settled' | 'cooldown' | 'pending' | 'live' | 'expired';
+  priceYes: number;
+  priceNo: number;
+  bParam: bigint;
+  virtualYesStake?: number;
+  virtualNoStake?: number;
+  userYesShares: number;
+  userNoShares: number;
+  userYesLocked?: number;
+  userNoLocked?: number;
+  userYesWallet?: number;
+  userNoWallet?: number;
+  userYesOutcomeTokens: number;
+  userNoOutcomeTokens: number;
+  userYesTotal?: number;
+  userNoTotal?: number;
+  unlockTime?: number;
+  userAvgEntryYes: number | null;
+  userAvgEntryNo: number | null;
+  adjudicatorProofUploaded?: boolean;
+  qYes: bigint;
+  qNo: bigint;
+  fee?: number;
+  isLaunchpad?: boolean;
+  isGraduated?: boolean;
+  deadline?: number;
+}
+
+export interface PoolConfig {
+  id: string;
+  label: string;
+  token: string;
+  adjudicatorKind: AdjudicatorKind;
+  mode?: 'demo' | 'real' | 'live';
+}
+
+export interface Pool extends PoolConfig {
+  tvl: number;
+  locked: number;
+  apy: number;
+  marketsExposed: number;
+  userLpBalance: number;
+}
+
+export interface ProtocolConfig {
+  name: string;
+  version: string;
+  [key: string]: unknown;
+}
+
+export interface MarketsConfigJson {
+  version?: string;
+  markets: MarketConfig[];
+}
+
 // =============================================================================
 // MARKET TYPES
 // =============================================================================

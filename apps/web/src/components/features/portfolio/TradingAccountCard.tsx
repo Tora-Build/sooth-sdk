@@ -4,8 +4,7 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
-import { RefreshCw, Wallet, ArrowDownLeft, ArrowUpRight, Coins, Lock, Clock, TrendingUp, Scissors, GitMerge } from 'lucide-react';
-import { cn } from '../../../lib/utils';
+import { RefreshCw, Wallet, ArrowDownLeft, Coins, Lock, TrendingUp } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { useTraderVault } from '../../../hooks/useTraderVault';
@@ -26,24 +25,20 @@ export const TradingAccountCard: React.FC = () => {
     allowance, 
     approveUSDC, 
     isPending,
-    deposit,
-    withdraw
+    deposit
   } = useTraderVault();
   const { vaultValue, refetch: refetchPositions } = useActivePositions();
   const { refetch: refetchLocked } = useLockedFunds();
 
   // Dialog State
   const [depositAmount, setDepositAmount] = useState<string | bigint>('');
-  const [withdrawAmount, setWithdrawAmount] = useState<string | bigint>('');
   const [isDepositOpen, setIsDepositOpen] = useState(false);
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'merge' | 'split' | null>(null);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
 
-  // Vault stores balances in USDC decimals (6 for real USDC)
-  // Use the decimals read from the contract
+  // USDC uses 6 decimals
   const DISPLAY_DECIMALS = decimals || 6;
   const available = parseFloat(formatUnits(availableBalance, DISPLAY_DECIMALS));
   const reserved = parseFloat(formatUnits(reservedBalance, DISPLAY_DECIMALS));
@@ -68,7 +63,7 @@ export const TradingAccountCard: React.FC = () => {
       if (needsApproval) {
         await approveUSDC(typeof depositAmount === 'string' ? depositAmount : formatUnits(depositAmount, DISPLAY_DECIMALS));
       } else {
-        // await deposit(depositAmount); // Handled by hook/store
+        await deposit(depositAmount);
         setDepositAmount('');
         setIsDepositOpen(false);
       }
@@ -76,14 +71,6 @@ export const TradingAccountCard: React.FC = () => {
       // Error handled in hook
     }
   };
-
-  const onWithdraw = () => {
-    if (!withdrawAmount || (typeof withdrawAmount === 'string' && !parseFloat(withdrawAmount))) return;
-    // withdraw(withdrawAmount);
-    setWithdrawAmount('');
-    setIsWithdrawOpen(false);
-  };
-
 
   if (!isConnected) {
     return (
@@ -130,25 +117,16 @@ export const TradingAccountCard: React.FC = () => {
             {/* Action Buttons Grid */}
             <div className="flex flex-col gap-2">
               <div className="text-xs text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
-                Unified Collateral • Professional Execution
+                Wallet Collateral • SoothBook Approval
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setIsWithdrawOpen(true)}
-                  className="group py-2 text-xs font-black uppercase tracking-widest border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-700"
-                >
-                  <ArrowUpRight size={12} className="mr-1 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" /> Withdraw
-                </Button>
-
+              <div className="grid grid-cols-1 gap-2">
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={() => setIsDepositOpen(true)}
                   className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
                 >
-                  <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Deposit
+                  <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Approve USDC
                 </Button>
               </div>
             </div>
@@ -184,7 +162,7 @@ export const TradingAccountCard: React.FC = () => {
           {/* Position Value */}
           <div className="p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-md flex justify-between items-center">
             <div className="text-xs text-cyan-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
-              <TrendingUp size={9} /> Vault Positions
+              <TrendingUp size={9} /> Open Positions
             </div>
             <div className="text-base font-mono font-bold text-cyan-400 leading-none">
               {formatCurrency(vaultValue)}
@@ -196,34 +174,11 @@ export const TradingAccountCard: React.FC = () => {
       </div>
 
       {/* Dialogs */}
-      <Dialog isOpen={isWithdrawOpen} onClose={() => setIsWithdrawOpen(false)} title="Withdraw USDC">
+      <Dialog isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)} title="Approve USDC for SoothBook">
         <div className="space-y-4 pt-4">
           <div className="relative">
             <Input
-              placeholder="Amount to withdraw"
-              value={typeof withdrawAmount === 'bigint' ? formatUnits(withdrawAmount, DISPLAY_DECIMALS) : withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-              type="number"
-            />
-            <button
-              onClick={() => setWithdrawAmount(availableBalance)}
-              className="absolute right-2 top-2 px-2 py-1 bg-slate-800 text-xs text-emerald-400 rounded hover:bg-slate-700 font-bold"
-            >
-              MAX
-            </button>
-          </div>
-          <div className="text-xs text-slate-500 text-right">Available to withdraw: {formatCurrency(available)}</div>
-          <Button onClick={() => withdraw(withdrawAmount)} className="w-full py-2 text-sm font-bold">
-            Confirm Withdraw
-          </Button>
-        </div>
-      </Dialog>
-
-      <Dialog isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)} title="Deposit USDC">
-        <div className="space-y-4 pt-4">
-          <div className="relative">
-            <Input
-              placeholder="Amount to deposit"
+              placeholder="Amount to approve"
               value={typeof depositAmount === 'bigint' ? formatUnits(depositAmount, DISPLAY_DECIMALS) : depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
               type="number"
@@ -235,11 +190,12 @@ export const TradingAccountCard: React.FC = () => {
               MAX
             </button>
           </div>
-          <div className="text-xs text-slate-500 text-right">Available to deposit: {formatCurrency(walletAvailable)}</div>
+          <div className="text-xs text-slate-500 text-right">Wallet USDC balance: {formatCurrency(walletAvailable)}</div>
 
-          <Button onClick={() => deposit(depositAmount)} disabled={isPending || !depositAmount} className="w-full py-2 text-sm font-bold">
-            {isPending ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Confirm Deposit')}
+          <Button onClick={onDeposit} disabled={isPending || !depositAmount} className="w-full py-2 text-sm font-bold">
+            {isPending ? 'Processing...' : (needsApproval ? 'Approve USDC' : 'Wallet Mode Active')}
           </Button>
+          <p className="text-xs text-slate-500">V12 uses direct wallet settlement. Deposit/withdraw is not required.</p>
         </div>
       </Dialog>
 

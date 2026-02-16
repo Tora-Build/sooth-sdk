@@ -1,17 +1,12 @@
 import { parseAbi } from "viem";
-import { ABIS as CORE_ABIS } from "@sooth/sdk-core";
-
-const EXCLUDED_CORE_ABIS = new Set([
-  "Tick" + "Book",
-  "Tick" + "BookPoolManager",
-  "Tick" + "BookVault",
-  "Tick" + "BookVaultPoolManager",
-  "I" + "Tick" + "BookHooks",
-]);
-
-const NON_ORDERBOOK_CORE_ABIS = Object.fromEntries(
-  Object.entries(CORE_ABIS).filter(([key]) => !EXCLUDED_CORE_ABIS.has(key))
-);
+import {
+  AMMEngineABI,
+  CollateralizerABI,
+  DynamicFeeHookABI,
+  LaunchpadEngineABI,
+  OutcomeTokenABI,
+  TruthMarketABI,
+} from "@sooth/sdk-core";
 
 // Legacy V7 ABIs (parseAbi format)
 export const SOOTH_MARKET_ABI = parseAbi([
@@ -244,6 +239,11 @@ export const SOOTHBOOK_ABI = parseAbi([
 ]);
 
 export const ABIS = {
-  ...NON_ORDERBOOK_CORE_ABIS,
+  AMMEngine: AMMEngineABI,
+  Collateralizer: CollateralizerABI,
+  DynamicFeeHook: DynamicFeeHookABI,
+  LaunchpadEngine: LaunchpadEngineABI,
+  OutcomeToken: OutcomeTokenABI,
+  TruthMarket: TruthMarketABI,
   SoothBook: SOOTHBOOK_ABI,
-};
+} as const;
