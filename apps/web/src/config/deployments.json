@@ -1,5 +1,5 @@
 {
-  "version": "V12.0",
+  "version": "V12.1",
   "networks": {
     "baseSepolia": {
       "chainId": 84532,
@@ -11,7 +11,11 @@
         "SoothBook": "0xa83b770de63349629ea1f92ad9b40285b1d47d74",
         "LaunchpadEngine": "0xc5f6b53c74a5d14336e971459ee7cf936d401384"
       },
-      "markets": []
+      "markets": [
+        "0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5",
+        "0x51c50fd0e163b78ae31b6b04b87169dee2041aaf0279ecef7d10d0284d4cecb9",
+        "0x1e20bd6ecb21252705442f66733ad9bd6b38f4a29acae27f1c95bd2f57eab737"
+      ]
     }
   }
 }
