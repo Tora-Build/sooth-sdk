@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V12.0 (SoothBook)  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-02-15
+> **Last Updated**: 2026-02-16
 
 ## V12 SoothBook (Current)
 
@@ -24,7 +24,7 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 | Layer | Status | Details |
 |-------|--------|---------|
 | Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia |
-| CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`, `sbcreatemarket`) |
+| CLI | ✅ Wired | 10 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`) |
 | SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
 | Indexer | ✅ Configured | 8 event handlers, 4 schema tables (market, order, fill, mint_merge) |
 | Frontend | ✅ Integrated | Pro page (SoothBook trading) + Trade page (AMM) read from deployments.json |
@@ -33,14 +33,14 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 
 | Contract | Address |
 |----------|---------|
-| SoothBook | `0xa83b770de63349629ea1f92ad9b40285b1d47d74` |
-| LaunchpadEngine | `0xc5f6b53c74a5d14336e971459ee7cf936d401384` |
-| AMMEngine | `0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2` |
-| Collateralizer | `0x72b11e98d4050b5edaa9b069d1c6d7309a8c8f04` |
-| ProtocolConfig | `0xaf2b599fedfda277f66525bf91ef6f49df6bddae` |
-| MockUSDC | `0xe2025de4fbee78d0a3832ea02d070d791c42ed1e` |
+| MockUSDC | `0x797fc44b9d56da8b3646b6ec2d5cd2a325c804f5` |
+| ProtocolConfig | `0xd34d2cd65f83676023e11b0d7cba35c71746f63f` |
+| Collateralizer | `0x74446dc0059c85073a46f4c71e567ac3d2a721e0` |
+| AMMEngine | `0x0fd277ec38d68a16de40e65973193569821bc6de` |
+| SoothBook | `0xd057603b8b45e9a9a7613af71cb91882680abc4f` |
+| LaunchpadEngine | `0x32ffaa368ec00191abd2650a1f53d4fdc6ebefea` |
 
-3 test markets deployed with seeded liquidity on Market 1.
+3 seed markets created via LaunchpadEngine (bonding stage). Block 37727323.
 
 ---
 

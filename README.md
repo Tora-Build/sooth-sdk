@@ -10,12 +10,12 @@ A unified prediction market protocol with **Launchpad Markets** — permissionle
 ### Base Sepolia (chainId: 84532) - V12.0 (Active Testing)
 | Contract | Address |
 |----------|---------|
-| SoothBook | `0xa83b770de63349629ea1f92ad9b40285b1d47d74` |
-| LaunchpadEngine | `0xc5f6b53c74a5d14336e971459ee7cf936d401384` |
-| AMMEngine | `0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2` |
-| Collateralizer | `0x72b11e98d4050b5edaa9b069d1c6d7309a8c8f04` |
-| ProtocolConfig | `0xaf2b599fedfda277f66525bf91ef6f49df6bddae` |
-| MockUSDC | `0xe2025de4fbee78d0a3832ea02d070d791c42ed1e` |
+| MockUSDC | `0x797fc44b9d56da8b3646b6ec2d5cd2a325c804f5` |
+| ProtocolConfig | `0xd34d2cd65f83676023e11b0d7cba35c71746f63f` |
+| Collateralizer | `0x74446dc0059c85073a46f4c71e567ac3d2a721e0` |
+| AMMEngine | `0x0fd277ec38d68a16de40e65973193569821bc6de` |
+| SoothBook | `0xd057603b8b45e9a9a7613af71cb91882680abc4f` |
+| LaunchpadEngine | `0x32ffaa368ec00191abd2650a1f53d4fdc6ebefea` |
 
 > **Note:** Only Base Sepolia is deployed with V12 SoothBook. Other chains (Monad, MegaETH, Arc) remain at older versions and are disabled in tooling.
 
