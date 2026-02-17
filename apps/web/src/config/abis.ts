@@ -215,6 +215,7 @@ export const SOOTHBOOK_ABI = parseAbi([
   "function mint(bytes32 marketKey, uint256 amount)",
   "function merge(bytes32 marketKey, uint256 amount)",
   "function cancel(bytes32 marketKey, uint8 side, uint16 tick)",
+  "function cancelById(uint64 orderId)",
   "function redeem(bytes32 marketKey)",
   "function resolveMarket(bytes32 marketKey, uint8 outcome)",
   // View functions
@@ -230,8 +231,11 @@ export const SOOTHBOOK_ABI = parseAbi([
   // Events
   "event MarketCreated(bytes32 indexed marketKey, address collateral, address yesToken, address noToken)",
   "event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)",
+  "event OrderPlacedV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId)",
   "event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)",
+  "event OrderFilledV2(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId)",
   "event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)",
+  "event OrderCancelledV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)",
   "event Minted(bytes32 indexed marketKey, address indexed user, uint256 amount)",
   "event Merged(bytes32 indexed marketKey, address indexed user, uint256 amount)",
   "event Redeemed(bytes32 indexed marketKey, address indexed user, uint256 payout)",

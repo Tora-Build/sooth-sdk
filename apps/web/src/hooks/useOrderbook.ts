@@ -44,6 +44,8 @@ export function useOrderbook(marketId: string) {
   const [isSupported, setIsSupported] = useState<boolean>(true);
   const [userYesShares, setUserYesShares] = useState(0);
   const [userNoShares, setUserNoShares] = useState(0);
+  const [yesTokenAddress, setYesTokenAddress] = useState<`0x${string}` | undefined>(undefined);
+  const [noTokenAddress, setNoTokenAddress] = useState<`0x${string}` | undefined>(undefined);
 
   const marketAddress = isAddressFormat
     ? (marketId as `0x${string}`)
@@ -58,48 +60,51 @@ export function useOrderbook(marketId: string) {
   }, [marketAddress]);
 
   const scanTickDepth = useCallback(
-    async (side: 0 | 1, bestTick: number): Promise<Order[]> => {
-      if (!publicClient || !soothBookAddress || !marketKey || bestTick < 1) {
+    async (side: 0 | 1, blockNumber: bigint): Promise<Order[]> => {
+      if (!publicClient || !soothBookAddress || !marketKey) {
         return [];
       }
 
-      const maxTickCalls = 200;
+      const maxTickCalls = 999;
+      const batchSize = 120;
       const ticks: number[] = [];
-      for (let tick = bestTick; tick >= 1 && ticks.length < maxTickCalls; tick--) {
+      for (let tick = 999; tick >= 1 && ticks.length < maxTickCalls; tick--) {
         ticks.push(tick);
       }
-
-      const tickContracts = ticks.map((tick) => ({
-        address: soothBookAddress,
-        abi: SOOTHBOOK_ABI,
-        functionName: 'getOrdersAtTick' as const,
-        args: [marketKey, side, tick] as const,
-      }));
-
-      const results = await publicClient.multicall({ contracts: tickContracts });
       const orders: Order[] = [];
 
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        const tick = ticks[i];
-        if (!result || result.status !== 'success') continue;
+      for (let start = 0; start < ticks.length; start += batchSize) {
+        const batchTicks = ticks.slice(start, start + batchSize);
+        const contracts = batchTicks.map((tick) => ({
+          address: soothBookAddress,
+          abi: SOOTHBOOK_ABI,
+          functionName: 'getOrdersAtTick' as const,
+          args: [marketKey, side, tick] as const,
+        }));
+        const results = await publicClient.multicall({ contracts, blockNumber });
 
-        const [totalAmount] = result.result as readonly [bigint, bigint];
-        if (totalAmount <= 0n) continue;
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const tick = batchTicks[i];
+          if (!result || result.status !== 'success') continue;
 
-        const yesPriceValue = side === 1 ? tick / 1000 : (1000 - tick) / 1000;
-        const yesPrice = yesPriceValue.toFixed(4);
+          const [totalAmount] = result.result as readonly [bigint, bigint];
+          if (totalAmount <= 0n) continue;
 
-        orders.push({
-          id: `${side}:${tick}`,
-          maker: 'aggregated',
-          yesPrice,
-          displayPrice: yesPrice,
-          amount: formatUnits(totalAmount, 18),
-          timestamp: 0,
-          isBuySide: side === 1,
-          side: side === 1 ? 'bid' : 'ask',
-        });
+          const yesPriceValue = side === 1 ? tick / 1000 : (1000 - tick) / 1000;
+          const yesPrice = yesPriceValue.toFixed(4);
+
+          orders.push({
+            id: `${side}:${tick}`,
+            maker: 'aggregated',
+            yesPrice,
+            displayPrice: yesPrice,
+            amount: formatUnits(totalAmount, 18),
+            timestamp: 0,
+            isBuySide: side === 1,
+            side: side === 1 ? 'bid' : 'ask',
+          });
+        }
       }
 
       return orders;
@@ -113,48 +118,24 @@ export function useOrderbook(marketId: string) {
 
       if (!isBackground) setIsLoading(true);
       try {
-        const marketContracts = [
-          {
-            address: soothBookAddress,
-            abi: SOOTHBOOK_ABI,
-            functionName: 'getBestTick' as const,
-            args: [marketKey, 1] as const,
-          },
-          {
-            address: soothBookAddress,
-            abi: SOOTHBOOK_ABI,
-            functionName: 'getBestTick' as const,
-            args: [marketKey, 0] as const,
-          },
-          {
-            address: soothBookAddress,
-            abi: SOOTHBOOK_ABI,
-            functionName: 'getImpliedPrice' as const,
-            args: [marketKey] as const,
-          },
-          {
-            address: soothBookAddress,
-            abi: SOOTHBOOK_ABI,
-            functionName: 'markets' as const,
-            args: [marketKey] as const,
-          },
-        ];
+        const snapshotBlock = await publicClient.getBlockNumber();
 
-        const [bestYesTickRes, bestNoTickRes, _impliedRes, marketRes] = await publicClient.multicall({
-          contracts: marketContracts,
+        const [marketRes] = await publicClient.multicall({
+          contracts: [
+            {
+              address: soothBookAddress,
+              abi: SOOTHBOOK_ABI,
+              functionName: 'markets' as const,
+              args: [marketKey] as const,
+            },
+          ],
+          blockNumber: snapshotBlock,
         });
 
-        if (
-          bestYesTickRes.status !== 'success' ||
-          bestNoTickRes.status !== 'success' ||
-          marketRes.status !== 'success'
-        ) {
+        if (marketRes.status !== 'success') {
           setIsSupported(false);
           return;
         }
-
-        const bestYesTick = Number(bestYesTickRes.result);
-        const bestNoTick = Number(bestNoTickRes.result);
         const [
           _collateral,
           yesToken,
@@ -171,9 +152,12 @@ export function useOrderbook(marketId: string) {
           number,
         ];
 
+        setYesTokenAddress(yesToken);
+        setNoTokenAddress(noToken);
+
         const [bids, asks] = await Promise.all([
-          scanTickDepth(1, bestYesTick),
-          scanTickDepth(0, bestNoTick),
+          scanTickDepth(1, snapshotBlock),
+          scanTickDepth(0, snapshotBlock),
         ]);
 
         if (userAddress && isAddress(yesToken) && isAddress(noToken)) {
@@ -192,6 +176,7 @@ export function useOrderbook(marketId: string) {
                 args: [userAddress],
               },
             ],
+            blockNumber: snapshotBlock,
           });
 
           const yesBal = yesBalRes.status === 'success' ? yesBalRes.result : 0n;
@@ -223,7 +208,7 @@ export function useOrderbook(marketId: string) {
   }, [fetchOrderbook]);
 
   useEffect(() => {
-    const interval = setInterval(() => fetchOrderbook(true), 5000);
+    const interval = setInterval(() => fetchOrderbook(true), 10000);
     return () => clearInterval(interval);
   }, [fetchOrderbook]);
 
@@ -259,5 +244,7 @@ export function useOrderbook(marketId: string) {
     },
     userYesShares,
     userNoShares,
+    yesTokenAddress,
+    noTokenAddress,
   };
 }

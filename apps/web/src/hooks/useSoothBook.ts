@@ -42,7 +42,7 @@ export function useSoothBookMarket(soothBookAddress?: Address, marketKey?: `0x${
     abi: SOOTHBOOK_ABI,
     functionName: "getBestTick",
     args: marketKey ? [marketKey, 1] : undefined,
-    query: { enabled: canRead },
+    query: { enabled: canRead, refetchInterval: 10_000 },
   });
 
   const { data: bestNoTick } = useReadContract({
@@ -50,7 +50,7 @@ export function useSoothBookMarket(soothBookAddress?: Address, marketKey?: `0x${
     abi: SOOTHBOOK_ABI,
     functionName: "getBestTick",
     args: marketKey ? [marketKey, 0] : undefined,
-    query: { enabled: canRead },
+    query: { enabled: canRead, refetchInterval: 10_000 },
   });
 
   const { data: implied } = useReadContract({
@@ -58,7 +58,7 @@ export function useSoothBookMarket(soothBookAddress?: Address, marketKey?: `0x${
     abi: SOOTHBOOK_ABI,
     functionName: "getImpliedPrice",
     args: marketKey ? [marketKey] : undefined,
-    query: { enabled: canRead },
+    query: { enabled: canRead, refetchInterval: 10_000 },
   });
 
   const marketState: SoothBookMarketState = {
