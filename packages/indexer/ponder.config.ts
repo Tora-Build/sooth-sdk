@@ -39,8 +39,8 @@ export default createConfig({
           startBlock: 54706817,
         },
         baseSepolia: {
-          address: "0xc5f6b53c74a5d14336e971459ee7cf936d401384",
-          startBlock: 37702590,
+          address: "0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3",
+          startBlock: 37762786,
         },
       },
     },
@@ -52,8 +52,8 @@ export default createConfig({
           startBlock: 54706817,
         },
         baseSepolia: {
-          address: "0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2",
-          startBlock: 37702590,
+          address: "0x5d2bfce963bd7e002213522a22e3615d454708b3",
+          startBlock: 37762782,
         },
       },
     },
@@ -61,8 +61,8 @@ export default createConfig({
       abi: SoothBookAbi,
       chain: {
         baseSepolia: {
-          address: "0xa83b770de63349629ea1f92ad9b40285b1d47d74",
-          startBlock: 37702590,
+          address: "0x6c3ad4d5a800b87acdfe5ba82972feb23acab011",
+          startBlock: 37762784,
         },
       },
     },
