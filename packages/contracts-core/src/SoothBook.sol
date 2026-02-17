@@ -64,9 +64,18 @@ contract SoothBook is ReentrancyGuard, Ownable {
     }
 
     struct Order {
+        uint64 id;
         address maker;
         uint128 amount;    // shares remaining
         bool escrow;       // true = escrowing opposite tokens for exit
+    }
+
+    struct OrderPointer {
+        bytes32 marketKey;
+        uint8 side;
+        uint16 tick;
+        uint32 index;
+        bool exists;
     }
 
     // ============================================
@@ -87,6 +96,10 @@ contract SoothBook is ReentrancyGuard, Ownable {
     // Collateral backing: marketKey => total collateral held
     mapping(bytes32 => uint256) private _collateralBacking;
 
+    // Order pointers for stable id-based cancel/lookups
+    mapping(uint64 => OrderPointer) private _orderPointers;
+    uint64 private _nextOrderId;
+
     // Escrowed tokens for orders: marketKey => side => tick => order index => escrowed
     // (tracked implicitly via Order.escrow + amount — tokens burned on order placement)
 
@@ -100,8 +113,11 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
     event MarketCreated(bytes32 indexed marketKey, address collateral, address yesToken, address noToken);
     event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow);
+    event OrderPlacedV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId);
     event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus);
+    event OrderFilledV2(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId);
     event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount);
+    event OrderCancelledV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId);
     event Minted(bytes32 indexed marketKey, address indexed user, uint256 amount);
     event Merged(bytes32 indexed marketKey, address indexed user, uint256 amount);
     event Redeemed(bytes32 indexed marketKey, address indexed user, uint256 payout);
@@ -284,9 +300,34 @@ contract SoothBook is ReentrancyGuard, Ownable {
         }
         if (!found) revert OrderNotActive();
 
+        _cancelAtIndex(marketKey, side, tick, idx);
+    }
+
+    /**
+     * @notice Cancel a specific resting order by unique order id
+     * @param orderId Unique protocol order id emitted in OrderPlacedV2
+     */
+    function cancelById(uint64 orderId) external nonReentrant {
+        OrderPointer memory pointer = _orderPointers[orderId];
+        if (!pointer.exists) revert OrderNotActive();
+
+        Order[] storage queue = _orders[pointer.marketKey][pointer.side][pointer.tick];
+        uint256 idx = uint256(pointer.index);
+        if (idx >= queue.length) revert OrderNotActive();
+
+        Order storage order = queue[idx];
+        if (order.id != orderId || order.maker != msg.sender || order.amount == 0) revert OrderNotActive();
+
+        _cancelAtIndex(pointer.marketKey, pointer.side, pointer.tick, idx);
+    }
+
+    function _cancelAtIndex(bytes32 marketKey, uint8 side, uint16 tick, uint256 idx) internal {
+        Order[] storage queue = _orders[marketKey][side][tick];
+
         Order storage order = queue[idx];
         uint128 refundAmount = order.amount;
         bool wasEscrow = order.escrow;
+        uint64 orderId = order.id;
         order.amount = 0;
 
         // Advance head if possible
@@ -311,6 +352,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
         }
 
         emit OrderCancelled(marketKey, side, tick, msg.sender, refundAmount);
+        emit OrderCancelledV2(marketKey, side, tick, msg.sender, refundAmount, orderId);
     }
 
     // ============================================
@@ -392,15 +434,24 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
         // Rest goes on the book
         if (remaining > 0) {
+            uint64 orderId = ++_nextOrderId;
+            uint32 orderIndex = uint32(_orders[marketKey][side][tick].length);
             _orders[marketKey][side][tick].push(Order({
+                id: orderId,
                 maker: msg.sender,
                 amount: remaining,
                 escrow: escrow
             }));
-            if (!_bitmaps[marketKey][side].isSet(tick)) {
-                _bitmaps[marketKey][side].setBit(tick);
-            }
+            _orderPointers[orderId] = OrderPointer({
+                marketKey: marketKey,
+                side: side,
+                tick: tick,
+                index: orderIndex,
+                exists: true
+            });
+            _bitmaps[marketKey][side].setBit(tick);
             emit OrderPlaced(marketKey, side, tick, msg.sender, remaining, escrow);
+            emit OrderPlacedV2(marketKey, side, tick, msg.sender, remaining, escrow, orderId);
         }
     }
 
@@ -495,6 +546,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
                 }
 
                 emit OrderFilled(marketKey, takerSide, yesTick, noTick, msg.sender, maker.maker, fill, surplus);
+                emit OrderFilledV2(marketKey, takerSide, yesTick, noTick, msg.sender, maker.maker, fill, surplus, maker.id);
 
                 maker.amount -= fill;
                 remaining -= fill;
@@ -572,7 +624,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
     }
 
     function getBestTick(bytes32 marketKey, uint8 side) external view returns (uint16) {
-        return _bitmaps[marketKey][side].findNextDown(MAX_TICK + 1);
+        return _findBestActiveTick(marketKey, side);
     }
 
     function getOrdersAtTick(bytes32 marketKey, uint8 side, uint16 tick)
@@ -589,8 +641,8 @@ contract SoothBook is ReentrancyGuard, Ownable {
     }
 
     function getImpliedPrice(bytes32 marketKey) external view returns (uint256 yesPrice, uint256 noPrice) {
-        uint16 bestYes = _bitmaps[marketKey][1].findNextDown(MAX_TICK + 1);
-        uint16 bestNo = _bitmaps[marketKey][0].findNextDown(MAX_TICK + 1);
+        uint16 bestYes = _findBestActiveTick(marketKey, 1);
+        uint16 bestNo = _findBestActiveTick(marketKey, 0);
 
         if (bestYes <= MAX_TICK) {
             yesPrice = (uint256(bestYes) * WAD) / NUM_TICKS;
@@ -598,5 +650,14 @@ contract SoothBook is ReentrancyGuard, Ownable {
         if (bestNo <= MAX_TICK) {
             noPrice = (uint256(bestNo) * WAD) / NUM_TICKS;
         }
+    }
+
+    function _findBestActiveTick(bytes32 marketKey, uint8 side) internal view returns (uint16) {
+        uint16 tick = _bitmaps[marketKey][side].findNextDown(MAX_TICK + 1);
+        while (tick <= MAX_TICK && _tickEmpty(marketKey, side, tick)) {
+            if (tick == 0) return MAX_TICK + 1;
+            tick = _bitmaps[marketKey][side].findNextDown(tick);
+        }
+        return tick;
     }
 }

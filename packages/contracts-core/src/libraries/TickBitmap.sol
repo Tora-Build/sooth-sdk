@@ -53,12 +53,13 @@ library TickBitmap {
         unchecked {
             uint8 wordIndex = uint8(tick >> 8);  // tick / 256
             uint8 bitIndex = uint8(tick & 0xFF); // tick % 256
+            uint256 bitMask = uint256(1) << uint256(bitIndex);
 
             // Set level 2 bit
-            bitmap.level2[wordIndex] |= (1 << bitIndex);
+            bitmap.level2[wordIndex] |= bitMask;
 
             // Set level 1 bit
-            bitmap.level1 |= (1 << wordIndex);
+            bitmap.level1 |= (uint256(1) << uint256(wordIndex));
         }
     }
 
@@ -71,13 +72,14 @@ library TickBitmap {
         unchecked {
             uint8 wordIndex = uint8(tick >> 8);
             uint8 bitIndex = uint8(tick & 0xFF);
+            uint256 bitMask = uint256(1) << uint256(bitIndex);
 
             // Clear level 2 bit
-            bitmap.level2[wordIndex] &= ~(1 << bitIndex);
+            bitmap.level2[wordIndex] &= ~bitMask;
 
             // If word is now empty, clear level 1 bit
             if (bitmap.level2[wordIndex] == 0) {
-                bitmap.level1 &= ~(1 << wordIndex);
+                bitmap.level1 &= ~(uint256(1) << uint256(wordIndex));
             }
         }
     }
@@ -91,7 +93,8 @@ library TickBitmap {
         unchecked {
             uint8 wordIndex = uint8(tick >> 8);
             uint8 bitIndex = uint8(tick & 0xFF);
-            return (bitmap.level2[wordIndex] & (1 << bitIndex)) != 0;
+            uint256 bitMask = uint256(1) << uint256(bitIndex);
+            return (bitmap.level2[wordIndex] & bitMask) != 0;
         }
     }
 
@@ -115,7 +118,7 @@ library TickBitmap {
 
             // Search within current word first
             uint256 word = bitmap.level2[wordIndex];
-            uint256 mask = ~((1 << bitIndex) - 1); // Mask bits >= bitIndex
+            uint256 mask = ~((uint256(1) << uint256(bitIndex)) - 1); // Mask bits >= bitIndex
             uint256 masked = word & mask;
 
             if (masked != 0) {
@@ -125,7 +128,7 @@ library TickBitmap {
             }
 
             // Search level 1 for next non-empty word
-            uint256 level1Mask = ~((1 << (wordIndex + 1)) - 1);
+            uint256 level1Mask = ~((uint256(1) << (uint256(wordIndex) + 1)) - 1);
             uint256 level1Masked = bitmap.level1 & level1Mask;
 
             if (level1Masked == 0) {
@@ -164,7 +167,7 @@ library TickBitmap {
 
             // Search within current word first
             uint256 word = bitmap.level2[wordIndex];
-            uint256 mask = (1 << (bitIndex + 1)) - 1; // Mask bits <= bitIndex
+            uint256 mask = (uint256(1) << (uint256(bitIndex) + 1)) - 1; // Mask bits <= bitIndex
             uint256 masked = word & mask;
 
             if (masked != 0) {
@@ -177,7 +180,7 @@ library TickBitmap {
                 return MAX_TICK + 1;
             }
 
-            uint256 level1Mask = (1 << wordIndex) - 1;
+            uint256 level1Mask = (uint256(1) << uint256(wordIndex)) - 1;
             uint256 level1Masked = bitmap.level1 & level1Mask;
 
             if (level1Masked == 0) {
@@ -263,36 +266,38 @@ library TickBitmap {
     function mostSignificantBit(uint256 x) internal pure returns (uint8 r) {
         if (x == 0) revert ZeroValue();
 
-        assembly {
-            // Binary search for MSB position
-            let f := shl(7, gt(x, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
-            r := f
-            x := shr(f, x)
-
-            f := shl(6, gt(x, 0xFFFFFFFFFFFFFFFF))
-            r := or(r, f)
-            x := shr(f, x)
-
-            f := shl(5, gt(x, 0xFFFFFFFF))
-            r := or(r, f)
-            x := shr(f, x)
-
-            f := shl(4, gt(x, 0xFFFF))
-            r := or(r, f)
-            x := shr(f, x)
-
-            f := shl(3, gt(x, 0xFF))
-            r := or(r, f)
-            x := shr(f, x)
-
-            f := shl(2, gt(x, 0xF))
-            r := or(r, f)
-            x := shr(f, x)
-
-            f := shl(1, gt(x, 0x3))
-            r := or(r, f)
-
-            r := or(r, gt(shr(r, x), 0x1))
+        unchecked {
+            if (x >= 2 ** 128) {
+                x >>= 128;
+                r += 128;
+            }
+            if (x >= 2 ** 64) {
+                x >>= 64;
+                r += 64;
+            }
+            if (x >= 2 ** 32) {
+                x >>= 32;
+                r += 32;
+            }
+            if (x >= 2 ** 16) {
+                x >>= 16;
+                r += 16;
+            }
+            if (x >= 2 ** 8) {
+                x >>= 8;
+                r += 8;
+            }
+            if (x >= 2 ** 4) {
+                x >>= 4;
+                r += 4;
+            }
+            if (x >= 2 ** 2) {
+                x >>= 2;
+                r += 2;
+            }
+            if (x >= 2 ** 1) {
+                r += 1;
+            }
         }
     }
 
@@ -315,26 +320,26 @@ library TickBitmap {
                 // Same word - single update
                 uint8 bitLower = uint8(tickLower & 0xFF);
                 uint8 bitUpper = uint8(tickUpper & 0xFF);
-                uint256 mask = ((1 << (bitUpper - bitLower + 1)) - 1) << bitLower;
+                uint256 mask = ((uint256(1) << (uint256(bitUpper) - uint256(bitLower) + 1)) - 1) << bitLower;
                 bitmap.level2[wordLower] |= mask;
-                bitmap.level1 |= (1 << wordLower);
+                bitmap.level1 |= (uint256(1) << uint256(wordLower));
             } else {
                 // Multiple words
                 // First word: set bits from bitLower to 255
                 uint8 bitLower = uint8(tickLower & 0xFF);
-                bitmap.level2[wordLower] |= ~((1 << bitLower) - 1);
-                bitmap.level1 |= (1 << wordLower);
+                bitmap.level2[wordLower] |= ~((uint256(1) << uint256(bitLower)) - 1);
+                bitmap.level1 |= (uint256(1) << uint256(wordLower));
 
                 // Middle words: set all bits
                 for (uint8 w = wordLower + 1; w < wordUpper; w++) {
                     bitmap.level2[w] = type(uint256).max;
-                    bitmap.level1 |= (1 << w);
+                    bitmap.level1 |= (uint256(1) << uint256(w));
                 }
 
                 // Last word: set bits from 0 to bitUpper
                 uint8 bitUpper = uint8(tickUpper & 0xFF);
-                bitmap.level2[wordUpper] |= (1 << (bitUpper + 1)) - 1;
-                bitmap.level1 |= (1 << wordUpper);
+                bitmap.level2[wordUpper] |= (uint256(1) << (uint256(bitUpper) + 1)) - 1;
+                bitmap.level1 |= (uint256(1) << uint256(wordUpper));
             }
         }
     }

@@ -22,6 +22,10 @@ import {
   createPublicClient,
   http,
   parseAbi,
+  keccak256,
+  encodePacked,
+  decodeEventLog,
+  parseEther,
   type Chain,
   formatEther,
   Abi,
@@ -71,6 +75,19 @@ import {
 } from './chainConfigs.js';
 
 const DEPLOYMENT_VERSION = 'V12.0';
+
+// ============================================
+// Seed Markets (created via LaunchpadEngine at deploy time)
+// ============================================
+
+const SEED_INITIAL_LIQUIDITY = parseEther('100'); // 100 WAD per market
+const USDC_MINT_FOR_SEEDS = parseEther('1000000'); // Enough for all seed markets
+
+const SEED_MARKETS = [
+  { name: 'Will BTC hit $150k in 2026?' },
+  { name: 'Will ETH flip BTC by 2027?' },
+  { name: 'Will US approve a spot SOL ETF in 2026?' },
+];
 
 // ============================================
 // Artifact Loading
@@ -159,6 +176,12 @@ async function deployContract(
 // Deploy Core Infrastructure
 // ============================================
 
+interface SeedMarketResult {
+  address: string;
+  name: string;
+  marketKey: string;
+}
+
 interface CoreContracts {
   mockUSDC: `0x${string}`;
   protocolConfig: `0x${string}`;
@@ -166,6 +189,7 @@ interface CoreContracts {
   ammEngine: `0x${string}`;
   soothBook: `0x${string}`;
   launchpadEngine: `0x${string}`;
+  seedMarkets: SeedMarketResult[];
 }
 
 async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContracts> {
@@ -197,7 +221,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
     ctx.deployer, // Initial owner
   ]);
 
-  // 7. Configure Engines (Link up permissions)
+  // 7. Configure Engines (Link up permissions — MUST happen before seed markets)
   console.log(`\n[${ctx.chainName}] === Configuring Engines & Permissions ===`);
 
   console.log(`  [${ctx.chainName}] Setting LaunchpadEngine as AMMEngine router...`);
@@ -224,6 +248,91 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash: transferOwnershipHash });
 
+  // 8. Create seed markets via LaunchpadEngine (requires router + ownership set)
+  console.log(`\n[${ctx.chainName}] === Creating Seed Markets via LaunchpadEngine ===`);
+
+  const usdcAbi = parseAbi([
+    'function mint(address to, uint256 amount) external',
+    'function approve(address spender, uint256 amount) external returns (bool)',
+  ]);
+
+  const launchpadAbi = parseAbi([
+    'function protocolConfig() external view returns (address)',
+    'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, uint256 adjudicatorAgentId, uint256 adjudicatorMinValidators) external returns (address market, uint256 lpTokens)',
+    'event MarketCreated(address indexed market, address indexed creator, uint256 initialLiquidity, uint256 deposit, uint256 lpTokens)',
+  ]);
+
+  console.log(`  [${ctx.chainName}] Minting USDC for seed market deposits...`);
+  const mintHash = await ctx.walletClient.writeContract({
+    address: mockUSDC,
+    abi: usdcAbi,
+    functionName: 'mint',
+    args: [ctx.deployer, USDC_MINT_FOR_SEEDS],
+    chain: ctx.config.chain,
+    account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
+  });
+  await ctx.publicClient.waitForTransactionReceipt({ hash: mintHash });
+
+  console.log(`  [${ctx.chainName}] Approving LaunchpadEngine for USDC...`);
+  const approveHash = await ctx.walletClient.writeContract({
+    address: mockUSDC,
+    abi: usdcAbi,
+    functionName: 'approve',
+    args: [launchpadEngine, USDC_MINT_FOR_SEEDS],
+    chain: ctx.config.chain,
+    account: ctx.walletClient.account!,
+    ...ctx.config.gasSettings,
+  });
+  await ctx.publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+  const protocolConfigAddr = await ctx.publicClient.readContract({
+    address: launchpadEngine,
+    abi: launchpadAbi,
+    functionName: 'protocolConfig',
+  }) as `0x${string}`;
+
+  const deadline = BigInt(Math.floor(Date.now() / 1000)) + BigInt(365 * 24 * 60 * 60);
+  const seedMarketResults: SeedMarketResult[] = [];
+
+  for (const seed of SEED_MARKETS) {
+    console.log(`  [${ctx.chainName}] Creating market: "${seed.name}"`);
+
+    const createHash = await ctx.walletClient.writeContract({
+      address: launchpadEngine,
+      abi: launchpadAbi,
+      functionName: 'createMarket',
+      args: [seed.name, 0n, deadline, ctx.deployer, protocolConfigAddr, SEED_INITIAL_LIQUIDITY, 0n, 0n],
+      chain: ctx.config.chain,
+      account: ctx.walletClient.account!,
+      ...ctx.config.gasSettings,
+    });
+
+    const receipt = await ctx.publicClient.waitForTransactionReceipt({
+      hash: createHash,
+      confirmations: ctx.config.deploymentConfig.confirmations,
+    });
+
+    let truthMarketAddress: `0x${string}` | undefined;
+    for (const log of receipt.logs) {
+      try {
+        const decoded = decodeEventLog({ abi: launchpadAbi, data: log.data, topics: log.topics });
+        if (decoded.eventName === 'MarketCreated') {
+          truthMarketAddress = (decoded.args as any).market;
+          break;
+        }
+      } catch { /* not our event */ }
+    }
+
+    if (!truthMarketAddress) {
+      throw new Error(`Failed to extract TruthMarket address for "${seed.name}"`);
+    }
+
+    const marketKey = keccak256(encodePacked(['address'], [truthMarketAddress]));
+    seedMarketResults.push({ address: truthMarketAddress, name: seed.name, marketKey });
+    console.log(`  [${ctx.chainName}] ✓ TruthMarket: ${truthMarketAddress} (key: ${marketKey.slice(0, 14)}...)`);
+  }
+
   return {
     mockUSDC,
     protocolConfig,
@@ -231,6 +340,7 @@ async function deployCoreContracts(ctx: DeploymentContext): Promise<CoreContract
     ammEngine,
     soothBook,
     launchpadEngine,
+    seedMarkets: seedMarketResults,
   };
 }
 
@@ -315,7 +425,6 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
   // Deploy core contracts only
   const core = await deployCoreContracts(ctx);
 
-  // Create deployment artifact (no markets)
   const artifact: DeploymentArtifact = {
     chainId: config.chain.id,
     chainName,
@@ -330,13 +439,37 @@ async function deployToChain(chainName: string, privateKey: `0x${string}`): Prom
       SoothBook: core.soothBook,
       LaunchpadEngine: core.launchpadEngine,
     },
-    markets: [], // Markets created separately via CLI or launchpad
+    markets: core.seedMarkets.map(m => ({
+      address: m.address,
+      name: m.name,
+      symbol: '',
+      yesToken: '',
+      noToken: '',
+      isGraduated: false,
+      soothBookKey: m.marketKey,
+    })),
   };
 
-  // Save artifact
+  // Save contracts-core artifact
   const artifactPath = path.join(__dirname, `../deployments/${chainName}.json`);
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
   console.log(`\n[${chainName}] ✓ Deployment artifact saved to: ${artifactPath}`);
+
+  // Update frontend deployments.json
+  const frontendPath = path.join(__dirname, '../../../apps/web/src/config/deployments.json');
+  const frontendConfig: Record<string, unknown> = fs.existsSync(frontendPath)
+    ? JSON.parse(fs.readFileSync(frontendPath, 'utf-8'))
+    : { version: DEPLOYMENT_VERSION, networks: {} };
+
+  (frontendConfig as any).version = DEPLOYMENT_VERSION;
+  const networks = ((frontendConfig as any).networks ??= {});
+  networks[chainName] = {
+    chainId: config.chain.id,
+    contracts: artifact.contracts,
+    markets: core.seedMarkets.map(m => m.marketKey),
+  };
+  fs.writeFileSync(frontendPath, JSON.stringify(frontendConfig, null, 2) + '\n');
+  console.log(`[${chainName}] ✓ Frontend deployments.json updated`);
 
   return artifact;
 }
@@ -406,8 +539,7 @@ async function main() {
   console.log('\n' + '='.repeat(60));
   console.log('Next steps:');
   console.log('1. Verify contracts on block explorers');
-  console.log('2. Update frontend deployments.json');
-  console.log('3. Create markets via CLI: pnpm interactive:monad');
+  console.log('2. Test seed markets via CLI: pnpm dev:cli:base');
   console.log('='.repeat(60));
 }
 

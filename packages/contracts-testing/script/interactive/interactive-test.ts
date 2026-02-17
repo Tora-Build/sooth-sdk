@@ -221,20 +221,35 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   } else if (/^\d+$/.test(addressOrIndex)) {
     const index = parseInt(addressOrIndex, 10);
 
+    const soothBookMarkets = config.deployment.markets.filter(
+      (m) => (m.marketKey || m.key) && (!m.address || m.address === '')
+    );
+
+    if (index < soothBookMarkets.length) {
+      const sbMarket = soothBookMarkets[index];
+      currentMarketKey = (sbMarket.marketKey || sbMarket.key) as `0x${string}`;
+      currentMarketAddress = null;
+      currentMarketName = sbMarket.name || null;
+      console.log(success(`  Set SoothBook market: ${currentMarketName || currentMarketKey}`));
+      console.log(dim(`  Key: ${currentMarketKey}`));
+      return true;
+    }
+
+    const adjustedIndex = index - soothBookMarkets.length;
     try {
       const onChainMarkets = await discoverMarketsOnChain();
-      if (index >= onChainMarkets.length) {
-        console.log(error(`  Market index ${index} out of range (${onChainMarkets.length} markets available)`));
+      if (adjustedIndex >= onChainMarkets.length) {
+        const total = soothBookMarkets.length + onChainMarkets.length;
+        console.log(error(`  Market index ${index} out of range (${total} markets available)`));
         return false;
       }
-      marketAddress = onChainMarkets[index].address;
+      marketAddress = onChainMarkets[adjustedIndex].address;
     } catch {
-      // Fallback to deployment config
-      if (index >= config.deployment.markets.length) {
+      if (adjustedIndex >= config.deployment.markets.length) {
         console.log(error(`  Market index ${index} out of range`));
         return false;
       }
-      marketAddress = config.deployment.markets[index].address;
+      marketAddress = config.deployment.markets[adjustedIndex].address;
     }
   } else if (/^0x[a-fA-F0-9]{64}$/.test(addressOrIndex)) {
     currentMarketKey = addressOrIndex as `0x${string}`;
@@ -603,38 +618,44 @@ async function handleCommand(input: string): Promise<void> {
           console.log(`  Current: ${warn('none')}`);
         }
 
+        // Show SoothBook seed markets from deployment config
+        const soothBookMarkets = config.deployment.markets.filter(
+          (m) => (m.marketKey || m.key) && (!m.address || m.address === '')
+        );
+        if (soothBookMarkets.length > 0) {
+          console.log('');
+          console.log(`  ${bold('SoothBook Markets')} (from deployment config)`);
+          soothBookMarkets.forEach((market, index) => {
+            const label = market.name || `SoothBook Market ${index}`;
+            const keyValue = market.marketKey || market.key || '(none)';
+            console.log(`  [${index}] ${label}`);
+            console.log(`      marketKey: ${keyValue}`);
+          });
+        }
+
+        // Show Launchpad markets from on-chain discovery
         try {
           const discovered = await discoverMarketsOnChain();
-          console.log('');
 
-          if (discovered.length === 0) {
-            console.log(`  ${warn('No Launchpad markets found on-chain')}`);
-          } else {
+          if (discovered.length > 0) {
+            console.log('');
+            console.log(`  ${bold('Launchpad Markets')} (on-chain)`);
+            const offset = soothBookMarkets.length;
             discovered.forEach((market, index) => {
               const label = market.name.length > 70 ? `${market.name.slice(0, 67)}...` : market.name;
-              console.log(`  [${index}] ${label}`);
+              console.log(`  [${offset + index}] ${label}`);
               console.log(`      address:   ${market.address}`);
               console.log(`      stage:     ${market.stage}`);
               console.log(`      graduated: ${market.isGraduated ? 'yes' : 'no'}`);
               console.log(`      marketKey: ${market.marketKey || '(not available pre-graduation)'}`);
             });
+          } else if (soothBookMarkets.length === 0) {
+            console.log('');
+            console.log(`  ${warn('No markets found')}`);
           }
         } catch (err) {
-          console.log(error(`  Failed to discover on-chain markets: ${(err as Error).message}`));
-
-          if (config.deployment.markets.length > 0) {
-            console.log('');
-            console.log(dim('  Falling back to static deployment markets:'));
-            config.deployment.markets.forEach((market, index) => {
-              const label = market.name || `Market ${index}`;
-              const addressValue = market.address || '(none)';
-              const keyValue = market.marketKey || market.key || '(none)';
-              console.log(`  [${index}] ${label}`);
-              console.log(`      address:   ${addressValue}`);
-              console.log(`      stage:     unknown`);
-              console.log(`      graduated: unknown`);
-              console.log(`      marketKey: ${keyValue}`);
-            });
+          if (soothBookMarkets.length === 0) {
+            console.log(error(`  Failed to discover on-chain markets: ${(err as Error).message}`));
           }
         }
 

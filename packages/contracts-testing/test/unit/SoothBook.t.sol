@@ -143,6 +143,34 @@ contract SoothBookTest is Test {
         assertEq(book.getBestTick(marketKey, 0), 400, "best NO tick");
     }
 
+    function test_getBestTick_tracks_sparse_orders_across_full_tick_space() public {
+        uint16[7] memory ticks = [uint16(12), 255, 276, 512, 601, 944, 999];
+
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < ticks.length; i++) {
+            book.buyNo(marketKey, ticks[i], uint128(1 * WAD), false, 0);
+        }
+        vm.stopPrank();
+
+        assertEq(book.getBestTick(marketKey, 0), 999, "initial best NO tick");
+
+        vm.prank(alice);
+        book.cancel(marketKey, 0, 999);
+        assertEq(book.getBestTick(marketKey, 0), 944, "best NO after cancel 999");
+
+        vm.prank(alice);
+        book.cancel(marketKey, 0, 944);
+        assertEq(book.getBestTick(marketKey, 0), 601, "best NO after cancel 944");
+
+        vm.prank(alice);
+        book.cancel(marketKey, 0, 601);
+        assertEq(book.getBestTick(marketKey, 0), 512, "best NO after cancel 601");
+
+        vm.prank(alice);
+        book.cancel(marketKey, 0, 512);
+        assertEq(book.getBestTick(marketKey, 0), 276, "best NO after cancel 512");
+    }
+
     function test_buyYes_invalid_tick_reverts() public {
         vm.prank(alice);
         vm.expectRevert(SoothBook.InvalidTick.selector);
@@ -269,6 +297,38 @@ contract SoothBookTest is Test {
         assertEq(yesToken.balanceOf(alice), 100 * WAD, "alice YES");
         assertEq(noToken.balanceOf(carol), 50 * WAD, "carol NO");
         assertEq(noToken.balanceOf(bob), 50 * WAD, "bob NO");
+    }
+
+    function test_bestTick_matches_orderbook_scan_after_mixed_flow() public {
+        uint16[10] memory yesTicks = [
+            uint16(114), 126, 170, 259, 319,
+            404, 567, 695, 763, 893
+        ];
+        uint16[8] memory noTicks = [
+            uint16(213), 277, 314, 463,
+            641, 759, 863, 875
+        ];
+
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < yesTicks.length; i++) {
+            book.buyYes(marketKey, yesTicks[i], uint128(1 * WAD), false, 0);
+        }
+        for (uint256 i = 0; i < noTicks.length; i++) {
+            book.buyNo(marketKey, noTicks[i], uint128(1 * WAD), false, 0);
+        }
+        vm.stopPrank();
+
+        // Exercise both match directions before validating bitmap-derived best ticks.
+        vm.startPrank(bob);
+        book.buyNo(marketKey, 110, uint128(1 * WAD), false, 0);
+        book.buyYes(marketKey, 990, uint128(1 * WAD), false, 0);
+        vm.stopPrank();
+
+        uint16 scannedBestYes = _scanBestTick(1);
+        uint16 scannedBestNo = _scanBestTick(0);
+
+        assertEq(book.getBestTick(marketKey, 1), scannedBestYes, "best YES tick mismatch");
+        assertEq(book.getBestTick(marketKey, 0), scannedBestNo, "best NO tick mismatch");
     }
 
     // ============================================
@@ -716,5 +776,14 @@ contract SoothBookTest is Test {
         uint256 contractBalance = usdc.balanceOf(address(book));
         uint256 backing = book.getCollateralBacking(marketKey);
         assertEq(contractBalance, backing, "collateral invariant holds");
+    }
+
+    function _scanBestTick(uint8 side) internal view returns (uint16) {
+        for (uint16 tick = 999; tick >= 1; tick--) {
+            (uint256 total,) = book.getOrdersAtTick(marketKey, side, tick);
+            if (total > 0) return tick;
+            if (tick == 1) break;
+        }
+        return 1000;
     }
 }

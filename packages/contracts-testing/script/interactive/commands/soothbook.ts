@@ -1,4 +1,3 @@
-import { keccak256, stringToHex } from 'viem';
 import type { CommandContext, CommandResult } from './types';
 import { ABIS } from '../config';
 import {
@@ -493,50 +492,6 @@ export async function positions(ctx: CommandContext, args: string[]): Promise<Co
   }
 }
 
-export async function createmarket(ctx: CommandContext, args: string[]): Promise<CommandResult> {
-  if (args.length < 1) {
-    return { success: false, message: 'Usage: createmarket <name>' };
-  }
-
-  const soothBook = requireSoothBook(ctx);
-  const walletClient = ctx.actorManager.currentWalletClient();
-  if (!walletClient) return { success: false, message: 'No actor selected' };
-  if (!soothBook) return { success: false, message: 'SoothBook address not found in deployment' };
-
-  try {
-    const name = args.join(' ').trim();
-    const marketKey = keccak256(stringToHex(name));
-    const hash = await walletClient.writeContract({
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: 'createMarket',
-      args: [marketKey, ctx.deployment.contracts.MockUSDC as `0x${string}`, name],
-    });
-    await waitForTx(ctx, hash);
-
-    const market = await readContractWithRpcFallback<readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]>(
-      ctx.config.chain,
-      ctx.config.rpc,
-      {
-        address: soothBook,
-        abi: ABIS.SoothBook,
-        functionName: 'markets',
-        args: [marketKey],
-      },
-    );
-
-    console.log(success('  ✓ Created market'));
-    console.log(`  Name:      ${name}`);
-    console.log(`  MarketKey: ${marketKey}`);
-    console.log(`  YES Token: ${market[1]}`);
-    console.log(`  NO Token:  ${market[2]}`);
-
-    return { success: true, txHash: hash };
-  } catch (err) {
-    return { success: false, message: (err as Error).message };
-  }
-}
-
 export const soothbookCommands: Record<string, (ctx: CommandContext, args: string[]) => Promise<CommandResult>> = {
   buyyes,
   buyno,
@@ -548,5 +503,4 @@ export const soothbookCommands: Record<string, (ctx: CommandContext, args: strin
   book,
   state,
   positions,
-  createmarket,
 };
