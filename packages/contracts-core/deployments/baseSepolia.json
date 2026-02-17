@@ -2,15 +2,43 @@
   "chainId": 84532,
   "chainName": "baseSepolia",
   "version": "V12.0",
-  "timestamp": "2026-02-15T16:38:21.529Z",
+  "timestamp": "2026-02-17T02:04:52.847Z",
   "deployer": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
   "contracts": {
-    "MockUSDC": "0xe2025de4fbee78d0a3832ea02d070d791c42ed1e",
-    "ProtocolConfig": "0xaf2b599fedfda277f66525bf91ef6f49df6bddae",
-    "Collateralizer": "0x72b11e98d4050b5edaa9b069d1c6d7309a8c8f04",
-    "AMMEngine": "0xb7cf9d7e3357052238a9bbdc9aaaa63e1b1346f2",
-    "SoothBook": "0xa83b770de63349629ea1f92ad9b40285b1d47d74",
-    "LaunchpadEngine": "0xc5f6b53c74a5d14336e971459ee7cf936d401384"
+    "MockUSDC": "0xc7587d8393bf43d778267c40706a533ca1299e21",
+    "ProtocolConfig": "0x4dedced068424cab5def4e5fd0b3ce7bf5671d8d",
+    "Collateralizer": "0xfb757cec1ff68cbef2124172a03d92090602576c",
+    "AMMEngine": "0x5d2bfce963bd7e002213522a22e3615d454708b3",
+    "SoothBook": "0x6c3ad4d5a800b87acdfe5ba82972feb23acab011",
+    "LaunchpadEngine": "0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3"
   },
-  "markets": []
+  "markets": [
+    {
+      "address": "0x6F412b4A21cc0082912bd7a302c0b93A04A70d1d",
+      "name": "Will BTC hit $150k in 2026?",
+      "symbol": "",
+      "yesToken": "",
+      "noToken": "",
+      "isGraduated": false,
+      "soothBookKey": "0xa323eca0d7e841a0e8eb63b3fd19097ac03c18d9876f79def4cd34461f6f98ca"
+    },
+    {
+      "address": "0x0fCD71d36B50e5402FF44A96E3DbA148c52cd984",
+      "name": "Will ETH flip BTC by 2027?",
+      "symbol": "",
+      "yesToken": "",
+      "noToken": "",
+      "isGraduated": false,
+      "soothBookKey": "0xeed22448551a6e6bab78edf7149dbcf6baa3c6e5ad3f429c0c3fff2b1a3149af"
+    },
+    {
+      "address": "0xb7df851A37632D44B5c60E2aB1476cFBD9d4f83f",
+      "name": "Will US approve a spot SOL ETF in 2026?",
+      "symbol": "",
+      "yesToken": "",
+      "noToken": "",
+      "isGraduated": false,
+      "soothBookKey": "0xeb51aec8580147e87ec137a96cbcf2e275c5680fb4b4ca7d006ac8f9de5e0aab"
+    }
+  ]
 }
