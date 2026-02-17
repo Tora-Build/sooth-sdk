@@ -9,8 +9,12 @@ import { useAmmMarketByAddress } from './useAmmMarketByAddress';
 import { useOrderStore } from '../store/useOrderStore';
 
 type CancelTarget = {
+  kind: 'level';
   side: 0 | 1;
   tick: number;
+} | {
+  kind: 'id';
+  orderId: bigint;
 };
 
 const clampTick = (price: string) => {
@@ -35,11 +39,15 @@ const parseOrderId = (orderId: string): CancelTarget | null => {
   const normalized = orderId.trim().toLowerCase();
   if (!normalized) return null;
 
+  if (/^\d+$/.test(normalized)) {
+    return { kind: 'id', orderId: BigInt(normalized) };
+  }
+
   const directMatch = normalized.match(/^(0|1):(\d{1,3})$/);
   if (directMatch) {
     const side = Number(directMatch[1]) as 0 | 1;
     const tick = Number(directMatch[2]);
-    if (tick >= 1 && tick <= 999) return { side, tick };
+    if (tick >= 1 && tick <= 999) return { kind: 'level', side, tick };
   }
 
   const suffixTick = normalized.match(/(\d{1,3})$/);
@@ -48,11 +56,11 @@ const parseOrderId = (orderId: string): CancelTarget | null => {
   const tick = Number(suffixTick[1]);
   if (tick < 1 || tick > 999) return null;
 
-  if (normalized.includes('no')) return { side: 0, tick };
-  if (normalized.includes('yes') || normalized.includes('bid')) return { side: 1, tick };
-  if (normalized.includes('ask')) return { side: 0, tick };
+  if (normalized.includes('no')) return { kind: 'level', side: 0, tick };
+  if (normalized.includes('yes') || normalized.includes('bid')) return { kind: 'level', side: 1, tick };
+  if (normalized.includes('ask')) return { kind: 'level', side: 0, tick };
 
-  return { side: 1, tick };
+  return { kind: 'level', side: 1, tick };
 };
 
 export function useOrderbookTrade(marketId: string) {
@@ -168,7 +176,7 @@ export function useOrderbookTrade(marketId: string) {
   const executeWrite = useCallback(
     async (
       label: string,
-      functionName: 'buyYes' | 'buyNo' | 'cancel' | 'mint' | 'merge' | 'redeem',
+      functionName: 'buyYes' | 'buyNo' | 'cancel' | 'cancelById' | 'mint' | 'merge' | 'redeem',
       args: readonly unknown[],
       approvalWad?: bigint
     ) => {
@@ -334,7 +342,9 @@ export function useOrderbookTrade(marketId: string) {
         return false;
       }
 
-      const success = await executeWrite('Cancelling order...', 'cancel', [marketKey, target.side, target.tick]);
+      const success = target.kind === 'id'
+        ? await executeWrite('Cancelling order...', 'cancelById', [target.orderId])
+        : await executeWrite('Cancelling order...', 'cancel', [marketKey, target.side, target.tick]);
       
       if (success) {
         useOrderStore.getState().removeOrder(orderId);
