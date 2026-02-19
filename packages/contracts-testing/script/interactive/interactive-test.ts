@@ -482,6 +482,7 @@ function printHelp(): void {
       state                       Show SoothBook market state
       book [center] [window]      Show SoothBook orderbook
       positions [actor]           Show SoothBook positions (YES/NO balances)
+      history [page] [size]       Show current actor order history (includes refund amt)
       markets                     Show current market & available markets
       setmarket <addr|key|index|latest|created>  Set current market
       sbcreate <name>             Create new SoothBook market
@@ -604,6 +605,10 @@ async function handleCommand(input: string): Promise<void> {
 
       case 'positions':
         await run(soothbookCommands.positions(ctx, args));
+        break;
+
+      case 'history':
+        await run(soothbookCommands.history(ctx, args));
         break;
 
       case 'markets':

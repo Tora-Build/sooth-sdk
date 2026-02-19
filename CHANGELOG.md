@@ -4,6 +4,24 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added (Pro Order History — 2026-02-19)
+- **Web (`UserOrdersPanel`)**: Added `Refund Amt` column in historical orders with explicit legend text.
+- **SDK (`soothbook.ts`)**: Added `sbhistory [page] [pageSize]` command (default page size 50) with columns:
+  - `ID`, `Side`, `Price`, `Size`, `Refund Amt`, `Event`
+- **Interactive CLI (`commands/soothbook.ts`)**: Added `history [page] [pageSize]` command (default page size 50) with matching columns and output semantics.
+
+### Changed (Pro UX Follow-ups — 2026-02-19)
+- **Batch cancel toast behavior**: `onCancelOrder` now supports `silent` mode so batch cancel emits one summary toast instead of per-order duplicates.
+- **Historical price stats layout**: Converted Last/Change/High/Low/Volume footer into inline one-line metric items to avoid stacked label/value wrapping.
+
+### Fixed (Order History Data Consistency — 2026-02-19)
+- **Event feed enrichment**: `useSoothBookFeed` now captures `escrow` from placed events and `surplus` from filled events for downstream history/refund computation.
+- **History dedupe behavior**: Improved preference for canonical V2 order IDs while deduping legacy/non-canonical event variants.
+- **Refund computation display**:
+  - Filled taker events use emitted `surplus`.
+  - Cancelled non-escrow orders compute returned collateral by tick (`tick * amount / 1000`).
+  - Unknown/non-applicable refund paths display `—` instead of misleading values.
+
 ### Fixed (V12 Migration Repair — 2026-02-16)
 
 The V11→V12 migration incorrectly treated SoothBook as "standalone" (independent from LaunchpadEngine). This caused orderbook-connected features to be **deleted** instead of **replaced** with SoothBook equivalents. Full diagnostic identified 24 items; 7 needed replacement, 5 were broken stubs.

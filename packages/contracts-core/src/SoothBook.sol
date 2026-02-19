@@ -35,6 +35,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
     uint16 private constant MIN_TICK = 1;
     uint16 private constant MAX_TICK = 999;
     uint16 private constant NUM_TICKS = 1000;
+    uint16 public constant MAX_MATCHES_PER_TX = 128;
 
     // ============================================
     // Errors
@@ -430,7 +431,22 @@ contract SoothBook is ReentrancyGuard, Ownable {
         }
 
         // Try to match against opposite side
-        uint128 remaining = _match(marketKey, side, tick, amount, escrow);
+        (uint128 remaining, bool maxMatchesHit) = _match(marketKey, side, tick, amount, escrow);
+
+        // IOC behavior when match cap is hit:
+        // - do not rest the capped remainder
+        // - refund collateral (normal) or re-mint escrowed opposite tokens (escrow exit)
+        if (maxMatchesHit && remaining > 0) {
+            if (escrow) {
+                uint8 opposite = side == 1 ? 0 : 1;
+                _mintOutcome(m, msg.sender, opposite, remaining);
+            } else {
+                uint256 refund = (uint256(remaining) * uint256(tick)) / NUM_TICKS;
+                _collateralBacking[marketKey] -= refund;
+                m.collateral.safeTransfer(msg.sender, refund);
+            }
+            remaining = 0;
+        }
 
         // Rest goes on the book
         if (remaining > 0) {
@@ -471,26 +487,29 @@ contract SoothBook is ReentrancyGuard, Ownable {
         uint16 takerTick,
         uint128 amount,
         bool takerEscrow
-    ) internal returns (uint128 remaining) {
+    ) internal returns (uint128 remaining, bool maxMatchesHit) {
         remaining = amount;
+        uint256 takerCredit;
+        uint256 collateralOut;
+        uint16 matches;
 
         uint8 makerSide = takerSide == 1 ? 0 : 1;
         // Minimum opposite tick needed: 1000 - takerTick
         uint16 minOppTick = NUM_TICKS - takerTick;
-        if (minOppTick > MAX_TICK) return remaining;
+        if (minOppTick > MAX_TICK) return (remaining, false);
 
         // Find highest opposite tick
         uint16 oppTick = _bitmaps[marketKey][makerSide].findNextDown(MAX_TICK + 1);
-        if (oppTick > MAX_TICK) return remaining;
+        if (oppTick > MAX_TICK) return (remaining, false);
 
         Market storage m = markets[marketKey];
 
-        while (remaining > 0 && oppTick >= minOppTick && oppTick <= MAX_TICK) {
+        while (remaining > 0 && oppTick >= minOppTick && oppTick <= MAX_TICK && matches < MAX_MATCHES_PER_TX) {
             // Fill orders at this tick (FIFO)
             Order[] storage queue = _orders[marketKey][makerSide][oppTick];
             uint256 head = _orderHead[marketKey][makerSide][oppTick];
 
-            while (remaining > 0 && head < queue.length) {
+            while (remaining > 0 && head < queue.length && matches < MAX_MATCHES_PER_TX) {
                 Order storage maker = queue[head];
                 if (maker.amount == 0) {
                     head++;
@@ -519,7 +538,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
                     // Their opposite tokens were burned on order placement
                     // They get collateral back at their price
                     uint256 makerPayout = (uint256(oppTick) * uint256(fill)) / NUM_TICKS;
-                    _collateralBacking[marketKey] -= makerPayout;
+                    collateralOut += makerPayout;
                     m.collateral.safeTransfer(maker.maker, makerPayout);
                 } else {
                     // Normal maker: gets their outcome tokens
@@ -532,8 +551,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
                     // Their opposite tokens were burned in _buy
                     // They get collateral back at their price
                     uint256 takerPayout = (uint256(takerTick) * uint256(fill)) / NUM_TICKS;
-                    _collateralBacking[marketKey] -= takerPayout;
-                    m.collateral.safeTransfer(msg.sender, takerPayout);
+                    takerCredit += takerPayout;
                 } else {
                     // Normal taker: gets their outcome tokens
                     _mintOutcome(m, msg.sender, takerSide, fill);
@@ -541,8 +559,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
                 // Surplus to taker
                 if (surplus > 0) {
-                    _collateralBacking[marketKey] -= surplus;
-                    m.collateral.safeTransfer(msg.sender, surplus);
+                    takerCredit += surplus;
                 }
 
                 emit OrderFilled(marketKey, takerSide, yesTick, noTick, msg.sender, maker.maker, fill, surplus);
@@ -550,6 +567,9 @@ contract SoothBook is ReentrancyGuard, Ownable {
 
                 maker.amount -= fill;
                 remaining -= fill;
+                unchecked {
+                    matches++;
+                }
 
                 if (maker.amount == 0) head++;
             }
@@ -557,7 +577,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
             _orderHead[marketKey][makerSide][oppTick] = head;
 
             // Clear bitmap if tick exhausted
-            if (_tickEmpty(marketKey, makerSide, oppTick)) {
+            if (head == queue.length) {
                 _bitmaps[marketKey][makerSide].clearBit(oppTick);
             }
 
@@ -565,6 +585,19 @@ contract SoothBook is ReentrancyGuard, Ownable {
             if (oppTick == 0) break;
             oppTick = _bitmaps[marketKey][makerSide].findNextDown(oppTick);
             if (oppTick > MAX_TICK) break;
+        }
+
+        if (remaining > 0 && matches == MAX_MATCHES_PER_TX) {
+            maxMatchesHit = true;
+        }
+
+        if (takerCredit > 0) {
+            collateralOut += takerCredit;
+            m.collateral.safeTransfer(msg.sender, takerCredit);
+        }
+
+        if (collateralOut > 0) {
+            _collateralBacking[marketKey] -= collateralOut;
         }
     }
 
@@ -595,10 +628,7 @@ contract SoothBook is ReentrancyGuard, Ownable {
     function _tickEmpty(bytes32 marketKey, uint8 side, uint16 tick) internal view returns (bool) {
         Order[] storage queue = _orders[marketKey][side][tick];
         uint256 head = _orderHead[marketKey][side][tick];
-        for (uint256 i = head; i < queue.length; i++) {
-            if (queue[i].amount > 0) return false;
-        }
-        return true;
+        return head == queue.length;
     }
 
     function _advanceHead(bytes32 marketKey, uint8 side, uint16 tick) internal {

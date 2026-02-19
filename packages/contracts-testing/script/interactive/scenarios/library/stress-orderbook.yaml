@@ -1,3 +1,4 @@
+# Updated for SoothBook V12 (was TickBook)
 # Stress Test Scenario
 # Places many orders to stress test the orderbook
 
@@ -12,9 +13,9 @@ steps:
       amount: "1000000"
 
   - actor: alice
-    action: deposit
+    action: approve
     args:
-      amount: "500000"
+      contract: "soothbook"
 
   - actor: bob
     action: mint
@@ -22,9 +23,9 @@ steps:
       amount: "1000000"
 
   - actor: bob
-    action: deposit
+    action: approve
     args:
-      amount: "500000"
+      contract: "soothbook"
 
   - actor: charlie
     action: mint
@@ -32,117 +33,102 @@ steps:
       amount: "1000000"
 
   - actor: charlie
-    action: deposit
+    action: approve
     args:
-      amount: "500000"
+      contract: "soothbook"
 
-  # Alice places many YES orders
+  # Alice places many YES orders at different ticks
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "10-20"
-      shares: "1000"
-
-  - actor: alice
-    action: order
-    args:
-      outcome: "yes"
-      range: "20-30"
-      shares: "1000"
+      tick: 150
+      amount: "1000"
 
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "30-40"
-      shares: "1000"
+      tick: 250
+      amount: "1000"
 
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "40-50"
-      shares: "1000"
+      tick: 350
+      amount: "1000"
 
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "50-60"
-      shares: "1000"
+      tick: 450
+      amount: "1000"
 
-  # Bob places many NO orders
-  - actor: bob
-    action: order
+  - actor: alice
+    action: buyyes
     args:
-      outcome: "no"
-      range: "40-50"
-      shares: "1000"
+      tick: 550
+      amount: "1000"
 
+  # Bob places many NO orders at different ticks
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "50-60"
-      shares: "1000"
+      tick: 450
+      amount: "1000"
 
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "60-70"
-      shares: "1000"
+      tick: 550
+      amount: "1000"
 
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "70-80"
-      shares: "1000"
+      tick: 650
+      amount: "1000"
 
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "80-90"
-      shares: "1000"
+      tick: 750
+      amount: "1000"
+
+  - actor: bob
+    action: buyno
+    args:
+      tick: 850
+      amount: "1000"
 
   # Charlie executes many market orders
   - actor: charlie
-    action: market
+    action: buyno
     args:
-      side: "buy"
-      outcome: "no"
-      shares: "500"
+      tick: 950
+      amount: "500"
 
   - actor: charlie
-    action: market
+    action: buyno
     args:
-      side: "buy"
-      outcome: "no"
-      shares: "500"
+      tick: 950
+      amount: "500"
 
   - actor: charlie
-    action: market
+    action: buyyes
     args:
-      side: "buy"
-      outcome: "yes"
-      shares: "500"
+      tick: 950
+      amount: "500"
 
   - actor: charlie
-    action: market
+    action: buyyes
     args:
-      side: "buy"
-      outcome: "yes"
-      shares: "500"
+      tick: 950
+      amount: "500"
 
   - actor: charlie
-    action: market
+    action: buyno
     args:
-      side: "buy"
-      outcome: "no"
-      shares: "500"
+      tick: 950
+      amount: "500"
 
   # Check final state
   - actor: alice

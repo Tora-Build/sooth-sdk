@@ -128,6 +128,103 @@ interface DeploymentContext {
   deployer: `0x${string}`;
 }
 
+async function waitForContractCode(
+  ctx: DeploymentContext,
+  contractName: string,
+  contractAddress: `0x${string}`
+): Promise<void> {
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const bytecode = await ctx.publicClient.getBytecode({ address: contractAddress });
+    if (bytecode && bytecode !== '0x') return;
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
+  throw new Error(
+    `[${ctx.chainName}] ${contractName} code not visible on RPC after deployment: ${contractAddress}`
+  );
+}
+
+async function waitForReceipt(
+  ctx: DeploymentContext,
+  hash: `0x${string}`
+): Promise<any> {
+  const confirmations = BigInt(Math.max(1, ctx.config.deploymentConfig.confirmations));
+  const timeoutMs = 10 * 60 * 1000; // 10 minutes
+  const pollMs = 2000;
+  const startedAt = Date.now();
+  let missingTxStreak = 0;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const receipt = await ctx.publicClient.getTransactionReceipt({ hash });
+      if (receipt) {
+        if (confirmations <= 1n) return receipt;
+        while (Date.now() - startedAt < timeoutMs) {
+          const latestBlock = await ctx.publicClient.getBlockNumber();
+          if (latestBlock >= receipt.blockNumber + confirmations - 1n) return receipt;
+          await new Promise((resolve) => setTimeout(resolve, pollMs));
+        }
+      }
+      missingTxStreak = 0;
+    } catch {
+      // Receipt missing: check whether tx is still propagated.
+      try {
+        const tx = await ctx.publicClient.getTransaction({ hash });
+        if (tx) {
+          missingTxStreak = 0;
+        } else {
+          missingTxStreak += 1;
+        }
+      } catch {
+        missingTxStreak += 1;
+      }
+
+      // 30 consecutive misses (~60s) strongly suggests the tx was dropped.
+      if (missingTxStreak >= 30) {
+        throw new Error(`transaction dropped before confirmation: ${hash}`);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error(`Timed out waiting for transaction receipt: ${hash}`);
+}
+
+async function waitForTransactionPropagation(
+  ctx: DeploymentContext,
+  hash: `0x${string}`,
+  timeoutMs = 60_000
+): Promise<boolean> {
+  const startedAt = Date.now();
+  const pollMs = 1000;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const tx = await ctx.publicClient.getTransaction({ hash });
+      if (tx) return true;
+    } catch {
+      // keep polling until propagated or timeout
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  return false;
+}
+
+function applyFeeBump(
+  gasOptions: Record<string, bigint | undefined>,
+  attempt: number
+): Record<string, bigint | undefined> {
+  if (attempt === 0) return { ...gasOptions };
+  const bumpFactor = 100n + BigInt(attempt * 25); // +25% per retry attempt
+  const scale = (value?: bigint): bigint | undefined =>
+    value ? (value * bumpFactor + 99n) / 100n : undefined;
+
+  return {
+    ...gasOptions,
+    maxFeePerGas: scale(gasOptions.maxFeePerGas),
+    maxPriorityFeePerGas: scale(gasOptions.maxPriorityFeePerGas),
+    gasPrice: scale(gasOptions.gasPrice),
+  };
+}
+
 // ============================================
 // Contract Deployment
 // ============================================
@@ -147,29 +244,55 @@ async function deployContract(
   if (ctx.config.gasSettings.maxFeePerGas) gasOptions.maxFeePerGas = ctx.config.gasSettings.maxFeePerGas;
   if (ctx.config.gasSettings.maxPriorityFeePerGas) gasOptions.maxPriorityFeePerGas = ctx.config.gasSettings.maxPriorityFeePerGas;
   if (ctx.config.gasSettings.gasPrice) gasOptions.gasPrice = ctx.config.gasSettings.gasPrice;
-
-  const hash = await ctx.walletClient.deployContract({
-    abi,
-    bytecode,
-    args: constructorArgs,
-    chain: ctx.config.chain,
-    account: ctx.walletClient.account!,
-    ...gasOptions,
+  const nonce = await ctx.publicClient.getTransactionCount({
+    address: ctx.walletClient.account!.address,
+    blockTag: 'pending',
   });
+  const maxAttempts = Math.max(1, ctx.config.deploymentConfig.retryAttempts);
+  let lastError: unknown;
 
-  console.log(`  [${ctx.chainName}] TX: ${hash}`);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const attemptGasOptions = applyFeeBump(gasOptions, attempt);
+      const hash = await ctx.walletClient.deployContract({
+        abi,
+        bytecode,
+        args: constructorArgs,
+        chain: ctx.config.chain,
+        account: ctx.walletClient.account!,
+        nonce,
+        ...attemptGasOptions,
+      });
 
-  const receipt = await ctx.publicClient.waitForTransactionReceipt({
-    hash,
-    confirmations: ctx.config.deploymentConfig.confirmations,
-  });
+      const attemptSuffix = attempt > 0 ? ` (retry ${attempt}/${maxAttempts - 1})` : '';
+      console.log(`  [${ctx.chainName}] TX${attemptSuffix}: ${hash}`);
 
-  if (!receipt.contractAddress) {
-    throw new Error(`Contract deployment failed: ${contractName}`);
+      const propagated = await waitForTransactionPropagation(ctx, hash);
+      if (!propagated) {
+        throw new Error(`transaction not propagated: ${hash}`);
+      }
+
+      const receipt = await waitForReceipt(ctx, hash);
+      if (!receipt.contractAddress) {
+        throw new Error(`Contract deployment failed: ${contractName}`);
+      }
+
+      await waitForContractCode(ctx, contractName, receipt.contractAddress);
+      console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress} (block ${receipt.blockNumber})`);
+      return receipt.contractAddress;
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts - 1) break;
+      console.warn(
+        `  [${ctx.chainName}] ⚠️ ${contractName} attempt ${attempt + 1} failed (${error instanceof Error ? error.message : String(error)}), retrying...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, ctx.config.deploymentConfig.retryDelay));
+    }
   }
 
-  console.log(`  [${ctx.chainName}] ✓ ${contractName}: ${receipt.contractAddress} (block ${receipt.blockNumber})`);
-  return receipt.contractAddress;
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Contract deployment failed after retries: ${contractName}`);
 }
 
 // ============================================
